@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-solutions-constructs.aws-cloudfront-s3",
-    "version": "2.90.2",
+    "version": "2.90.3",
     "description": "CDK Constructs for AWS Cloudfront to AWS S3 integration.",
     "license": "Apache-2.0",
     "url": "https://github.com/awslabs/aws-solutions-constructs.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_solutions_constructs.aws_cloudfront_s3._jsii": [
-            "aws-cloudfront-s3@2.90.2.jsii.tgz"
+            "aws-cloudfront-s3@2.90.3.jsii.tgz"
         ],
         "aws_solutions_constructs.aws_cloudfront_s3": [
             "py.typed"
@@ -35,8 +35,8 @@ kwargs = json.loads(
     "python_requires": "~=3.9",
     "install_requires": [
         "aws-cdk-lib>=2.206.0, <3.0.0",
-        "aws-solutions-constructs.core==2.90.2",
-        "aws-solutions-constructs.resources==2.90.2",
+        "aws-solutions-constructs.core==2.90.3",
+        "aws-solutions-constructs.resources==2.90.3",
         "constructs>=10.0.0, <11.0.0",
         "jsii>=1.111.0, <2.0.0",
         "publication>=0.0.3",

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-01T20:12:28.713036                                                            #
+# Generated on 2025-08-04T19:06:54.492047                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 from typing import TypedDict
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
 
 from .unified_config import CoreConfig as CoreConfig
@@ -31,6 +31,10 @@ class ReplicaConfigDict(TypedDict, total=False):
     fixed: typing.Optional[int]
     min: typing.Optional[int]
     max: typing.Optional[int]
+    scaling_policy: typing.Optional["ScalingPolicyConfigDict"]
+
+class ScalingPolicyConfigDict(TypedDict, total=False):
+    rpm: typing.Optional[int]
 
 class DependencyConfigDict(TypedDict, total=False):
     from_requirements_file: typing.Optional[str]

@@ -702,6 +702,11 @@ class ShopifySource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Shopify takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         source_fields = urlparse(uri)
         source_params = parse_qs(source_fields.query)
         api_key = source_params.get("api_key")
@@ -1003,6 +1008,16 @@ class FacebookAdsSource:
             facebook_insights_source,
         )
 
+        insights_max_wait_to_finish_seconds = source_params.get(
+            "insights_max_wait_to_finish_seconds", [60 * 60 * 4]
+        )
+        insights_max_wait_to_start_seconds = source_params.get(
+            "insights_max_wait_to_start_seconds", [60 * 30]
+        )
+        insights_max_async_sleep_seconds = source_params.get(
+            "insights_max_async_sleep_seconds", [20]
+        )
+
         endpoint = None
         if table in ["campaigns", "ad_sets", "ad_creatives", "ads", "leads"]:
             endpoint = table
@@ -1012,6 +1027,13 @@ class FacebookAdsSource:
                 account_id=account_id[0],
                 start_date=kwargs.get("interval_start"),
                 end_date=kwargs.get("interval_end"),
+                insights_max_wait_to_finish_seconds=insights_max_wait_to_finish_seconds[
+                    0
+                ],
+                insights_max_wait_to_start_seconds=insights_max_wait_to_start_seconds[
+                    0
+                ],
+                insights_max_async_sleep_seconds=insights_max_async_sleep_seconds[0],
             ).with_resources("facebook_insights")
         elif table.startswith("facebook_insights:"):
             # Parse custom breakdowns and metrics from table name
@@ -1034,33 +1056,16 @@ class FacebookAdsSource:
             # Validate breakdown type against available options from settings
             import typing
 
-            from ingestr.src.facebook_ads.settings import TInsightsBreakdownOptions
-
-            # Get valid breakdown options from the type definition
-            valid_breakdowns = list(typing.get_args(TInsightsBreakdownOptions))
-
-            if breakdown_type not in valid_breakdowns:
-                raise ValueError(
-                    f"Invalid breakdown type '{breakdown_type}'. Valid options: {', '.join(valid_breakdowns)}"
-                )
+            from ingestr.src.facebook_ads.helpers import parse_insights_table_to_source_kwargs
 
             source_kwargs = {
                 "access_token": access_token[0],
                 "account_id": account_id[0],
                 "start_date": kwargs.get("interval_start"),
                 "end_date": kwargs.get("interval_end"),
-                "breakdowns": breakdown_type,
             }
 
-            # If custom metrics are provided, parse them
-            if len(parts) == 3:
-                fields = [f.strip() for f in parts[2].split(",") if f.strip()]
-                if not fields:
-                    raise ValueError(
-                        "Custom metrics must be provided after the second colon in format: facebook_insights:breakdown_type:metric1,metric2..."
-                    )
-                source_kwargs["fields"] = fields
-
+            source_kwargs.update(parse_insights_table_to_source_kwargs(table))
             return facebook_insights_source(**source_kwargs).with_resources(
                 "facebook_insights"
             )
@@ -1652,6 +1657,11 @@ class TikTokSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "TikTok takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         endpoint = "custom_reports"
 
         parsed_uri = urlparse(uri)
@@ -1873,6 +1883,11 @@ class GoogleAnalyticsSource:
 
     def dlt_source(self, uri: str, table: str, **kwargs):
         import ingestr.src.google_analytics.helpers as helpers
+
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Google Analytics takes care of incrementality on its own, you should not provide incremental_key"
+            )
 
         result = helpers.parse_google_analytics_uri(uri)
         credentials = result["credentials"]
@@ -2246,6 +2261,11 @@ class LinkedInAdsSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "LinkedIn Ads takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         source_fields = parse_qs(parsed_uri.query)
 
@@ -2329,6 +2349,11 @@ class ClickupSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "ClickUp takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         params = parse_qs(parsed_uri.query)
         api_token = params.get("api_token")
@@ -2413,6 +2438,11 @@ class ApplovinMaxSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "AppLovin Max takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         params = parse_qs(parsed_uri.query)
 
@@ -2505,6 +2535,11 @@ class PersonioSource:
 
     # applovin://?client_id=123&client_secret=123
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Personio takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         params = parse_qs(parsed_uri.query)
 
@@ -2595,6 +2630,11 @@ class PipedriveSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Pipedrive takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         params = parse_qs(parsed_uri.query)
         api_key = params.get("api_token")
@@ -2677,6 +2717,11 @@ class FreshdeskSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Freshdesk takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         domain = parsed_uri.netloc
         query = parsed_uri.query
@@ -2730,6 +2775,11 @@ class TrustpilotSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Trustpilot takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         business_unit_id = parsed_uri.netloc
         params = parse_qs(parsed_uri.query)
@@ -2770,6 +2820,11 @@ class PhantombusterSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Phantombuster takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         # phantombuster://?api_key=<api_key>
         # source table = phantom_results:agent_id
         parsed_uri = urlparse(uri)
@@ -2923,6 +2978,11 @@ class SolidgateSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Solidgate takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         query_params = parse_qs(parsed_uri.query)
         public_key = query_params.get("public_key")
@@ -3016,6 +3076,11 @@ class QuickBooksSource:
 
     # quickbooks://?company_id=<company_id>&client_id=<client_id>&client_secret=<client_secret>&refresh_token=<refresh>&access_token=<access_token>&environment=<env>&minor_version=<version>
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "QuickBooks takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
 
         params = parse_qs(parsed_uri.query)
@@ -3085,6 +3150,11 @@ class IsocPulseSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Internet Society Pulse takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         params = parse_qs(parsed_uri.query)
         token = params.get("token")
@@ -3120,6 +3190,11 @@ class PinterestSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Pinterest takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed = urlparse(uri)
         params = parse_qs(parsed.query)
         access_token = params.get("access_token")
@@ -3154,13 +3229,18 @@ class LinearSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Linear takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         params = parse_qs(parsed_uri.query)
         api_key = params.get("api_key")
         if api_key is None:
             raise MissingValueError("api_key", "Linear")
 
-        if table not in ["issues", "projects", "teams", "users"]:
+        if table not in ["issues", "projects", "teams", "users", "workflow_states"]:
             raise UnsupportedResourceError(table, "Linear")
 
         start_date = kwargs.get("interval_start")
@@ -3187,6 +3267,11 @@ class ZoomSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "Zoom takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed = urlparse(uri)
         params = parse_qs(parsed.query)
         client_id = params.get("client_id")
@@ -3228,6 +3313,11 @@ class InfluxDBSource:
         return True
 
     def dlt_source(self, uri: str, table: str, **kwargs):
+        if kwargs.get("incremental_key"):
+            raise ValueError(
+                "InfluxDB takes care of incrementality on its own, you should not provide incremental_key"
+            )
+
         parsed_uri = urlparse(uri)
         params = parse_qs(parsed_uri.query)
         host = parsed_uri.hostname

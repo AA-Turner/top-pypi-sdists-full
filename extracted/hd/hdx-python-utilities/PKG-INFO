@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hdx-python-utilities
-Version: 3.8.9
+Version: 3.9.0
 Summary: HDX Python Utilities for streaming tabular data, date and time handling and other helpful functions
 Project-URL: Homepage, https://github.com/OCHA-DAP/hdx-python-utilities
 Author-email: Michael Rans <rans@email.com>

@@ -38,6 +38,7 @@ Usage::
         ListDatasetsPaginator,
         ListExecutionsPaginator,
         ListGatewaysPaginator,
+        ListInterfaceRelationshipsPaginator,
         ListPortalsPaginator,
         ListProjectAssetsPaginator,
         ListProjectsPaginator,
@@ -78,6 +79,7 @@ Usage::
     list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
     list_executions_paginator: ListExecutionsPaginator = client.get_paginator("list_executions")
     list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
+    list_interface_relationships_paginator: ListInterfaceRelationshipsPaginator = client.get_paginator("list_interface_relationships")
     list_portals_paginator: ListPortalsPaginator = client.get_paginator("list_portals")
     list_project_assets_paginator: ListProjectAssetsPaginator = client.get_paginator("list_project_assets")
     list_projects_paginator: ListProjectsPaginator = client.get_paginator("list_projects")
@@ -109,6 +111,7 @@ from .paginator import (
     ListDatasetsPaginator,
     ListExecutionsPaginator,
     ListGatewaysPaginator,
+    ListInterfaceRelationshipsPaginator,
     ListPortalsPaginator,
     ListProjectAssetsPaginator,
     ListProjectsPaginator,
@@ -154,6 +157,7 @@ __all__ = (
     "ListDatasetsPaginator",
     "ListExecutionsPaginator",
     "ListGatewaysPaginator",
+    "ListInterfaceRelationshipsPaginator",
     "ListPortalsPaginator",
     "ListProjectAssetsPaginator",
     "ListProjectsPaginator",

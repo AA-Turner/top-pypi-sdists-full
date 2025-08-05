@@ -133,10 +133,9 @@ class StorageManager:
             vector_index_field_descriptor,
             list(self._create_index_field_descriptors_from_schema_fields(params.indexed_fields))
             + [
-                IndexFieldDescriptor(
-                    FieldDataType.METADATA_STRING,
-                    self._entity_builder._admin_fields.schema_id.field.name,
-                )
+                IndexFieldDescriptor(field_descriptor.field.data_type, field_descriptor.field.name)
+                for field_descriptor in self._entity_builder._admin_fields.field_descriptors
+                if field_descriptor.should_be_returned
             ],
         )
 
@@ -148,7 +147,7 @@ class StorageManager:
             for schema_field in schema_fields
             if not isinstance(schema_field, tuple(FIELD_DATA_TYPE_BY_SCHEMA_FIELD_TYPE.keys()))
         ]:
-            raise NotImplementedException(f"Unindexable schema fields: {', '.join(unsupported_schema_field_indexing)}")
+            raise NotImplementedException("Unindexable schema fields.", schema_fields=unsupported_schema_field_indexing)
         return [
             IndexFieldDescriptor(
                 self._get_index_field_type_of_schema_field(cast(ConcreteSchemaField, schema_field)),
@@ -275,9 +274,10 @@ class StorageManager:
         parsed_schemas: Sequence[ParsedSchema],
         cached_items: Mapping[EntityId, Mapping[str, NodeInfo]],
         entity_to_origin_id: Mapping[EntityId, str],
+        fields_to_exclude: Sequence[SchemaField],
     ) -> None:
         entity_data_items = [
-            self._entity_builder.compose_entity_data_from_parsed_schema(parsed_schema)
+            self._entity_builder.compose_entity_data_from_parsed_schema(parsed_schema, fields_to_exclude)
             for parsed_schema in parsed_schemas
         ]
         cached_entity_data = [
@@ -289,9 +289,11 @@ class StorageManager:
         entity_data_items.extend(cached_entity_data)
         AsyncUtil.run(self._vdb_connector.write_entities(entity_data_items))
 
-    def write_parsed_schema_fields(self, parsed_schemas: Sequence[ParsedSchema]) -> None:
+    def write_parsed_schema_fields(
+        self, parsed_schemas: Sequence[ParsedSchema], fields_to_exclude: Sequence[SchemaField]
+    ) -> None:
         entities_to_write = [
-            self._entity_builder.compose_entity_data_from_parsed_schema(parsed_schema)
+            self._entity_builder.compose_entity_data_from_parsed_schema(parsed_schema, fields_to_exclude)
             for parsed_schema in parsed_schemas
         ]
         AsyncUtil.run(self._vdb_connector.write_entities(entities_to_write))

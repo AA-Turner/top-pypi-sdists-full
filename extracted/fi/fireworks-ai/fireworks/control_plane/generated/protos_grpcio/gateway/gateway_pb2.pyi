@@ -37,8 +37,8 @@ from . import supervised_fine_tuning_job_pb2 as _supervised_fine_tuning_job_pb2
 from . import user_pb2 as _user_pb2
 from . import workload_pb2 as _workload_pb2
 from . import workload_shape_pb2 as _workload_shape_pb2
-from ..google.api import annotations_pb2 as _annotations_pb2
-from ..google.longrunning import operations_pb2 as _operations_pb2
+from google.api import annotations_pb2 as _annotations_pb2
+from google.longrunning import operations_pb2 as _operations_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
 from google.protobuf import descriptor as _descriptor
 from typing import ClassVar as _ClassVar

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp-pipeline-spec
-Version: 0.8.0
+Version: 2.14.0
 Summary: Kubeflow Pipelines pipeline spec
 Home-page: https://github.com/kubeflow/pipelines
 Author: google

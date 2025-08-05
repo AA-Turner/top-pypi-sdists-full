@@ -180,6 +180,7 @@ class WorkerInfoDict(TypedDict):
     pending: Dict[str, List[WorkerStatus]]
     running: Dict[str, List[WorkerStatus]]
     crashlooping: Dict[str, List[WorkerStatus]]
+    failed: Dict[str, List[WorkerStatus]]
 
 
 class CurrentWorkerInfo(TypedDict):
@@ -442,9 +443,11 @@ def _capsule_worker_semantic_status(
                 xx[worker_version].append(w)
         return xx
 
+    # phases can be Pending, Running, Succeeded, Failed, Unknown, CrashLoopBackOff
     pending_workers = _make_version_dict(workers, "Pending")
     running_workers = _make_version_dict(workers, "Running")
     crashlooping_workers = _make_version_dict(workers, "CrashLoopBackOff")
+    failed_workers = _make_version_dict(workers, "Failed")
 
     # current_status (formulated basis):
     # - at least one pods are pending for `_end_state_capsule_version`
@@ -464,7 +467,8 @@ def _capsule_worker_semantic_status(
         "at_least_one_running": (
             count_for_version(running_workers) >= min(min_replicas, 1)
         ),
-        "at_least_one_crashlooping": count_for_version(crashlooping_workers) > 0,
+        "at_least_one_crashlooping": count_for_version(crashlooping_workers) > 0
+        or count_for_version(failed_workers) > 0,
         "none_present": (
             count_for_version(running_workers) == 0
             and count_for_version(pending_workers) == 0
@@ -484,6 +488,7 @@ def _capsule_worker_semantic_status(
             "pending": count_for_version(pending_workers),
             "running": count_for_version(running_workers),
             "crashlooping": count_for_version(crashlooping_workers),
+            "failed": count_for_version(failed_workers),
         },
     }
 
@@ -491,6 +496,7 @@ def _capsule_worker_semantic_status(
         "pending": pending_workers,
         "running": running_workers,
         "crashlooping": crashlooping_workers,
+        "failed": failed_workers,
     }
 
     return {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pybamm
-Version: 25.6.0
+Version: 25.8.0
 Summary: Python Battery Mathematical Modelling
 Project-URL: Homepage, https://pybamm.org
 Project-URL: Documentation, https://docs.pybamm.org
@@ -44,12 +44,11 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: <3.13,>=3.9
+Requires-Python: <3.13,>=3.10
 Requires-Dist: anytree>=2.8.0
 Requires-Dist: casadi==3.6.7
 Requires-Dist: numpy<2.0.0,>=1.23.5
@@ -67,27 +66,25 @@ Provides-Extra: all
 Requires-Dist: bpx<0.6.0,>=0.5.0; extra == 'all'
 Requires-Dist: jupyter; extra == 'all'
 Requires-Dist: matplotlib>=3.6.0; extra == 'all'
-Requires-Dist: pybtex>=0.24.0; extra == 'all'
+Requires-Dist: pybtex>=0.25.0; extra == 'all'
 Requires-Dist: scikit-fem>=8.1.0; extra == 'all'
-Requires-Dist: setuptools; extra == 'all'
 Requires-Dist: tqdm; extra == 'all'
 Provides-Extra: bpx
 Requires-Dist: bpx<0.6.0,>=0.5.0; extra == 'bpx'
 Provides-Extra: cite
-Requires-Dist: pybtex>=0.24.0; extra == 'cite'
-Requires-Dist: setuptools; extra == 'cite'
+Requires-Dist: pybtex>=0.25.0; extra == 'cite'
 Provides-Extra: dev
 Requires-Dist: hypothesis; extra == 'dev'
 Requires-Dist: importlib-metadata; (python_version < '3.10') and extra == 'dev'
 Requires-Dist: nbmake; extra == 'dev'
 Requires-Dist: nox; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: pytest-doctestplus; extra == 'dev'
 Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: pytest-subtests; extra == 'dev'
 Requires-Dist: pytest-xdist; extra == 'dev'
-Requires-Dist: pytest>=6; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: ipykernel; extra == 'docs'
@@ -108,8 +105,7 @@ Requires-Dist: sphinxcontrib-bibtex; extra == 'docs'
 Provides-Extra: examples
 Requires-Dist: jupyter; extra == 'examples'
 Provides-Extra: jax
-Requires-Dist: jax==0.4.27; extra == 'jax'
-Requires-Dist: jaxlib==0.4.27; extra == 'jax'
+Requires-Dist: jax<0.6.0,>=0.4.36; extra == 'jax'
 Provides-Extra: plot
 Requires-Dist: matplotlib>=3.6.0; extra == 'plot'
 Provides-Extra: tqdm
@@ -147,7 +143,7 @@ of differential equations,
 Together, these enable flexible model definitions and fast battery simulations, allowing users to
 explore the effect of different battery designs and modeling assumptions under a variety of operating scenarios.
 
-[//]: # "numfocus-fiscal-sponsor-attribution"
+[//]: # (numfocus-fiscal-sponsor-attribution)
 
 PyBaMM uses an [open governance model](https://pybamm.org/governance/)
 and is fiscally sponsored by [NumFOCUS](https://numfocus.org/). Consider making
@@ -167,7 +163,7 @@ pay for developer time, professional services, travel, workshops, and a variety 
 
 The easiest way to use PyBaMM is to run a 1C constant-current discharge with a model of your choice with all the default settings:
 
-```python3
+```python
 import pybamm
 
 model = pybamm.lithium_ion.DFN()  # Doyle-Fuller-Newman model
@@ -178,7 +174,7 @@ sim.plot()
 
 or simulate an experiment such as a constant-current discharge followed by a constant-current-constant-voltage charge:
 
-```python3
+```python
 import pybamm
 
 experiment = pybamm.Experiment(
@@ -271,7 +267,7 @@ You can use the BibTeX
 
 We would be grateful if you could also cite the relevant papers. These will change depending on what models and solvers you use. To find out which papers you should cite, add the line
 
-```python3
+```python
 pybamm.print_citations()
 ```
 
@@ -292,9 +288,3 @@ For any questions, comments, suggestions or bug reports, please visit:
 ## 📃 License
 
 PyBaMM is fully open source. For more information about its license, see [LICENSE](https://github.com/pybamm-team/PyBaMM/blob/develop/LICENSE.txt).
-
-## ✨ Contributors
-
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind are welcome!
-
-Click here to see [a full list](https://github.com/pybamm-team/PyBaMM/blob/develop/all_contributors.md) of our contributors' profiles.

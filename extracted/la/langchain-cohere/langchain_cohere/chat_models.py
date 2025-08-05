@@ -16,7 +16,7 @@ from typing import (
     Union,
 )
 
-from cohere.types import (
+from cohere import (
     AssistantChatMessageV2,
     ChatMessageV2,
     ChatResponse,
@@ -29,7 +29,7 @@ from cohere.types import (
     ToolChatMessageV2,
     UserChatMessageV2,
 )
-from cohere.types import Document as DocumentV2
+from cohere import Document as DocumentV2
 from langchain_core._api.deprecation import warn_deprecated
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
@@ -1086,7 +1086,10 @@ class ChatCohere(BaseChatModel, BaseCohere):
                     response.message.tool_calls
                 )
             if response.message.content:
-                generation_info["content"] = response.message.content[0].text
+                if response.message.content[0].type == "text":
+                    generation_info["content"] = response.message.content[0].text
+                elif response.message.content[0].type == "thinking":
+                    generation_info["content"] = response.message.content[0].value
             if response.message.citations:
                 generation_info["citations"] = response.message.citations
 

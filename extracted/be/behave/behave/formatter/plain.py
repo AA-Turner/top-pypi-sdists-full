@@ -1,9 +1,31 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
+from contextlib import contextmanager
+from behave.textutil import indent
+import sys
 from behave.formatter.base import Formatter
 from behave.model_describe import ModelPrinter
+from behave.model_type import Status
 from behave.textutil import make_indentation
+
+
+# -----------------------------------------------------------------------------
+# UTILITY FUNCTIONS:
+# -----------------------------------------------------------------------------
+@contextmanager
+def suppress_unicode_errors(stream=None, use_raise=False):
+    if stream is None:
+        stream = sys.stdout
+
+    try:
+        yield
+    except UnicodeError as e:
+        # unicode_errors += 1
+        stream.write(u"%s while writing error message: %s\n" %
+                     (e.__class__.__name__, e))
+        if use_raise:
+            raise
 
 
 # -----------------------------------------------------------------------------
@@ -23,6 +45,8 @@ class PlainFormatter(Formatter):
 
     SHOW_MULTI_LINE = True
     SHOW_TAGS = False
+    SHOW_RULES = True
+    SHOW_BACKGROUNDS = True
     SHOW_ALIGNED_KEYWORDS = False
     DEFAULT_INDENT_SIZE = 2
     RAISE_OUTPUT_ERRORS = True
@@ -35,6 +59,9 @@ class PlainFormatter(Formatter):
         self.show_aligned_keywords = self.SHOW_ALIGNED_KEYWORDS
         self.show_tags = self.SHOW_TAGS
         self.indent_size = self.DEFAULT_INDENT_SIZE
+        self.current_feature = None
+        self.current_rule = None
+        self.current_scenario = None
         # -- ENSURE: Output stream is open.
         self.stream = self.open()
         self.printer = ModelPrinter(self.stream)
@@ -49,6 +76,10 @@ class PlainFormatter(Formatter):
                 offset = 2
             indentation = make_indentation(3 * self.indent_size + offset)
             self._multiline_indentation = indentation
+
+        if self.current_rule:
+            indent_extra = make_indentation(self.indent_size)
+            return self._multiline_indentation + indent_extra
         return self._multiline_indentation
 
     def reset_steps(self):
@@ -60,37 +91,69 @@ class PlainFormatter(Formatter):
             text = " @".join(tags)
             self.stream.write(u"%s@%s\n" % (indent, text))
 
+    def write_entity(self, entity, indent="", has_tags=True):
+        if has_tags:
+            self.write_tags(entity.tags, indent)
+        text = u"%s%s: %s\n" % (indent, entity.keyword, entity.name)
+        self.stream.write(text)
+
     # -- IMPLEMENT-INTERFACE FOR: Formatter
     def feature(self, feature):
-        self.reset_steps()
-        self.write_tags(feature.tags)
-        self.stream.write(u"%s: %s\n" % (feature.keyword, feature.name))
+        self._finish_current_feature()
+        # AVOID: self.reset_steps()
+
+        # -- START FEATURE:
+        self.current_feature = feature
+        self.write_entity(feature)
+
+    def rule(self, rule):
+        self._finish_current_rule()
+        # AVOID: self.reset_steps()
+        self.current_rule = rule
+        indent = make_indentation(self.indent_size)
+        self.stream.write(u"\n")
+        self.write_entity(rule, indent)
 
     def background(self, background):
         self.reset_steps()
-        indent = make_indentation(self.indent_size)
-        text = u"%s%s: %s\n" % (indent, background.keyword, background.name)
-        self.stream.write(text)
+        if not self.SHOW_BACKGROUNDS:
+            return
+
+        indent_extra = 0
+        if self.current_rule:
+            indent_extra = self.indent_size
+
+        indent = make_indentation(self.indent_size + indent_extra)
+        self.write_entity(background, indent, has_tags=False)
 
     def scenario(self, scenario):
+        self._finish_current_scenario()
+
+        # -- START SCENARIO:
+        self.current_scenario = scenario
+        indent_extra = 0
+        if self.current_rule:
+            indent_extra = self.indent_size
+
         self.reset_steps()
         self.stream.write(u"\n")
-        indent = make_indentation(self.indent_size)
-        text = u"%s%s: %s\n" % (indent, scenario.keyword, scenario.name)
-        self.write_tags(scenario.tags, indent)
-        self.stream.write(text)
+        indent = make_indentation(self.indent_size + indent_extra)
+        self.write_entity(scenario, indent)
 
     def step(self, step):
         self.steps.append(step)
 
     def result(self, step):
-        """
-        Process the result of a step (after step execution).
+        """Process the result of a step (after step execution).
 
         :param step:   Step object with result to process.
         """
+        indent_extra = 0
+        if self.current_rule:
+            indent_extra = self.indent_size
+
         step = self.steps.pop(0)
-        indent = make_indentation(2 * self.indent_size)
+        indent = make_indentation(2 * self.indent_size + indent_extra)
         if self.show_aligned_keywords:
             # -- RIGHT-ALIGN KEYWORDS (max. keyword width: 6):
             text = u"%s%6s %s ... " % (indent, step.keyword, step.name)
@@ -102,34 +165,30 @@ class PlainFormatter(Formatter):
         if self.show_timings:
             status_text += " in %0.3fs" % step.duration
 
-        unicode_errors = 0
-        if step.error_message:
-            try:
-                self.stream.write(u"%s\n%s\n" % (status_text, step.error_message))
-            except UnicodeError as e:
-                unicode_errors += 1
-                self.stream.write(u"%s\n" % status_text)
-                self.stream.write(u"%s while writing error message: %s\n" % \
-                                  (e.__class__.__name__, e))
-                if self.RAISE_OUTPUT_ERRORS:
-                    raise
-        else:
+        use_raise = self.RAISE_OUTPUT_ERRORS
+        with suppress_unicode_errors(self.stream, use_raise=use_raise):
             self.stream.write(u"%s\n" % status_text)
 
         if self.show_multiline:
             if step.text:
-                try:
+                with suppress_unicode_errors(self.stream, use_raise=use_raise):
                     self.doc_string(step.text)
-                except UnicodeError as e:
-                    unicode_errors += 1
-                    self.stream.write(u"%s while writing docstring: %s\n" % \
-                                      (e.__class__.__name__, e))
-                    if self.RAISE_OUTPUT_ERRORS:
-                        raise
             if step.table:
                 self.table(step.table)
+        # -- MAYBE: SHOW ERROR after step
+        if step.error_message:
+            with suppress_unicode_errors(self.stream, use_raise=use_raise):
+                self.stream.write(u"%s\n" % step.error_message)
+
+            # -- DISABLED: Use SCENARIO_CAPTURED_OUTPUT
+            # if step.captured.has_output():
+            #     output = step.captured.make_report()
+            #     with suppress_unicode_errors(self.stream, use_raise=use_raise):
+            #         self.stream.write(output)
+            #     self.stream.write(u" CAPTURED_STEP_OUTPUT_END ----\n")
 
     def eof(self):
+        self._finish_current_feature()
         self.stream.write("\n")
 
     # -- MORE: Formatter helpers
@@ -138,6 +197,41 @@ class PlainFormatter(Formatter):
 
     def table(self, table):
         self.printer.print_table(table, self.multiline_indentation)
+
+    # -- SPECIFIC:
+    def _reporrt_current_scenario_captured_output(self):
+        if not self.current_scenario.captured.has_output():
+            return
+
+        report = self.current_scenario.captured.make_report()
+        self.stream.write(indent(report, prefix=""))
+        self.stream.write(" CAPTURED_SCENARIO_OUTPUT_END ----\n")
+
+    def _finish_current_scenario(self):
+        if not self.current_scenario:
+            return
+
+        # -- FINISH CURRENT SCENARIO:
+        if self.current_scenario.status in (Status.failed, Status.error):
+            # -- EXCLUDE: Status.hook_error
+            # REASON: Printed in capture_output_to_sink() already.
+            self._reporrt_current_scenario_captured_output()
+
+        self.reset_steps()
+        self.current_scenario = None
+
+    def _finish_current_rule(self):
+        # -- FINISH CURRENT RULE:
+        self._finish_current_scenario()
+        self.current_rule = None
+
+    def _finish_current_feature(self):
+        if not self.current_feature:
+            return
+
+        self._finish_current_scenario()
+        self._finish_current_rule()
+        self.current_feature = None
 
 
 # -----------------------------------------------------------------------------

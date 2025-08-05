@@ -11,7 +11,7 @@ def get_local_sca_path() -> str:
     Raises:
         ValueError: If GABLE_ASSET_DETECTOR_PATH is not set.
     """
-    path = os.environ.get("GABLE_ASSET_DETECTOR_PATH")
+    path = os.path.expanduser(os.environ.get("GABLE_ASSET_DETECTOR_PATH", ""))
     if not path:
         logger.warning("GABLE_ASSET_DETECTOR_PATH environment variable not set")
         raise ValueError(

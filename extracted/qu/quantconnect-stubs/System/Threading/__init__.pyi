@@ -664,6 +664,106 @@ class SemaphoreSlim(System.Object, System.IDisposable):
         ...
 
 
+class RegisteredWaitHandle(System.MarshalByRefObject):
+    """An object representing the registration of a WaitHandle via ThreadPool.RegisterWaitForSingleObject."""
+
+    def unregister(self, wait_object: System.Threading.WaitHandle) -> bool:
+        ...
+
+
+class IThreadPoolWorkItem(metaclass=abc.ABCMeta):
+    """Represents a work item that can be executed by the ThreadPool."""
+
+    def execute(self) -> None:
+        ...
+
+
+class ThreadPool(System.Object):
+    """This class has no documentation."""
+
+    THREAD_COUNT: int
+
+    COMPLETED_WORK_ITEM_COUNT: int
+
+    PENDING_WORK_ITEM_COUNT: int
+    """Gets the number of work items that are currently queued to be processed."""
+
+    @staticmethod
+    @overload
+    def bind_handle(os_handle: System.Runtime.InteropServices.SafeHandle) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def bind_handle(os_handle: System.IntPtr) -> bool:
+        """ThreadPool.BindHandle(IntPtr) has been deprecated. Use ThreadPool.BindHandle(SafeHandle) instead."""
+        ...
+
+    @staticmethod
+    def get_available_threads(worker_threads: typing.Optional[int], completion_port_threads: typing.Optional[int]) -> typing.Tuple[None, int, int]:
+        ...
+
+    @staticmethod
+    def get_max_threads(worker_threads: typing.Optional[int], completion_port_threads: typing.Optional[int]) -> typing.Tuple[None, int, int]:
+        ...
+
+    @staticmethod
+    def get_min_threads(worker_threads: typing.Optional[int], completion_port_threads: typing.Optional[int]) -> typing.Tuple[None, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def queue_user_work_item(call_back: typing.Callable[[System.Object], None], state: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def queue_user_work_item(call_back: typing.Callable[[System.Object], None]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, milliseconds_time_out_interval: int, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
+        ...
+
+    @staticmethod
+    @overload
+    def register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, timeout: datetime.timedelta, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
+        ...
+
+    @staticmethod
+    def set_max_threads(worker_threads: int, completion_port_threads: int) -> bool:
+        ...
+
+    @staticmethod
+    def set_min_threads(worker_threads: int, completion_port_threads: int) -> bool:
+        ...
+
+    @staticmethod
+    def unsafe_queue_native_overlapped(overlapped: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def unsafe_queue_user_work_item(call_back: typing.Callable[[System.Object], None], state: typing.Any) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def unsafe_queue_user_work_item(call_back: System.Threading.IThreadPoolWorkItem, prefer_local: bool) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def unsafe_register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, milliseconds_time_out_interval: int, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
+        ...
+
+    @staticmethod
+    @overload
+    def unsafe_register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, timeout: datetime.timedelta, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
+        ...
+
+
 class PeriodicTimer(System.Object, System.IDisposable):
     """Provides a periodic timer that enables waiting asynchronously for timer ticks."""
 
@@ -851,108 +951,6 @@ class ReaderWriterLockSlim(System.Object, System.IDisposable):
 
     @overload
     def try_enter_write_lock(self, milliseconds_timeout: int) -> bool:
-        ...
-
-
-class RegisteredWaitHandle(System.MarshalByRefObject):
-    """An object representing the registration of a WaitHandle via ThreadPool.RegisterWaitForSingleObject."""
-
-    def unregister(self, wait_object: System.Threading.WaitHandle) -> bool:
-        ...
-
-
-class IThreadPoolWorkItem(metaclass=abc.ABCMeta):
-    """Represents a work item that can be executed by the ThreadPool."""
-
-    def execute(self) -> None:
-        ...
-
-
-class ThreadPool(System.Object):
-    """This class has no documentation."""
-
-    THREAD_COUNT: int
-    """Gets the number of thread pool threads that currently exist."""
-
-    COMPLETED_WORK_ITEM_COUNT: int
-    """Gets the number of work items that have been processed so far."""
-
-    PENDING_WORK_ITEM_COUNT: int
-    """Gets the number of work items that are currently queued to be processed."""
-
-    @staticmethod
-    @overload
-    def bind_handle(os_handle: System.Runtime.InteropServices.SafeHandle) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def bind_handle(os_handle: System.IntPtr) -> bool:
-        """ThreadPool.BindHandle(IntPtr) has been deprecated. Use ThreadPool.BindHandle(SafeHandle) instead."""
-        ...
-
-    @staticmethod
-    def get_available_threads(worker_threads: typing.Optional[int], completion_port_threads: typing.Optional[int]) -> typing.Tuple[None, int, int]:
-        ...
-
-    @staticmethod
-    def get_max_threads(worker_threads: typing.Optional[int], completion_port_threads: typing.Optional[int]) -> typing.Tuple[None, int, int]:
-        ...
-
-    @staticmethod
-    def get_min_threads(worker_threads: typing.Optional[int], completion_port_threads: typing.Optional[int]) -> typing.Tuple[None, int, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def queue_user_work_item(call_back: typing.Callable[[System.Object], None], state: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def queue_user_work_item(call_back: typing.Callable[[System.Object], None]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, milliseconds_time_out_interval: int, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, timeout: datetime.timedelta, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
-        ...
-
-    @staticmethod
-    def set_max_threads(worker_threads: int, completion_port_threads: int) -> bool:
-        ...
-
-    @staticmethod
-    def set_min_threads(worker_threads: int, completion_port_threads: int) -> bool:
-        ...
-
-    @staticmethod
-    def unsafe_queue_native_overlapped(overlapped: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def unsafe_queue_user_work_item(call_back: typing.Callable[[System.Object], None], state: typing.Any) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def unsafe_queue_user_work_item(call_back: System.Threading.IThreadPoolWorkItem, prefer_local: bool) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def unsafe_register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, milliseconds_time_out_interval: int, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
-        ...
-
-    @staticmethod
-    @overload
-    def unsafe_register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, timeout: datetime.timedelta, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
         ...
 
 
@@ -3036,11 +3034,11 @@ class Interlocked(System.Object):
     @overload
     def compare_exchange(location_1: System.IntPtr, value: System.IntPtr, comparand: System.IntPtr) -> System.IntPtr:
         """
-        Compares two platform-specific handles or pointers for equality and, if they are equal, replaces the first one.
+        Compares two native-sized signed integers for equality and, if they are equal, replaces the first one.
         
-        :param location_1: The destination IntPtr, whose value is compared with the value of  and possibly replaced by .
-        :param value: The IntPtr that replaces the destination value if the comparison results in equality.
-        :param comparand: The IntPtr that is compared to the value at .
+        :param location_1: The destination, whose value is compared with the value of  and possibly replaced by .
+        :param value: The value that replaces the destination value if the comparison results in equality.
+        :param comparand: The value that is compared to the value at .
         :returns: The original value in .
         """
         ...
@@ -3049,11 +3047,11 @@ class Interlocked(System.Object):
     @overload
     def compare_exchange(location_1: System.UIntPtr, value: System.UIntPtr, comparand: System.UIntPtr) -> System.UIntPtr:
         """
-        Compares two platform-specific handles or pointers for equality and, if they are equal, replaces the first one.
+        Compares two native-sized unsigned integers for equality and, if they are equal, replaces the first one.
         
-        :param location_1: The destination UIntPtr, whose value is compared with the value of  and possibly replaced by .
-        :param value: The UIntPtr that replaces the destination value if the comparison results in equality.
-        :param comparand: The UIntPtr that is compared to the value at .
+        :param location_1: The destination, whose value is compared with the value of  and possibly replaced by .
+        :param value: The value that replaces the destination value if the comparison results in equality.
+        :param comparand: The value that is compared to the value at .
         :returns: The original value in .
         """
         ...
@@ -3088,7 +3086,7 @@ class Interlocked(System.Object):
     @overload
     def exchange(location_1: System.IntPtr, value: System.IntPtr) -> System.IntPtr:
         """
-        Sets a platform-specific handle or pointer to a specified value and returns the original value, as an atomic operation.
+        Sets a native-sized signed integer to a specified value and returns the original value, as an atomic operation.
         
         :param location_1: The variable to set to the specified value.
         :param value: The value to which the  parameter is set.
@@ -3100,7 +3098,7 @@ class Interlocked(System.Object):
     @overload
     def exchange(location_1: System.UIntPtr, value: System.UIntPtr) -> System.UIntPtr:
         """
-        Sets a platform-specific handle or pointer to a specified value and returns the original value, as an atomic operation.
+        Sets a native-sized unsigned integer to a specified value and returns the original value, as an atomic operation.
         
         :param location_1: The variable to set to the specified value.
         :param value: The value to which the  parameter is set.

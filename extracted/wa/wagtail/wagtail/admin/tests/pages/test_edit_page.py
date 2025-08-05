@@ -1925,8 +1925,8 @@ class TestPageEdit(WagtailTestUtils, TestCase):
             reverse("wagtailadmin_pages:edit", args=(self.child_page.id,))
         )
 
-        input_field_for_draft_slug = '<input type="text" name="slug" value="revised-slug-in-draft-only" data-controller="w-slug" data-action="blur-&gt;w-slug#slugify w-sync:check-&gt;w-slug#compare w-sync:apply-&gt;w-slug#urlify:prevent" data-w-slug-compare-as-param="urlify" data-w-slug-allow-unicode-value maxlength="255" aria-describedby="panel-child-promote-child-for_search_engines-child-slug-helptext" required id="id_slug">'
-        input_field_for_live_slug = '<input type="text" name="slug" value="hello-world" data-controller="w-slug" data-action="blur-&gt;w-slug#slugify w-sync:check-&gt;w-slug#compare w-sync:apply-&gt;w-slug#urlify:prevent" data-w-slug-compare-as-param="urlify" data-w-slug-allow-unicode-value maxlength="255" aria-describedby="panel-child-promote-child-for_search_engines-child-slug-helptext" required id="id_slug" />'
+        input_field_for_draft_slug = '<input type="text" name="slug" value="revised-slug-in-draft-only" data-controller="w-slug" data-action="blur-&gt;w-slug#slugify w-sync:check-&gt;w-slug#compare w-sync:apply-&gt;w-slug#urlify:prevent" data-w-slug-compare-as-param="urlify" data-w-slug-allow-unicode-value data-w-slug-trim-value="true" maxlength="255" aria-describedby="panel-child-promote-child-for_search_engines-child-slug-helptext" required id="id_slug">'
+        input_field_for_live_slug = '<input type="text" name="slug" value="hello-world" data-controller="w-slug" data-action="blur-&gt;w-slug#slugify w-sync:check-&gt;w-slug#compare w-sync:apply-&gt;w-slug#urlify:prevent" data-w-slug-compare-as-param="urlify" data-w-slug-allow-unicode-value data-w-slug-trim-value="true" maxlength="255" aria-describedby="panel-child-promote-child-for_search_engines-child-slug-helptext" required id="id_slug" />'
 
         # Status Link should be the live page (not revision)
         self.assertNotContains(
@@ -1951,8 +1951,8 @@ class TestPageEdit(WagtailTestUtils, TestCase):
             reverse("wagtailadmin_pages:edit", args=(self.single_event_page.id,))
         )
 
-        input_field_for_draft_slug = '<input type="text" name="slug" value="revised-slug-in-draft-only" data-controller="w-slug" data-action="blur-&gt;w-slug#slugify w-sync:check-&gt;w-slug#compare w-sync:apply-&gt;w-slug#urlify:prevent" data-w-slug-compare-as-param="urlify" data-w-slug-allow-unicode-value maxlength="255" aria-describedby="panel-child-promote-child-common_page_configuration-child-slug-helptext" required id="id_slug" />'
-        input_field_for_live_slug = '<input type="text" name="slug" value="mars-landing" data-controller="w-slug" data-action="blur-&gt;w-slug#slugify w-sync:check-&gt;w-slug#compare w-sync:apply-&gt;w-slug#urlify:prevent" data-w-slug-compare-as-param="urlify" data-w-slug-allow-unicode-value maxlength="255" aria-describedby="panel-child-promote-child-common_page_configuration-child-slug-helptext" required id="id_slug" />'
+        input_field_for_draft_slug = '<input type="text" name="slug" value="revised-slug-in-draft-only" data-controller="w-slug" data-action="blur-&gt;w-slug#slugify w-sync:check-&gt;w-slug#compare w-sync:apply-&gt;w-slug#urlify:prevent" data-w-slug-compare-as-param="urlify" data-w-slug-allow-unicode-value data-w-slug-trim-value="true" maxlength="255" aria-describedby="panel-child-promote-child-common_page_configuration-child-slug-helptext" required id="id_slug" />'
+        input_field_for_live_slug = '<input type="text" name="slug" value="mars-landing" data-controller="w-slug" data-action="blur-&gt;w-slug#slugify w-sync:check-&gt;w-slug#compare w-sync:apply-&gt;w-slug#urlify:prevent" data-w-slug-compare-as-param="urlify" data-w-slug-allow-unicode-value data-w-slug-trim-value="true" maxlength="255" aria-describedby="panel-child-promote-child-common_page_configuration-child-slug-helptext" required id="id_slug" />'
 
         # Status Link should be the live page (not revision)
         self.assertNotContains(
@@ -2248,7 +2248,7 @@ class TestPageEdit(WagtailTestUtils, TestCase):
         # as when running it within the full test suite
         self.client.get(reverse("wagtailadmin_pages:edit", args=(self.event_page.id,)))
 
-        with self.assertNumQueries(35):
+        with self.assertNumQueries(36):
             self.client.get(
                 reverse("wagtailadmin_pages:edit", args=(self.event_page.id,))
             )
@@ -2261,7 +2261,7 @@ class TestPageEdit(WagtailTestUtils, TestCase):
         # Warm up the cache as above.
         self.client.get(reverse("wagtailadmin_pages:edit", args=(self.event_page.id,)))
 
-        with self.assertNumQueries(39):
+        with self.assertNumQueries(41):
             self.client.get(
                 reverse("wagtailadmin_pages:edit", args=(self.event_page.id,))
             )
@@ -2461,6 +2461,8 @@ class TestChildRelationsOnSuperclass(WagtailTestUtils, TestCase):
         # Response should include an advert_placements formset labelled Adverts
         self.assertContains(response, "Adverts")
         self.assertContains(response, "id_advert_placements-TOTAL_FORMS")
+        # Expecting the add-button
+        self.assertContains(response, "Add advert")
 
     def test_post_create_form(self):
         post_data = {
@@ -2539,6 +2541,8 @@ class TestChildRelationsOnSuperclass(WagtailTestUtils, TestCase):
             '<input type="hidden" name="advert_placements-0-advert" value="1" id="id_advert_placements-0-advert">',
             html=True,
         )
+        # Expecting the add-button
+        self.assertContains(response, "Add advert")
 
     def test_post_edit_form(self):
         post_data = {

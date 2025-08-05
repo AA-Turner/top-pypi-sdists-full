@@ -3167,6 +3167,7 @@ class JobPerformanceFacet(sgqlc.types.Enum):
 
     * `DBT_PROJECT`None
     * `DOMAIN`None
+    * `ETL_CONTAINER`None
     * `JOB_NAME`None
     * `JOB_TYPE`None
     * `LAST_RUN_STATUS`None
@@ -3174,7 +3175,15 @@ class JobPerformanceFacet(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("DBT_PROJECT", "DOMAIN", "JOB_NAME", "JOB_TYPE", "LAST_RUN_STATUS", "TAGS")
+    __choices__ = (
+        "DBT_PROJECT",
+        "DOMAIN",
+        "ETL_CONTAINER",
+        "JOB_NAME",
+        "JOB_TYPE",
+        "LAST_RUN_STATUS",
+        "TAGS",
+    )
 
 
 class JobTypeEnum(sgqlc.types.Enum):
@@ -12976,6 +12985,33 @@ class AudienceMonitorEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class AudienceRoutingStats(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "audience_uuid",
+        "audience_label",
+        "mcons_covered_by_table_monitors",
+        "mcons_covered_by_notification_routing",
+        "sample_mcons_routing_not_table_monitor",
+    )
+    audience_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="audienceUuid")
+
+    audience_label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="audienceLabel")
+
+    mcons_covered_by_table_monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="mconsCoveredByTableMonitors"
+    )
+
+    mcons_covered_by_notification_routing = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="mconsCoveredByNotificationRouting"
+    )
+
+    sample_mcons_routing_not_table_monitor = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MconMonitorPair"))),
+        graphql_name="sampleMconsRoutingNotTableMonitor",
+    )
+
+
 class AuditLogEntryConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -13947,7 +13983,6 @@ class BillingMonitorUsage(sgqlc.types.Type):
         "metric_legacy_monitor_credits",
         "freshness_rule_monitor_credits",
         "volume_rule_monitor_credits",
-        "dimension_tracking_monitor_credits",
         "metric_comparison_monitor_credits",
     )
     date = sgqlc.types.Field(Date, graphql_name="date")
@@ -13986,11 +14021,6 @@ class BillingMonitorUsage(sgqlc.types.Type):
 
     volume_rule_monitor_credits = sgqlc.types.Field(Float, graphql_name="volumeRuleMonitorCredits")
     """Credits used by volume rule monitors"""
-
-    dimension_tracking_monitor_credits = sgqlc.types.Field(
-        Float, graphql_name="dimensionTrackingMonitorCredits"
-    )
-    """Credits used by dimension tracking monitors"""
 
     metric_comparison_monitor_credits = sgqlc.types.Field(
         Float, graphql_name="metricComparisonMonitorCredits"
@@ -14947,23 +14977,31 @@ class ConversionResult(sgqlc.types.Type):
         "account_uuid",
         "use_cbp_v2",
         "table_monitor_specs",
+        "removed_table_monitor_specs",
         "job_routing_rules_specs",
         "unconvertible_routing_rules",
         "unconvertible_monitoring_rules",
         "warnings",
         "warehouse_count",
+        "routing_rules_count",
+        "monitoring_rules_count",
         "converted_monitor_uuids",
         "monitored_tables_count",
         "selected_tables_count",
         "top_mcons_by_monitor_count",
         "sample_covered_not_monitored",
         "sample_monitored_not_covered",
+        "mcons_covered_by_table_monitor_audiences",
+        "mcons_covered_by_notification_routing_audiences",
+        "sample_mcons_routing_not_table_monitor",
+        "audience_routing_stats",
         "text_output",
         "summary_text",
         "table_monitor_specs_text",
         "job_routing_rules_text",
         "unconvertible_rules_text",
         "warnings_text",
+        "validation_errors",
         "full_output_text",
     )
     account_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="accountName")
@@ -14975,6 +15013,11 @@ class ConversionResult(sgqlc.types.Type):
     table_monitor_specs = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TableMonitorSpec"))),
         graphql_name="tableMonitorSpecs",
+    )
+
+    removed_table_monitor_specs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TableMonitorSpec"))),
+        graphql_name="removedTableMonitorSpecs",
     )
 
     job_routing_rules_specs = sgqlc.types.Field(
@@ -14998,6 +15041,10 @@ class ConversionResult(sgqlc.types.Type):
     )
 
     warehouse_count = sgqlc.types.Field(Int, graphql_name="warehouseCount")
+
+    routing_rules_count = sgqlc.types.Field(Int, graphql_name="routingRulesCount")
+
+    monitoring_rules_count = sgqlc.types.Field(Int, graphql_name="monitoringRulesCount")
 
     converted_monitor_uuids = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
@@ -15023,6 +15070,24 @@ class ConversionResult(sgqlc.types.Type):
         graphql_name="sampleMonitoredNotCovered",
     )
 
+    mcons_covered_by_table_monitor_audiences = sgqlc.types.Field(
+        Int, graphql_name="mconsCoveredByTableMonitorAudiences"
+    )
+
+    mcons_covered_by_notification_routing_audiences = sgqlc.types.Field(
+        Int, graphql_name="mconsCoveredByNotificationRoutingAudiences"
+    )
+
+    sample_mcons_routing_not_table_monitor = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MconMonitorPair"))),
+        graphql_name="sampleMconsRoutingNotTableMonitor",
+    )
+
+    audience_routing_stats = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AudienceRoutingStats))),
+        graphql_name="audienceRoutingStats",
+    )
+
     text_output = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="textOutput")
 
     summary_text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summaryText")
@@ -15040,6 +15105,11 @@ class ConversionResult(sgqlc.types.Type):
     )
 
     warnings_text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="warningsText")
+
+    validation_errors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="validationErrors",
+    )
 
     full_output_text = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="fullOutputText"
@@ -18411,31 +18481,6 @@ class DerivedTablesLineageResult(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(String, graphql_name="cursor")
     """Cursor for getting the next page of results"""
-
-
-class DimensionTracking(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "mn_cnt", "mx_cnt", "mn_fld", "mn_fq", "mx_fq", "reason")
-    value = sgqlc.types.Field(String, graphql_name="value")
-    """Value name"""
-
-    mn_cnt = sgqlc.types.Field(Int, graphql_name="mnCnt")
-    """Minimum count threshold"""
-
-    mx_cnt = sgqlc.types.Field(Int, graphql_name="mxCnt")
-    """Maximum count threshold"""
-
-    mn_fld = sgqlc.types.Field(Float, graphql_name="mnFld")
-    """Minimum field size required to trigger anomaly"""
-
-    mn_fq = sgqlc.types.Field(Float, graphql_name="mnFq")
-    """Minimum relative frequency threshold"""
-
-    mx_fq = sgqlc.types.Field(Float, graphql_name="mxFq")
-    """Maximum relative frequency threshold"""
-
-    reason = sgqlc.types.Field(String, graphql_name="reason")
-    """Reason for not providing DT thresholds"""
 
 
 class DirectedGraph(sgqlc.types.Type):
@@ -21899,7 +21944,6 @@ class JobRoutingRuleSpec(sgqlc.types.Type):
         "job_anomaly_types",
         "job_asset_rules",
         "description",
-        "domain_restrictions",
     )
     original_rule_uuid = sgqlc.types.Field(
         sgqlc.types.non_null(UUID), graphql_name="originalRuleUuid"
@@ -21915,10 +21959,6 @@ class JobRoutingRuleSpec(sgqlc.types.Type):
     job_asset_rules = sgqlc.types.Field(GenericScalar, graphql_name="jobAssetRules")
 
     description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
-
-    domain_restrictions = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(UUID)), graphql_name="domainRestrictions"
-    )
 
 
 class JobsPerformanceFacetOption(sgqlc.types.Type):
@@ -42143,7 +42183,6 @@ class Query(sgqlc.types.Type):
         "perform_field_health_sampling_v2",
         "perform_field_health_sampling_v3",
         "get_field_health_sampling_conditions",
-        "perform_dt_sampling_v2",
         "get_rca_result",
         "get_rca_job_result",
         "get_incident_rcas",
@@ -42310,9 +42349,7 @@ class Query(sgqlc.types.Type):
         "get_custom_sql_output_sample",
         "get_custom_sql_output_download",
         "get_fh_sampling",
-        "get_dt_sampling",
         "get_fh_reproduction_query",
-        "get_dt_reproduction_query",
         "test_sql_query_part",
         "test_sql_query_where_expression",
         "get_table_stats_v2",
@@ -47800,29 +47837,6 @@ class Query(sgqlc.types.Type):
       anomaly (metric type dependent) involves a field.
     * `metric` (`SamplingEnabledMetricTypes!`): Metric type of the
       anomaly.
-    """
-
-    perform_dt_sampling_v2 = sgqlc.types.Field(
-        "SQLResponse",
-        graphql_name="performDtSamplingV2",
-        args=sgqlc.types.ArgDict(
-            (
-                ("event_uuid", sgqlc.types.Arg(UUID, graphql_name="eventUuid", default=None)),
-                ("max_rows", sgqlc.types.Arg(Int, graphql_name="maxRows", default=1000)),
-                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
-            )
-        ),
-    )
-    """Samples value distribution data alongside the time axis
-
-    Arguments:
-
-    * `event_uuid` (`UUID`): Optional UUID of an event that contains
-      field metric anomaly
-    * `max_rows` (`Int`): Maximum number of rows returned (default:
-      `1000`)
-    * `dry_run` (`Boolean`): Defaults to false, only fetch the query,
-      do not run (default: `false`)
     """
 
     get_rca_result = sgqlc.types.Field(
@@ -54311,37 +54325,6 @@ class Query(sgqlc.types.Type):
     * `limit` (`Int`): Limit results
     """
 
-    get_dt_sampling = sgqlc.types.Field(
-        MetricSampling,
-        graphql_name="getDtSampling",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "monitor_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
-                    ),
-                ),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("dimension", sgqlc.types.Arg(String, graphql_name="dimension", default=None)),
-                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
-                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
-            )
-        ),
-    )
-    """Generates and/or runs a Dimension Tracking investigation query
-
-    Arguments:
-
-    * `monitor_uuid` (`UUID!`): Monitor uuid is used for creating the
-      sampling query
-    * `start_time` (`DateTime`): Event start time
-    * `dimension` (`String`): FH segment if segmented monitor
-    * `dry_run` (`Boolean`): Generate sample query without running
-      (default: `false`)
-    * `limit` (`Int`): Limit results
-    """
-
     get_fh_reproduction_query = sgqlc.types.Field(
         InvestigationQuery,
         graphql_name="getFhReproductionQuery",
@@ -54388,58 +54371,6 @@ class Query(sgqlc.types.Type):
     * `event_created_time` (`DateTime!`): When the anomaly occurred
     * `field` (`String!`): The field on which the anomaly was found
     * `metric` (`String!`): The metric which measured the anomaly
-    * `dimension` (`String`): FH segment if segmented monitor
-    * `dry_run` (`Boolean`): Generate sample query without running
-      (default: `true`)
-    """
-
-    get_dt_reproduction_query = sgqlc.types.Field(
-        InvestigationQuery,
-        graphql_name="getDtReproductionQuery",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "monitor_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
-                    ),
-                ),
-                (
-                    "event_created_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime),
-                        graphql_name="eventCreatedTime",
-                        default=None,
-                    ),
-                ),
-                (
-                    "field",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="field", default=None
-                    ),
-                ),
-                (
-                    "field_val",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="fieldVal", default=None
-                    ),
-                ),
-                ("dimension", sgqlc.types.Arg(String, graphql_name="dimension", default=None)),
-                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=True)),
-            )
-        ),
-    )
-    """Generates a SQL query that will reproduce the anomalous data on a
-    table
-
-    Arguments:
-
-    * `monitor_uuid` (`UUID!`): UUID of the monitor on which the
-      anomaly occurred
-    * `event_created_time` (`DateTime!`): When the anomaly occurred
-    * `field` (`String!`): The field on which the anomaly was found
-    * `field_val` (`String!`): The value for which the anomaly was
-      found
     * `dimension` (`String`): FH segment if segmented monitor
     * `dry_run` (`Boolean`): Generate sample query without running
       (default: `true`)
@@ -58408,6 +58339,8 @@ class RoutingRuleData(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "uuid",
+        "audience_uuid",
+        "audience_label",
         "anomaly_types",
         "incident_sub_types",
         "table_rules",
@@ -58417,12 +58350,14 @@ class RoutingRuleData(sgqlc.types.Type):
         "asset_rules",
         "domain_rules",
         "digest_settings_id",
-        "audience_uuid",
-        "audience_label",
         "created_by_id",
         "last_update_user_id",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="uuid")
+
+    audience_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="audienceUuid")
+
+    audience_label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="audienceLabel")
 
     anomaly_types = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="anomalyTypes"
@@ -58447,10 +58382,6 @@ class RoutingRuleData(sgqlc.types.Type):
     )
 
     digest_settings_id = sgqlc.types.Field(String, graphql_name="digestSettingsId")
-
-    audience_uuid = sgqlc.types.Field(String, graphql_name="audienceUuid")
-
-    audience_label = sgqlc.types.Field(String, graphql_name="audienceLabel")
 
     created_by_id = sgqlc.types.Field(Int, graphql_name="createdById")
 
@@ -62434,7 +62365,7 @@ class ThresholdModifier(sgqlc.types.Type):
 
 class ThresholdsData(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("freshness", "size", "field_health", "dimension_tracking", "dynamic")
+    __field_names__ = ("freshness", "size", "field_health", "dynamic")
     freshness = sgqlc.types.Field(Freshness, graphql_name="freshness")
     """Freshness anomaly threshold"""
 
@@ -62464,18 +62395,6 @@ class ThresholdsData(sgqlc.types.Type):
     * `field` (`String`)None
     * `metric` (`String`)None
     * `where_condition` (`String`)None
-    """
-
-    dimension_tracking = sgqlc.types.Field(
-        sgqlc.types.list_of(DimensionTracking),
-        graphql_name="dimensionTracking",
-        args=sgqlc.types.ArgDict(
-            (("monitor", sgqlc.types.Arg(String, graphql_name="monitor", default=None)),)
-        ),
-    )
-    """Arguments:
-
-    * `monitor` (`String`)None
     """
 
     dynamic = sgqlc.types.Field(

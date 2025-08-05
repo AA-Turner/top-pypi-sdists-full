@@ -28,7 +28,7 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
-use crate::alt::class::base_class::BaseClass;
+use crate::binding::base_class::BaseClass;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
@@ -160,7 +160,7 @@ impl<'a> BindingsBuilder<'a> {
                 &mut legacy
             };
             self.ensure_type(&mut base, legacy);
-            base
+            self.base_class_of(base)
         });
 
         let mut keywords = Vec::new();
@@ -439,6 +439,7 @@ impl<'a> BindingsBuilder<'a> {
                 bases: base
                     .clone()
                     .into_iter()
+                    .map(|base| self.base_class_of(base))
                     .collect::<Vec<_>>()
                     .into_boxed_slice(),
                 keywords,

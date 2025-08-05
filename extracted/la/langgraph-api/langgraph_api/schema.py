@@ -14,7 +14,9 @@ RunStatus = Literal["pending", "running", "error", "success", "timeout", "interr
 
 ThreadStatus = Literal["idle", "busy", "interrupted", "error"]
 
-StreamMode = Literal["values", "messages", "updates", "events", "debug", "custom"]
+StreamMode = Literal[
+    "values", "messages", "updates", "events", "debug", "tasks", "checkpoints", "custom"
+]
 
 MultitaskStrategy = Literal["reject", "rollback", "interrupt", "enqueue"]
 

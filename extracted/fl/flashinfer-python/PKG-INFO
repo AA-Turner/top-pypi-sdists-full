@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.2.8
+Version: 0.2.9
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 Project-URL: Homepage, https://github.com/flashinfer-ai/flashinfer
@@ -15,6 +15,8 @@ Requires-Dist: cuda-python
 Requires-Dist: pynvml
 Requires-Dist: einops
 Requires-Dist: nvidia-nvshmem-cu12
+Requires-Dist: nvidia-cudnn-cu12
+Requires-Dist: nvidia-cudnn-frontend>=1.13.0
 Dynamic: license-file
 Dynamic: requires-dist
 
@@ -108,7 +110,7 @@ python -m flashinfer.aot
 # Build AOT wheel
 python -m build --no-isolation --wheel
 # Install AOT wheel
-python -m pip install dist/flashinfer-*.whl
+python -m pip install dist/flashinfer_*.whl
 ```
 
 For more details, refer to the [Install from Source documentation](https://docs.flashinfer.ai/installation.html#install-from-source).
@@ -153,20 +155,6 @@ Check out [documentation](https://docs.flashinfer.ai/) for usage of batch decode
 ## Custom Attention Variants
 
 Starting from FlashInfer v0.2, users can customize their own attention variants with additional parameters. For more details, refer to our [JIT examples](https://github.com/flashinfer-ai/flashinfer/blob/main/tests/test_jit_example.py).
-
-## Run Benchmarks
-
-We profile FlashInfer kernel performance with [nvbench](https://github.com/NVIDIA/nvbench) and you can compile and run the benchmarks with the following commands:
-
-```bash
-mkdir build
-cp cmake/config.cmake build # you can modify the config.cmake to enable/disable benchmarks and change CUDA architectures
-cd build
-cmake ..
-make -j12
-```
-
-You can run `./bench_{single/batch}_{prefill/decode}` to benchmark the performance (e.g. `./bench_single_prefill` for single-request prefill attention). `./bench_{single/batch}_{prefill/decode} --help` will show you the available options.
 
 ## C++ API and TVM Bindings
 

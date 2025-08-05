@@ -57,9 +57,17 @@ class ExecutionSettings(FidesSettings):
         default=300,
         description="Seconds between polling for interrupted tasks to requeue",
     )
+    privacy_request_requeue_retry_count: int = Field(
+        default=3,
+        description="The number of times a privacy request will be requeued when its tasks are interrupted before being marked as error",
+    )
     use_dsr_3_0: bool = Field(
         default=False,
         description="Temporary flag to switch to using DSR 3.0 to process your tasks.",
+    )
+    erasure_request_finalization_required: bool = Field(
+        default=False,
+        description="Whether erasure requests require an additional finalization step after all collections have been executed.",
     )
     fuzzy_search_enabled: bool = Field(
         default=True,
@@ -72,5 +80,9 @@ class ExecutionSettings(FidesSettings):
     email_send_timezone: str = Field(
         default="US/Eastern",
         description="The timezone to send batch emails for DSR email integration.",
+    )
+    memory_watchdog_enabled: bool = Field(
+        default=False,
+        description="Whether the memory watchdog is enabled to monitor and gracefully terminate tasks that approach memory limits.",
     )
     model_config = SettingsConfigDict(env_prefix=ENV_PREFIX)

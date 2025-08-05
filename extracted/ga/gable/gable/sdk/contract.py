@@ -28,7 +28,7 @@ class GableContract:
     ) -> ContractPublishResponse:
         api_response, success, _status_code = self.api_client.post_contract(
             PostContractRequest(
-                __root__=[
+                root=[
                     external_to_internal_contract_input(contract)
                     for contract in contracts
                 ],

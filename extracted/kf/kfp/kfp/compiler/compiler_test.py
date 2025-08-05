@@ -31,6 +31,7 @@ from kfp import dsl
 from kfp.cli import cli
 from kfp.compiler import compiler
 from kfp.compiler import compiler_utils
+from kfp.compiler.compiler_utils import KubernetesManifestOptions
 from kfp.dsl import Artifact
 from kfp.dsl import ContainerSpec
 from kfp.dsl import Dataset
@@ -43,6 +44,9 @@ from kfp.dsl import pipeline_task
 from kfp.dsl import PipelineTaskFinalStatus
 from kfp.dsl import tasks_group
 from kfp.dsl import yaml_component
+from kfp.dsl.pipeline_config import KubernetesWorkspaceConfig
+from kfp.dsl.pipeline_config import PipelineConfig
+from kfp.dsl.pipeline_config import WorkspaceConfig
 from kfp.dsl.types import type_utils
 from kfp.pipeline_spec import pipeline_spec_pb2
 import yaml
@@ -838,6 +842,23 @@ implementation:
                 with dsl.ParallelFor(items=single_param_task.output) as item:
                     print_and_return(text=item)
 
+    def test_compile_parallel_for_with_param_and_depending_task(self):
+
+        @dsl.component
+        def print_op(s: str):
+            print(s)
+
+        @dsl.pipeline
+        def my_pipeline(param: str):
+            with dsl.ParallelFor(items=['a', 'b']) as item:
+                parallel_tasks = print_op(s=item)
+            print_op(s=param).after(parallel_tasks)
+
+        with tempfile.TemporaryDirectory() as tempdir:
+            output_yaml = os.path.join(tempdir, 'result.yaml')
+            compiler.Compiler().compile(
+                pipeline_func=my_pipeline, package_path=output_yaml)
+
     def test_cannot_compile_parallel_for_with_single_artifact(self):
 
         with self.assertRaisesRegex(
@@ -1014,6 +1035,102 @@ implementation:
                 dag_task = pipeline_spec['root']['dag']['tasks'][
                     'empty-component']
                 self.assertTrue('inputs' not in dag_task)
+
+    def test_compile_with_kubernetes_manifest_format(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+
+            @dsl.pipeline(name='my-pipeline')
+            def my_pipeline(input1: str):
+                print_op(message=input1)
+
+            pipeline_name = 'test-pipeline'
+            pipeline_display_name = 'Test Pipeline'
+            pipeline_version_name = 'test-pipeline-v1'
+            pipeline_version_display_name = 'Test Pipeline Version'
+            namespace = 'test-ns'
+
+            package_path = os.path.join(tmpdir, 'pipeline.yaml')
+
+            # Test with include_pipeline_manifest=True
+            kubernetes_manifest_options = KubernetesManifestOptions(
+                pipeline_name=pipeline_name,
+                pipeline_display_name=pipeline_display_name,
+                pipeline_version_name=pipeline_version_name,
+                pipeline_version_display_name=pipeline_version_display_name,
+                namespace=namespace,
+                include_pipeline_manifest=True)
+
+            compiler.Compiler().compile(
+                pipeline_func=my_pipeline,
+                package_path=package_path,
+                kubernetes_manifest_options=kubernetes_manifest_options,
+                kubernetes_manifest_format=True,
+            )
+
+            with open(package_path, 'r') as f:
+                documents = list(yaml.safe_load_all(f))
+
+            # Should have both Pipeline and PipelineVersion manifests
+            self.assertEqual(len(documents), 2)
+
+            # Check Pipeline manifest
+            pipeline_manifest = documents[0]
+            self.assertEqual(pipeline_manifest['kind'], 'Pipeline')
+            self.assertEqual(pipeline_manifest['metadata']['name'],
+                             pipeline_name)
+            self.assertEqual(pipeline_manifest['spec']['displayName'],
+                             pipeline_display_name)
+            self.assertEqual(pipeline_manifest['metadata']['namespace'],
+                             namespace)
+
+            # Check PipelineVersion manifest
+            pipeline_version_manifest = documents[1]
+            self.assertEqual(pipeline_version_manifest['kind'],
+                             'PipelineVersion')
+            self.assertEqual(pipeline_version_manifest['metadata']['name'],
+                             pipeline_version_name)
+            self.assertEqual(pipeline_version_manifest['spec']['displayName'],
+                             pipeline_version_display_name)
+            self.assertEqual(pipeline_version_manifest['spec']['pipelineName'],
+                             pipeline_name)
+            self.assertEqual(pipeline_version_manifest['metadata']['namespace'],
+                             namespace)
+
+            # Test with include_pipeline_manifest=False
+            package_path2 = os.path.join(tmpdir, 'pipeline2.yaml')
+            kubernetes_manifest_options2 = KubernetesManifestOptions(
+                pipeline_name=pipeline_name,
+                pipeline_display_name=pipeline_display_name,
+                pipeline_version_name=pipeline_version_name,
+                pipeline_version_display_name=pipeline_version_display_name,
+                namespace=namespace,
+                include_pipeline_manifest=False)
+
+            compiler.Compiler().compile(
+                pipeline_func=my_pipeline,
+                package_path=package_path2,
+                kubernetes_manifest_options=kubernetes_manifest_options2,
+                kubernetes_manifest_format=True,
+            )
+
+            with open(package_path2, 'r') as f:
+                documents2 = list(yaml.safe_load_all(f))
+
+            # Should have only PipelineVersion manifest
+            self.assertEqual(len(documents2), 1)
+
+            # Check PipelineVersion manifest
+            pipeline_version_manifest2 = documents2[0]
+            self.assertEqual(pipeline_version_manifest2['kind'],
+                             'PipelineVersion')
+            self.assertEqual(pipeline_version_manifest2['metadata']['name'],
+                             pipeline_version_name)
+            self.assertEqual(pipeline_version_manifest2['spec']['displayName'],
+                             pipeline_version_display_name)
+            self.assertEqual(pipeline_version_manifest2['spec']['pipelineName'],
+                             pipeline_name)
+            self.assertEqual(
+                pipeline_version_manifest2['metadata']['namespace'], namespace)
 
 
 class TestCompilePipelineCaching(unittest.TestCase):
@@ -4030,6 +4147,85 @@ class TestPlatformConfig(unittest.TestCase):
             def outer():
                 task = inner()
                 foo_platform_set_bar_feature(task, 12)
+
+    def test_pipeline_with_workspace_config(self):
+        """Test that pipeline config correctly sets the workspace field."""
+        config = PipelineConfig(
+            workspace=WorkspaceConfig(
+                size='10Gi',
+                kubernetes=KubernetesWorkspaceConfig(
+                    pvcSpecPatch={'accessModes': ['ReadWriteOnce']})))
+
+        @dsl.pipeline(pipeline_config=config)
+        def my_pipeline():
+            task = comp()
+
+        expected = pipeline_spec_pb2.PlatformSpec()
+        json_format.ParseDict(
+            {
+                'pipelineConfig': {
+                    'workspace': {
+                        'size': '10Gi',
+                        'kubernetes': {
+                            'pvcSpecPatch': {
+                                'accessModes': ['ReadWriteOnce']
+                            }
+                        }
+                    }
+                }
+            }, expected.platforms['kubernetes'])
+
+        self.assertEqual(my_pipeline.platform_spec, expected)
+
+        loaded_pipeline = compile_and_reload(my_pipeline)
+        self.assertEqual(loaded_pipeline.platform_spec, expected)
+
+        # test that it can be compiled _again_ after reloading (tests YamlComponent internals)
+        compile_and_reload(loaded_pipeline)
+
+    def test_workspace_config_validation(self):
+        """Test that workspace size validation works correctly."""
+        from kfp.dsl.pipeline_config import WorkspaceConfig
+
+        valid_sizes = ['10Gi', '1.5Gi', '1000Ti', '500Mi', '2Ki']
+        for size in valid_sizes:
+            with self.subTest(size=size):
+                workspace = WorkspaceConfig(size=size)
+                self.assertEqual(workspace.size, size)
+
+        with self.assertRaises(ValueError) as context:
+            WorkspaceConfig(size='')
+        self.assertIn('required and cannot be empty', str(context.exception))
+
+        # Test whitespace-only size raises error
+        whitespace_sizes = ['   ', '\t', '\n', '  \t  \n  ']
+        for size in whitespace_sizes:
+            with self.subTest(size=repr(size)):
+                with self.assertRaises(ValueError) as context:
+                    WorkspaceConfig(size=size)
+                self.assertIn('required and cannot be empty',
+                              str(context.exception))
+
+        # Test None size raises error
+        with self.assertRaises(ValueError):
+            WorkspaceConfig(size=None)
+
+        # Test set_size method validation
+        workspace = WorkspaceConfig(size='10Gi')
+
+        # Valid size update
+        workspace.set_size('20Gi')
+        self.assertEqual(workspace.size, '20Gi')
+
+        # Empty size update raises error
+        with self.assertRaises(ValueError) as context:
+            workspace.set_size('')
+        self.assertIn('required and cannot be empty', str(context.exception))
+
+        # Whitespace-only size update raises error
+        with self.assertRaises(ValueError) as context:
+            workspace.set_size('   ')
+        self.assertIn('required and cannot be empty', str(context.exception))
 
 
 class ExtractInputOutputDescription(unittest.TestCase):

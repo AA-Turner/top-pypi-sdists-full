@@ -35,6 +35,7 @@ from gable.cli.helpers.data_asset_s3.path_pattern_manager import (
 from loguru import logger
 from gable.cli.helpers.data_asset_s3.duckdb_connection import get_resilient_duckdb
 
+
 # ────────────────────────────────────────────────────────────────────────────
 #  PUBLIC ENTRY
 # ────────────────────────────────────────────────────────────────────────────
@@ -67,9 +68,9 @@ def get_data_asset_field_profiles_for_data_asset(
                 resilient_duckdb.register(view, obj)
             else:
                 raise TypeError("Expected Arrow table")
-            view_names.append(view)                         # ← append once
+            view_names.append(view)  # ← append once
 
-        union_sql  = " UNION ALL ".join(f"SELECT * FROM {v}" for v in view_names)
+        union_sql = " UNION ALL ".join(f"SELECT * FROM {v}" for v in view_names)
         merged_rel = resilient_duckdb.query(union_sql)
 
         # ------------------------------------------------------------------ #
@@ -89,12 +90,17 @@ def get_data_asset_field_profiles_for_data_asset(
                 continue
             try:
                 profiles[col] = _profile_column(
-                    resilient_duckdb.connection, merged_rel, col, schema, sampling_params
+                    resilient_duckdb.connection,
+                    merged_rel,
+                    col,
+                    schema,
+                    sampling_params,
+                    list(file_to_obj.keys()),  # Pass actual file names
                 )
             except Exception as e:
                 logger.error(f"[Profiler] Error profiling {col}: {e}")
 
-        return DataAssetFieldsToProfilesMapping(__root__=profiles)
+        return DataAssetFieldsToProfilesMapping(root=profiles)
     except Exception as e:
         raise Exception(f"[Profiler] Error profiling {event_name}: {e}")
 
@@ -113,13 +119,14 @@ def _populate_column_schemas(schema: dict, out: dict, prefix: str = ""):
 
 
 def _profile_column(
-    con: duckdb.DuckDBPyConnection,        # kept for regex BOOL_AND call
+    con: duckdb.DuckDBPyConnection,  # kept for regex BOOL_AND call
     rel: duckdb.DuckDBPyRelation,
     col: str,
     schema: dict,
     params: S3SamplingParameters,
+    sampled_files: list[str],
 ) -> DataAssetFieldProfile:
-    col_q = f'"{col}"'                      # always quote identifiers
+    col_q = f'"{col}"'  # always quote identifiers
 
     total_rows_row = rel.aggregate("COUNT(*)").fetchone()
     total_rows = total_rows_row[0] if total_rows_row is not None else 0
@@ -146,7 +153,7 @@ def _profile_column(
             nullCount=null_cnt,
             trueCount=true_cnt or 0,
             falseCount=false_cnt or 0,
-            sampledFiles=list(params.dict().values()),
+            sampledFiles=sampled_files,
             samplingParameters=params,
         )
 
@@ -156,32 +163,32 @@ def _profile_column(
         min_v = min_v_row[0] if min_v_row is not None else None
         max_v_row = rel.aggregate(f"MAX({col_q})").fetchone()
         max_v = max_v_row[0] if max_v_row is not None else None
-        
+
         if _schema_is_date(schema):
             profile = DataAssetFieldProfileTemporal(
                 profileType="temporal",
                 sampledRecordsCount=total_rows,
                 nullable=nullable,
                 nullCount=null_cnt,
-                min=min_v, # type: ignore
-                max=max_v, # type: ignore
+                min=min_v,  # type: ignore
+                max=max_v,  # type: ignore
                 format="",
-                sampledFiles=list(params.dict().values()),
+                sampledFiles=sampled_files,
                 samplingParameters=params,
             )
         else:
             uniq_row = rel.aggregate(f"COUNT(DISTINCT {col_q})").fetchone()
             uniq = uniq_row[0] if uniq_row is not None else 0
-            
+
             profile = DataAssetFieldProfileNumber(
                 profileType="number",
                 sampledRecordsCount=total_rows,
                 nullable=nullable,
                 nullCount=null_cnt,
-                uniqueCount=uniq, # type: ignore
-                min=min_v, # type: ignore
-                max=max_v, # type: ignore
-                sampledFiles=list(params.dict().values()),
+                uniqueCount=uniq,  # type: ignore
+                min=min_v,  # type: ignore
+                max=max_v,  # type: ignore
+                sampledFiles=sampled_files,
                 samplingParameters=params,
             )
 
@@ -210,10 +217,10 @@ def _profile_column(
                 nullCount=null_cnt,
                 uuidVersion=4,
                 emptyCount=empty_cnt or 0,
-                uniqueCount=uniq, # type: ignore
-                maxLength=max_len, # type: ignore
-                minLength=min_len, # type: ignore
-                sampledFiles=list(params.dict().values()),
+                uniqueCount=uniq,  # type: ignore
+                maxLength=max_len,  # type: ignore
+                minLength=min_len,  # type: ignore
+                sampledFiles=sampled_files,
                 samplingParameters=params,
             )
         else:
@@ -223,10 +230,10 @@ def _profile_column(
                 nullable=nullable,
                 nullCount=null_cnt,
                 emptyCount=empty_cnt or 0,
-                uniqueCount=uniq, # type: ignore
-                maxLength=max_len, # type: ignore
-                minLength=min_len, # type: ignore
-                sampledFiles=list(params.dict().values()),
+                uniqueCount=uniq,  # type: ignore
+                maxLength=max_len,  # type: ignore
+                minLength=min_len,  # type: ignore
+                sampledFiles=sampled_files,
                 samplingParameters=params,
             )
 
@@ -242,9 +249,9 @@ def _profile_column(
             sampledRecordsCount=total_rows,
             nullable=nullable,
             nullCount=null_cnt,
-            maxLength=max_len, # type: ignore
-            minLength=min_len, # type: ignore
-            sampledFiles=list(params.dict().values()),
+            maxLength=max_len,  # type: ignore
+            minLength=min_len,  # type: ignore
+            sampledFiles=sampled_files,
             samplingParameters=params,
         )
 
@@ -254,8 +261,8 @@ def _profile_column(
             profileType="union",
             sampledRecordsCount=total_rows,
             nullable=nullable,
-            profiles=[],   # recursion can be added later
-            sampledFiles=list(params.dict().values()),
+            profiles=[],  # recursion can be added later
+            sampledFiles=sampled_files,
             samplingParameters=params,
         )
     else:
@@ -264,11 +271,12 @@ def _profile_column(
             sampledRecordsCount=total_rows,
             nullable=nullable,
             nullCount=null_cnt,
-            sampledFiles=list(params.dict().values()),
+            sampledFiles=sampled_files,
             samplingParameters=params,
         )
 
-    return DataAssetFieldProfile(__root__=profile)
+    return DataAssetFieldProfile(root=profile)
+
 
 def _schema_is_date(schema: dict) -> bool:
     return schema["type"] == "int" and schema.get("logical") in ("Timestamp", "Date")

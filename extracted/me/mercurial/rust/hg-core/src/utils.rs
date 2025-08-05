@@ -7,12 +7,17 @@
 
 //! Contains useful functions, traits, structs, etc. for use in core.
 
-use crate::errors::{HgError, IoErrorContext};
+use std::cmp::Ordering;
+use std::sync::Arc;
+
 use im_rc::ordmap::DiffItem;
 use im_rc::ordmap::OrdMap;
 use itertools::EitherOrBoth;
 use itertools::Itertools;
-use std::cmp::Ordering;
+
+use crate::errors::HgBacktrace;
+use crate::errors::HgError;
+use crate::errors::IoErrorContext;
 
 pub mod debug;
 pub mod files;
@@ -24,6 +29,7 @@ pub fn current_dir() -> Result<std::path::PathBuf, HgError> {
     std::env::current_dir().map_err(|error| HgError::IoError {
         error,
         context: IoErrorContext::CurrentDir,
+        backtrace: HgBacktrace::capture(),
     })
 }
 
@@ -31,6 +37,7 @@ pub fn current_exe() -> Result<std::path::PathBuf, HgError> {
     std::env::current_exe().map_err(|error| HgError::IoError {
         error,
         context: IoErrorContext::CurrentExe,
+        backtrace: HgBacktrace::capture(),
     })
 }
 
@@ -254,19 +261,112 @@ pub fn cap_default_rayon_threads() -> Result<(), rayon::ThreadPoolBuildError> {
     const THREAD_CAP: usize = 16;
 
     if std::env::var("RAYON_NUM_THREADS").is_err() {
-        let available_parallelism = std::thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(1);
+        let available_parallelism =
+            std::thread::available_parallelism().map(usize::from).unwrap_or(1);
         let new_thread_count = THREAD_CAP.min(available_parallelism);
         let res = rayon::ThreadPoolBuilder::new()
             .num_threads(new_thread_count)
             .build_global();
         if res.is_ok() {
-            log::trace!(
+            tracing::debug!(
+                name: "threadpool capped",
                 "Capped the rayon threadpool to {new_thread_count} threads",
             );
         }
         return res;
     }
     Ok(())
+}
+
+/// Limits the actual memory usage of all byte slices in its cache. It does not
+/// take into account the size of the map itself.
+///
+/// Note that the size could be an overestimate of the actual heap size since
+/// each [`Arc`] could point to the same underlying bytes. In practice, we
+/// don't use this cache in a way that could be confusing.
+pub struct ByTotalChunksSize {
+    /// Current sum of the length of all slices that have been inserted and
+    /// are still currently in cache.
+    total_chunks_size: usize,
+    /// Maximum of [`Self::total_chunks_size`] before old entries are
+    /// discarded.
+    max_chunks_size: usize,
+    /// When the maximum is increased, it also gets multiplied by this factor.
+    /// It is useful to make sure the cache can hold the uncompressed chunks
+    /// for a few revisions at any time, while limiting the memory usage to a
+    /// factor of what operations on these chunks would already cost anyway.
+    resize_factor: usize,
+}
+
+impl ByTotalChunksSize {
+    /// Return a new [`Self`] limiter with `max_chunks_size` bytes as a maximum
+    /// size for all bytes in cache.
+    pub fn new(max_chunks_size: usize, resize_factor: usize) -> Self {
+        Self { total_chunks_size: 0, max_chunks_size, resize_factor }
+    }
+
+    /// If `new_max` is larger than the current maximum, update the maximum to
+    /// be larger than `new_max` by [`Self::resize_factor`]
+    pub fn maybe_grow_max(&mut self, new_max: usize) {
+        if new_max > self.max_chunks_size {
+            // Too big to add even if the cache is empty, so grow the cache
+            self.max_chunks_size = new_max * self.resize_factor
+        }
+    }
+}
+
+impl<K> schnellru::Limiter<K, Arc<[u8]>> for ByTotalChunksSize
+where
+    K: PartialEq + core::fmt::Debug,
+{
+    type KeyToInsert<'a> = K;
+
+    type LinkType = u32;
+
+    fn is_over_the_limit(&self, _length: usize) -> bool {
+        self.total_chunks_size > self.max_chunks_size
+    }
+
+    fn on_insert(
+        &mut self,
+        _length: usize,
+        key: Self::KeyToInsert<'_>,
+        value: Arc<[u8]>,
+    ) -> Option<(K, Arc<[u8]>)> {
+        let new_size = value.len();
+        self.maybe_grow_max(new_size);
+
+        self.total_chunks_size += new_size;
+        Some((key, value))
+    }
+
+    fn on_replace(
+        &mut self,
+        _length: usize,
+        old_key: &mut K,
+        new_key: Self::KeyToInsert<'_>,
+        old_value: &mut Arc<[u8]>,
+        new_value: &mut Arc<[u8]>,
+    ) -> bool {
+        assert_eq!(*old_key, new_key);
+
+        let new_size = new_value.len();
+        self.maybe_grow_max(new_size);
+        let old_size = old_value.len();
+        self.total_chunks_size = self.total_chunks_size - old_size + new_size;
+        true
+    }
+
+    fn on_removed(&mut self, _key: &mut K, value: &mut Arc<[u8]>) {
+        self.total_chunks_size -= value.len();
+    }
+
+    fn on_cleared(&mut self) {
+        self.total_chunks_size = 0;
+    }
+
+    fn on_grow(&mut self, _new_memory_usage: usize) -> bool {
+        // We don't care about the size of the map itself
+        true
+    }
 }

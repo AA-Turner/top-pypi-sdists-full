@@ -39,7 +39,7 @@ license = {text = "GPL v3"}
 name = "hass-nabucasa"
 readme = "README.md"
 requires-python = ">=3.13"
-version = "0.110.0"
+version = "0.111.0"
 
 [project.optional-dependencies]
 test = [

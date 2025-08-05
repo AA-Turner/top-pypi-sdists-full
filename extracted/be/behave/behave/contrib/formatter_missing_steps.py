@@ -8,7 +8,7 @@ NOTE: This is only simplistic, proof-of-concept code.
 
 from __future__ import absolute_import, print_function
 from behave.runner_util import make_undefined_step_snippets
-from .steps import StepsUsageFormatter
+from behave.formatter.steps import StepsUsageFormatter
 
 
 STEP_MODULE_TEMPLATE = '''\
@@ -24,10 +24,12 @@ from behave import given, when, then, step
 
 
 class MissingStepsFormatter(StepsUsageFormatter):
-    """Formatter that writes missing steps snippets into a step module file.
+    """
+    Formatter that generates missing steps snippets (aka: undefined steps)
+    into a step module file.
 
-    Reuses StepsUsageFormatter class because it already contains the logic
-    for discovering missing/undefined steps.
+    This class reuses the StepsUsageFormatter class because
+    it already contains the logic for discovering missing/undefined steps.
 
     .. code-block:: ini
 
@@ -35,13 +37,14 @@ class MissingStepsFormatter(StepsUsageFormatter):
         # NOTE: Long text value needs indentation on following lines.
         [behave.userdata]
         behave.formatter.missing_steps.template = # -*- coding: {encoding} -*-
-            # Missing step implementations.
+            # -- MISSING STEP IMPLEMENTATIONS (aka: undefined steps)
             from behave import given, when, then, step
+            from behave.api.pending_step import StepNotImplementedError
 
-            {step_snippets}
+            {undefined_step_snippets}
     """
-    name = "missing-steps"
-    description = "Writes implementation for missing step definitions."
+    name = "steps.missing"
+    description = "Shows undefined/missing steps definitions, implements them."
     template = STEP_MODULE_TEMPLATE
     scope = "behave.formatter.missing_steps"
 
@@ -70,11 +73,13 @@ class MissingStepsFormatter(StepsUsageFormatter):
     # -- REPORT SPECIFIC-API:
     def report(self):
         """Writes missing step implementations by using step snippets."""
-        step_snippets = make_undefined_step_snippets(undefined_steps)
+        step_snippets = make_undefined_step_snippets(self.undefined_steps)
         encoding = self.stream.encoding or "UTF-8"
         function_separator = u"\n\n\n"
-        step_snippets_text = function_separator.join(step_snippets)
+        steps_text = function_separator.join(step_snippets)
         module_text = self.template.format(encoding=encoding,
-                                           step_snippets=step_snippets_text)
+                                           undefined_step_snippets=steps_text,
+                                           # -- BACKWARD-COMPATIBILITY:
+                                           step_snippets=steps_text)
         self.stream.write(module_text)
         self.stream.write("\n")

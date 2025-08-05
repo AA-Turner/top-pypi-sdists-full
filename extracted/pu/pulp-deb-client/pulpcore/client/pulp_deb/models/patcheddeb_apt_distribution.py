@@ -35,7 +35,8 @@ class PatcheddebAptDistribution(BaseModel):
     name: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="A unique name. Ex, `rawhide` and `stable`.")
     repository: Optional[StrictStr] = Field(default=None, description="The latest RepositoryVersion for this Repository will be served.")
     publication: Optional[StrictStr] = Field(default=None, description="Publication to be served")
-    __properties: ClassVar[List[str]] = ["base_path", "content_guard", "hidden", "pulp_labels", "name", "repository", "publication"]
+    checkpoint: Optional[StrictBool] = None
+    __properties: ClassVar[List[str]] = ["base_path", "content_guard", "hidden", "pulp_labels", "name", "repository", "publication", "checkpoint"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -109,7 +110,8 @@ class PatcheddebAptDistribution(BaseModel):
             "pulp_labels": obj.get("pulp_labels"),
             "name": obj.get("name"),
             "repository": obj.get("repository"),
-            "publication": obj.get("publication")
+            "publication": obj.get("publication"),
+            "checkpoint": obj.get("checkpoint")
         })
         return _obj
 

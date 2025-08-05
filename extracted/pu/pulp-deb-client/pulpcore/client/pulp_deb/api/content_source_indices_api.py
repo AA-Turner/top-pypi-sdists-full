@@ -50,6 +50,7 @@ class ContentSourceIndicesApi:
     def create(
         self,
         deb_source_index: DebSourceIndex,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -69,6 +70,8 @@ class ContentSourceIndicesApi:
 
         :param deb_source_index: (required)
         :type deb_source_index: DebSourceIndex
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -93,6 +96,7 @@ class ContentSourceIndicesApi:
 
         _param = self._create_serialize(
             deb_source_index=deb_source_index,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -117,6 +121,7 @@ class ContentSourceIndicesApi:
     def create_with_http_info(
         self,
         deb_source_index: DebSourceIndex,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -136,6 +141,8 @@ class ContentSourceIndicesApi:
 
         :param deb_source_index: (required)
         :type deb_source_index: DebSourceIndex
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -160,6 +167,7 @@ class ContentSourceIndicesApi:
 
         _param = self._create_serialize(
             deb_source_index=deb_source_index,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -184,6 +192,7 @@ class ContentSourceIndicesApi:
     def create_without_preload_content(
         self,
         deb_source_index: DebSourceIndex,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -203,6 +212,8 @@ class ContentSourceIndicesApi:
 
         :param deb_source_index: (required)
         :type deb_source_index: DebSourceIndex
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -227,6 +238,7 @@ class ContentSourceIndicesApi:
 
         _param = self._create_serialize(
             deb_source_index=deb_source_index,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -246,6 +258,7 @@ class ContentSourceIndicesApi:
     def _create_serialize(
         self,
         deb_source_index,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -255,6 +268,7 @@ class ContentSourceIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -269,6 +283,8 @@ class ContentSourceIndicesApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_source_index is not None:
@@ -326,6 +342,7 @@ class ContentSourceIndicesApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         component: Annotated[Optional[StrictStr], Field(description="Filter results where component matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -360,6 +377,8 @@ class ContentSourceIndicesApi:
 
         A SourceIndex represents the source indices of a single component.  Associated artifacts: Exactly one 'Sources' file. May optionally include one or more of 'Sources.gz', 'Sources.xz', 'Release'. If included, the 'Release' file is a legacy per-component-and-architecture Release file (with architecture always being 'source').  Note: The verbatim publisher will republish all associated artifacts, while the APT publisher (both simple and structured mode) will generate any 'Sources' files it needs when creating the publication. It does not make use of SourceIndex content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param component: Filter results where component matches value
         :type component: str
         :param limit: Number of results to return per page.
@@ -417,6 +436,7 @@ class ContentSourceIndicesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             component=component,
             limit=limit,
             offset=offset,
@@ -457,6 +477,7 @@ class ContentSourceIndicesApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         component: Annotated[Optional[StrictStr], Field(description="Filter results where component matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -491,6 +512,8 @@ class ContentSourceIndicesApi:
 
         A SourceIndex represents the source indices of a single component.  Associated artifacts: Exactly one 'Sources' file. May optionally include one or more of 'Sources.gz', 'Sources.xz', 'Release'. If included, the 'Release' file is a legacy per-component-and-architecture Release file (with architecture always being 'source').  Note: The verbatim publisher will republish all associated artifacts, while the APT publisher (both simple and structured mode) will generate any 'Sources' files it needs when creating the publication. It does not make use of SourceIndex content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param component: Filter results where component matches value
         :type component: str
         :param limit: Number of results to return per page.
@@ -548,6 +571,7 @@ class ContentSourceIndicesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             component=component,
             limit=limit,
             offset=offset,
@@ -588,6 +612,7 @@ class ContentSourceIndicesApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         component: Annotated[Optional[StrictStr], Field(description="Filter results where component matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
@@ -622,6 +647,8 @@ class ContentSourceIndicesApi:
 
         A SourceIndex represents the source indices of a single component.  Associated artifacts: Exactly one 'Sources' file. May optionally include one or more of 'Sources.gz', 'Sources.xz', 'Release'. If included, the 'Release' file is a legacy per-component-and-architecture Release file (with architecture always being 'source').  Note: The verbatim publisher will republish all associated artifacts, while the APT publisher (both simple and structured mode) will generate any 'Sources' files it needs when creating the publication. It does not make use of SourceIndex content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param component: Filter results where component matches value
         :type component: str
         :param limit: Number of results to return per page.
@@ -679,6 +706,7 @@ class ContentSourceIndicesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             component=component,
             limit=limit,
             offset=offset,
@@ -714,6 +742,7 @@ class ContentSourceIndicesApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         component,
         limit,
         offset,
@@ -740,6 +769,7 @@ class ContentSourceIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -828,6 +858,8 @@ class ContentSourceIndicesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -869,6 +901,7 @@ class ContentSourceIndicesApi:
     def read(
         self,
         deb_source_index_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -890,6 +923,8 @@ class ContentSourceIndicesApi:
 
         :param deb_source_index_href: (required)
         :type deb_source_index_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -918,6 +953,7 @@ class ContentSourceIndicesApi:
 
         _param = self._read_serialize(
             deb_source_index_href=deb_source_index_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -944,6 +980,7 @@ class ContentSourceIndicesApi:
     def read_with_http_info(
         self,
         deb_source_index_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -965,6 +1002,8 @@ class ContentSourceIndicesApi:
 
         :param deb_source_index_href: (required)
         :type deb_source_index_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -993,6 +1032,7 @@ class ContentSourceIndicesApi:
 
         _param = self._read_serialize(
             deb_source_index_href=deb_source_index_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1019,6 +1059,7 @@ class ContentSourceIndicesApi:
     def read_without_preload_content(
         self,
         deb_source_index_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1040,6 +1081,8 @@ class ContentSourceIndicesApi:
 
         :param deb_source_index_href: (required)
         :type deb_source_index_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1068,6 +1111,7 @@ class ContentSourceIndicesApi:
 
         _param = self._read_serialize(
             deb_source_index_href=deb_source_index_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1089,6 +1133,7 @@ class ContentSourceIndicesApi:
     def _read_serialize(
         self,
         deb_source_index_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1100,6 +1145,7 @@ class ContentSourceIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1126,6 +1172,8 @@ class ContentSourceIndicesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1168,6 +1216,7 @@ class ContentSourceIndicesApi:
         self,
         deb_source_index_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1189,6 +1238,8 @@ class ContentSourceIndicesApi:
         :type deb_source_index_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1214,6 +1265,7 @@ class ContentSourceIndicesApi:
         _param = self._set_label_serialize(
             deb_source_index_href=deb_source_index_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1239,6 +1291,7 @@ class ContentSourceIndicesApi:
         self,
         deb_source_index_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1260,6 +1313,8 @@ class ContentSourceIndicesApi:
         :type deb_source_index_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1285,6 +1340,7 @@ class ContentSourceIndicesApi:
         _param = self._set_label_serialize(
             deb_source_index_href=deb_source_index_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1310,6 +1366,7 @@ class ContentSourceIndicesApi:
         self,
         deb_source_index_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1331,6 +1388,8 @@ class ContentSourceIndicesApi:
         :type deb_source_index_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1356,6 +1415,7 @@ class ContentSourceIndicesApi:
         _param = self._set_label_serialize(
             deb_source_index_href=deb_source_index_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1376,6 +1436,7 @@ class ContentSourceIndicesApi:
         self,
         deb_source_index_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1385,6 +1446,7 @@ class ContentSourceIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1401,6 +1463,8 @@ class ContentSourceIndicesApi:
             _path_params['deb_source_index_href'] = deb_source_index_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1460,6 +1524,7 @@ class ContentSourceIndicesApi:
         self,
         deb_source_index_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1481,6 +1546,8 @@ class ContentSourceIndicesApi:
         :type deb_source_index_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1506,6 +1573,7 @@ class ContentSourceIndicesApi:
         _param = self._unset_label_serialize(
             deb_source_index_href=deb_source_index_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1531,6 +1599,7 @@ class ContentSourceIndicesApi:
         self,
         deb_source_index_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1552,6 +1621,8 @@ class ContentSourceIndicesApi:
         :type deb_source_index_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1577,6 +1648,7 @@ class ContentSourceIndicesApi:
         _param = self._unset_label_serialize(
             deb_source_index_href=deb_source_index_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1602,6 +1674,7 @@ class ContentSourceIndicesApi:
         self,
         deb_source_index_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1623,6 +1696,8 @@ class ContentSourceIndicesApi:
         :type deb_source_index_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1648,6 +1723,7 @@ class ContentSourceIndicesApi:
         _param = self._unset_label_serialize(
             deb_source_index_href=deb_source_index_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1668,6 +1744,7 @@ class ContentSourceIndicesApi:
         self,
         deb_source_index_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1677,6 +1754,7 @@ class ContentSourceIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1693,6 +1771,8 @@ class ContentSourceIndicesApi:
             _path_params['deb_source_index_href'] = deb_source_index_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:

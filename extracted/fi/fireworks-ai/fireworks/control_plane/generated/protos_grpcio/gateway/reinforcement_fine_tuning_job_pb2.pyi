@@ -4,9 +4,9 @@ from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
 from . import training_pb2 as _training_pb2
 from . import wandb_pb2 as _wandb_pb2
-from ..google.api import field_behavior_pb2 as _field_behavior_pb2
-from ..google.api import resource_pb2 as _resource_pb2
-from ..google.api import visibility_pb2 as _visibility_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.api import resource_pb2 as _resource_pb2
+from google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -17,7 +17,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class ReinforcementFineTuningJob(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "completed_time", "dataset", "evaluation_dataset", "eval_auto_carveout", "state", "status", "created_by", "training_config", "evaluator", "wandb_config", "output_stats", "job_progress", "inference_parameters", "chunk_size", "output_stats_internal", "output_metrics")
+    __slots__ = ("name", "display_name", "create_time", "completed_time", "dataset", "evaluation_dataset", "eval_auto_carveout", "state", "status", "created_by", "training_config", "evaluator", "wandb_config", "output_stats", "job_progress", "inference_parameters", "chunk_size", "output_stats_internal", "output_metrics", "mcp_server", "use_temporal_workflow")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -37,6 +37,8 @@ class ReinforcementFineTuningJob(_message.Message):
     CHUNK_SIZE_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_STATS_INTERNAL_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_METRICS_FIELD_NUMBER: _ClassVar[int]
+    MCP_SERVER_FIELD_NUMBER: _ClassVar[int]
+    USE_TEMPORAL_WORKFLOW_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     create_time: _timestamp_pb2.Timestamp
@@ -56,7 +58,9 @@ class ReinforcementFineTuningJob(_message.Message):
     chunk_size: int
     output_stats_internal: str
     output_metrics: str
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., evaluation_dataset: _Optional[str] = ..., eval_auto_carveout: bool = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., training_config: _Optional[_Union[_training_pb2.BaseTrainingConfig, _Mapping]] = ..., evaluator: _Optional[str] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., output_stats: _Optional[str] = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., inference_parameters: _Optional[_Union[_batch_inference_job_pb2.InferenceParameters, _Mapping]] = ..., chunk_size: _Optional[int] = ..., output_stats_internal: _Optional[str] = ..., output_metrics: _Optional[str] = ...) -> None: ...
+    mcp_server: str
+    use_temporal_workflow: bool
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., completed_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., dataset: _Optional[str] = ..., evaluation_dataset: _Optional[str] = ..., eval_auto_carveout: bool = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., created_by: _Optional[str] = ..., training_config: _Optional[_Union[_training_pb2.BaseTrainingConfig, _Mapping]] = ..., evaluator: _Optional[str] = ..., wandb_config: _Optional[_Union[_wandb_pb2.WandbConfig, _Mapping]] = ..., output_stats: _Optional[str] = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., inference_parameters: _Optional[_Union[_batch_inference_job_pb2.InferenceParameters, _Mapping]] = ..., chunk_size: _Optional[int] = ..., output_stats_internal: _Optional[str] = ..., output_metrics: _Optional[str] = ..., mcp_server: _Optional[str] = ..., use_temporal_workflow: bool = ...) -> None: ...
 
 class GetReinforcementFineTuningJobRequest(_message.Message):
     __slots__ = ("name", "read_mask")

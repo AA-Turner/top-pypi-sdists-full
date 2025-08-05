@@ -422,6 +422,7 @@ __all__ = (
     "VariantPropertyTypeType",
     "VariantStatusType",
     "VendorGuidanceType",
+    "VolumeAttachmentStatusType",
     "WaiterName",
     "WarmPoolResourceStatusType",
     "WorkforceIpAddressTypeType",
@@ -2376,6 +2377,7 @@ UserProfileStatusType = Literal[
 VariantPropertyTypeType = Literal["DataCaptureConfig", "DesiredInstanceCount", "DesiredWeight"]
 VariantStatusType = Literal["ActivatingTraffic", "Baking", "Creating", "Deleting", "Updating"]
 VendorGuidanceType = Literal["ARCHIVED", "NOT_PROVIDED", "STABLE", "TO_BE_ARCHIVED"]
+VolumeAttachmentStatusType = Literal["attached", "attaching", "busy", "detached", "detaching"]
 WarmPoolResourceStatusType = Literal["Available", "InUse", "Reused", "Terminated"]
 WorkforceIpAddressTypeType = Literal["dualstack", "ipv4"]
 WorkforceStatusType = Literal["Active", "Deleting", "Failed", "Initializing", "Updating"]
@@ -2407,6 +2409,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",

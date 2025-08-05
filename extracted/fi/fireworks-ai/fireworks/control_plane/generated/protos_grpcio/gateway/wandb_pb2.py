@@ -22,7 +22,7 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from ..google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
+from google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13gateway/wandb.proto\x12\x07gateway\x1a\x1fgoogle/api/field_behavior.proto\"\x95\x01\n\x0bWandbConfig\x12\x15\n\x07\x65nabled\x18\x01 \x01(\x08\x42\x04\xe2\x41\x01\x01\x12\x15\n\x07\x61pi_key\x18\x02 \x01(\tB\x04\xe2\x41\x01\x01\x12\x15\n\x07project\x18\x03 \x01(\tB\x04\xe2\x41\x01\x01\x12\x14\n\x06\x65ntity\x18\x04 \x01(\tB\x04\xe2\x41\x01\x01\x12\x16\n\x06run_id\x18\x05 \x01(\tB\x06\x18\x01\xe2\x41\x01\x01\x12\x13\n\x03url\x18\x06 \x01(\tB\x06\xe2\x41\x03\x03\x05\x01\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')

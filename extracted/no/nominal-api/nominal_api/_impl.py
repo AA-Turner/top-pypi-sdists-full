@@ -46654,6 +46654,34 @@ scout_compute_api_NumericHistogramPlot.__qualname__ = "NumericHistogramPlot"
 scout_compute_api_NumericHistogramPlot.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_NumericOutputField(ConjureEnumType):
+
+    MIN = 'MIN'
+    '''MIN'''
+    MAX = 'MAX'
+    '''MAX'''
+    MEAN = 'MEAN'
+    '''MEAN'''
+    COUNT = 'COUNT'
+    '''COUNT'''
+    VARIANCE = 'VARIANCE'
+    '''VARIANCE'''
+    FIRST_POINT = 'FIRST_POINT'
+    '''FIRST_POINT'''
+    LAST_POINT = 'LAST_POINT'
+    '''LAST_POINT'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_NumericOutputField.__name__ = "NumericOutputField"
+scout_compute_api_NumericOutputField.__qualname__ = "NumericOutputField"
+scout_compute_api_NumericOutputField.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_NumericPlot(ConjureBeanType):
 
     @builtins.classmethod
@@ -51356,16 +51384,18 @@ Summarization strategy should be specified.
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_Series),
             'output_format': ConjureFieldDefinition('outputFormat', OptionalTypeWrapper[scout_compute_api_OutputFormat]),
+            'numeric_output_fields': ConjureFieldDefinition('numericOutputFields', OptionalTypeWrapper[List[scout_compute_api_NumericOutputField]]),
             'resolution': ConjureFieldDefinition('resolution', OptionalTypeWrapper[int]),
             'buckets': ConjureFieldDefinition('buckets', OptionalTypeWrapper[int]),
             'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', OptionalTypeWrapper[scout_compute_api_SummarizationStrategy])
         }
 
-    __slots__: List[str] = ['_input', '_output_format', '_resolution', '_buckets', '_summarization_strategy']
+    __slots__: List[str] = ['_input', '_output_format', '_numeric_output_fields', '_resolution', '_buckets', '_summarization_strategy']
 
-    def __init__(self, input: "scout_compute_api_Series", buckets: Optional[int] = None, output_format: Optional["scout_compute_api_OutputFormat"] = None, resolution: Optional[int] = None, summarization_strategy: Optional["scout_compute_api_SummarizationStrategy"] = None) -> None:
+    def __init__(self, input: "scout_compute_api_Series", buckets: Optional[int] = None, numeric_output_fields: Optional[List["scout_compute_api_NumericOutputField"]] = None, output_format: Optional["scout_compute_api_OutputFormat"] = None, resolution: Optional[int] = None, summarization_strategy: Optional["scout_compute_api_SummarizationStrategy"] = None) -> None:
         self._input = input
         self._output_format = output_format
+        self._numeric_output_fields = numeric_output_fields
         self._resolution = resolution
         self._buckets = buckets
         self._summarization_strategy = summarization_strategy
@@ -51379,6 +51409,12 @@ Summarization strategy should be specified.
         """The output format of the response. Defaults to LEGACY.
         """
         return self._output_format
+
+    @builtins.property
+    def numeric_output_fields(self) -> Optional[List["scout_compute_api_NumericOutputField"]]:
+        """The fields to output from the summarization. Applies only to Arrow format numeric series.
+        """
+        return self._numeric_output_fields
 
     @builtins.property
     def resolution(self) -> Optional[int]:
@@ -60582,15 +60618,17 @@ Summarization strategy should be specified.
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_SeriesNode),
             'summarization_strategy': ConjureFieldDefinition('summarizationStrategy', scout_compute_api_SummarizationStrategy),
-            'output_format': ConjureFieldDefinition('outputFormat', scout_compute_api_OutputFormat)
+            'output_format': ConjureFieldDefinition('outputFormat', scout_compute_api_OutputFormat),
+            'numeric_output_fields': ConjureFieldDefinition('numericOutputFields', OptionalTypeWrapper[List[scout_compute_api_NumericOutputField]])
         }
 
-    __slots__: List[str] = ['_input', '_summarization_strategy', '_output_format']
+    __slots__: List[str] = ['_input', '_summarization_strategy', '_output_format', '_numeric_output_fields']
 
-    def __init__(self, input: "scout_compute_resolved_api_SeriesNode", output_format: "scout_compute_api_OutputFormat", summarization_strategy: "scout_compute_api_SummarizationStrategy") -> None:
+    def __init__(self, input: "scout_compute_resolved_api_SeriesNode", output_format: "scout_compute_api_OutputFormat", summarization_strategy: "scout_compute_api_SummarizationStrategy", numeric_output_fields: Optional[List["scout_compute_api_NumericOutputField"]] = None) -> None:
         self._input = input
         self._summarization_strategy = summarization_strategy
         self._output_format = output_format
+        self._numeric_output_fields = numeric_output_fields
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_SeriesNode":
@@ -60605,6 +60643,10 @@ Summarization strategy should be specified.
     @builtins.property
     def output_format(self) -> "scout_compute_api_OutputFormat":
         return self._output_format
+
+    @builtins.property
+    def numeric_output_fields(self) -> Optional[List["scout_compute_api_NumericOutputField"]]:
+        return self._numeric_output_fields
 
 
 scout_compute_resolved_api_SummarizeSeriesNode.__name__ = "SummarizeSeriesNode"

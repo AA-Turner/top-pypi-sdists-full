@@ -149,6 +149,10 @@ __all__ = (
     "ListHuggingFaceBillingCostsRecords",
     "BillingRequestCostRecord",
     "ListHuggingFaceBillingCostsResponse",
+    "GetAccountUsageRequest",
+    "AccountUsage",
+    "AccountUsageServerlessUsage",
+    "AccountUsageDedicatedDeploymentUsage",
     "Cluster",
     "EksCluster",
     "FakeCluster",
@@ -728,6 +732,16 @@ class JobState(betterproto.Enum):
     
     """
 
+    RE_QUEUEING = 18
+    """
+    
+    """
+
+    CREATING_INPUT_DATASET = 19
+    """
+    
+    """
+
 
 class UserState(betterproto.Enum):
     """ """
@@ -895,13 +909,28 @@ class Region(betterproto.Enum):
     """Voltage Park us-pyl-1"""
 
     US_WASHINGTON_2 = 19
-    """Vultr Seattle"""
+    """Voltage Park us-seattle-2"""
 
     EU_ICELAND_DEV_1 = 20
-    """Crusoe eu-iceland1 (dev)"""
+    """Crusoe eu-iceland1 (dev) [HIDE_FROM_DOCS]"""
 
     US_WASHINGTON_3 = 21
     """Vultr Seattle 1"""
+
+    US_ARIZONA_2 = 22
+    """Azure westus3 (Anysphere BYOC) [HIDE_FROM_DOCS]"""
+
+    AP_TOKYO_2 = 23
+    """AWS ap-northeast-1"""
+
+    US_CALIFORNIA_1 = 24
+    """AWS us-west-1 (N. California)"""
+
+    US_MISSOURI_1 = 25
+    """Nebius us-central1 (Anysphere BYOC) [HIDE_FROM_DOCS]"""
+
+    US_UTAH_1 = 26
+    """GCP us-west3 (Utah)"""
 
 
 class MultiRegion(betterproto.Enum):
@@ -2489,6 +2518,11 @@ class AuditLogEntry(betterproto.Message):
     resource: str = betterproto.string_field(8)
     """The resource being operated on (e.g. accounts/123)"""
 
+    is_admin_action: bool = betterproto.bool_field(9)
+    """
+    Whether this action was taken by an admin and should not be shown to regular users
+    """
+
 
 @dataclass(eq=False, repr=False)
 class ListAuditLogsRequest(betterproto.Message):
@@ -2671,7 +2705,7 @@ class DeleteAwsIamRoleBindingRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Deployment(betterproto.Message):
-    """Next ID: 71"""
+    """Next ID: 72"""
 
     name: str = betterproto.string_field(1)
     """
@@ -2933,6 +2967,9 @@ class Deployment(betterproto.Message):
     workload: str = betterproto.string_field(70)
     """The name of the workload that owns this deployment."""
 
+    spot: bool = betterproto.bool_field(71)
+    """Whether to use spot instances for this deployment."""
+
 
 @dataclass(eq=False, repr=False)
 class Placement(betterproto.Message):
@@ -3018,6 +3055,12 @@ class CreateDeploymentRequest(betterproto.Message):
     deployment_id: str = betterproto.string_field(7)
     """
     The ID of the deployment. If not specified, a random ID will be generated.
+    """
+
+    dry_run: bool = betterproto.bool_field(8)
+    """
+    If true, this will not create the deployment, but will return the deployment
+    that would be created.
     """
 
 
@@ -3358,7 +3401,7 @@ class JobProgress(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class BatchInferenceJob(betterproto.Message):
-    """Next ID: 24"""
+    """Next ID: 27"""
 
     name: str = betterproto.string_field(1)
     """
@@ -3471,6 +3514,15 @@ class BatchInferenceJob(betterproto.Message):
 
     deployment_extra_args: List[str] = betterproto.string_field(25)
     """The extra args for deployment"""
+
+    mcp_server: str = betterproto.string_field(26)
+    """MCP server for rollout-based batch inference (used with RFT)"""
+
+    continued_from_job_name: str = betterproto.string_field(27)
+    """
+    The resource name of the batch inference job that this job continues from.
+    Used for lineage tracking to understand job continuation chains.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -4439,6 +4491,79 @@ class ListHuggingFaceBillingCostsResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class GetAccountUsageRequest(betterproto.Message):
+    """Request to get costs broken down by deployment type and model"""
+
+    name: str = betterproto.string_field(1)
+    """The account name of the customer."""
+
+    start_time: datetime = betterproto.message_field(2)
+    """Costs returned are inclusive of `start_time`."""
+
+    end_time: datetime = betterproto.message_field(3)
+    """Costs returned are exclusive of `end_time`."""
+
+
+@dataclass(eq=False, repr=False)
+class AccountUsage(betterproto.Message):
+    """Response with model costs by deployment type"""
+
+    serverless_costs: List["AccountUsageServerlessUsage"] = betterproto.message_field(1)
+    """List of serverless cost data"""
+
+    dedicated_costs: List["AccountUsageDedicatedDeploymentUsage"] = (
+        betterproto.message_field(2)
+    )
+    """List of dedicated deployment cost data"""
+
+
+@dataclass(eq=False, repr=False)
+class AccountUsageServerlessUsage(betterproto.Message):
+    """Raw data from BigQuery for serverless deployments"""
+
+    model_name: str = betterproto.string_field(1)
+    """The model name"""
+
+    prompt_tokens: int = betterproto.int64_field(2)
+    """Number of prompt tokens (for text inference)"""
+
+    completion_tokens: int = betterproto.int64_field(3)
+    """Number of completion tokens (for text inference)"""
+
+    start_time: datetime = betterproto.message_field(4)
+    """Start time of the usage"""
+
+    end_time: datetime = betterproto.message_field(5)
+    """End time of the usage"""
+
+    audio_input_seconds: float = betterproto.double_field(6)
+    """Audio input seconds (for audio inference)"""
+
+    usage_type: str = betterproto.string_field(7)
+    """Usage type to distinguish between different inference types"""
+
+
+@dataclass(eq=False, repr=False)
+class AccountUsageDedicatedDeploymentUsage(betterproto.Message):
+    """Raw data from BigQuery for dedicated deployments"""
+
+    deployment_id: str = betterproto.string_field(1)
+    """The deployment ID"""
+
+    accelerator_type: str = betterproto.string_field(2)
+    """GPU type / accelerator type"""
+
+    accelerator_seconds: float = betterproto.double_field(3)
+    """Accelerator seconds"""
+
+    start_time: datetime = betterproto.message_field(4)
+    """Start time of the usage"""
+
+    end_time: datetime = betterproto.message_field(5)
+    """End time of the usage"""
+
+
+@dataclass(eq=False, repr=False)
 class Cluster(betterproto.Message):
     """Next ID: 15"""
 
@@ -4750,7 +4875,7 @@ class ClusterConnectionInfo(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Dataset(betterproto.Message):
-    """Next ID: 21"""
+    """Next ID: 22"""
 
     name: str = betterproto.string_field(1)
     """
@@ -4836,6 +4961,12 @@ class Dataset(betterproto.Message):
 
     update_time: datetime = betterproto.message_field(17)
     """The update time for the dataset."""
+
+    source_job_name: str = betterproto.string_field(21)
+    """
+    The resource name of the job that created this dataset (e.g., batch inference job).
+    Used for lineage tracking to understand dataset provenance.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -5111,6 +5242,12 @@ class GetDatasetDownloadEndpointRequest(betterproto.Message):
     )
     """
     The fields to be returned in the response. If empty or "*", all fields will be returned.
+    """
+
+    download_lineage: bool = betterproto.bool_field(3)
+    """
+    If true, downloads entire lineage chain (all related datasets).
+    Filenames will be prefixed with dataset IDs to avoid collisions.
     """
 
 
@@ -5406,7 +5543,7 @@ class DeleteDatasetValidationJobRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class DeployedModel(betterproto.Message):
-    """Next ID: 14"""
+    """Next ID: 17"""
 
     name: str = betterproto.string_field(1)
     """
@@ -5457,6 +5594,22 @@ class DeployedModel(betterproto.Message):
 
     update_time: datetime = betterproto.message_field(13)
     """The update time for the deployed model."""
+
+    load_balancer_name: str = betterproto.string_field(14)
+    """The name of the load balancer associated with this deployed model."""
+
+    load_balancer_replica_capacity: float = betterproto.float_field(16)
+    """
+    A multiplier for deployment weight in load balancer, proportional to replica capacity.
+    If not specified or zero, defaults to 1.
+    """
+
+    is_load_balancer_sticky_session: bool = betterproto.bool_field(15)
+    """
+    Whether to enable sticky sessions for this deployed model's load balancer.
+    This value is only used if default=true, as only the default deployment
+    controls the load balancer configuration.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -8433,7 +8586,7 @@ class DeleteMcpServerRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Model(betterproto.Message):
-    """Next ID: 53"""
+    """Next ID: 55"""
 
     name: str = betterproto.string_field(1)
     """
@@ -8618,6 +8771,19 @@ class Model(betterproto.Message):
 
     training_context_length: int = betterproto.int32_field(50)
     """The maximum context length supported by the model."""
+
+    image_tag: str = betterproto.string_field(53)
+    """
+    The container image tag to use. If not specified, the latest production
+    version will be used.
+    """
+
+    annotations: Dict[str, str] = betterproto.map_field(
+        54, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """
+    Annotations for the model. Used for storing metadata like image-tag-reason.
+    """
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -10020,6 +10186,14 @@ class ReinforcementFineTuningJob(betterproto.Message):
     """
     
     """
+
+    mcp_server: str = betterproto.string_field(21)
+    """
+    
+    """
+
+    use_temporal_workflow: bool = betterproto.bool_field(22)
+    """Whether to use the Temporal workflow for this job."""
 
 
 @dataclass(eq=False, repr=False)
@@ -11784,6 +11958,25 @@ class GatewayStub(betterproto.ServiceStub):
             "/gateway.Gateway/GetTotalHistoricalSpend",
             get_total_historical_spend_request,
             GetTotalHistoricalSpendResponse,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def get_account_usage(
+        self,
+        get_account_usage_request: "GetAccountUsageRequest",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None,
+    ) -> "AccountUsage":
+        """Get account usage (serverless and on-demand)"""
+
+        return await self._unary_unary(
+            "/gateway.Gateway/GetAccountUsage",
+            get_account_usage_request,
+            AccountUsage,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -15549,6 +15742,13 @@ class GatewayBase(ServiceBase):
 
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def get_account_usage(
+        self, get_account_usage_request: "GetAccountUsageRequest"
+    ) -> "AccountUsage":
+        """Get account usage (serverless and on-demand)"""
+
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def create_batch_job(
         self, create_batch_job_request: "CreateBatchJobRequest"
     ) -> "BatchJob":
@@ -17067,6 +17267,13 @@ class GatewayBase(ServiceBase):
         response = await self.get_total_historical_spend(request)
         await stream.send_message(response)
 
+    async def __rpc_get_account_usage(
+        self, stream: "grpclib.server.Stream[GetAccountUsageRequest, AccountUsage]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.get_account_usage(request)
+        await stream.send_message(response)
+
     async def __rpc_create_batch_job(
         self, stream: "grpclib.server.Stream[CreateBatchJobRequest, BatchJob]"
     ) -> None:
@@ -18558,6 +18765,12 @@ class GatewayBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 GetTotalHistoricalSpendRequest,
                 GetTotalHistoricalSpendResponse,
+            ),
+            "/gateway.Gateway/GetAccountUsage": grpclib.const.Handler(
+                self.__rpc_get_account_usage,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                GetAccountUsageRequest,
+                AccountUsage,
             ),
             "/gateway.Gateway/CreateBatchJob": grpclib.const.Handler(
                 self.__rpc_create_batch_job,

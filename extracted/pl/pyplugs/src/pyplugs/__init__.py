@@ -25,12 +25,14 @@ from pyplugs._plugins import (
     PluginInfo,
     call,
     call_factory,
+    call_typed,
     exists,
     exists_factory,
     funcs,
     funcs_factory,
     get,
     get_factory,
+    get_typed,
     info,
     info_factory,
     labels,
@@ -48,12 +50,14 @@ __all__ = [
     "UnknownPluginFunctionError",
     "call",
     "call_factory",
+    "call_typed",
     "exists",
     "exists_factory",
     "funcs",
     "funcs_factory",
     "get",
     "get_factory",
+    "get_typed",
     "info",
     "info_factory",
     "labels",
@@ -66,7 +70,7 @@ __all__ = [
 # Version of PyPlugs.
 #
 # This is automatically set using the bumpver tool
-__version__ = "0.5.3"
+__version__ = "0.5.4"
 
 
 # Homepage for PyPlugs

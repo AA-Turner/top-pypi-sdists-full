@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 from anyio import open_file
 from orjson import loads
@@ -58,6 +59,7 @@ async def handle_ui(request: ApiRequest) -> Response:
             return host.startswith(needle + ":") or host == needle
 
         protocol = "http:" if is_host("localhost") or is_host("127.0.0.1") else ""
+        valid_js_name = re.sub(r"[^a-zA-Z0-9]", "_", graph_id)
 
         if ext == ".css":
             result.append(
@@ -66,7 +68,7 @@ async def handle_ui(request: ApiRequest) -> Response:
         elif ext == ".js":
             result.append(
                 f'<script src="{protocol}//{host}/ui/{graph_id}/{basename}" '
-                f"onload='__LGUI_{graph_id}.render({json.dumps(message['name'])}, \"{{{{shadowRootId}}}}\")'>"
+                f"onload='__LGUI_{valid_js_name}.render({json.dumps(message['name'])}, \"{{{{shadowRootId}}}}\")'>"
                 "</script>"
             )
 

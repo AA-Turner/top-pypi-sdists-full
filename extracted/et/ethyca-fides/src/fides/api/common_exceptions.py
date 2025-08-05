@@ -151,6 +151,10 @@ class NotSupportedForCollection(BaseException):
     """The given action is not supported for this type of collection"""
 
 
+class TableNotFound(BaseException):
+    """Table or collection does not exist in the database/system"""
+
+
 class PrivacyRequestExit(BaseException):
     """Privacy request exiting processing waiting on subtasks to complete"""
 
@@ -281,6 +285,10 @@ class SSHTunnelConfigNotFoundException(Exception):
 
 class MalisciousUrlException(Exception):
     """Fides has detected a potentially maliscious URL."""
+
+
+class MaskingSecretsExpired(BaseException):
+    """The cached masking secrets have expired for the given privacy request."""
 
 
 class AuthenticationError(HTTPException):

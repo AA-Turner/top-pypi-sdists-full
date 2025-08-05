@@ -22,9 +22,10 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from google.api import visibility_pb2 as google_dot_api_dot_visibility__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1agateway/job_progress.proto\x12\x07gateway\"\x80\x02\n\x0bJobProgress\x12\x0f\n\x07percent\x18\x01 \x01(\x05\x12\r\n\x05\x65poch\x18\x02 \x01(\x05\x12\r\n\x05\x63hunk\x18\x03 \x01(\x05\x12\x1c\n\x14total_input_requests\x18\x04 \x01(\x05\x12 \n\x18total_processed_requests\x18\x05 \x01(\x05\x12\'\n\x1fsuccessfully_processed_requests\x18\x06 \x01(\x05\x12\x17\n\x0f\x66\x61iled_requests\x18\x07 \x01(\x05\x12\x13\n\x0boutput_rows\x18\x08 \x01(\x05\x12\x14\n\x0cinput_tokens\x18\t \x01(\x05\x12\x15\n\routput_tokens\x18\n \x01(\x05\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1agateway/job_progress.proto\x12\x07gateway\x1a\x1bgoogle/api/visibility.proto\"\x98\x02\n\x0bJobProgress\x12\x0f\n\x07percent\x18\x01 \x01(\x05\x12\r\n\x05\x65poch\x18\x02 \x01(\x05\x12%\n\x05\x63hunk\x18\x03 \x01(\x05\x42\x16\xfa\xd2\xe4\x93\x02\x10\x12\x0eSUPERUSER_ONLY\x12\x1c\n\x14total_input_requests\x18\x04 \x01(\x05\x12 \n\x18total_processed_requests\x18\x05 \x01(\x05\x12\'\n\x1fsuccessfully_processed_requests\x18\x06 \x01(\x05\x12\x17\n\x0f\x66\x61iled_requests\x18\x07 \x01(\x05\x12\x13\n\x0boutput_rows\x18\x08 \x01(\x05\x12\x14\n\x0cinput_tokens\x18\t \x01(\x05\x12\x15\n\routput_tokens\x18\n \x01(\x05\x42\x43ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,6 +33,8 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'gateway.job_progress_pb2', 
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'ZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gateway'
-  _globals['_JOBPROGRESS']._serialized_start=40
-  _globals['_JOBPROGRESS']._serialized_end=296
+  _globals['_JOBPROGRESS'].fields_by_name['chunk']._loaded_options = None
+  _globals['_JOBPROGRESS'].fields_by_name['chunk']._serialized_options = b'\372\322\344\223\002\020\022\016SUPERUSER_ONLY'
+  _globals['_JOBPROGRESS']._serialized_start=69
+  _globals['_JOBPROGRESS']._serialized_end=349
 # @@protoc_insertion_point(module_scope)

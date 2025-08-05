@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp
-Version: 2.11.0
+Version: 2.11.1
 Summary: The fast, Pythonic way to build MCP servers and clients.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/jlowin/fastmcp

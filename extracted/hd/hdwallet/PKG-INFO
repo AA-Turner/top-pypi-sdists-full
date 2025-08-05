@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: hdwallet
-Version: 3.6.0
+Version: 3.6.1
 Summary: Python-based library implementing a Hierarchical Deterministic (HD) Wallet generator for 200+ cryptocurrencies.
 Home-page: https://hdwallet.io
 Author: Meheret Tesfaye Batu
@@ -43,6 +43,20 @@ Provides-Extra: tests
 Requires-Dist: pytest<9,>=8.3.2; extra == "tests"
 Requires-Dist: coverage<8,>=7.6.4; extra == "tests"
 Requires-Dist: tox<5,>=4.23.2; extra == "tests"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Hierarchical Deterministic (HD) Wallet
 
@@ -137,10 +151,8 @@ hdwallet: HDWallet = HDWallet(
 print(json.dumps(hdwallet.dumps(exclude={"indexes"}), indent=4, ensure_ascii=False))  # dumps
 ```
 
-<br/>
-
 <details open>
-  <summary>Output</summary>
+  <summary>Output</summary><br/>
 
 ```json
 {
@@ -281,10 +293,8 @@ for derivation in hdwallet.dumps(exclude={"root", "indexes"}):
     print(f"{derivation['at']['path']} {derivation['address']} 0x{derivation['private_key']}")
 ```
 
-<br/>
-
 <details open>
-  <summary>Output</summary>
+  <summary>Output</summary><br/>
 
 ```shell script
 Mnemonic: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
@@ -410,10 +420,8 @@ for address_type in ["legacy", "nested-segwit", "native-segwit"]:
     ), indent=4))
 ```
 
-<br/>
-
 <details open>
-  <summary>Output</summary>
+  <summary>Output</summary><br/>
 
 ```shell script
 Mnemonic: abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about 
@@ -499,6 +507,7 @@ If this tool was helpful, support its development with a donation or a ⭐!
 - **EVM-Chains**: `0xD3cbCB0B6F82A03C715D665b72dC44CEf54e6D9B` | `meherett.eth`
 - **Bitcoin**: `16c7ajUwHEMaafrceuYSrd35SDjmfVdjoS`
 
+> [!TIP]
 > We accept a wide range of cryptocurrencies! If you'd like to donate using another coin, generate an address using the following ECC public keys at [https://hdwallet.online](https://hdwallet.online):
 >
 > - **SLIP10-Secp256k1**: [029890465120fb6c4efecdfcfd149f8333b0929b98976722a28ee39f5344d29eee](https://hdwallet.online/dumps/slip10-secp256k1/BTC?network=mainnet&hd=BIP32&from=public-key&public-key=029890465120fb6c4efecdfcfd149f8333b0929b98976722a28ee39f5344d29eee&public-key-type=compressed&format=JSON&exclude=root&generate=true)                                         

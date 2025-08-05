@@ -189,6 +189,10 @@ impl TArgs {
         self.0.0.iter().zip(self.0.1.iter())
     }
 
+    pub fn iter_paired_mut(&mut self) -> impl ExactSizeIterator<Item = (&TParam, &mut Type)> {
+        self.0.0.iter().zip(self.0.1.iter_mut())
+    }
+
     pub fn len(&self) -> usize {
         self.0.1.len()
     }
@@ -213,12 +217,12 @@ impl TArgs {
     /// This is mainly useful to take ancestors coming from the MRO (which are always in terms
     /// of the current class's type parameters) and re-express them in terms of the current
     /// class specialized with type arguments.
-    pub fn apply_substitution(&self, substitution: &Substitution) -> Self {
+    pub fn substitute_with(&self, substitution: &Substitution) -> Self {
         let tys = self
             .0
             .1
             .iter()
-            .map(|ty| substitution.substitute(ty.clone()))
+            .map(|ty| substitution.substitute_into(ty.clone()))
             .collect();
         Self::new(self.0.0.dupe(), tys)
     }
@@ -229,16 +233,20 @@ impl TArgs {
         Substitution(tparams.quantifieds().zip(tys.iter()).collect())
     }
 
-    pub fn substitute(&self, ty: Type) -> Type {
-        self.substitution().substitute(ty)
+    pub fn substitute_into(&self, ty: Type) -> Type {
+        self.substitution().substitute_into(ty)
     }
 }
 
 pub struct Substitution<'a>(SmallMap<&'a Quantified, &'a Type>);
 
 impl<'a> Substitution<'a> {
-    pub fn substitute(&self, ty: Type) -> Type {
+    pub fn substitute_into(&self, ty: Type) -> Type {
         ty.subst(&self.0)
+    }
+
+    pub fn as_map(&self) -> &SmallMap<&Quantified, &Type> {
+        &self.0
     }
 }
 
@@ -508,7 +516,7 @@ pub struct Forall<T> {
 
 impl Forall<Forallable> {
     pub fn apply_targs(self, targs: TArgs) -> Type {
-        targs.substitute(self.body.as_type())
+        targs.substitute_into(self.body.as_type())
     }
 }
 
@@ -1196,6 +1204,7 @@ impl Type {
     pub fn promote_literals(self, stdlib: &Stdlib) -> Type {
         self.transform(&mut |ty| match &ty {
             Type::Literal(lit) => *ty = lit.general_class_type(stdlib).clone().to_type(),
+            Type::LiteralString => *ty = stdlib.str().clone().to_type(),
             _ => {}
         })
     }

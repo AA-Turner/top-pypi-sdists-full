@@ -70,11 +70,17 @@ class Executor:
                     type_annotations.is_list_of_artifacts(annotation.__origin__)
                 ) or type_annotations.is_list_of_artifacts(annotation)
                 if is_list_of_artifacts:
+                    # Get the annotation of the inner type of the list
+                    # to use when creating the artifacts
+                    inner_annotation = type_annotations.get_inner_type(
+                        annotation)
+
                     self.input_artifacts[name] = [
                         self.make_artifact(
                             msg,
                             name,
                             self.func,
+                            annotation=inner_annotation,
                         ) for msg in list_of_artifact_proto_structs
                     ]
                 else:
@@ -102,8 +108,10 @@ class Executor:
         runtime_artifact: Dict,
         name: str,
         func: Callable,
+        annotation: Optional[Any] = None,
     ) -> Any:
-        annotation = func.__annotations__.get(name)
+        annotation = func.__annotations__.get(
+            name) if annotation is None else annotation
         if isinstance(annotation, type_annotations.InputPath):
             schema_title, _ = annotation.type.split('@')
             if schema_title in artifact_types._SCHEMA_TITLE_TO_TYPE:
@@ -320,16 +328,24 @@ class Executor:
             # `Optional[str]`. In this case, we need to strip off the part
             # `Optional[]` to get the actual parameter type.
             v = type_annotations.maybe_strip_optional_from_annotation(v)
-
             if v == task_final_status.PipelineTaskFinalStatus:
                 value = self.get_input_parameter_value(k)
+
+                # PipelineTaskFinalStatus field names pipelineJobResourceName and pipelineTaskName are deprecated. Support for these fields will be removed at a later date.
+                pipline_job_resource_name = 'pipelineJobResourceName'
+                if value.get(pipline_job_resource_name) is None:
+                    pipline_job_resource_name = 'pipeline_job_resource_name'
+                pipeline_task_name = 'pipelineTaskName'
+                if value.get(pipeline_task_name) is None:
+                    pipeline_task_name = 'pipeline_task_name'
+
                 func_kwargs[k] = task_final_status.PipelineTaskFinalStatus(
                     state=value.get('state'),
                     pipeline_job_resource_name=value.get(
-                        'pipelineJobResourceName'),
-                    pipeline_task_name=value.get('pipelineTaskName'),
-                    error_code=value.get('error').get('code', None),
-                    error_message=value.get('error').get('message', None),
+                        pipline_job_resource_name),
+                    pipeline_task_name=value.get(pipeline_task_name),
+                    error_code=value.get('error', {}).get('code', None),
+                    error_message=value.get('error', {}).get('message', None),
                 )
 
             elif type_annotations.is_list_of_artifacts(v):

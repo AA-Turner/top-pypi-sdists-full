@@ -1,50 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: PyWavelets
-Version: 1.8.0
+Version: 1.9.0
 Summary: PyWavelets, wavelet transform module
 Maintainer-Email: The PyWavelets Developers <pywavelets@googlegroups.com>
-License: Copyright (c) 2006-2012 Filip Wasilewski <http://en.ig.ma/>
-         Copyright (c) 2012-2020 The PyWavelets Developers <https://github.com/PyWavelets/pywt>
-         
-         Permission is hereby granted, free of charge, to any person obtaining a copy of
-         this software and associated documentation files (the "Software"), to deal in
-         the Software without restriction, including without limitation the rights to
-         use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-         of the Software, and to permit persons to whom the Software is furnished to do
-         so, subject to the following conditions:
-         
-         The above copyright notice and this permission notice shall be included in all
-         copies or substantial portions of the Software.
-         
-         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-         SOFTWARE.
-         
+License-Expression: MIT AND BSD-3-Clause
+License-File: LICENSE
+License-File: licenses_bundled/LICENSE_numpy.txt
+License-File: licenses_bundled/LICENSE_scipy.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Project-URL: homepage, https://github.com/PyWavelets/pywt
 Project-URL: source, https://github.com/PyWavelets/pywt
 Project-URL: documentation, https://pywavelets.readthedocs.io/
-Requires-Python: >=3.10
-Requires-Dist: numpy<3,>=1.23
-Provides-Extra: optional
-Requires-Dist: scipy>=1.9; extra == "optional"
+Requires-Python: >=3.11
+Requires-Dist: numpy<3,>=1.25
 Description-Content-Type: text/x-rst
 
 +---------------+-----------------+
@@ -116,9 +96,7 @@ Installation
 
 PyWavelets supports `Python`_ >=3.10, and is only dependent on `NumPy`_
 (supported versions are currently ``>= 1.23.0``). To pass all of the tests,
-`Matplotlib`_ is also required. `SciPy`_ is also an optional dependency. When
-present, FFT-based continuous wavelet transforms will use FFTs from SciPy
-rather than NumPy.
+`Matplotlib`_ is also required.
 
 There are binary wheels for Intel Linux, Windows and macOS / OSX on PyPi.  If
 you are on one of these platforms, you should get a binary (precompiled)

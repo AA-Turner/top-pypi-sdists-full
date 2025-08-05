@@ -1,4 +1,5 @@
 import datetime
+import json
 import unittest
 from unittest.mock import Mock
 
@@ -49,6 +50,7 @@ from wagtail.test.testapp.models import (
     EventIndex,
     EventPage,
     EventPageSpeaker,
+    ExcludedCopyPageNote,
     GenericSnippetPage,
     ManyToManyBlogPage,
     MTIBasePage,
@@ -1994,24 +1996,34 @@ class TestCopyPage(TestCase):
 
     def test_copy_page_with_additional_excluded_fields(self):
         homepage = Page.objects.get(url_path="/home/")
-        page = homepage.add_child(
-            instance=PageWithExcludedCopyField(
-                title="Discovery",
-                slug="disco",
-                content="NCC-1031",
-                special_field="Context is for Kings",
-            )
+        page = PageWithExcludedCopyField(
+            title="Discovery",
+            slug="disco",
+            content="NCC-1031",
+            special_field="Context is for Kings",
+            special_stream=[("item", "non-default item")],
         )
+        page.special_notes = [ExcludedCopyPageNote(note="Some note")]
+        homepage.add_child(instance=page)
         page.save_revision()
         new_page = page.copy(to=homepage, update_attrs={"slug": "disco-2"})
-        exclude_field = new_page.latest_revision.content["special_field"]
+        revision_content = new_page.latest_revision.content
 
         self.assertEqual(page.title, new_page.title)
         self.assertNotEqual(page.id, new_page.id)
         self.assertNotEqual(page.path, new_page.path)
-        # special_field is in the list to be excluded
-        self.assertNotEqual(page.special_field, new_page.special_field)
-        self.assertEqual(new_page.special_field, exclude_field)
+
+        # special_field and special_stream are in the list to be excluded,
+        # and should revert to the default
+        self.assertEqual(new_page.special_field, "Very Special")
+        self.assertEqual(revision_content["special_field"], "Very Special")
+        self.assertEqual(new_page.special_stream[0].value, "default item")
+        stream_data = json.loads(revision_content["special_stream"])
+        self.assertEqual(stream_data[0]["value"], "default item")
+
+        # The special_notes relation should be cleared on the new page
+        self.assertEqual(new_page.special_notes.count(), 0)
+        self.assertEqual(revision_content["special_notes"], [])
 
     def test_page_with_generic_relation(self):
         """Test that a page with a GenericRelation will have that relation ignored when
@@ -3622,15 +3634,46 @@ class TestPageWithContentJSON(TestCase):
             "locked_by",
             "locked_at",
             "latest_revision_created_at",
-            "first_published_at",
         ):
             self.assertEqual(
                 getattr(original_page, attr_name), getattr(updated_page, attr_name)
             )
 
+        # first_published_at has special behavior: it's only preserved if the content doesn't provide a value
+        # Since we provided a value in the content, it should use that value instead of preserving the original
+        self.assertNotEqual(
+            original_page.first_published_at, updated_page.first_published_at
+        )
+
         # The url_path should reflect the new slug value, but the
         # rest of the path should have remained unchanged
         self.assertEqual(updated_page.url_path, "/home/about-them/")
+
+    def test_with_content_json_preserves_first_published_at_when_none(self):
+        original_page = SimplePage.objects.get(url_path="/home/about-us/")
+
+        # When first_published_at is None in content, it should preserve the original value
+        content_with_none = original_page.serializable_data()
+        content_with_none["first_published_at"] = None
+
+        updated_page_none = original_page.with_content_json(content_with_none)
+
+        self.assertEqual(
+            original_page.first_published_at, updated_page_none.first_published_at
+        )
+
+    def test_with_content_json_uses_first_published_at_when_provided(self):
+        original_page = SimplePage.objects.get(url_path="/home/about-us/")
+
+        # When first_published_at has a value in content, it should use that value
+        content_with_value = original_page.serializable_data()
+        content_with_value["first_published_at"] = "2000-01-01T00:00:00Z"
+
+        updated_page_value = original_page.with_content_json(content_with_value)
+
+        self.assertNotEqual(
+            original_page.first_published_at, updated_page_value.first_published_at
+        )
 
 
 class TestUnpublish(TestCase):

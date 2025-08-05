@@ -89,6 +89,7 @@ class HostValidationId(object):
     CLUSTER_OBSERVABILITY_REQUIREMENTS_SATISFIED = "cluster-observability-requirements-satisfied"
     NUMA_RESOURCES_REQUIREMENTS_SATISFIED = "numa-resources-requirements-satisfied"
     OADP_REQUIREMENTS_SATISFIED = "oadp-requirements-satisfied"
+    METALLB_REQUIREMENTS_SATISFIED = "metallb-requirements-satisfied"
 
     """
     Attributes:

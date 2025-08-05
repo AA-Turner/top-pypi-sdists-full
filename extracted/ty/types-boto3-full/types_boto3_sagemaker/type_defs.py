@@ -308,6 +308,7 @@ from .literals import (
     VariantPropertyTypeType,
     VariantStatusType,
     VendorGuidanceType,
+    VolumeAttachmentStatusType,
     WarmPoolResourceStatusType,
     WorkforceIpAddressTypeType,
     WorkforceStatusType,
@@ -376,6 +377,8 @@ __all__ = (
     "AsyncInferenceOutputConfigOutputTypeDef",
     "AsyncInferenceOutputConfigTypeDef",
     "AthenaDatasetDefinitionTypeDef",
+    "AttachClusterNodeVolumeRequestTypeDef",
+    "AttachClusterNodeVolumeResponseTypeDef",
     "AuthorizedUrlTypeDef",
     "AutoMLAlgorithmConfigOutputTypeDef",
     "AutoMLAlgorithmConfigTypeDef",
@@ -904,6 +907,8 @@ __all__ = (
     "DescribeWorkteamRequestTypeDef",
     "DescribeWorkteamResponseTypeDef",
     "DesiredWeightAndCapacityTypeDef",
+    "DetachClusterNodeVolumeRequestTypeDef",
+    "DetachClusterNodeVolumeResponseTypeDef",
     "DeviceDeploymentSummaryTypeDef",
     "DeviceFleetSummaryTypeDef",
     "DeviceSelectionConfigOutputTypeDef",
@@ -2090,6 +2095,12 @@ class AthenaDatasetDefinitionTypeDef(TypedDict):
     WorkGroup: NotRequired[str]
     KmsKeyId: NotRequired[str]
     OutputCompression: NotRequired[AthenaResultCompressionTypeType]
+
+
+class AttachClusterNodeVolumeRequestTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    VolumeId: str
 
 
 class AuthorizedUrlTypeDef(TypedDict):
@@ -3909,6 +3920,12 @@ class ProductionVariantServerlessUpdateConfigTypeDef(TypedDict):
     ProvisionedConcurrency: NotRequired[int]
 
 
+class DetachClusterNodeVolumeRequestTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    VolumeId: str
+
+
 class DeviceDeploymentSummaryTypeDef(TypedDict):
     EdgeDeploymentPlanArn: str
     EdgeDeploymentPlanName: str
@@ -5523,6 +5540,16 @@ class AssociateTrialComponentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class AttachClusterNodeVolumeResponseTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    VolumeId: str
+    AttachTime: datetime
+    Status: VolumeAttachmentStatusType
+    DeviceName: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateActionResponseTypeDef(TypedDict):
     ActionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5951,6 +5978,16 @@ class DescribeStudioLifecycleConfigResponseTypeDef(TypedDict):
     LastModifiedTime: datetime
     StudioLifecycleConfigContent: str
     StudioLifecycleConfigAppType: StudioLifecycleConfigAppTypeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DetachClusterNodeVolumeResponseTypeDef(TypedDict):
+    ClusterArn: str
+    NodeId: str
+    VolumeId: str
+    AttachTime: datetime
+    Status: VolumeAttachmentStatusType
+    DeviceName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

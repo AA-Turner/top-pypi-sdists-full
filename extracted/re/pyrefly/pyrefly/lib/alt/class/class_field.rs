@@ -526,7 +526,7 @@ impl<'a> Instance<'a> {
     /// Instantiate a type that is relative to the class type parameters
     /// by substituting in the type arguments.
     fn instantiate_member(&self, raw_member: Type) -> Type {
-        self.targs.substitute(raw_member)
+        self.targs.substitute_into(raw_member)
     }
 
     fn to_type(&self) -> Type {
@@ -1014,8 +1014,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }) = initial_value
         {
             let mut defined_in_parent = false;
-            let parents = metadata.bases_with_metadata();
-            for (parent, _) in parents {
+            let parents = metadata.base_class_types();
+            for parent in parents {
                 if self.get_class_member(parent.class_object(), name).is_some() {
                     defined_in_parent = true;
                     break;
@@ -1118,11 +1118,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.get_field_from_current_class_only(parent.class_object(), name)?;
                 let ClassField(ClassFieldInner::Simple { ty, annotation, .. }) = &*parent_field;
                 if found_field.is_none() {
-                    found_field = Some(parent.targs().substitution().substitute(ty.clone()));
+                    found_field = Some(parent.targs().substitution().substitute_into(ty.clone()));
                 }
                 annotation
                     .clone()
-                    .map(|ann| ann.substitute(parent.targs().substitution()))
+                    .map(|ann| ann.substitute_with(parent.targs().substitution()))
             });
         (found_field, annotation)
     }
@@ -1413,7 +1413,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         let mut got_attr = None;
         let metadata = self.get_metadata_for_class(class);
-        let parents = metadata.bases_with_metadata();
+        let parents = metadata.base_class_types();
         let mut parent_attr_found = false;
         let mut parent_has_any = false;
 
@@ -1424,7 +1424,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return;
         }
 
-        for (parent, parent_metadata) in parents {
+        for parent in parents {
+            let parent_metadata = self.get_metadata_for_class(parent.class_object());
             parent_has_any = parent_has_any || parent_metadata.has_base_any();
             // Don't allow overriding a namedtuple element
             if let Some(named_tuple_metadata) = parent_metadata.named_tuple_metadata()

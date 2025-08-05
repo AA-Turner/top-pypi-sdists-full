@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddapm-test-agent
-Version: 1.29.1
+Version: 1.30.1
 Summary: Test agent for Datadog APM client libraries
 Home-page: https://github.com/Datadog/dd-apm-test-agent
 Author: Kyle Verhoog
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.BSD3
@@ -24,9 +25,9 @@ Requires-Dist: typing_extensions
 Requires-Dist: yarl
 Requires-Dist: vcrpy
 Provides-Extra: testing
-Requires-Dist: ddtrace==2.6.0; extra == "testing"
+Requires-Dist: ddtrace==3.11.0; extra == "testing"
 Requires-Dist: pytest; extra == "testing"
-Requires-Dist: riot==0.13.0; extra == "testing"
+Requires-Dist: riot==0.20.1; extra == "testing"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -50,7 +50,7 @@ class DataRobotOCREngineType(StrEnum):
 
 
 class DataRobotArynOutputFormat(StrEnum):
-    """Supported Aryn OCR engine output format"""
+    """Supported ARYN OCR engine output format"""
 
     JSON = auto()
     MARKDOWN = auto()
@@ -143,7 +143,18 @@ _engine_specific_parameters_converter = t.Dict(
 
 
 class OCREngineSpecificParameters:
-    """Container of Engine Specific Parameters"""
+    """Container of Engine Specific Parameters. It is used to specify required
+    OCR engine parameters when creating an OCR job resource.
+
+    .. versionadded:: v3.8.0
+
+    Attributes
+    ----------
+    engine_type: str
+        Optional. String representation of DataRobotOCREngineType.
+    output_format: str
+        Optional. String representation of DataRobotArynOutputFormat when engine type is ARYN.
+    """
 
     def __init__(self, engine_type: Optional[str] = None, output_format: Optional[str] = None):
         _engine_specific_parameters_converter.check(
@@ -156,7 +167,7 @@ class OCREngineSpecificParameters:
         self.output_format = output_format
 
     def get_payload(self) -> Dict[str, Optional[str]]:
-        """return dict containing values that are not None"""
+        """return dict containing engine specific parameters whose values are not None"""
         data = {
             "engine_type": self.engine_type,
             "output_format": self.output_format,

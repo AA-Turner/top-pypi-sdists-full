@@ -7,12 +7,27 @@ from google.protobuf import json_format, field_mask_pb2, struct_pb2
 import va.protos.orby.va.public.execution_messages_pb2 as execution_messages
 import va.protos.orby.va.public.execution_service_pb2_grpc as execution_service_grpc
 from va.protos.orby.va.public.execution_messages_pb2 import ExecutionStatus
-from va.store.execution.execution_client import get_execution_client
+from va.store.orby.orby_client import get_orby_client
 from va.utils.auth import get_credential
 
 import os
 
 logger = logging.getLogger(__name__)
+
+# Cache orby client and execution stub at module level
+_orby_client = None
+_execution_stub = None
+
+
+def _get_execution_stub():
+    """Get cached orby client and execution stub"""
+    global _orby_client, _execution_stub
+    if _orby_client is None:
+        _orby_client = get_orby_client()
+        _execution_stub = execution_service_grpc.ExecutionServiceStub(
+            _orby_client._grpc_channel
+        )
+    return _orby_client, _execution_stub
 
 
 def _get_org_and_user_ids() -> tuple[Optional[str], Optional[str]]:
@@ -50,10 +65,7 @@ def update_execution_status(
         org_id: Optional organization identifier to include as gRPC metadata.
     """
     try:
-        execution_client = get_execution_client()
-        execution_stub = execution_service_grpc.ExecutionServiceStub(
-            execution_client._grpc_channel
-        )
+        orby_client, execution_stub = _get_execution_stub()
 
         org_id, user_id = _get_org_and_user_ids()
 
@@ -68,7 +80,7 @@ def update_execution_status(
         request = execution_messages.UpdateExecutionRequest(
             execution_id=execution_id, status=status, field_mask=mask
         )
-        execution_client.call_grpc_channel(
+        orby_client.call_grpc_channel(
             execution_stub.UpdateExecution, request, metadata=metadata
         )
         logger.info(f"Updated execution {execution_id} to status {status}")
@@ -98,10 +110,7 @@ def append_execution_log(
         The id of the new log entry (if call succeeds) or None if call fails.
     """
     try:
-        execution_client = get_execution_client()
-        execution_stub = execution_service_grpc.ExecutionServiceStub(
-            execution_client._grpc_channel
-        )
+        orby_client, execution_stub = _get_execution_stub()
 
         org_id, user_id = _get_org_and_user_ids()
 
@@ -132,7 +141,7 @@ def append_execution_log(
             grpc_metadata.append(("orby-user-id", user_id))
 
         request = execution_messages.AppendExecutionLogRequest(log=log)
-        response = execution_client.call_grpc_channel(
+        response = orby_client.call_grpc_channel(
             execution_stub.AppendExecutionLog, request, metadata=grpc_metadata
         )
         logger.info(f"Appended log to execution {execution_id}")
@@ -143,25 +152,19 @@ def append_execution_log(
 
 
 def request_review(execution_id: str, instruction: str = ""):
-    execution_client = get_execution_client()
-    execution_stub = execution_service_grpc.ExecutionServiceStub(
-        execution_client._grpc_channel
-    )
+    orby_client, execution_stub = _get_execution_stub()
     request = execution_messages.RequestReviewRequest(
         execution_id=execution_id, user_message=instruction
     )
-    response = execution_client.call_grpc_channel(execution_stub.RequestReview, request)
+    response = orby_client.call_grpc_channel(execution_stub.RequestReview, request)
     return response.review_id
 
 
 def get_review_status(review_id: str):
     try:
-        execution_client = get_execution_client()
-        execution_stub = execution_service_grpc.ExecutionServiceStub(
-            execution_client._grpc_channel
-        )
+        orby_client, execution_stub = _get_execution_stub()
         request = execution_messages.GetReviewStatusRequest(review_id=review_id)
-        response = execution_client.call_grpc_channel(
+        response = orby_client.call_grpc_channel(
             execution_stub.GetReviewStatus, request
         )
         return response.status

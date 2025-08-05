@@ -48,6 +48,7 @@ from .paginator import (
     ListDatasetsPaginator,
     ListExecutionsPaginator,
     ListGatewaysPaginator,
+    ListInterfaceRelationshipsPaginator,
     ListPortalsPaginator,
     ListProjectAssetsPaginator,
     ListProjectsPaginator,
@@ -93,6 +94,8 @@ from .type_defs import (
     DeleteAccessPolicyRequestTypeDef,
     DeleteAssetModelCompositeModelRequestTypeDef,
     DeleteAssetModelCompositeModelResponseTypeDef,
+    DeleteAssetModelInterfaceRelationshipRequestTypeDef,
+    DeleteAssetModelInterfaceRelationshipResponseTypeDef,
     DeleteAssetModelRequestTypeDef,
     DeleteAssetModelResponseTypeDef,
     DeleteAssetRequestTypeDef,
@@ -115,6 +118,8 @@ from .type_defs import (
     DescribeAssetCompositeModelResponseTypeDef,
     DescribeAssetModelCompositeModelRequestTypeDef,
     DescribeAssetModelCompositeModelResponseTypeDef,
+    DescribeAssetModelInterfaceRelationshipRequestTypeDef,
+    DescribeAssetModelInterfaceRelationshipResponseTypeDef,
     DescribeAssetModelRequestTypeDef,
     DescribeAssetModelResponseTypeDef,
     DescribeAssetPropertyRequestTypeDef,
@@ -199,6 +204,8 @@ from .type_defs import (
     ListExecutionsResponseTypeDef,
     ListGatewaysRequestTypeDef,
     ListGatewaysResponseTypeDef,
+    ListInterfaceRelationshipsRequestTypeDef,
+    ListInterfaceRelationshipsResponseTypeDef,
     ListPortalsRequestTypeDef,
     ListPortalsResponseTypeDef,
     ListProjectAssetsRequestTypeDef,
@@ -209,6 +216,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     ListTimeSeriesRequestTypeDef,
     ListTimeSeriesResponseTypeDef,
+    PutAssetModelInterfaceRelationshipRequestTypeDef,
+    PutAssetModelInterfaceRelationshipResponseTypeDef,
     PutDefaultEncryptionConfigurationRequestTypeDef,
     PutDefaultEncryptionConfigurationResponseTypeDef,
     PutLoggingOptionsRequestTypeDef,
@@ -547,6 +556,17 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_asset_model_composite_model)
         """
 
+    def delete_asset_model_interface_relationship(
+        self, **kwargs: Unpack[DeleteAssetModelInterfaceRelationshipRequestTypeDef]
+    ) -> DeleteAssetModelInterfaceRelationshipResponseTypeDef:
+        """
+        Deletes an interface relationship between an asset model and an interface asset
+        model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/delete_asset_model_interface_relationship.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#delete_asset_model_interface_relationship)
+        """
+
     def delete_computation_model(
         self, **kwargs: Unpack[DeleteComputationModelRequestTypeDef]
     ) -> DeleteComputationModelResponseTypeDef:
@@ -674,6 +694,17 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_asset_model_composite_model.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_asset_model_composite_model)
+        """
+
+    def describe_asset_model_interface_relationship(
+        self, **kwargs: Unpack[DescribeAssetModelInterfaceRelationshipRequestTypeDef]
+    ) -> DescribeAssetModelInterfaceRelationshipResponseTypeDef:
+        """
+        Retrieves information about an interface relationship between an asset model
+        and an interface asset model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/describe_asset_model_interface_relationship.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#describe_asset_model_interface_relationship)
         """
 
     def describe_asset_property(
@@ -1098,6 +1129,17 @@ class IoTSiteWiseClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_gateways)
         """
 
+    def list_interface_relationships(
+        self, **kwargs: Unpack[ListInterfaceRelationshipsRequestTypeDef]
+    ) -> ListInterfaceRelationshipsResponseTypeDef:
+        """
+        Retrieves a paginated list of asset models that have a specific interface asset
+        model applied to them.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_interface_relationships.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_interface_relationships)
+        """
+
     def list_portals(
         self, **kwargs: Unpack[ListPortalsRequestTypeDef]
     ) -> ListPortalsResponseTypeDef:
@@ -1147,6 +1189,17 @@ class IoTSiteWiseClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/list_time_series.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#list_time_series)
+        """
+
+    def put_asset_model_interface_relationship(
+        self, **kwargs: Unpack[PutAssetModelInterfaceRelationshipRequestTypeDef]
+    ) -> PutAssetModelInterfaceRelationshipResponseTypeDef:
+        """
+        Creates or updates an interface relationship between an asset model and an
+        interface asset model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/put_asset_model_interface_relationship.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#put_asset_model_interface_relationship)
         """
 
     def put_default_encryption_configuration(
@@ -1549,6 +1602,17 @@ class IoTSiteWiseClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_gateways"]
     ) -> ListGatewaysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iotsitewise/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotsitewise/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_interface_relationships"]
+    ) -> ListInterfaceRelationshipsPaginator:
         """
         Create a paginator for an operation.
 

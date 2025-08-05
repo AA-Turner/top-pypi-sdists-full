@@ -8,6 +8,7 @@ from gable.cli.helpers.npm import get_installed_package_dir
 from gable.cli.helpers.repo_interactions import get_git_repo_info
 from typing import Tuple
 from gable.openapi import (
+    Action1,
     PostScaStartRunRequest,
     StaticAnalysisCodeMetadata,
     StaticAnalysisToolMetadata,
@@ -60,6 +61,7 @@ def start_sca_run(client: GableAPIClient, project_root: str) -> Tuple[str, S3Pre
                         egress_signatures=[],
                     ),
                 ),
+                action=Action1.register,
             )
         )
 

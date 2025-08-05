@@ -14,30 +14,19 @@ __all__ = ["cwt"]
 
 import numpy as np
 
-try:
-    import scipy
-    fftmodule = scipy.fft
-    next_fast_len = fftmodule.next_fast_len
-except ImportError:
-    fftmodule = np.fft
 
-    # provide a fallback so scipy is an optional requirement
-    # note: numpy.fft in numpy 2.0 is as fast as scipy.fft, so could be used
-    # unconditionally once the minimum supported numpy version is >=2.0
-    def next_fast_len(n):
-        """Round up size to the nearest power of two.
+def next_fast_len(n):
+    """Round up size to the nearest power of two.
 
-        Given a number of samples `n`, returns the next power of two
-        following this number to take advantage of FFT speedup.
-        This fallback is less efficient than `scipy.fftpack.next_fast_len`
-        """
-        return 2**ceil(np.log2(n))
-
-
-def cwt(data, scales, wavelet, sampling_period=1., method='conv', axis=-1):
+    Given a number of samples `n`, returns the next power of two
+    following this number to take advantage of FFT speedup.
     """
-    cwt(data, scales, wavelet)
+    return 2**ceil(np.log2(n))
 
+
+def cwt(data, scales, wavelet, sampling_period=1., method='conv', axis=-1,
+        *, precision=12):
+    """
     One dimensional Continuous Wavelet Transform.
 
     Parameters
@@ -70,6 +59,12 @@ def cwt(data, scales, wavelet, sampling_period=1., method='conv', axis=-1):
     axis: int, optional
         Axis over which to compute the CWT. If not given, the last axis is
         used.
+    precision: int, optional
+        Length of wavelet (``2 ** precision``) used to compute the CWT. Greater
+        will increase resolution, especially for higher scales, but will
+        compute a bit slower. Too low will distort coefficients and their
+        norms, with a zipper-like effect. The default is 12, it's recommended
+        to use >=12.
 
     Returns
     -------
@@ -91,9 +86,10 @@ def cwt(data, scales, wavelet, sampling_period=1., method='conv', axis=-1):
     >>> import pywt
     >>> import numpy as np
     >>> import matplotlib.pyplot as plt
-    >>> x = np.arange(512)
-    >>> y = np.sin(2*np.pi*x/32)
-    >>> coef, freqs=pywt.cwt(y,np.arange(1,129),'gaus1')
+    >>> x = np.exp(np.linspace(0, 2, 512))
+    >>> y = np.cos(2*np.pi*x)  # exponential chirp
+    >>> scales = np.logspace(np.log10(1), np.log10(128), 128)
+    >>> coef, freqs = pywt.cwt(y, scales, 'gaus1')
     >>> plt.matshow(coef)
     >>> plt.show()
 
@@ -102,7 +98,7 @@ def cwt(data, scales, wavelet, sampling_period=1., method='conv', axis=-1):
     >>> import matplotlib.pyplot as plt
     >>> t = np.linspace(-1, 1, 200, endpoint=False)
     >>> sig  = np.cos(2 * np.pi * 7 * t) + np.real(np.exp(-7*(t-0.4)**2)*np.exp(1j*2*np.pi*2*(t-0.4)))
-    >>> widths = np.arange(1, 31)
+    >>> widths = np.logspace(np.log10(1), np.log10(30), 30)
     >>> cwtmatr, freqs = pywt.cwt(sig, widths, 'mexh')
     >>> plt.imshow(cwtmatr, extent=[-1, 1, 1, 31], cmap='PRGn', aspect='auto',
     ...            vmax=abs(cwtmatr).max(), vmin=-abs(cwtmatr).max())
@@ -125,7 +121,7 @@ def cwt(data, scales, wavelet, sampling_period=1., method='conv', axis=-1):
 
     dt_out = dt_cplx if wavelet.complex_cwt else dt
     out = np.empty((np.size(scales),) + data.shape, dtype=dt_out)
-    precision = 10
+
     int_psi, x = integrate_wavelet(wavelet, precision=precision)
     int_psi = np.conj(int_psi) if wavelet.complex_cwt else int_psi
 
@@ -177,10 +173,10 @@ def cwt(data, scales, wavelet, sampling_period=1., method='conv', axis=-1):
             )
             if size_scale != size_scale0:
                 # Must recompute fft_data when the padding size changes.
-                fft_data = fftmodule.fft(data, size_scale, axis=-1)
+                fft_data = np.fft.fft(data, size_scale, axis=-1)
             size_scale0 = size_scale
-            fft_wav = fftmodule.fft(int_psi_scale, size_scale, axis=-1)
-            conv = fftmodule.ifft(fft_wav * fft_data, axis=-1)
+            fft_wav = np.fft.fft(int_psi_scale, size_scale, axis=-1)
+            conv = np.fft.ifft(fft_wav * fft_data, axis=-1)
             conv = conv[..., :data.shape[-1] + int_psi_scale.size - 1]
 
         coef = - np.sqrt(scale) * np.diff(conv, axis=-1)

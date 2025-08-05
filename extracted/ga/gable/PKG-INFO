@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: gable
-Version: 0.37.5
+Version: 0.37.6
 Summary: Command line interface (CLI) and software development kit (SDK) to interact with Gable API
 Author: Gable.ai
 Author-email: engineers@gable.ai
@@ -35,7 +35,7 @@ Requires-Dist: pandas (>=1.5.3,<3.0.0) ; extra == "s3" or extra == "all"
 Requires-Dist: psycopg2-binary (>=2.7) ; extra == "postgres" or extra == "all"
 Requires-Dist: pyarrow (>=11,<17) ; extra == "s3" or extra == "all"
 Requires-Dist: pycryptodome (>=3.17.0,<4.0.0)
-Requires-Dist: pydantic[email] (>=1.10.11,<2.0.0)
+Requires-Dist: pydantic[email] (>=2.0.0,<3.0.0)
 Requires-Dist: pymssql (>=2.2.8,<3.0.0) ; extra == "mssql" or extra == "all"
 Requires-Dist: python-snappy (>=0.7.3,<0.8.0) ; extra == "s3" or extra == "all"
 Requires-Dist: pyyaml (>=6.0.0,<7.0.0)

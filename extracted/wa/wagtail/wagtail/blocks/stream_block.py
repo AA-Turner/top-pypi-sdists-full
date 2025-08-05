@@ -14,7 +14,7 @@ from django.utils.html import format_html_join
 from django.utils.translation import gettext as _
 
 from wagtail.admin.staticfiles import versioned_static
-from wagtail.telepath import Adapter, register
+from wagtail.admin.telepath import Adapter, register
 
 from .base import (
     Block,
@@ -840,6 +840,7 @@ class StreamBlockAdapter(Adapter):
             "blockDefId": block.definition_prefix,
             "isPreviewable": block.is_previewable,
             "classname": block.meta.form_classname,
+            "attrs": block.meta.form_attrs or {},
             "maxNum": block.meta.max_num,
             "minNum": block.meta.min_num,
             "blockCounts": block.meta.block_counts,

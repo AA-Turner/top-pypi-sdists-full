@@ -73,6 +73,7 @@ class FeatureSupportLevelId(object):
     CLUSTER_OBSERVABILITY = "CLUSTER_OBSERVABILITY"
     NUMA_RESOURCES = "NUMA_RESOURCES"
     OADP = "OADP"
+    METALLB = "METALLB"
 
     """
     Attributes:

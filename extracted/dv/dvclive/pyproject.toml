@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61", "setuptools_scm[toml]>=7"]
+requires = ["setuptools>=77", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -17,7 +17,8 @@ keywords = [
   "machine-learning",
   "reproducibility"
 ]
-license = {text = "Apache License 2.0"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 maintainers = [{name = "Iterative", email = "support@dvc.org"}]
 authors = [{name = "Iterative", email = "support@dvc.org"}]
 requires-python = ">=3.9"
@@ -61,7 +62,7 @@ tests = [
 ]
 dev = [
   "dvclive[all,tests]",
-  "mypy==1.15.0",
+  "mypy==1.17.1",
   "types-PyYAML"
 ]
 mmcv = ["mmcv"]
@@ -82,10 +83,6 @@ Documentation = "https://dvc.org/doc/dvclive"
 Repository = "https://github.com/iterative/dvclive"
 Changelog = "https://github.com/iterative/dvclive/releases"
 Issues = "https://github.com/iterative/dvclive/issues"
-
-[tool.setuptools]
-license-files = ["LICENSE"]
-platforms = ["any"]
 
 [tool.setuptools.packages.find]
 exclude = ["tests", "tests.*"]
@@ -140,7 +137,7 @@ files = ["src", "tests"]
 ignore-words-list = "fpr"
 
 [tool.ruff.lint]
-ignore = ["N818", "UP006", "UP007", "UP035", "UP038", "B905", "PGH003", "SIM103"]
+ignore = ["N818", "UP006", "UP007", "UP035", "UP038", "B905", "PGH003", "SIM103", "PLC0415"]
 select = ["F", "E", "W", "C90", "N", "UP", "YTT", "S", "BLE", "B", "A", "C4", "T10", "EXE", "ISC", "INP", "PIE", "T20", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "INT", "ARG", "PGH", "PL", "TRY", "NPY", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]

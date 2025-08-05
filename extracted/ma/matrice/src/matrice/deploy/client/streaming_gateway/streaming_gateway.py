@@ -9,6 +9,7 @@ from matrice.deploy.client.streaming_gateway.streaming_gateway_utils import (
     OutputConfig,
     InputType,
     ModelInputType,
+    _RealTimeJsonEventPicker,
 )
 from matrice.deploy.client.streaming_gateway.streaming_results_handler import (
     StreamingResultsHandler,
@@ -60,6 +61,7 @@ class StreamingGateway:
         service_id: str = None,
         inputs_config: List[InputConfig] = None,
         output_config: OutputConfig = None,
+        json_event_picker: _RealTimeJsonEventPicker = _RealTimeJsonEventPicker(),
         create_deployment_config: Dict = None,
         auth_key: str = None,
         consumer_group_id: str = None,
@@ -111,6 +113,7 @@ class StreamingGateway:
                 raise ValueError(f"Input config {i} must be an InputConfig instance")
 
         self.output_config = output_config
+        self.json_event_picker = json_event_picker
         self.consumer_group_id = consumer_group_id
         self.result_callback = result_callback
         self.kafka_producer = None
@@ -152,6 +155,7 @@ class StreamingGateway:
             self.results_handler = StreamingResultsHandler(
                 client_stream_utils=self.client_stream_utils,
                 output_config=self.output_config,
+                json_event_picker=self.json_event_picker,
                 service_id=self.service_id,
                 strip_input_from_result=self.strip_input_from_result,
                 result_callback=self.result_callback,
@@ -221,7 +225,7 @@ class StreamingGateway:
 
         logging.info("Stopping all active streams...")
 
-    def start_streaming(self) -> bool:
+    def start_streaming(self, send_to_api: bool = False) -> bool:
         """Start streaming using MatriceDeployClient's built-in capabilities.
 
         Returns:
@@ -316,7 +320,7 @@ class StreamingGateway:
             # Start result consumption thread if we have output config or callback
             if self.output_config or self.result_callback:
                 self.result_thread = threading.Thread(
-                    target=self._consume_results, daemon=True, name="ResultConsumer"
+                    target=self._consume_results, daemon=True, name="ResultConsumer", args=(send_to_api,)
                 )
                 self.result_thread.start()
 
@@ -490,10 +494,10 @@ class StreamingGateway:
             force_restart=config.get("force_restart", False),
         )
 
-    def _consume_results(self):
+    def _consume_results(self, send_to_api: bool = False):
         """Consume and process results from the deployment."""
         if self.results_handler:
-            self.results_handler._consume_results()
+            self.results_handler._consume_results(send_to_api=send_to_api)
         else:
             logging.warning("No results handler available for result consumption")
 

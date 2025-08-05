@@ -51,6 +51,11 @@ class ReplicaConfigDict(TypedDict, total=False):
     fixed: Optional[int]
     min: Optional[int]
     max: Optional[int]
+    scaling_policy: Optional["ScalingPolicyConfigDict"]
+
+
+class ScalingPolicyConfigDict(TypedDict, total=False):
+    rpm: Optional[int]
 
 
 class DependencyConfigDict(TypedDict, total=False):

@@ -176,14 +176,14 @@ def bulk_update_enforcement_levels(
         if not contract.contractSpec.dataAssetResourceName:
             continue
 
-        darn: str = contract.contractSpec.dataAssetResourceName.__root__
+        darn: str = contract.contractSpec.dataAssetResourceName.root
         if data_asset_id_pattern is None or re.match(data_asset_id_pattern, darn):
             # Only update the enforcement level if the data asset id matches the pattern (or when no pattern was provided)
             contract_input = _create_contract_input(contract, enforcement_level)
             contract_inputs.append(contract_input)
 
     # Call the postContract endpoint to update the contracts
-    request = PostContractRequest(__root__=contract_inputs)
+    request = PostContractRequest(root=contract_inputs)
     response, _success, _status_code = client.post_contract(request)
     if isinstance(response, PostContractResponse):
         logger.info(f"Updated {len(response.contractIds)} contract(s)")

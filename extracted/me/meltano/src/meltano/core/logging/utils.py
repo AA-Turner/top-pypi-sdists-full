@@ -9,16 +9,18 @@ import os
 import sys
 import typing as t
 from logging import config as logging_config
+from pathlib import Path
 
 import structlog
 import yaml
 
 from meltano.core.logging.formatters import (
-    LEVELED_TIMESTAMPED_PRE_CHAIN,
-    TIMESTAMPER,
+    get_default_foreign_pre_chain,
     rich_exception_formatter_factory,
 )
 from meltano.core.utils import get_no_color_flag
+
+logger = structlog.getLogger(__name__)
 
 if sys.version_info < (3, 11):
     from backports.strenum import StrEnum
@@ -35,6 +37,7 @@ LEVELS: dict[str, int] = {
     "warning": logging.WARNING,
     "error": logging.ERROR,
     "critical": logging.CRITICAL,
+    "disabled": logging.CRITICAL + 1,
 }
 DEFAULT_LEVEL = "info"
 FORMAT = (
@@ -94,8 +97,11 @@ def default_config(
     Returns:
          A logging config suitable for use with `logging.config.dictConfig`.
     """
+    # Convert log level to numeric value for disabled level
+    numeric_level = parse_log_level(log_level.lower())
     log_level = log_level.upper()
     max_frames = 100 if log_level == "DEBUG" else 2
+    foreign_pre_chain = get_default_foreign_pre_chain()
 
     if log_format == LogFormat.colored:
         no_color = get_no_color_flag()
@@ -116,7 +122,7 @@ def default_config(
                 colors=not no_color,
                 exception_formatter=formatter,
             ),
-            "foreign_pre_chain": LEVELED_TIMESTAMPED_PRE_CHAIN,
+            "foreign_pre_chain": foreign_pre_chain,
         }
 
     elif log_format == LogFormat.json:
@@ -127,7 +133,7 @@ def default_config(
                 structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                 structlog.processors.JSONRenderer(),
             ],
-            "foreign_pre_chain": LEVELED_TIMESTAMPED_PRE_CHAIN,
+            "foreign_pre_chain": foreign_pre_chain,
         }
     elif log_format == LogFormat.key_value:
         formatter_config = {
@@ -135,7 +141,7 @@ def default_config(
             "processor": structlog.processors.KeyValueRenderer(
                 key_order=["timestamp", "level", "event", "logger"],
             ),
-            "foreign_pre_chain": LEVELED_TIMESTAMPED_PRE_CHAIN,
+            "foreign_pre_chain": foreign_pre_chain,
         }
     elif log_format == LogFormat.uncolored:
         formatter_config = {
@@ -147,7 +153,7 @@ def default_config(
                     max_frames=max_frames,
                 ),
             ),
-            "foreign_pre_chain": LEVELED_TIMESTAMPED_PRE_CHAIN,
+            "foreign_pre_chain": foreign_pre_chain,
         }
     elif log_format == LogFormat.plain:
         formatter_config = {
@@ -162,7 +168,7 @@ def default_config(
                 structlog.processors.UnicodeDecoder(),
                 lambda _logger, _name, event_dict: event_dict["event"],
             ],
-            "foreign_pre_chain": LEVELED_TIMESTAMPED_PRE_CHAIN,
+            "foreign_pre_chain": foreign_pre_chain,
         }
     else:
         t.assert_never(log_format)
@@ -176,7 +182,7 @@ def default_config(
         "handlers": {
             "console": {
                 "class": "logging.StreamHandler",
-                "level": log_level,
+                "level": numeric_level if log_level == "DISABLED" else log_level,
                 "formatter": log_format,
                 "stream": "ext://sys.stderr",
             },
@@ -184,7 +190,7 @@ def default_config(
         "loggers": {
             "": {
                 "handlers": ["console"],
-                "level": log_level.upper(),
+                "level": numeric_level if log_level == "DISABLED" else log_level,
                 "propagate": True,
             },
             "snowplow_tracker.emitters": {
@@ -230,14 +236,32 @@ def setup_logging(
         log_format = LogFormat(project.settings.get("cli.log_format"))
 
     log_level = log_level.upper()
-    config = read_config(log_config) or default_config(log_level, log_format=log_format)
+
+    config = None
+    which_config: str | None = None
+    if log_config:
+        log_path = Path(log_config)
+        config = read_config(log_path)
+        suffix = log_path.suffix.lower()
+
+        if config is None and suffix in {".yaml", ".yml"}:
+            fallback = log_path.with_suffix(".yml" if suffix == ".yaml" else ".yaml")
+            config = read_config(fallback)
+            if config:
+                which_config = (
+                    f"Using logging configuration from {fallback} "
+                    f"(fallback from {log_path})"
+                )
+        else:
+            which_config = f"Using logging configuration from {log_path}"
+
+    config = config or default_config(log_level, log_format=log_format)
     logging_config.dictConfig(config)
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
-            structlog.stdlib.add_log_level,
             structlog.stdlib.PositionalArgumentsFormatter(),
-            TIMESTAMPER,
+            *get_default_foreign_pre_chain(),
             structlog.processors.StackInfoRenderer(),
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
@@ -246,14 +270,17 @@ def setup_logging(
         cache_logger_on_first_use=True,
     )
 
+    if which_config:
+        logger.info(which_config)
+
 
 def change_console_log_level(log_level: int = logging.DEBUG) -> None:
     """Change the log level for the root logger, but only on the 'console' handler.
 
     Most useful when you want change the log level on the fly for console
-    output, but want to respect other aspects of any potential `logging.yaml`
-    sourced configs. Note that if a `logging.yaml` config without a 'console'
-    handler is used, this will not override the log level.
+    output, but want to respect other aspects of any potential logging config
+    sourced configs (logging.yaml/logging.yml). Note that if a logging config
+    without a 'console' handler is used, this will not override the log level.
 
     Args:
         log_level: set log levels to provided level.

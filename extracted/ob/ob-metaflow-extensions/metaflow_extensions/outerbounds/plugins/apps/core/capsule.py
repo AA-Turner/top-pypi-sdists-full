@@ -255,6 +255,12 @@ class CapsuleInput:
             replicas.get("min"),
             replicas.get("max"),
         )
+        rpm = replicas.get("scaling_policy", {}).get("rpm", None)
+        autoscaling_config = {}
+        if rpm:
+            autoscaling_config = {
+                "requestRateBasedAutoscalingConfig": {"targetRequestsPerMinute": rpm}
+            }
         if fixed is not None:
             _min, _max = fixed, fixed
         gpu_resource = app_config.get_state("resources").get("gpu")
@@ -296,6 +302,7 @@ class CapsuleInput:
             "autoscalingConfig": {
                 "minReplicas": _min,
                 "maxReplicas": _max,
+                **autoscaling_config,
             },
             **_scheduling_config,
             "containerStartupConfig": {
@@ -713,7 +720,7 @@ class CapsuleDeployer:
             workers_status: List[WorkerStatus],
         ):
             for worker in workers_status:
-                if worker["phase"] == "CrashLoopBackOff":
+                if worker["phase"] == "CrashLoopBackOff" or worker["phase"] == "Failed":
                     return worker["workerId"]
             return None
 
@@ -851,7 +858,7 @@ class CapsuleDeployer:
                 workers_state_machine.save_debug_info(self._debug_dir)
                 if i % 3 == 0:  # Every 3 seconds report the status
                     logger(
-                        f"[debug] 💊 {self.capsule_type} {self.identifier} deployment status: {state_machine.current_status} | worker states: {workers_state_machine.current_status}"
+                        f"[debug] 💊 {self.capsule_type} {self.identifier} deployment status: {state_machine.current_status} | worker states: {workers_state_machine.current_status} | capsule_ready : {capsule_ready} | further_check_worker_readiness {further_check_worker_readiness}"
                     )
 
         # We will only check ready_to_serve_traffic under the following conditions:

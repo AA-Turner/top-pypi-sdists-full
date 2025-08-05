@@ -93,6 +93,7 @@ async def stream_run(
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
+    stream_mode = payload.get("stream_mode", [])
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
     try:
@@ -117,7 +118,7 @@ async def stream_run(
             thread_id=thread_id,
             cancel_on_disconnect=on_disconnect == "cancel",
             stream_channel=await sub,
-            stream_mode=payload.get("stream_mode", []),
+            stream_mode=stream_mode,
             last_event_id=None,
         ),
         headers={
@@ -134,6 +135,7 @@ async def stream_run_stateless(
     payload = await request.json(RunCreateStateless)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
+    stream_mode = payload.get("stream_mode", [])
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
     try:
@@ -159,7 +161,7 @@ async def stream_run_stateless(
             ignore_404=True,
             cancel_on_disconnect=on_disconnect == "cancel",
             stream_channel=await sub,
-            stream_mode=payload.get("stream_mode", []),
+            stream_mode=stream_mode,
             last_event_id=None,
         ),
         headers={
@@ -211,7 +213,6 @@ async def wait_run(request: ApiRequest):
                 if mode == b"values":
                     vchunk = chunk
                 elif mode == b"updates" and b"__interrupt__" in chunk:
-                    # Include the interrupt message in the values
                     vchunk = chunk
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
@@ -296,7 +297,6 @@ async def wait_run_stateless(request: ApiRequest):
                 if mode == b"values":
                     vchunk = chunk
                 elif mode == b"updates" and b"__interrupt__" in chunk:
-                    # Include the interrupt message in the values
                     vchunk = chunk
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})

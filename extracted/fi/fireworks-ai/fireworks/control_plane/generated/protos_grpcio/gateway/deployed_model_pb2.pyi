@@ -1,8 +1,8 @@
 from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
-from ..google.api import field_behavior_pb2 as _field_behavior_pb2
-from ..google.api import resource_pb2 as _resource_pb2
-from ..google.api import visibility_pb2 as _visibility_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.api import resource_pb2 as _resource_pb2
+from google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -14,7 +14,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class DeployedModel(_message.Message):
-    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "model", "deployment", "default", "state", "serverless", "status", "public", "update_time")
+    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "model", "deployment", "default", "state", "serverless", "status", "public", "update_time", "load_balancer_name", "load_balancer_replica_capacity", "is_load_balancer_sticky_session")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATE_UNSPECIFIED: _ClassVar[DeployedModel.State]
@@ -40,6 +40,9 @@ class DeployedModel(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     PUBLIC_FIELD_NUMBER: _ClassVar[int]
     UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    LOAD_BALANCER_NAME_FIELD_NUMBER: _ClassVar[int]
+    LOAD_BALANCER_REPLICA_CAPACITY_FIELD_NUMBER: _ClassVar[int]
+    IS_LOAD_BALANCER_STICKY_SESSION_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     description: str
@@ -53,7 +56,10 @@ class DeployedModel(_message.Message):
     status: _status_pb2.Status
     public: bool
     update_time: _timestamp_pb2.Timestamp
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., model: _Optional[str] = ..., deployment: _Optional[str] = ..., default: bool = ..., state: _Optional[_Union[DeployedModel.State, str]] = ..., serverless: bool = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., public: bool = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    load_balancer_name: str
+    load_balancer_replica_capacity: float
+    is_load_balancer_sticky_session: bool
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., model: _Optional[str] = ..., deployment: _Optional[str] = ..., default: bool = ..., state: _Optional[_Union[DeployedModel.State, str]] = ..., serverless: bool = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., public: bool = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., load_balancer_name: _Optional[str] = ..., load_balancer_replica_capacity: _Optional[float] = ..., is_load_balancer_sticky_session: bool = ...) -> None: ...
 
 class DeployedModelRef(_message.Message):
     __slots__ = ("name", "deployment", "state", "default", "public")

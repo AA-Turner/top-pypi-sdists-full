@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "asyncio"
+version = "4.0.0"
+description = "Deprecated backport of asyncio; use the stdlib package instead"
+readme = "README.md"
+requires-python = ">=3.4"
+license = "Apache-2.0"
+license-files = ["COPYING"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+homepage = "https://docs.python.org/3/library/asyncio.html"
+source = "https://github.com/python/asyncio"
+
+[tool.setuptools]
+packages = []

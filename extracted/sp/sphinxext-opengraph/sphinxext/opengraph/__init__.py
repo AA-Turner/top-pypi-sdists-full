@@ -31,8 +31,8 @@ except ImportError:
     create_social_card = None
     DEFAULT_SOCIAL_CONFIG = {}
 
-__version__ = '0.11.0'
-version_info = (0, 11, 0)
+__version__ = '0.12.0'
+version_info = (0, 12, 0)
 
 DEFAULT_DESCRIPTION_LENGTH = 200
 DEFAULT_DESCRIPTION_LENGTH_SOCIAL_CARDS = 160
@@ -60,6 +60,9 @@ def html_page_context(
     context: dict[str, Any],
     doctree: nodes.document,
 ) -> None:
+    if app.builder.name == 'epub':
+        return
+
     if doctree:
         context['metatags'] += get_tags(
             context,

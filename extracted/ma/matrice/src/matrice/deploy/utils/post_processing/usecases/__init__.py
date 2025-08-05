@@ -61,12 +61,13 @@ from .leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCas
 from .flower_segmentation import FlowerUseCase, FlowerConfig
 from .parking import ParkingConfig, ParkingUseCase
 from .leaf import LeafConfig, LeafUseCase
+from .smoker_detection import SmokerDetectionConfig, SmokerDetectionUseCase
 
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
 from .skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
 from .plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
-from .smoker_detection import SmokerDetectionConfig, SmokerDetectionUseCase
+from .cardiomegaly_classification import CardiomegalyConfig, CardiomegalyUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -124,6 +125,7 @@ __all__ = [
     'BloodCancerDetectionUseCase',
     'SkinCancerClassificationUseCase',
     'PlaqueSegmentationUseCase',
+    'CardiomegalyUseCase',
 
 
 
@@ -184,6 +186,7 @@ __all__ = [
     'BloodCancerDetectionConfig',
     'SkinCancerClassificationConfig',
     'PlaqueSegmentationConfig',
+    'CardiomegalyConfig',
 
 
 ]

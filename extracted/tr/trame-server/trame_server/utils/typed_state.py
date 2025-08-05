@@ -1,8 +1,11 @@
+import inspect
 from abc import ABC, abstractmethod
 from dataclasses import MISSING, Field, fields, is_dataclass
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from enum import Enum
+from pathlib import Path
+from types import UnionType
 from typing import (
     Any,
     Callable,
@@ -10,20 +13,38 @@ from typing import (
     Iterable,
     Type,
     TypeVar,
+    Union,
     cast,
     get_args,
+    get_origin,
+    get_type_hints,
 )
 from uuid import UUID
 
 from trame_server.state import State
 
 T = TypeVar("T")
+V = TypeVar("V")
+
+
+class _SerializationFailure:
+    """
+    Simple class to handle encoding / decoding failures
+    """
+
+    def __init__(self, reason: str = ""):
+        self.reason = reason
+
+    def __eq__(self, other):
+        return isinstance(other, _SerializationFailure)
 
 
 class IStateEncoderDecoder(ABC):
     """
     State to/from primitive type encoding/decoding interface.
     """
+
+    _failure = _SerializationFailure()
 
     @abstractmethod
     def encode(self, obj):
@@ -34,11 +55,12 @@ class IStateEncoderDecoder(ABC):
         pass
 
     @staticmethod
-    def raise_unhandled_type(obj):
-        _error_msg = (
-            f"Object of type {type(obj).__name__} is not trame state serializable"
-        )
-        raise TypeError(_error_msg)
+    def failed_serialization(reason: str = "") -> _SerializationFailure:
+        return _SerializationFailure(reason)
+
+    @classmethod
+    def is_serialization_success(cls, value):
+        return not isinstance(value, _SerializationFailure)
 
 
 class DefaultEncoderDecoder(IStateEncoderDecoder):
@@ -59,9 +81,15 @@ class DefaultEncoderDecoder(IStateEncoderDecoder):
             return obj.isoformat()
         if isinstance(obj, time):
             return obj.isoformat()
+        if isinstance(obj, Path):
+            return obj.as_posix()
         return obj
 
     def decode(self, obj, obj_type: type):
+        if obj is None:
+            return None
+        if isinstance(obj, obj_type):
+            return obj
         if issubclass(obj_type, datetime):
             return obj_type.fromisoformat(obj)
         if issubclass(obj_type, date):
@@ -74,8 +102,10 @@ class DefaultEncoderDecoder(IStateEncoderDecoder):
 
 class CollectionEncoderDecoder(IStateEncoderDecoder):
     """
-    Encoding/decoding for lists and dicts. Delegates to an encoder list for contained types.
-    Expects the encoder in its encoder list to raise TypeError when encoding / decoding a specific type is not possible.
+    Encoding/decoding for lists, tuples, dicts and type unions. Delegates to an encoder list for contained types.
+    Expects the encoder in its encoder list to return self.failed_serialization when encoding / decoding a specific
+    type is not possible.
+    If the delegate encoder raises an error, the error will be caught and considered as failed_serialization.
     Encoder will continue to the following encoder if the previous one wasn't able to encode / decode it.
 
     :param encoders: List of encoders to use when encoding/decoding lists and dicts.
@@ -88,34 +118,87 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         if isinstance(obj, dict):
             return {self.encode(key): self.encode(value) for key, value in obj.items()}
 
-        if isinstance(obj, list):
-            return [self.encode(value) for value in obj]
+        if self._is_iterable(obj):
+            return type(obj)(self.encode(value) for value in obj)
 
         for encoder in self._encoders:
-            try:
-                return encoder.encode(obj)
-            except TypeError:
-                continue
-        return obj
+            val = self._try_serialize(encoder.encode, obj)
+            if self.is_serialization_success(val):
+                return val
+
+        _error_msg = f"Failed to encode object {obj}. No appropriate encoder in {self._encoders}."
+        raise TypeError(_error_msg)
+
+    @classmethod
+    def _is_iterable(cls, obj):
+        return isinstance(obj, list) or isinstance(obj, tuple)
+
+    def _try_serialize(self, f, *args):
+        try:
+            return f(*args)
+        except Exception as e:
+            return self.failed_serialization(str(e))
 
     def decode(self, obj, obj_type: type):
-        if isinstance(obj, dict):
-            key_type, value_type = get_args(obj_type)
-            return {
-                self.decode(key, key_type): self.decode(value, value_type)
-                for key, value in obj.items()
-            }
+        val = self._try_decode(obj, obj_type)
+        if self.is_serialization_success(val):
+            return val
 
-        if isinstance(obj, list):
-            value_type = get_args(obj_type)[0]
-            return [self.decode(value, value_type) for value in obj]
+        _error_msg = f"Failed to decode object {obj} of type {obj_type}. No appropriate decoder in {self._encoders}."
+        raise TypeError(_error_msg)
 
+    def _try_decode(self, obj, obj_type: type):
+        for decode in self._decode_strategies():
+            val = decode(obj, obj_type)
+            if self.is_serialization_success(val):
+                return val
+        return self.failed_serialization()
+
+    def _decode_strategies(self) -> list[Callable[[Any, type], Any]]:
+        return [
+            self._decode_union,
+            self._decode_dict,
+            self._decode_iterable,
+            self._delegate_decode,
+        ]
+
+    def _delegate_decode(self, obj, obj_type: type):
         for encoder in self._encoders:
-            try:
-                return encoder.decode(obj, obj_type)
-            except TypeError:
-                continue
-        return obj
+            val = self._try_serialize(encoder.decode, obj, obj_type)
+            if self.is_serialization_success(val):
+                return val
+        return self.failed_serialization()
+
+    def _decode_dict(self, obj, obj_type: type):
+        if not isinstance(obj, dict):
+            return self.failed_serialization()
+
+        key_type, value_type = get_args(obj_type)
+        return {
+            self.decode(key, key_type): self.decode(value, value_type)
+            for key, value in obj.items()
+        }
+
+    def _decode_iterable(self, obj, obj_type: type):
+        if not self._is_iterable(obj):
+            return self.failed_serialization()
+
+        value_type = get_args(obj_type)[0]
+        return obj_type(self.decode(value, value_type) for value in obj)
+
+    def _decode_union(self, obj, obj_type: type):
+        if not self._is_union_type(obj_type):
+            return self.failed_serialization()
+
+        for sub_union_type in get_args(obj_type):
+            val = self._try_decode(obj, sub_union_type)
+            if self.is_serialization_success(val):
+                return val
+        return self.failed_serialization()
+
+    @classmethod
+    def _is_union_type(cls, obj_type: type):
+        return get_origin(obj_type) is Union or isinstance(obj_type, UnionType)
 
 
 class _ProxyField:
@@ -208,17 +291,20 @@ class TypedState(Generic[T]):
         *,
         namespace="",
         encoders: list[IStateEncoderDecoder] | None = None,
+        encoder: IStateEncoderDecoder | None = None,
+        data: T | None = None,
+        name: T | None = None,
     ):
-        self._encoder = CollectionEncoderDecoder(encoders)
+        self._encoder = encoder or CollectionEncoderDecoder(encoders)
         self.state = state
-        self.data = self._create_state_proxy(
+        self.data = data or self._create_state_proxy(
             dataclass_type=dataclass_type,
             state=state,
             namespace=namespace,
             encoder=self._encoder,
         )
 
-        self.name = self._create_state_names_proxy(
+        self.name = name or self._create_state_names_proxy(
             dataclass_type=dataclass_type,
             namespace=namespace,
         )
@@ -280,14 +366,14 @@ class TypedState(Generic[T]):
         """
         encoder = encoder or CollectionEncoderDecoder(None)
 
-        def handler(state_id: str, field: Field):
+        def handler(state_id: str, field: Field, field_type: type):
             return _ProxyField(
                 state=state,
                 state_id=state_id,
                 name=field.name,
                 default=field.default,
                 default_factory=field.default_factory,
-                field_type=field.type,
+                field_type=field_type,
                 state_encoder=encoder,
             )
 
@@ -304,7 +390,7 @@ class TypedState(Generic[T]):
             namespace prefix.
         """
 
-        def handler(state_id: str, _field: Field):
+        def handler(state_id: str, _field: Field, _field_type: type):
             return _NameField(state_id=state_id)
 
         return cls._build_proxy_cls(dataclass_type, namespace, handler, "__ProxyName")
@@ -314,7 +400,7 @@ class TypedState(Generic[T]):
         cls,
         dataclass_type: Type[T],
         prefix: str,
-        handler: Callable[[str, Field], Any],
+        handler: Callable[[str, Field, type], Any],
         cls_suffix: str,
         proxy_field_dict: dict | None = None,
     ) -> T:
@@ -334,14 +420,19 @@ class TypedState(Generic[T]):
         class_name = dataclass_type.__name__
         inner_field_dict = {}
         prefix = f"{prefix}__{class_name}" if prefix else class_name
+
+        # Use type hints instead of field.type to avoid lazy evaluation of field.type when used in files containing
+        # from __future__ import annotations header.
+        field_types = get_type_hints(dataclass_type)
         for f in fields(dataclass_type):
             state_id = f"{prefix}__{f.name}"
-            if is_dataclass(f.type):
+            f_type = field_types[f.name]
+            if is_dataclass(f_type):
                 field = cls._build_proxy_cls(
-                    f.type, state_id, handler, cls_suffix, inner_field_dict
+                    f_type, state_id, handler, cls_suffix, inner_field_dict
                 )
             else:
-                field = handler(state_id, f)
+                field = handler(state_id, f, f_type)
 
             inner_field_dict[cls.get_state_id(field, state_id)] = field
             namespace[f.name] = field
@@ -387,6 +478,18 @@ class TypedState(Generic[T]):
         :return: True if the input instance is a state proxy type. False otherwise.
         """
         return cls._get_proxy_dataclass_type(instance) is not None
+
+    @classmethod
+    def is_name_proxy_class(cls, instance: T) -> bool:
+        return cls.is_proxy_class(instance) and type(instance).__name__.endswith(
+            "__ProxyName"
+        )
+
+    @classmethod
+    def is_data_proxy_class(cls, instance: T) -> bool:
+        return cls.is_proxy_class(instance) and type(instance).__name__.endswith(
+            "__Proxy"
+        )
 
     @classmethod
     def get_state_id(cls, instance: T, default: str = "") -> str:
@@ -490,8 +593,42 @@ class TypedState(Generic[T]):
 
         value_keys = cls.get_value_state_keys(keys)
 
-        @state.change(*cls.get_reactive_state_id_keys(keys))
+        # On state change, get strongly typed values from the typed state and call the callback with the given values
         def _on_state_change(**_):
             values = [state_id_to_field_dict[k] for k in value_keys]
             values = [v if cls.is_proxy_class(v) else v.get_value() for v in values]
-            callback(*values)
+            return callback(*values)
+
+        # Define an async variant for state change in case the bound method is async
+        async def _on_state_change_async(**_):
+            await _on_state_change()
+
+        # Use state change closure to bind to direct or async version depending on the bound callback
+        state.change(*cls.get_reactive_state_id_keys(keys))(
+            _on_state_change_async
+            if inspect.iscoroutinefunction(callback)
+            else _on_state_change
+        )
+
+    def get_sub_state(self, sub_name: V) -> "TypedState[V]":
+        """
+        Create a TypedState based on a sub nested dataclass name proxy.
+        The created TypedState will have the same state ids as the ones present in the full TypedState.
+        This method can be used to simplify the connection of a "full" TypedState to sub UI components such as buttons
+        or sliders.
+
+        :returns: New typed state based on the given input sub name.
+        """
+        if not self.is_name_proxy_class(sub_name):
+            _error_msg = f"Sub state creation should be called with a Name Proxy instance. Got: {type(sub_name)}"
+            raise RuntimeError(_error_msg)
+
+        state_id = self.get_state_id(sub_name)
+        sub_data = self.get_field_proxy_dict(self.data)[state_id]
+        return TypedState(
+            self.state,
+            self._get_proxy_dataclass_type(sub_name),
+            encoder=self._encoder,
+            data=sub_data,
+            name=sub_name,
+        )

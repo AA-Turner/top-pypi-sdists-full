@@ -240,18 +240,34 @@ class CustomPreviewSizesPage(Page):
         return "desktop"
 
 
+class ExcludedCopyPageNote(Orderable):
+    page = ParentalKey(
+        "tests.PageWithExcludedCopyField",
+        related_name="special_notes",
+        on_delete=models.CASCADE,
+    )
+    note = models.CharField(max_length=255)
+
+    panels = [FieldPanel("note")]
+
+
 # Page with Excluded Fields when copied
 class PageWithExcludedCopyField(Page):
     content = models.TextField()
 
-    # Exclude this field from being copied
+    # Exclude these fields and the special_notes relation from being copied
     special_field = models.CharField(blank=True, max_length=255, default="Very Special")
-    exclude_fields_in_copy = ["special_field"]
+    special_stream = StreamField(
+        [("item", CharBlock())], default=[("item", "default item")]
+    )
+    exclude_fields_in_copy = ["special_field", "special_notes", "special_stream"]
 
     content_panels = [
         TitleFieldPanel("title", classname="title"),
         FieldPanel("special_field"),
         FieldPanel("content"),
+        FieldPanel("special_stream"),
+        InlinePanel("special_notes", label="special note"),
     ]
 
 
@@ -350,7 +366,7 @@ class EventPageSpeaker(TranslatableMixin, Orderable, LinkFields, ClusterableMode
         "last_name",
         "image",
         MultiFieldPanel(LinkFields.panels, "Link"),
-        InlinePanel("awards", label="Awards"),
+        InlinePanel("awards", label="award"),
     ]
 
     class Meta(TranslatableMixin.Meta, Orderable.Meta):
@@ -425,18 +441,18 @@ class EventPage(Page):
         FieldPanel("audience", help_text="Who this event is for"),
         "cost",
         "signup_link",
-        InlinePanel("carousel_items", label="Carousel items"),
+        InlinePanel("carousel_items", label="carousel item"),
         "body",
         InlinePanel(
             "speakers",
-            label="Speaker",
+            label="speaker",
             heading="Speaker lineup",
             help_text="Put the keynote speaker first",
         ),
-        InlinePanel("related_links", label="Related links"),
+        InlinePanel("related_links", label="related link"),
         "categories",
         # InlinePanel related model uses `pk` not `id`
-        InlinePanel("head_counts", label="Head Counts"),
+        InlinePanel("head_counts", label="head count"),
     ]
 
     promote_panels = [
@@ -598,7 +614,7 @@ class FormPage(AbstractEmailForm):
 
     content_panels = [
         TitleFieldPanel("title", classname="title"),
-        InlinePanel("form_fields", label="Form fields"),
+        InlinePanel("form_fields", label="form field"),
         MultiFieldPanel(
             [
                 FieldPanel("to_address"),
@@ -657,7 +673,7 @@ class JadeFormPage(AbstractEmailForm):
 
     content_panels = [
         TitleFieldPanel("title", classname="title"),
-        InlinePanel("form_fields", label="Form fields"),
+        InlinePanel("form_fields", label="form field"),
         MultiFieldPanel(
             [
                 FieldPanel("to_address"),
@@ -704,7 +720,7 @@ class FormPageWithRedirect(AbstractEmailForm):
     content_panels = [
         TitleFieldPanel("title", classname="title"),
         FieldPanel("thank_you_redirect_page"),
-        InlinePanel("form_fields", label="Form fields"),
+        InlinePanel("form_fields", label="form field"),
         MultiFieldPanel(
             [
                 FieldPanel("to_address"),
@@ -807,7 +823,7 @@ class FormPageWithCustomSubmission(AbstractEmailForm):
     content_panels = [
         TitleFieldPanel("title", classname="title"),
         FieldPanel("intro"),
-        InlinePanel("custom_form_fields", label="Form fields"),
+        InlinePanel("custom_form_fields", label="form field"),
         FieldPanel("thank_you_text"),
         MultiFieldPanel(
             [
@@ -878,7 +894,7 @@ class FormPageWithCustomSubmissionListView(AbstractEmailForm):
     content_panels = [
         TitleFieldPanel("title", classname="title"),
         FieldPanel("intro"),
-        InlinePanel("form_fields", label="Form fields"),
+        InlinePanel("form_fields", label="form field"),
         FieldPanel("thank_you_text"),
         MultiFieldPanel(
             [
@@ -1008,7 +1024,7 @@ class FormPageWithCustomFormBuilder(AbstractEmailForm):
 
     content_panels = [
         TitleFieldPanel("title", classname="title"),
-        InlinePanel("form_fields", label="Form fields"),
+        InlinePanel("form_fields", label="form field"),
         MultiFieldPanel(
             [
                 FieldPanel("to_address"),
@@ -1404,6 +1420,20 @@ class VariousOnDeleteModel(models.Model):
         blank=True,
         related_name="+",
     )
+    protected_page = models.ForeignKey(
+        "wagtailcore.Page",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    protected_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
 
     cascading_toy = models.ForeignKey(
         "tests.FeatureCompleteToy",
@@ -1456,7 +1486,7 @@ class StandardIndex(Page):
         TitleFieldPanel("title", classname="title"),
         FieldPanel("seo_title"),
         FieldPanel("slug"),
-        InlinePanel("advert_placements", label="Adverts"),
+        InlinePanel("advert_placements", heading="Adverts", label="advert"),
     ]
 
     promote_panels = []
@@ -1464,7 +1494,7 @@ class StandardIndex(Page):
 
 class PromotionalPage(Page):
     content_panels = Page.content_panels + [
-        InlinePanel("advert_placements", label="Adverts", min_num=1),
+        InlinePanel("advert_placements", heading="Adverts", label="advert", min_num=1),
     ]
 
 
@@ -1811,7 +1841,7 @@ class MTIBasePage(Page):
     is_creatable = False
 
     class Meta:
-        verbose_name = "MTI Base page"
+        verbose_name = "MTI base page"
 
 
 class MTIChildPage(MTIBasePage):
@@ -1913,8 +1943,8 @@ class ImportantPagesGenericSetting(BaseGenericSetting):
     )
 
     class Meta:
-        verbose_name = _("Important pages settings")
-        verbose_name_plural = _("Important pages settings")
+        verbose_name = _("important pages settings")
+        verbose_name_plural = _("important pages settings")
 
 
 @register_setting(icon="tag")
@@ -1927,14 +1957,6 @@ class IconGenericSetting(BaseGenericSetting):
     pass
 
 
-class NotYetRegisteredSiteSetting(BaseSiteSetting):
-    pass
-
-
-class NotYetRegisteredGenericSetting(BaseGenericSetting):
-    pass
-
-
 @register_setting
 class FileSiteSetting(BaseSiteSetting):
     file = models.FileField()
@@ -1943,6 +1965,22 @@ class FileSiteSetting(BaseSiteSetting):
 @register_setting
 class FileGenericSetting(BaseGenericSetting):
     file = models.FileField()
+
+
+@register_setting
+class PreviewableSiteSetting(PreviewableMixin, BaseSiteSetting):
+    text = models.TextField()
+
+    def get_preview_template(self, request, mode_name):
+        return "tests/previewable_setting.html"
+
+
+@register_setting
+class PreviewableGenericSetting(PreviewableMixin, BaseGenericSetting):
+    text = models.TextField()
+
+    def get_preview_template(self, request, mode_name):
+        return "tests/previewable_setting.html"
 
 
 class BlogCategory(models.Model):
@@ -2260,8 +2298,8 @@ class PersonPage(Page):
     ]
 
     class Meta:
-        verbose_name = "Person"
-        verbose_name_plural = "Persons"
+        verbose_name = "person"
+        verbose_name_plural = "persons"
 
 
 class Address(index.Indexed, ClusterableModel, Orderable):
@@ -2283,8 +2321,8 @@ class Address(index.Indexed, ClusterableModel, Orderable):
     ]
 
     class Meta:
-        verbose_name = "Address"
-        verbose_name_plural = "Addresses"
+        verbose_name = "address"
+        verbose_name_plural = "addresses"
 
 
 class AddressTag(TaggedItemBase):
@@ -2309,8 +2347,8 @@ class SocialLink(index.Indexed, ClusterableModel):
     panels = ["url", "kind"]
 
     class Meta:
-        verbose_name = "Social link"
-        verbose_name_plural = "Social links"
+        verbose_name = "social link"
+        verbose_name_plural = "social links"
 
 
 class RestaurantPage(Page):
@@ -2325,8 +2363,8 @@ class RestaurantTag(TagBase):
     free_tagging = False
 
     class Meta:
-        verbose_name = "Tag"
-        verbose_name_plural = "Tags"
+        verbose_name = "tag"
+        verbose_name_plural = "tags"
 
 
 class TaggedRestaurant(ItemBase):

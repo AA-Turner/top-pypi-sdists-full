@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.5.5 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.5.6 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -668,7 +668,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.5) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.6) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -2095,24 +2095,23 @@ class offload:
             if scaling == 0:
                 continue
             if first_weight:
-                original_weight= weight.clone() if weight != None else None
+                original_weight= weight.clone() if weight is not None else None
                 first_weight = False
             if first_bias:
-                original_bias= bias.clone() if bias != None else None
+                original_bias= bias.clone() if bias is not None else None
                 first_bias = False
 
-            if diff_w != None:
+            if diff_w is not None:
                 weight.add_(diff_w, alpha= scaling)
                 diff_w = None
-            if diff_b != None:
+            if diff_b is not None:
                 bias.add_(diff_b, alpha= scaling)
                 diff_b = None
 
         ret = func(*args, **kwargs )
 
-        weight.data  = original_weight  if original_weight != None else None 
-        if original_bias != None:
-            bias.data = original_bias
+        if original_weight is not None: weight.data  = original_weight    
+        if original_bias is not None: bias.data = original_bias
 
         return ret
 

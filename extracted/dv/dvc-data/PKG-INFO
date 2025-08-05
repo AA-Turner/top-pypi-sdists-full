@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: dvc-data
-Version: 3.16.10
+Version: 3.16.11
 Summary: DVC's data management subsystem
 Author-email: Iterative <support@dvc.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Issues, https://github.com/iterative/dvc-data/issues
 Project-URL: Source, https://github.com/iterative/dvc-data
 Classifier: Programming Language :: Python :: 3
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 4 - Beta
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
@@ -36,12 +37,11 @@ Requires-Dist: pytest-sugar; extra == "tests"
 Requires-Dist: pytest-cov>=4.1.0; extra == "tests"
 Requires-Dist: pytest-mock; extra == "tests"
 Requires-Dist: pytest-benchmark>=4; extra == "tests"
-Requires-Dist: pytest-servers==0.5.10; extra == "tests"
+Requires-Dist: pytest-servers==0.5.11; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: dvc-data[all]; extra == "dev"
 Requires-Dist: dvc-data[tests]; extra == "dev"
-Requires-Dist: blake3>=0.3.1; extra == "dev"
-Requires-Dist: mypy==1.15.0; extra == "dev"
+Requires-Dist: mypy==1.17.0; extra == "dev"
 Requires-Dist: types-tqdm; extra == "dev"
 Dynamic: license-file
 

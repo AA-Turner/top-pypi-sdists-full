@@ -119,7 +119,7 @@ class Stream(metaclass=abc.ABCMeta):  # noqa: PLR0904
     def __init__(
         self,
         tap: Tap,
-        schema: str | PathLike | dict[str, t.Any] | singer.Schema | None = None,
+        schema: types.StrPath | dict[str, t.Any] | singer.Schema | None = None,
         name: str | None = None,
     ) -> None:
         """Init tap stream.
@@ -164,7 +164,6 @@ class Stream(metaclass=abc.ABCMeta):  # noqa: PLR0904
         self._mask: singer.SelectionMask | None = None
         self._schema: dict
         self._is_state_flushed: bool = True
-        self._last_emitted_state: types.TapState | None = None
         self._sync_costs: dict[str, int] = {}
         self.child_streams: list[Stream] = []
         if schema:
@@ -175,7 +174,7 @@ class Stream(metaclass=abc.ABCMeta):  # noqa: PLR0904
 
                 self._schema_filepath = Path(schema)
                 warnings.warn(
-                    "Passing a schema filepath is deprecated. Please pass the schema "
+                    "Passing a schema filepath is deprecated. Please pass a schema "
                     "dictionary or a Singer Schema object instead.",
                     SingerSDKDeprecationWarning,
                     stacklevel=2,
@@ -188,7 +187,13 @@ class Stream(metaclass=abc.ABCMeta):  # noqa: PLR0904
                 msg = f"Unexpected type {type(schema).__name__} for arg 'schema'."  # type: ignore[unreachable]
                 raise ValueError(msg)
 
-        if self.schema_filepath:
+        if self.schema_filepath:  # pragma: no cover
+            warnings.warn(
+                "Passing a schema filepath is deprecated. Use the `StreamSchema` "
+                "descriptor with a `SchemaDirectory` source instead.",
+                SingerSDKDeprecationWarning,
+                stacklevel=2,
+            )
             self._schema = json.loads(self.schema_filepath.read_text())
 
         if not self.schema:
@@ -397,7 +402,7 @@ class Stream(metaclass=abc.ABCMeta):  # noqa: PLR0904
     def _write_replication_key_signpost(
         self,
         context: types.Context | None,
-        value: datetime.datetime | str | int | float,
+        value: datetime.datetime | str | float,
     ) -> None:
         """Write the signpost value, if available.
 
@@ -863,21 +868,16 @@ class Stream(metaclass=abc.ABCMeta):  # noqa: PLR0904
 
     def _write_state_message(self) -> None:
         """Write out a STATE message with the latest state."""
-        if (
-            (not self._is_state_flushed)
-            and self.tap_state
-            and (self.tap_state != self._last_emitted_state)
-        ):
-            self._tap.write_message(singer.StateMessage(value=self.tap_state))
-            self._last_emitted_state = copy.deepcopy(self.tap_state)
+        if not self._is_state_flushed and self.tap_state:
+            self._tap.state_writer.write_state(self.tap_state)
             self._is_state_flushed = True
 
     def _write_activate_version_message(self, full_table_version: int) -> None:
         """Write out an ACTIVATE_VERSION message."""
         singer.write_message(
             singer.ActivateVersionMessage(
-                self.name,
-                full_table_version,
+                stream=self.name,
+                version=full_table_version,
             )
         )
 

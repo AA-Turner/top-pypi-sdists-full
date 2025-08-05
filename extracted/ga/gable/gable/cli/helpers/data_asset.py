@@ -210,7 +210,7 @@ def determine_should_block(
     """
 
     for result in check_data_assets_results:
-        result = result.__root__
+        result = result.root
         if isinstance(result, CheckDataAssetDetailedResponse):
             if result.violations is not None and len(result.violations) > 0:
                 if result.enforcementLevel == EnforcementLevel.BLOCK:
@@ -230,7 +230,7 @@ def format_check_data_assets_text_output(
     results_strings = []
     contract_violations_found = False
     for result in check_data_assets_results:
-        result = result.__root__
+        result = result.root
         if isinstance(result, CheckDataAssetDetailedResponse):
             # If there were violations, print them
             if result.violations is not None and len(result.violations) > 0:
@@ -288,7 +288,7 @@ def format_check_data_assets_json_output(
     # Convert the results to dicts by calling Pydantic's json() on each result to deal with enums, which
     # aren't serializable by default
     results_dict = [
-        json.loads(result.__root__.json()) for result in check_data_assets_results
+        json.loads(result.root.json()) for result in check_data_assets_results
     ]
     return json.dumps(results_dict, indent=4, sort_keys=True)
 

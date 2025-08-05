@@ -3,26 +3,13 @@
 Functionality to support user-specific configuration data (userdata).
 """
 
-from __future__ import absolute_import
-from behave._types import Unknown
+from __future__ import absolute_import, print_function
+from behave._types import Unknown, parse_bool
 
 
 # -----------------------------------------------------------------------------
 # FUNCTIONS:
 # -----------------------------------------------------------------------------
-def parse_bool(text):
-    """Parses a boolean text and converts it into boolean value (if possible).
-    Supported truth string values:
-
-      * true:   "true", "yes", "on", "1"
-      * false:  "false", "no", "off", "0"
-
-    :raises: ValueError, if text is invalid
-    """
-    from distutils.util import strtobool
-    return bool(strtobool(text))
-
-
 def parse_user_define(text):
     """Parse "{name}={value}" text and return parts as tuple.
     Used for command-line definitions, like "... -D name=value".
@@ -98,7 +85,7 @@ class UserData(dict):
         else:
             # -- CASE: Textual value (expected)
             # Raise ValueError if parse/conversion fails.
-            assert callable(convert)
+            # -- ASSUMPTION: require_callable(convert)
             return convert(value)
 
     def getint(self, name, default=0):

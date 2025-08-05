@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: voxel51-eta
-Version: 0.14.3
+Version: 0.14.4
 Summary: Extensible Toolkit for Analytics
 Home-page: https://github.com/voxel51/eta
 Author: Voxel51, Inc.
@@ -32,6 +32,7 @@ Requires-Dist: glob2
 Requires-Dist: jsonlines
 Requires-Dist: numpy
 Requires-Dist: packaging
+Requires-Dist: paramiko<4,>=3
 Requires-Dist: Pillow>=6.2
 Requires-Dist: py7zr
 Requires-Dist: python-dateutil

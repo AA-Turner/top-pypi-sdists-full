@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.35.0
+Version: 1.35.1
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -15,8 +15,8 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Pydantic :: 2
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: azure-ai-projects >= 1.0.0b11
-Requires-Dist: azure-ai-agents >= 1.1.0b1
+Requires-Dist: azure-ai-projects >= 1.0.0b12
+Requires-Dist: azure-ai-agents >= 1.1.0b4
 Requires-Dist: aiohttp ~= 3.8
 Requires-Dist: cloudevents ~=1.0
 Requires-Dist: pydantic >=2.0,!=2.10.0,!=2.10.1,!=2.10.2,!=2.10.3,<2.12
@@ -25,7 +25,7 @@ Requires-Dist: defusedxml ~= 0.7
 Requires-Dist: azure-identity >= 1.13
 Requires-Dist: numpy >= 1.25.0; python_version < '3.12'
 Requires-Dist: numpy >= 1.26.0; python_version >= '3.12'
-Requires-Dist: openai >= 1.67
+Requires-Dist: openai >= 1.91.1
 Requires-Dist: openapi_core >= 0.18,<0.20
 Requires-Dist: websockets >= 13, < 16
 Requires-Dist: aiortc>=1.9.0
@@ -55,7 +55,7 @@ Requires-Dist: faiss-cpu>=1.10.0 ; extra == "faiss"
 Requires-Dist: google-cloud-aiplatform == 1.97.0 ; extra == "google"
 Requires-Dist: google-generativeai ~= 0.8 ; extra == "google"
 Requires-Dist: transformers[torch] ~= 4.28 ; extra == "hugging-face"
-Requires-Dist: sentence-transformers >= 2.2,< 5.0 ; extra == "hugging-face"
+Requires-Dist: sentence-transformers >= 2.2,< 6.0 ; extra == "hugging-face"
 Requires-Dist: torch == 2.7.1 ; extra == "hugging-face"
 Requires-Dist: mcp>=1.8 ; extra == "mcp"
 Requires-Dist: pymilvus >= 2.3,< 2.6 ; extra == "milvus"
@@ -77,7 +77,7 @@ Requires-Dist: types-redis ~= 4.6.0.20240425 ; extra == "redis"
 Requires-Dist: redisvl ~= 0.4 ; extra == "redis"
 Requires-Dist: pyodbc >= 5.2 ; extra == "sql"
 Requires-Dist: usearch ~= 2.16 ; extra == "usearch"
-Requires-Dist: pyarrow >= 12.0,< 21.0 ; extra == "usearch"
+Requires-Dist: pyarrow >= 12.0,< 22.0 ; extra == "usearch"
 Requires-Dist: weaviate-client>=4.10,<5.0 ; extra == "weaviate"
 Project-URL: homepage, https://learn.microsoft.com/en-us/semantic-kernel/overview/
 Project-URL: issues, https://github.com/microsoft/semantic-kernel/issues

@@ -15,7 +15,7 @@ spark = SparkSession.builder.appName("module").getOrCreate()
 dbutils = DBUtils(spark)
 
 
-def df_from_sharepoint_masterdata(list_name, row_limit=5000, site_name="VyMasterdata", internal_name=True):
+def df_from_sharepoint_masterdata(list_name, row_limit=5000, site_name="VyMasterdata"):
     # Connect and fetch data
     sharepoint_url = dbutils.secrets.get("SHAREPOINT", "url")
     site_url = f"{sharepoint_url}/sites/{site_name}"
@@ -23,15 +23,8 @@ def df_from_sharepoint_masterdata(list_name, row_limit=5000, site_name="VyMaster
     client_secret = dbutils.secrets.get("SHAREPOINT", "app_secret")
 
     ctx = ClientContext(site_url).with_credentials(ClientCredential(client_id, client_secret))
- 
-    # Get the list and metadata
-    s_list = ctx.web.lists.get_by_title(list_name)
-    s_list_fields = s_list.fields
-    ctx.load(s_list_fields)
-    ctx.execute_query()
-
-    # Create a dictionary to map internal names to display names
-    field_map = {field.internal_name: field.title for field in s_list_fields}
+    sp_lists = ctx.web.lists
+    s_list = sp_lists.get_by_title(list_name)
 
     # Set the row limit for the query
     l_items = s_list.get_items().top(row_limit)
@@ -66,11 +59,6 @@ def df_from_sharepoint_masterdata(list_name, row_limit=5000, site_name="VyMaster
 
     # Convert to spark dataframe
     df = spark.createDataFrame(dp)
-    
-    if not internal_name:
-        for internal_name, field_name in field_map.items():
-            df = df.withColumnRenamed(internal_name, field_name)
-
     df = snake_headers(df)
 
     # Check if the number of rows in the dataframe is the same as row_limit

@@ -27,7 +27,7 @@ Vinay Sajip to make use of the subprocess module (Steve's version uses os.fork()
 and so does not work on Windows). Renamed to gnupg.py to avoid confusion with
 the previous versions.
 
-Modifications Copyright (C) 2008-2024 Vinay Sajip. All rights reserved.
+Modifications Copyright (C) 2008-2025 Vinay Sajip. All rights reserved.
 
 For the full documentation, see https://docs.red-dove.com/python-gnupg/ or
 https://gnupg.readthedocs.io/
@@ -39,15 +39,19 @@ from email.utils import parseaddr
 from io import StringIO
 import logging
 import os
+try:
+    from queue import Queue, Empty
+except ImportError:
+    from Queue import Queue, Empty
 import re
 import socket
 from subprocess import Popen, PIPE
 import sys
 import threading
 
-__version__ = '0.5.4'
+__version__ = '0.5.5'
 __author__ = 'Vinay Sajip'
-__date__ = '$07-Jan-2025 10:13:17$'
+__date__ = '$04-Aug-2025 19:49:23$'
 
 STARTUPINFO = None
 if os.name == 'nt':  # pragma: no cover
@@ -137,7 +141,7 @@ def no_quote(s):
     return s
 
 
-def _copy_data(instream, outstream, buffer_size):
+def _copy_data(instream, outstream, buffer_size, error_queue):
     # Copy one stream to another
     assert buffer_size > 0
     sent = 0
@@ -150,8 +154,9 @@ def _copy_data(instream, outstream, buffer_size):
         # for what is actually a binary file
         try:
             data = instream.read(buffer_size)
-        except Exception:  # pragma: no cover
+        except Exception as e:  # pragma: no cover
             logger.warning('Exception occurred while reading', exc_info=1)
+            error_queue.put_nowait(e)
             break
         if not data:
             break
@@ -161,10 +166,11 @@ def _copy_data(instream, outstream, buffer_size):
             outstream.write(data)
         except UnicodeError:  # pragma: no cover
             outstream.write(data.encode(enc))
-        except Exception:  # pragma: no cover
+        except Exception as e:  # pragma: no cover
             # Can sometimes get 'broken pipe' errors even when the data has all
             # been sent
             logger.exception('Error sending data')
+            error_queue.put_nowait(e)
             break
     try:
         outstream.close()
@@ -173,9 +179,9 @@ def _copy_data(instream, outstream, buffer_size):
     logger.debug('closed output, %d bytes sent', sent)
 
 
-def _threaded_copy_data(instream, outstream, buffer_size):
+def _threaded_copy_data(instream, outstream, buffer_size, error_queue):
     assert buffer_size > 0
-    wr = threading.Thread(target=_copy_data, args=(instream, outstream, buffer_size))
+    wr = threading.Thread(target=_copy_data, args=(instream, outstream, buffer_size, error_queue))
     wr.daemon = True
     logger.debug('data copier: %r, %r, %r', wr, instream, outstream)
     wr.start()
@@ -569,6 +575,7 @@ class SearchKeys(StatusHandler, list):
         self.curkey = None
         self.fingerprints = []
         self.uids = []
+        self.uid_map = {}
 
     def get_fields(self, args):
         """
@@ -597,6 +604,10 @@ class SearchKeys(StatusHandler, list):
             uid = uid.replace(k, v)
         self.curkey['uids'].append(uid)
         self.uids.append(uid)
+        uid_data = {}
+        self.uid_map[uid] = uid_data
+        for fn, fv in zip(self.FIELDS, args):
+            uid_data[fn] = fv
 
     def handle_status(self, key, value):  # pragma: no cover
         pass
@@ -1053,7 +1064,7 @@ class AutoLocateKey(StatusHandler):
         self.fingerprint = self.fingerprint or args[9]
 
 
-VERSION_RE = re.compile(r'^cfg:version:(\d+(\.\d+)*)'.encode('ascii'))
+VERSION_RE = re.compile(r'\bcfg:version:(\d+(\.\d+)*)'.encode('ascii'))
 HEX_DIGITS_RE = re.compile(r'[0-9a-f]+$', re.I)
 PUBLIC_KEY_RE = re.compile(r'gpg: public key is (\w+)')
 
@@ -1154,7 +1165,7 @@ class GPG(object):
         self._collect_output(p, result, stdin=p.stdin)
         if p.returncode != 0:  # pragma: no cover
             raise ValueError('Error invoking gpg: %s: %s' % (p.returncode, result.stderr))
-        m = VERSION_RE.match(result.data)
+        m = VERSION_RE.search(result.data)
         if not m:  # pragma: no cover
             self.version = None
         else:
@@ -1344,17 +1355,24 @@ class GPG(object):
         # Handle a basic data call - pass data to GPG, handle the output
         # including status information. Garbage In, Garbage Out :)
         fileobj = self._get_fileobj(fileobj_or_path)
+        writer = None  # See issue #237
         try:
             p = self._open_subprocess(args, passphrase is not None)
             if not binary:  # pragma: no cover
                 stdin = codecs.getwriter(self.encoding)(p.stdin)
             else:
                 stdin = p.stdin
-            writer = None  # See issue #237
             if passphrase:
                 _write_passphrase(stdin, passphrase, self.encoding)
-            writer = _threaded_copy_data(fileobj, stdin, self.buffer_size)
+            error_queue = Queue()
+            writer = _threaded_copy_data(fileobj, stdin, self.buffer_size, error_queue)
             self._collect_output(p, result, writer, stdin)
+            try:
+                exc = error_queue.get_nowait()
+                # if we get here, that means an error occurred in the copying thread
+                raise exc
+            except Empty:
+                pass
             return result
         finally:
             if writer:
@@ -1476,14 +1494,21 @@ class GPG(object):
         # passphrase is bad, gpg bails and you can't write the message.
         fileobj = self._get_fileobj(fileobj_or_path)
         p = self._open_subprocess(args, passphrase is not None)
+        writer = None
         try:
             stdin = p.stdin
             if passphrase:
                 _write_passphrase(stdin, passphrase, self.encoding)
-            writer = _threaded_copy_data(fileobj, stdin, self.buffer_size)
+            error_queue = Queue()
+            writer = _threaded_copy_data(fileobj, stdin, self.buffer_size, error_queue)
+            try:
+                exc = error_queue.get_nowait()
+                # if we get here, that means an error occurred in the copying thread
+                raise exc
+            except Empty:
+                pass
         except IOError:  # pragma: no cover
             logging.exception('error writing message')
-            writer = None
         finally:
             if writer:
                 writer.join(0.01)

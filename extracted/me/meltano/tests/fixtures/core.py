@@ -21,7 +21,7 @@ from meltano.core.environment_service import EnvironmentService
 from meltano.core.job import Job, Payload, State
 from meltano.core.job_state import JobState
 from meltano.core.locked_definition_service import LockedDefinitionService
-from meltano.core.logging.formatters import LEVELED_TIMESTAMPED_PRE_CHAIN
+from meltano.core.logging.formatters import get_default_foreign_pre_chain
 from meltano.core.logging.job_logging_service import JobLoggingService
 from meltano.core.plugin import PluginType
 from meltano.core.plugin.settings_service import PluginSettingsService
@@ -42,6 +42,8 @@ if t.TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
     from requests.adapters import BaseAdapter
+
+    from meltano.core.plugin.project_plugin import ProjectPlugin
 
 current_dir = Path(__file__).parent
 
@@ -1914,7 +1916,7 @@ def plugin_invoker_factory(project, plugin_settings_service_factory):
 
 
 @pytest.fixture(scope="class")
-def tap(project_add_service):
+def tap(project_add_service: ProjectAddService):
     try:
         return project_add_service.add(
             PluginType.EXTRACTORS,
@@ -1926,7 +1928,7 @@ def tap(project_add_service):
 
 
 @pytest.fixture(scope="class")
-def alternative_tap(project_add_service, tap):
+def alternative_tap(project_add_service: ProjectAddService, tap: ProjectPlugin):
     try:
         return project_add_service.add(
             PluginType.EXTRACTORS,
@@ -1939,7 +1941,7 @@ def alternative_tap(project_add_service, tap):
 
 
 @pytest.fixture(scope="class")
-def inherited_tap(project_add_service, tap):
+def inherited_tap(project_add_service: ProjectAddService, tap: ProjectPlugin):
     try:
         return project_add_service.add(
             PluginType.EXTRACTORS,
@@ -1955,7 +1957,7 @@ def inherited_tap(project_add_service, tap):
 
 
 @pytest.fixture(scope="class")
-def nonpip_tap(project_add_service):
+def nonpip_tap(project_add_service: ProjectAddService):
     try:
         return project_add_service.add(
             PluginType.EXTRACTORS,
@@ -1967,7 +1969,7 @@ def nonpip_tap(project_add_service):
 
 
 @pytest.fixture(scope="class")
-def target(project_add_service):
+def target(project_add_service: ProjectAddService):
     try:
         return project_add_service.add(PluginType.LOADERS, "target-mock")
     except PluginAlreadyAddedException as err:
@@ -1975,7 +1977,7 @@ def target(project_add_service):
 
 
 @pytest.fixture(scope="class")
-def alternative_target(project_add_service):
+def alternative_target(project_add_service: ProjectAddService):
     # We don't load the `target` fixture here since this ProjectPlugin should
     # have a BasePlugin parent, not the `target` ProjectPlugin
     try:
@@ -1989,7 +1991,7 @@ def alternative_target(project_add_service):
 
 
 @pytest.fixture(scope="class")
-def dbt(project_add_service):
+def dbt(project_add_service: ProjectAddService):
     try:
         return project_add_service.add(PluginType.TRANSFORMERS, "dbt")
     except PluginAlreadyAddedException as err:
@@ -2005,7 +2007,7 @@ def transformer(project_add_service: ProjectAddService):
 
 
 @pytest.fixture(scope="class")
-def utility(project_add_service):
+def utility(project_add_service: ProjectAddService):
     try:
         return project_add_service.add(PluginType.UTILITIES, "utility-mock")
     except PluginAlreadyAddedException as err:
@@ -2139,7 +2141,7 @@ def project_files(tmp_path_factory: pytest.TempPathFactory, compatible_copy_tree
 
 
 @pytest.fixture(scope="class")
-def mapper(project_add_service):
+def mapper(project_add_service: ProjectAddService):
     try:
         return project_add_service.add(
             PluginType.MAPPERS,
@@ -2416,7 +2418,7 @@ test_log_config = {
         "test": {
             "()": structlog.stdlib.ProcessorFormatter,
             "processor": structlog.processors.JSONRenderer(),
-            "foreign_pre_chain": LEVELED_TIMESTAMPED_PRE_CHAIN,
+            "foreign_pre_chain": get_default_foreign_pre_chain(),
         },
     },
     "handlers": {

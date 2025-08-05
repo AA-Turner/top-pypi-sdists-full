@@ -9,10 +9,10 @@ from urllib.parse import ParseResult, urlparse
 
 from singer_sdk.helpers.jsonpath import extract_jsonpath
 
-if sys.version_info < (3, 12):
-    from typing_extensions import override
-else:
+if sys.version_info >= (3, 12):
     from typing import override  # noqa: ICN003
+else:
+    from typing_extensions import override
 
 if t.TYPE_CHECKING:
     import requests
@@ -174,6 +174,18 @@ class SinglePagePaginator(BaseAPIPaginator[None]):
             kwargs: Paginator keyword arguments for base class.
         """
         super().__init__(None, *args, **kwargs)
+
+    @override
+    def has_more(self, response: requests.Response) -> bool:
+        """A single page should not have any more pages.
+
+        Args:
+            response: API response object.
+
+        Returns:
+            `False` to indicate pagination is complete after the first page.
+        """
+        return False
 
     @override
     def get_next(self, response: requests.Response) -> None:

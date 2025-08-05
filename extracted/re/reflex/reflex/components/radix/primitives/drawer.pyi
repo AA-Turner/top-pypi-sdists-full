@@ -27,7 +27,6 @@ class DrawerComponent(RadixPrimitiveComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -57,7 +56,6 @@ class DrawerComponent(RadixPrimitiveComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -96,7 +94,6 @@ class DrawerRoot(DrawerComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_animation_end: EventType[()] | EventType[bool] | None = None,
         on_blur: EventType[()] | None = None,
@@ -142,7 +139,6 @@ class DrawerRoot(DrawerComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -165,7 +161,6 @@ class DrawerTrigger(DrawerComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -195,7 +190,6 @@ class DrawerTrigger(DrawerComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The properties of the element.
 
@@ -218,7 +212,6 @@ class DrawerPortal(DrawerComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -248,7 +241,6 @@ class DrawerPortal(DrawerComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -271,7 +263,6 @@ class DrawerContent(DrawerComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -310,7 +301,6 @@ class DrawerContent(DrawerComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: Additional properties to apply to the drawer content.
 
@@ -333,7 +323,6 @@ class DrawerOverlay(DrawerComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -363,7 +352,6 @@ class DrawerOverlay(DrawerComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -386,7 +374,6 @@ class DrawerClose(DrawerTrigger):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -416,7 +403,6 @@ class DrawerClose(DrawerTrigger):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The properties of the element.
 
@@ -439,7 +425,6 @@ class DrawerTitle(DrawerComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -469,7 +454,6 @@ class DrawerTitle(DrawerComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -492,7 +476,6 @@ class DrawerDescription(DrawerComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -522,7 +505,6 @@ class DrawerDescription(DrawerComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -545,7 +527,6 @@ class DrawerHandle(DrawerComponent):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -575,7 +556,6 @@ class DrawerHandle(DrawerComponent):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -621,7 +601,6 @@ class Drawer(ComponentNamespace):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_animation_end: EventType[()] | EventType[bool] | None = None,
         on_blur: EventType[()] | None = None,
@@ -667,7 +646,6 @@ class Drawer(ComponentNamespace):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 

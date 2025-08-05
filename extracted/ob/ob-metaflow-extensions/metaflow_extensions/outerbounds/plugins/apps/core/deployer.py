@@ -151,7 +151,6 @@ class AppDeployer(TypedCoreConfig):
             final_status["id"],
             final_status["auth_type"],
             final_status["public_url"],
-            final_status["available_replicas"],
             final_status["name"],
             final_status["deployed_version"],
             final_status["deployed_at"],
@@ -164,7 +163,6 @@ class DeployedApp:
         _id: str,
         capsule_type: str,
         public_url: str,
-        available_replicas: int,
         name: str,
         deployed_version: str,
         deployed_at: str,
@@ -172,7 +170,6 @@ class DeployedApp:
         self._id = _id
         self._capsule_type = capsule_type
         self._public_url = public_url
-        self._available_replicas = available_replicas
         self._name = name
         self._deployed_version = deployed_version
         self._deployed_at = deployed_at
@@ -207,6 +204,10 @@ class DeployedApp:
         capsule_api = self._get_capsule_api()
         capsule = capsule_api.get(self._id)
         return capsule
+
+    def replicas(self):
+        capsule_api = self._get_capsule_api()
+        return capsule_api.get_workers(self._id)
 
     def scale_to_zero(self):
         """
@@ -244,10 +245,6 @@ class DeployedApp:
         return self._public_url
 
     @property
-    def available_replicas(self) -> int:
-        return self._available_replicas
-
-    @property
     def name(self) -> str:
         return self._name
 
@@ -260,7 +257,6 @@ class DeployedApp:
             "id": self._id,
             "auth_style": self.auth_style,  # TODO : Fix naming here.
             "public_url": self._public_url,
-            "available_replicas": self._available_replicas,
             "name": self._name,
             "deployed_version": self._deployed_version,
             "deployed_at": self._deployed_at,
@@ -272,7 +268,6 @@ class DeployedApp:
             _id=data["id"],
             capsule_type=data["capsule_type"],
             public_url=data["public_url"],
-            available_replicas=data["available_replicas"],
             name=data["name"],
             deployed_version=data["deployed_version"],
             deployed_at=data["deployed_at"],
@@ -287,7 +282,6 @@ class DeployedApp:
             f"DeployedApp(id='{self._id}', "
             f"name='{self._name}', "
             f"public_url='{self._public_url}', "
-            f"available_replicas={self._available_replicas}, "
             f"deployed_version='{self._deployed_version}')"
         )
 

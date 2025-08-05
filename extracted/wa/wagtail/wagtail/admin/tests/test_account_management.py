@@ -121,6 +121,25 @@ class TestAuthentication(WagtailTestUtils, TestCase):
         # Check that the user was logged out
         self.assertNotIn("_auth_user_id", self.client.session)
 
+    @override_settings(WAGTAILADMIN_LOGIN_URL="fallback")
+    def test_logout_redirect_with_custom_login_url(self):
+        """
+        This tests that if the WAGTAILADMIN_LOGIN_URL setting is customized,
+        the user will be redirected to that URL when logging out of the admin.
+        """
+        # Login
+        self.login()
+
+        # Get logout page
+        response = self.client.post(reverse("wagtailadmin_logout"))
+
+        # Check that the user was redirected to the URL set for the
+        # WAGTAILADMIN_LOGIN_URL setting
+        self.assertRedirects(response, reverse("fallback"))
+
+        # Check that the user was logged out
+        self.assertNotIn("_auth_user_id", self.client.session)
+
     def test_not_logged_in_redirect(self):
         """
         This tests that a not logged in user is redirected to the
@@ -234,6 +253,7 @@ class TestAccountSectionUtilsMixin:
             "theme-theme": "dark",
             "theme-density": "default",
             "theme-contrast": "system",
+            "keyboard-shortcuts": "true",
         }
         post_data.update(extra_post_data)
         return self.client.post(reverse("wagtailadmin_account"), post_data)
@@ -688,6 +708,23 @@ class TestAccountSection(
         AccountView.as_view()(request)
         self.assertTrue(hasattr(request, "sensitive_post_parameters"))
         self.assertEqual(request.sensitive_post_parameters, "__ALL__")
+
+    def test_change_keyboard_shortcut_preference(self):
+        response = self.post_form(
+            {
+                "keyboard_shortcuts": "false",
+            }
+        )
+
+        # Check that the user was redirected to the account page
+        self.assertRedirects(response, reverse("wagtailadmin_account"))
+
+        profile = UserProfile.get_for_user(
+            get_user_model().objects.get(pk=self.user.pk)
+        )
+
+        # Check that the keyboard shortcut preferences are as submitted
+        self.assertFalse(profile.keyboard_shortcuts)
 
 
 class TestAccountUploadAvatar(WagtailTestUtils, TestCase, TestAccountSectionUtilsMixin):

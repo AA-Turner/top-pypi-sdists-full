@@ -70,14 +70,13 @@ def convert_trino_timestamp_to_spark_timestamp(
 ) -> ContractField:
     """Converts a Trino timestamp type to a Spark timestamp type by setting bits to 64 and unit to microsecond.
     If the input is not a timestamp type, it is returned as is."""
-    if (
-        time_or_timestamp.__root__.type != "int"
-        or time_or_timestamp.__root__.logical
-        not in [LogicalEnumTemporal.Time, LogicalEnumTemporal.Timestamp]
-    ):
+    if time_or_timestamp.root.type != "int" or time_or_timestamp.root.logical not in [
+        LogicalEnumTemporal.Time,
+        LogicalEnumTemporal.Timestamp,
+    ]:
         return time_or_timestamp
-    time_or_timestamp.__root__.bits = 64
-    time_or_timestamp.__root__.unit = Unit.millisecond
+    time_or_timestamp.root.bits = 64
+    time_or_timestamp.root.unit = Unit.millisecond
     return time_or_timestamp
 
 
@@ -97,40 +96,36 @@ def trino_to_gable_type(
         # If length is not provided, don't set it so it's ignored when doing the contract comparison
         length = args[0] if args else None
         return ContractField(
-            __root__=StringContractField(
+            root=StringContractField(
                 type="string", name=field_name, bytes=length, variable=True
             )
         )
     elif trinoType == TrinoDataType.CHAR:
         length = args[0] if args else 1
         return ContractField(
-            __root__=StringContractField(
+            root=StringContractField(
                 type="string", name=field_name, bytes=length, variable=False
             )
         )
     elif trinoType == TrinoDataType.BIGINT:
-        return ContractField(__root__=AliasContractField(type="int64", name=field_name))
+        return ContractField(root=AliasContractField(type="int64", name=field_name))
     elif trinoType in (TrinoDataType.INTEGER, TrinoDataType.INT):
-        return ContractField(__root__=AliasContractField(type="int32", name=field_name))
+        return ContractField(root=AliasContractField(type="int32", name=field_name))
     elif trinoType == TrinoDataType.SMALLINT:
-        return ContractField(__root__=AliasContractField(type="int16", name=field_name))
+        return ContractField(root=AliasContractField(type="int16", name=field_name))
     elif trinoType == TrinoDataType.TINYINT:
-        return ContractField(__root__=AliasContractField(type="int8", name=field_name))
+        return ContractField(root=AliasContractField(type="int8", name=field_name))
     elif trinoType == TrinoDataType.REAL:
-        return ContractField(
-            __root__=AliasContractField(type="float32", name=field_name)
-        )
+        return ContractField(root=AliasContractField(type="float32", name=field_name))
     elif trinoType == TrinoDataType.DOUBLE:
-        return ContractField(
-            __root__=AliasContractField(type="float64", name=field_name)
-        )
+        return ContractField(root=AliasContractField(type="float64", name=field_name))
     elif trinoType == TrinoDataType.DECIMAL:
         if not args:
             raise ValueError("Precision must be provided for DECIMAL type")
         precision = args[0]
         scale = args[1] if len(args) > 1 else 0
         return ContractField(
-            __root__=BytesContractField(
+            root=BytesContractField(
                 type="bytes",
                 name=field_name,
                 bytes=17,
@@ -141,28 +136,28 @@ def trino_to_gable_type(
         )
     elif trinoType == TrinoDataType.VARBINARY:
         return ContractField(
-            __root__=BytesContractField(
+            root=BytesContractField(
                 type="bytes", bytes=2147483647, name=field_name, variable=True
             )
         )
     elif trinoType == TrinoDataType.JSON:
         return ContractField(
-            __root__=StringContractField(
+            root=StringContractField(
                 type="string",
                 name=field_name,
             )
         )
     elif trinoType == TrinoDataType.UUID:
         return ContractField(
-            __root__=StringContractField(
+            root=StringContractField(
                 type="string", name=field_name, bytes=36, logical=LogicalEnumText.UUID
             )
         )
     elif trinoType == TrinoDataType.BOOLEAN:
-        return ContractField(__root__=BoolContractField(type="bool", name=field_name))
+        return ContractField(root=BoolContractField(type="bool", name=field_name))
     elif trinoType == TrinoDataType.DATE:
         return ContractField(
-            __root__=IntContractField(
+            root=IntContractField(
                 type="int",
                 bits=32,
                 unit=Unit.day,
@@ -173,7 +168,7 @@ def trino_to_gable_type(
     elif trinoType == TrinoDataType.TIME:
         precision = args[0] if len(args) == 1 else DEFAULT_TIMESTAMP_PRECISION
         return ContractField(
-            __root__=IntContractField(
+            root=IntContractField(
                 type="int",
                 name=field_name,
                 logical=LogicalEnumTemporal.Time,
@@ -184,7 +179,7 @@ def trino_to_gable_type(
     elif trinoType == TrinoDataType.TIME_WITH_TIME_ZONE:
         precision = args[0] if len(args) == 1 else DEFAULT_TIMESTAMP_PRECISION
         return ContractField(
-            __root__=IntContractField(
+            root=IntContractField(
                 type="int",
                 name=field_name,
                 logical=LogicalEnumTemporal.Time,
@@ -196,7 +191,7 @@ def trino_to_gable_type(
     elif trinoType == TrinoDataType.TIMESTAMP:
         precision = args[0] if len(args) == 1 else 3
         return ContractField(
-            __root__=IntContractField(
+            root=IntContractField(
                 type="int",
                 name=field_name,
                 logical=LogicalEnumTemporal.Timestamp,
@@ -207,7 +202,7 @@ def trino_to_gable_type(
     elif trinoType == TrinoDataType.TIMESTAMP_WITH_TIME_ZONE:
         precision = args[0] if len(args) == 1 else 3
         return ContractField(
-            __root__=IntContractField(
+            root=IntContractField(
                 type="int",
                 name=field_name,
                 logical=LogicalEnumTemporal.Timestamp,
@@ -218,7 +213,7 @@ def trino_to_gable_type(
         )
     elif trinoType == TrinoDataType.INTERVAL_YEAR_TO_MONTH:
         return ContractField(
-            __root__=BytesContractField(
+            root=BytesContractField(
                 type="bytes",
                 name=field_name,
                 logical=LogicalEnumNumeric.Interval,
@@ -227,7 +222,7 @@ def trino_to_gable_type(
         )
     elif trinoType == TrinoDataType.INTERVAL_DAY_TO_SECOND:
         return ContractField(
-            __root__=BytesContractField(
+            root=BytesContractField(
                 type="bytes",
                 name=field_name,
                 logical=LogicalEnumNumeric.Interval,
@@ -236,31 +231,31 @@ def trino_to_gable_type(
         )
     elif trinoType in (TrinoDataType.ARRAY, TrinoDataType.ROW):
         if len(args) == 1:
-            array_trino_type = trino_to_gable_type("ignored", args[0]).__root__
+            array_trino_type = trino_to_gable_type("ignored", args[0]).root
             array_trino_type.name = None
         else:
             array_trino_type = UnknownContractField(
                 type="unknown",
             )
         return ContractField(
-            __root__=ListContractField(
+            root=ListContractField(
                 type="list",
                 name=field_name,
-                values=SchemaType(__root__=array_trino_type),
+                values=SchemaType(root=array_trino_type),
             )
         )
     elif trinoType == TrinoDataType.MAP:
         return ContractField(
-            __root__=MapContractField(
+            root=MapContractField(
                 type="map",
                 name=field_name,
                 keys=SchemaType(
-                    __root__=UnknownContractField(
+                    root=UnknownContractField(
                         type="unknown",
                     )
                 ),
                 values=SchemaType(
-                    __root__=UnknownContractField(
+                    root=UnknownContractField(
                         type="unknown",
                     )
                 ),
@@ -268,12 +263,12 @@ def trino_to_gable_type(
         )
     elif trinoType == TrinoDataType.IPADDRESS:
         return ContractField(
-            __root__=StringContractField(type="string", name=field_name, bytes=16)
+            root=StringContractField(type="string", name=field_name, bytes=16)
         )
     else:
         print(f"{field_name} has unknown type: {trinoType}")
         return ContractField(
-            __root__=UnknownContractField(
+            root=UnknownContractField(
                 type="unknown",
                 name=field_name,
             )

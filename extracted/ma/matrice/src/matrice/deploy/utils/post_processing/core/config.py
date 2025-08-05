@@ -454,6 +454,7 @@ class ConfigManager:
             'blood_cancer_detection_img': None,
             'skin_cancer_classification_img': None,
             'plaque_segmentation_img': None,
+            'cardiomegaly_classification': None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -824,6 +825,14 @@ class ConfigManager:
         try:
             from ..usecases.skin_cancer_classification_img import SkinCancerClassificationConfig
             return SkinCancerClassificationConfig
+        except ImportError:
+            return None
+    
+    def cardiomegaly_classification_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.cardiomegaly_classification import CardiomegalyConfig
+            return CardiomegalyConfig
         except ImportError:
             return None
 
@@ -1691,6 +1700,21 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        elif usecase == "cardiomegaly_classification":
+            # Import here to avoid circular import
+            from ..usecases.cardiomegaly_classification import CardiomegalyConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = CardiomegalyConfig(
+                category=category or "healthcare",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
             
         else:
             raise ConfigValidationError(f"Unknown use case: {usecase}")
@@ -2049,6 +2073,11 @@ class ConfigManager:
             # Import here to avoid circular import  
             from ..usecases.plaque_segmentation_img import PlaqueSegmentationConfig
             default_config = PlaqueSegmentationConfig()
+            return default_config.to_dict()
+        elif usecase == "cardiomegaly_classification":
+            # Import here to avoid circular import
+            from ..usecases.cardiomegaly_classification import CardiomegalyConfig
+            default_config = CardiomegalyConfig()
             return default_config.to_dict()
 
         elif usecase not in self._config_classes:

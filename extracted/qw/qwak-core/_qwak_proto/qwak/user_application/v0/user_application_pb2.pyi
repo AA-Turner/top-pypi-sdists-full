@@ -37,6 +37,8 @@ class _TypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeW
     MODEL_TRAFFIC: _Type.ValueType  # 11
     STREAMING_FEATURESET: _Type.ValueType  # 12
     STREAMING_AGGREGATION_FEATURESET: _Type.ValueType  # 13
+    MLOPS_MODEL_DEPLOYMENT: _Type.ValueType  # 14
+    MLOPS_MODEL_TRAFFIC: _Type.ValueType  # 15
 
 class Type(_Type, metaclass=_TypeEnumTypeWrapper): ...
 
@@ -54,6 +56,8 @@ CUSTOMER_ALERT_STACK: Type.ValueType  # 10
 MODEL_TRAFFIC: Type.ValueType  # 11
 STREAMING_FEATURESET: Type.ValueType  # 12
 STREAMING_AGGREGATION_FEATURESET: Type.ValueType  # 13
+MLOPS_MODEL_DEPLOYMENT: Type.ValueType  # 14
+MLOPS_MODEL_TRAFFIC: Type.ValueType  # 15
 global___Type = Type
 
 class Spec(google.protobuf.message.Message):

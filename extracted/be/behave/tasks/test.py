@@ -6,10 +6,13 @@ Invoke test tasks.
 from __future__ import print_function
 import os.path
 import sys
+
+import six
 from invoke import task, Collection
 
 # -- TASK-LIBRARY:
-from ._tasklet_cleanup import cleanup_tasks, cleanup_dirs, cleanup_files
+# PREPARED: from invoke_cleanup import cleanup_tasks, cleanup_dirs, cleanup_files
+from invoke_cleanup import cleanup_tasks, cleanup_dirs, cleanup_files
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +126,7 @@ def select_prefix_for(arg, prefixes):
             return prefix
     return os.path.dirname(arg)
 
+
 def select_by_prefix(args, prefixes):
     selected = []
     for arg in args.strip().split():
@@ -132,11 +136,17 @@ def select_by_prefix(args, prefixes):
             selected.append(arg)
     return " ".join(selected)
 
+
 def grouped_by_prefix(args, prefixes):
     """Group behave args by (directory) scope into multiple test-runs."""
+    if isinstance(args, six.string_types):
+        args = args.strip().split()
+    if not isinstance(args, list):
+        raise TypeError("args.type=%s (expected: list, string)" % type(args))
+
     group_args = []
     current_scope = None
-    for arg in args.strip().split():
+    for arg in args:
         assert not arg.startswith("-"), "REQUIRE: arg, not options"
         scope = select_prefix_for(arg, prefixes)
         if scope != current_scope:
@@ -170,16 +180,16 @@ namespace.configure({
         },
     },
     "pytest": {
-        "scopes":   ["test", "tests"],
+        "scopes":   ["tests"],
         "args":   "",
-        "options": "",  # -- NOTE:  Overide in configfile "invoke.yaml"
+        "options": "",  # -- NOTE:  Override in configfile "invoke.yaml"
     },
     # "behave_test": behave.namespace._configuration["behave_test"],
     "behave_test": {
         "scopes":   ["features", "issue.features"],
-        "args":     "features issue.features",
+        "args":     ["features", "issue.features"],
         "format":   "progress",
-        "options":  "",  # -- NOTE:  Overide in configfile "invoke.yaml"
+        "options":  "",  # -- NOTE:  Override in configfile "invoke.yaml"
         "coverage_options": "",
     },
     "coverage": {

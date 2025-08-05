@@ -72,17 +72,17 @@ def login(ctx, api_url, user_id):
     """Login command to set PAT and other configurations."""
     from clarifai.utils.cli import validate_context_auth
 
+    # Input user_id if not supplied
+    if not user_id:
+        user_id = click.prompt('Enter your Clarifai user ID', type=str)
+
     click.echo('> To authenticate, you\'ll need a Personal Access Token (PAT).')
     click.echo(
-        '> You can create one from your account settings: https://clarifai.com/settings/security\n'
+        f'> You can create one from your account settings: https://clarifai.com/{user_id}/settings/security\n'
     )
 
     # Securely input PAT
     pat = getpass.getpass('Enter your Personal Access Token: ')
-
-    # Input user_id if not supplied
-    if not user_id:
-        user_id = click.prompt('Enter your Clarifai user ID', type=str)
 
     # Progress indicator
     click.echo('\n> Verifying token...')
@@ -122,7 +122,7 @@ def input_or_default(prompt, default):
 
 
 # Context management commands under config group
-@config.command(aliases=['get-contexts', 'list-contexts'])
+@config.command(aliases=['get-contexts', 'list-contexts', 'ls'])
 @click.option(
     '-o', '--output-format', default='wide', type=click.Choice(['wide', 'name', 'json', 'yaml'])
 )
@@ -161,7 +161,7 @@ def get_contexts(ctx, output_format):
             print(yaml.safe_dump(dicts))
 
 
-@config.command(aliases=['use-context'])
+@config.command(aliases=['use-context', 'use'])
 @click.argument('name', type=str)
 @click.pass_context
 def use_context(ctx, name):
@@ -173,7 +173,7 @@ def use_context(ctx, name):
     print(f'Set {name} as the current context')
 
 
-@config.command(aliases=['current-context'])
+@config.command(aliases=['current-context', 'current'])
 @click.option('-o', '--output-format', default='name', type=click.Choice(['name', 'json', 'yaml']))
 @click.pass_context
 def current_context(ctx, output_format):
@@ -186,7 +186,7 @@ def current_context(ctx, output_format):
         print(yaml.safe_dump(ctx.obj.contexts[ctx.obj.current_context].to_serializable_dict()))
 
 
-@config.command(aliases=['create-context', 'set-context'])
+@config.command(aliases=['create-context', 'create'])
 @click.argument('name')
 @click.option('--user-id', required=False, help='User ID')
 @click.option('--base-url', required=False, help='Base URL')
@@ -233,7 +233,7 @@ def edit(
     os.system(f'{os.environ.get("EDITOR", "vi")} {ctx.obj.filename}')
 
 
-@config.command(aliases=['delete-context'])
+@config.command(aliases=['delete-context', 'delete'])
 @click.argument('name')
 @click.pass_context
 def delete_context(ctx, name):

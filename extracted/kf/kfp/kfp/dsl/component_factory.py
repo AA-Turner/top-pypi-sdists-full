@@ -165,6 +165,20 @@ def _get_packages_to_install_command(
     index_url_options = make_index_url_options(pip_index_urls,
                                                pip_trusted_hosts)
 
+    # Install packages before KFP. This allows us to
+    # control where we source kfp-pipeline-spec.
+    # This is particularly useful for development and
+    # CI use-case when you want to install the spec
+    # from source.
+    if packages_to_install:
+        user_packages_pip_install_command = make_pip_install_command(
+            install_parts=packages_to_install,
+            index_url_options=index_url_options,
+        )
+        pip_install_strings.append(user_packages_pip_install_command)
+        if inject_kfp_install:
+            pip_install_strings.append(' && ')
+
     if inject_kfp_install:
         if use_venv:
             pip_install_strings.append(_use_venv_script_template)
@@ -183,16 +197,6 @@ def _get_packages_to_install_command(
                 index_url_options=index_url_options,
             )
         pip_install_strings.append(kfp_pip_install_command)
-
-        if packages_to_install:
-            pip_install_strings.append(' && ')
-
-    if packages_to_install:
-        user_packages_pip_install_command = make_pip_install_command(
-            install_parts=packages_to_install,
-            index_url_options=index_url_options,
-        )
-        pip_install_strings.append(user_packages_pip_install_command)
 
     return [
         'sh', '-c',

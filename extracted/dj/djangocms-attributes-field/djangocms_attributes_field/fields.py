@@ -9,6 +9,7 @@ from django.db import models
 from django.utils.html import conditional_escape, mark_safe
 from django.utils.translation import gettext_lazy as _
 
+from .utils import DJANGO_2_2
 from .widgets import AttributesWidget
 
 regex_key_validator = RegexValidator(regex=r'^[a-z][-a-z0-9_:]*\Z',
@@ -125,8 +126,7 @@ class AttributesField(models.Field):
         defaults["excluded_keys"] = self.excluded_keys
         return super().formfield(**defaults)
 
-    def from_db_value(self, value,
-                      expression=None, connection=None, context=None):
+    def from_db_value(self, value, expression=None, connection=None):
         """
         This is a temporary workaround for #7 taken from
         https://bitbucket.org/schinckel/django-jsonfield/pull-requests/32/make-from_db_value-compatible-with/diff

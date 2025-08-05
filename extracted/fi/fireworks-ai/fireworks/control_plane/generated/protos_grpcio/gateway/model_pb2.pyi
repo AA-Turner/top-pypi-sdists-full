@@ -3,12 +3,12 @@ from . import deployed_model_pb2 as _deployed_model_pb2
 from . import deployment_pb2 as _deployment_pb2
 from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
-from ..google.api import field_behavior_pb2 as _field_behavior_pb2
-from ..google.api import resource_pb2 as _resource_pb2
-from ..google.api import visibility_pb2 as _visibility_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.api import resource_pb2 as _resource_pb2
+from google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from ..google.type import date_pb2 as _date_pb2
+from google.type import date_pb2 as _date_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -18,7 +18,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Model(_message.Message):
-    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "state", "status", "kind", "github_url", "hugging_face_url", "base_model_details", "peft_details", "teft_details", "public", "conversation_config", "context_length", "supports_image_input", "supports_tools", "imported_from", "tokens_per_second", "featured_priority", "fine_tuning_job", "sku_infos", "default_draft_model", "default_draft_token_count", "deployed_model_refs", "cluster", "deprecation_date", "calibrated", "tunable", "supports_lora", "use_hf_apply_chat_template", "extra_deployment_args", "update_time", "default_sampling_params", "gcs_uri", "rl_tunable", "supported_precisions", "supported_precisions_with_calibration", "training_context_length")
+    __slots__ = ("name", "display_name", "description", "create_time", "created_by", "state", "status", "kind", "github_url", "hugging_face_url", "base_model_details", "peft_details", "teft_details", "public", "conversation_config", "context_length", "supports_image_input", "supports_tools", "imported_from", "tokens_per_second", "featured_priority", "fine_tuning_job", "sku_infos", "default_draft_model", "default_draft_token_count", "deployed_model_refs", "cluster", "deprecation_date", "calibrated", "tunable", "supports_lora", "use_hf_apply_chat_template", "extra_deployment_args", "update_time", "default_sampling_params", "gcs_uri", "rl_tunable", "supported_precisions", "supported_precisions_with_calibration", "training_context_length", "image_tag", "annotations")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATE_UNSPECIFIED: _ClassVar[Model.State]
@@ -56,6 +56,13 @@ class Model(_message.Message):
         key: str
         value: float
         def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
+    class AnnotationsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
@@ -96,6 +103,8 @@ class Model(_message.Message):
     SUPPORTED_PRECISIONS_FIELD_NUMBER: _ClassVar[int]
     SUPPORTED_PRECISIONS_WITH_CALIBRATION_FIELD_NUMBER: _ClassVar[int]
     TRAINING_CONTEXT_LENGTH_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
+    ANNOTATIONS_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     description: str
@@ -136,7 +145,9 @@ class Model(_message.Message):
     supported_precisions: _containers.RepeatedScalarFieldContainer[_deployment_pb2.Deployment.Precision]
     supported_precisions_with_calibration: _containers.RepeatedScalarFieldContainer[_deployment_pb2.Deployment.Precision]
     training_context_length: int
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[Model.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., kind: _Optional[_Union[Model.Kind, str]] = ..., github_url: _Optional[str] = ..., hugging_face_url: _Optional[str] = ..., base_model_details: _Optional[_Union[BaseModelDetails, _Mapping]] = ..., peft_details: _Optional[_Union[PEFTDetails, _Mapping]] = ..., teft_details: _Optional[_Union[TEFTDetails, _Mapping]] = ..., public: bool = ..., conversation_config: _Optional[_Union[ConversationConfig, _Mapping]] = ..., context_length: _Optional[int] = ..., supports_image_input: bool = ..., supports_tools: bool = ..., imported_from: _Optional[str] = ..., tokens_per_second: _Optional[int] = ..., featured_priority: _Optional[int] = ..., fine_tuning_job: _Optional[str] = ..., sku_infos: _Optional[_Iterable[_Union[_billing_pb2.SKUInfo, _Mapping]]] = ..., default_draft_model: _Optional[str] = ..., default_draft_token_count: _Optional[int] = ..., deployed_model_refs: _Optional[_Iterable[_Union[_deployed_model_pb2.DeployedModelRef, _Mapping]]] = ..., cluster: _Optional[str] = ..., deprecation_date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., calibrated: bool = ..., tunable: bool = ..., supports_lora: bool = ..., use_hf_apply_chat_template: bool = ..., extra_deployment_args: _Optional[_Iterable[str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., default_sampling_params: _Optional[_Mapping[str, float]] = ..., gcs_uri: _Optional[str] = ..., rl_tunable: bool = ..., supported_precisions: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., supported_precisions_with_calibration: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., training_context_length: _Optional[int] = ...) -> None: ...
+    image_tag: str
+    annotations: _containers.ScalarMap[str, str]
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., description: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[Model.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., kind: _Optional[_Union[Model.Kind, str]] = ..., github_url: _Optional[str] = ..., hugging_face_url: _Optional[str] = ..., base_model_details: _Optional[_Union[BaseModelDetails, _Mapping]] = ..., peft_details: _Optional[_Union[PEFTDetails, _Mapping]] = ..., teft_details: _Optional[_Union[TEFTDetails, _Mapping]] = ..., public: bool = ..., conversation_config: _Optional[_Union[ConversationConfig, _Mapping]] = ..., context_length: _Optional[int] = ..., supports_image_input: bool = ..., supports_tools: bool = ..., imported_from: _Optional[str] = ..., tokens_per_second: _Optional[int] = ..., featured_priority: _Optional[int] = ..., fine_tuning_job: _Optional[str] = ..., sku_infos: _Optional[_Iterable[_Union[_billing_pb2.SKUInfo, _Mapping]]] = ..., default_draft_model: _Optional[str] = ..., default_draft_token_count: _Optional[int] = ..., deployed_model_refs: _Optional[_Iterable[_Union[_deployed_model_pb2.DeployedModelRef, _Mapping]]] = ..., cluster: _Optional[str] = ..., deprecation_date: _Optional[_Union[_date_pb2.Date, _Mapping]] = ..., calibrated: bool = ..., tunable: bool = ..., supports_lora: bool = ..., use_hf_apply_chat_template: bool = ..., extra_deployment_args: _Optional[_Iterable[str]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., default_sampling_params: _Optional[_Mapping[str, float]] = ..., gcs_uri: _Optional[str] = ..., rl_tunable: bool = ..., supported_precisions: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., supported_precisions_with_calibration: _Optional[_Iterable[_Union[_deployment_pb2.Deployment.Precision, str]]] = ..., training_context_length: _Optional[int] = ..., image_tag: _Optional[str] = ..., annotations: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class BaseModelDetails(_message.Message):
     __slots__ = ("world_size", "checkpoint_format", "huggingface_files", "parameter_count", "moe", "tunable", "model_type", "supports_fireattention", "default_precision")

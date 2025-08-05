@@ -47,6 +47,7 @@ from union.artifacts import Artifact
 from union.artifacts._utils import construct_search_artifact_request
 from union.internal.app.app_definition_pb2 import App as AppIDL
 from union.internal.artifacts import artifacts_pb2, artifacts_pb2_grpc
+from union.internal.authorizer.authorizer_pb2_grpc import AuthorizerServiceStub
 from union.internal.hooks.hooks_pb2_grpc import HooksServiceStub
 from union.internal.hooks.payload_pb2 import (
     AcknowledgeEventRequest,
@@ -58,6 +59,7 @@ from union.internal.hooks.payload_pb2 import (
 )
 from union.internal.identity import user_service_pb2_grpc
 from union.internal.identity.app_service_pb2_grpc import AppsServiceStub
+from union.internal.identity.user_service_pb2_grpc import UserServiceStub
 from union.internal.imagebuilder import definition_pb2 as image_definition__pb2
 from union.internal.imagebuilder import payload_pb2 as image_payload__pb2
 from union.internal.imagebuilder import service_pb2_grpc as image_service_pb2_grpc
@@ -155,6 +157,8 @@ class UnionRemote(FlyteRemote):
         self._apps_service_client = None
         self._hooks_sync_client = None
         self._hooks_async_client = None
+        self._authorizer_service_client = None
+        self._user_service_client = None
 
         from union.remote._app_remote import AppRemote
 
@@ -610,6 +614,22 @@ class UnionRemote(FlyteRemote):
 
         self._apps_service_client = AppsServiceStub(self.sync_channel)
         return self._apps_service_client
+
+    @property
+    def authorizer_service_client(self) -> AuthorizerServiceStub:
+        if self._authorizer_service_client:
+            return self._authorizer_service_client
+
+        self._authorizer_service_client = AuthorizerServiceStub(self.sync_channel)
+        return self._authorizer_service_client
+
+    @property
+    def user_service_client(self) -> UserServiceStub:
+        if self._user_service_client:
+            return self._user_service_client
+
+        self._user_service_client = UserServiceStub(self.sync_channel)
+        return self._user_service_client
 
     def _get_secrets(self, project: Optional[str] = None, domain: Optional[str] = None) -> List[Secret]:
         per_cluster_tokens, has_next = None, True

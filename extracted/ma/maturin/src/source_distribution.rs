@@ -8,7 +8,8 @@ use fs_err as fs;
 use ignore::overrides::Override;
 use normpath::PathExt as _;
 use path_slash::PathExt as _;
-use std::collections::HashMap;
+use pyproject_toml::check_pep639_glob;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -501,17 +502,8 @@ fn add_cargo_package_files_to_sdist(
         .unwrap()
         .strip_prefix(&sdist_root)
         .unwrap();
-    add_crate_to_source_distribution(
-        writer,
-        manifest_path,
-        root_dir.join(relative_main_crate_manifest_dir),
-        None,
-        &known_path_deps,
-        true,
-        false,
-    )?;
     // Handle possible relative readme field in Cargo.toml
-    if let Some(readme) = main_crate.readme.as_ref() {
+    let readme_path = if let Some(readme) = main_crate.readme.as_ref() {
         let readme = abs_manifest_dir.join(readme);
         let abs_readme = readme
             .normalize()
@@ -530,7 +522,19 @@ fn add_cargo_package_files_to_sdist(
                 .join(readme.file_name().unwrap()),
             &abs_readme,
         )?;
-    }
+        Some(abs_readme)
+    } else {
+        None
+    };
+    add_crate_to_source_distribution(
+        writer,
+        manifest_path,
+        root_dir.join(relative_main_crate_manifest_dir),
+        readme_path.as_deref(),
+        &known_path_deps,
+        true,
+        false,
+    )?;
 
     // Add Cargo.lock file and workspace Cargo.toml
     let manifest_cargo_lock_path = abs_manifest_dir.join("Cargo.lock");
@@ -784,6 +788,34 @@ pub fn source_distribution(
         }
         if let Some(pyproject_toml::License::File { file }) = project.license.as_ref() {
             writer.add_file(root_dir.join(file), pyproject_dir.join(file))?;
+        }
+        if let Some(license_files) = &project.license_files {
+            // Safe on Windows and Unix as neither forward nor backwards slashes are escaped.
+            let escaped_pyproject_dir =
+                PathBuf::from(glob::Pattern::escape(pyproject_dir.to_str().unwrap()));
+            let mut seen = HashSet::new();
+            for license_glob in license_files {
+                check_pep639_glob(license_glob)?;
+                for license_path in
+                    glob::glob(&escaped_pyproject_dir.join(license_glob).to_string_lossy())?
+                {
+                    let license_path = license_path?;
+                    if !license_path.is_file() {
+                        continue;
+                    }
+                    let license_path = license_path
+                        .strip_prefix(pyproject_dir)
+                        .expect("matched path starts with glob root")
+                        .to_path_buf();
+                    if seen.insert(license_path.clone()) {
+                        debug!("Including license file `{}`", license_path.display());
+                        writer.add_file(
+                            root_dir.join(&license_path),
+                            pyproject_dir.join(&license_path),
+                        )?;
+                    }
+                }
+            }
         }
     }
 

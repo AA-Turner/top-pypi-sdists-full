@@ -21,51 +21,49 @@ env:
   MPLBACKEND: Agg
   CYTHON_TRACE: 1
   CYTHONSPEC: cython
-  NUMPY_MIN: numpy==1.23.0
+  NUMPY_MIN: numpy==1.25.0
   CYTHON_MIN: cython==3.0.4
-  SCIPY_MIN: scipy==1.9.0
 
 jobs:
   test_pywavelets_linux:
-    name: linux-cp${{ matrix.python-version }}-${{ matrix.OPTIONS_NAME }}
-    runs-on: ubuntu-latest
+    name: ${{ matrix.runs-on }}-cp${{ matrix.python-version }}-${{ matrix.OPTIONS_NAME }}
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       # Ensure that a wheel builder finishes even if another fails
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        runs-on: [ubuntu-latest] # Arm runner tested separately, see below
+        python-version: ["3.11", "3.13"]
         MINIMUM_REQUIREMENTS: [0]
-        USE_SCIPY: [0]
         USE_SDIST: [0]
         REFGUIDE_CHECK: [1]
         PIP_FLAGS: [""]
         OPTIONS_NAME: ["default"]
         include:
-          - platform_id: manylinux_x86_64
-            python-version: "3.10"
+          # Linux arm64
+          - runs-on: ubuntu-22.04-arm
+            python-version: "3.13"
+          # Linux amd64
+          - runs-on: ubuntu-latest
+            python-version: "3.11"
             MINIMUM_REQUIREMENTS: 1
             OPTIONS_NAME: "minimum-req"
-          - platform_id: manylinux_x86_64
-            python-version: "3.10"
-            USE_SCIPY: 1
-            OPTIONS_NAME: "with-scipy"
-          - platform_id: manylinux_x86_64
-            python-version: "3.10"
+          - runs-on: ubuntu-latest
+            python-version: "3.11"
+          - runs-on: ubuntu-latest
+            python-version: "3.14-dev"
             USE_SDIST: 1
             OPTIONS_NAME: "install-from-sdist"
-          - platform_id: manylinux_x86_64
-            python-version: "3.12"
+          - runs-on: ubuntu-latest
+            python-version: "3.13"
             PIP_FLAGS: "--pre"
             OPTIONS_NAME: "pre-releases"
-          - platform_id: manylinux_x86_64
-            python-version: "3.12"
+          - runs-on: ubuntu-latest
+            python-version: "3.13"
             OPTIONS_NAME: "editable-install"
     steps:
-      - name: Checkout PyWavelets
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
           python-version: ${{ matrix.python-version}}
           allow-prereleases: true
@@ -76,7 +74,6 @@ jobs:
           MINIMUM_REQUIREMENTS: ${{ matrix.MINIMUM_REQUIREMENTS }}
           PIP_FLAGS: ${{ matrix.PIP_FLAGS }}
           USE_SDIST: ${{ matrix.USE_SDIST }}
-          USE_SCIPY: ${{ matrix.USE_SCIPY }}
           REFGUIDE_CHECK: ${{ matrix.REFGUIDE_CHECK }}
           OPTIONS_NAME: ${{ matrix.OPTIONS_NAME }}
         run: |
@@ -92,11 +89,9 @@ jobs:
           if [ "${MINIMUM_REQUIREMENTS}" == "1" ]; then
               pip install ${CYTHON_MIN}
               pip install ${NUMPY_MIN}
-              if [ "${USE_SCIPY}" == "1" ]; then pip install ${SCIPY_MIN}; fi
           else
               pip install ${PIP_FLAGS} cython
               pip install ${PIP_FLAGS} numpy
-              if [ "${USE_SCIPY}" == "1" ]; then pip install ${PIP_FLAGS} scipy; fi
           fi
           pip install ${PIP_FLAGS} matplotlib pytest
 
@@ -142,35 +137,25 @@ jobs:
           popd
 
   test_pywavelets_linux_free_threaded:
-    name: linux-cp313t-with-scipy
+    name: linux-cp${{ matrix.python-version }}-default
     runs-on: ubuntu-latest
     strategy:
-      # Ensure that a wheel builder finishes even if another fails
       fail-fast: false
-
+      matrix:
+        python-version: ["3.13t", "3.14t-dev"]
     steps:
-      - name: Checkout PyWavelets
-        uses: actions/checkout@v4
-
-      # TODO: replace with setup-python when there is support
-      - uses: deadsnakes/action@e640ac8743173a67cca4d7d77cd837e514bf98e8 # v3.2.0
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
-          python-version: "3.13-dev"
-          nogil: true
+          python-version: ${{ matrix.python-version}}
 
       - name: Build package
         run: |
-          which python
-          python --version
           pip install --upgrade pip build
-          # We need nightly wheels for free-threaded support and latest fixes
-          pip install --pre -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple cython numpy scipy
-          pip install pytest meson-python ninja
+          pip install cython numpy meson-python ninja pytest
           pip install . -v --no-build-isolation
 
       - name: Run tests
-        env:
-          PYTHON_GIL: 0
         run: |
           # Move out of source directory to avoid finding local pywt
           cd demo
@@ -183,27 +168,23 @@ jobs:
       # Ensure that a wheel builder finishes even if another fails
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.12"]
+        python-version: ["3.11", "3.13"]
         MINIMUM_REQUIREMENTS: [0]
-        USE_SCIPY: [0]
         USE_SDIST: [0]
         REFGUIDE_CHECK: [0]
         PIP_FLAGS: [""]
         OPTIONS_NAME: ["default"]
         include:
-          - python-version: "3.10"
+          - python-version: "3.11"
             MINIMUM_REQUIREMENTS: 1
             OPTIONS_NAME: "osx-minimum-req"
-          - python-version: "3.12"
+          - python-version: "3.13"
             PIP_FLAGS: "--pre"
             OPTIONS_NAME: "pre-releases"
 
     steps:
-      - name: Checkout PyWavelets
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@9bb56186c3b09b4f86b1c65136769dd318469633 # v4.1.2
+      - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
         with:
           python-version: ${{ matrix.python-version}}
           allow-prereleases: true
@@ -214,7 +195,6 @@ jobs:
           MINIMUM_REQUIREMENTS: ${{ matrix.MINIMUM_REQUIREMENTS }}
           PIP_FLAGS: ${{ matrix.PIP_FLAGS }}
           USE_SDIST: ${{ matrix.USE_SDIST }}
-          USE_SCIPY: ${{ matrix.USE_SCIPY }}
           REFGUIDE_CHECK: ${{ matrix.REFGUIDE_CHECK }}
           CC: /usr/bin/clang
           CXX: /usr/bin/clang++
@@ -228,10 +208,8 @@ jobs:
           # Set numpy version first, other packages link against it
           if [ "${MINIMUM_REQUIREMENTS}" == "1" ]; then
               pip install ${CYTHON_MIN} ${NUMPY_MIN}
-              if [ "${USE_SCIPY}" == "1" ]; then pip install ${SCIPY_MIN}; fi
           else
               pip install ${PIP_FLAGS} cython numpy
-              if [ "${USE_SCIPY}" == "1" ]; then pip install ${PIP_FLAGS} scipy; fi
           fi
           pip install ${PIP_FLAGS} matplotlib pytest
 
@@ -259,8 +237,8 @@ jobs:
               python ../pywt/tests/test_doc.py
           elif [ "${REFGUIDE_CHECK}" == "1" ]; then
               # doctests docstrings
-              pytest --doctest-modules --pyargs pywt -v  --doctest-collect=api
-              pytest --doctest-modules --pyargs pywt.data -v
+              pytest --doctest-modules --doctest-only-doctests=true --pyargs pywt -v  --doctest-collect=api
+              pytest --doctest-modules --doctest-only-doctests=true --pyargs pywt.data -v
           else
               pytest --pyargs pywt
           fi

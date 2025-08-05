@@ -166,5 +166,5 @@ def contract_files_to_post_contract_request(
                 )
 
     return PostContractRequest(
-        __root__=contracts,
+        root=contracts,
     )

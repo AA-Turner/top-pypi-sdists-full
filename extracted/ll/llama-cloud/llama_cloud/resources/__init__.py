@@ -33,7 +33,7 @@ from .embedding_model_configs import (
     EmbeddingModelConfigCreateEmbeddingConfig_OpenaiEmbedding,
     EmbeddingModelConfigCreateEmbeddingConfig_VertexaiEmbedding,
 )
-from .files import FileCreateFromUrlResourceInfoValue, FileCreatePermissionInfoValue, FileCreateResourceInfoValue
+from .files import FileCreateFromUrlResourceInfoValue
 from .llama_extract import (
     ExtractAgentCreateDataSchema,
     ExtractAgentCreateDataSchemaZeroValue,
@@ -84,8 +84,6 @@ __all__ = [
     "ExtractStatelessRequestDataSchema",
     "ExtractStatelessRequestDataSchemaZeroValue",
     "FileCreateFromUrlResourceInfoValue",
-    "FileCreatePermissionInfoValue",
-    "FileCreateResourceInfoValue",
     "PipelineFileUpdateCustomMetadataValue",
     "PipelineUpdateEmbeddingConfig",
     "PipelineUpdateEmbeddingConfig_AzureEmbedding",

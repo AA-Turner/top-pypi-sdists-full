@@ -4,15 +4,15 @@ Tasks for releasing this project.
 
 Normal steps::
 
-
-    python setup.py sdist bdist_wheel
+    python -mbuild
+    # -- OLD: python setup.py sdist bdist_wheel
 
     twine register dist/{project}-{version}.tar.gz
     twine upload   dist/*
 
     twine upload  --skip-existing dist/*
 
-    python setup.py upload
+    # -- OLD: python setup.py upload
     # -- DEPRECATED: No longer supported -> Use RTD instead
     # -- DEPRECATED: python setup.py upload_docs
 
@@ -51,7 +51,7 @@ Configuration file for pypi repositories:
 
 from __future__ import absolute_import, print_function
 from invoke import Collection, task
-from ._tasklet_cleanup import path_glob
+from invoke_cleanup import path_glob
 from ._dry_run import DryRunContext
 
 
@@ -99,7 +99,7 @@ def bump_version(ctx, new_version, version_part=None, dry_run=False):
 def build_packages(ctx, hide=False):
     """Build packages for this release."""
     print("build_packages:")
-    ctx.run("python setup.py sdist bdist_wheel", echo=True, hide=hide)
+    ctx.run("python -mbuild", echo=True, hide=hide)
 
 
 @task
@@ -131,17 +131,22 @@ def prepare(ctx, new_version=None, version_part=None, hide=True,
 
 
 @task
-def upload(ctx, repo=None, dry_run=False):
+def upload(ctx, repo=None, dry_run=False, skip_existing=False):
     """Upload release packages to repository (artifact-store)."""
     original_ctx = ctx
+    opts = ""
     if repo is None:
         repo = ctx.project.repo or "pypi"
     if dry_run:
         ctx = DryRunContext(ctx)
+    if skip_existing:
+        opts = "--skip-existing"
 
     packages = ensure_packages_exist(original_ctx)
     print_packages(packages)
-    ctx.run("twine upload --repository={repo} dist/*".format(repo=repo))
+    # ctx.run("twine upload --repository={repo} dist/*".format(repo=repo))
+    ctx.run("twine upload --repository={repo} {opts} dist/*".format(
+            repo=repo, opts=opts))
 
 
 # -- DEPRECATED: Use RTD instead
@@ -164,8 +169,8 @@ def upload(ctx, repo=None, dry_run=False):
 def print_packages(packages):
     print("PACKAGES[%d]:" % len(packages))
     for package in packages:
+        # -- PREPARED: package_time = package.stat().st_mtime
         package_size = package.stat().st_size
-        package_time = package.stat().st_mtime
         print("  - %s  (size=%s)" % (package, package_size))
 
 def ensure_packages_exist(ctx, pattern=None, check_only=False):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lm-format-enforcer
-Version: 0.10.11
+Version: 0.10.12
 Summary: Enforce the output format (JSON Schema, Regex etc) of a language model
 License: MIT
 Author: Noam Gat

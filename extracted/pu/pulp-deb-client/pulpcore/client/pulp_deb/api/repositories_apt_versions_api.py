@@ -48,6 +48,7 @@ class RepositoriesAptVersionsApi:
     def delete(
         self,
         deb_apt_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -67,6 +68,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_version_href: (required)
         :type deb_apt_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -91,6 +94,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._delete_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -115,6 +119,7 @@ class RepositoriesAptVersionsApi:
     def delete_with_http_info(
         self,
         deb_apt_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -134,6 +139,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_version_href: (required)
         :type deb_apt_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -158,6 +165,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._delete_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -182,6 +190,7 @@ class RepositoriesAptVersionsApi:
     def delete_without_preload_content(
         self,
         deb_apt_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -201,6 +210,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_version_href: (required)
         :type deb_apt_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -225,6 +236,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._delete_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -244,6 +256,7 @@ class RepositoriesAptVersionsApi:
     def _delete_serialize(
         self,
         deb_apt_repository_version_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -253,6 +266,7 @@ class RepositoriesAptVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -269,6 +283,8 @@ class RepositoriesAptVersionsApi:
             _path_params['deb_apt_repository_version_href'] = deb_apt_repository_version_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -310,6 +326,7 @@ class RepositoriesAptVersionsApi:
     def list(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -320,7 +337,7 @@ class RepositoriesAptVersionsApi:
         number__lte: Annotated[Optional[StrictInt], Field(description="Filter results where number is less than or equal to value")] = None,
         number__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where number is between two comma separated values")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -352,6 +369,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -372,7 +391,7 @@ class RepositoriesAptVersionsApi:
         :type number__range: List[int]
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -422,6 +441,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._list_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -469,6 +489,7 @@ class RepositoriesAptVersionsApi:
     def list_with_http_info(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -479,7 +500,7 @@ class RepositoriesAptVersionsApi:
         number__lte: Annotated[Optional[StrictInt], Field(description="Filter results where number is less than or equal to value")] = None,
         number__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where number is between two comma separated values")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -511,6 +532,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -531,7 +554,7 @@ class RepositoriesAptVersionsApi:
         :type number__range: List[int]
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -581,6 +604,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._list_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -628,6 +652,7 @@ class RepositoriesAptVersionsApi:
     def list_without_preload_content(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         content__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -638,7 +663,7 @@ class RepositoriesAptVersionsApi:
         number__lte: Annotated[Optional[StrictInt], Field(description="Filter results where number is less than or equal to value")] = None,
         number__range: Annotated[Optional[List[StrictInt]], Field(description="Filter results where number is between two comma separated values")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
-        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
+        ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
         prn__in: Annotated[Optional[List[StrictStr]], Field(description="Multiple values may be separated by commas.")] = None,
         pulp_created: Annotated[Optional[datetime], Field(description="Filter results where pulp_created matches value")] = None,
         pulp_created__gt: Annotated[Optional[datetime], Field(description="Filter results where pulp_created is greater than value")] = None,
@@ -670,6 +695,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param content: Content Unit referenced by HREF/PRN
         :type content: str
         :param content__in: Multiple values may be separated by commas.
@@ -690,7 +717,7 @@ class RepositoriesAptVersionsApi:
         :type number__range: List[int]
         :param offset: The initial index from which to return the results.
         :type offset: int
-        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `pk` - Pk * `-pk` - Pk (descending)
+        :param ordering: Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `number` - Number * `-number` - Number (descending) * `complete` - Complete * `-complete` - Complete (descending) * `info` - Info * `-info` - Info (descending) * `content_ids` - Content ids * `-content_ids` - Content ids (descending) * `pk` - Pk * `-pk` - Pk (descending)
         :type ordering: List[str]
         :param prn__in: Multiple values may be separated by commas.
         :type prn__in: List[str]
@@ -740,6 +767,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._list_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             content=content,
             content__in=content__in,
             limit=limit,
@@ -782,6 +810,7 @@ class RepositoriesAptVersionsApi:
     def _list_serialize(
         self,
         deb_apt_repository_href,
+        x_task_diagnostics,
         content,
         content__in,
         limit,
@@ -814,6 +843,7 @@ class RepositoriesAptVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'content__in': 'csv',
             'number__range': 'csv',
             'ordering': 'csv',
@@ -975,6 +1005,8 @@ class RepositoriesAptVersionsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1016,6 +1048,7 @@ class RepositoriesAptVersionsApi:
     def read(
         self,
         deb_apt_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1037,6 +1070,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_version_href: (required)
         :type deb_apt_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1065,6 +1100,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._read_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1091,6 +1127,7 @@ class RepositoriesAptVersionsApi:
     def read_with_http_info(
         self,
         deb_apt_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1112,6 +1149,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_version_href: (required)
         :type deb_apt_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1140,6 +1179,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._read_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1166,6 +1206,7 @@ class RepositoriesAptVersionsApi:
     def read_without_preload_content(
         self,
         deb_apt_repository_version_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1187,6 +1228,8 @@ class RepositoriesAptVersionsApi:
 
         :param deb_apt_repository_version_href: (required)
         :type deb_apt_repository_version_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1215,6 +1258,7 @@ class RepositoriesAptVersionsApi:
 
         _param = self._read_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1236,6 +1280,7 @@ class RepositoriesAptVersionsApi:
     def _read_serialize(
         self,
         deb_apt_repository_version_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1247,6 +1292,7 @@ class RepositoriesAptVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1273,6 +1319,8 @@ class RepositoriesAptVersionsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1315,6 +1363,7 @@ class RepositoriesAptVersionsApi:
         self,
         deb_apt_repository_version_href: StrictStr,
         repair: Repair,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1336,6 +1385,8 @@ class RepositoriesAptVersionsApi:
         :type deb_apt_repository_version_href: str
         :param repair: (required)
         :type repair: Repair
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1361,6 +1412,7 @@ class RepositoriesAptVersionsApi:
         _param = self._repair_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
             repair=repair,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1386,6 +1438,7 @@ class RepositoriesAptVersionsApi:
         self,
         deb_apt_repository_version_href: StrictStr,
         repair: Repair,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1407,6 +1460,8 @@ class RepositoriesAptVersionsApi:
         :type deb_apt_repository_version_href: str
         :param repair: (required)
         :type repair: Repair
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1432,6 +1487,7 @@ class RepositoriesAptVersionsApi:
         _param = self._repair_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
             repair=repair,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1457,6 +1513,7 @@ class RepositoriesAptVersionsApi:
         self,
         deb_apt_repository_version_href: StrictStr,
         repair: Repair,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1478,6 +1535,8 @@ class RepositoriesAptVersionsApi:
         :type deb_apt_repository_version_href: str
         :param repair: (required)
         :type repair: Repair
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1503,6 +1562,7 @@ class RepositoriesAptVersionsApi:
         _param = self._repair_serialize(
             deb_apt_repository_version_href=deb_apt_repository_version_href,
             repair=repair,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1523,6 +1583,7 @@ class RepositoriesAptVersionsApi:
         self,
         deb_apt_repository_version_href,
         repair,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1532,6 +1593,7 @@ class RepositoriesAptVersionsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1548,6 +1610,8 @@ class RepositoriesAptVersionsApi:
             _path_params['deb_apt_repository_version_href'] = deb_apt_repository_version_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if repair is not None:

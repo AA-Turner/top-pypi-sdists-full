@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: cvss
-Version: 3.4
+Version: 3.6
 Summary: CVSS2/3/4 library with interactive calculator for Python 2 and Python 3
 Home-page: https://github.com/RedHatProductSecurity/cvss
 Author: Stanislav Kontar, Red Hat Product Security
@@ -15,8 +15,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Security
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
@@ -28,26 +26,17 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: project-url
-Dynamic: summary
 
 CVSS
 ====
 
 This Python package contains CVSS v2, v3 and v4 computation utilities and
-interactive calculator (for v2 and v3 only) compatible with both Python 2 and Python 3.
+interactive calculator (for v2 and v3 only) compatible with Python 3. CVSS
+(Common Vulnerability Scoring System) is an standardized method for rating
+the severity of security issues on a scale from 0 (no impact) to 10 (critical).
 
 The library is tested on all currently-supported Python versions available
-via GitHub Actions (with the exception of Python 2.7, which is EOL but
-still tested against), but it is simple enough to run on even older versions.
+via GitHub Actions but it is simple enough to run on even older versions.
 
 Installation
 ------------
@@ -72,6 +61,7 @@ Library
     print(vector)
     print(c.clean_vector())
     print(c.scores())
+    print(c.severities())
 
     print()
 
@@ -87,8 +77,9 @@ Library
     vector = 'CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:H/SI:H/SA:N'
     c = CVSS4(vector)
     print(vector)
-    print(c.base_score)
-    print(c.severity)
+    print(c.clean_vector())
+    print(c.scores())
+    print(c.severities())
 
 Sample output:
 
@@ -97,6 +88,7 @@ Sample output:
    AV:L/AC:L/Au:M/C:N/I:P/A:C/E:U/RL:W/RC:ND/CDP:L/TD:H/CR:ND/IR:ND/AR:M
    AV:L/AC:L/Au:M/C:N/I:P/A:C/E:U/RL:W/CDP:L/TD:H/AR:M
    (5.0, 4.0, 4.6)
+   ('Medium', 'Medium', 'Medium')
 
    CVSS:3.0/S:C/C:H/I:H/A:N/AV:P/AC:H/PR:H/UI:R/E:H/RL:O/RC:R/CR:H/IR:X/AR:X/MAC:H/MPR:X/MUI:X/MC:L/MA:X
    CVSS:3.0/AV:P/AC:H/PR:H/UI:R/S:C/C:H/I:H/A:N/E:H/RL:O/RC:R/CR:H/MAC:H/MC:L
@@ -104,8 +96,9 @@ Sample output:
    ('Medium', 'Medium', 'Medium')
 
    CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:H/SI:H/SA:N
-   9.9
-   Critical
+   CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:H/SI:H/SA:N
+   (9.9,)
+   ('Critical',)
 
 Interactive calculator
 ~~~~~~~~~~~~~~~~~~~~~~

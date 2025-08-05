@@ -9,8 +9,7 @@ from user_context_remote.user_context import UserContext
 
 # PyCham on MacOS need . before
 from database_infrastructure_local.constants import DEFAULT_SQL_SELECT_LIMIT
-from src.constants_src import IsTestData
-from .constants_src import CRUD_ML_CODE_LOGGER_OBJECT
+from .constants_src import CRUD_ML_CODE_LOGGER_OBJECT, IsTestData
 from .generic_crud import GenericCRUD
 from .table_definition import table_definition
 from .utils import generate_id_column_name, generate_table_name, generate_view_name, is_column_in_table
@@ -54,7 +53,7 @@ class GenericCRUDML(GenericCRUD, metaclass=MetaLogger, object=CRUD_ML_CODE_LOGGE
                          default_view_table_name=default_view_table_name,
                          default_view_with_deleted_and_test_data=default_view_with_deleted_and_test_data,
                          default_column_name=default_column_name,
-                         is_test_data=is_test_data)
+                         is_test_data=IsTestData.TEMP_DATA.value)
         self.user_context = UserContext()
         # TODO: we may have to change it to a list when we will have multiple is_main columns
         self.is_main_column_name = is_main_column_name

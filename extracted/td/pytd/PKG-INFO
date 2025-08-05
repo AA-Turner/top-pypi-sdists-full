@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytd
-Version: 1.9.0
+Version: 2.0.0
 Summary: Treasure Data Driver for Python
 Home-page: https://github.com/treasure-data/pytd
 Author: Treasure Data
@@ -14,17 +14,18 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: Database
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: <3.12,>=3.7
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: urllib3>=1.21.1
-Requires-Dist: presto-python-client>=0.6.0
-Requires-Dist: pandas>=1.3
-Requires-Dist: numpy<2.0.0,>1.17.3
+Requires-Dist: trino>=0.334.0
+Requires-Dist: pandas>=2.1.0
+Requires-Dist: numpy>=1.25.2
 Requires-Dist: td-client>=1.1.0
 Requires-Dist: pytz>=2018.5
 Requires-Dist: tqdm>=4.60.0
@@ -63,6 +64,13 @@ Installation
 .. code:: sh
 
    pip install pytd
+
+Requirements
+~~~~~~~~~~~~
+
+* Python 3.9 or later
+* pandas 2.0 or later
+
 
 Usage
 -----
@@ -225,7 +233,7 @@ Treasure Data offers three different Python clients on GitHub, and the following
 2. **pytd**
 
    - Access to Plazma via td-spark as introduced above.
-   - Efficient connection to Presto based on `presto-python-client <https://github.com/prestodb/presto-python-client>`__.
+   - Efficient connection to Presto based on `trino-python-client <https://github.com/trinodb/trino-python-client>`__.
    - Multiple data ingestion methods and a variety of utility functions.
 
 3. `pandas-td <https://github.com/treasure-data/pandas-td>`__ *(deprecated)*

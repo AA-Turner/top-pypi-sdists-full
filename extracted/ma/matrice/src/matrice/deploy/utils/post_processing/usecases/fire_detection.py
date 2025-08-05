@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 import time
 import re
+from collections import Counter
 
 from ..core.base import (
     BaseProcessor,
@@ -65,7 +66,7 @@ class FireSmokeConfig(BaseConfig):
     smoothing_window_size: int = 5
     smoothing_cooldown_frames: int = 10
     smoothing_confidence_range_factor: float = 0.2
-    threshold_area: Optional[float] = 307200.0
+    threshold_area: Optional[float] = 250200.0
 
     def __post_init__(self):
         if not (0.0 <= self.confidence_threshold <= 1.0):
@@ -94,8 +95,9 @@ class FireSmokeUseCase(BaseProcessor):
         self._fire_smoke_recent_history = []
         self.target_categories=['fire']
 
-        self._ascending_alert_list: List[int] = []
+        self._ascending_alert_list: List[str] = []
         self.current_incident_end_timestamp: str = "N/A"
+        #self.fire_smoke_stack:List[int] = []
 
     def process(
             self,
@@ -187,8 +189,7 @@ class FireSmokeUseCase(BaseProcessor):
                     frame_number = start_frame
 
              # Step 7: alerts
-            print("-----------ALERT_PROCESSING_IPP-----------")
-            print(fire_smoke_summary)
+
             alerts = self._check_alerts(fire_smoke_summary, frame_number, config, stream_info)
 
 
@@ -245,24 +246,24 @@ class FireSmokeUseCase(BaseProcessor):
             self, summary: Dict, frame_number:Any, config: FireSmokeConfig, stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Raise alerts if fire or smoke detected with severity based on intensity."""
-        def get_trend(data, lookback=900, threshold=0.6):
+        def get_trend(data, lookback=23, prior=14):
             '''
             Determine if the trend is ascending or descending based on actual value progression.
-            Now works with values 0,1,2,3 (not just binary).
+            Now works with determining dominant levels.
             '''
-            window = data[-lookback:] if len(data) >= lookback else data
-            if len(window) < 2:
-                return True  # not enough data to determine trend
-            increasing = 0
-            total = 0
-            for i in range(1, len(window)):
-                if window[i] >= window[i - 1]:
-                    increasing += 1
-                total += 1
-            ratio = increasing / total
-            if ratio >= threshold:
+            if len(data) < lookback:
                 return True
-            elif ratio <= (1 - threshold):
+            post=lookback-prior-1
+            levels_list = ["low","medium","significant","critical"]
+
+            current_dominant_incident = Counter(data[-lookback:][:-prior]).most_common(1)[0][0] #from LAST 23 elements fetch FIRST 15 elements
+            potential_dominant_incident = Counter(data[-post:]).most_common(1)[0][0] #fetch LAST 8 elements
+            current_dominant_incident_index = levels_list.index(current_dominant_incident)
+            potential_dominant_incident_index = levels_list.index(potential_dominant_incident)
+
+            if current_dominant_incident_index <= potential_dominant_incident_index:
+                return True
+            else:
                 return False
 
         alerts = []
@@ -270,10 +271,6 @@ class FireSmokeUseCase(BaseProcessor):
         by_category = summary.get("by_category", {})
         detections = summary.get("detections", [])
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        print("-----------ALERTTTTTTTTTTTTSSSSS-----------")
-        print(hasattr(config.alert_config, 'count_thresholds'), config.alert_config.count_thresholds)
-        print(total)
-        print(summary.get("per_category_count", {}))
 
         if total == 0:
             return []
@@ -285,19 +282,19 @@ class FireSmokeUseCase(BaseProcessor):
 
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total > threshold:  
-                    print("-----------ALERTS--INNN-----------")
+                    
                     alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
                         "alert_id": "alert_"+category+'_'+frame_key,
                         "incident_category": self.CASE_TYPE,
                         "threshold_level": threshold,
-                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "ascending": get_trend(self._ascending_alert_list, lookback=23, prior=14),
                         "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
                                      getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
                                     }                    
                     })
                 elif category in summary.get("per_category_count", {}):
-                    print("-----------ALERTS--INNN 2-----------")
+                    
                     count = summary.get("per_category_count", {})[category]
                     if count > threshold:  # Fixed logic: alert when EXCEEDING threshold
                         alerts.append({
@@ -305,7 +302,7 @@ class FireSmokeUseCase(BaseProcessor):
                             "alert_id": "alert_"+category+'_'+frame_key,
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": get_trend(self._ascending_alert_list, lookback=23, prior=14),
                             "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
                                      getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
                                     }       
@@ -325,6 +322,25 @@ class FireSmokeUseCase(BaseProcessor):
     ) -> Dict:
         """Generate structured events for fire and smoke detection output with frame-aware keys."""
 
+        def get_trend_incident(data, lookback=23, prior=14):
+            '''
+            Determine if the trend is ascending or descending based on actual value progression.
+            Now works with determining dominant levels.
+            '''
+            if len(data) < lookback:
+                return "",0,"",0
+
+            post=lookback-prior-1
+            levels_list = ["low","medium","significant","critical"]
+            current_dominant_incident = Counter(data[-lookback:][:-prior]).most_common(1)[0][0] #from LAST 23 elements fetch FIRST 15 elements
+            current_dominant_incident_index = levels_list.index(current_dominant_incident)
+
+            potential_dominant_incident = Counter(data[-post:]).most_common(1)[0][0] #fetch LAST 8 elements
+            potential_dominant_incident_index = levels_list.index(potential_dominant_incident)
+
+            return current_dominant_incident, current_dominant_incident_index, potential_dominant_incident, potential_dominant_incident_index
+
+
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         incidents = []
        
@@ -336,10 +352,8 @@ class FireSmokeUseCase(BaseProcessor):
         total_smoke = by_category.get("smoke", 0)
         current_timestamp = self._get_current_timestamp_str(stream_info)
         camera_info = self.get_camera_info_from_stream(stream_info)
-        self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
-        print("-----------INCIDENTS-----------")
-        print(total)
-        print(summary.get("per_category_count", {}))
+        self._ascending_alert_list = self._ascending_alert_list[-5000:] if len(self._ascending_alert_list) > 5000 else self._ascending_alert_list
+        levels_list = ["low","medium","significant","critical"]
 
         if total > 0:
            # Calculate total bbox area
@@ -347,13 +361,16 @@ class FireSmokeUseCase(BaseProcessor):
 
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category in summary.get("per_category_count", {}):
-                    print("-----------INCIDENTSS--INNN-----------")
+                    
                     #count = summary.get("per_category_count", {})[category]
                     start_timestamp = self._get_start_timestamp_str(stream_info)
                     if start_timestamp and self.current_incident_end_timestamp=='N/A':
                         self.current_incident_end_timestamp = 'Incident still active'
                     elif start_timestamp and self.current_incident_end_timestamp=='Incident still active':
-                        if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5: 
+                        current_dominant_incident, current_dominant_incident_index, potential_dominant_incident, potential_dominant_incident_index = get_trend_incident(self._ascending_alert_list, lookback=23, prior=14) #from LAST 23 elements fetch FIRST 15 elements           
+                        
+                        if current_dominant_incident != potential_dominant_incident:
+                            
                             self.current_incident_end_timestamp = current_timestamp
                     elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
                         self.current_incident_end_timestamp = 'N/A'
@@ -376,35 +393,35 @@ class FireSmokeUseCase(BaseProcessor):
                     intensity_pct = min(100.0, (total_area / threshold_area) * 100)
 
                     if config.alert_config and config.alert_config.count_thresholds:
-                            if intensity_pct >= 40:
+                            if intensity_pct >= 30:
                                 level = "critical"
-                                self._ascending_alert_list.append(3)
-                            elif intensity_pct >= 30:
+                                self._ascending_alert_list.append(level)
+                            elif intensity_pct >= 13:
                                 level = "significant"
-                                self._ascending_alert_list.append(2)
-                            elif intensity_pct >= 5:
+                                self._ascending_alert_list.append(level)
+                            elif intensity_pct >= 3:
                                 level = "medium"
-                                self._ascending_alert_list.append(1)
+                                self._ascending_alert_list.append(level)
                             else:
                                 level = "low"
-                                self._ascending_alert_list.append(0)
+                                self._ascending_alert_list.append(level)
                     else:
-                            if intensity_pct > 40:
+                            if intensity_pct > 29:
                                 level = "critical"
                                 intensity = 10.0
-                                self._ascending_alert_list.append(3)
-                            elif intensity_pct > 30:
+                                self._ascending_alert_list.append(level)
+                            elif intensity_pct > 12:
                                 level = "significant"
                                 intensity = 9.0
-                                self._ascending_alert_list.append(2)
-                            elif intensity_pct > 4:
+                                self._ascending_alert_list.append(level)
+                            elif intensity_pct > 2:
                                 level = "medium"
                                 intensity = 7.0
-                                self._ascending_alert_list.append(1)
+                                self._ascending_alert_list.append(level)
                             else:
                                 level = "low"
                                 intensity = min(10.0, intensity_pct / 3.0)
-                                self._ascending_alert_list.append(0)
+                                self._ascending_alert_list.append(level)
 
                     # Generate human text in new format
                     human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
@@ -426,12 +443,12 @@ class FireSmokeUseCase(BaseProcessor):
                     event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(frame_number), incident_type=self.CASE_TYPE,
                             severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
                             start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
-                            level_settings= {"low": 1, "medium": 5, "significant":40, "critical": 60})
+                            level_settings= {"low": 3, "medium": 5, "significant":15, "critical": 30})
                     event['duration'] = self.get_duration_seconds(start_timestamp, self.current_incident_end_timestamp)
                     incidents.append(event)
 
         else:
-            self._ascending_alert_list.append(0)
+            #self._ascending_alert_list.append(level)
             incidents.append({})
         return incidents
 
@@ -674,7 +691,7 @@ class FireSmokeUseCase(BaseProcessor):
                     if width > 0 and height > 0:
                         total_area += width * height
 
-        threshold_area = 10000.0  # Same threshold as insights/alerts
+        threshold_area = 250200.0  # Same threshold as insights/alerts
 
         intensity_pct = min(100.0, (total_area / threshold_area) * 100)
         metrics["intensity_percentage"] = intensity_pct
@@ -894,7 +911,6 @@ class FireSmokeUseCase(BaseProcessor):
 
         # Return None if invalid
         if start_dt is None or end_dt is None:
-            print("Invalid timestamp(s). Ignoring.")
             return 'N/A'
 
         # If timedelta (relative time), subtract directly
@@ -903,7 +919,6 @@ class FireSmokeUseCase(BaseProcessor):
         elif isinstance(start_dt, datetime) and isinstance(end_dt, datetime):
             delta = end_dt - start_dt
         else:
-            print("Mismatched timestamp formats.")
             return None
 
         return delta.total_seconds()

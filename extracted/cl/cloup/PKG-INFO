@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: cloup
-Version: 3.0.7
+Version: 3.0.8
 Summary: Adds features to Click: option groups, constraints, subcommand sections and help themes.
 Home-page: https://github.com/janLuke/cloup
 Author: Gianluca Gippetto
@@ -29,6 +29,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

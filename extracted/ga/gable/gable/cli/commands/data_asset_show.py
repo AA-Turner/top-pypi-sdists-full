@@ -30,10 +30,9 @@ def show_data_asset(
         )
     asset = asset_or_error
     logger.info(
-        asset.json(
+        asset.model_dump_json(
             indent=2,
             exclude_none=True,
-            sort_keys=True,
             exclude={"versionDetail": {"rawSchema"}},
         )
     )

@@ -1,57 +1,28 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.4
 Name: asyncio
-Version: 3.4.3
-Summary: reference implementation of PEP 3156
-Home-page: http://www.python.org/dev/peps/pep-3156/
-Author: UNKNOWN
-Author-email: UNKNOWN
-License: UNKNOWN
-Description: Tulip is the codename for my reference implementation of PEP 3156.
-        
-        PEP 3156: http://www.python.org/dev/peps/pep-3156/
-        
-        *** This requires Python 3.3 or later! ***
-        
-        Copyright/license: Open source, Apache 2.0. Enjoy.
-        
-        Master Mercurial repo: http://code.google.com/p/tulip/
-        
-        The actual code lives in the 'asyncio' subdirectory.
-        Tests are in the 'tests' subdirectory.
-        
-        To run tests:
-          - make test
-        
-        To run coverage (coverage package is required):
-          - make coverage
-        
-        On Windows, things are a little more complicated.  Assume 'P' is your
-        Python binary (for example C:\Python33\python.exe).
-        
-        You must first build the _overlapped.pyd extension and have it placed
-        in the asyncio directory, as follows:
-        
-            C> P setup.py build_ext --inplace
-        
-        If this complains about vcvars.bat, you probably don't have the
-        required version of Visual Studio installed.  Compiling extensions for
-        Python 3.3 requires Microsoft Visual C++ 2010 (MSVC 10.0) of any
-        edition; you can download Visual Studio Express 2010 for free from
-        http://www.visualstudio.com/downloads (scroll down to Visual C++ 2010
-        Express).
-        
-        Once you have built the _overlapped.pyd extension successfully you can
-        run the tests as follows:
-        
-            C> P runtests.py
-        
-        And coverage as follows:
-        
-            C> P runtests.py --coverage
-        
-        --Guido van Rossum <guido@python.org>
-        
-Platform: UNKNOWN
-Classifier: Programming Language :: Python
+Version: 4.0.0
+Summary: Deprecated backport of asyncio; use the stdlib package instead
+License-Expression: Apache-2.0
+Project-URL: homepage, https://docs.python.org/3/library/asyncio.html
+Project-URL: source, https://github.com/python/asyncio
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.3
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.4
+Description-Content-Type: text/markdown
+License-File: COPYING
+Dynamic: license-file
+
+# asyncio (obsolete backport)
+
+This package once provided a backport of the `asyncio` module for Python
+versions prior to 3.4. The `asyncio` module has shipped with the Python
+standard library since Python 3.4 and this separate distribution is no longer
+needed.
+
+**Do not install this package.** Use the implementation that comes with
+Python instead:
+
+https://docs.python.org/3/library/asyncio.html
+
+This release contains no code and exists only to prevent accidental
+installation of outdated backports.

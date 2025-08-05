@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wagtail
-Version: 7.0.2
+Version: 7.1
 Summary: A Django content management system.
 Author-email: Wagtail core team + contributors <hello@wagtail.org>
 License-Expression: BSD-3-Clause
@@ -47,7 +47,7 @@ Requires-Dist: openpyxl<4.0,>=3.0.10
 Requires-Dist: anyascii>=0.1.5
 Requires-Dist: telepath<1,>=0.3.1
 Requires-Dist: laces<0.2,>=0.1
-Requires-Dist: django-tasks<0.8,>=0.7
+Requires-Dist: django-tasks<0.9,>=0.8
 Provides-Extra: testing
 Requires-Dist: python-dateutil>=2.7; extra == "testing"
 Requires-Dist: Jinja2<3.2,>=3.0; extra == "testing"
@@ -56,6 +56,7 @@ Requires-Dist: freezegun>=0.3.8; extra == "testing"
 Requires-Dist: azure-mgmt-cdn<13.0,>=12.0; extra == "testing"
 Requires-Dist: azure-mgmt-frontdoor<1.1,>=1.0; extra == "testing"
 Requires-Dist: django-pattern-library>=0.7; extra == "testing"
+Requires-Dist: responses<1,>=0.25; extra == "testing"
 Requires-Dist: coverage>=3.7.0; extra == "testing"
 Requires-Dist: doc8==1.1.2; extra == "testing"
 Requires-Dist: ruff==0.9.6; extra == "testing"
@@ -216,9 +217,6 @@ We thank the following organisations for their services used in Wagtail's develo
 
 [![Browserstack](https://cdn.jsdelivr.net/gh/wagtail/wagtail@main/.github/browserstack-logo.svg)](https://www.browserstack.com/)<br>
 [BrowserStack](https://www.browserstack.com/) provides the project with free access to their live web-based browser testing tool, and automated Selenium cloud testing.
-
-[![squash.io](https://cdn.jsdelivr.net/gh/wagtail/wagtail@main/.github/squash-logo.svg)](https://www.squash.io/)<br>
-[Squash](https://www.squash.io/) provides the project with free test environments for reviewing pull requests.
 
 [![Assistiv Labs](https://cdn.jsdelivr.net/gh/wagtail/wagtail@main/.github/assistivlabs-logo.png)](https://assistivlabs.com/)<br>
 [Assistiv Labs](https://assistivlabs.com/) provides the project with unlimited access to their remote testing with assistive technologies.

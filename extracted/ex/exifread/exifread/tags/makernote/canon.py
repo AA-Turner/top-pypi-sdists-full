@@ -729,7 +729,13 @@ _CAMERA_SETTINGS: SubIfdTagDict = {
     25: ("FocalUnitsPerMM", None),
     26: ("MaxAperture", None),
     27: ("MinAperture", None),
-    28: ("FlashActivity", {0: "Did Not Fire", 1: "Fired"}),
+    28: (
+        "FlashActivity",
+        {
+            0: "Did Not Fire",
+            1: "Fired",
+        },
+    ),
     29: (
         "FlashDetails",
         {
@@ -773,7 +779,13 @@ _CAMERA_SETTINGS: SubIfdTagDict = {
     39: ("SpotMeteringMode", {0: "Center", 1: "AF Point"}),
     41: (
         "ManualFlashOutput",
-        {0x0: "n/a", 0x500: "Full", 0x502: "Medium", 0x504: "Low", 0x7FFF: "n/a"},
+        {
+            0x0: "n/a",
+            0x500: "Full",
+            0x502: "Medium",
+            0x504: "Low",
+            0x7FFF: "n/a",
+        },
     ),
 }
 
@@ -811,7 +823,16 @@ _SHOT_INFO: SubIfdTagDict = {
             8: "Shade",
         },
     ),
-    8: ("SlowShutter", {-1: "n/a", 0: "Off", 1: "Night Scene", 2: "On", 3: "None"}),
+    8: (
+        "SlowShutter",
+        {
+            -1: "n/a",
+            0: "Off",
+            1: "Night Scene",
+            2: "On",
+            3: "None",
+        },
+    ),
     9: ("SequenceNumber", None),
     10: ("OpticalZoomCode", None),
     12: ("CameraTemperature", convert_temp),
@@ -948,11 +969,35 @@ _FILE_INFO: SubIfdTagDict = {
             142: "1920x1080 Movie",
         },
     ),
-    8: ("LongExposureNoiseReduction2", {0: "Off", 1: "On (1D)", 2: "On", 3: "Auto"}),
-    9: ("WBBracketMode", {0: "Off", 1: "On (shift AB)", 2: "On (shift GM)"}),
+    8: (
+        "LongExposureNoiseReduction2",
+        {
+            0: "Off",
+            1: "On (1D)",
+            2: "On",
+            3: "Auto",
+        },
+    ),
+    9: (
+        "WBBracketMode",
+        {
+            0: "Off",
+            1: "On (shift AB)",
+            2: "On (shift GM)",
+        },
+    ),
     12: ("WBBracketValueAB", None),
     13: ("WBBracketValueGM", None),
-    14: ("FilterEffect", {0: "None", 1: "Yellow", 2: "Orange", 3: "Red", 4: "Green"}),
+    14: (
+        "FilterEffect",
+        {
+            0: "None",
+            1: "Yellow",
+            2: "Orange",
+            3: "Red",
+            4: "Green",
+        },
+    ),
     15: (
         "ToningEffect",
         {
@@ -975,19 +1020,22 @@ _FILE_INFO: SubIfdTagDict = {
 # specified offset.
 CAMERA_INFO_TAG_NAME = "MakerNote Tag 0x000D"
 
-CAMERA_INFO_5D: Dict[int, Tuple[str, str, Callable]] = {
+CanonCameraInfo = Tuple[str, str, Callable]
+CanonCameraInfoMap = Dict[int, CanonCameraInfo]
+
+CAMERA_INFO_5D: CanonCameraInfoMap = {
     23: ("CameraTemperature", "<B", convert_temp),
     204: ("DirectoryIndex", "<L", subtract_one),
     208: ("FileIndex", "<H", add_one),
 }
 
-CAMERA_INFO_5DMKII: Dict[int, Tuple[str, str, Callable]] = {
+CAMERA_INFO_5DMKII: CanonCameraInfoMap = {
     25: ("CameraTemperature", "<B", convert_temp),
     443: ("FileIndex", "<L", add_one),
     455: ("DirectoryIndex", "<L", subtract_one),
 }
 
-CAMERA_INFO_5DMKIII: Dict[int, Tuple[str, str, Callable]] = {
+CAMERA_INFO_5DMKIII: CanonCameraInfoMap = {
     27: ("CameraTemperature", "<B", convert_temp),
     652: ("FileIndex", "<L", add_one),
     656: ("FileIndex2", "<L", add_one),
@@ -995,14 +1043,14 @@ CAMERA_INFO_5DMKIII: Dict[int, Tuple[str, str, Callable]] = {
     668: ("DirectoryIndex2", "<L", subtract_one),
 }
 
-CAMERA_INFO_600D: Dict[int, Tuple[str, str, Callable]] = {
+CAMERA_INFO_600D: CanonCameraInfoMap = {
     25: ("CameraTemperature", "<B", convert_temp),
     475: ("FileIndex", "<L", add_one),
     487: ("DirectoryIndex", "<L", subtract_one),
 }
 
 # A map of regular expressions on 'Image Model' to the CameraInfo spec
-CAMERA_INFO_MODEL_MAP: Dict[str, dict] = {
+CAMERA_INFO_MODEL_MAP: Dict[str, CanonCameraInfoMap] = {
     r"EOS 5D$": CAMERA_INFO_5D,
     r"EOS 5D Mark II$": CAMERA_INFO_5DMKII,
     r"EOS 5D Mark III$": CAMERA_INFO_5DMKIII,

@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
+from datetime import datetime as datetime_aliased
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
-from pydantic import AnyUrl, BaseModel, EmailStr, Extra, Field
-from typing_extensions import Literal
+from pydantic import AnyUrl, BaseModel, ConfigDict, EmailStr, Field, RootModel
 
 
 class PingResponse(BaseModel):
@@ -41,6 +41,7 @@ class SourceType(str, Enum):
     python = "python"
     pyspark = "pyspark"
     typescript = "typescript"
+    java = "java"
     s3 = "s3"
     dataframe = "dataframe"
     kotlin = "kotlin"
@@ -126,8 +127,12 @@ class ActionDestinationWebhook(BaseModel):
     )
 
 
-class Triggers(BaseModel):
-    __root__: Union[
+class Triggers(
+    RootModel[
+        "Union[ActionTriggerSource, ActionTriggerSourceType, ActionTriggerEventName, ActionTriggerNamespace]"
+    ]
+):
+    root: Union[
         ActionTriggerSource,
         ActionTriggerSourceType,
         ActionTriggerEventName,
@@ -155,7 +160,7 @@ class Triggers(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -172,7 +177,7 @@ class Triggers(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -181,8 +186,12 @@ class Triggers(BaseModel):
             raise cls.construct_error(e)
 
 
-class Destinations(BaseModel):
-    __root__: Union[
+class Destinations(
+    RootModel[
+        "Union[ActionDestinationSlack, ActionDestinationEmail, ActionDestinationWebhook]"
+    ]
+):
+    root: Union[
         ActionDestinationSlack, ActionDestinationEmail, ActionDestinationWebhook
     ] = Field(..., discriminator="destinationType")
 
@@ -207,7 +216,7 @@ class Destinations(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -224,7 +233,7 @@ class Destinations(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -238,12 +247,12 @@ class PutActionRequest(BaseModel):
     name: str = Field(
         ...,
         description="The name of the action",
-        example="email on pricing asset change",
+        examples=["email on pricing asset change"],
     )
-    triggers: List[Triggers] = Field(..., min_items=1)
+    triggers: List[Triggers] = Field(..., min_length=1)
     destinations: List[Destinations]
     isActive: bool = Field(
-        ..., description="Whether the action is active or not", example=True
+        ..., description="Whether the action is active or not", examples=[True]
     )
 
 
@@ -263,10 +272,10 @@ class PostActionRequest(BaseModel):
     name: str = Field(
         ...,
         description="The name of the action",
-        example="email on pricing asset change",
+        examples=["email on pricing asset change"],
     )
-    triggers: List[Triggers] = Field(..., min_items=1)
-    destinations: List[Destinations] = Field(..., min_items=1)
+    triggers: List[Triggers] = Field(..., min_length=1)
+    destinations: List[Destinations] = Field(..., min_length=1)
 
 
 class PostActionResponse(BaseModel):
@@ -290,16 +299,16 @@ class Action(BaseModel):
     name: str = Field(
         ...,
         description="The name of the action",
-        example="email on pricing asset change",
+        examples=["email on pricing asset change"],
     )
     isActive: bool = Field(
-        ..., description="Whether the action is active", example=True
+        ..., description="Whether the action is active", examples=[True]
     )
     ownerName: Optional[str] = Field(
         default=None, description="The name of the user who created the action"
     )
-    triggers: List[Triggers] = Field(..., min_items=1)
-    destinations: List[Destinations] = Field(..., min_items=1)
+    triggers: List[Triggers] = Field(..., min_length=1)
+    destinations: List[Destinations] = Field(..., min_length=1)
 
 
 class GetActionsResponse(BaseModel):
@@ -331,11 +340,14 @@ class ContractStatus(str, Enum):
     ARCHIVED = "ARCHIVED"
 
 
-class DataAssetResourceName(BaseModel):
-    __root__: str = Field(
+class DataAssetResourceName(RootModel["str"]):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
+    root: str = Field(
         ...,
         description="The unique identifier of the data asset. It follows the pattern '{data_asset_type}://{data_asset_source}:{data_asset_name}'",
-        regex="^(protobuf|avro|json_schema|postgres|mysql|mssql|snowflake|bigquery|python|pyspark|typescript|s3|dataframe|kotlin|swift|php)://(?=.*[a-zA-Z0-9])[a-zA-Z0-9_@\\.:/-]+[:/](?=.*[a-zA-Z0-9])[a-zA-Z0-9 _\\./-\\{\\}\\-]+$",
+        pattern="^(protobuf|avro|json_schema|java|postgres|mysql|mssql|snowflake|bigquery|python|pyspark|typescript|s3|dataframe|kotlin|swift|php)://(?=.*[a-zA-Z0-9])[a-zA-Z0-9_@\\.:/-]+[:/](?=.*[a-zA-Z0-9])[a-zA-Z0-9 _\\./-\\{\\}\\-]+$",
     )
 
     @classmethod
@@ -359,7 +371,7 @@ class DataAssetResourceName(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -376,7 +388,7 @@ class DataAssetResourceName(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -388,7 +400,7 @@ class DataAssetResourceName(BaseModel):
 class GableSchemaFieldNull(BaseModel):
     type: Literal["null"]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -399,7 +411,7 @@ class GableSchemaFieldNull(BaseModel):
 class GableSchemaFieldBool(BaseModel):
     type: Literal["bool"]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -432,7 +444,7 @@ class GableSchemaFieldInt(BaseModel):
     bits: int = Field(..., ge=1, le=2147483647)
     signed: Optional[bool] = True
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[LogicalEnumTemporal] = None
@@ -446,7 +458,7 @@ class GableSchemaFieldFloat(BaseModel):
     type: Literal["float"]
     bits: int = Field(..., ge=1, le=2147483647)
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -466,7 +478,7 @@ class GableSchemaFieldString(BaseModel):
     bytes: Optional[int] = Field(default=None, ge=1, le=9223372036854776000)
     variable: Optional[bool] = True
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[LogicalEnumText] = None
@@ -484,7 +496,7 @@ class GableSchemaFieldBytes(BaseModel):
     bytes: Optional[int] = Field(default=None, ge=1, le=9223372036854776000)
     variable: Optional[bool] = None
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[LogicalEnumNumeric] = None
@@ -512,7 +524,7 @@ class GableSchemaTypeName(str, Enum):
 class GableSchemaNull(BaseModel):
     type: Literal["null"]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -521,7 +533,7 @@ class GableSchemaNull(BaseModel):
 class GableSchemaBool(BaseModel):
     type: Literal["bool"]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -532,7 +544,7 @@ class GableSchemaInt(BaseModel):
     bits: int = Field(..., ge=1, le=2147483647)
     signed: Optional[bool] = True
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[LogicalEnumTemporal] = None
@@ -544,7 +556,7 @@ class GableSchemaFloat(BaseModel):
     type: Literal["float"]
     bits: int = Field(..., ge=1, le=2147483647)
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -555,7 +567,7 @@ class GableSchemaString(BaseModel):
     bytes: Optional[int] = Field(default=None, ge=1, le=9223372036854776000)
     variable: Optional[bool] = True
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[LogicalEnumText] = None
@@ -566,7 +578,7 @@ class GableSchemaBytes(BaseModel):
     bytes: Optional[int] = Field(default=None, ge=1, le=9223372036854776000)
     variable: Optional[bool] = None
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[LogicalEnumNumeric] = None
@@ -579,16 +591,16 @@ class GableSchemaEnum(BaseModel):
     type: Literal["enum"]
     symbols: List[str]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
 
 
 class GableSchemaAliasReference(BaseModel):
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     type: str
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -597,7 +609,7 @@ class GableSchemaAliasReference(BaseModel):
 class GableSchemaUnknown(BaseModel):
     type: Literal["unknown"]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -607,7 +619,7 @@ class GableSchemaFieldEnum(BaseModel):
     type: Literal["enum"]
     symbols: List[str]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -616,9 +628,9 @@ class GableSchemaFieldEnum(BaseModel):
 
 
 class GableSchemaFieldAliasReference(BaseModel):
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     type: str
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -629,7 +641,7 @@ class GableSchemaFieldAliasReference(BaseModel):
 class GableSchemaFieldUnknown(BaseModel):
     type: Literal["unknown"]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -697,7 +709,7 @@ class ChangelogEventBase(BaseModel):
     eventTitle: Optional[str] = Field(
         default=None, description="The LLM-generated text of the changelog event."
     )
-    timestamp: datetime = Field(
+    timestamp: datetime_aliased = Field(
         ..., description="The timestamp of the changelog event."
     )
     userId: Optional[UUID] = Field(
@@ -804,7 +816,7 @@ class Violation(BaseModel):
 class ContractViolationCheckedResponse(BaseModel):
     violation_state: ViolationState
     violations: Optional[List[Violation]] = None
-    checkedAt: Optional[datetime] = Field(
+    checkedAt: Optional[datetime_aliased] = Field(
         default=None, description="The datetime the violation check was performed"
     )
 
@@ -813,10 +825,12 @@ class ContractViolationUncheckedResponse(BaseModel):
     violation_state: Literal["unchecked"]
 
 
-class GetContractViolationStatusResponse(BaseModel):
-    __root__: Union[
-        ContractViolationCheckedResponse, ContractViolationUncheckedResponse
+class GetContractViolationStatusResponse(
+    RootModel[
+        "Union[ContractViolationCheckedResponse, ContractViolationUncheckedResponse]"
     ]
+):
+    root: Union[ContractViolationCheckedResponse, ContractViolationUncheckedResponse]
 
     @classmethod
     def construct_error(cls, e):
@@ -839,7 +853,7 @@ class GetContractViolationStatusResponse(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -856,7 +870,7 @@ class GetContractViolationStatusResponse(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -879,7 +893,7 @@ class PostContractResponse(BaseModel):
 
 class ContractActivityUpdateEvent(BaseModel):
     type: Literal["CONTRACT_UPDATED"] = Field(..., description="type of the event")
-    datetime: datetime = Field(
+    datetime: datetime_aliased = Field(
         ..., description="date time at which the contract was updated"
     )
     fileUri: Optional[AnyUrl] = Field(
@@ -893,7 +907,7 @@ class ContractActivityUpdateEvent(BaseModel):
 
 class ContractActivityCreateEvent(BaseModel):
     type: Literal["CONTRACT_CREATED"] = Field(..., description="type of the event")
-    datetime: datetime = Field(
+    datetime: datetime_aliased = Field(
         ..., description="date time at which the contract was created"
     )
     fileUri: Optional[AnyUrl] = Field(
@@ -905,13 +919,13 @@ class ContractActivityCreateEvent(BaseModel):
     )
 
 
-class ContractActivityResponse(BaseModel):
-    __root__: List[Union[ContractActivityUpdateEvent, ContractActivityCreateEvent]] = (
-        Field(
-            ...,
-            description="List of contract activity events in chronological order (oldest first)",
-            min_items=1,
-        )
+class ContractActivityResponse(
+    RootModel["List[Union[ContractActivityUpdateEvent, ContractActivityCreateEvent]]"]
+):
+    root: List[Union[ContractActivityUpdateEvent, ContractActivityCreateEvent]] = Field(
+        ...,
+        description="List of contract activity events in chronological order (oldest first)",
+        min_length=1,
     )
 
     @classmethod
@@ -935,7 +949,7 @@ class ContractActivityResponse(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -952,7 +966,7 @@ class ContractActivityResponse(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -970,7 +984,7 @@ class ContractSubscription(BaseModel):
     email: Optional[str] = Field(
         default=None,
         description="The email address of the subscriber if provided",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
     githubHandle: Optional[str] = Field(
         default=None, description="The GitHub handle of the subscriber if provided"
@@ -989,7 +1003,7 @@ class UpdateContractSubscriptionRequest(BaseModel):
     email: Optional[str] = Field(
         default=None,
         description="The email address of the subscriber if provided",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
     githubHandle: Optional[str] = Field(
         default=None, description="The GitHub handle for the subscriber if provided"
@@ -1008,7 +1022,7 @@ class CreateContractSubscriptionRequest(BaseModel):
     email: Optional[str] = Field(
         default=None,
         description="The email address of the subscriber if provided",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
     githubHandle: Optional[str] = Field(
         default=None, description="The GitHub handle of the subscriber"
@@ -1019,8 +1033,8 @@ class CreateContractSubscriptionRequest(BaseModel):
     )
 
 
-class GetContractSubscriptionsResponse(BaseModel):
-    __root__: List[ContractSubscription]
+class GetContractSubscriptionsResponse(RootModel["List[ContractSubscription]"]):
+    root: List[ContractSubscription]
 
     @classmethod
     def construct_error(cls, e):
@@ -1043,7 +1057,7 @@ class GetContractSubscriptionsResponse(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -1060,7 +1074,7 @@ class GetContractSubscriptionsResponse(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -1081,10 +1095,10 @@ class ContractEnforcementLevel(BaseModel):
     contractId: UUID = Field(
         ..., description="Unique identifier for the associated contract"
     )
-    createdAt: datetime = Field(
+    createdAt: datetime_aliased = Field(
         ..., description="Date and time at which the enforcement level was created"
     )
-    updatedAt: datetime = Field(
+    updatedAt: datetime_aliased = Field(
         ..., description="Date and time at which the enforcement level was last updated"
     )
     enforcementLevel: EnforcementLevel = Field(
@@ -1122,7 +1136,7 @@ class DataAssetSearchResult(BaseModel):
     contractId: Optional[str] = Field(
         default=None, description="The contract ID associated with the data asset."
     )
-    updatedAt: datetime = Field(
+    updatedAt: datetime_aliased = Field(
         ..., description="The timestamp of the most recent update to the data asset."
     )
 
@@ -1183,12 +1197,12 @@ class DataAssetInput(BaseModel):
     prLink: Optional[str] = Field(
         default=None,
         description="Link to the PR that may have added or edited the data assets",
-        example="https://github.com/fakeorg/fakerepo/pull/123",
+        examples=["https://github.com/fakeorg/fakerepo/pull/123"],
     )
 
 
-class CreateOrUpdateDataAssetsRequest(BaseModel):
-    __root__: List[DataAssetInput]
+class CreateOrUpdateDataAssetsRequest(RootModel["List[DataAssetInput]"]):
+    root: List[DataAssetInput]
 
     @classmethod
     def construct_error(cls, e):
@@ -1211,7 +1225,7 @@ class CreateOrUpdateDataAssetsRequest(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -1228,7 +1242,7 @@ class CreateOrUpdateDataAssetsRequest(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -1246,8 +1260,8 @@ class DataAssetOutput(BaseModel):
     )
 
 
-class CreateOrUpdateDataAssetsResponse(BaseModel):
-    __root__: List[DataAssetOutput]
+class CreateOrUpdateDataAssetsResponse(RootModel["List[DataAssetOutput]"]):
+    root: List[DataAssetOutput]
 
     @classmethod
     def construct_error(cls, e):
@@ -1270,7 +1284,7 @@ class CreateOrUpdateDataAssetsResponse(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -1287,7 +1301,7 @@ class CreateOrUpdateDataAssetsResponse(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -1306,12 +1320,10 @@ class DeleteDataAssetsResponse(BaseModel):
     message: Optional[str] = Field(default=None, description="Success message")
 
 
-class CreateOrUpdateDataAssetRequest(DataAssetInput):
-    pass
+CreateOrUpdateDataAssetRequest = DataAssetInput
 
 
-class CreateOrUpdateDataAssetResponse(DataAssetOutput):
-    pass
+CreateOrUpdateDataAssetResponse = DataAssetOutput
 
 
 class Input(BaseModel):
@@ -1503,9 +1515,9 @@ class DataAssetFieldProfileBase(BaseModel):
         default=None, description="Number of nulls (only defined if nullable is true)"
     )
     sampledFiles: List[str] = Field(
-        ..., description="List of sampled files", min_items=1
+        ..., description="List of sampled files", min_length=1
     )
-    sampledDate: Optional[datetime] = Field(
+    sampledDate: Optional[datetime_aliased] = Field(
         default=None, description="The date the sample was taken"
     )
     samplingParameters: S3SamplingParameters
@@ -1548,8 +1560,8 @@ class DataAssetFieldProfileUUID(DataAssetFieldProfileBase):
 
 class DataAssetFieldProfileTemporal(DataAssetFieldProfileBase):
     profileType: Literal["temporal"]
-    min: datetime = Field(..., description="Minimum value")
-    max: datetime = Field(..., description="Maximum value")
+    min: datetime_aliased = Field(..., description="Minimum value")
+    max: datetime_aliased = Field(..., description="Maximum value")
     format: str = Field(..., description="Temporal format")
 
 
@@ -1566,8 +1578,8 @@ class PySparkAsset(BaseModel):
     git_host: str = Field(
         ...,
         description="The git host where the schema is stored (must match the format of <domain>:<org>/<repo> or <domain>:<org>/<group(s)/<repo>)",
-        example="github.com:gable/repo",
-        regex="^[a-zA-Z0-9-\\.]+\\.[a-zA-Z]{2,3}:[a-zA-Z0-9-]+\\/[a-zA-Z0-9-_\\/]+$",
+        examples=["github.com:gable/repo"],
+        pattern="^[a-zA-Z0-9-\\.]+\\.[a-zA-Z]{2,3}:[a-zA-Z0-9-]+\\/[a-zA-Z0-9-_\\/]+$",
     )
     spark_entrypoint: str = Field(
         ..., description="The entrypoint of the spark job which produced this asset"
@@ -1611,7 +1623,7 @@ class IngestDataAssetRequest(BaseModel):
     prLink: Optional[str] = Field(
         default=None,
         description="Link to the PR that may have added or edited the data assets",
-        example="https://github.com/fakeorg/fakerepo/pull/123",
+        examples=["https://github.com/fakeorg/fakerepo/pull/123"],
     )
 
 
@@ -1651,7 +1663,7 @@ class RegisterDataAssetPySparkRequest(BaseModel):
     prLink: Optional[str] = Field(
         default=None,
         description="Link to the PR that may have added or edited the data assets",
-        example="https://github.com/fakeorg/fakerepo/pull/123",
+        examples=["https://github.com/fakeorg/fakerepo/pull/123"],
     )
 
 
@@ -1694,8 +1706,8 @@ class GetApiKeysResponseItem(BaseModel):
     value: Optional[str] = Field(default=None, description="The value of the API key")
 
 
-class GetApiKeysResponse(BaseModel):
-    __root__: List[GetApiKeysResponseItem]
+class GetApiKeysResponse(RootModel["List[GetApiKeysResponseItem]"]):
+    root: List[GetApiKeysResponseItem]
 
     @classmethod
     def construct_error(cls, e):
@@ -1718,7 +1730,7 @@ class GetApiKeysResponse(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -1735,7 +1747,7 @@ class GetApiKeysResponse(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -1756,6 +1768,9 @@ class GetSsoSamlSetupDetailsResponse(BaseModel):
 
 
 class SsoSamlUrlConfig(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
     type: Literal["SAML"] = Field(
         ...,
         description="The type of SSO integration, currently only SAML is supported.",
@@ -1764,16 +1779,19 @@ class SsoSamlUrlConfig(BaseModel):
         ...,
         description='The name of your identity provider. This value will be displayed to users when they log in. \n\nNote: This value cannot be the strings "Google" or "SAML" as they\'re reserved words in our identity management platform.\n',
         examples=["Okta", "GoogleWorkspace", "OneLogin", "JumpCloud"],
-        regex="^(?=[a-zA-Z0-9\\(\\)\\.\\-!@]+$)(?!Google|SAML$).*$",
+        pattern="^(?=[a-zA-Z0-9\\(\\)\\.\\-!@]+$)(?!Google|SAML$).*$",
     )
     metadataDocumentEndpointUrl: str = Field(
         ...,
         description="The URL of the SAML metadata document. Either this or metadataFileContents must be provided.",
-        example="https://company.okta.com/app/123456789/sso/saml/metadata",
+        examples=["https://company.okta.com/app/123456789/sso/saml/metadata"],
     )
 
 
 class SsoSamlFileConfig(BaseModel):
+    model_config = ConfigDict(
+        regex_engine="python-re",
+    )
     type: Literal["SAML"] = Field(
         ...,
         description="The type of SSO integration, currently only SAML is supported.",
@@ -1782,7 +1800,7 @@ class SsoSamlFileConfig(BaseModel):
         ...,
         description='The name of your identity provider. This value will be displayed to users when they log in. \n\nNote: This value cannot be the strings "Google" or "SAML" as they\'re reserved words in our identity management platform.\n',
         examples=["Okta", "GoogleWorkspace", "OneLogin", "JumpCloud"],
-        regex="^(?=[a-zA-Z0-9\\(\\)\\.\\-!@]+$)(?!Google|SAML$).*$",
+        pattern="^(?=[a-zA-Z0-9\\(\\)\\.\\-!@]+$)(?!Google|SAML$).*$",
     )
     metadataFileContents: str = Field(
         ...,
@@ -1790,8 +1808,8 @@ class SsoSamlFileConfig(BaseModel):
     )
 
 
-class SsoConfig(BaseModel):
-    __root__: Union[SsoSamlUrlConfig, SsoSamlFileConfig]
+class SsoConfig(RootModel["Union[SsoSamlUrlConfig, SsoSamlFileConfig]"]):
+    root: Union[SsoSamlUrlConfig, SsoSamlFileConfig]
 
     @classmethod
     def construct_error(cls, e):
@@ -1814,7 +1832,7 @@ class SsoConfig(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -1831,7 +1849,7 @@ class SsoConfig(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -1844,7 +1862,7 @@ class GetUserRequest(BaseModel):
     email: str = Field(
         ...,
         description="The email address of the user, which is the primary ID in Gable",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
 
 
@@ -1864,7 +1882,7 @@ class User(BaseModel):
     email: str = Field(
         ...,
         description="The email address of the user",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
     firstName: Optional[str] = Field(
         default=None, description="The first name of the user, if available"
@@ -1883,7 +1901,7 @@ class UpdateUserRequest(BaseModel):
     email: str = Field(
         ...,
         description="The email address of the user, which is the primary ID in Gable",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
     firstName: Optional[str] = Field(
         default=None, description="The first name of the user"
@@ -1894,7 +1912,7 @@ class UpdateUserRequest(BaseModel):
     githubHandle: Optional[str] = Field(
         default=None,
         description="The GitHub handle of the user",
-        regex="^[a-zA-Z0-9-]*$",
+        pattern="^[a-zA-Z0-9-]*$",
     )
     role: Optional[UserRole] = Field(default=None, description="The role of the user")
 
@@ -1903,7 +1921,7 @@ class UpdateUserResponse(BaseModel):
     email: str = Field(
         ...,
         description="The email address of the user, which is the primary ID in Gable",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
     firstName: Optional[str] = Field(
         default=None, description="The first name of the user"
@@ -1917,8 +1935,8 @@ class UpdateUserResponse(BaseModel):
     role: UserRole = Field(..., description="The role of the user")
 
 
-class GetUsersResponse(BaseModel):
-    __root__: List[User]
+class GetUsersResponse(RootModel["List[User]"]):
+    root: List[User]
 
     @classmethod
     def construct_error(cls, e):
@@ -1941,7 +1959,7 @@ class GetUsersResponse(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -1958,7 +1976,7 @@ class GetUsersResponse(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -1971,7 +1989,7 @@ class InviteUserRequest(BaseModel):
     email: str = Field(
         ...,
         description="The email address of the user, which is the primary ID in Gable",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
     firstName: Optional[str] = Field(
         default=None, description="The first name of the user"
@@ -1990,7 +2008,7 @@ class DeleteUserRequest(BaseModel):
     email: str = Field(
         ...,
         description="The email address of the user, which is the primary ID in Gable",
-        regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
+        pattern="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$",
     )
 
 
@@ -2013,15 +2031,14 @@ class AssetCreatedEvent(ChangelogEventBase):
     prLink: Optional[str] = Field(
         default=None,
         description="Link to the pull request associated with the asset modification.",
-        example="https://github.com/fakeorg/fakerepo/pull/1",
+        examples=["https://github.com/fakeorg/fakerepo/pull/1"],
     )
     piiDetected: Optional[Dict[str, Any]] = Field(
         default=None, description="A mapping of the fieldname to the pii_category."
     )
 
 
-class AssetDeletedEvent(AssetCreatedEvent):
-    pass
+AssetDeletedEvent = AssetCreatedEvent
 
 
 class Diff(BaseModel):
@@ -2159,16 +2176,13 @@ class ActionCreatedEvent(ChangelogEventBase):
     actionName: str = Field(..., description="The name of the action.")
 
 
-class ActionDeletedEvent(ActionCreatedEvent):
-    pass
+ActionDeletedEvent = ActionCreatedEvent
 
 
-class ActionEnabledEvent(ActionCreatedEvent):
-    pass
+ActionEnabledEvent = ActionCreatedEvent
 
 
-class ActionDisabledEvent(ActionCreatedEvent):
-    pass
+ActionDisabledEvent = ActionCreatedEvent
 
 
 class ActionTriggerType(str, Enum):
@@ -2327,8 +2341,8 @@ class ChangelogResponsePaginated(BaseModel):
     totalCount: Optional[float] = None
 
 
-class ChangelogEventInput(BaseModel):
-    __root__: ContractViolation
+class ChangelogEventInput(RootModel["ContractViolation"]):
+    root: ContractViolation
 
     @classmethod
     def construct_error(cls, e):
@@ -2351,7 +2365,7 @@ class ChangelogEventInput(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -2368,7 +2382,7 @@ class ChangelogEventInput(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -2377,8 +2391,10 @@ class ChangelogEventInput(BaseModel):
             raise cls.construct_error(e)
 
 
-class CreateChangelogEventRequest(BaseModel):
-    __root__: Union[ChangelogEventInput, List[ChangelogEventInput]]
+class CreateChangelogEventRequest(
+    RootModel["Union[ChangelogEventInput, List[ChangelogEventInput]]"]
+):
+    root: Union[ChangelogEventInput, List[ChangelogEventInput]]
 
     @classmethod
     def construct_error(cls, e):
@@ -2401,7 +2417,7 @@ class CreateChangelogEventRequest(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -2418,7 +2434,7 @@ class CreateChangelogEventRequest(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -2540,10 +2556,10 @@ class Notification(BaseModel):
         ...,
         description='The current status of the notification (e.g., "PENDING", "SENT", "FAILED")',
     )
-    createdAt: datetime = Field(
+    createdAt: datetime_aliased = Field(
         ..., description="The timestamp when the notification was created"
     )
-    updatedAt: Optional[datetime] = Field(
+    updatedAt: Optional[datetime_aliased] = Field(
         default=None, description="The timestamp when the notification was last updated"
     )
     retryCount: int = Field(
@@ -2665,8 +2681,12 @@ class SupportedContractConstraints(BaseModel):
     constraints: List[ContractConstraintType]
 
 
-class ContractConstraint(BaseModel):
-    __root__: Union[
+class ContractConstraint(
+    RootModel[
+        "Union[TimeConstraints, FloatConstraints, IntegerConstraints, ListConstraints, MapConstraints, StringConstraints, UUIDConstraints, BooleanConstraints, OtherConstraints, RecapConstraints, SupportedContractConstraints]"
+    ]
+):
+    root: Union[
         TimeConstraints,
         FloatConstraints,
         IntegerConstraints,
@@ -2701,7 +2721,7 @@ class ContractConstraint(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -2718,7 +2738,7 @@ class ContractConstraint(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -2727,8 +2747,8 @@ class ContractConstraint(BaseModel):
             raise cls.construct_error(e)
 
 
-class ContractConstraintMapping(BaseModel):
-    __root__: Optional[Dict[str, ContractConstraint]] = None
+class ContractConstraintMapping(RootModel["Optional[Dict[str, ContractConstraint]]"]):
+    root: Optional[Dict[str, ContractConstraint]] = None
 
     @classmethod
     def construct_error(cls, e):
@@ -2751,7 +2771,7 @@ class ContractConstraintMapping(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -2768,7 +2788,7 @@ class ContractConstraintMapping(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -2788,8 +2808,8 @@ class IngestScaMetadataResponse(BaseModel):
     )
 
 
-class TelemetryType(BaseModel):
-    __root__: Literal["SCA_PRIME"] = Field(
+class TelemetryType(RootModel["Literal['SCA_PRIME']"]):
+    root: Literal["SCA_PRIME"] = Field(
         ..., description="The type of the telemetry event."
     )
 
@@ -2814,7 +2834,7 @@ class TelemetryType(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -2831,7 +2851,7 @@ class TelemetryType(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -2979,9 +2999,35 @@ class StaticAnalysisToolMetadata(BaseModel):
     config: Optional[StaticAnalysisToolConfig] = None
 
 
+class Action1(str, Enum):
+    register = "register"
+    check = "check"
+
+
+class OutputFormat(str, Enum):
+    json = "json"
+    text = "text"
+    markdown = "markdown"
+
+
 class PostScaStartRunRequest(BaseModel):
     code_info: StaticAnalysisCodeMetadata
     sca_info: StaticAnalysisToolMetadata
+    action: Action1 = Field(
+        ..., description="Action to perform, either 'register' or 'check'"
+    )
+    pr_link: Optional[str] = Field(
+        default=None,
+        description="Link to the pull request in the source code repository, if applicable",
+    )
+    include_unchanged_assets: Optional[bool] = Field(
+        default=False,
+        description="Whether to include assets that have not changed since the last run",
+    )
+    output_format: Optional[OutputFormat] = Field(
+        default=None,
+        description="Format of the output, either 'json', 'text', or 'markdown'",
+    )
 
 
 class S3PresignedUrl(BaseModel):
@@ -2994,6 +3040,22 @@ class PostScaStartRunResponse(BaseModel):
     s3PresignedUrl: Optional[S3PresignedUrl] = Field(
         default=None, description="Details for uploading files to S3"
     )
+
+
+class Status2(str, Enum):
+    pending = "pending"
+    uploaded = "uploaded"
+    processing = "processing"
+    success = "success"
+    error = "error"
+
+
+class GetScaRunStatusResponse(BaseModel):
+    status: Status2 = Field(..., description="status of the sca job")
+    message: Optional[str] = Field(
+        default=None, description="message associated with the status, if any"
+    )
+    asset_registration_outcomes: Optional[List[AssetRegistrationOutcome]] = None
 
 
 class StaticAnalysisMachineMetadata(BaseModel):
@@ -3009,7 +3071,7 @@ class StaticAnalysisStartRunRequest(BaseModel):
 
 class StaticAnalysisStartRunResponse(BaseModel):
     run_id: UUID = Field(..., description="Unique identifier assigned to the run")
-    created_at: datetime = Field(
+    created_at: datetime_aliased = Field(
         ..., description="Timestamp indicating when the run was created"
     )
 
@@ -3034,10 +3096,18 @@ class StaticAnalysisTabularLineageFieldMapping(BaseModel):
     ingress_field: str = Field(..., description="The field in the ingress schema")
     egress_field: str = Field(..., description="The field in the egress schema")
     notes: Optional[str] = Field(default=None, description="Notes about the mapping")
+    field_data_flow_path: Optional[List[StaticAnalysisCodeAnchor]] = Field(
+        default=None,
+        description="The field data flow path that represents this mapping",
+    )
 
 
-class GableSchemaField(BaseModel):
-    __root__: Union[
+class GableSchemaField(
+    RootModel[
+        "Union[GableSchemaFieldStruct, GableSchemaFieldNull, GableSchemaFieldBool, GableSchemaFieldInt, GableSchemaFieldFloat, GableSchemaFieldString, GableSchemaFieldBytes, GableSchemaFieldList, GableSchemaFieldMap, GableSchemaFieldEnum, GableSchemaFieldUnion, GableSchemaFieldAliasReference, GableSchemaFieldUnknown]"
+    ]
+):
+    root: Union[
         GableSchemaFieldStruct,
         GableSchemaFieldNull,
         GableSchemaFieldBool,
@@ -3074,7 +3144,7 @@ class GableSchemaField(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -3091,7 +3161,7 @@ class GableSchemaField(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -3105,7 +3175,7 @@ class GableSchemaFieldStruct(BaseModel):
     name: Optional[str] = None
     fields: Optional[List[GableSchemaField]] = None
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -3117,14 +3187,18 @@ class GableSchemaStruct(BaseModel):
     name: Optional[str] = None
     fields: Optional[List[GableSchemaField]] = None
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
 
 
-class GableSchemaType(BaseModel):
-    __root__: Union[
+class GableSchemaType(
+    RootModel[
+        "Union[GableSchemaTypeName, Union[GableSchemaStruct, GableSchemaNull, GableSchemaBool, GableSchemaInt, GableSchemaFloat, GableSchemaString, GableSchemaBytes, GableSchemaList, GableSchemaMap, GableSchemaEnum, GableSchemaUnion, GableSchemaAliasReference, GableSchemaUnknown]]"
+    ]
+):
+    root: Union[
         GableSchemaTypeName,
         Union[
             GableSchemaStruct,
@@ -3164,7 +3238,7 @@ class GableSchemaType(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -3181,7 +3255,7 @@ class GableSchemaType(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -3196,7 +3270,7 @@ class GableSchemaList(BaseModel):
     length: Optional[int] = Field(default=None, ge=1, le=9223372036854776000)
     variable: Optional[bool] = True
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
 
@@ -3206,7 +3280,7 @@ class GableSchemaMap(BaseModel):
     keys: GableSchemaType
     values: GableSchemaType
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -3216,7 +3290,7 @@ class GableSchemaUnion(BaseModel):
     type: Literal["union"]
     types: List[GableSchemaType]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -3228,7 +3302,7 @@ class GableSchemaFieldList(BaseModel):
     length: Optional[int] = Field(default=None, ge=1, le=9223372036854776000)
     variable: Optional[bool] = True
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     name: Optional[str] = None
@@ -3240,7 +3314,7 @@ class GableSchemaFieldMap(BaseModel):
     keys: GableSchemaType
     values: GableSchemaType
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -3252,7 +3326,7 @@ class GableSchemaFieldUnion(BaseModel):
     type: Literal["union"]
     types: List[GableSchemaType]
     alias: Optional[str] = Field(
-        default=None, regex="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
+        default=None, pattern="^[a-zA-Z_][a-zA-Z0-9_]*(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)+$"
     )
     doc: Optional[str] = None
     logical: Optional[str] = None
@@ -3260,8 +3334,12 @@ class GableSchemaFieldUnion(BaseModel):
     optional: Optional[bool] = None
 
 
-class GableSchemaContractField(BaseModel):
-    __root__: Union[
+class GableSchemaContractField(
+    RootModel[
+        "Union[GableSchemaContractField2, GableSchemaContractField3, GableSchemaContractField4, GableSchemaContractField5, GableSchemaContractField6, GableSchemaContractField7, GableSchemaContractField8, GableSchemaContractField9, GableSchemaContractField10, GableSchemaContractField11, GableSchemaContractField12, GableSchemaContractField13, GableSchemaContractField14]"
+    ]
+):
+    root: Union[
         GableSchemaContractField2,
         GableSchemaContractField3,
         GableSchemaContractField4,
@@ -3298,7 +3376,7 @@ class GableSchemaContractField(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -3315,7 +3393,7 @@ class GableSchemaContractField(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -3381,9 +3459,9 @@ class ContractInput(BaseModel):
     filePath: Optional[str] = Field(
         default=None,
         description="path to the contract file from the root of the git repository",
-        regex="^([^/]+\\/)*[^/]+$",
+        pattern="^([^/]+\\/)*[^/]+$",
     )
-    mergedAt: Optional[datetime] = Field(
+    mergedAt: Optional[datetime_aliased] = Field(
         default=None,
         description="date time at which the PR that added/updated this contract was merged",
     )
@@ -3416,8 +3494,8 @@ class ContractInput(BaseModel):
     )
 
 
-class PostContractRequest(BaseModel):
-    __root__: Union[ContractInput, List[ContractInput]]
+class PostContractRequest(RootModel["Union[ContractInput, List[ContractInput]]"]):
+    root: Union[ContractInput, List[ContractInput]]
 
     @classmethod
     def construct_error(cls, e):
@@ -3440,7 +3518,7 @@ class PostContractRequest(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -3457,7 +3535,7 @@ class PostContractRequest(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -3502,14 +3580,14 @@ class ContractOutput(BaseModel):
         default=None,
         description="optional list of users who reviewed the merged PR that this contract added/updated in",
     )
-    mergedAt: Optional[datetime] = Field(
+    mergedAt: Optional[datetime_aliased] = Field(
         default=None,
         description="date time at which the PR that added/updated this contract was merged",
     )
-    createdAt: datetime = Field(
+    createdAt: datetime_aliased = Field(
         ..., description="date time at which the contract was created"
     )
-    updatedAt: datetime = Field(
+    updatedAt: datetime_aliased = Field(
         ..., description="date time at which the contract was last updated"
     )
     contractSpec: ContractSpec = Field(..., description="contract spec")
@@ -3585,8 +3663,12 @@ class CheckDataAssetMissingAssetResponse(BaseModel):
     responseType: Literal["MISSING_DATA_ASSET"]
 
 
-class CheckDataAssetResponse(BaseModel):
-    __root__: Union[
+class CheckDataAssetResponse(
+    RootModel[
+        "Union[CheckDataAssetNoContractResponse, CheckDataAssetNoChangeResponse, CheckDataAssetDetailedResponse, CheckDataAssetErrorResponse, CheckDataAssetMissingAssetResponse]"
+    ]
+):
+    root: Union[
         CheckDataAssetNoContractResponse,
         CheckDataAssetNoChangeResponse,
         CheckDataAssetDetailedResponse,
@@ -3615,7 +3697,7 @@ class CheckDataAssetResponse(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -3632,7 +3714,7 @@ class CheckDataAssetResponse(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -3641,8 +3723,12 @@ class CheckDataAssetResponse(BaseModel):
             raise cls.construct_error(e)
 
 
-class CheckDataAssetsResponse(BaseModel):
-    __root__: Union[List[CheckDataAssetResponse], CheckDataAssetCommentMarkdownResponse]
+class CheckDataAssetsResponse(
+    RootModel[
+        "Union[List[CheckDataAssetResponse], CheckDataAssetCommentMarkdownResponse]"
+    ]
+):
+    root: Union[List[CheckDataAssetResponse], CheckDataAssetCommentMarkdownResponse]
 
     @classmethod
     def construct_error(cls, e):
@@ -3665,7 +3751,7 @@ class CheckDataAssetsResponse(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -3682,7 +3768,7 @@ class CheckDataAssetsResponse(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -3691,8 +3777,12 @@ class CheckDataAssetsResponse(BaseModel):
             raise cls.construct_error(e)
 
 
-class DataAssetFieldProfile(BaseModel):
-    __root__: Union[
+class DataAssetFieldProfile(
+    RootModel[
+        "Union[DataAssetFieldProfileBoolean, DataAssetFieldProfileNumber, DataAssetFieldProfileOther, DataAssetFieldProfileString, DataAssetFieldProfileUUID, DataAssetFieldProfileTemporal, DataAssetFieldProfileUnion, DataAssetFieldProfileList]"
+    ]
+):
+    root: Union[
         DataAssetFieldProfileBoolean,
         DataAssetFieldProfileNumber,
         DataAssetFieldProfileOther,
@@ -3724,7 +3814,7 @@ class DataAssetFieldProfile(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -3741,7 +3831,7 @@ class DataAssetFieldProfile(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -3757,8 +3847,10 @@ class DataAssetFieldProfileUnion(DataAssetFieldProfileBase):
     )
 
 
-class DataAssetFieldsToProfilesMapping(BaseModel):
-    __root__: Optional[Dict[str, DataAssetFieldProfile]] = None
+class DataAssetFieldsToProfilesMapping(
+    RootModel["Optional[Dict[str, DataAssetFieldProfile]]"]
+):
+    root: Optional[Dict[str, DataAssetFieldProfile]] = None
 
     @classmethod
     def construct_error(cls, e):
@@ -3781,7 +3873,7 @@ class DataAssetFieldsToProfilesMapping(BaseModel):
         for error in e.errors():
             new_error = {
                 **error,
-                "loc": tuple(f for f in error["loc"] if f != "__root__"),
+                "loc": tuple(f for f in error["loc"] if f != "root"),
             }
             if new_error not in filtered_errors:
                 filtered_errors.append(new_error)
@@ -3798,7 +3890,7 @@ class DataAssetFieldsToProfilesMapping(BaseModel):
         return ValidationError(error_wrappers, cls)
 
     @classmethod
-    def validate(cls, value) -> "BaseModel":
+    def validate(cls, value):
         from pydantic import ValidationError
 
         try:
@@ -3878,7 +3970,7 @@ class RegisterDataAssetsRequest(BaseModel):
     prLink: Optional[str] = Field(
         default=None,
         description="Link to the PR that may have added or edited the data assets",
-        example="https://github.com/fakeorg/fakerepo/pull/123",
+        examples=["https://github.com/fakeorg/fakerepo/pull/123"],
     )
 
 
@@ -3890,7 +3982,7 @@ class RegisterDataAssetS3Request(BaseModel):
     prLink: Optional[str] = Field(
         default=None,
         description="Link to the PR that may have added or edited the data assets",
-        example="https://github.com/fakeorg/fakerepo/pull/123",
+        examples=["https://github.com/fakeorg/fakerepo/pull/123"],
     )
 
 
@@ -3920,13 +4012,13 @@ class DataAssetField(BaseModel):
         default=None,
         description="For nested fields, this is the ID of the parent field.",
     )
-    createdAt: datetime = Field(
+    createdAt: datetime_aliased = Field(
         ..., description="The timestamp when the field was created."
     )
-    updatedAt: datetime = Field(
+    updatedAt: datetime_aliased = Field(
         ..., description="The timestamp when the field was last updated."
     )
-    deletedAt: Optional[datetime] = Field(
+    deletedAt: Optional[datetime_aliased] = Field(
         default=None, description="The timestamp when the field was marked as deleted."
     )
     piiCategory: Optional[PiiCategoryEnum] = None
@@ -3952,15 +4044,15 @@ class DataAssetVersion(BaseModel):
     fields: List[DataAssetField] = Field(
         ..., description="The fields of the data asset."
     )
-    createdAt: datetime = Field(
+    createdAt: datetime_aliased = Field(
         ...,
         description="The timestamp when this version of the data asset was created.",
     )
-    updatedAt: datetime = Field(
+    updatedAt: datetime_aliased = Field(
         ...,
         description="The timestamp when this version of the data asset was last updated.",
     )
-    deletedAt: Optional[datetime] = Field(
+    deletedAt: Optional[datetime_aliased] = Field(
         default=None,
         description="The timestamp when this version of the data asset was marked as deleted, if applicable.",
     )
@@ -3988,13 +4080,13 @@ class DataAsset(BaseModel):
     versionDetail: DataAssetVersion = Field(
         ..., description="The version details of the data asset."
     )
-    createdAt: datetime = Field(
+    createdAt: datetime_aliased = Field(
         ..., description="The timestamp of when the data asset was initially created."
     )
-    updatedAt: datetime = Field(
+    updatedAt: datetime_aliased = Field(
         ..., description="The timestamp of the most recent update to the data asset."
     )
-    deletedAt: Optional[datetime] = Field(
+    deletedAt: Optional[datetime_aliased] = Field(
         default=None,
         description="The timestamp indicating when the data asset was deleted, if applicable.",
     )
@@ -4029,14 +4121,14 @@ class InferContractFromDataAssetResponse(BaseModel):
         default=None,
         description="optional list of users who reviewed the merged PR that this contract added/updated in",
     )
-    mergedAt: Optional[datetime] = Field(
+    mergedAt: Optional[datetime_aliased] = Field(
         default=None,
         description="date time at which the PR that added/updated this contract was merged",
     )
-    createdAt: Optional[datetime] = Field(
+    createdAt: Optional[datetime_aliased] = Field(
         default=None, description="date time at which the contract was created"
     )
-    updatedAt: Optional[datetime] = Field(
+    updatedAt: Optional[datetime_aliased] = Field(
         default=None, description="date time at which the contract was last updated"
     )
     contractSpec: ContractSpec = Field(..., description="contract spec")
@@ -4085,6 +4177,10 @@ class StaticAnalysisDataFlowPathEnds(BaseModel):
         default=None,
         description='The kind of the ingress/egress (e.g. "postgres", "gateway_response")',
     )
+    signature_name: Optional[str] = Field(
+        default=None,
+        description="The name of the package, class, or method that the ingress/egress point is associated with",
+    )
     code_anchor: StaticAnalysisCodeAnchor = Field(
         ...,
         description="The code anchor that represents the ingress/egress point in the codebase. This should be the same as the first (for ingress) or last (for egress) code anchor in the flow path.",
@@ -4132,19 +4228,17 @@ class GableSchemaContractField12(GableSchemaUnion, GableSchemaContractField1):
     pass
 
 
-class Ingress(DataFlowBoundary):
-    pass
+Ingress = DataFlowBoundary
 
 
-class Egress(DataFlowBoundary):
-    pass
+Egress = DataFlowBoundary
 
 
-GableSchemaField.update_forward_refs()
-GableSchemaType.update_forward_refs()
-GableSchemaContractField.update_forward_refs()
-DataAssetFieldProfile.update_forward_refs()
-FullComponent.update_forward_refs()
+GableSchemaField.model_rebuild()
+GableSchemaType.model_rebuild()
+GableSchemaContractField.model_rebuild()
+DataAssetFieldProfile.model_rebuild()
+FullComponent.model_rebuild()
 
 # OpenAPI schema version used to generate this file
-OPENAPI_SCHEMA_VERSION = "0.2.1"
+OPENAPI_SCHEMA_VERSION = "0.2.6"

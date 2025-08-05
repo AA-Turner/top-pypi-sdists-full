@@ -3,6 +3,7 @@
 # SPHINX CONFIGURATION: behave documentation build configuration file
 # =============================================================================
 
+from __future__ import print_function
 import os.path
 import sys
 import importlib
@@ -12,6 +13,14 @@ import importlib
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath(".."))
+from behave import __version__
+
+# ------------------------------------------------------------------------------
+# DETECT BUILD CONTEXT
+# ------------------------------------------------------------------------------
+ON_READTHEDOCS = os.environ.get("READTHEDOCS", None) == "True"
+USE_SPHINX_INTERNATIONAL = True
+
 
 # ------------------------------------------------------------------------------
 # EXTENSIONS CONFIGURATION
@@ -27,10 +36,11 @@ extensions = [
     "sphinx.ext.extlinks",
     "sphinx.ext.todo",
     "sphinx.ext.intersphinx",
+    "sphinx_copybutton",
 ]
 optional_extensions = [
     # -- DISABLED: "sphinxcontrib.youtube",
-    # http://www.sphinx-doc.org/en/stable/faq.html
+    # https://www.sphinx-doc.org/en/stable/faq.html
     "rinoh.frontend.sphinx",    # ALTERNATIVE FOR: LATEX-PDF
     "rst2pdf.pdfbuilder",       # PDF
 
@@ -44,11 +54,19 @@ for optional_module_name in optional_extensions:
 
 
 extlinks = {
-    "pypi": ("https://pypi.python.org/pypi/%s", ""),
-    "github": ("https://github.com/%s", "github:/"),
-    "issue":  ("https://github.com/behave/behave/issue/%s", "issue #"),
-    "youtube": ("https://www.youtube.com/watch?v=%s", "youtube:video="),
+    "this_repo": ("https://github.com/behave/behave/blob/main/%s", "%s"),
     "behave": ("https://github.com/behave/behave", None),
+    "behave.example": ("https://github.com/behave/behave.example", None),
+    "issue":  ("https://github.com/behave/behave/issues/%s", "issue #%s"),
+    "pull":  ("https://github.com/behave/behave/issues/%s", "PR #%s"),
+    "github": ("https://github.com/%s", "github:/"),
+    "pypi": ("https://pypi.org/project/%s", "%s"),
+    "python.docs": ('https://docs.python.org/3/%s', "python docs: %s"),
+    "youtube": ("https://www.youtube.com/watch?v=%s", "youtube:video=%s"),
+
+    # -- CUCUMBER RELATED:
+    "cucumber": ("https://github.com/cucumber/common/", None),
+    "cucumber.issue": ("https://github.com/cucumber/common/issues/%s", "cucumber issue #%s"),
 }
 
 intersphinx_mapping = {
@@ -79,19 +97,32 @@ source_encoding = "utf-8"
 # The master toctree document.
 master_doc = "index"
 
+# -- MULTI-LANGUAGE SUPPORT: en, ...
+# SEE: https://pypi.org/project/sphinx-intl/
+# SEE: https://github.com/sphinx-doc/sphinx-intl/
+if USE_SPHINX_INTERNATIONAL:
+    locale_dirs = ["locale/"]   # path is example but recommended.
+    gettext_compact = False     # optional.
+    print("USE SPHINX-INTL: locale_dirs=%s" % ",".join(locale_dirs))
+
+# STEPS:
+#   make gettext
+#       -- Create *.po files in "../build/docs/locale/"
+#   sphinx-intl update -p ../build/docs/locale -l de -l ja
+#       -- Create *.po files in "gettext/de/", "gettext/ja/" dirs.
+#
 # -----------------------------------------------------------------------------
 # GENERAL CONFIGURATION
 # -----------------------------------------------------------------------------
 project = u"behave"
-authors = u"Benno Rice, Richard Jones and Jens Engel"
-copyright = u"2012-2017, %s" % authors
+authors = u"Jens Engel, Benno Rice and Richard Jones"
+copyright = u"2012-2024, %s" % authors
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-from behave import __version__
 version = __version__
 # The full version, including alpha/beta/rc tags.
 release = __version__
@@ -124,9 +155,11 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # output. They are ignored by default.
 #show_authors = False
 
-# The name of the Pygments (syntax highlighting) style to use.
-pygments_style = "sphinx"
-# MAYBE STYLES: friendly, vs, xcode, vs, tango
+# -- PYGMENTS_STYLE: The name of the Pygments (syntax highlighting) style to use.
+# LIGHT THEME CANDIDATES: tango, stata-light, default, vs
+# DARK  THEME CANDIDATES: lightbulb, monokai, stata-dark, zenburn
+pygments_style = "tango"
+pygments_dark_style = "lightbulb"
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
@@ -138,16 +171,45 @@ todo_include_todos = False
 # ------------------------------------------------------------------------------
 # OPTIONS FOR: HTML OUTPUT
 # ------------------------------------------------------------------------------
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-html_theme = "kr"
-html_theme = "bootstrap"
+# The theme to use for HTML and HTML Help pages.
+# SEE: https://www.sphinx-doc.org/en/master/usage/theming.html
+# SEE: https://sphinx-themes.org
+# DISABLED: html_theme = "bootstrap"
+# DISABLED: html_theme = "sphinx_nefertiti"
+html_theme = "furo"
 
-on_rtd = os.environ.get("READTHEDOCS", None) == "True"
-if on_rtd:
-    html_theme = "default"
+# -- DISABLED: Use html_theme = "furo" now.
+# if ON_READTHEDOCS:
+#    html_theme = "default"
 
-if html_theme == "bootstrap":
+if html_theme == "furo":
+    # -- SEE: https://pradyunsg.me/furo/customisation/
+    html_theme_options = {
+        "navigation_with_keys": True,
+        # DISABLED: "light_logo": "behave_logo1.png",
+        # DISABLED: "dark_logo": "behave_logo2.png",
+    }
+elif html_theme == "sphinx_nefertiti":
+    pygments_style = "vs"
+    pygments_dark_style = "monokai"
+    html_theme_options = {
+        "style": "blue",
+        "sans_serif_font": "Arial",
+        "monospace_font": "Ubuntu Mono",
+        "doc_headers_font": "Arial",
+        "monospace_font_size": "1.05rem",
+        "documentation_font_size": "1.05rem",
+        # -- SHOW: REPO INFO
+        "repository_url": "https://github.com/behave/behave",
+        "repository_name": "behave/behave",
+        "versions": [
+            # ("latest", "https://github.com/behave/behave/"),
+            ("v1.2.7.dev5", "https://github.com/behave/behave/releases/tag/v1.2.7.dev5"),
+            ("v1.2.7.dev4", "https://github.com/behave/behave/releases/tag/v1.2.7.dev4"),
+            ("v1.2.6", "https://pypi.org/project/behave/v1.2.6/"),
+        ]
+    }
+elif html_theme == "bootstrap":
     # See sphinx-bootstrap-theme for documentation of these options
     # https://github.com/ryan-roemer/sphinx-bootstrap-theme
     import sphinx_bootstrap_theme
@@ -158,10 +220,6 @@ if html_theme == "bootstrap":
 
     # Add any paths that contain custom themes here, relative to this directory.
     html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
-
-elif html_theme in ("default", "kr"):
-    html_theme_path = ["_themes"]
-    html_logo = "_static/behave_logo1.png"
 
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -238,7 +296,7 @@ html_file_suffix = ".html"
 # OPTIONS FOR: HTML HELP
 # ------------------------------------------------------------------------------
 # Output file base name for HTML help builder.
-htmlhelp_basename = "behavedoc"
+htmlhelp_basename = "behave.doc"
 
 
 # ------------------------------------------------------------------------------

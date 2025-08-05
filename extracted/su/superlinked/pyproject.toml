@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superlinked"
-version = "33.0.0"  # The version will be dynamically updated
+version = "33.5.1"  # The version will be dynamically updated
 description = "The Superlinked vector computing library"
 authors = ["Superlinked Release <release@superlinked.com>"]
 readme = "PYPI_README.md"
@@ -12,9 +12,9 @@ Deprecated = "^1.2.18"
 types-Deprecated = ">=1.2.15"
 python = ">=3.10,<=3.12.10"
 numpy = ">=1.25.2,<=3.0.0"
-sentence-transformers = "4.1.0"
+sentence-transformers = "^5.0.0"
 transformers = "^4.51.0"
-open_clip_torch = "<2.33.0" # for image embedding - 2.29.0 needs tensorflow, update carefully
+open_clip_torch = "^3.0.0" # for image embedding - 2.29.0 needs tensorflow, update carefully
 nltk = "^3.9.1" # Sentence transformers' transitive dep due to: CVE-2024-39705
 pandas = "^2.0.3"
 # Needed by sentence-transformers. Probably it's solved with newer versions.
@@ -89,7 +89,6 @@ debugpy = "~1.8.0"
 flake8 = ">=7.0,<7.2"
 mypy = ">=1.8,<1.18"
 pandas-stubs = "^2.2.2"
-open-clip-torch = "^2.26.1"
 datasets = ">=2.21,<5.0"
 matplotlib = "^3.10.1"
 matplotlib-stubs = "^0.2.0"

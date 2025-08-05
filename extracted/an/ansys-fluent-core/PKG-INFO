@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: ansys-fluent-core
-Version: 0.34.0
+Version: 0.34.1
 Summary: PyFluent provides Pythonic access to Ansys Fluent.
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>

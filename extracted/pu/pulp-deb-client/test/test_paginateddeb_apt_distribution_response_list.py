@@ -55,7 +55,8 @@ class TestPaginateddebAptDistributionResponseList(unittest.TestCase):
                             }, 
                         name = '', 
                         repository = '', 
-                        publication = '', )
+                        publication = '', 
+                        checkpoint = True, )
                     ]
             )
         else:
@@ -77,7 +78,8 @@ class TestPaginateddebAptDistributionResponseList(unittest.TestCase):
                             }, 
                         name = '', 
                         repository = '', 
-                        publication = '', )
+                        publication = '', 
+                        checkpoint = True, )
                     ],
         )
         """

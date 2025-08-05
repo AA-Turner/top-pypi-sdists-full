@@ -22,7 +22,7 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from ..google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
+from google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15gateway/sign_in.proto\x12\x07gateway\x1a\x1fgoogle/api/field_behavior.proto\"4\n\x18GetOAuthArgumentsRequest\x12\x18\n\naccount_id\x18\x01 \x01(\tB\x04\xe2\x41\x01\x02\"Z\n\x19GetOAuthArgumentsResponse\x12\x12\n\nissuer_url\x18\x01 \x01(\t\x12\x11\n\tclient_id\x18\x02 \x01(\t\x12\x16\n\x0e\x63ognito_domain\x18\x03 \x01(\tBCZAgithub.com/fw-ai/fireworks/control_plane/protos/generated/gatewayb\x06proto3')

@@ -45,6 +45,8 @@ class JobState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     JOB_STATE_EXPIRED_CLEANING_UP: _ClassVar[JobState]
     JOB_STATE_EXPIRED: _ClassVar[JobState]
     JOB_STATE_CREATING_DEPENDENCIES: _ClassVar[JobState]
+    JOB_STATE_RE_QUEUEING: _ClassVar[JobState]
+    JOB_STATE_CREATING_INPUT_DATASET: _ClassVar[JobState]
 OK: Code
 CANCELLED: Code
 UNKNOWN: Code
@@ -80,6 +82,8 @@ JOB_STATE_PENDING: JobState
 JOB_STATE_EXPIRED_CLEANING_UP: JobState
 JOB_STATE_EXPIRED: JobState
 JOB_STATE_CREATING_DEPENDENCIES: JobState
+JOB_STATE_RE_QUEUEING: JobState
+JOB_STATE_CREATING_INPUT_DATASET: JobState
 
 class Status(_message.Message):
     __slots__ = ("code", "message")

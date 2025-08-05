@@ -88,7 +88,7 @@ class TestParser(unittest.TestCase):
     def test_parse_nan(self):
         in_data = '{"A": NaN}'
         result = parse_js_object(in_data)
-        assert math.isnan(result["A"])
+        self.assertTrue(math.isnan(result["A"]))
 
     @parametrize_test(
         ("{abc: 100, dev: 200}", {'abc': 100, 'dev': 200}),
@@ -116,6 +116,7 @@ class TestParser(unittest.TestCase):
         ("{abc:  name}", {'abc': "name"}),
         ("{abc: \tname}", {'abc': "name"}),
         ("{abc: \nvalue}", {'abc': "value"}),
+        ("{someProp: someArg => someFunc(someArg)}", {"someProp": "someArg => someFunc(someArg)"}),
     )
     def test_parse_strange_values(self, in_data, expected_data):
         result = parse_js_object(in_data)
@@ -215,6 +216,47 @@ class TestParser(unittest.TestCase):
         (
             """[/*...*/1,2,3,/*...*/4,5,6]""",
             [1, 2, 3, 4, 5, 6],
+        ),
+        (
+            '// [ \n{"a": 1}',
+            {"a": 1},
+        ),
+        (
+            '/* [ */ {"a": 1}',
+            {"a": 1},
+        ),
+        (
+            """
+            // ...
+            // ...
+            // ...
+            // ...
+            [1, 2, 3]
+            """,
+            [1, 2, 3],
+        ),
+        (
+            """
+            /* ... */
+            /* ... */
+            /* ... */
+            /*
+                ...
+            */
+            /*
+                ...
+            */
+            [1, 2, 3]
+            """,
+            [1, 2, 3],
+        ),
+        (
+            """
+            /* <![CDATA[ */
+            var foo = ["<", "_", ">"];
+            /* ]]> */
+            """,
+            ["<", "_", ">"],
         ),
     )
     def test_comments(self, in_data, expected_data):

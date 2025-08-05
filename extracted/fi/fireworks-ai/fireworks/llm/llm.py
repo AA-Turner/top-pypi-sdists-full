@@ -763,7 +763,7 @@ class LLM:
         """
         1. If a deployment ID is provided, return the deployment with that name.
         2. If deployment with that ID does not exist, return None.
-        3. If model is a PEFT model, return and deployed model with the same model
+        3. If model is a PEFT model and is not using live merge, return and deployed model with the same model
         4. Otherwise, look for deployment by model and display name
         """
         if self.is_peft_addon() and (

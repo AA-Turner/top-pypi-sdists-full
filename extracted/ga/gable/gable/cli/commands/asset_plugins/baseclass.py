@@ -27,7 +27,7 @@ class ExtractedAsset(NamedTuple):
             if "name" in field:
                 # If the field has a name, we can at least return an unknown type with the name
                 return GableSchemaField(
-                    __root__=GableSchemaFieldUnknown(name=field["name"], type="unknown")
+                    root=GableSchemaFieldUnknown(name=field["name"], type="unknown")
                 )
         return None
 

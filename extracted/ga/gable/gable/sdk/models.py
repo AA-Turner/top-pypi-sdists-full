@@ -88,7 +88,7 @@ class GitMetadata(BaseModel):
 class ExternalContractInput(BaseModel):
     version: Optional[str] = None
     status: ContractStatus
-    enforcementLevel: Optional[EnforcementLevel]
+    enforcementLevel: Optional[EnforcementLevel] = None
     contractSpec: ContractSpec
     gitMetadata: Optional[GitMetadata] = None
 

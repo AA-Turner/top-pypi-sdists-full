@@ -10,8 +10,17 @@ from dataclasses import dataclass, fields
 from singer_sdk.singerlib.schema import Schema
 
 if t.TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    import sys
 
+    if sys.version_info >= (3, 10):
+        from typing import TypeAlias  # noqa: ICN003
+    else:
+        from typing_extensions import TypeAlias
+
+    if sys.version_info >= (3, 11):
+        from typing import Self  # noqa: ICN003
+    else:
+        from typing_extensions import Self
 
 Breadcrumb = tuple[str, ...]
 
@@ -36,9 +45,6 @@ class SelectionMask(dict[Breadcrumb, bool]):
         return self[breadcrumb[:-2]] if len(breadcrumb) >= 2 else True  # noqa: PLR2004
 
 
-_M = t.TypeVar("_M", bound="Metadata")
-
-
 @dataclass
 class Metadata:
     """Base stream or property metadata."""
@@ -55,7 +61,7 @@ class Metadata:
     selected_by_default: bool | None = None
 
     @classmethod
-    def from_dict(cls: type[_M], value: dict[str, t.Any]) -> _M:
+    def from_dict(cls, value: dict[str, t.Any]) -> Self:
         """Parse metadata dictionary.
 
         Args:
@@ -196,6 +202,8 @@ class MetadataMapping(dict[Breadcrumb, AnyMetadata]):
             breadcrumb: Breadcrumb = (),
         ) -> None:
             """Add breadcrumbs and metadata for subfields."""
+            nonlocal mapping
+
             for field_name, field_schema in properties.items():
                 key = (*breadcrumb, "properties", field_name)
                 mapping[key] = Metadata(inclusion=Metadata.InclusionType.AVAILABLE)

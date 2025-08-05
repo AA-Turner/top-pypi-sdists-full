@@ -23,8 +23,8 @@ _sym_db = _symbol_database.Default()
 
 
 from . import options_pb2 as gateway_dot_options__pb2
-from ..google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
-from ..google.api import resource_pb2 as google_dot_api_dot_resource__pb2
+from google.api import field_behavior_pb2 as google_dot_api_dot_field__behavior__pb2
+from google.api import resource_pb2 as google_dot_api_dot_resource__pb2
 from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2

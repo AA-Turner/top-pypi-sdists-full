@@ -41,7 +41,8 @@ class DebAptDistributionResponse(BaseModel):
     name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
     repository: Optional[StrictStr] = Field(default=None, description="The latest RepositoryVersion for this Repository will be served.")
     publication: Optional[StrictStr] = Field(default=None, description="Publication to be served")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "base_path", "base_url", "content_guard", "no_content_change_since", "hidden", "pulp_labels", "name", "repository", "publication"]
+    checkpoint: Optional[StrictBool] = None
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "base_path", "base_url", "content_guard", "no_content_change_since", "hidden", "pulp_labels", "name", "repository", "publication", "checkpoint"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -133,7 +134,8 @@ class DebAptDistributionResponse(BaseModel):
             "pulp_labels": obj.get("pulp_labels"),
             "name": obj.get("name"),
             "repository": obj.get("repository"),
-            "publication": obj.get("publication")
+            "publication": obj.get("publication"),
+            "checkpoint": obj.get("checkpoint")
         })
         return _obj
 

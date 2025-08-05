@@ -9,6 +9,7 @@ from confluent_kafka import Producer
 from matrice.deploy.client.streaming_gateway.streaming_gateway_utils import (
     OutputType,
     OutputConfig,
+    _RealTimeJsonEventPicker,
 )
 from matrice.deploy.client.client_stream_utils import ClientStreamUtils
 from matrice.deploy.utils.post_processing import PostProcessor
@@ -18,12 +19,14 @@ class StreamingResultsHandler:
         self, 
         client_stream_utils: ClientStreamUtils, 
         output_config: OutputConfig,
+        json_event_picker: _RealTimeJsonEventPicker,
         service_id: str = None,
         strip_input_from_result: bool = True,
         result_callback: Optional[Callable] = None
     ):
         self.client_stream_utils = client_stream_utils
         self.output_config = output_config
+        self.json_event_picker = json_event_picker
         self.service_id = service_id
         self.strip_input_from_result = strip_input_from_result
         self.result_callback = result_callback
@@ -173,7 +176,7 @@ class StreamingResultsHandler:
             error_result["post_processing_error"] = str(exc)
             return error_result
         
-    def _consume_results(self):
+    def _consume_results(self, send_to_api: bool = False):
         """Consume and process results from the deployment."""
         logging.info("Starting result consumption thread")
 
@@ -203,7 +206,7 @@ class StreamingResultsHandler:
                             OutputType.FILE,
                             OutputType.BOTH,
                         ]:
-                            self._save_result_to_file(processed_result)
+                            self._save_result_to_file(processed_result,send_to_api=send_to_api)
 
                         if self.output_config.type in [
                             OutputType.KAFKA,
@@ -241,7 +244,7 @@ class StreamingResultsHandler:
 
         logging.info("Result consumption thread stopped")
 
-    def _save_result_to_file(self, result: Dict):
+    def _save_result_to_file(self, result: Dict, send_to_api: bool = False):
         """Save result to file."""
         if not self.output_config.file_config:
             return
@@ -274,6 +277,9 @@ class StreamingResultsHandler:
                 "stream_key": stream_key,
                 "result": result,
             }
+
+            if send_to_api:
+                self._send_file_to_api_(result_with_metadata) #demo function to send highlight json to api. 
 
             # Write atomically by using a temporary file
             temp_filepath = filepath + ".tmp"
@@ -309,7 +315,10 @@ class StreamingResultsHandler:
             logging.error(f"Failed to save result to file: {e}")
             logging.exception("File save error details:")
             raise
-
+    def _send_file_to_api_(self, frame_json):
+        """Send file to API."""
+        frame_id = list(frame_json.get("result").get("value").get("agg_summary").keys())[0]
+        return self.json_event_picker.process(int(frame_id), frame_json)
     def _cleanup_old_files(self):
         """Remove old result files if exceeding max_files limit."""
         try:

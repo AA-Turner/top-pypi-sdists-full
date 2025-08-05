@@ -2,9 +2,10 @@
 """
 A test harness for gnupg.py.
 
-Copyright (C) 2008-2024 Vinay Sajip. All rights reserved.
+Copyright (C) 2008-2025 Vinay Sajip. All rights reserved.
 """
 import argparse
+import io
 import json
 import logging
 import os.path
@@ -35,7 +36,7 @@ except ImportError:  # pragma: no cover
 import gnupg
 
 __author__ = 'Vinay Sajip'
-__date__ = '$07-Jan-2025 10:12:41$'
+__date__ = '$04-Aug-2025 19:50:21$'
 
 ALL_TESTS = True
 
@@ -1167,12 +1168,9 @@ class GPGTestCase(unittest.TestCase):
             # Try opening the encrypted file in text mode (Issue #39)
             # this doesn't fail in 2.x
             if gnupg._py3k:
-                efile = open(encfname, 'r')
-                ddata = self.gpg.decrypt_file(efile, passphrase='bbrown', output=decfname)
-                self.assertEqual(2, ddata.returncode, 'Unexpected return code')
-                self.assertFalse(ddata)
-                self.assertEqual(ddata.status, 'no data was provided')
-                efile.close()
+                logger.debug('about to pass text stream to decrypt_file')
+                with open(encfname, 'r') as efile:
+                    self.assertRaises(UnicodeDecodeError, self.gpg.decrypt_file, efile, passphrase='bbrown', output=decfname)
         finally:
             for fn in (encfname, decfname):
                 if os.name == 'posix' and mode is not None:
@@ -1206,8 +1204,13 @@ class GPGTestCase(unittest.TestCase):
         data = 'Hello, world!'
         for badout, message in cases:
             stream = gnupg._make_binary_stream(data, self.gpg.encoding)
-            edata = self.gpg.encrypt_file(stream, barbara, armor=False, output=badout)
-            self.assertEqual(2, edata.returncode, 'Unexpecteds return code')
+            try:
+                # On Ubuntu and pypy-2.7, you often get an IOError "Broken pipe"
+                # during the encrypt operation ...
+                edata = self.gpg.encrypt_file(stream, barbara, armor=False, output=badout)
+                self.assertEqual(2, edata.returncode, 'Unexpected return code')
+            except IOError:
+                pass
             # on GnuPG 1.4, you sometimes don't get any FAILURE messages, in
             # which case status will not be set
             if edata.status:
@@ -1235,12 +1238,18 @@ class GPGTestCase(unittest.TestCase):
 
                 for badout, message in cases:
                     stream = gnupg._make_binary_stream(data, self.gpg.encoding)
-                    edata = self.gpg.encrypt_file(stream, barbara, armor=False, output=badout)
-                    self.assertEqual(2, edata.returncode, 'Unexpected return code')
+                    try:
+                        # On Ubuntu and pypy-2.7, you often get an IOError "Broken pipe"
+                        # during the encrypt operation ...
+                        edata = self.gpg.encrypt_file(stream, barbara, armor=False, output=badout)
+                        self.assertEqual(2, edata.returncode, 'Unexpected return code')
+                    except IOError:
+                        pass
                     # on GnuPG 1.4, you sometimes don't get any FAILURE messages, in
                     # which case status will not be set
                     if edata.status:
-                        self.assertEqual(edata.status, message)
+                        message = '%s (%s)' % (message, badout)
+                        self.assertIn(edata.status, message)
             finally:
                 os.chmod(encfname, 0o700)
                 os.remove(encfname)
@@ -1578,6 +1587,24 @@ class GPGTestCase(unittest.TestCase):
     def test_passphrase_encoding(self):
         self.assertRaises(UnicodeEncodeError, self.gpg.decrypt, 'foo', passphrase=u'I’ll')
 
+    def test_configured_group(self):
+        # See issue #249
+        conf = 'group somegroup = BADF00D15BAD\n'
+        fn = os.path.join(self.homedir, 'gpg.conf')
+        with open(fn, 'w') as f:
+            f.write(conf)
+        gpg = gnupg.GPG(gnupghome=self.homedir, gpgbinary=GPGBINARY)
+        self.assertEqual(gpg.version, self.gpg.version)
+
+    def test_exception_propagation(self):
+        if sys.version_info[0] < 3:
+            raise unittest.SkipTest('python 2 is too loose with Unicode')
+        key = self.generate_key('Andrew', 'Able', 'alpha.com', passphrase='andy')
+        self.assertEqual(0, key.returncode, 'Non-zero return code')
+        andrew = key.fingerprint
+        stream = io.StringIO(u'Hello, world!')  # make the wrong type of stream
+        self.assertRaises(TypeError, self.gpg.encrypt_file, stream, [andrew], armor=False)
+
 
 TEST_GROUPS = {
     'sign':
@@ -1600,7 +1627,7 @@ TEST_GROUPS = {
     'basic':
     set(['test_environment', 'test_list_keys_initial', 'test_nogpg', 'test_make_args', 'test_quote_with_shell']),
     'test':
-    set(['test_passphrase_encoding']),
+    set(['test_filenames_with_spaces']),
 }
 
 
@@ -1621,11 +1648,19 @@ def suite(args=None):
 
 
 def init_logging():
+    class PrimegenFilter(logging.Filter):
+        def filter(self, record):
+            arg = record.args
+            if isinstance(arg, (list, tuple)) and len(arg) > 0:
+                arg = arg[0]
+            return not arg or not isinstance(arg, unicode) or '[GNUPG:] PROGRESS primegen' not in arg
+
     logging.basicConfig(level=logging.DEBUG,
                         filename='test_gnupg.log',
                         filemode='w',
                         format='%(asctime)s %(levelname)-5s %(name)-10s '
                         '%(threadName)-10s %(lineno)4d %(message)s')
+    logging.root.handlers[0].addFilter(PrimegenFilter())
 
 
 def main():

@@ -161,6 +161,21 @@ properties:
         type: integer
         example: 10
         mutation_behavior: union
+      scaling_policy:
+        title: ScalingPolicyConfig
+        description: |-
+          Policies for autoscaling replicas. Available policies:
+          - Request based Autoscaling (rpm)
+        type: object
+        required: []
+        properties:
+          rpm:
+            description: |-
+              Scale up replicas when the requests per minute crosses this threshold. If nothing is provided and the replicas.max and replicas.min is set then  the default rpm would be 60.
+            type: integer
+            default: 60
+            mutation_behavior: union
+        mutation_behavior: union
     mutation_behavior: union
   dependencies:
     title: DependencyConfig

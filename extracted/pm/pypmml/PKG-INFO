@@ -1,9 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pypmml
-Version: 1.5.6
+Version: 1.5.7
 Summary: Python PMML scoring library
 Home-page: https://github.com/autodeployai/pypmml
-Download-URL: https://github.com/autodeployai/pypmml/archive/v1.5.6.tar.gz
+Download-URL: https://github.com/autodeployai/pypmml/archive/v1.5.7.tar.gz
 Author: AutoDeployAI
 Author-email: autodeploy.ai@gmail.com
 License: Apache License 2.0
@@ -36,6 +36,7 @@ Dynamic: description-content-type
 Dynamic: download-url
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 

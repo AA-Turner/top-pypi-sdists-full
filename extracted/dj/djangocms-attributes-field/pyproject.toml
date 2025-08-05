@@ -1,3 +1,60 @@
+[project]
+name = "djangocms-attributes-field"
+version = "4.1.0"
+description = "Adds attributes to Django models."
+authors = [
+    {name = "Divio AG", email = "info@divio.ch"},
+]
+maintainers = [
+    {name = "Django CMS Association and contributors", email = "info@django-cms.org"},
+]
+license = {text = "BSD-3-Clause"}
+readme = "README.rst"
+requires-python = ">=3.9"
+dependencies = [
+    "django-cms>=3.7",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django CMS",
+    "Framework :: Django CMS :: 3.11",
+    "Framework :: Django CMS :: 4.1",
+    "Framework :: Django CMS :: 5.0",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+]
+
+[project.urls]
+Homepage = "https://github.com/django-cms/djangocms-attributes-field/"
+Repository = "https://github.com/django-cms/djangocms-attributes-field/"
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+[tool.setuptools.packages.find]
+include = ["djangocms_attributes_field*"]
+
+[tool.setuptools.package-data]
+"*" = ["*"]
+
 [tool.black]
 exclude = [
     ".git",
@@ -15,19 +72,19 @@ ignore="H023,T003,H006,H031,D018,H021,H025"
 profile="django"
 
 [tool.ruff]
-exclude = [
+lint.exclude = [
     ".env",
     ".venv",
     "**/migrations/**",
 ]
-ignore = [
+lint.ignore = [
     "E501",  # line too long
     "F403",  # 'from module import *' used; unable to detect undefined names
     "E701",  # multiple statements on one line (colon)
     "F401",  # module imported but unused
 ]
 line-length = 119
-select = [
+lint.select = [
     "I",
     "E",
     "F",

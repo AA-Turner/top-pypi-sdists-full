@@ -1798,12 +1798,12 @@ class Root(PyMenu):
                     self.SphereRadiusFactorAtInvalidNormals = self._SphereRadiusFactorAtInvalidNormals(self, "SphereRadiusFactorAtInvalidNormals", service, rules, path)
                     self.SmoothRingsAtInvalidNormals = self._SmoothRingsAtInvalidNormals(self, "SmoothRingsAtInvalidNormals", service, rules, path)
                     self.Continuous = self._Continuous(self, "Continuous", service, rules, path)
-                    self.ModifyAtInvalidNormals = self._ModifyAtInvalidNormals(self, "ModifyAtInvalidNormals", service, rules, path)
                     self.SplitPrism = self._SplitPrism(self, "SplitPrism", service, rules, path)
+                    self.ModifyAtInvalidNormals = self._ModifyAtInvalidNormals(self, "ModifyAtInvalidNormals", service, rules, path)
                     self.InvalidNormalMethod = self._InvalidNormalMethod(self, "InvalidNormalMethod", service, rules, path)
-                    self.NumberOfSplitLayers = self._NumberOfSplitLayers(self, "NumberOfSplitLayers", service, rules, path)
-                    self.ShowLocalPrismPreferences = self._ShowLocalPrismPreferences(self, "ShowLocalPrismPreferences", service, rules, path)
                     self.LastRatioNumLayers = self._LastRatioNumLayers(self, "LastRatioNumLayers", service, rules, path)
+                    self.ShowLocalPrismPreferences = self._ShowLocalPrismPreferences(self, "ShowLocalPrismPreferences", service, rules, path)
+                    self.NumberOfSplitLayers = self._NumberOfSplitLayers(self, "NumberOfSplitLayers", service, rules, path)
                     self.AllowedTangencyAtInvalidNormals = self._AllowedTangencyAtInvalidNormals(self, "AllowedTangencyAtInvalidNormals", service, rules, path)
                     self.RemeshAtInvalidNormals = self._RemeshAtInvalidNormals(self, "RemeshAtInvalidNormals", service, rules, path)
                     self.IgnoreBoundaryLayers = self._IgnoreBoundaryLayers(self, "IgnoreBoundaryLayers", service, rules, path)
@@ -1833,14 +1833,14 @@ class Root(PyMenu):
                     Argument Continuous.
                     """
 
-                class _ModifyAtInvalidNormals(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument ModifyAtInvalidNormals.
-                    """
-
                 class _SplitPrism(PyTextualCommandArgumentsSubItem):
                     """
                     Argument SplitPrism.
+                    """
+
+                class _ModifyAtInvalidNormals(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument ModifyAtInvalidNormals.
                     """
 
                 class _InvalidNormalMethod(PyTextualCommandArgumentsSubItem):
@@ -1848,9 +1848,9 @@ class Root(PyMenu):
                     Argument InvalidNormalMethod.
                     """
 
-                class _NumberOfSplitLayers(PyNumericalCommandArgumentsSubItem):
+                class _LastRatioNumLayers(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument NumberOfSplitLayers.
+                    Argument LastRatioNumLayers.
                     """
 
                 class _ShowLocalPrismPreferences(PyParameterCommandArgumentsSubItem):
@@ -1858,9 +1858,9 @@ class Root(PyMenu):
                     Argument ShowLocalPrismPreferences.
                     """
 
-                class _LastRatioNumLayers(PyNumericalCommandArgumentsSubItem):
+                class _NumberOfSplitLayers(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument LastRatioNumLayers.
+                    Argument NumberOfSplitLayers.
                     """
 
                 class _AllowedTangencyAtInvalidNormals(PyNumericalCommandArgumentsSubItem):
@@ -2101,8 +2101,8 @@ class Root(PyMenu):
                     self.MinSize = self._MinSize(self, "MinSize", service, rules, path)
                     self.WrapMax = self._WrapMax(self, "WrapMax", service, rules, path)
                     self.AdvancedOptions = self._AdvancedOptions(self, "AdvancedOptions", service, rules, path)
-                    self.WrapGrowthRate = self._WrapGrowthRate(self, "WrapGrowthRate", service, rules, path)
                     self.InitialSizeControl = self._InitialSizeControl(self, "InitialSizeControl", service, rules, path)
+                    self.WrapGrowthRate = self._WrapGrowthRate(self, "WrapGrowthRate", service, rules, path)
                     self.SizingType = self._SizingType(self, "SizingType", service, rules, path)
                     self.CellsPerGap = self._CellsPerGap(self, "CellsPerGap", service, rules, path)
                     self.WrapCurvatureNormalAngle = self._WrapCurvatureNormalAngle(self, "WrapCurvatureNormalAngle", service, rules, path)
@@ -2154,14 +2154,14 @@ class Root(PyMenu):
                     Argument AdvancedOptions.
                     """
 
-                class _WrapGrowthRate(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument WrapGrowthRate.
-                    """
-
                 class _InitialSizeControl(PyParameterCommandArgumentsSubItem):
                     """
                     Argument InitialSizeControl.
+                    """
+
+                class _WrapGrowthRate(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument WrapGrowthRate.
                     """
 
                 class _SizingType(PyTextualCommandArgumentsSubItem):
@@ -2706,8 +2706,8 @@ class Root(PyMenu):
                     self.SaveSizeFieldFile = self._SaveSizeFieldFile(self, "SaveSizeFieldFile", service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.ScopeProximityTo = self._ScopeProximityTo(self, "ScopeProximityTo", service, rules, path)
-                    self.CurvatureNormalAngle = self._CurvatureNormalAngle(self, "CurvatureNormalAngle", service, rules, path)
                     self.PreviewSizefield = self._PreviewSizefield(self, "PreviewSizefield", service, rules, path)
+                    self.CurvatureNormalAngle = self._CurvatureNormalAngle(self, "CurvatureNormalAngle", service, rules, path)
                     self.SaveSizeField = self._SaveSizeField(self, "SaveSizeField", service, rules, path)
                     self.UseSizeFiles = self._UseSizeFiles(self, "UseSizeFiles", service, rules, path)
                     self.AutoCreateScopedSizing = self._AutoCreateScopedSizing(self, "AutoCreateScopedSizing", service, rules, path)
@@ -2736,14 +2736,14 @@ class Root(PyMenu):
                     Argument ScopeProximityTo.
                     """
 
-                class _CurvatureNormalAngle(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument CurvatureNormalAngle.
-                    """
-
                 class _PreviewSizefield(PyParameterCommandArgumentsSubItem):
                     """
                     Argument PreviewSizefield.
+                    """
+
+                class _CurvatureNormalAngle(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument CurvatureNormalAngle.
                     """
 
                 class _SaveSizeField(PyParameterCommandArgumentsSubItem):
@@ -2950,23 +2950,23 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.ExposeSide = self._ExposeSide(self, "ExposeSide", service, rules, path)
                     self.ShowShellBLAdvancedOptions = self._ShowShellBLAdvancedOptions(self, "ShowShellBLAdvancedOptions", service, rules, path)
+                    self.ExposeSide = self._ExposeSide(self, "ExposeSide", service, rules, path)
                     self.MaxAspectRatio = self._MaxAspectRatio(self, "MaxAspectRatio", service, rules, path)
                     self.MinAspectRatio = self._MinAspectRatio(self, "MinAspectRatio", service, rules, path)
-                    self.LastRatioPercentage = self._LastRatioPercentage(self, "LastRatioPercentage", service, rules, path)
                     self.LastRatioNumLayers = self._LastRatioNumLayers(self, "LastRatioNumLayers", service, rules, path)
+                    self.LastRatioPercentage = self._LastRatioPercentage(self, "LastRatioPercentage", service, rules, path)
                     self.GapFactor = self._GapFactor(self, "GapFactor", service, rules, path)
                     self.AdjacentAttachAngle = self._AdjacentAttachAngle(self, "AdjacentAttachAngle", service, rules, path)
-
-                class _ExposeSide(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument ExposeSide.
-                    """
 
                 class _ShowShellBLAdvancedOptions(PyParameterCommandArgumentsSubItem):
                     """
                     Argument ShowShellBLAdvancedOptions.
+                    """
+
+                class _ExposeSide(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument ExposeSide.
                     """
 
                 class _MaxAspectRatio(PyNumericalCommandArgumentsSubItem):
@@ -2979,14 +2979,14 @@ class Root(PyMenu):
                     Argument MinAspectRatio.
                     """
 
-                class _LastRatioPercentage(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument LastRatioPercentage.
-                    """
-
                 class _LastRatioNumLayers(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument LastRatioNumLayers.
+                    """
+
+                class _LastRatioPercentage(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument LastRatioPercentage.
                     """
 
                 class _GapFactor(PyNumericalCommandArgumentsSubItem):
@@ -4031,7 +4031,7 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.SizeRelativeLength = self._SizeRelativeLength(self, "SizeRelativeLength", service, rules, path)
-                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
+                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
                     self.XminRatio = self._XminRatio(self, "XminRatio", service, rules, path)
                     self.YminRatio = self._YminRatio(self, "YminRatio", service, rules, path)
                     self.Zmin = self._Zmin(self, "Zmin", service, rules, path)
@@ -4042,16 +4042,16 @@ class Root(PyMenu):
                     self.Xmin = self._Xmin(self, "Xmin", service, rules, path)
                     self.YmaxRatio = self._YmaxRatio(self, "YmaxRatio", service, rules, path)
                     self.ZmaxRatio = self._ZmaxRatio(self, "ZmaxRatio", service, rules, path)
-                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
+                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
 
                 class _SizeRelativeLength(PyTextualCommandArgumentsSubItem):
                     """
                     Argument SizeRelativeLength.
                     """
 
-                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
+                class _Xmax(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument XmaxRatio.
+                    Argument Xmax.
                     """
 
                 class _XminRatio(PyNumericalCommandArgumentsSubItem):
@@ -4104,9 +4104,9 @@ class Root(PyMenu):
                     Argument ZmaxRatio.
                     """
 
-                class _Xmax(PyNumericalCommandArgumentsSubItem):
+                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Xmax.
+                    Argument XmaxRatio.
                     """
 
             class _OffsetObject(PySingletonCommandArgumentsSubItem):
@@ -4124,15 +4124,15 @@ class Root(PyMenu):
                     self.AspectRatio = self._AspectRatio(self, "AspectRatio", service, rules, path)
                     self.WakeGrowthFactor = self._WakeGrowthFactor(self, "WakeGrowthFactor", service, rules, path)
                     self.Rate = self._Rate(self, "Rate", service, rules, path)
-                    self.NumberOfLayers = self._NumberOfLayers(self, "NumberOfLayers", service, rules, path)
+                    self.BoundaryLayerLevels = self._BoundaryLayerLevels(self, "BoundaryLayerLevels", service, rules, path)
                     self.FlowDirection = self._FlowDirection(self, "FlowDirection", service, rules, path)
                     self.MptMethodType = self._MptMethodType(self, "MptMethodType", service, rules, path)
                     self.EdgeSelectionList = self._EdgeSelectionList(self, "EdgeSelectionList", service, rules, path)
-                    self.BoundaryLayerLevels = self._BoundaryLayerLevels(self, "BoundaryLayerLevels", service, rules, path)
+                    self.NumberOfLayers = self._NumberOfLayers(self, "NumberOfLayers", service, rules, path)
                     self.X = self._X(self, "X", service, rules, path)
                     self.LastRatioPercentage = self._LastRatioPercentage(self, "LastRatioPercentage", service, rules, path)
-                    self.OffsetMethodType = self._OffsetMethodType(self, "OffsetMethodType", service, rules, path)
                     self.FlipDirection = self._FlipDirection(self, "FlipDirection", service, rules, path)
+                    self.OffsetMethodType = self._OffsetMethodType(self, "OffsetMethodType", service, rules, path)
                     self.FirstHeight = self._FirstHeight(self, "FirstHeight", service, rules, path)
                     self.BoundaryLayerHeight = self._BoundaryLayerHeight(self, "BoundaryLayerHeight", service, rules, path)
                     self.CrossWakeGrowthFactor = self._CrossWakeGrowthFactor(self, "CrossWakeGrowthFactor", service, rules, path)
@@ -4177,9 +4177,9 @@ class Root(PyMenu):
                     Argument Rate.
                     """
 
-                class _NumberOfLayers(PyNumericalCommandArgumentsSubItem):
+                class _BoundaryLayerLevels(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument NumberOfLayers.
+                    Argument BoundaryLayerLevels.
                     """
 
                 class _FlowDirection(PyTextualCommandArgumentsSubItem):
@@ -4197,9 +4197,9 @@ class Root(PyMenu):
                     Argument EdgeSelectionList.
                     """
 
-                class _BoundaryLayerLevels(PyNumericalCommandArgumentsSubItem):
+                class _NumberOfLayers(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument BoundaryLayerLevels.
+                    Argument NumberOfLayers.
                     """
 
                 class _X(PyNumericalCommandArgumentsSubItem):
@@ -4212,14 +4212,14 @@ class Root(PyMenu):
                     Argument LastRatioPercentage.
                     """
 
-                class _OffsetMethodType(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument OffsetMethodType.
-                    """
-
                 class _FlipDirection(PyParameterCommandArgumentsSubItem):
                     """
                     Argument FlipDirection.
+                    """
+
+                class _OffsetMethodType(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument OffsetMethodType.
                     """
 
                 class _FirstHeight(PyNumericalCommandArgumentsSubItem):
@@ -4244,32 +4244,32 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.HeightNode = self._HeightNode(self, "HeightNode", service, rules, path)
                     self.X_Offset = self._X_Offset(self, "X-Offset", service, rules, path)
+                    self.HeightNode = self._HeightNode(self, "HeightNode", service, rules, path)
                     self.HeightBackInc = self._HeightBackInc(self, "HeightBackInc", service, rules, path)
                     self.X1 = self._X1(self, "X1", service, rules, path)
                     self.Y1 = self._Y1(self, "Y1", service, rules, path)
                     self.Z_Offset = self._Z_Offset(self, "Z-Offset", service, rules, path)
-                    self.Z1 = self._Z1(self, "Z1", service, rules, path)
-                    self.Node1 = self._Node1(self, "Node1", service, rules, path)
                     self.Z2 = self._Z2(self, "Z2", service, rules, path)
+                    self.Node1 = self._Node1(self, "Node1", service, rules, path)
+                    self.Z1 = self._Z1(self, "Z1", service, rules, path)
                     self.Radius2 = self._Radius2(self, "Radius2", service, rules, path)
                     self.Y2 = self._Y2(self, "Y2", service, rules, path)
                     self.Node3 = self._Node3(self, "Node3", service, rules, path)
-                    self.Y_Offset = self._Y_Offset(self, "Y-Offset", service, rules, path)
-                    self.Node2 = self._Node2(self, "Node2", service, rules, path)
                     self.X2 = self._X2(self, "X2", service, rules, path)
+                    self.Node2 = self._Node2(self, "Node2", service, rules, path)
+                    self.Y_Offset = self._Y_Offset(self, "Y-Offset", service, rules, path)
                     self.HeightFrontInc = self._HeightFrontInc(self, "HeightFrontInc", service, rules, path)
                     self.Radius1 = self._Radius1(self, "Radius1", service, rules, path)
-
-                class _HeightNode(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument HeightNode.
-                    """
 
                 class _X_Offset(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument X-Offset.
+                    """
+
+                class _HeightNode(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument HeightNode.
                     """
 
                 class _HeightBackInc(PyNumericalCommandArgumentsSubItem):
@@ -4292,9 +4292,9 @@ class Root(PyMenu):
                     Argument Z-Offset.
                     """
 
-                class _Z1(PyNumericalCommandArgumentsSubItem):
+                class _Z2(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Z1.
+                    Argument Z2.
                     """
 
                 class _Node1(PyTextualCommandArgumentsSubItem):
@@ -4302,9 +4302,9 @@ class Root(PyMenu):
                     Argument Node1.
                     """
 
-                class _Z2(PyNumericalCommandArgumentsSubItem):
+                class _Z1(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Z2.
+                    Argument Z1.
                     """
 
                 class _Radius2(PyNumericalCommandArgumentsSubItem):
@@ -4322,9 +4322,9 @@ class Root(PyMenu):
                     Argument Node3.
                     """
 
-                class _Y_Offset(PyNumericalCommandArgumentsSubItem):
+                class _X2(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Y-Offset.
+                    Argument X2.
                     """
 
                 class _Node2(PyTextualCommandArgumentsSubItem):
@@ -4332,9 +4332,9 @@ class Root(PyMenu):
                     Argument Node2.
                     """
 
-                class _X2(PyNumericalCommandArgumentsSubItem):
+                class _Y_Offset(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument X2.
+                    Argument Y-Offset.
                     """
 
                 class _HeightFrontInc(PyNumericalCommandArgumentsSubItem):
@@ -4524,7 +4524,7 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.SizeRelativeLength = self._SizeRelativeLength(self, "SizeRelativeLength", service, rules, path)
-                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
+                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
                     self.XminRatio = self._XminRatio(self, "XminRatio", service, rules, path)
                     self.YminRatio = self._YminRatio(self, "YminRatio", service, rules, path)
                     self.Zmin = self._Zmin(self, "Zmin", service, rules, path)
@@ -4535,16 +4535,16 @@ class Root(PyMenu):
                     self.Xmin = self._Xmin(self, "Xmin", service, rules, path)
                     self.YmaxRatio = self._YmaxRatio(self, "YmaxRatio", service, rules, path)
                     self.ZmaxRatio = self._ZmaxRatio(self, "ZmaxRatio", service, rules, path)
-                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
+                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
 
                 class _SizeRelativeLength(PyTextualCommandArgumentsSubItem):
                     """
                     Argument SizeRelativeLength.
                     """
 
-                class _Xmax(PyNumericalCommandArgumentsSubItem):
+                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Xmax.
+                    Argument XmaxRatio.
                     """
 
                 class _XminRatio(PyNumericalCommandArgumentsSubItem):
@@ -4597,9 +4597,9 @@ class Root(PyMenu):
                     Argument ZmaxRatio.
                     """
 
-                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
+                class _Xmax(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument XmaxRatio.
+                    Argument Xmax.
                     """
 
             class _OffsetObject(PySingletonCommandArgumentsSubItem):
@@ -4615,15 +4615,15 @@ class Root(PyMenu):
                     self.Y = self._Y(self, "Y", service, rules, path)
                     self.DefeaturingSize = self._DefeaturingSize(self, "DefeaturingSize", service, rules, path)
                     self.AspectRatio = self._AspectRatio(self, "AspectRatio", service, rules, path)
-                    self.Rate = self._Rate(self, "Rate", service, rules, path)
+                    self.WakeGrowthFactor = self._WakeGrowthFactor(self, "WakeGrowthFactor", service, rules, path)
                     self.BoundaryLayerLevels = self._BoundaryLayerLevels(self, "BoundaryLayerLevels", service, rules, path)
                     self.NumberOfLayers = self._NumberOfLayers(self, "NumberOfLayers", service, rules, path)
                     self.FlowDirection = self._FlowDirection(self, "FlowDirection", service, rules, path)
                     self.MptMethodType = self._MptMethodType(self, "MptMethodType", service, rules, path)
                     self.EdgeSelectionList = self._EdgeSelectionList(self, "EdgeSelectionList", service, rules, path)
-                    self.WakeGrowthFactor = self._WakeGrowthFactor(self, "WakeGrowthFactor", service, rules, path)
-                    self.LastRatioPercentage = self._LastRatioPercentage(self, "LastRatioPercentage", service, rules, path)
+                    self.Rate = self._Rate(self, "Rate", service, rules, path)
                     self.X = self._X(self, "X", service, rules, path)
+                    self.LastRatioPercentage = self._LastRatioPercentage(self, "LastRatioPercentage", service, rules, path)
                     self.FlipDirection = self._FlipDirection(self, "FlipDirection", service, rules, path)
                     self.OffsetMethodType = self._OffsetMethodType(self, "OffsetMethodType", service, rules, path)
                     self.FirstHeight = self._FirstHeight(self, "FirstHeight", service, rules, path)
@@ -4660,9 +4660,9 @@ class Root(PyMenu):
                     Argument AspectRatio.
                     """
 
-                class _Rate(PyNumericalCommandArgumentsSubItem):
+                class _WakeGrowthFactor(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Rate.
+                    Argument WakeGrowthFactor.
                     """
 
                 class _BoundaryLayerLevels(PyNumericalCommandArgumentsSubItem):
@@ -4690,19 +4690,19 @@ class Root(PyMenu):
                     Argument EdgeSelectionList.
                     """
 
-                class _WakeGrowthFactor(PyNumericalCommandArgumentsSubItem):
+                class _Rate(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument WakeGrowthFactor.
-                    """
-
-                class _LastRatioPercentage(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument LastRatioPercentage.
+                    Argument Rate.
                     """
 
                 class _X(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument X.
+                    """
+
+                class _LastRatioPercentage(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument LastRatioPercentage.
                     """
 
                 class _FlipDirection(PyParameterCommandArgumentsSubItem):
@@ -4737,8 +4737,8 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.X_Offset = self._X_Offset(self, "X-Offset", service, rules, path)
                     self.HeightNode = self._HeightNode(self, "HeightNode", service, rules, path)
+                    self.X_Offset = self._X_Offset(self, "X-Offset", service, rules, path)
                     self.HeightBackInc = self._HeightBackInc(self, "HeightBackInc", service, rules, path)
                     self.X1 = self._X1(self, "X1", service, rules, path)
                     self.Y1 = self._Y1(self, "Y1", service, rules, path)
@@ -4749,20 +4749,20 @@ class Root(PyMenu):
                     self.Radius2 = self._Radius2(self, "Radius2", service, rules, path)
                     self.Y2 = self._Y2(self, "Y2", service, rules, path)
                     self.Node3 = self._Node3(self, "Node3", service, rules, path)
-                    self.X2 = self._X2(self, "X2", service, rules, path)
                     self.Node2 = self._Node2(self, "Node2", service, rules, path)
+                    self.X2 = self._X2(self, "X2", service, rules, path)
                     self.Y_Offset = self._Y_Offset(self, "Y-Offset", service, rules, path)
                     self.HeightFrontInc = self._HeightFrontInc(self, "HeightFrontInc", service, rules, path)
                     self.Radius1 = self._Radius1(self, "Radius1", service, rules, path)
 
-                class _X_Offset(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument X-Offset.
-                    """
-
                 class _HeightNode(PyTextualCommandArgumentsSubItem):
                     """
                     Argument HeightNode.
+                    """
+
+                class _X_Offset(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument X-Offset.
                     """
 
                 class _HeightBackInc(PyNumericalCommandArgumentsSubItem):
@@ -4815,14 +4815,14 @@ class Root(PyMenu):
                     Argument Node3.
                     """
 
-                class _X2(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument X2.
-                    """
-
                 class _Node2(PyTextualCommandArgumentsSubItem):
                     """
                     Argument Node2.
+                    """
+
+                class _X2(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument X2.
                     """
 
                 class _Y_Offset(PyNumericalCommandArgumentsSubItem):
@@ -5018,7 +5018,7 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.SizeRelativeLength = self._SizeRelativeLength(self, "SizeRelativeLength", service, rules, path)
-                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
+                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
                     self.XminRatio = self._XminRatio(self, "XminRatio", service, rules, path)
                     self.YminRatio = self._YminRatio(self, "YminRatio", service, rules, path)
                     self.Zmin = self._Zmin(self, "Zmin", service, rules, path)
@@ -5029,16 +5029,16 @@ class Root(PyMenu):
                     self.Xmin = self._Xmin(self, "Xmin", service, rules, path)
                     self.YmaxRatio = self._YmaxRatio(self, "YmaxRatio", service, rules, path)
                     self.ZmaxRatio = self._ZmaxRatio(self, "ZmaxRatio", service, rules, path)
-                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
+                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
 
                 class _SizeRelativeLength(PyTextualCommandArgumentsSubItem):
                     """
                     Argument SizeRelativeLength.
                     """
 
-                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
+                class _Xmax(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument XmaxRatio.
+                    Argument Xmax.
                     """
 
                 class _XminRatio(PyNumericalCommandArgumentsSubItem):
@@ -5091,9 +5091,9 @@ class Root(PyMenu):
                     Argument ZmaxRatio.
                     """
 
-                class _Xmax(PyNumericalCommandArgumentsSubItem):
+                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Xmax.
+                    Argument XmaxRatio.
                     """
 
             class _OffsetObject(PySingletonCommandArgumentsSubItem):
@@ -5109,13 +5109,13 @@ class Root(PyMenu):
                     self.Y = self._Y(self, "Y", service, rules, path)
                     self.DefeaturingSize = self._DefeaturingSize(self, "DefeaturingSize", service, rules, path)
                     self.AspectRatio = self._AspectRatio(self, "AspectRatio", service, rules, path)
-                    self.Rate = self._Rate(self, "Rate", service, rules, path)
-                    self.BoundaryLayerLevels = self._BoundaryLayerLevels(self, "BoundaryLayerLevels", service, rules, path)
                     self.NumberOfLayers = self._NumberOfLayers(self, "NumberOfLayers", service, rules, path)
+                    self.Rate = self._Rate(self, "Rate", service, rules, path)
+                    self.WakeGrowthFactor = self._WakeGrowthFactor(self, "WakeGrowthFactor", service, rules, path)
                     self.FlowDirection = self._FlowDirection(self, "FlowDirection", service, rules, path)
                     self.MptMethodType = self._MptMethodType(self, "MptMethodType", service, rules, path)
                     self.EdgeSelectionList = self._EdgeSelectionList(self, "EdgeSelectionList", service, rules, path)
-                    self.WakeGrowthFactor = self._WakeGrowthFactor(self, "WakeGrowthFactor", service, rules, path)
+                    self.BoundaryLayerLevels = self._BoundaryLayerLevels(self, "BoundaryLayerLevels", service, rules, path)
                     self.X = self._X(self, "X", service, rules, path)
                     self.LastRatioPercentage = self._LastRatioPercentage(self, "LastRatioPercentage", service, rules, path)
                     self.FlipDirection = self._FlipDirection(self, "FlipDirection", service, rules, path)
@@ -5154,19 +5154,19 @@ class Root(PyMenu):
                     Argument AspectRatio.
                     """
 
+                class _NumberOfLayers(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument NumberOfLayers.
+                    """
+
                 class _Rate(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument Rate.
                     """
 
-                class _BoundaryLayerLevels(PyNumericalCommandArgumentsSubItem):
+                class _WakeGrowthFactor(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument BoundaryLayerLevels.
-                    """
-
-                class _NumberOfLayers(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument NumberOfLayers.
+                    Argument WakeGrowthFactor.
                     """
 
                 class _FlowDirection(PyTextualCommandArgumentsSubItem):
@@ -5184,9 +5184,9 @@ class Root(PyMenu):
                     Argument EdgeSelectionList.
                     """
 
-                class _WakeGrowthFactor(PyNumericalCommandArgumentsSubItem):
+                class _BoundaryLayerLevels(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument WakeGrowthFactor.
+                    Argument BoundaryLayerLevels.
                     """
 
                 class _X(PyNumericalCommandArgumentsSubItem):
@@ -5231,15 +5231,15 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.HeightNode = self._HeightNode(self, "HeightNode", service, rules, path)
                     self.X_Offset = self._X_Offset(self, "X-Offset", service, rules, path)
+                    self.HeightNode = self._HeightNode(self, "HeightNode", service, rules, path)
                     self.HeightBackInc = self._HeightBackInc(self, "HeightBackInc", service, rules, path)
                     self.X1 = self._X1(self, "X1", service, rules, path)
                     self.Y1 = self._Y1(self, "Y1", service, rules, path)
                     self.Z_Offset = self._Z_Offset(self, "Z-Offset", service, rules, path)
-                    self.Z1 = self._Z1(self, "Z1", service, rules, path)
-                    self.Node1 = self._Node1(self, "Node1", service, rules, path)
                     self.Z2 = self._Z2(self, "Z2", service, rules, path)
+                    self.Node1 = self._Node1(self, "Node1", service, rules, path)
+                    self.Z1 = self._Z1(self, "Z1", service, rules, path)
                     self.Radius2 = self._Radius2(self, "Radius2", service, rules, path)
                     self.Y2 = self._Y2(self, "Y2", service, rules, path)
                     self.Node3 = self._Node3(self, "Node3", service, rules, path)
@@ -5249,14 +5249,14 @@ class Root(PyMenu):
                     self.HeightFrontInc = self._HeightFrontInc(self, "HeightFrontInc", service, rules, path)
                     self.Radius1 = self._Radius1(self, "Radius1", service, rules, path)
 
-                class _HeightNode(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument HeightNode.
-                    """
-
                 class _X_Offset(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument X-Offset.
+                    """
+
+                class _HeightNode(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument HeightNode.
                     """
 
                 class _HeightBackInc(PyNumericalCommandArgumentsSubItem):
@@ -5279,9 +5279,9 @@ class Root(PyMenu):
                     Argument Z-Offset.
                     """
 
-                class _Z1(PyNumericalCommandArgumentsSubItem):
+                class _Z2(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Z1.
+                    Argument Z2.
                     """
 
                 class _Node1(PyTextualCommandArgumentsSubItem):
@@ -5289,9 +5289,9 @@ class Root(PyMenu):
                     Argument Node1.
                     """
 
-                class _Z2(PyNumericalCommandArgumentsSubItem):
+                class _Z1(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Z2.
+                    Argument Z1.
                     """
 
                 class _Radius2(PyNumericalCommandArgumentsSubItem):
@@ -5615,7 +5615,7 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.SizeRelativeLength = self._SizeRelativeLength(self, "SizeRelativeLength", service, rules, path)
-                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
+                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
                     self.XminRatio = self._XminRatio(self, "XminRatio", service, rules, path)
                     self.YminRatio = self._YminRatio(self, "YminRatio", service, rules, path)
                     self.Zmin = self._Zmin(self, "Zmin", service, rules, path)
@@ -5626,16 +5626,16 @@ class Root(PyMenu):
                     self.Xmin = self._Xmin(self, "Xmin", service, rules, path)
                     self.YmaxRatio = self._YmaxRatio(self, "YmaxRatio", service, rules, path)
                     self.ZmaxRatio = self._ZmaxRatio(self, "ZmaxRatio", service, rules, path)
-                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
+                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
 
                 class _SizeRelativeLength(PyTextualCommandArgumentsSubItem):
                     """
                     Argument SizeRelativeLength.
                     """
 
-                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
+                class _Xmax(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument XmaxRatio.
+                    Argument Xmax.
                     """
 
                 class _XminRatio(PyNumericalCommandArgumentsSubItem):
@@ -5688,9 +5688,9 @@ class Root(PyMenu):
                     Argument ZmaxRatio.
                     """
 
-                class _Xmax(PyNumericalCommandArgumentsSubItem):
+                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Xmax.
+                    Argument XmaxRatio.
                     """
 
         def create_instance(self) -> _CreateExternalFlowBoundariesCommandArguments:
@@ -5977,7 +5977,7 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.SizeRelativeLength = self._SizeRelativeLength(self, "SizeRelativeLength", service, rules, path)
-                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
+                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
                     self.XminRatio = self._XminRatio(self, "XminRatio", service, rules, path)
                     self.YminRatio = self._YminRatio(self, "YminRatio", service, rules, path)
                     self.Zmin = self._Zmin(self, "Zmin", service, rules, path)
@@ -5988,16 +5988,16 @@ class Root(PyMenu):
                     self.Xmin = self._Xmin(self, "Xmin", service, rules, path)
                     self.YmaxRatio = self._YmaxRatio(self, "YmaxRatio", service, rules, path)
                     self.ZmaxRatio = self._ZmaxRatio(self, "ZmaxRatio", service, rules, path)
-                    self.XmaxRatio = self._XmaxRatio(self, "XmaxRatio", service, rules, path)
+                    self.Xmax = self._Xmax(self, "Xmax", service, rules, path)
 
                 class _SizeRelativeLength(PyTextualCommandArgumentsSubItem):
                     """
                     Argument SizeRelativeLength.
                     """
 
-                class _Xmax(PyNumericalCommandArgumentsSubItem):
+                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Xmax.
+                    Argument XmaxRatio.
                     """
 
                 class _XminRatio(PyNumericalCommandArgumentsSubItem):
@@ -6050,9 +6050,9 @@ class Root(PyMenu):
                     Argument ZmaxRatio.
                     """
 
-                class _XmaxRatio(PyNumericalCommandArgumentsSubItem):
+                class _Xmax(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument XmaxRatio.
+                    Argument Xmax.
                     """
 
             class _OffsetObject(PySingletonCommandArgumentsSubItem):
@@ -6068,17 +6068,17 @@ class Root(PyMenu):
                     self.Y = self._Y(self, "Y", service, rules, path)
                     self.DefeaturingSize = self._DefeaturingSize(self, "DefeaturingSize", service, rules, path)
                     self.BoundaryLayerLevels = self._BoundaryLayerLevels(self, "BoundaryLayerLevels", service, rules, path)
-                    self.WakeGrowthFactor = self._WakeGrowthFactor(self, "WakeGrowthFactor", service, rules, path)
                     self.Rate = self._Rate(self, "Rate", service, rules, path)
+                    self.AspectRatio = self._AspectRatio(self, "AspectRatio", service, rules, path)
                     self.NumberOfLayers = self._NumberOfLayers(self, "NumberOfLayers", service, rules, path)
                     self.FlowDirection = self._FlowDirection(self, "FlowDirection", service, rules, path)
                     self.MptMethodType = self._MptMethodType(self, "MptMethodType", service, rules, path)
                     self.EdgeSelectionList = self._EdgeSelectionList(self, "EdgeSelectionList", service, rules, path)
-                    self.AspectRatio = self._AspectRatio(self, "AspectRatio", service, rules, path)
-                    self.LastRatioPercentage = self._LastRatioPercentage(self, "LastRatioPercentage", service, rules, path)
+                    self.WakeGrowthFactor = self._WakeGrowthFactor(self, "WakeGrowthFactor", service, rules, path)
                     self.X = self._X(self, "X", service, rules, path)
-                    self.OffsetMethodType = self._OffsetMethodType(self, "OffsetMethodType", service, rules, path)
+                    self.LastRatioPercentage = self._LastRatioPercentage(self, "LastRatioPercentage", service, rules, path)
                     self.FlipDirection = self._FlipDirection(self, "FlipDirection", service, rules, path)
+                    self.OffsetMethodType = self._OffsetMethodType(self, "OffsetMethodType", service, rules, path)
                     self.FirstHeight = self._FirstHeight(self, "FirstHeight", service, rules, path)
                     self.BoundaryLayerHeight = self._BoundaryLayerHeight(self, "BoundaryLayerHeight", service, rules, path)
                     self.CrossWakeGrowthFactor = self._CrossWakeGrowthFactor(self, "CrossWakeGrowthFactor", service, rules, path)
@@ -6113,14 +6113,14 @@ class Root(PyMenu):
                     Argument BoundaryLayerLevels.
                     """
 
-                class _WakeGrowthFactor(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument WakeGrowthFactor.
-                    """
-
                 class _Rate(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument Rate.
+                    """
+
+                class _AspectRatio(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument AspectRatio.
                     """
 
                 class _NumberOfLayers(PyNumericalCommandArgumentsSubItem):
@@ -6143,14 +6143,9 @@ class Root(PyMenu):
                     Argument EdgeSelectionList.
                     """
 
-                class _AspectRatio(PyNumericalCommandArgumentsSubItem):
+                class _WakeGrowthFactor(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument AspectRatio.
-                    """
-
-                class _LastRatioPercentage(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument LastRatioPercentage.
+                    Argument WakeGrowthFactor.
                     """
 
                 class _X(PyNumericalCommandArgumentsSubItem):
@@ -6158,14 +6153,19 @@ class Root(PyMenu):
                     Argument X.
                     """
 
-                class _OffsetMethodType(PyTextualCommandArgumentsSubItem):
+                class _LastRatioPercentage(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument OffsetMethodType.
+                    Argument LastRatioPercentage.
                     """
 
                 class _FlipDirection(PyParameterCommandArgumentsSubItem):
                     """
                     Argument FlipDirection.
+                    """
+
+                class _OffsetMethodType(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument OffsetMethodType.
                     """
 
                 class _FirstHeight(PyNumericalCommandArgumentsSubItem):
@@ -6190,32 +6190,32 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.X_Offset = self._X_Offset(self, "X-Offset", service, rules, path)
                     self.HeightNode = self._HeightNode(self, "HeightNode", service, rules, path)
+                    self.X_Offset = self._X_Offset(self, "X-Offset", service, rules, path)
                     self.HeightBackInc = self._HeightBackInc(self, "HeightBackInc", service, rules, path)
                     self.X1 = self._X1(self, "X1", service, rules, path)
                     self.Y1 = self._Y1(self, "Y1", service, rules, path)
                     self.Z_Offset = self._Z_Offset(self, "Z-Offset", service, rules, path)
-                    self.Z1 = self._Z1(self, "Z1", service, rules, path)
-                    self.Node1 = self._Node1(self, "Node1", service, rules, path)
                     self.Z2 = self._Z2(self, "Z2", service, rules, path)
+                    self.Node1 = self._Node1(self, "Node1", service, rules, path)
+                    self.Z1 = self._Z1(self, "Z1", service, rules, path)
                     self.Radius2 = self._Radius2(self, "Radius2", service, rules, path)
                     self.Y2 = self._Y2(self, "Y2", service, rules, path)
                     self.Node3 = self._Node3(self, "Node3", service, rules, path)
+                    self.Y_Offset = self._Y_Offset(self, "Y-Offset", service, rules, path)
                     self.Node2 = self._Node2(self, "Node2", service, rules, path)
                     self.X2 = self._X2(self, "X2", service, rules, path)
-                    self.Y_Offset = self._Y_Offset(self, "Y-Offset", service, rules, path)
                     self.HeightFrontInc = self._HeightFrontInc(self, "HeightFrontInc", service, rules, path)
                     self.Radius1 = self._Radius1(self, "Radius1", service, rules, path)
-
-                class _X_Offset(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument X-Offset.
-                    """
 
                 class _HeightNode(PyTextualCommandArgumentsSubItem):
                     """
                     Argument HeightNode.
+                    """
+
+                class _X_Offset(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument X-Offset.
                     """
 
                 class _HeightBackInc(PyNumericalCommandArgumentsSubItem):
@@ -6238,9 +6238,9 @@ class Root(PyMenu):
                     Argument Z-Offset.
                     """
 
-                class _Z1(PyNumericalCommandArgumentsSubItem):
+                class _Z2(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Z1.
+                    Argument Z2.
                     """
 
                 class _Node1(PyTextualCommandArgumentsSubItem):
@@ -6248,9 +6248,9 @@ class Root(PyMenu):
                     Argument Node1.
                     """
 
-                class _Z2(PyNumericalCommandArgumentsSubItem):
+                class _Z1(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Z2.
+                    Argument Z1.
                     """
 
                 class _Radius2(PyNumericalCommandArgumentsSubItem):
@@ -6268,6 +6268,11 @@ class Root(PyMenu):
                     Argument Node3.
                     """
 
+                class _Y_Offset(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument Y-Offset.
+                    """
+
                 class _Node2(PyTextualCommandArgumentsSubItem):
                     """
                     Argument Node2.
@@ -6276,11 +6281,6 @@ class Root(PyMenu):
                 class _X2(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument X2.
-                    """
-
-                class _Y_Offset(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument Y-Offset.
                     """
 
                 class _HeightFrontInc(PyNumericalCommandArgumentsSubItem):
@@ -6533,12 +6533,12 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.NumberOfLayers = self._NumberOfLayers(self, "NumberOfLayers", service, rules, path)
-                    self.LabelSelectionList = self._LabelSelectionList(self, "LabelSelectionList", service, rules, path)
-                    self.ZoneSelectionList = self._ZoneSelectionList(self, "ZoneSelectionList", service, rules, path)
                     self.Thickness = self._Thickness(self, "Thickness", service, rules, path)
                     self.SelectionType = self._SelectionType(self, "SelectionType", service, rules, path)
-                    self.MeshSize = self._MeshSize(self, "MeshSize", service, rules, path)
+                    self.LabelSelectionList = self._LabelSelectionList(self, "LabelSelectionList", service, rules, path)
+                    self.ZoneSelectionList = self._ZoneSelectionList(self, "ZoneSelectionList", service, rules, path)
                     self.FeatureAngle = self._FeatureAngle(self, "FeatureAngle", service, rules, path)
+                    self.MeshSize = self._MeshSize(self, "MeshSize", service, rules, path)
                     self.BufferSize = self._BufferSize(self, "BufferSize", service, rules, path)
                     self.FlipDirection = self._FlipDirection(self, "FlipDirection", service, rules, path)
                     self.NonRectangularBufferSize = self._NonRectangularBufferSize(self, "NonRectangularBufferSize", service, rules, path)
@@ -6547,16 +6547,6 @@ class Root(PyMenu):
                 class _NumberOfLayers(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument NumberOfLayers.
-                    """
-
-                class _LabelSelectionList(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument LabelSelectionList.
-                    """
-
-                class _ZoneSelectionList(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument ZoneSelectionList.
                     """
 
                 class _Thickness(PyNumericalCommandArgumentsSubItem):
@@ -6569,14 +6559,24 @@ class Root(PyMenu):
                     Argument SelectionType.
                     """
 
-                class _MeshSize(PyNumericalCommandArgumentsSubItem):
+                class _LabelSelectionList(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument MeshSize.
+                    Argument LabelSelectionList.
+                    """
+
+                class _ZoneSelectionList(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument ZoneSelectionList.
                     """
 
                 class _FeatureAngle(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument FeatureAngle.
+                    """
+
+                class _MeshSize(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument MeshSize.
                     """
 
                 class _BufferSize(PyNumericalCommandArgumentsSubItem):
@@ -6904,8 +6904,8 @@ class Root(PyMenu):
                     super().__init__(parent, attr, service, rules, path)
                     self.PorousRegions = self._PorousRegions(self, "PorousRegions", service, rules, path)
                     self.ZeroThickness = self._ZeroThickness(self, "ZeroThickness", service, rules, path)
-                    self.AdvancedOptions = self._AdvancedOptions(self, "AdvancedOptions", service, rules, path)
                     self.CloseLeakges = self._CloseLeakges(self, "CloseLeakges", service, rules, path)
+                    self.AdvancedOptions = self._AdvancedOptions(self, "AdvancedOptions", service, rules, path)
                     self.ExtractEdgeFeatures = self._ExtractEdgeFeatures(self, "ExtractEdgeFeatures", service, rules, path)
                     self.MovingObjects = self._MovingObjects(self, "MovingObjects", service, rules, path)
                     self.EnablePrimeWrapper = self._EnablePrimeWrapper(self, "EnablePrimeWrapper", service, rules, path)
@@ -6922,14 +6922,14 @@ class Root(PyMenu):
                     Argument ZeroThickness.
                     """
 
-                class _AdvancedOptions(PyParameterCommandArgumentsSubItem):
-                    """
-                    Argument AdvancedOptions.
-                    """
-
                 class _CloseLeakges(PyTextualCommandArgumentsSubItem):
                     """
                     Argument CloseLeakges.
+                    """
+
+                class _AdvancedOptions(PyParameterCommandArgumentsSubItem):
+                    """
+                    Argument AdvancedOptions.
                     """
 
                 class _ExtractEdgeFeatures(PyTextualCommandArgumentsSubItem):
@@ -7355,8 +7355,8 @@ class Root(PyMenu):
                     self.LocalRemesh = self._LocalRemesh(self, "LocalRemesh", service, rules, path)
                     self.GapFactor = self._GapFactor(self, "GapFactor", service, rules, path)
                     self.ShowPrism2DPreferences = self._ShowPrism2DPreferences(self, "ShowPrism2DPreferences", service, rules, path)
-                    self.RefineStretchedQuads = self._RefineStretchedQuads(self, "RefineStretchedQuads", service, rules, path)
                     self.MaxFaceSkew = self._MaxFaceSkew(self, "MaxFaceSkew", service, rules, path)
+                    self.RefineStretchedQuads = self._RefineStretchedQuads(self, "RefineStretchedQuads", service, rules, path)
                     self.nOrthogonalLayers = self._nOrthogonalLayers(self, "nOrthogonalLayers", service, rules, path)
 
                 class _SplitQuads(PyTextualCommandArgumentsSubItem):
@@ -7394,14 +7394,14 @@ class Root(PyMenu):
                     Argument ShowPrism2DPreferences.
                     """
 
-                class _RefineStretchedQuads(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument RefineStretchedQuads.
-                    """
-
                 class _MaxFaceSkew(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument MaxFaceSkew.
+                    """
+
+                class _RefineStretchedQuads(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument RefineStretchedQuads.
                     """
 
                 class _nOrthogonalLayers(PyNumericalCommandArgumentsSubItem):
@@ -7416,18 +7416,18 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.MergeFaceZonesBasedOnLabels = self._MergeFaceZonesBasedOnLabels(self, "MergeFaceZonesBasedOnLabels", service, rules, path)
                     self.MergeEdgeZonesBasedOnLabels = self._MergeEdgeZonesBasedOnLabels(self, "MergeEdgeZonesBasedOnLabels", service, rules, path)
+                    self.MergeFaceZonesBasedOnLabels = self._MergeFaceZonesBasedOnLabels(self, "MergeFaceZonesBasedOnLabels", service, rules, path)
                     self.ShowAdvancedOptions = self._ShowAdvancedOptions(self, "ShowAdvancedOptions", service, rules, path)
-
-                class _MergeFaceZonesBasedOnLabels(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument MergeFaceZonesBasedOnLabels.
-                    """
 
                 class _MergeEdgeZonesBasedOnLabels(PyTextualCommandArgumentsSubItem):
                     """
                     Argument MergeEdgeZonesBasedOnLabels.
+                    """
+
+                class _MergeFaceZonesBasedOnLabels(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument MergeFaceZonesBasedOnLabels.
                     """
 
                 class _ShowAdvancedOptions(PyParameterCommandArgumentsSubItem):
@@ -7740,8 +7740,8 @@ class Root(PyMenu):
                     self.SaveSizeFieldFile = self._SaveSizeFieldFile(self, "SaveSizeFieldFile", service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.ScopeProximityTo = self._ScopeProximityTo(self, "ScopeProximityTo", service, rules, path)
-                    self.CurvatureNormalAngle = self._CurvatureNormalAngle(self, "CurvatureNormalAngle", service, rules, path)
                     self.PreviewSizefield = self._PreviewSizefield(self, "PreviewSizefield", service, rules, path)
+                    self.CurvatureNormalAngle = self._CurvatureNormalAngle(self, "CurvatureNormalAngle", service, rules, path)
                     self.SaveSizeField = self._SaveSizeField(self, "SaveSizeField", service, rules, path)
                     self.UseSizeFiles = self._UseSizeFiles(self, "UseSizeFiles", service, rules, path)
                     self.AutoCreateScopedSizing = self._AutoCreateScopedSizing(self, "AutoCreateScopedSizing", service, rules, path)
@@ -7770,14 +7770,14 @@ class Root(PyMenu):
                     Argument ScopeProximityTo.
                     """
 
-                class _CurvatureNormalAngle(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument CurvatureNormalAngle.
-                    """
-
                 class _PreviewSizefield(PyParameterCommandArgumentsSubItem):
                     """
                     Argument PreviewSizefield.
+                    """
+
+                class _CurvatureNormalAngle(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument CurvatureNormalAngle.
                     """
 
                 class _SaveSizeField(PyParameterCommandArgumentsSubItem):
@@ -8244,16 +8244,16 @@ class Root(PyMenu):
                     self.SMQualityCollapseLimit = self._SMQualityCollapseLimit(self, "SMQualityCollapseLimit", service, rules, path)
                     self.AutoMerge = self._AutoMerge(self, "AutoMerge", service, rules, path)
                     self.SMQualityImprove = self._SMQualityImprove(self, "SMQualityImprove", service, rules, path)
+                    self.SMSeparationAngle = self._SMSeparationAngle(self, "SMSeparationAngle", service, rules, path)
                     self.ShowSurfaceMeshPreferences = self._ShowSurfaceMeshPreferences(self, "ShowSurfaceMeshPreferences", service, rules, path)
-                    self.SMSeparation = self._SMSeparation(self, "SMSeparation", service, rules, path)
                     self.FoldFaceLimit = self._FoldFaceLimit(self, "FoldFaceLimit", service, rules, path)
                     self.TVMAutoControlCreation = self._TVMAutoControlCreation(self, "TVMAutoControlCreation", service, rules, path)
-                    self.SMSeparationAngle = self._SMSeparationAngle(self, "SMSeparationAngle", service, rules, path)
+                    self.SMSeparation = self._SMSeparation(self, "SMSeparation", service, rules, path)
                     self.SMRemoveStep = self._SMRemoveStep(self, "SMRemoveStep", service, rules, path)
                     self.SMStepWidth = self._SMStepWidth(self, "SMStepWidth", service, rules, path)
-                    self.SMQualityMaxAngle = self._SMQualityMaxAngle(self, "SMQualityMaxAngle", service, rules, path)
-                    self.AutoAssignZoneTypes = self._AutoAssignZoneTypes(self, "AutoAssignZoneTypes", service, rules, path)
                     self.VolumeMeshMaxSize = self._VolumeMeshMaxSize(self, "VolumeMeshMaxSize", service, rules, path)
+                    self.AutoAssignZoneTypes = self._AutoAssignZoneTypes(self, "AutoAssignZoneTypes", service, rules, path)
+                    self.SMQualityMaxAngle = self._SMQualityMaxAngle(self, "SMQualityMaxAngle", service, rules, path)
                     self.SMQualityImproveLimit = self._SMQualityImproveLimit(self, "SMQualityImproveLimit", service, rules, path)
                     self.AutoSurfaceRemesh = self._AutoSurfaceRemesh(self, "AutoSurfaceRemesh", service, rules, path)
                     self.SelfIntersectCheck = self._SelfIntersectCheck(self, "SelfIntersectCheck", service, rules, path)
@@ -8274,14 +8274,14 @@ class Root(PyMenu):
                     Argument SMQualityImprove.
                     """
 
+                class _SMSeparationAngle(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument SMSeparationAngle.
+                    """
+
                 class _ShowSurfaceMeshPreferences(PyParameterCommandArgumentsSubItem):
                     """
                     Argument ShowSurfaceMeshPreferences.
-                    """
-
-                class _SMSeparation(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument SMSeparation.
                     """
 
                 class _FoldFaceLimit(PyNumericalCommandArgumentsSubItem):
@@ -8294,9 +8294,9 @@ class Root(PyMenu):
                     Argument TVMAutoControlCreation.
                     """
 
-                class _SMSeparationAngle(PyNumericalCommandArgumentsSubItem):
+                class _SMSeparation(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument SMSeparationAngle.
+                    Argument SMSeparation.
                     """
 
                 class _SMRemoveStep(PyTextualCommandArgumentsSubItem):
@@ -8309,9 +8309,9 @@ class Root(PyMenu):
                     Argument SMStepWidth.
                     """
 
-                class _SMQualityMaxAngle(PyNumericalCommandArgumentsSubItem):
+                class _VolumeMeshMaxSize(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument SMQualityMaxAngle.
+                    Argument VolumeMeshMaxSize.
                     """
 
                 class _AutoAssignZoneTypes(PyTextualCommandArgumentsSubItem):
@@ -8319,9 +8319,9 @@ class Root(PyMenu):
                     Argument AutoAssignZoneTypes.
                     """
 
-                class _VolumeMeshMaxSize(PyNumericalCommandArgumentsSubItem):
+                class _SMQualityMaxAngle(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument VolumeMeshMaxSize.
+                    Argument SMQualityMaxAngle.
                     """
 
                 class _SMQualityImproveLimit(PyNumericalCommandArgumentsSubItem):
@@ -8430,9 +8430,9 @@ class Root(PyMenu):
                     self.OneZonePer = self._OneZonePer(self, "OneZonePer", service, rules, path)
                     self.ImportCurvatureDataFromCAD = self._ImportCurvatureDataFromCAD(self, "ImportCurvatureDataFromCAD", service, rules, path)
                     self.ImportNamedSelections = self._ImportNamedSelections(self, "ImportNamedSelections", service, rules, path)
-                    self.UsePartOrBodyAsSuffix = self._UsePartOrBodyAsSuffix(self, "UsePartOrBodyAsSuffix", service, rules, path)
-                    self.ImportPartNames = self._ImportPartNames(self, "ImportPartNames", service, rules, path)
                     self.ExtractFeatures = self._ExtractFeatures(self, "ExtractFeatures", service, rules, path)
+                    self.ImportPartNames = self._ImportPartNames(self, "ImportPartNames", service, rules, path)
+                    self.UsePartOrBodyAsSuffix = self._UsePartOrBodyAsSuffix(self, "UsePartOrBodyAsSuffix", service, rules, path)
 
                 class _SavePMDBIntermediateFile(PyParameterCommandArgumentsSubItem):
                     """
@@ -8474,9 +8474,9 @@ class Root(PyMenu):
                     Argument ImportNamedSelections.
                     """
 
-                class _UsePartOrBodyAsSuffix(PyParameterCommandArgumentsSubItem):
+                class _ExtractFeatures(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument UsePartOrBodyAsSuffix.
+                    Argument ExtractFeatures.
                     """
 
                 class _ImportPartNames(PyParameterCommandArgumentsSubItem):
@@ -8484,9 +8484,9 @@ class Root(PyMenu):
                     Argument ImportPartNames.
                     """
 
-                class _ExtractFeatures(PyParameterCommandArgumentsSubItem):
+                class _UsePartOrBodyAsSuffix(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument ExtractFeatures.
+                    Argument UsePartOrBodyAsSuffix.
                     """
 
             class _ShareTopologyPreferences(PySingletonCommandArgumentsSubItem):
@@ -9045,11 +9045,11 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.MergeBodyLabels = self._MergeBodyLabels(self, "MergeBodyLabels", service, rules, path)
-                    self.PolyFeatureAngle = self._PolyFeatureAngle(self, "PolyFeatureAngle", service, rules, path)
-                    self.MinPolySize = self._MinPolySize(self, "MinPolySize", service, rules, path)
-                    self.UseSizeField = self._UseSizeField(self, "UseSizeField", service, rules, path)
-                    self.UseSizeFieldInSolids = self._UseSizeFieldInSolids(self, "UseSizeFieldInSolids", service, rules, path)
                     self.QualityMethod = self._QualityMethod(self, "QualityMethod", service, rules, path)
+                    self.MinPolySize = self._MinPolySize(self, "MinPolySize", service, rules, path)
+                    self.UseSizeFieldInSolids = self._UseSizeFieldInSolids(self, "UseSizeFieldInSolids", service, rules, path)
+                    self.PolyFeatureAngle = self._PolyFeatureAngle(self, "PolyFeatureAngle", service, rules, path)
+                    self.UseSizeField = self._UseSizeField(self, "UseSizeField", service, rules, path)
                     self.ShowVolumeMeshPreferences = self._ShowVolumeMeshPreferences(self, "ShowVolumeMeshPreferences", service, rules, path)
                     self.MinEdgeLength = self._MinEdgeLength(self, "MinEdgeLength", service, rules, path)
                     self.AddMultipleQualityMethods = self._AddMultipleQualityMethods(self, "AddMultipleQualityMethods", service, rules, path)
@@ -9068,9 +9068,9 @@ class Root(PyMenu):
                     Argument MergeBodyLabels.
                     """
 
-                class _PolyFeatureAngle(PyNumericalCommandArgumentsSubItem):
+                class _QualityMethod(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument PolyFeatureAngle.
+                    Argument QualityMethod.
                     """
 
                 class _MinPolySize(PyNumericalCommandArgumentsSubItem):
@@ -9078,19 +9078,19 @@ class Root(PyMenu):
                     Argument MinPolySize.
                     """
 
-                class _UseSizeField(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument UseSizeField.
-                    """
-
                 class _UseSizeFieldInSolids(PyTextualCommandArgumentsSubItem):
                     """
                     Argument UseSizeFieldInSolids.
                     """
 
-                class _QualityMethod(PyTextualCommandArgumentsSubItem):
+                class _PolyFeatureAngle(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument QualityMethod.
+                    Argument PolyFeatureAngle.
+                    """
+
+                class _UseSizeField(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument UseSizeField.
                     """
 
                 class _ShowVolumeMeshPreferences(PyParameterCommandArgumentsSubItem):
@@ -9168,8 +9168,8 @@ class Root(PyMenu):
                     self.MergeBoundaryLayers = self._MergeBoundaryLayers(self, "MergeBoundaryLayers", service, rules, path)
                     self.ShowPrismPreferences = self._ShowPrismPreferences(self, "ShowPrismPreferences", service, rules, path)
                     self.NormalSmoothRelaxationFactor = self._NormalSmoothRelaxationFactor(self, "NormalSmoothRelaxationFactor", service, rules, path)
-                    self.PrismMinAspectRatio = self._PrismMinAspectRatio(self, "PrismMinAspectRatio", service, rules, path)
                     self.StairstepExposedQuads = self._StairstepExposedQuads(self, "StairstepExposedQuads", service, rules, path)
+                    self.PrismMinAspectRatio = self._PrismMinAspectRatio(self, "PrismMinAspectRatio", service, rules, path)
                     self.PrismAdjacentAngle = self._PrismAdjacentAngle(self, "PrismAdjacentAngle", service, rules, path)
 
                 class _PrismKeepFirstLayer(PyTextualCommandArgumentsSubItem):
@@ -9212,14 +9212,14 @@ class Root(PyMenu):
                     Argument NormalSmoothRelaxationFactor.
                     """
 
-                class _PrismMinAspectRatio(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument PrismMinAspectRatio.
-                    """
-
                 class _StairstepExposedQuads(PyTextualCommandArgumentsSubItem):
                     """
                     Argument StairstepExposedQuads.
+                    """
+
+                class _PrismMinAspectRatio(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument PrismMinAspectRatio.
                     """
 
                 class _PrismAdjacentAngle(PyNumericalCommandArgumentsSubItem):
@@ -9235,18 +9235,18 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.AutoOrderControls = self._AutoOrderControls(self, "AutoOrderControls", service, rules, path)
-                    self.MinAspectRatio = self._MinAspectRatio(self, "MinAspectRatio", service, rules, path)
-                    self.StairStep = self._StairStep(self, "StairStep", service, rules, path)
                     self.ShowGlobalThinVolumePreferences = self._ShowGlobalThinVolumePreferences(self, "ShowGlobalThinVolumePreferences", service, rules, path)
+                    self.StairStep = self._StairStep(self, "StairStep", service, rules, path)
+                    self.MinAspectRatio = self._MinAspectRatio(self, "MinAspectRatio", service, rules, path)
 
                 class _AutoOrderControls(PyTextualCommandArgumentsSubItem):
                     """
                     Argument AutoOrderControls.
                     """
 
-                class _MinAspectRatio(PyNumericalCommandArgumentsSubItem):
+                class _ShowGlobalThinVolumePreferences(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument MinAspectRatio.
+                    Argument ShowGlobalThinVolumePreferences.
                     """
 
                 class _StairStep(PyTextualCommandArgumentsSubItem):
@@ -9254,9 +9254,9 @@ class Root(PyMenu):
                     Argument StairStep.
                     """
 
-                class _ShowGlobalThinVolumePreferences(PyParameterCommandArgumentsSubItem):
+                class _MinAspectRatio(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument ShowGlobalThinVolumePreferences.
+                    Argument MinAspectRatio.
                     """
 
             class _InvokePrimsControl(PyTextualCommandArgumentsSubItem):
@@ -9919,8 +9919,8 @@ class Root(PyMenu):
                     self.Y2 = self._Y2(self, "Y2", service, rules, path)
                     self.Node3 = self._Node3(self, "Node3", service, rules, path)
                     self.X2 = self._X2(self, "X2", service, rules, path)
-                    self.Y_Offset = self._Y_Offset(self, "Y-Offset", service, rules, path)
                     self.Node2 = self._Node2(self, "Node2", service, rules, path)
+                    self.Y_Offset = self._Y_Offset(self, "Y-Offset", service, rules, path)
                     self.HeightFrontInc = self._HeightFrontInc(self, "HeightFrontInc", service, rules, path)
                     self.Radius1 = self._Radius1(self, "Radius1", service, rules, path)
 
@@ -9989,14 +9989,14 @@ class Root(PyMenu):
                     Argument X2.
                     """
 
-                class _Y_Offset(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument Y-Offset.
-                    """
-
                 class _Node2(PyTextualCommandArgumentsSubItem):
                     """
                     Argument Node2.
+                    """
+
+                class _Y_Offset(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument Y-Offset.
                     """
 
                 class _HeightFrontInc(PyNumericalCommandArgumentsSubItem):
@@ -10531,11 +10531,11 @@ class Root(PyMenu):
                     self.CreateCADAssemblies = self._CreateCADAssemblies(self, "CreateCADAssemblies", service, rules, path)
                     self.FeatureAngle = self._FeatureAngle(self, "FeatureAngle", service, rules, path)
                     self.OneZonePer = self._OneZonePer(self, "OneZonePer", service, rules, path)
-                    self.UsePartOrBodyAsSuffix = self._UsePartOrBodyAsSuffix(self, "UsePartOrBodyAsSuffix", service, rules, path)
+                    self.ImportCurvatureDataFromCAD = self._ImportCurvatureDataFromCAD(self, "ImportCurvatureDataFromCAD", service, rules, path)
                     self.ExtractFeatures = self._ExtractFeatures(self, "ExtractFeatures", service, rules, path)
                     self.ImportNamedSelections = self._ImportNamedSelections(self, "ImportNamedSelections", service, rules, path)
                     self.ImportPartNames = self._ImportPartNames(self, "ImportPartNames", service, rules, path)
-                    self.ImportCurvatureDataFromCAD = self._ImportCurvatureDataFromCAD(self, "ImportCurvatureDataFromCAD", service, rules, path)
+                    self.UsePartOrBodyAsSuffix = self._UsePartOrBodyAsSuffix(self, "UsePartOrBodyAsSuffix", service, rules, path)
 
                 class _SavePMDBIntermediateFile(PyParameterCommandArgumentsSubItem):
                     """
@@ -10567,9 +10567,9 @@ class Root(PyMenu):
                     Argument OneZonePer.
                     """
 
-                class _UsePartOrBodyAsSuffix(PyParameterCommandArgumentsSubItem):
+                class _ImportCurvatureDataFromCAD(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument UsePartOrBodyAsSuffix.
+                    Argument ImportCurvatureDataFromCAD.
                     """
 
                 class _ExtractFeatures(PyParameterCommandArgumentsSubItem):
@@ -10587,9 +10587,9 @@ class Root(PyMenu):
                     Argument ImportPartNames.
                     """
 
-                class _ImportCurvatureDataFromCAD(PyParameterCommandArgumentsSubItem):
+                class _UsePartOrBodyAsSuffix(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument ImportCurvatureDataFromCAD.
+                    Argument UsePartOrBodyAsSuffix.
                     """
 
         def create_instance(self) -> _ImportBodyOfInfluenceGeometryCommandArguments:
@@ -10679,20 +10679,20 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.EdgeLabel = self._EdgeLabel(self, "EdgeLabel", service, rules, path)
+                    self.CITolerence = self._CITolerence(self, "CITolerence", service, rules, path)
                     self.FacetedBodies = self._FacetedBodies(self, "FacetedBodies", service, rules, path)
                     self.CISeparation = self._CISeparation(self, "CISeparation", service, rules, path)
                     self.CIRefaceting = self._CIRefaceting(self, "CIRefaceting", service, rules, path)
                     self.AutomaticObjectCreation = self._AutomaticObjectCreation(self, "AutomaticObjectCreation", service, rules, path)
-                    self.MaxFacetLength = self._MaxFacetLength(self, "MaxFacetLength", service, rules, path)
                     self.ShowImportCadPreferences = self._ShowImportCadPreferences(self, "ShowImportCadPreferences", service, rules, path)
+                    self.MaxFacetLength = self._MaxFacetLength(self, "MaxFacetLength", service, rules, path)
                     self.MergeNodes = self._MergeNodes(self, "MergeNodes", service, rules, path)
                     self.CISeparationAngle = self._CISeparationAngle(self, "CISeparationAngle", service, rules, path)
-                    self.CITolerence = self._CITolerence(self, "CITolerence", service, rules, path)
+                    self.EdgeLabel = self._EdgeLabel(self, "EdgeLabel", service, rules, path)
 
-                class _EdgeLabel(PyTextualCommandArgumentsSubItem):
+                class _CITolerence(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument EdgeLabel.
+                    Argument CITolerence.
                     """
 
                 class _FacetedBodies(PyTextualCommandArgumentsSubItem):
@@ -10715,14 +10715,14 @@ class Root(PyMenu):
                     Argument AutomaticObjectCreation.
                     """
 
-                class _MaxFacetLength(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument MaxFacetLength.
-                    """
-
                 class _ShowImportCadPreferences(PyParameterCommandArgumentsSubItem):
                     """
                     Argument ShowImportCadPreferences.
+                    """
+
+                class _MaxFacetLength(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument MaxFacetLength.
                     """
 
                 class _MergeNodes(PyTextualCommandArgumentsSubItem):
@@ -10735,9 +10735,9 @@ class Root(PyMenu):
                     Argument CISeparationAngle.
                     """
 
-                class _CITolerence(PyNumericalCommandArgumentsSubItem):
+                class _EdgeLabel(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument CITolerence.
+                    Argument EdgeLabel.
                     """
 
             class _FileName(PyTextualCommandArgumentsSubItem):
@@ -10790,9 +10790,9 @@ class Root(PyMenu):
                     self.OneZonePer = self._OneZonePer(self, "OneZonePer", service, rules, path)
                     self.ImportCurvatureDataFromCAD = self._ImportCurvatureDataFromCAD(self, "ImportCurvatureDataFromCAD", service, rules, path)
                     self.ExtractFeatures = self._ExtractFeatures(self, "ExtractFeatures", service, rules, path)
-                    self.UsePartOrBodyAsSuffix = self._UsePartOrBodyAsSuffix(self, "UsePartOrBodyAsSuffix", service, rules, path)
-                    self.ImportPartNames = self._ImportPartNames(self, "ImportPartNames", service, rules, path)
                     self.ImportNamedSelections = self._ImportNamedSelections(self, "ImportNamedSelections", service, rules, path)
+                    self.ImportPartNames = self._ImportPartNames(self, "ImportPartNames", service, rules, path)
+                    self.UsePartOrBodyAsSuffix = self._UsePartOrBodyAsSuffix(self, "UsePartOrBodyAsSuffix", service, rules, path)
 
                 class _SavePMDBIntermediateFile(PyParameterCommandArgumentsSubItem):
                     """
@@ -10834,9 +10834,9 @@ class Root(PyMenu):
                     Argument ExtractFeatures.
                     """
 
-                class _UsePartOrBodyAsSuffix(PyParameterCommandArgumentsSubItem):
+                class _ImportNamedSelections(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument UsePartOrBodyAsSuffix.
+                    Argument ImportNamedSelections.
                     """
 
                 class _ImportPartNames(PyParameterCommandArgumentsSubItem):
@@ -10844,9 +10844,9 @@ class Root(PyMenu):
                     Argument ImportPartNames.
                     """
 
-                class _ImportNamedSelections(PyParameterCommandArgumentsSubItem):
+                class _UsePartOrBodyAsSuffix(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument ImportNamedSelections.
+                    Argument UsePartOrBodyAsSuffix.
                     """
 
         def create_instance(self) -> _ImportGeometryCommandArguments:
@@ -10912,10 +10912,10 @@ class Root(PyMenu):
                     self.SIQualityIterations = self._SIQualityIterations(self, "SIQualityIterations", service, rules, path)
                     self.SIQualityMaxAngle = self._SIQualityMaxAngle(self, "SIQualityMaxAngle", service, rules, path)
                     self.AllowDefeaturing = self._AllowDefeaturing(self, "AllowDefeaturing", service, rules, path)
-                    self.ShowSMImprovePreferences = self._ShowSMImprovePreferences(self, "ShowSMImprovePreferences", service, rules, path)
+                    self.SIRemoveStep = self._SIRemoveStep(self, "SIRemoveStep", service, rules, path)
                     self.AdvancedImprove = self._AdvancedImprove(self, "AdvancedImprove", service, rules, path)
                     self.SIStepWidth = self._SIStepWidth(self, "SIStepWidth", service, rules, path)
-                    self.SIRemoveStep = self._SIRemoveStep(self, "SIRemoveStep", service, rules, path)
+                    self.ShowSMImprovePreferences = self._ShowSMImprovePreferences(self, "ShowSMImprovePreferences", service, rules, path)
 
                 class _SIStepQualityLimit(PyNumericalCommandArgumentsSubItem):
                     """
@@ -10942,9 +10942,9 @@ class Root(PyMenu):
                     Argument AllowDefeaturing.
                     """
 
-                class _ShowSMImprovePreferences(PyParameterCommandArgumentsSubItem):
+                class _SIRemoveStep(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument ShowSMImprovePreferences.
+                    Argument SIRemoveStep.
                     """
 
                 class _AdvancedImprove(PyTextualCommandArgumentsSubItem):
@@ -10957,9 +10957,9 @@ class Root(PyMenu):
                     Argument SIStepWidth.
                     """
 
-                class _SIRemoveStep(PyTextualCommandArgumentsSubItem):
+                class _ShowSMImprovePreferences(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument SIRemoveStep.
+                    Argument ShowSMImprovePreferences.
                     """
 
         def create_instance(self) -> _ImproveSurfaceMeshCommandArguments:
@@ -11285,9 +11285,9 @@ class Root(PyMenu):
                     super().__init__(parent, attr, service, rules, path)
                     self.FacetMaxEdgeLength = self._FacetMaxEdgeLength(self, "FacetMaxEdgeLength", service, rules, path)
                     self.FacetResolution = self._FacetResolution(self, "FacetResolution", service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
                     self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
                     self.MaxEdgeLengthFactor = self._MaxEdgeLengthFactor(self, "MaxEdgeLengthFactor", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
                     self.MaxEdgeLength = self._MaxEdgeLength(self, "MaxEdgeLength", service, rules, path)
                     self.CustomNormalAngle = self._CustomNormalAngle(self, "CustomNormalAngle", service, rules, path)
                     self.CustomDeviation = self._CustomDeviation(self, "CustomDeviation", service, rules, path)
@@ -11303,11 +11303,6 @@ class Root(PyMenu):
                     Argument FacetResolution.
                     """
 
-                class _NormalAngle(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument NormalAngle.
-                    """
-
                 class _Deviation(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument Deviation.
@@ -11316,6 +11311,11 @@ class Root(PyMenu):
                 class _MaxEdgeLengthFactor(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument MaxEdgeLengthFactor.
+                    """
+
+                class _NormalAngle(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument NormalAngle.
                     """
 
                 class _MaxEdgeLength(PyNumericalCommandArgumentsSubItem):
@@ -11440,9 +11440,9 @@ class Root(PyMenu):
                     self.MinSize = self._MinSize(self, "MinSize", service, rules, path)
                     self.WrapMax = self._WrapMax(self, "WrapMax", service, rules, path)
                     self.AdvancedOptions = self._AdvancedOptions(self, "AdvancedOptions", service, rules, path)
+                    self.InitialSizeControl = self._InitialSizeControl(self, "InitialSizeControl", service, rules, path)
                     self.WrapGrowthRate = self._WrapGrowthRate(self, "WrapGrowthRate", service, rules, path)
                     self.SizingType = self._SizingType(self, "SizingType", service, rules, path)
-                    self.InitialSizeControl = self._InitialSizeControl(self, "InitialSizeControl", service, rules, path)
                     self.CellsPerGap = self._CellsPerGap(self, "CellsPerGap", service, rules, path)
                     self.WrapCurvatureNormalAngle = self._WrapCurvatureNormalAngle(self, "WrapCurvatureNormalAngle", service, rules, path)
                     self.TargetSizeControl = self._TargetSizeControl(self, "TargetSizeControl", service, rules, path)
@@ -11493,6 +11493,11 @@ class Root(PyMenu):
                     Argument AdvancedOptions.
                     """
 
+                class _InitialSizeControl(PyParameterCommandArgumentsSubItem):
+                    """
+                    Argument InitialSizeControl.
+                    """
+
                 class _WrapGrowthRate(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument WrapGrowthRate.
@@ -11501,11 +11506,6 @@ class Root(PyMenu):
                 class _SizingType(PyTextualCommandArgumentsSubItem):
                     """
                     Argument SizingType.
-                    """
-
-                class _InitialSizeControl(PyParameterCommandArgumentsSubItem):
-                    """
-                    Argument InitialSizeControl.
                     """
 
                 class _CellsPerGap(PyNumericalCommandArgumentsSubItem):
@@ -11892,8 +11892,8 @@ class Root(PyMenu):
                     self.SaveSizeFieldFile = self._SaveSizeFieldFile(self, "SaveSizeFieldFile", service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.ScopeProximityTo = self._ScopeProximityTo(self, "ScopeProximityTo", service, rules, path)
-                    self.PreviewSizefield = self._PreviewSizefield(self, "PreviewSizefield", service, rules, path)
                     self.CurvatureNormalAngle = self._CurvatureNormalAngle(self, "CurvatureNormalAngle", service, rules, path)
+                    self.PreviewSizefield = self._PreviewSizefield(self, "PreviewSizefield", service, rules, path)
                     self.SaveSizeField = self._SaveSizeField(self, "SaveSizeField", service, rules, path)
                     self.UseSizeFiles = self._UseSizeFiles(self, "UseSizeFiles", service, rules, path)
                     self.AutoCreateScopedSizing = self._AutoCreateScopedSizing(self, "AutoCreateScopedSizing", service, rules, path)
@@ -11922,14 +11922,14 @@ class Root(PyMenu):
                     Argument ScopeProximityTo.
                     """
 
-                class _PreviewSizefield(PyParameterCommandArgumentsSubItem):
-                    """
-                    Argument PreviewSizefield.
-                    """
-
                 class _CurvatureNormalAngle(PyNumericalCommandArgumentsSubItem):
                     """
                     Argument CurvatureNormalAngle.
+                    """
+
+                class _PreviewSizefield(PyParameterCommandArgumentsSubItem):
+                    """
+                    Argument PreviewSizefield.
                     """
 
                 class _SaveSizeField(PyParameterCommandArgumentsSubItem):
@@ -12207,9 +12207,9 @@ class Root(PyMenu):
                     self.FacetMaxEdgeLength = self._FacetMaxEdgeLength(self, "FacetMaxEdgeLength", service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
                     self.MaxEdgeLengthFactor = self._MaxEdgeLengthFactor(self, "MaxEdgeLengthFactor", service, rules, path)
-                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
-                    self.Refacet = self._Refacet(self, "Refacet", service, rules, path)
                     self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
+                    self.Refacet = self._Refacet(self, "Refacet", service, rules, path)
+                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
 
                 class _FacetMaxEdgeLength(PyTextualCommandArgumentsSubItem):
                     """
@@ -12226,9 +12226,9 @@ class Root(PyMenu):
                     Argument MaxEdgeLengthFactor.
                     """
 
-                class _Deviation(PyNumericalCommandArgumentsSubItem):
+                class _NormalAngle(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument Deviation.
+                    Argument NormalAngle.
                     """
 
                 class _Refacet(PyParameterCommandArgumentsSubItem):
@@ -12236,9 +12236,9 @@ class Root(PyMenu):
                     Argument Refacet.
                     """
 
-                class _NormalAngle(PyNumericalCommandArgumentsSubItem):
+                class _Deviation(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument NormalAngle.
+                    Argument Deviation.
                     """
 
             class _IgnoreSolidNames(PyParameterCommandArgumentsSubItem):
@@ -12918,10 +12918,10 @@ class Root(PyMenu):
                     self.ConnectLabelWildcard = self._ConnectLabelWildcard(self, "ConnectLabelWildcard", service, rules, path)
                     self.AllowDefeaturing = self._AllowDefeaturing(self, "AllowDefeaturing", service, rules, path)
                     self.RelativeShareTopologyTolerance = self._RelativeShareTopologyTolerance(self, "RelativeShareTopologyTolerance", service, rules, path)
-                    self.FluidLabelWildcard = self._FluidLabelWildcard(self, "FluidLabelWildcard", service, rules, path)
+                    self.ShareTopologyAngle = self._ShareTopologyAngle(self, "ShareTopologyAngle", service, rules, path)
                     self.ExecuteJoinIntersect = self._ExecuteJoinIntersect(self, "ExecuteJoinIntersect", service, rules, path)
                     self.Operation = self._Operation(self, "Operation", service, rules, path)
-                    self.ShareTopologyAngle = self._ShareTopologyAngle(self, "ShareTopologyAngle", service, rules, path)
+                    self.FluidLabelWildcard = self._FluidLabelWildcard(self, "FluidLabelWildcard", service, rules, path)
                     self.STToleranceIncrement = self._STToleranceIncrement(self, "STToleranceIncrement", service, rules, path)
                     self.ShowShareTopologyPreferences = self._ShowShareTopologyPreferences(self, "ShowShareTopologyPreferences", service, rules, path)
                     self.PerLabelList = self._PerLabelList(self, "PerLabelList", service, rules, path)
@@ -12954,9 +12954,9 @@ class Root(PyMenu):
                     Argument RelativeShareTopologyTolerance.
                     """
 
-                class _FluidLabelWildcard(PyTextualCommandArgumentsSubItem):
+                class _ShareTopologyAngle(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument FluidLabelWildcard.
+                    Argument ShareTopologyAngle.
                     """
 
                 class _ExecuteJoinIntersect(PyTextualCommandArgumentsSubItem):
@@ -12969,9 +12969,9 @@ class Root(PyMenu):
                     Argument Operation.
                     """
 
-                class _ShareTopologyAngle(PyNumericalCommandArgumentsSubItem):
+                class _FluidLabelWildcard(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument ShareTopologyAngle.
+                    Argument FluidLabelWildcard.
                     """
 
                 class _STToleranceIncrement(PyNumericalCommandArgumentsSubItem):
@@ -13074,21 +13074,21 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.SMQualityCollapseLimit = self._SMQualityCollapseLimit(self, "SMQualityCollapseLimit", service, rules, path)
-                    self.FoldFaceLimit = self._FoldFaceLimit(self, "FoldFaceLimit", service, rules, path)
-                    self.SMSeparation = self._SMSeparation(self, "SMSeparation", service, rules, path)
-                    self.SMSeparationAngle = self._SMSeparationAngle(self, "SMSeparationAngle", service, rules, path)
+                    self.AutoMerge = self._AutoMerge(self, "AutoMerge", service, rules, path)
                     self.SMQualityImprove = self._SMQualityImprove(self, "SMQualityImprove", service, rules, path)
                     self.ShowSurfaceMeshPreferences = self._ShowSurfaceMeshPreferences(self, "ShowSurfaceMeshPreferences", service, rules, path)
+                    self.SMSeparation = self._SMSeparation(self, "SMSeparation", service, rules, path)
+                    self.FoldFaceLimit = self._FoldFaceLimit(self, "FoldFaceLimit", service, rules, path)
                     self.TVMAutoControlCreation = self._TVMAutoControlCreation(self, "TVMAutoControlCreation", service, rules, path)
-                    self.AutoMerge = self._AutoMerge(self, "AutoMerge", service, rules, path)
+                    self.SMSeparationAngle = self._SMSeparationAngle(self, "SMSeparationAngle", service, rules, path)
                     self.SMRemoveStep = self._SMRemoveStep(self, "SMRemoveStep", service, rules, path)
                     self.SMStepWidth = self._SMStepWidth(self, "SMStepWidth", service, rules, path)
-                    self.SMQualityMaxAngle = self._SMQualityMaxAngle(self, "SMQualityMaxAngle", service, rules, path)
-                    self.AutoAssignZoneTypes = self._AutoAssignZoneTypes(self, "AutoAssignZoneTypes", service, rules, path)
                     self.VolumeMeshMaxSize = self._VolumeMeshMaxSize(self, "VolumeMeshMaxSize", service, rules, path)
-                    self.SMQualityImproveLimit = self._SMQualityImproveLimit(self, "SMQualityImproveLimit", service, rules, path)
-                    self.AutoSurfaceRemesh = self._AutoSurfaceRemesh(self, "AutoSurfaceRemesh", service, rules, path)
+                    self.AutoAssignZoneTypes = self._AutoAssignZoneTypes(self, "AutoAssignZoneTypes", service, rules, path)
+                    self.SMQualityMaxAngle = self._SMQualityMaxAngle(self, "SMQualityMaxAngle", service, rules, path)
                     self.SelfIntersectCheck = self._SelfIntersectCheck(self, "SelfIntersectCheck", service, rules, path)
+                    self.AutoSurfaceRemesh = self._AutoSurfaceRemesh(self, "AutoSurfaceRemesh", service, rules, path)
+                    self.SMQualityImproveLimit = self._SMQualityImproveLimit(self, "SMQualityImproveLimit", service, rules, path)
                     self.SetVolumeMeshMaxSize = self._SetVolumeMeshMaxSize(self, "SetVolumeMeshMaxSize", service, rules, path)
 
                 class _SMQualityCollapseLimit(PyNumericalCommandArgumentsSubItem):
@@ -13096,19 +13096,9 @@ class Root(PyMenu):
                     Argument SMQualityCollapseLimit.
                     """
 
-                class _FoldFaceLimit(PyNumericalCommandArgumentsSubItem):
+                class _AutoMerge(PyParameterCommandArgumentsSubItem):
                     """
-                    Argument FoldFaceLimit.
-                    """
-
-                class _SMSeparation(PyTextualCommandArgumentsSubItem):
-                    """
-                    Argument SMSeparation.
-                    """
-
-                class _SMSeparationAngle(PyNumericalCommandArgumentsSubItem):
-                    """
-                    Argument SMSeparationAngle.
+                    Argument AutoMerge.
                     """
 
                 class _SMQualityImprove(PyTextualCommandArgumentsSubItem):
@@ -13121,14 +13111,24 @@ class Root(PyMenu):
                     Argument ShowSurfaceMeshPreferences.
                     """
 
+                class _SMSeparation(PyTextualCommandArgumentsSubItem):
+                    """
+                    Argument SMSeparation.
+                    """
+
+                class _FoldFaceLimit(PyNumericalCommandArgumentsSubItem):
+                    """
+                    Argument FoldFaceLimit.
+                    """
+
                 class _TVMAutoControlCreation(PyTextualCommandArgumentsSubItem):
                     """
                     Argument TVMAutoControlCreation.
                     """
 
-                class _AutoMerge(PyParameterCommandArgumentsSubItem):
+                class _SMSeparationAngle(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument AutoMerge.
+                    Argument SMSeparationAngle.
                     """
 
                 class _SMRemoveStep(PyTextualCommandArgumentsSubItem):
@@ -13141,9 +13141,9 @@ class Root(PyMenu):
                     Argument SMStepWidth.
                     """
 
-                class _SMQualityMaxAngle(PyNumericalCommandArgumentsSubItem):
+                class _VolumeMeshMaxSize(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument SMQualityMaxAngle.
+                    Argument VolumeMeshMaxSize.
                     """
 
                 class _AutoAssignZoneTypes(PyTextualCommandArgumentsSubItem):
@@ -13151,14 +13151,14 @@ class Root(PyMenu):
                     Argument AutoAssignZoneTypes.
                     """
 
-                class _VolumeMeshMaxSize(PyNumericalCommandArgumentsSubItem):
+                class _SMQualityMaxAngle(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument VolumeMeshMaxSize.
+                    Argument SMQualityMaxAngle.
                     """
 
-                class _SMQualityImproveLimit(PyNumericalCommandArgumentsSubItem):
+                class _SelfIntersectCheck(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument SMQualityImproveLimit.
+                    Argument SelfIntersectCheck.
                     """
 
                 class _AutoSurfaceRemesh(PyTextualCommandArgumentsSubItem):
@@ -13166,9 +13166,9 @@ class Root(PyMenu):
                     Argument AutoSurfaceRemesh.
                     """
 
-                class _SelfIntersectCheck(PyTextualCommandArgumentsSubItem):
+                class _SMQualityImproveLimit(PyNumericalCommandArgumentsSubItem):
                     """
-                    Argument SelfIntersectCheck.
+                    Argument SMQualityImproveLimit.
                     """
 
                 class _SetVolumeMeshMaxSize(PyTextualCommandArgumentsSubItem):
@@ -13259,10 +13259,10 @@ class Root(PyMenu):
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
                     self.NewLabelObjects = self._NewLabelObjects(self, "NewLabelObjects", service, rules, path)
-                    self.NewLabelCells = self._NewLabelCells(self, "NewLabelCells", service, rules, path)
+                    self.NewLabels = self._NewLabels(self, "NewLabels", service, rules, path)
                     self.NewLabelType = self._NewLabelType(self, "NewLabelType", service, rules, path)
                     self.NewLabelResolution = self._NewLabelResolution(self, "NewLabelResolution", service, rules, path)
-                    self.NewLabels = self._NewLabels(self, "NewLabels", service, rules, path)
+                    self.NewLabelCells = self._NewLabelCells(self, "NewLabelCells", service, rules, path)
                     self.NewLabelMax = self._NewLabelMax(self, "NewLabelMax", service, rules, path)
                     self.NewZoneType = self._NewZoneType(self, "NewZoneType", service, rules, path)
                     self.NewLabelCurvature = self._NewLabelCurvature(self, "NewLabelCurvature", service, rules, path)
@@ -13273,9 +13273,9 @@ class Root(PyMenu):
                     Argument NewLabelObjects.
                     """
 
-                class _NewLabelCells(PyTextualCommandArgumentsSubItem):
+                class _NewLabels(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument NewLabelCells.
+                    Argument NewLabels.
                     """
 
                 class _NewLabelType(PyTextualCommandArgumentsSubItem):
@@ -13288,9 +13288,9 @@ class Root(PyMenu):
                     Argument NewLabelResolution.
                     """
 
-                class _NewLabels(PyTextualCommandArgumentsSubItem):
+                class _NewLabelCells(PyTextualCommandArgumentsSubItem):
                     """
-                    Argument NewLabels.
+                    Argument NewLabelCells.
                     """
 
                 class _NewLabelMax(PyTextualCommandArgumentsSubItem):

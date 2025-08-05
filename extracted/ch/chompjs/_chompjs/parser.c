@@ -108,6 +108,13 @@ struct State* begin(struct Lexer* lexer) {
         break;
         case '\0':;
             return &states[END_STATE];
+        case '/':
+            {
+                char next_c = lexer->input[lexer->input_position+1];
+                if(next_c == '/' || next_c == '*') {
+                    handle_comments(lexer);
+                }
+            }                
         default:
             lexer->input_position += 1;
         }
@@ -374,6 +381,10 @@ struct State* handle_unrecognized(struct Lexer* lexer) {
             case '}':
             case ']':
             case '>':
+                if(lexer->input[lexer->input_position-1] == '=') {
+                    emit(c, lexer);
+                    continue;
+                }
             case ')':
                 if(currently_quoted_with && lexer->unrecognized_nesting_depth > 0) {
                     emit(c, lexer);

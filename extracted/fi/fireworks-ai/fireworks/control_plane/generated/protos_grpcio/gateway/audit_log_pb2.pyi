@@ -1,5 +1,5 @@
 from . import status_pb2 as _status_pb2
-from ..google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -11,7 +11,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class AuditLogEntry(_message.Message):
-    __slots__ = ("id", "method", "principal", "payload", "status", "timestamp", "message", "resource")
+    __slots__ = ("id", "method", "principal", "payload", "status", "timestamp", "message", "resource", "is_admin_action")
     ID_FIELD_NUMBER: _ClassVar[int]
     METHOD_FIELD_NUMBER: _ClassVar[int]
     PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
@@ -20,6 +20,7 @@ class AuditLogEntry(_message.Message):
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_FIELD_NUMBER: _ClassVar[int]
+    IS_ADMIN_ACTION_FIELD_NUMBER: _ClassVar[int]
     id: str
     method: str
     principal: str
@@ -28,7 +29,8 @@ class AuditLogEntry(_message.Message):
     timestamp: _timestamp_pb2.Timestamp
     message: str
     resource: str
-    def __init__(self, id: _Optional[str] = ..., method: _Optional[str] = ..., principal: _Optional[str] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., message: _Optional[str] = ..., resource: _Optional[str] = ...) -> None: ...
+    is_admin_action: bool
+    def __init__(self, id: _Optional[str] = ..., method: _Optional[str] = ..., principal: _Optional[str] = ..., payload: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., message: _Optional[str] = ..., resource: _Optional[str] = ..., is_admin_action: bool = ...) -> None: ...
 
 class ListAuditLogsRequest(_message.Message):
     __slots__ = ("parent", "start_time", "end_time", "email", "page_size", "page_token", "filter", "order_by", "read_mask")

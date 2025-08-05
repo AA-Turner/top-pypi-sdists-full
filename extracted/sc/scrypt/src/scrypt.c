@@ -45,27 +45,56 @@
 DL_EXPORT(int) exp_scryptenc_buf(const uint8_t *inbuf, size_t inbuflen,
                                  uint8_t *outbuf,
                                  const uint8_t *passwd, size_t passwdlen,
-                                 size_t maxmem, double maxmemfrac, double maxtime, int verbose) {
+                                 size_t maxmem, double maxmemfrac, double maxtime,
+                                 int logN, uint32_t r, uint32_t p, int verbose, int force) {
+
+    struct scryptenc_params P;
+    P.maxmem = maxmem;
+    P.maxmemfrac = maxmemfrac;
+    P.maxtime = maxtime;
+    P.logN = logN;
+    P.r = r;
+    P.p = p;
     return scryptenc_buf(inbuf, inbuflen, outbuf, passwd, passwdlen,
-                         maxmem, maxmemfrac, maxtime, verbose);
+                         &P, verbose, force);
+
 }
 
 DL_EXPORT(int) exp_scryptdec_buf(const uint8_t *inbuf, size_t inbuflen,
                                  uint8_t *outbuf, size_t *outbuflen,
                                  const uint8_t *passwd, size_t passwdlen,
-                                 size_t maxmem, double maxmemfrac, double maxtime, int verbose, int force) {
+                                 size_t maxmem, double maxmemfrac, double maxtime,
+                                 int logN, uint32_t r, uint32_t p, int verbose, int force) {
+    struct scryptenc_params P;
+    P.maxmem = maxmem;
+    P.maxmemfrac = maxmemfrac;
+    P.maxtime = maxtime;
+    P.logN = logN;
+    P.r = r;
+    P.p = p;
     return scryptdec_buf(inbuf, inbuflen, outbuf, outbuflen, passwd, passwdlen,
-                         maxmem, maxmemfrac, maxtime, verbose, force);
+                         &P, verbose, force);
+
 }
 
 DL_EXPORT(int) exp_crypto_scrypt(const uint8_t *passwd, size_t passwdlen,
-                                 const uint8_t *salt, size_t saltlen,
-                                 uint64_t N, uint32_t r, uint32_t p,
-                                 uint8_t *buf, size_t buflen) {
+                                  const uint8_t *salt, size_t saltlen,
+                                  uint64_t N, uint32_t r, uint32_t p,
+                                  uint8_t *buf, size_t buflen) {
     return crypto_scrypt(passwd, passwdlen, salt, saltlen,
-                         N, r, p, buf, buflen);
+                          N, r, p, buf, buflen);
 }
 
+/* Export the pickparams function to Python */
+DL_EXPORT(int) exp_pickparams(size_t maxmem, double maxmemfrac, double maxtime,
+                               int *logN, uint32_t *r, uint32_t *p, int verbose) {
+    return pickparams(maxmem, maxmemfrac, maxtime, logN, r, p, verbose);
+}
+
+DL_EXPORT(int) exp_checkparams(size_t maxmem, double maxmemfrac, double maxtime,
+                               int logN, uint32_t r, uint32_t p, int verbose, int force) {
+    return checkparams(maxmem, maxmemfrac, maxtime, logN, r, p, verbose, force);
+}
 /*
   We need a stub init_scrypt function so the module will link as a proper module.
 */
@@ -73,16 +102,6 @@ DL_EXPORT(int) exp_crypto_scrypt(const uint8_t *passwd, size_t passwdlen,
 static PyMethodDef scrypt_methods[] = {
     {NULL, NULL, 0, NULL},
 };
-
-#if PY_MAJOR_VERSION == 2
-
-PyMODINIT_FUNC init_scrypt(void) {
-    Py_InitModule("_scrypt", scrypt_methods);
-}
-
-#endif
-
-#if PY_MAJOR_VERSION == 3
 
 static struct PyModuleDef scrypt_module = {
     PyModuleDef_HEAD_INIT,
@@ -95,5 +114,3 @@ static struct PyModuleDef scrypt_module = {
 PyMODINIT_FUNC PyInit__scrypt(void) {
     return PyModule_Create(&scrypt_module);
 }
-
-#endif

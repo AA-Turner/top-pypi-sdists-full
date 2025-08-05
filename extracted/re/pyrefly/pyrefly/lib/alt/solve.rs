@@ -17,6 +17,7 @@ use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::visit::Visit;
 use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
+use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprSubscript;
 use ruff_python_ast::TypeParam;
 use ruff_python_ast::TypeParams;
@@ -381,7 +382,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn is_valid_annotation(&self, x: &Expr, errors: &ErrorCollector) -> bool {
+    fn has_valid_annotation_syntax(&self, x: &Expr, errors: &ErrorCollector) -> bool {
         // Note that this function only checks for correct syntax.
         // Semantic validation (e.g. that `typing.Self` is used in a class
         // context, or that a string evaluates to a proper type expression) is
@@ -389,7 +390,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // See https://typing.readthedocs.io/en/latest/spec/annotations.html#type-and-annotation-expressions
         let problem = match x {
             Expr::Name(..)
-            | Expr::BinOp(ruff_python_ast::ExprBinOp {
+            | Expr::BinOp(ExprBinOp {
                 op: ruff_python_ast::Operator::BitOr,
                 ..
             })
@@ -400,7 +401,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             | Expr::Starred(..) => return true,
             Expr::Subscript(s) => match *s.value {
                 Expr::Name(..)
-                | Expr::BinOp(ruff_python_ast::ExprBinOp {
+                | Expr::BinOp(ExprBinOp {
                     op: ruff_python_ast::Operator::BitOr,
                     ..
                 })
@@ -423,6 +424,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Expr::FString(..) => "f-string",
             Expr::TString(..) => "t-string",
             Expr::UnaryOp(..) => "unary operation",
+            Expr::BinOp(ExprBinOp { op, .. }) => &format!("binary operation `{}`", op.as_str()),
             // There are many Expr variants. Not all of them are likely to be used
             // in annotations, even accidentally. We can add branches for specific
             // expression constructs if desired.
@@ -443,7 +445,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         type_form_context: TypeFormContext,
         errors: &ErrorCollector,
     ) -> Annotation {
-        if !self.is_valid_annotation(x, errors) {
+        if !self.has_valid_annotation_syntax(x, errors) {
             return Annotation::new_type(Type::any_error());
         }
         match x {
@@ -832,7 +834,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         let range = expr.range();
-        if !self.is_valid_annotation(expr, errors) {
+        if !self.has_valid_annotation_syntax(expr, errors) {
             return Type::any_error();
         }
         let untyped = self.untype_opt(ty.clone(), range);
@@ -2153,13 +2155,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None => (None, self.expr(expr, None, errors)),
                 };
                 // Then, handle the possibility that we need to treat the type as a type alias
-                match (has_type_alias_qualifier, &ty) {
-                    (Some(true), _) => {
+                match has_type_alias_qualifier {
+                    Some(true) => {
                         self.as_type_alias(name, TypeAliasStyle::LegacyExplicit, ty, expr, errors)
                     }
-                    (None, ty_ref)
-                        if Self::may_be_implicit_type_alias(ty_ref)
-                            && self.is_valid_annotation(expr, &self.error_swallower()) =>
+                    None if Self::may_be_implicit_type_alias(&ty)
+                        && self.has_valid_annotation_syntax(expr, &self.error_swallower()) =>
                     {
                         self.as_type_alias(name, TypeAliasStyle::LegacyImplicit, ty, expr, errors)
                     }

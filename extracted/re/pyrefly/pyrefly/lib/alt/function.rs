@@ -13,14 +13,17 @@ use itertools::Either;
 use pyrefly_python::dunder;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_types::type_var::Restriction;
+use pyrefly_types::callable::Params;
+use pyrefly_types::types::TParam;
 use pyrefly_types::types::TParams;
 use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::visit::Visit;
 use ruff_python_ast::Expr;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::StmtFunctionDef;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
+use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
@@ -128,6 +131,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         signatures: self
                             .extract_signatures(first.metadata.kind.as_func_id().func, acc, errors)
                             .mapped(|(_, sig)| sig),
+                        // When an overloaded function doesn't have a implementation, all decorators are present on the first overload:
+                        // https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
                         metadata: Box::new(first.metadata.clone()),
                     })
                 }
@@ -135,29 +140,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ty
             }
         } else {
-            let impl_is_deprecated = def.metadata.flags.is_deprecated;
             let mut acc = Vec::new();
-            let mut first = def.clone();
             while let Some(def) = self.step_pred(predecessor)
                 && def.metadata.flags.is_overload
             {
                 acc.push((def.id_range, def.ty.clone(), def.metadata.clone()));
-                first = def;
             }
             acc.reverse();
             if let Ok(defs) = Vec1::try_from_vec(acc) {
                 if defs.len() == 1 {
                     self.error(
                         errors,
-                        first.id_range,
+                        defs.first().0,
                         ErrorInfo::Kind(ErrorKind::InvalidOverload),
                         "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
                     defs.split_off_first().0.1
                 } else {
-                    // TODO: merge the metadata properly.
-                    let mut metadata = first.metadata.clone();
-                    metadata.flags.is_deprecated = impl_is_deprecated;
+                    let metadata = self.merge_metadata(&defs, &def);
                     let sigs =
                         self.extract_signatures(metadata.kind.as_func_id().func, defs, errors);
                     self.check_consistency(&sigs, def, errors);
@@ -167,7 +167,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     })
                 }
             } else {
-                first.ty.clone()
+                def.ty.clone()
             }
         }
     }
@@ -512,41 +512,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             metadata: metadata.clone(),
         })
         .forall(self.validated_tparams(def.range, tparams, errors));
+        ty = self.move_return_tparams(ty);
         for x in decorators.into_iter().rev() {
-            ty = match self.apply_decorator(*x, ty, errors) {
-                // Preserve function metadata, so things like method binding still work.
-                Type::Callable(c) => Type::Function(Box::new(Function {
-                    signature: *c,
-                    metadata: metadata.clone(),
-                })),
-                // Callback protocol. We convert it to a function so we can add function metadata.
-                Type::ClassType(cls)
-                    if self
-                        .get_metadata_for_class(cls.class_object())
-                        .is_protocol() =>
-                {
-                    let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
-                        if let Type::BoundMethod(m) = call_attr {
-                            let func = m.as_function();
-                            Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
-                        } else {
-                            None
-                        }
-                    });
-                    if let Some(mut call_attr) = call_attr {
-                        call_attr.transform_toplevel_func_metadata(|m| {
-                            *m = FuncMetadata {
-                                kind: FunctionKind::CallbackProtocol(Box::new(cls.clone())),
-                                flags: metadata.flags.clone(),
-                            };
-                        });
-                        call_attr
-                    } else {
-                        cls.to_type()
-                    }
-                }
-                t => t,
-            }
+            ty = self.apply_function_decorator(*x, ty, &metadata, errors);
         }
         Arc::new(DecoratedFunction {
             id_range: def.name.range,
@@ -555,6 +523,133 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             stub_or_impl,
             defining_cls,
         })
+    }
+
+    /// Check if `ty` is a generic function whose return type is a callable that contains type
+    /// parameters that appear nowhere else in `ty`'s signature. If so, we make the return type
+    /// generic in those type parameters and remove them from `ty`'s tparams. For example, we turn:
+    ///   [T1, T2](x: T1, y: T1) -> ((T2) -> T2)
+    /// into:
+    ///   [T1](x: T1, y: T1) -> ([T2](T2) -> T2)
+    fn move_return_tparams(&self, ty: Type) -> Type {
+        let returns_callable = |func: &Function| match &func.signature.ret {
+            Type::Callable(_) => true,
+            Type::Union(ts) => ts.iter().any(|t| matches!(t, Type::Callable(_))),
+            _ => false,
+        };
+        match ty {
+            Type::Forall(box Forall {
+                tparams,
+                body: Forallable::Function(mut func),
+            }) if returns_callable(&func) => {
+                let (param_tparams, ret_tparams) =
+                    self.split_tparams(&tparams, &func.signature.params);
+                if ret_tparams.is_empty() {
+                    Forallable::Function(func).forall(tparams)
+                } else {
+                    let make_tparams = |tparams: Vec<&TParam>| {
+                        Arc::new(TParams::new(tparams.into_iter().cloned().collect()))
+                    };
+                    // Recursively move type parameters in the return type so that
+                    // things like `[T]() -> (() -> (T) -> T)` get rewritten properly.
+                    let ret = self.move_return_tparams(self.make_generic_return(
+                        func.signature.ret,
+                        make_tparams(ret_tparams),
+                        &func.metadata.kind,
+                    ));
+                    func.signature.ret = ret;
+                    Forallable::Function(func).forall(make_tparams(param_tparams))
+                }
+            }
+            _ => ty,
+        }
+    }
+
+    /// Split `tparams` by whether they appear in `params`.
+    fn split_tparams<'b>(
+        &self,
+        tparams: &'b TParams,
+        params: &Params,
+    ) -> (Vec<&'b TParam>, Vec<&'b TParam>) {
+        let mut param_qs = SmallSet::new();
+        params.visit(&mut |ty| {
+            ty.collect_quantifieds(&mut param_qs);
+        });
+        tparams
+            .iter()
+            .partition(|tparam| param_qs.contains(&tparam.quantified))
+    }
+
+    /// Turn any top-level Type::Callable(callable) in `ret` into Forall[tparams, callable].
+    fn make_generic_return(&self, ret: Type, tparams: Arc<TParams>, kind: &FunctionKind) -> Type {
+        self.distribute_over_union(&ret, |ret| match ret {
+            Type::Callable(callable) => {
+                // Generate some dummy function metadata to turn this callable into a Forallable::Function.
+                // TODO(rechen): Add Forallable::Callable so we don't need dummy metadata.
+                let mut ret_id = kind.as_func_id();
+                ret_id.func = Name::new(format!("{}.<return>", ret_id.func));
+                let ret_metadata = FuncMetadata {
+                    kind: FunctionKind::Def(Box::new(ret_id)),
+                    flags: FuncFlags::default(),
+                };
+                Forallable::Function(Function {
+                    signature: (**callable).clone(),
+                    metadata: ret_metadata,
+                })
+                .forall(tparams.clone())
+            }
+            t => t.clone(),
+        })
+    }
+
+    fn apply_function_decorator(
+        &self,
+        decorator: Idx<Key>,
+        decoratee: Type,
+        metadata: &FuncMetadata,
+        errors: &ErrorCollector,
+    ) -> Type {
+        // Preserve function metadata, so things like method binding still work.
+        match self.apply_decorator(decorator, decoratee, errors) {
+            Type::Callable(c) => Type::Function(Box::new(Function {
+                signature: *c,
+                metadata: metadata.clone(),
+            })),
+            // Callback protocol. We convert it to a function so we can add function metadata.
+            Type::ClassType(cls)
+                if self
+                    .get_metadata_for_class(cls.class_object())
+                    .is_protocol() =>
+            {
+                let call_attr = self.instance_as_dunder_call(&cls).and_then(|call_attr| {
+                    if let Type::BoundMethod(m) = call_attr {
+                        let func = m.as_function();
+                        Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
+                    } else {
+                        None
+                    }
+                });
+                if let Some(mut call_attr) = call_attr {
+                    call_attr.transform_toplevel_func_metadata(|m| {
+                        *m = FuncMetadata {
+                            kind: FunctionKind::CallbackProtocol(Box::new(cls.clone())),
+                            flags: metadata.flags.clone(),
+                        };
+                    });
+                    call_attr
+                } else {
+                    cls.to_type()
+                }
+            }
+            // See `make_generic_return` - sometimes we manually convert a Callable return type
+            // into a Function with dummy metadata, which we need to overwrite.
+            mut t => {
+                t.transform_toplevel_func_metadata(&mut |m: &mut FuncMetadata| {
+                    *m = metadata.clone();
+                });
+                t
+            }
+        }
     }
 
     /// For a type guard function, validate whether it has at least one
@@ -696,17 +791,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
+    fn merge_metadata(
+        &self,
+        overloads: &Vec1<(TextRange, Type, FuncMetadata)>,
+        implementation: &DecoratedFunction,
+    ) -> FuncMetadata {
+        // `@dataclass_transform()` can be on any of the overloads or the implementation but not
+        // more than one: https://typing.python.org/en/latest/spec/dataclasses.html#specification.
+        let dataclass_transform_metadata = overloads
+            .iter()
+            .find_map(|(_, _, metadata)| metadata.flags.dataclass_transform_metadata.as_ref());
+        // All other decorators must be present on the implementation:
+        // https://typing.python.org/en/latest/spec/overload.html#invalid-overload-definitions.
+        let mut metadata = implementation.metadata.clone();
+        if dataclass_transform_metadata.is_some() {
+            metadata.flags.dataclass_transform_metadata = dataclass_transform_metadata.cloned();
+        }
+        metadata
+    }
+
     fn subst_function(&self, tparams: &TParams, func: Function) -> Function {
-        let mp = tparams.as_vec().map(|p| {
-            (
-                &p.quantified,
-                match p.restriction() {
-                    Restriction::Bound(t) => t.clone(),
-                    Restriction::Constraints(ts) => self.unions(ts.clone()),
-                    Restriction::Unrestricted => self.stdlib.object().clone().to_type(),
-                },
-            )
-        });
+        let mp = tparams
+            .as_vec()
+            .map(|p| (&p.quantified, p.restriction().as_type(self.stdlib)));
         match Type::Function(Box::new(func)).subst(&mp.iter().map(|(k, v)| (*k, v)).collect()) {
             Type::Function(func) => *func,
             // We passed a Function in, we must get a Function out

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-01T20:12:28.715481                                                            #
+# Generated on 2025-08-04T19:06:54.494478                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ class WorkerInfoDict(TypedDict, total=True):
     pending: typing.Dict[str, typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.WorkerStatus]]
     running: typing.Dict[str, typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.WorkerStatus]]
     crashlooping: typing.Dict[str, typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.WorkerStatus]]
+    failed: typing.Dict[str, typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.WorkerStatus]]
 
 class CurrentWorkerInfo(TypedDict, total=True):
     pending: int

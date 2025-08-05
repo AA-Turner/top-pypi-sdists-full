@@ -156,6 +156,30 @@ class TestSnippetChooserBlockWithIcon(TestCase):
         # It should use the icon defined in the FullFeaturedSnippetViewSet
         self.assertEqual(js_args[2]["icon"], "cog")
 
+    def test_adapt_with_explicit_icon(self):
+        block = SnippetChooserBlock(FullFeaturedSnippet, icon="thumbtack")
+
+        block.set_name("test_snippetchooserblock")
+        js_args = FieldBlockAdapter().js_args(block)
+
+        self.assertEqual(js_args[2]["icon"], "thumbtack")
+
+    def test_adapt_with_explicit_default_icon(self):
+        block = SnippetChooserBlock(FullFeaturedSnippet, icon="snippet")
+
+        block.set_name("test_snippetchooserblock")
+        js_args = FieldBlockAdapter().js_args(block)
+
+        self.assertEqual(js_args[2]["icon"], "snippet")
+
+    def test_adapt_with_no_icon_specified_on_block_or_viewset(self):
+        block = SnippetChooserBlock(Advert)
+
+        block.set_name("test_snippetchooserblock")
+        js_args = FieldBlockAdapter().js_args(block)
+
+        self.assertEqual(js_args[2]["icon"], "snippet")
+
     def test_deconstruct(self):
         block = SnippetChooserBlock(FullFeaturedSnippet, required=False)
         path, args, kwargs = block.deconstruct()
@@ -761,8 +785,8 @@ class TestListViewWithCustomColumns(BaseSnippetViewSetTests):
             response,
             """
             <td>
-                <svg class="icon icon-success default w-text-positive-100" aria-hidden="true">
-                    <use href="#icon-success"></use>
+                <svg class="icon icon-check default w-text-positive-100" aria-hidden="true">
+                    <use href="#icon-check"></use>
                 </svg>
                 <span class="w-sr-only">True</span>
             </td>
@@ -774,8 +798,8 @@ class TestListViewWithCustomColumns(BaseSnippetViewSetTests):
             response,
             """
             <td>
-                <svg class="icon icon-error default w-text-critical-100" aria-hidden="true">
-                    <use href="#icon-error"></use>
+                <svg class="icon icon-cross default w-text-text-error" aria-hidden="true">
+                    <use href="#icon-cross"></use>
                 </svg>
                 <span class="w-sr-only">False</span>
             </td>

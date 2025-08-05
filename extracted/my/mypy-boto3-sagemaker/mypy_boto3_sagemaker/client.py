@@ -114,6 +114,8 @@ from .type_defs import (
     AddTagsOutputTypeDef,
     AssociateTrialComponentRequestTypeDef,
     AssociateTrialComponentResponseTypeDef,
+    AttachClusterNodeVolumeRequestTypeDef,
+    AttachClusterNodeVolumeResponseTypeDef,
     BatchDeleteClusterNodesRequestTypeDef,
     BatchDeleteClusterNodesResponseTypeDef,
     BatchDescribeModelPackageInputTypeDef,
@@ -450,6 +452,8 @@ from .type_defs import (
     DescribeWorkforceResponseTypeDef,
     DescribeWorkteamRequestTypeDef,
     DescribeWorkteamResponseTypeDef,
+    DetachClusterNodeVolumeRequestTypeDef,
+    DetachClusterNodeVolumeResponseTypeDef,
     DisassociateTrialComponentRequestTypeDef,
     DisassociateTrialComponentResponseTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -861,6 +865,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/associate_trial_component.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#associate_trial_component)
+        """
+
+    def attach_cluster_node_volume(
+        self, **kwargs: Unpack[AttachClusterNodeVolumeRequestTypeDef]
+    ) -> AttachClusterNodeVolumeResponseTypeDef:
+        """
+        Attaches your Amazon Elastic Block Store (Amazon EBS) volume to a node in your
+        EKS-orchestrated HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/attach_cluster_node_volume.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#attach_cluster_node_volume)
         """
 
     def batch_delete_cluster_nodes(
@@ -2785,6 +2800,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_workteam.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_workteam)
+        """
+
+    def detach_cluster_node_volume(
+        self, **kwargs: Unpack[DetachClusterNodeVolumeRequestTypeDef]
+    ) -> DetachClusterNodeVolumeResponseTypeDef:
+        """
+        Detaches your Amazon Elastic Block Store (Amazon EBS) volume from a node in
+        your EKS-orchestrated SageMaker HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/detach_cluster_node_volume.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#detach_cluster_node_volume)
         """
 
     def disable_sagemaker_servicecatalog_portfolio(self) -> Dict[str, Any]:

@@ -270,8 +270,7 @@ def generate_table_name(entity_name: str = None,
         # Sometime we create GenericCrudMl with no parameters
         # print("Could not generate table name", file=sys.stderr)
         table_name = None
-    table_name_with_env = add_env_to_suffix(table_name)
-    return table_name_with_env
+    return table_name
 
 
 def generate_view_name(table_name: Optional[str]) -> Optional[str]:
@@ -279,30 +278,7 @@ def generate_view_name(table_name: Optional[str]) -> Optional[str]:
         view_name = table_name.replace("_table", "_view")
     else:
         view_name = table_name
-    view_name_with_env = add_env_to_suffix(view_name)
-    return view_name_with_env
-
-def add_env_to_suffix(name: Optional[str]) -> Optional[str]:
-    """Add the environment name to the suffix of the name, 
-    only for specific table names using match-case.
-    """
-    if name is None:
-            return None
-
-    env_name = get_environment_name()
-    if not env_name:
-        return name
-    
-    match name:
-        case "profile_table" | "contact_table" | "user_table" | "profile_view" | "contact_view" | "user_view":
-            for suffix in ["_table", "_view"]:
-                if name.endswith(suffix):
-                    base = name[: -len(suffix)]
-                    if not name.endswith(f"_{env_name}{suffix}"):
-                        return f"{base}_{env_name}{suffix}"
-    
-    return name
-
+    return view_name
 
 
 def generate_id_column_name(table_name: Optional[str]) -> Optional[str]:

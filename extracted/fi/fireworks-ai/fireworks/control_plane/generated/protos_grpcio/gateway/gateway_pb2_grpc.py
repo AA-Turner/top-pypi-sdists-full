@@ -42,7 +42,7 @@ from . import supervised_fine_tuning_job_pb2 as gateway_dot_supervised__fine__tu
 from . import user_pb2 as gateway_dot_user__pb2
 from . import workload_pb2 as gateway_dot_workload__pb2
 from . import workload_shape_pb2 as gateway_dot_workload__shape__pb2
-from ..google.longrunning import operations_pb2 as google_dot_longrunning_dot_operations__pb2
+from google.longrunning import operations_pb2 as google_dot_longrunning_dot_operations__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 GRPC_GENERATED_VERSION = '1.71.0'
@@ -133,6 +133,11 @@ class GatewayStub(object):
                 '/gateway.Gateway/GetTotalHistoricalSpend',
                 request_serializer=gateway_dot_billing__pb2.GetTotalHistoricalSpendRequest.SerializeToString,
                 response_deserializer=gateway_dot_billing__pb2.GetTotalHistoricalSpendResponse.FromString,
+                _registered_method=True)
+        self.GetAccountUsage = channel.unary_unary(
+                '/gateway.Gateway/GetAccountUsage',
+                request_serializer=gateway_dot_billing__pb2.GetAccountUsageRequest.SerializeToString,
+                response_deserializer=gateway_dot_billing__pb2.AccountUsage.FromString,
                 _registered_method=True)
         self.CreateBatchJob = channel.unary_unary(
                 '/gateway.Gateway/CreateBatchJob',
@@ -1143,6 +1148,13 @@ class GatewayServicer(object):
 
     def GetTotalHistoricalSpend(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetAccountUsage(self, request, context):
+        """Get account usage (serverless and on-demand)
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -2547,6 +2559,11 @@ def add_GatewayServicer_to_server(servicer, server):
                     request_deserializer=gateway_dot_billing__pb2.GetTotalHistoricalSpendRequest.FromString,
                     response_serializer=gateway_dot_billing__pb2.GetTotalHistoricalSpendResponse.SerializeToString,
             ),
+            'GetAccountUsage': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetAccountUsage,
+                    request_deserializer=gateway_dot_billing__pb2.GetAccountUsageRequest.FromString,
+                    response_serializer=gateway_dot_billing__pb2.AccountUsage.SerializeToString,
+            ),
             'CreateBatchJob': grpc.unary_unary_rpc_method_handler(
                     servicer.CreateBatchJob,
                     request_deserializer=gateway_dot_batch__job__pb2.CreateBatchJobRequest.FromString,
@@ -3802,6 +3819,33 @@ class Gateway(object):
             '/gateway.Gateway/GetTotalHistoricalSpend',
             gateway_dot_billing__pb2.GetTotalHistoricalSpendRequest.SerializeToString,
             gateway_dot_billing__pb2.GetTotalHistoricalSpendResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetAccountUsage(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/gateway.Gateway/GetAccountUsage',
+            gateway_dot_billing__pb2.GetAccountUsageRequest.SerializeToString,
+            gateway_dot_billing__pb2.AccountUsage.FromString,
             options,
             channel_credentials,
             insecure,

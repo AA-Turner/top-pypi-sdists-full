@@ -14,7 +14,6 @@ from joblib import Parallel, delayed, parallel_config
 
 from singer_sdk.exceptions import RecordsWithoutSchemaException
 from singer_sdk.helpers._batch import BaseBatchFileEncoding
-from singer_sdk.helpers._classproperty import classproperty
 from singer_sdk.helpers.capabilities import (
     ACTIVATE_VERSION_CONFIG,
     ADD_RECORD_METADATA_CONFIG,
@@ -29,7 +28,7 @@ from singer_sdk.helpers.capabilities import (
     TargetCapabilities,
 )
 from singer_sdk.io_base import SingerReader
-from singer_sdk.plugin_base import BaseSingerReader
+from singer_sdk.plugin_base import BaseSingerReader, _ConfigInput
 
 if t.TYPE_CHECKING:
     from collections.abc import Iterable
@@ -62,6 +61,14 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
 
     message_reader_class: type[GenericSingerReader] = SingerReader
     """The message reader class to use for reading messages."""
+
+    #: A list of plugin capabilities supported by this target.
+    capabilities: t.ClassVar[list[CapabilitiesEnum]] = [
+        PluginCapabilities.ABOUT,
+        PluginCapabilities.STREAM_MAPS,
+        PluginCapabilities.FLATTENING,
+        TargetCapabilities.VALIDATE_RECORDS,
+    ]
 
     def __init__(
         self,
@@ -104,20 +111,6 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
 
         if setup_mapper:
             self.setup_mapper()
-
-    @classproperty
-    def capabilities(self) -> list[CapabilitiesEnum]:  # noqa: PLR6301
-        """Get target capabilities.
-
-        Returns:
-            A list of capabilities supported by this target.
-        """
-        return [
-            PluginCapabilities.ABOUT,
-            PluginCapabilities.STREAM_MAPS,
-            PluginCapabilities.FLATTENING,
-            TargetCapabilities.VALIDATE_RECORDS,
-        ]
 
     @property
     def max_parallelism(self) -> int:
@@ -564,7 +557,7 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
         *,
         about: bool = False,
         about_format: str | None = None,
-        config: tuple[str, ...] = (),
+        config: _ConfigInput | None = None,
         file_input: t.IO[str] | None = None,
     ) -> None:
         """Invoke the target.
@@ -578,12 +571,12 @@ class Target(BaseSingerReader, metaclass=abc.ABCMeta):
         """
         super().invoke(about=about, about_format=about_format)
         cls.print_version(print_fn=cls.logger.info)
-        config_files, parse_env_config = cls.config_from_cli_args(*config)
+        config = config or _ConfigInput()
 
         target = cls(
-            config=config_files,  # type: ignore[arg-type]
+            config=config.config,
             validate_config=True,
-            parse_env_config=parse_env_config,
+            parse_env_config=config.parse_env,
         )
         target.listen(file_input)
 
@@ -656,6 +649,14 @@ class SQLTarget(Target):
 
     default_sink_class: type[SQLSink]
 
+    #: A list of capabilities supported by this target.
+    capabilities: t.ClassVar[list[CapabilitiesEnum]] = [
+        *Target.capabilities,
+        PluginCapabilities.ACTIVATE_VERSION,
+        TargetCapabilities.TARGET_SCHEMA,
+        TargetCapabilities.HARD_DELETE,
+    ]
+
     @property
     def target_connector(self) -> SQLConnector:
         """The connector object.
@@ -668,24 +669,6 @@ class SQLTarget(Target):
                 dict(self.config),
             )
         return self._target_connector
-
-    @classproperty
-    def capabilities(self) -> list[CapabilitiesEnum]:
-        """Get target capabilities.
-
-        Returns:
-            A list of capabilities supported by this target.
-        """
-        sql_target_capabilities: list[CapabilitiesEnum] = super().capabilities
-        sql_target_capabilities.extend(
-            [
-                PluginCapabilities.ACTIVATE_VERSION,
-                TargetCapabilities.TARGET_SCHEMA,
-                TargetCapabilities.HARD_DELETE,
-            ]
-        )
-
-        return sql_target_capabilities
 
     @classmethod
     def append_builtin_config(cls: type[SQLTarget], config_jsonschema: dict) -> None:

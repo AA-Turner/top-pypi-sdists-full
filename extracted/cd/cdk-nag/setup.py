@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-nag",
-    "version": "2.36.50",
+    "version": "2.36.54",
     "description": "Check CDK v2 applications for best practices using a combination on available rule packs.",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-nag.git",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_nag._jsii": [
-            "cdk-nag@2.36.50.jsii.tgz"
+            "cdk-nag@2.36.54.jsii.tgz"
         ],
         "cdk_nag": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": "~=3.9",
     "install_requires": [
-        "aws-cdk-lib>=2.156.0, <3.0.0",
+        "aws-cdk-lib>=2.176.0, <3.0.0",
         "constructs>=10.0.5, <11.0.0",
         "jsii>=1.113.0, <2.0.0",
         "publication>=0.0.3",

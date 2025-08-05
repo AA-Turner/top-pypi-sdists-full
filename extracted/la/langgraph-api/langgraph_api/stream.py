@@ -229,16 +229,25 @@ async def astream_state(
                                 ),
                                 [message_chunk_to_message(messages[msg.id])],
                             )
-                    elif mode in stream_mode or (
-                        mode == "updates"
-                        and isinstance(chunk, dict)
-                        and "__interrupt__" in chunk
-                        and only_interrupt_updates
-                    ):
+                    elif mode in stream_mode:
                         if subgraphs and ns:
                             yield f"{mode}|{'|'.join(ns)}", chunk
                         else:
                             yield mode, chunk
+                    elif (
+                        mode == "updates"
+                        and isinstance(chunk, dict)
+                        and "__interrupt__" in chunk
+                        and len(chunk["__interrupt__"]) > 0
+                        and only_interrupt_updates
+                    ):
+                        # We always want to return interrupt events by default.
+                        # If updates aren't specified as a stream mode, we return these as values events.
+                        # If the interrupt doesn't have any actions (e.g. interrupt before or after a node is specified), we don't return the interrupt at all today.
+                        if subgraphs and ns:
+                            yield f"values|{'|'.join(ns)}", chunk
+                        else:
+                            yield "values", chunk
                     # --- end shared logic with astream ---
                 elif "events" in stream_mode:
                     yield "events", event
@@ -300,16 +309,25 @@ async def astream_state(
                             ),
                             [message_chunk_to_message(messages[msg.id])],
                         )
-                elif mode in stream_mode or (
-                    mode == "updates"
-                    and isinstance(chunk, dict)
-                    and "__interrupt__" in chunk
-                    and only_interrupt_updates
-                ):
+                elif mode in stream_mode:
                     if subgraphs and ns:
                         yield f"{mode}|{'|'.join(ns)}", chunk
                     else:
                         yield mode, chunk
+                elif (
+                    mode == "updates"
+                    and isinstance(chunk, dict)
+                    and "__interrupt__" in chunk
+                    and len(chunk["__interrupt__"]) > 0
+                    and only_interrupt_updates
+                ):
+                    # We always want to return interrupt events by default.
+                    # If updates aren't specified as a stream mode, we return these as values events.
+                    # If the interrupt doesn't have any actions (e.g. interrupt before or after a node is specified), we don't return the interrupt at all today.
+                    if subgraphs and ns:
+                        yield "values|{'|'.join(ns)}", chunk
+                    else:
+                        yield "values", chunk
                 # --- end shared logic with astream_events ---
     if is_remote_pregel:
         # increment the remote runs

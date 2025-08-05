@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: qwak-core
-Version: 0.4.299
+Version: 0.4.300
 Summary: Qwak Core contains the necessary objects and communication tools for using the Qwak Platform
 License: Apache-2.0
 Keywords: mlops,ml,deployment,serving,model

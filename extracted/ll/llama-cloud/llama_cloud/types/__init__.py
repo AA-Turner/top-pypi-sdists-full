@@ -148,10 +148,15 @@ from .failure_handling_config import FailureHandlingConfig
 from .file import File
 from .file_classification import FileClassification
 from .file_count_by_status_response import FileCountByStatusResponse
+from .file_create import FileCreate
+from .file_create_permission_info_value import FileCreatePermissionInfoValue
+from .file_create_resource_info_value import FileCreateResourceInfoValue
 from .file_data import FileData
+from .file_filter import FileFilter
 from .file_id_presigned_url import FileIdPresignedUrl
 from .file_parse_public import FileParsePublic
 from .file_permission_info_value import FilePermissionInfoValue
+from .file_query_response import FileQueryResponse
 from .file_resource_info_value import FileResourceInfoValue
 from .file_store_info_response import FileStoreInfoResponse
 from .file_store_info_response_status import FileStoreInfoResponseStatus
@@ -193,6 +198,8 @@ from .job_record_with_usage_metrics import JobRecordWithUsageMetrics
 from .l_lama_parse_transform_config import LLamaParseTransformConfig
 from .legacy_parse_job_config import LegacyParseJobConfig
 from .license_info_response import LicenseInfoResponse
+from .llama_extract_mode_availability import LlamaExtractModeAvailability
+from .llama_extract_mode_availability_status import LlamaExtractModeAvailabilityStatus
 from .llama_extract_settings import LlamaExtractSettings
 from .llama_index_core_base_llms_types_chat_message import LlamaIndexCoreBaseLlmsTypesChatMessage
 from .llama_index_core_base_llms_types_chat_message_blocks_item import (
@@ -530,10 +537,15 @@ __all__ = [
     "File",
     "FileClassification",
     "FileCountByStatusResponse",
+    "FileCreate",
+    "FileCreatePermissionInfoValue",
+    "FileCreateResourceInfoValue",
     "FileData",
+    "FileFilter",
     "FileIdPresignedUrl",
     "FileParsePublic",
     "FilePermissionInfoValue",
+    "FileQueryResponse",
     "FileResourceInfoValue",
     "FileStoreInfoResponse",
     "FileStoreInfoResponseStatus",
@@ -573,6 +585,8 @@ __all__ = [
     "LLamaParseTransformConfig",
     "LegacyParseJobConfig",
     "LicenseInfoResponse",
+    "LlamaExtractModeAvailability",
+    "LlamaExtractModeAvailabilityStatus",
     "LlamaExtractSettings",
     "LlamaIndexCoreBaseLlmsTypesChatMessage",
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem",

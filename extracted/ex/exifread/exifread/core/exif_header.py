@@ -5,11 +5,10 @@ Base classes.
 import re
 import struct
 from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
-from xml.dom.minidom import parseString
-from xml.parsers.expat import ExpatError
 
 from exifread.core.exceptions import ExifError
 from exifread.core.ifd_tag import IfdTag
+from exifread.core.xmp import xmp_bytes_to_str
 from exifread.exif_log import get_logger
 from exifread.tags import (
     DEFAULT_STOP_TAG,
@@ -26,7 +25,16 @@ from exifread.tags.fields import (
     SIGNED_FIELD_TYPES,
     FieldType,
 )
-from exifread.tags.makernote import apple, canon, casio, dji, fujifilm, nikon, olympus
+from exifread.tags.makernote import (
+    apple,
+    canon,
+    casio,
+    dji,
+    fujifilm,
+    nikon,
+    olympus,
+    sony,
+)
 from exifread.utils import Ratio
 
 logger = get_logger()
@@ -88,9 +96,11 @@ class ExifHeader:
         buf = self.file_handle.read(length)
 
         if buf:
-            # https://github.com/ianare/exif-py/pull/158
-            # had to revert as this certain fields to be empty
-            # please provide test images
+            # Make sure the buffer is the proper length.
+            # Allows bypassing of corrupt slices.
+            if len(buf) != length:
+                logger.warning("Unexpected slice length: %d", len(buf))
+                return 0
             return struct.unpack(fmt, buf)[0]
         return 0
 
@@ -550,6 +560,12 @@ class ExifHeader:
             )
             return
 
+        if "SONY" in make:
+            self.dump_ifd(
+                ifd=note.field_offset, ifd_name="MakerNote", tag_dict=sony.TAGS
+            )
+            return
+
         # Fujifilm
         if make == "FUJIFILM":
             # bug: everything else is "Motorola" endian, but the MakerNote
@@ -624,27 +640,31 @@ class ExifHeader:
 
         See http://www.burren.cx/david/canon.html by David Burren
         """
-        for i in range(1, len(value)):
-            tag = mn_tags.get(i, ("Unknown", None))
-            name = tag[0]
-            if tag[1] is not None:
-                if callable(tag[1]):
-                    val = tag[1](value[i])
-                elif isinstance(tag[1], dict):
-                    val = tag[1].get(value[i], "Unknown")
+        for tag_idx in range(1, len(value)):
+            tag_name, tag_format = mn_tags.get(tag_idx, ("Unknown", None))
+            if tag_format is not None:
+                if callable(tag_format):
+                    val = tag_format(value[tag_idx])
+                elif isinstance(tag_format, dict):
+                    val = tag_format.get(value[tag_idx], "Unknown")
                 else:
-                    raise ExifError(f"Invalid tag type for Canon: {type(tag[1])}")
+                    raise ExifError(f"Invalid tag type for Canon: {type(tag_format)}")
             else:
-                val = value[i]
+                val = value[tag_idx]
             try:
-                logger.debug(" %s %s %s", i, name, hex(value[i]))
+                logger.debug(" %s %s %s", tag_idx, tag_name, hex(value[tag_idx]))
             except TypeError:
-                logger.debug(" %s %s %s", i, name, value[i])
+                logger.debug(" %s %s %s", tag_idx, tag_name, value[tag_idx])
 
             # It's not a real IFD Tag, but we fake one to make everybody happy.
             # This will have a "proprietary" type
-            self.tags["MakerNote " + name] = IfdTag(
-                str(val), 0, FieldType.PROPRIETARY, val, 0, 0
+            self.tags["MakerNote " + tag_name] = IfdTag(
+                printable=str(val),
+                tag=0,
+                field_type=FieldType.PROPRIETARY,
+                values=val,
+                field_offset=0,
+                field_length=0,
             )
 
     def _canon_decode_camera_info(self, camera_info_tag: IfdTag) -> None:
@@ -652,9 +672,9 @@ class ExifHeader:
         Decode the variable length encoded camera info section.
         """
         model_tag: Optional[IfdTag] = self.tags.get("Image Model", None)
-        if not model_tag:
+        if model_tag is None:
             return
-        model = str(model_tag.values)
+        model = model_tag.printable
 
         for model_name_re, tag_desc in canon.CAMERA_INFO_MODEL_MAP.items():
             if re.search(model_name_re, model):
@@ -672,47 +692,28 @@ class ExifHeader:
 
         # Look for each data value and decode it appropriately.
         for offset, tag in camera_info_tags.items():
-            tag_format = tag[1]
+            tag_name, tag_format, tag_func = tag
             tag_size = struct.calcsize(tag_format)
             if len(camera_info) < offset + tag_size:
                 continue
             packed_tag_value = camera_info[offset : offset + tag_size]
-            tag_value = struct.unpack(tag_format, packed_tag_value)[0]
+            tag_value = tag_func(struct.unpack(tag_format, packed_tag_value)[0])
 
-            tag_name = tag[0]
-            if len(tag) > 2:
-                # pylint: disable=no-member
-                if callable(tag[2]):
-                    tag_value = tag[2](tag_value)
-                else:
-                    tag_value = tag[2].get(tag_value, tag_value)
             logger.debug(" %s %s", tag_name, tag_value)
 
             self.tags["MakerNote " + tag_name] = IfdTag(
-                str(tag_value), 0, FieldType.PROPRIETARY, tag_value, 0, 0
+                printable=str(tag_value),
+                tag=0,
+                field_type=FieldType.PROPRIETARY,
+                values=tag_value,
+                field_offset=0,
+                field_length=0,
             )
 
     def parse_xmp(self, xmp_bytes: bytes):
         """Adobe's Extensible Metadata Platform, just dump the pretty XML."""
 
         logger.debug("XMP cleaning data")
-
-        # Pray that it's encoded in UTF-8
-        # TODO: allow user to specify encoding
-        xmp_string = xmp_bytes.decode("utf-8")
-
-        try:
-            pretty = parseString(xmp_string).toprettyxml()
-        except ExpatError:
-            logger.warning("XMP: XML is not well formed")
-            self.tags["Image ApplicationNotes"] = IfdTag(
-                xmp_string, 0, FieldType.BYTE, xmp_bytes, 0, 0
-            )
-            return
-        cleaned = []
-        for line in pretty.splitlines():
-            if line.strip():
-                cleaned.append(line)
         self.tags["Image ApplicationNotes"] = IfdTag(
-            "\n".join(cleaned), 0, FieldType.BYTE, xmp_bytes, 0, 0
+            xmp_bytes_to_str(xmp_bytes), 0, FieldType.BYTE, xmp_bytes, 0, 0
         )

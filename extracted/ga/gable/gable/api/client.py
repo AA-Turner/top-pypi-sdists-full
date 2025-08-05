@@ -482,6 +482,6 @@ def parse_check_data_asset_response(response) -> CheckDataAssetResponse:
     response_type = response["responseType"]
     if response_type in response_mapping:
         return CheckDataAssetResponse(
-            __root__=parse_obj_as(response_mapping[response_type], response)
+            root=parse_obj_as(response_mapping[response_type], response)
         )
     raise ValueError(f"Unknown response type: {response_type} in response: {response}")

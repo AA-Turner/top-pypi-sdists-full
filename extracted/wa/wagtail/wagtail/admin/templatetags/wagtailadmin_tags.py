@@ -13,11 +13,11 @@ from django.shortcuts import resolve_url as resolve_url_func
 from django.template import Context
 from django.template.base import token_kwargs
 from django.template.defaultfilters import stringfilter
-from django.templatetags.static import static
 from django.urls import reverse
 from django.urls.exceptions import NoReverseMatch
 from django.utils import timezone
 from django.utils.encoding import force_str
+from django.utils.formats import get_format
 from django.utils.html import avoid_wrapping, json_script
 from django.utils.http import urlencode
 from django.utils.safestring import mark_safe
@@ -32,7 +32,9 @@ from wagtail.admin.localization import get_js_translation_strings
 from wagtail.admin.menu import admin_menu
 from wagtail.admin.search import admin_search_areas
 from wagtail.admin.staticfiles import versioned_static as versioned_static_func
+from wagtail.admin.telepath import JSContext
 from wagtail.admin.ui import sidebar
+from wagtail.admin.ui.menus import MenuItem
 from wagtail.admin.utils import (
     get_admin_base_url,
     get_keyboard_key_labels_from_request,
@@ -42,7 +44,8 @@ from wagtail.admin.utils import (
 )
 from wagtail.admin.views.bulk_action.registry import bulk_action_registry
 from wagtail.admin.views.pages.utils import get_breadcrumbs_items_for_page
-from wagtail.admin.widgets import Button, ButtonWithDropdown, PageListingButton
+from wagtail.admin.widgets import Button, ButtonWithDropdown
+from wagtail.admin.widgets.button import ListingButton
 from wagtail.coreutils import (
     camelcase_to_underscore,
     get_content_type_label,
@@ -54,7 +57,6 @@ from wagtail.models import (
     Page,
     PageViewRestriction,
 )
-from wagtail.telepath import JSContext
 from wagtail.users.utils import get_gravatar_url
 
 register = template.Library()
@@ -421,9 +423,18 @@ def page_listing_buttons(context, page, user, next_url=None):
     next_url = next_url or context["request"].path
     button_hooks = hooks.get_hooks("register_page_listing_buttons")
 
-    buttons = []
+    hook_buttons = []
     for hook in button_hooks:
-        buttons.extend(hook(page=page, next_url=next_url, user=user))
+        hook_buttons.extend(hook(page=page, next_url=next_url, user=user))
+
+    buttons = []
+    for button in hook_buttons:
+        # Allow hooks to return either Button or MenuItem instances
+        if isinstance(button, MenuItem):
+            if button.is_shown(user):
+                buttons.append(ListingButton.from_menu_item(button))
+        elif button.show:
+            buttons.append(button)
 
     buttons.sort()
 
@@ -440,13 +451,21 @@ def page_header_buttons(context, page, user, view_name):
     next_url = context["request"].path
     button_hooks = hooks.get_hooks("register_page_header_buttons")
 
-    buttons = []
+    hook_buttons = []
     for hook in button_hooks:
-        buttons.extend(
+        hook_buttons.extend(
             hook(page=page, user=user, next_url=next_url, view_name=view_name)
         )
 
-    buttons = [b for b in buttons if b.show]
+    buttons = []
+    for button in hook_buttons:
+        # Allow hooks to return either Button or MenuItem instances
+        if isinstance(button, MenuItem):
+            if button.is_shown(user):
+                buttons.append(Button.from_menu_item(button))
+        elif button.show:
+            buttons.append(button)
+
     buttons.sort()
     return {
         "buttons": buttons,
@@ -468,7 +487,7 @@ def bulk_action_choices(context, app_label, model_name):
         next_url = context["request"].path
 
     bulk_action_buttons = [
-        PageListingButton(
+        ListingButton(
             action.display_name,
             reverse(
                 "wagtail_bulk_action", args=[app_label, model_name, action.action_type]
@@ -614,7 +633,7 @@ def admin_theme_classname(context):
     """
     Retrieves the theme name for the current user.
     """
-    user = context["request"].user
+    user = getattr(context.get("request"), "user", None)
     theme_name = (
         user.wagtail_userprofile.theme
         if hasattr(user, "wagtail_userprofile")
@@ -648,12 +667,13 @@ def admin_theme_color_scheme(context):
 
 
 @register.simple_tag
-def notification_static(path):
+def absolute_static(path):
     """
-    Variant of the {% static %}` tag for use in notification emails - tries to form
-    a full URL using WAGTAILADMIN_BASE_URL if the static URL isn't already a full URL.
+    Variant of the {% versioned_static %}` tag for use in external systems, such as
+    notification emails. Tries to form a full URL using WAGTAILADMIN_BASE_URL
+    if the static URL isn't already a full URL.
     """
-    return urljoin(base_url_setting(), static(path))
+    return urljoin(base_url_setting(), versioned_static_func(path))
 
 
 @register.simple_tag
@@ -909,6 +929,14 @@ def wagtail_config(context):
     if locale := context.get("locale"):
         config["ACTIVE_CONTENT_LOCALE"] = locale.language_code
 
+    user = getattr(context.get("request"), "user", None)
+
+    config["KEYBOARD_SHORTCUTS_ENABLED"] = (
+        user.wagtail_userprofile.keyboard_shortcuts
+        if hasattr(user, "wagtail_userprofile")
+        else True
+    )
+
     return config
 
 
@@ -950,28 +978,33 @@ def fragment(parser, token):
     Store a template fragment as a variable.
 
     Usage:
+
+    .. code-block:: html+django
+
         {% fragment as header_title %}
             {% blocktrans trimmed %}Welcome to the {{ site_name }} Wagtail CMS{% endblocktrans %}
         {% endfragment %}
+        {% include "my/custom/header.html" with title=header_title %}
 
-    Copy-paste of slippers’ fragment template tag.
-    See https://github.com/mixxorz/slippers/blob/254c720e6bb02eb46ae07d104863fce41d4d3164/slippers/templatetags/slippers.py#L173.
+    Adopted from `slippers' fragment template tag <https://mitchel.me/slippers/docs/template-tags-filters/#fragment>`_ with a few tweaks.
 
     To strip leading and trailing whitespace produced in the fragment, use the
-    `stripped` option. This is useful if you need to check if the resulting
+    ``stripped`` option. This is useful if you need to check if the resulting
     fragment is empty (after leading and trailing spaces are removed):
+
+    .. code-block:: html+django
 
         {% fragment stripped as recipient %}
             {{ title }} {{ first_name }} {{ last_name }}
-        {% endfragment }
+        {% endfragment %}
         {% if recipient %}
             Recipient: {{ recipient }}
         {% endif %}
 
     Note that the stripped option only strips leading and trailing spaces, unlike
-    {% blocktrans trimmed %} that also does line-by-line stripping. This is because
+    ``{% blocktrans trimmed %}`` that also does line-by-line stripping. This is because
     the fragment may contain HTML tags that are sensitive to whitespace, such as
-    <pre> and <code>.
+    ``<pre>`` and ``<code>``.
     """
     error_message = "The syntax for fragment is {% fragment as variable_name %}"
 
@@ -1141,6 +1174,7 @@ def formattedfield(
     show_add_comment_button=False,
     label_text=None,
     error_message_id=None,
+    wrapper_id=None,
 ):
     """
     Renders a form field in standard Wagtail admin layout.
@@ -1157,6 +1191,7 @@ def formattedfield(
     - `show_add_comment_button` - Display a comment control within Wagtail forms.
     - `label_text` - Manually set this if the field’s HTML is hard-coded.
     - `error_message_id` - ID of the error message container element.
+    - `wrapper_id` - ID of the overall wrapper element.
     """
 
     label_for = id_for_label or (field and field.id_for_label) or ""
@@ -1168,6 +1203,7 @@ def formattedfield(
         "icon": icon,
         "show_add_comment_button": show_add_comment_button,
         "error_message_id": error_message_id,
+        "wrapper_id": wrapper_id,
         "label_for": label_for,
         "label_id": f"{label_for}-label" if label_for else "",
         "label_text": label_text or (field and field.label) or "",
@@ -1227,6 +1263,7 @@ def formattedfieldfromcontext(context):
         "show_add_comment_button",
         "label_text",
         "error_message_id",
+        "wrapper_id",
     ):
         if arg in context:
             kwargs[arg] = context[arg]
@@ -1309,15 +1346,11 @@ def keyboard_shortcuts_dialog(context):
             ("actions-model", _("Actions")): [
                 (_("Save changes"), f"{KEYS.MOD} + s"),
                 (_("Preview"), f"{KEYS.MOD} + p"),
-                (
-                    _("Add or show comments"),
-                    f"{KEYS.CTRL} + {KEYS.ALT} + m",
-                ),
-            ]
-            if comments_enabled
-            else [
-                (_("Save changes"), f"{KEYS.MOD} + s"),
-                (_("Preview"), f"{KEYS.MOD} + p"),
+                (_("Toggle sidebar"), "["),
+                (_("Toggle minimap"), "]"),
+                (_("Add or show comments"), f"{KEYS.CTRL} + {KEYS.ALT} + m")
+                if comments_enabled
+                else None,
             ],
             ("rich-text-content", _("Text content")): [
                 (_("Insert or edit a link"), f"{KEYS.MOD} + k")
@@ -1337,9 +1370,9 @@ def keyboard_shortcuts_dialog(context):
 @register.inclusion_tag("wagtailadmin/shared/human_readable_date.html")
 def human_readable_date(date, description=None, placement="top"):
     if isinstance(date, datetime.datetime):
-        tooltip_format = getattr(settings, "DATETIME_FORMAT", "N j, Y, P")
+        tooltip_format = get_format("DATETIME_FORMAT") or "N j, Y, P"
     elif isinstance(date, datetime.date):
-        tooltip_format = getattr(settings, "DATE_FORMAT", "N j, Y")
+        tooltip_format = get_format("DATE_FORMAT") or "N j, Y"
     return {
         "date": date,
         "description": description,

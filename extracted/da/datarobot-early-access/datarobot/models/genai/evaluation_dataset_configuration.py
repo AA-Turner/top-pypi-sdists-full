@@ -302,7 +302,7 @@ class EvaluationDatasetConfiguration(APIObject):
             the tool call accuracy metric for agentic workflows.
         agent_goals_column_name : Optional[str]
             The name of the dataset column containing the expected agent goals. It is required to
-            evaluate the agent goal accuracy with reference metrics for agentic workflows.
+            evaluate the agent goal accuracy with reference metric for agentic workflows.
 
         Returns
         -------

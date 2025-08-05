@@ -301,6 +301,29 @@ class AuthConfig(metaclass=ConfigMeta):
         )
 
 
+class ScalingPolicyConfig(metaclass=ConfigMeta):
+    """
+    Policies for autoscaling replicas. Available policies:
+    - Request based Autoscaling (rpm)
+    """
+
+    # TODO Change the defaulting if we have more autoscaling policies.
+    rpm = ConfigField(
+        field_type=int,
+        # TODO: Add a little more to the docstring where we explain the behavior.
+        cli_meta=CLIOption(
+            name="scaling_rpm",
+            cli_option_str="--scaling-rpm",
+            help=(
+                "Scale up replicas when the requests per minute crosses this threshold. "
+                "If nothing is provided and the replicas.max and replicas.min is set then  "
+                "the default rpm would be 60."
+            ),
+        ),
+        default=60,
+    )
+
+
 class ReplicaConfig(metaclass=ConfigMeta):
     """Replica configuration."""
 
@@ -333,6 +356,16 @@ class ReplicaConfig(metaclass=ConfigMeta):
         example=10,
     )
 
+    scaling_policy = ConfigField(
+        cli_meta=None,
+        field_type=ScalingPolicyConfig,
+        help=(
+            "Scaling policy defines the the metric based on which the replicas will horizontally scale. "
+            "If min and max replicas are set and are not the same, then a scaling policy will be applied. "
+            "Default scaling policies can be 60 rpm (ie 1 rps). "
+        ),
+    )
+
     @staticmethod
     def defaults(replica_config: "ReplicaConfig"):
         if all(
@@ -346,6 +379,7 @@ class ReplicaConfig(metaclass=ConfigMeta):
             replica_config.fixed = 1
         elif replica_config.min is not None and replica_config.max is None:
             replica_config.max = replica_config.min
+
         return
 
     @staticmethod

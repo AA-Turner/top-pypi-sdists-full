@@ -59,6 +59,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -80,6 +81,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -105,6 +108,7 @@ class RepositoriesAptApi:
         _param = self._add_role_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -130,6 +134,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -151,6 +156,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -176,6 +183,7 @@ class RepositoriesAptApi:
         _param = self._add_role_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -201,6 +209,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -222,6 +231,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -247,6 +258,7 @@ class RepositoriesAptApi:
         _param = self._add_role_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -267,6 +279,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -276,6 +289,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -292,6 +306,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -350,6 +366,7 @@ class RepositoriesAptApi:
     def create(
         self,
         deb_apt_repository: DebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -369,6 +386,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository: (required)
         :type deb_apt_repository: DebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -393,6 +412,7 @@ class RepositoriesAptApi:
 
         _param = self._create_serialize(
             deb_apt_repository=deb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -417,6 +437,7 @@ class RepositoriesAptApi:
     def create_with_http_info(
         self,
         deb_apt_repository: DebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -436,6 +457,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository: (required)
         :type deb_apt_repository: DebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -460,6 +483,7 @@ class RepositoriesAptApi:
 
         _param = self._create_serialize(
             deb_apt_repository=deb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -484,6 +508,7 @@ class RepositoriesAptApi:
     def create_without_preload_content(
         self,
         deb_apt_repository: DebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -503,6 +528,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository: (required)
         :type deb_apt_repository: DebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -527,6 +554,7 @@ class RepositoriesAptApi:
 
         _param = self._create_serialize(
             deb_apt_repository=deb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -546,6 +574,7 @@ class RepositoriesAptApi:
     def _create_serialize(
         self,
         deb_apt_repository,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -555,6 +584,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -569,6 +599,8 @@ class RepositoriesAptApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_apt_repository is not None:
@@ -627,6 +659,7 @@ class RepositoriesAptApi:
     def delete(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -646,6 +679,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -670,6 +705,7 @@ class RepositoriesAptApi:
 
         _param = self._delete_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -694,6 +730,7 @@ class RepositoriesAptApi:
     def delete_with_http_info(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -713,6 +750,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -737,6 +776,7 @@ class RepositoriesAptApi:
 
         _param = self._delete_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -761,6 +801,7 @@ class RepositoriesAptApi:
     def delete_without_preload_content(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -780,6 +821,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -804,6 +847,7 @@ class RepositoriesAptApi:
 
         _param = self._delete_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -823,6 +867,7 @@ class RepositoriesAptApi:
     def _delete_serialize(
         self,
         deb_apt_repository_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -832,6 +877,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -848,6 +894,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -888,6 +936,7 @@ class RepositoriesAptApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -935,6 +984,8 @@ class RepositoriesAptApi:
 
         An AptRepository is the locally stored, Pulp-internal representation of a APT repository.  It may be filled with content via synchronization or content upload to create an AptRepositoryVersion.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -1018,6 +1069,7 @@ class RepositoriesAptApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -1071,6 +1123,7 @@ class RepositoriesAptApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -1118,6 +1171,8 @@ class RepositoriesAptApi:
 
         An AptRepository is the locally stored, Pulp-internal representation of a APT repository.  It may be filled with content via synchronization or content upload to create an AptRepositoryVersion.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -1201,6 +1256,7 @@ class RepositoriesAptApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -1254,6 +1310,7 @@ class RepositoriesAptApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         latest_with_content: Annotated[Optional[StrictStr], Field(description="Content Unit referenced by HREF/PRN")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
@@ -1301,6 +1358,8 @@ class RepositoriesAptApi:
 
         An AptRepository is the locally stored, Pulp-internal representation of a APT repository.  It may be filled with content via synchronization or content upload to create an AptRepositoryVersion.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param latest_with_content: Content Unit referenced by HREF/PRN
         :type latest_with_content: str
         :param limit: Number of results to return per page.
@@ -1384,6 +1443,7 @@ class RepositoriesAptApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             latest_with_content=latest_with_content,
             limit=limit,
             name=name,
@@ -1432,6 +1492,7 @@ class RepositoriesAptApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         latest_with_content,
         limit,
         name,
@@ -1471,6 +1532,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -1613,6 +1675,8 @@ class RepositoriesAptApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1654,6 +1718,7 @@ class RepositoriesAptApi:
     def list_roles(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1675,6 +1740,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1703,6 +1770,7 @@ class RepositoriesAptApi:
 
         _param = self._list_roles_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1729,6 +1797,7 @@ class RepositoriesAptApi:
     def list_roles_with_http_info(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1750,6 +1819,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1778,6 +1849,7 @@ class RepositoriesAptApi:
 
         _param = self._list_roles_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1804,6 +1876,7 @@ class RepositoriesAptApi:
     def list_roles_without_preload_content(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1825,6 +1898,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1853,6 +1928,7 @@ class RepositoriesAptApi:
 
         _param = self._list_roles_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1874,6 +1950,7 @@ class RepositoriesAptApi:
     def _list_roles_serialize(
         self,
         deb_apt_repository_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1885,6 +1962,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1911,6 +1989,8 @@ class RepositoriesAptApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1953,6 +2033,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         repository_add_remove_content: RepositoryAddRemoveContent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1974,6 +2055,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param repository_add_remove_content: (required)
         :type repository_add_remove_content: RepositoryAddRemoveContent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1999,6 +2082,7 @@ class RepositoriesAptApi:
         _param = self._modify_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             repository_add_remove_content=repository_add_remove_content,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2024,6 +2108,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         repository_add_remove_content: RepositoryAddRemoveContent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2045,6 +2130,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param repository_add_remove_content: (required)
         :type repository_add_remove_content: RepositoryAddRemoveContent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2070,6 +2157,7 @@ class RepositoriesAptApi:
         _param = self._modify_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             repository_add_remove_content=repository_add_remove_content,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2095,6 +2183,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         repository_add_remove_content: RepositoryAddRemoveContent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2116,6 +2205,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param repository_add_remove_content: (required)
         :type repository_add_remove_content: RepositoryAddRemoveContent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2141,6 +2232,7 @@ class RepositoriesAptApi:
         _param = self._modify_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             repository_add_remove_content=repository_add_remove_content,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2161,6 +2253,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href,
         repository_add_remove_content,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2170,6 +2263,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2186,6 +2280,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if repository_add_remove_content is not None:
@@ -2244,6 +2340,7 @@ class RepositoriesAptApi:
     def my_permissions(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2265,6 +2362,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2293,6 +2392,7 @@ class RepositoriesAptApi:
 
         _param = self._my_permissions_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2319,6 +2419,7 @@ class RepositoriesAptApi:
     def my_permissions_with_http_info(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2340,6 +2441,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2368,6 +2471,7 @@ class RepositoriesAptApi:
 
         _param = self._my_permissions_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2394,6 +2498,7 @@ class RepositoriesAptApi:
     def my_permissions_without_preload_content(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2415,6 +2520,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2443,6 +2550,7 @@ class RepositoriesAptApi:
 
         _param = self._my_permissions_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2464,6 +2572,7 @@ class RepositoriesAptApi:
     def _my_permissions_serialize(
         self,
         deb_apt_repository_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2475,6 +2584,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2501,6 +2611,8 @@ class RepositoriesAptApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2543,6 +2655,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         patcheddeb_apt_repository: PatcheddebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2564,6 +2677,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param patcheddeb_apt_repository: (required)
         :type patcheddeb_apt_repository: PatcheddebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2589,6 +2704,7 @@ class RepositoriesAptApi:
         _param = self._partial_update_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             patcheddeb_apt_repository=patcheddeb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2614,6 +2730,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         patcheddeb_apt_repository: PatcheddebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2635,6 +2752,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param patcheddeb_apt_repository: (required)
         :type patcheddeb_apt_repository: PatcheddebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2660,6 +2779,7 @@ class RepositoriesAptApi:
         _param = self._partial_update_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             patcheddeb_apt_repository=patcheddeb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2685,6 +2805,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         patcheddeb_apt_repository: PatcheddebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2706,6 +2827,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param patcheddeb_apt_repository: (required)
         :type patcheddeb_apt_repository: PatcheddebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2731,6 +2854,7 @@ class RepositoriesAptApi:
         _param = self._partial_update_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             patcheddeb_apt_repository=patcheddeb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2751,6 +2875,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href,
         patcheddeb_apt_repository,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2760,6 +2885,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2776,6 +2902,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patcheddeb_apt_repository is not None:
@@ -2834,6 +2962,7 @@ class RepositoriesAptApi:
     def read(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2855,6 +2984,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2883,6 +3014,7 @@ class RepositoriesAptApi:
 
         _param = self._read_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2909,6 +3041,7 @@ class RepositoriesAptApi:
     def read_with_http_info(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2930,6 +3063,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2958,6 +3093,7 @@ class RepositoriesAptApi:
 
         _param = self._read_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2984,6 +3120,7 @@ class RepositoriesAptApi:
     def read_without_preload_content(
         self,
         deb_apt_repository_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -3005,6 +3142,8 @@ class RepositoriesAptApi:
 
         :param deb_apt_repository_href: (required)
         :type deb_apt_repository_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -3033,6 +3172,7 @@ class RepositoriesAptApi:
 
         _param = self._read_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -3054,6 +3194,7 @@ class RepositoriesAptApi:
     def _read_serialize(
         self,
         deb_apt_repository_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -3065,6 +3206,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -3091,6 +3233,8 @@ class RepositoriesAptApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -3133,6 +3277,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3154,6 +3299,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3179,6 +3326,7 @@ class RepositoriesAptApi:
         _param = self._remove_role_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3204,6 +3352,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3225,6 +3374,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3250,6 +3401,7 @@ class RepositoriesAptApi:
         _param = self._remove_role_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3275,6 +3427,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3296,6 +3449,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3321,6 +3476,7 @@ class RepositoriesAptApi:
         _param = self._remove_role_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3341,6 +3497,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3350,6 +3507,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3366,6 +3524,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -3425,6 +3585,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3446,6 +3607,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3471,6 +3634,7 @@ class RepositoriesAptApi:
         _param = self._set_label_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3496,6 +3660,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3517,6 +3682,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3542,6 +3709,7 @@ class RepositoriesAptApi:
         _param = self._set_label_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3567,6 +3735,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3588,6 +3757,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3613,6 +3784,7 @@ class RepositoriesAptApi:
         _param = self._set_label_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3633,6 +3805,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3642,6 +3815,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3658,6 +3832,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -3717,6 +3893,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         apt_repository_sync_url: AptRepositorySyncURL,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3738,6 +3915,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param apt_repository_sync_url: (required)
         :type apt_repository_sync_url: AptRepositorySyncURL
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3763,6 +3942,7 @@ class RepositoriesAptApi:
         _param = self._sync_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             apt_repository_sync_url=apt_repository_sync_url,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3788,6 +3968,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         apt_repository_sync_url: AptRepositorySyncURL,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3809,6 +3990,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param apt_repository_sync_url: (required)
         :type apt_repository_sync_url: AptRepositorySyncURL
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3834,6 +4017,7 @@ class RepositoriesAptApi:
         _param = self._sync_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             apt_repository_sync_url=apt_repository_sync_url,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3859,6 +4043,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         apt_repository_sync_url: AptRepositorySyncURL,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3880,6 +4065,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param apt_repository_sync_url: (required)
         :type apt_repository_sync_url: AptRepositorySyncURL
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3905,6 +4092,7 @@ class RepositoriesAptApi:
         _param = self._sync_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             apt_repository_sync_url=apt_repository_sync_url,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3925,6 +4113,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href,
         apt_repository_sync_url,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3934,6 +4123,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3950,6 +4140,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if apt_repository_sync_url is not None:
@@ -4009,6 +4201,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4030,6 +4223,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4055,6 +4250,7 @@ class RepositoriesAptApi:
         _param = self._unset_label_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4080,6 +4276,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4101,6 +4298,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4126,6 +4325,7 @@ class RepositoriesAptApi:
         _param = self._unset_label_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4151,6 +4351,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4172,6 +4373,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4197,6 +4400,7 @@ class RepositoriesAptApi:
         _param = self._unset_label_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4217,6 +4421,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -4226,6 +4431,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -4242,6 +4448,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:
@@ -4301,6 +4509,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         deb_apt_repository: DebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4322,6 +4531,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param deb_apt_repository: (required)
         :type deb_apt_repository: DebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4347,6 +4558,7 @@ class RepositoriesAptApi:
         _param = self._update_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             deb_apt_repository=deb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4372,6 +4584,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         deb_apt_repository: DebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4393,6 +4606,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param deb_apt_repository: (required)
         :type deb_apt_repository: DebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4418,6 +4633,7 @@ class RepositoriesAptApi:
         _param = self._update_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             deb_apt_repository=deb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4443,6 +4659,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href: StrictStr,
         deb_apt_repository: DebAptRepository,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4464,6 +4681,8 @@ class RepositoriesAptApi:
         :type deb_apt_repository_href: str
         :param deb_apt_repository: (required)
         :type deb_apt_repository: DebAptRepository
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4489,6 +4708,7 @@ class RepositoriesAptApi:
         _param = self._update_serialize(
             deb_apt_repository_href=deb_apt_repository_href,
             deb_apt_repository=deb_apt_repository,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4509,6 +4729,7 @@ class RepositoriesAptApi:
         self,
         deb_apt_repository_href,
         deb_apt_repository,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -4518,6 +4739,7 @@ class RepositoriesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -4534,6 +4756,8 @@ class RepositoriesAptApi:
             _path_params['deb_apt_repository_href'] = deb_apt_repository_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_apt_repository is not None:

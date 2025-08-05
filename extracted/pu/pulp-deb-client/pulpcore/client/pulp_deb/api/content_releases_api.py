@@ -51,6 +51,7 @@ class ContentReleasesApi:
     def create(
         self,
         deb_release: DebRelease,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -70,6 +71,8 @@ class ContentReleasesApi:
 
         :param deb_release: (required)
         :type deb_release: DebRelease
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -94,6 +97,7 @@ class ContentReleasesApi:
 
         _param = self._create_serialize(
             deb_release=deb_release,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -118,6 +122,7 @@ class ContentReleasesApi:
     def create_with_http_info(
         self,
         deb_release: DebRelease,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -137,6 +142,8 @@ class ContentReleasesApi:
 
         :param deb_release: (required)
         :type deb_release: DebRelease
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -161,6 +168,7 @@ class ContentReleasesApi:
 
         _param = self._create_serialize(
             deb_release=deb_release,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -185,6 +193,7 @@ class ContentReleasesApi:
     def create_without_preload_content(
         self,
         deb_release: DebRelease,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -204,6 +213,8 @@ class ContentReleasesApi:
 
         :param deb_release: (required)
         :type deb_release: DebRelease
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -228,6 +239,7 @@ class ContentReleasesApi:
 
         _param = self._create_serialize(
             deb_release=deb_release,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -247,6 +259,7 @@ class ContentReleasesApi:
     def _create_serialize(
         self,
         deb_release,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -256,6 +269,7 @@ class ContentReleasesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -270,6 +284,8 @@ class ContentReleasesApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_release is not None:
@@ -327,6 +343,7 @@ class ContentReleasesApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         codename: Annotated[Optional[StrictStr], Field(description="Filter results where codename matches value")] = None,
         distribution: Annotated[Optional[StrictStr], Field(description="Filter results where distribution matches value")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Filter results where label matches value")] = None,
@@ -365,6 +382,8 @@ class ContentReleasesApi:
 
         The Release contains release file fields, that are not relevant to the APT repo structure.  Associated artifacts: None; contains only metadata.  By non-structure relevant release file fields, we mean anything other than the Components and Architectures fields. These are handled by their own models and are not part of this model.  Note that the distribution field is part of this model, but is not added to any published release files. The \"distribution\" is defined as the path between 'dists/' and some 'Release' file. As such, it encodes the path to the relevant release file within the APT repository. It is often (but not always) equal to the \"codename\" or the \"suite\".
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param codename: Filter results where codename matches value
         :type codename: str
         :param distribution: Filter results where distribution matches value
@@ -430,6 +449,7 @@ class ContentReleasesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             codename=codename,
             distribution=distribution,
             label=label,
@@ -474,6 +494,7 @@ class ContentReleasesApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         codename: Annotated[Optional[StrictStr], Field(description="Filter results where codename matches value")] = None,
         distribution: Annotated[Optional[StrictStr], Field(description="Filter results where distribution matches value")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Filter results where label matches value")] = None,
@@ -512,6 +533,8 @@ class ContentReleasesApi:
 
         The Release contains release file fields, that are not relevant to the APT repo structure.  Associated artifacts: None; contains only metadata.  By non-structure relevant release file fields, we mean anything other than the Components and Architectures fields. These are handled by their own models and are not part of this model.  Note that the distribution field is part of this model, but is not added to any published release files. The \"distribution\" is defined as the path between 'dists/' and some 'Release' file. As such, it encodes the path to the relevant release file within the APT repository. It is often (but not always) equal to the \"codename\" or the \"suite\".
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param codename: Filter results where codename matches value
         :type codename: str
         :param distribution: Filter results where distribution matches value
@@ -577,6 +600,7 @@ class ContentReleasesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             codename=codename,
             distribution=distribution,
             label=label,
@@ -621,6 +645,7 @@ class ContentReleasesApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         codename: Annotated[Optional[StrictStr], Field(description="Filter results where codename matches value")] = None,
         distribution: Annotated[Optional[StrictStr], Field(description="Filter results where distribution matches value")] = None,
         label: Annotated[Optional[StrictStr], Field(description="Filter results where label matches value")] = None,
@@ -659,6 +684,8 @@ class ContentReleasesApi:
 
         The Release contains release file fields, that are not relevant to the APT repo structure.  Associated artifacts: None; contains only metadata.  By non-structure relevant release file fields, we mean anything other than the Components and Architectures fields. These are handled by their own models and are not part of this model.  Note that the distribution field is part of this model, but is not added to any published release files. The \"distribution\" is defined as the path between 'dists/' and some 'Release' file. As such, it encodes the path to the relevant release file within the APT repository. It is often (but not always) equal to the \"codename\" or the \"suite\".
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param codename: Filter results where codename matches value
         :type codename: str
         :param distribution: Filter results where distribution matches value
@@ -724,6 +751,7 @@ class ContentReleasesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             codename=codename,
             distribution=distribution,
             label=label,
@@ -763,6 +791,7 @@ class ContentReleasesApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         codename,
         distribution,
         label,
@@ -793,6 +822,7 @@ class ContentReleasesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -897,6 +927,8 @@ class ContentReleasesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -938,6 +970,7 @@ class ContentReleasesApi:
     def read(
         self,
         deb_release_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -959,6 +992,8 @@ class ContentReleasesApi:
 
         :param deb_release_href: (required)
         :type deb_release_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -987,6 +1022,7 @@ class ContentReleasesApi:
 
         _param = self._read_serialize(
             deb_release_href=deb_release_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1013,6 +1049,7 @@ class ContentReleasesApi:
     def read_with_http_info(
         self,
         deb_release_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1034,6 +1071,8 @@ class ContentReleasesApi:
 
         :param deb_release_href: (required)
         :type deb_release_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1062,6 +1101,7 @@ class ContentReleasesApi:
 
         _param = self._read_serialize(
             deb_release_href=deb_release_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1088,6 +1128,7 @@ class ContentReleasesApi:
     def read_without_preload_content(
         self,
         deb_release_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1109,6 +1150,8 @@ class ContentReleasesApi:
 
         :param deb_release_href: (required)
         :type deb_release_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1137,6 +1180,7 @@ class ContentReleasesApi:
 
         _param = self._read_serialize(
             deb_release_href=deb_release_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1158,6 +1202,7 @@ class ContentReleasesApi:
     def _read_serialize(
         self,
         deb_release_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1169,6 +1214,7 @@ class ContentReleasesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1195,6 +1241,8 @@ class ContentReleasesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1237,6 +1285,7 @@ class ContentReleasesApi:
         self,
         deb_release_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1258,6 +1307,8 @@ class ContentReleasesApi:
         :type deb_release_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1283,6 +1334,7 @@ class ContentReleasesApi:
         _param = self._set_label_serialize(
             deb_release_href=deb_release_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1308,6 +1360,7 @@ class ContentReleasesApi:
         self,
         deb_release_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1329,6 +1382,8 @@ class ContentReleasesApi:
         :type deb_release_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1354,6 +1409,7 @@ class ContentReleasesApi:
         _param = self._set_label_serialize(
             deb_release_href=deb_release_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1379,6 +1435,7 @@ class ContentReleasesApi:
         self,
         deb_release_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1400,6 +1457,8 @@ class ContentReleasesApi:
         :type deb_release_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1425,6 +1484,7 @@ class ContentReleasesApi:
         _param = self._set_label_serialize(
             deb_release_href=deb_release_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1445,6 +1505,7 @@ class ContentReleasesApi:
         self,
         deb_release_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1454,6 +1515,7 @@ class ContentReleasesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1470,6 +1532,8 @@ class ContentReleasesApi:
             _path_params['deb_release_href'] = deb_release_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1529,6 +1593,7 @@ class ContentReleasesApi:
         self,
         deb_release_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1550,6 +1615,8 @@ class ContentReleasesApi:
         :type deb_release_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1575,6 +1642,7 @@ class ContentReleasesApi:
         _param = self._unset_label_serialize(
             deb_release_href=deb_release_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1600,6 +1668,7 @@ class ContentReleasesApi:
         self,
         deb_release_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1621,6 +1690,8 @@ class ContentReleasesApi:
         :type deb_release_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1646,6 +1717,7 @@ class ContentReleasesApi:
         _param = self._unset_label_serialize(
             deb_release_href=deb_release_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1671,6 +1743,7 @@ class ContentReleasesApi:
         self,
         deb_release_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1692,6 +1765,8 @@ class ContentReleasesApi:
         :type deb_release_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1717,6 +1792,7 @@ class ContentReleasesApi:
         _param = self._unset_label_serialize(
             deb_release_href=deb_release_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1737,6 +1813,7 @@ class ContentReleasesApi:
         self,
         deb_release_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1746,6 +1823,7 @@ class ContentReleasesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1762,6 +1840,8 @@ class ContentReleasesApi:
             _path_params['deb_release_href'] = deb_release_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-gnupg
-Version: 0.5.4
+Version: 0.5.5
 Summary: A wrapper for the Gnu Privacy Guard (GPG or GnuPG)
 Home-page: https://github.com/vsajip/python-gnupg
 Author: Vinay Sajip

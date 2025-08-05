@@ -50,6 +50,7 @@ class ContentPackageIndicesApi:
     def create(
         self,
         deb_package_index: DebPackageIndex,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -69,6 +70,8 @@ class ContentPackageIndicesApi:
 
         :param deb_package_index: (required)
         :type deb_package_index: DebPackageIndex
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -93,6 +96,7 @@ class ContentPackageIndicesApi:
 
         _param = self._create_serialize(
             deb_package_index=deb_package_index,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -117,6 +121,7 @@ class ContentPackageIndicesApi:
     def create_with_http_info(
         self,
         deb_package_index: DebPackageIndex,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -136,6 +141,8 @@ class ContentPackageIndicesApi:
 
         :param deb_package_index: (required)
         :type deb_package_index: DebPackageIndex
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -160,6 +167,7 @@ class ContentPackageIndicesApi:
 
         _param = self._create_serialize(
             deb_package_index=deb_package_index,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -184,6 +192,7 @@ class ContentPackageIndicesApi:
     def create_without_preload_content(
         self,
         deb_package_index: DebPackageIndex,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -203,6 +212,8 @@ class ContentPackageIndicesApi:
 
         :param deb_package_index: (required)
         :type deb_package_index: DebPackageIndex
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -227,6 +238,7 @@ class ContentPackageIndicesApi:
 
         _param = self._create_serialize(
             deb_package_index=deb_package_index,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -246,6 +258,7 @@ class ContentPackageIndicesApi:
     def _create_serialize(
         self,
         deb_package_index,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -255,6 +268,7 @@ class ContentPackageIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -269,6 +283,8 @@ class ContentPackageIndicesApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_package_index is not None:
@@ -326,6 +342,7 @@ class ContentPackageIndicesApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         architecture: Annotated[Optional[StrictStr], Field(description="Filter results where architecture matches value")] = None,
         component: Annotated[Optional[StrictStr], Field(description="Filter results where component matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -361,6 +378,8 @@ class ContentPackageIndicesApi:
 
         A PackageIndex represents the package indices of a single component-architecture combination.  Associated artifacts: Exactly one 'Packages' file. May optionally include one or more of 'Packages.gz', 'Packages.xz', 'Release'. If included, the 'Release' file is a legacy per-component-and-architecture Release file.  Note: The verbatim publisher will republish all associated artifacts, while the APT publisher (both simple and structured mode) will generate any 'Packages' files it needs when creating the publication. It does not make use of PackageIndex content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param architecture: Filter results where architecture matches value
         :type architecture: str
         :param component: Filter results where component matches value
@@ -420,6 +439,7 @@ class ContentPackageIndicesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             architecture=architecture,
             component=component,
             limit=limit,
@@ -461,6 +481,7 @@ class ContentPackageIndicesApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         architecture: Annotated[Optional[StrictStr], Field(description="Filter results where architecture matches value")] = None,
         component: Annotated[Optional[StrictStr], Field(description="Filter results where component matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -496,6 +517,8 @@ class ContentPackageIndicesApi:
 
         A PackageIndex represents the package indices of a single component-architecture combination.  Associated artifacts: Exactly one 'Packages' file. May optionally include one or more of 'Packages.gz', 'Packages.xz', 'Release'. If included, the 'Release' file is a legacy per-component-and-architecture Release file.  Note: The verbatim publisher will republish all associated artifacts, while the APT publisher (both simple and structured mode) will generate any 'Packages' files it needs when creating the publication. It does not make use of PackageIndex content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param architecture: Filter results where architecture matches value
         :type architecture: str
         :param component: Filter results where component matches value
@@ -555,6 +578,7 @@ class ContentPackageIndicesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             architecture=architecture,
             component=component,
             limit=limit,
@@ -596,6 +620,7 @@ class ContentPackageIndicesApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         architecture: Annotated[Optional[StrictStr], Field(description="Filter results where architecture matches value")] = None,
         component: Annotated[Optional[StrictStr], Field(description="Filter results where component matches value")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
@@ -631,6 +656,8 @@ class ContentPackageIndicesApi:
 
         A PackageIndex represents the package indices of a single component-architecture combination.  Associated artifacts: Exactly one 'Packages' file. May optionally include one or more of 'Packages.gz', 'Packages.xz', 'Release'. If included, the 'Release' file is a legacy per-component-and-architecture Release file.  Note: The verbatim publisher will republish all associated artifacts, while the APT publisher (both simple and structured mode) will generate any 'Packages' files it needs when creating the publication. It does not make use of PackageIndex content.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param architecture: Filter results where architecture matches value
         :type architecture: str
         :param component: Filter results where component matches value
@@ -690,6 +717,7 @@ class ContentPackageIndicesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             architecture=architecture,
             component=component,
             limit=limit,
@@ -726,6 +754,7 @@ class ContentPackageIndicesApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         architecture,
         component,
         limit,
@@ -753,6 +782,7 @@ class ContentPackageIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -845,6 +875,8 @@ class ContentPackageIndicesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -886,6 +918,7 @@ class ContentPackageIndicesApi:
     def read(
         self,
         deb_package_index_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -907,6 +940,8 @@ class ContentPackageIndicesApi:
 
         :param deb_package_index_href: (required)
         :type deb_package_index_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -935,6 +970,7 @@ class ContentPackageIndicesApi:
 
         _param = self._read_serialize(
             deb_package_index_href=deb_package_index_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -961,6 +997,7 @@ class ContentPackageIndicesApi:
     def read_with_http_info(
         self,
         deb_package_index_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -982,6 +1019,8 @@ class ContentPackageIndicesApi:
 
         :param deb_package_index_href: (required)
         :type deb_package_index_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1010,6 +1049,7 @@ class ContentPackageIndicesApi:
 
         _param = self._read_serialize(
             deb_package_index_href=deb_package_index_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1036,6 +1076,7 @@ class ContentPackageIndicesApi:
     def read_without_preload_content(
         self,
         deb_package_index_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1057,6 +1098,8 @@ class ContentPackageIndicesApi:
 
         :param deb_package_index_href: (required)
         :type deb_package_index_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1085,6 +1128,7 @@ class ContentPackageIndicesApi:
 
         _param = self._read_serialize(
             deb_package_index_href=deb_package_index_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1106,6 +1150,7 @@ class ContentPackageIndicesApi:
     def _read_serialize(
         self,
         deb_package_index_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1117,6 +1162,7 @@ class ContentPackageIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1143,6 +1189,8 @@ class ContentPackageIndicesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1185,6 +1233,7 @@ class ContentPackageIndicesApi:
         self,
         deb_package_index_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1206,6 +1255,8 @@ class ContentPackageIndicesApi:
         :type deb_package_index_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1231,6 +1282,7 @@ class ContentPackageIndicesApi:
         _param = self._set_label_serialize(
             deb_package_index_href=deb_package_index_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1256,6 +1308,7 @@ class ContentPackageIndicesApi:
         self,
         deb_package_index_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1277,6 +1330,8 @@ class ContentPackageIndicesApi:
         :type deb_package_index_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1302,6 +1357,7 @@ class ContentPackageIndicesApi:
         _param = self._set_label_serialize(
             deb_package_index_href=deb_package_index_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1327,6 +1383,7 @@ class ContentPackageIndicesApi:
         self,
         deb_package_index_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1348,6 +1405,8 @@ class ContentPackageIndicesApi:
         :type deb_package_index_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1373,6 +1432,7 @@ class ContentPackageIndicesApi:
         _param = self._set_label_serialize(
             deb_package_index_href=deb_package_index_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1393,6 +1453,7 @@ class ContentPackageIndicesApi:
         self,
         deb_package_index_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1402,6 +1463,7 @@ class ContentPackageIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1418,6 +1480,8 @@ class ContentPackageIndicesApi:
             _path_params['deb_package_index_href'] = deb_package_index_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1477,6 +1541,7 @@ class ContentPackageIndicesApi:
         self,
         deb_package_index_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1498,6 +1563,8 @@ class ContentPackageIndicesApi:
         :type deb_package_index_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1523,6 +1590,7 @@ class ContentPackageIndicesApi:
         _param = self._unset_label_serialize(
             deb_package_index_href=deb_package_index_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1548,6 +1616,7 @@ class ContentPackageIndicesApi:
         self,
         deb_package_index_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1569,6 +1638,8 @@ class ContentPackageIndicesApi:
         :type deb_package_index_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1594,6 +1665,7 @@ class ContentPackageIndicesApi:
         _param = self._unset_label_serialize(
             deb_package_index_href=deb_package_index_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1619,6 +1691,7 @@ class ContentPackageIndicesApi:
         self,
         deb_package_index_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1640,6 +1713,8 @@ class ContentPackageIndicesApi:
         :type deb_package_index_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1665,6 +1740,7 @@ class ContentPackageIndicesApi:
         _param = self._unset_label_serialize(
             deb_package_index_href=deb_package_index_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1685,6 +1761,7 @@ class ContentPackageIndicesApi:
         self,
         deb_package_index_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1694,6 +1771,7 @@ class ContentPackageIndicesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1710,6 +1788,8 @@ class ContentPackageIndicesApi:
             _path_params['deb_package_index_href'] = deb_package_index_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:

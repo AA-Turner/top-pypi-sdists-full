@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmnr
-Version: 0.7.1
+Version: 0.7.2
 Summary: Python SDK for Laminar
 Author: lmnr.ai
 Author-email: lmnr.ai <founders@lmnr.ai>
@@ -19,61 +19,59 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.33.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.33.0
 Requires-Dist: opentelemetry-instrumentation>=0.54b0
 Requires-Dist: opentelemetry-semantic-conventions>=0.54b0
-Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.9
+Requires-Dist: opentelemetry-semantic-conventions-ai>=0.4.11
 Requires-Dist: tqdm>=4.0
 Requires-Dist: tenacity>=8.0
 Requires-Dist: grpcio>=1
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: orjson>=3.10.18
 Requires-Dist: packaging>=22.0
-Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.40.12 ; extra == 'alephalpha'
-Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-bedrock>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-chromadb>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-cohere>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-crewai>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-google-generativeai<0.40.10 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-haystack>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-lancedb>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-langchain>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-llamaindex>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-marqo>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-mcp>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-milvus>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-mistralai>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-ollama>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-pinecone>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-qdrant>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-replicate>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-sagemaker>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-together>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-transformers>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-vertexai>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-watsonx>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-weaviate>=0.40.12 ; extra == 'all'
-Requires-Dist: opentelemetry-instrumentation-bedrock>=0.40.12 ; extra == 'bedrock'
-Requires-Dist: opentelemetry-instrumentation-chromadb>=0.40.12 ; extra == 'chromadb'
-Requires-Dist: opentelemetry-instrumentation-cohere>=0.40.12 ; extra == 'cohere'
-Requires-Dist: opentelemetry-instrumentation-crewai>=0.40.12 ; extra == 'crewai'
-Requires-Dist: opentelemetry-instrumentation-google-generativeai<0.40.10 ; extra == 'google-generativeai'
-Requires-Dist: opentelemetry-instrumentation-haystack>=0.40.12 ; extra == 'haystack'
-Requires-Dist: opentelemetry-instrumentation-lancedb>=0.40.12 ; extra == 'lancedb'
-Requires-Dist: opentelemetry-instrumentation-langchain>=0.40.12 ; extra == 'langchain'
-Requires-Dist: opentelemetry-instrumentation-llamaindex>=0.40.12 ; extra == 'llamaindex'
-Requires-Dist: opentelemetry-instrumentation-marqo>=0.40.12 ; extra == 'marqo'
-Requires-Dist: opentelemetry-instrumentation-mcp>=0.40.12 ; extra == 'mcp'
-Requires-Dist: opentelemetry-instrumentation-milvus>=0.40.12 ; extra == 'milvus'
-Requires-Dist: opentelemetry-instrumentation-mistralai>=0.40.12 ; extra == 'mistralai'
-Requires-Dist: opentelemetry-instrumentation-ollama>=0.40.12 ; extra == 'ollama'
-Requires-Dist: opentelemetry-instrumentation-pinecone>=0.40.12 ; extra == 'pinecone'
-Requires-Dist: opentelemetry-instrumentation-qdrant>=0.40.12 ; extra == 'qdrant'
-Requires-Dist: opentelemetry-instrumentation-replicate>=0.40.12 ; extra == 'replicate'
-Requires-Dist: opentelemetry-instrumentation-sagemaker>=0.40.12 ; extra == 'sagemaker'
-Requires-Dist: opentelemetry-instrumentation-together>=0.40.12 ; extra == 'together'
-Requires-Dist: opentelemetry-instrumentation-transformers>=0.40.12 ; extra == 'transformers'
-Requires-Dist: opentelemetry-instrumentation-vertexai>=0.40.12 ; extra == 'vertexai'
-Requires-Dist: opentelemetry-instrumentation-watsonx>=0.40.12 ; extra == 'watsonx'
-Requires-Dist: opentelemetry-instrumentation-weaviate>=0.40.12 ; extra == 'weaviate'
+Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.44.0 ; extra == 'alephalpha'
+Requires-Dist: opentelemetry-instrumentation-alephalpha>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-bedrock>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-chromadb>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-cohere>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-crewai>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-haystack>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-lancedb>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-langchain>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-llamaindex>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-marqo>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-mcp>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-milvus>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-mistralai>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-ollama>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-pinecone>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-qdrant>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-replicate>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-sagemaker>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-together>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-transformers>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-vertexai>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-watsonx>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-weaviate>=0.44.0 ; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-bedrock>=0.44.0 ; extra == 'bedrock'
+Requires-Dist: opentelemetry-instrumentation-chromadb>=0.44.0 ; extra == 'chromadb'
+Requires-Dist: opentelemetry-instrumentation-cohere>=0.44.0 ; extra == 'cohere'
+Requires-Dist: opentelemetry-instrumentation-crewai>=0.44.0 ; extra == 'crewai'
+Requires-Dist: opentelemetry-instrumentation-haystack>=0.44.0 ; extra == 'haystack'
+Requires-Dist: opentelemetry-instrumentation-lancedb>=0.44.0 ; extra == 'lancedb'
+Requires-Dist: opentelemetry-instrumentation-langchain>=0.44.0 ; extra == 'langchain'
+Requires-Dist: opentelemetry-instrumentation-llamaindex>=0.44.0 ; extra == 'llamaindex'
+Requires-Dist: opentelemetry-instrumentation-marqo>=0.44.0 ; extra == 'marqo'
+Requires-Dist: opentelemetry-instrumentation-mcp>=0.44.0 ; extra == 'mcp'
+Requires-Dist: opentelemetry-instrumentation-milvus>=0.44.0 ; extra == 'milvus'
+Requires-Dist: opentelemetry-instrumentation-mistralai>=0.44.0 ; extra == 'mistralai'
+Requires-Dist: opentelemetry-instrumentation-ollama>=0.44.0 ; extra == 'ollama'
+Requires-Dist: opentelemetry-instrumentation-pinecone>=0.44.0 ; extra == 'pinecone'
+Requires-Dist: opentelemetry-instrumentation-qdrant>=0.44.0 ; extra == 'qdrant'
+Requires-Dist: opentelemetry-instrumentation-replicate>=0.44.0 ; extra == 'replicate'
+Requires-Dist: opentelemetry-instrumentation-sagemaker>=0.44.0 ; extra == 'sagemaker'
+Requires-Dist: opentelemetry-instrumentation-together>=0.44.0 ; extra == 'together'
+Requires-Dist: opentelemetry-instrumentation-transformers>=0.44.0 ; extra == 'transformers'
+Requires-Dist: opentelemetry-instrumentation-vertexai>=0.44.0 ; extra == 'vertexai'
+Requires-Dist: opentelemetry-instrumentation-watsonx>=0.44.0 ; extra == 'watsonx'
+Requires-Dist: opentelemetry-instrumentation-weaviate>=0.44.0 ; extra == 'weaviate'
 Requires-Python: >=3.10, <4
 Provides-Extra: alephalpha
 Provides-Extra: all
@@ -81,7 +79,6 @@ Provides-Extra: bedrock
 Provides-Extra: chromadb
 Provides-Extra: cohere
 Provides-Extra: crewai
-Provides-Extra: google-generativeai
 Provides-Extra: haystack
 Provides-Extra: lancedb
 Provides-Extra: langchain

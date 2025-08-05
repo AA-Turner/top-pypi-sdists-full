@@ -32,9 +32,9 @@ license-files = [ "LICENSE" ]
 requires-python = ">=3.9"
 dependencies = [
     {%- if cookiecutter.faker_extra %}
-    "singer-sdk[faker]~=0.47.4",
+    "singer-sdk[faker]~=0.48.0",
     {%- else %}
-    "singer-sdk~=0.47.4",
+    "singer-sdk~=0.48.0",
     {%- endif %}
 ]
 
@@ -57,6 +57,9 @@ test = [
     "pytest-github-actions-annotate-failures>=0.3",
     {%- endif %}
     "singer-sdk[testing]",
+]
+typing = [
+    "mypy>=1.16.0",
 ]
 
 {%- if cookiecutter.variant != "None (Skip)" %}
@@ -100,6 +103,7 @@ requires = [
     "tox-uv",
 ]
 env_list = [
+    "typing",
     "py313",
     "py312",
     "py311",
@@ -117,3 +121,7 @@ pass_env = [
 ]
 dependency_groups = [ "test" ]
 commands = [ [ "pytest", { replace = "posargs", default = [ "tests" ], extend = true } ] ]
+
+[tool.tox.env.typing]
+dependency_groups = [ "test", "typing" ]
+commands = [ [ "mypy", { replace = "posargs", default = [ "{{cookiecutter.library_name}}", "tests" ], extend = true } ] ]

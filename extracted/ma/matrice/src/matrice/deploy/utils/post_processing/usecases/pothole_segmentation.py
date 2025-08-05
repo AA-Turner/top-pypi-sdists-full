@@ -1,11 +1,3 @@
-"""
-pothole Monitoring Use Case for Post-Processing
-
-This module provides pothole damage monitoring functionality ,
-zone analysis, and alert generation.
-
-"""
-
 from typing import Any, Dict, List, Optional
 from dataclasses import asdict
 import time
@@ -54,8 +46,7 @@ class PotholeConfig(BaseConfig):
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-           0:"pothole"
-
+            0: "pothole",
         }
     )
 
@@ -64,16 +55,17 @@ class PotholeSegmentationUseCase(BaseProcessor):
 
     # Human-friendly display names for  categories
     CATEGORY_DISPLAY = {
-        "pothole": "pothole"
+        "pothole": "pothole",
     }
+    
     def __init__(self):
         super().__init__("pothole_segmentation")
         self.category = "infrastructure"
 
         # List of  categories to track
-        self.target_categories = ["pothole"]
+        self.target_categories = ['pothole']
 
-        self.CASE_TYPE: Optional[str] = 'Pothole_detection'
+        self.CASE_TYPE: Optional[str] = 'pothole_segmentation'
         self.CASE_VERSION: Optional[str] = '1.3'
 
         # Initialize smoothing tracker
@@ -163,13 +155,30 @@ class PotholeSegmentationUseCase(BaseProcessor):
         try:
             from ..advanced_tracker import AdvancedTracker
             from ..advanced_tracker.config import TrackerConfig
-
-            # Create tracker instance if it doesn't exist (preserves state across frames)
+            
             if self.tracker is None:
-                tracker_config = TrackerConfig()
+                # Configure tracker thresholds based on the use-case confidence threshold so that
+                # low-confidence detections (e.g. < 0.7) can still be initialised as tracks when
+                # the user passes a lower `confidence_threshold` in the post-processing config.
+                if config.confidence_threshold is not None:
+                    tracker_config = TrackerConfig(
+                        track_high_thresh=float(config.confidence_threshold),
+                        # Allow even lower detections to participate in secondary association
+                        track_low_thresh=max(0.05, float(config.confidence_threshold) / 2),
+                        new_track_thresh=float(config.confidence_threshold)
+                    )
+                else:
+                    tracker_config = TrackerConfig()
                 self.tracker = AdvancedTracker(tracker_config)
-                self.logger.info("Initialized AdvancedTracker for Monitoring and tracking")
-           
+                self.logger.info(
+                    "Initialized AdvancedTracker for Monitoring and tracking with thresholds: "
+                    f"high={tracker_config.track_high_thresh}, "
+                    f"low={tracker_config.track_low_thresh}, "
+                    f"new={tracker_config.new_track_thresh}"
+                )
+
+            # The tracker expects the data in the same format as input
+            # It will add track_id and frame_id to each detection
             processed_data = self.tracker.update(processed_data)
         except Exception as e:
             # If advanced tracker fails, fallback to unsmoothed detections
@@ -212,7 +221,8 @@ class PotholeSegmentationUseCase(BaseProcessor):
         # Step: Generate structured events and tracking stats with frame-based keys
         incidents_list = self._generate_incidents(counting_summary, alerts, config, frame_number, stream_info)
         tracking_stats_list = self._generate_tracking_stats(counting_summary, alerts, config, frame_number,stream_info)
-        business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, frame_number, stream_info, is_empty=False)
+        # business_analytics_list = self._generate_business_analytics(counting_summary, alerts, config, frame_number, stream_info, is_empty=False)
+        business_analytics_list = []
         summary_list = self._generate_summary(counting_summary, incidents_list, tracking_stats_list, business_analytics_list, alerts)
 
         # Extract frame-based dictionaries from the lists
@@ -226,7 +236,7 @@ class PotholeSegmentationUseCase(BaseProcessor):
                         "business_analytics": business_analytics,
                         "alerts": alerts,
                         "human_text": summary}
-                      }
+                    }
        
         context.mark_completed()
 
@@ -388,9 +398,9 @@ class PotholeSegmentationUseCase(BaseProcessor):
                 })
         
             event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(frame_number), incident_type=self.CASE_TYPE,
-                       severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
-                       start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
-                       level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
+                        severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                        start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
+                        level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
             incidents.append(event)
 
         else:
@@ -408,9 +418,10 @@ class PotholeSegmentationUseCase(BaseProcessor):
             stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info and detections with masks."""
-        #frame_key = str(frame_number) if frame_number is not None else "current_frame"
-        tracking_stats = [] #[{frame_key: []}]
-        #frame_tracking_stats = tracking_stats[0][frame_key]
+        # frame_key = str(frame_number) if frame_number is not None else "current_frame"
+        # tracking_stats = [{frame_key: []}]
+        # frame_tracking_stats = tracking_stats[0][frame_key]
+        tracking_stats = []
 
         total_detections = counting_summary.get("total_count", 0)
         total_counts = counting_summary.get("total_counts", {})
@@ -449,6 +460,7 @@ class PotholeSegmentationUseCase(BaseProcessor):
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"\t- Total Detected: {cumulative_total}")
         # Add category-wise counts
+        print(total_counts)
         if total_counts:
             for cat, count in total_counts.items():
                 if count > 0:  # Only include categories with non-zero counts
@@ -493,8 +505,8 @@ class PotholeSegmentationUseCase(BaseProcessor):
                 "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
                 "ascending": True,
                 "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                            getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
-                        }
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                            }
             })
 
         if alerts:
@@ -515,9 +527,9 @@ class PotholeSegmentationUseCase(BaseProcessor):
             ]
 
         tracking_stat=self.create_tracking_stats(total_counts=total_counts, current_counts=current_counts,
-                             detections=detections, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
-                             reset_settings=reset_settings, start_time=high_precision_start_timestamp ,
-                             reset_time=high_precision_reset_timestamp)
+                            detections=detections, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                            reset_settings=reset_settings, start_time=high_precision_start_timestamp ,
+                            reset_time=high_precision_reset_timestamp)
 
         tracking_stats.append(tracking_stat)
         return tracking_stats
@@ -640,33 +652,40 @@ class PotholeSegmentationUseCase(BaseProcessor):
         """Format timestamp for video chunks (HH:MM:SS.ms format)."""
         hours = int(timestamp // 3600)
         minutes = int((timestamp % 3600) // 60)
-        seconds = timestamp % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
+        seconds = round(float(timestamp % 60),2)
+        return f"{hours:02d}:{minutes:02d}:{seconds:.1f}"
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False, frame_id: Optional[str]=None) -> str:
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-
+        # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
-            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-                stream_time_str = stream_info.get("video_timestamp", "")
-                return stream_time_str[:8]
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
-            # If video format, return video timestamp
-            stream_time_str = stream_info.get("video_timestamp", "")
-            return stream_time_str[:8]
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
+                if frame_id:
+                    start_time = int(frame_id)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                else:
+                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30)/stream_info.get("input_settings", {}).get("original_fps", 30)
+                stream_time_str = self._format_timestamp_for_video(start_time)
+                return stream_time_str
         else:
             # For streams, use stream_time from stream_info
-            stream_time_str = stream_info.get("stream_time", "")
+            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
             if stream_time_str:
                 # Parse the high precision timestamp string to get timestamp
                 try:
@@ -685,23 +704,20 @@ class PotholeSegmentationUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
         if precision:
-            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+            if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 return "00:00:00"
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-
-        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+        if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             # If video format, start from 00:00:00
             return "00:00:00"
         else:
             # For streams, use tracking start time or current time with minutes/seconds reset
             if self._tracking_start_time is None:
                 # Try to extract timestamp from stream_time string
-                stream_time_str = stream_info.get("stream_time", "")
+                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
                 if stream_time_str:
                     try:
                         # Remove " UTC" suffix and parse

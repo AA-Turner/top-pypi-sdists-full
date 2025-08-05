@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meltano
-Version: 3.8.0
+Version: 3.9.0
 Summary: Meltano is your CLI for ELT+: Open Source, Flexible, and Scalable. Move, transform, and test your data with confidence using a streamlined data engineering workflow you’ll love.
 Project-URL: Homepage, https://meltano.com
 Project-URL: Repository, https://github.com/meltano/meltano
@@ -27,13 +27,11 @@ Requires-Python: <3.15,>=3.9
 Requires-Dist: aiodocker<0.25,>=0.24.0
 Requires-Dist: alembic<2,>=1.14.0
 Requires-Dist: anyio<5,>=4.4.0
-Requires-Dist: atomicwrites<2,>=1.2.1
 Requires-Dist: backports-strenum<2,>=1.3.1; python_version < '3.11'
 Requires-Dist: check-jsonschema~=0.33.0
+Requires-Dist: click!=8.2.2,<9,>=8.1
 Requires-Dist: click-default-group<2,>=1.2.4
 Requires-Dist: click-didyoumean<0.4,>=0.3.1
-Requires-Dist: click<9,>=8.1
-Requires-Dist: croniter<7,>=6.0.0
 Requires-Dist: dateparser>=1.2.1
 Requires-Dist: fasteners<0.20,>=0.19
 Requires-Dist: flatten-dict<1,>=0
@@ -46,7 +44,7 @@ Requires-Dist: psutil<8,>=7.0.0
 Requires-Dist: python-dotenv<2,>=1.0.1
 Requires-Dist: pyyaml<7,>=6.0.2
 Requires-Dist: requests<3,>=2.32.3
-Requires-Dist: rich~=14.0.0
+Requires-Dist: rich<14.2,>=14.0
 Requires-Dist: ruamel-yaml<0.19,>=0.18.6
 Requires-Dist: smart-open<8,>=7.0.5
 Requires-Dist: snowplow-tracker<2,>=1.0.4
@@ -54,7 +52,8 @@ Requires-Dist: sqlalchemy<3,>=2.0.35
 Requires-Dist: structlog<26,>=25.1.0
 Requires-Dist: typing-extensions<5,>=4.12.2
 Requires-Dist: tzlocal~=5.3
-Requires-Dist: uv<0.8,>=0.1.24
+Requires-Dist: urllib3>=1.26.20
+Requires-Dist: uv<0.9,>=0.1.24
 Requires-Dist: virtualenv<21,>=20.26.6
 Provides-Extra: azure
 Requires-Dist: azure-common<2,>=1.1.28; extra == 'azure'
@@ -70,7 +69,7 @@ Requires-Dist: psycopg[binary]<4,>=3.2.3; extra == 'postgres'
 Provides-Extra: psycopg2
 Requires-Dist: psycopg2-binary<3,>=2.9.9; extra == 'psycopg2'
 Provides-Extra: s3
-Requires-Dist: boto3<1.40,>=1.35; extra == 's3'
+Requires-Dist: boto3<1.41,>=1.35; extra == 's3'
 Description-Content-Type: text/markdown
 
 <div align="center">

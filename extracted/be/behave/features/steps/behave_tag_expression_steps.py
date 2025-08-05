@@ -24,7 +24,7 @@ Provides step definitions that test tag expressions (and tag logic).
 
 from __future__ import absolute_import
 from behave import given, then, register_type
-from behave.tag_expression import TagExpression
+from behave.tag_expression import make_tag_expression
 from behave_model_util import convert_comma_list, convert_model_element_tags
 from hamcrest import assert_that, equal_to
 
@@ -37,13 +37,16 @@ class ModelElement(object):
         self.name = name
         self.tags = tags or []
 
+
 # -----------------------------------------------------------------------------
 # TYPE CONVERTERS:
 # -----------------------------------------------------------------------------
 def convert_tag_expression(text):
-    parts = text.strip().split()
-    return TagExpression(parts)
+    return make_tag_expression(text.strip())
+
+
 register_type(TagExpression=convert_tag_expression)
+
 
 def convert_yesno(text):
     text = text.strip().lower()
@@ -67,8 +70,9 @@ def step_given_the_tag_expression(context, tag_expression):
     """
     context.tag_expression = tag_expression
 
+
 @given('the default tags "{default_tags:TagExpression}"')
-def step_given_the_tag_expression(context, default_tags):
+def step_given_the_default_tag_expression(context, default_tags):
     """
     Define a tag expression that is used later-on.
 
@@ -81,7 +85,9 @@ def step_given_the_tag_expression(context, default_tags):
     if tag_expression is None:
         context.tag_expression = default_tags
 
+
 @then('the tag expression selects elements with tags')
+@then('the tag expression selects elements with tags:')
 def step_then_tag_expression_selects_elements_with_tags(context):
     """
     Checks if a tag expression selects an element with the given tags.
@@ -109,6 +115,7 @@ def step_then_tag_expression_selects_elements_with_tags(context):
 
 
 @given('the model elements with name and tags')
+@given('the model elements with name and tags:')
 def step_given_named_model_elements_with_tags(context):
     """
     .. code-block:: gherkin
@@ -139,7 +146,8 @@ def step_given_named_model_elements_with_tags(context):
 
 
 @then('the tag expression selects model elements with')
-def step_given_named_model_elements_with_tags(context):
+@then('the tag expression selects model elements with:')
+def step_then_tag_expression_selects_model_elements_with(context):
     """
     .. code-block:: gherkin
 

@@ -31,7 +31,12 @@ APP_NAME_TO_USECASE = {
     "shelf_inventory" :"shelf_inventory",
     "smoker_detection": "smoker_detection",
     "age_detection": "age_detection",
-    "defect_detection_products": "defect_detection_products"
+    "defect_detection_products": "defect_detection_products",
+    "parking_space_detection": "parking_space_detection",
+    "car_damage_detection": "car_damage_detection",
+    "license_plate_detection": "license_plate_detection",
+    "shoplifting_detection": "shoplifting_detection",
+    "cardiomegaly_classification": "cardiomegaly_classification",
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -67,7 +72,12 @@ APP_NAME_TO_CATEGORY = {
     "shelf_inventory" : "retail",
     "smoker_detection": "general",
     "age_detection": "general",
-    "defect_detection_products": "retail"
+    "defect_detection_products": "retail",
+    "parking_space_detection": "parking_space",
+    "car_damage_detection": "car_damage",
+    "license_plate_detection": "license_plate",
+    "shoplifting_detection": "security",
+    "cardiomegaly_classification": "healthcare",
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

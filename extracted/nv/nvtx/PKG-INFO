@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nvtx
-Version: 0.2.12
+Version: 0.2.13
 Summary: Python NVTX - Python code annotation library
 Author: NVIDIA Corporation
 License: Apache 2.0
@@ -81,6 +81,12 @@ python -m pip install nvtx
 See [here](https://nvidia.github.io/NVTX/python/) for detailed docs.
 
 ## Release Notes
+
+### 0.2.13
+
+- Fix tracing with tools that do not implement `nvtxDomainIsEnabled`.
+- Fix decorator ranges not ending when an exception is thrown.
+- Fix automatic function name annotation for decorator ranges.
 
 ### 0.2.12
 

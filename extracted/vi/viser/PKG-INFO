@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: viser
-Version: 1.0.1
+Version: 1.0.3
 Summary: 3D visualization + Python
 Project-URL: GitHub, https://github.com/nerfstudio-project/viser
 License: MIT
@@ -27,6 +27,7 @@ Requires-Dist: scikit-image<1.0.0,>=0.18.0
 Requires-Dist: scipy<2.0.0,>=1.7.3
 Requires-Dist: tqdm<5.0.0,>=4.0.0
 Requires-Dist: trimesh<5.0.0,>=3.21.7
+Requires-Dist: typing-extensions>=4.0.0
 Requires-Dist: websockets<16.0.0,>=13.1
 Requires-Dist: yourdfpy<1.0.0,>=0.0.53
 Provides-Extra: dev

@@ -31,9 +31,10 @@ class DebAptPublication(BaseModel):
     repository: Optional[StrictStr] = Field(default=None, description="A URI of the repository to be published.")
     simple: Optional[StrictBool] = Field(default=False, description="Activate simple publishing mode (all packages in one release component).")
     structured: Optional[StrictBool] = Field(default=True, description="Activate structured publishing mode.")
+    checkpoint: Optional[StrictBool] = None
     signing_service: Optional[StrictStr] = Field(default=None, description="Sign Release files with this signing key")
     publish_upstream_release_fields: Optional[StrictBool] = None
-    __properties: ClassVar[List[str]] = ["repository_version", "repository", "simple", "structured", "signing_service", "publish_upstream_release_fields"]
+    __properties: ClassVar[List[str]] = ["repository_version", "repository", "simple", "structured", "checkpoint", "signing_service", "publish_upstream_release_fields"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -90,6 +91,7 @@ class DebAptPublication(BaseModel):
             "repository": obj.get("repository"),
             "simple": obj.get("simple") if obj.get("simple") is not None else False,
             "structured": obj.get("structured") if obj.get("structured") is not None else True,
+            "checkpoint": obj.get("checkpoint"),
             "signing_service": obj.get("signing_service"),
             "publish_upstream_release_fields": obj.get("publish_upstream_release_fields")
         })

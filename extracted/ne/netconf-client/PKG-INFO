@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: netconf-client
-Version: 3.3.0
+Version: 3.4.0
 Summary: A Python NETCONF client
 Home-page: https://github.com/ADTRAN/netconf_client
 License: Apache-2.0
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Dist: lxml (>=4.6.3,<7)
-Requires-Dist: paramiko (>=2.7.2,<4)
+Requires-Dist: paramiko (>=2.7.2,<5)
 Project-URL: Documentation, https://adtran.github.io/netconf_client/
 Project-URL: Repository, https://github.com/ADTRAN/netconf_client
 Description-Content-Type: text/markdown

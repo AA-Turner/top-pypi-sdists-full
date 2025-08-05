@@ -482,7 +482,10 @@ class Page:
             )
 
     async def extract(
-        self, prompt: str, schema: Optional[Type[BaseModel]] = None
+        self,
+        prompt: str,
+        schema: Optional[Type[BaseModel]] = None,
+        include_screenshot: bool = False,
     ) -> ExtractResult:
         """
         Extract data from the page using natural language. If a schema is provided, the extraction will be returned as a model. Otherwise, the extraction will be returned as a string.
@@ -497,7 +500,7 @@ class Page:
         ExtractResult: Result with extraction, success status, and message
         """
         try:
-            result = await self._web_agent.extract(prompt, schema)
+            result = await self._web_agent.extract(prompt, schema, include_screenshot)
 
             # Return ExtractResult based on the web agent's result
             return ExtractResult(extraction=result, success=True, message="")

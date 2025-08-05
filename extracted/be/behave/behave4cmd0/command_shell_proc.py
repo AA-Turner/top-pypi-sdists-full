@@ -76,7 +76,7 @@ class TracebackLineNormalizer(LineProcessor):
 
 class ExceptionWithPathNormalizer(LineProcessor):
     """Normalize filename path in Exception line (for Windows)."""
-    # http://myregexp.com/examples.html
+    # https://myregexp.com/examples.html
     # Windows File Name Regexp
     # (?i) ^ (?! ^ (PRN | AUX | CLOCK\$ | NUL | CON | COM\d | LPT\d |\..* )(\..+)?$)
     # [ ^\\\./:\ * \?\"<>\|][^\\/:\*\?\"<>\|]{0,254}$
@@ -251,6 +251,7 @@ class BehaveWinCommandOutputProcessor(LineCommandOutputProcessor):
             "No such file or directory: '(?P<path>.*)'",
             "[Errno 2] No such file or directory:"),  # IOError
         ExceptionWithPathNormalizer(
-            '^\s*File "(?P<path>.*)", line \d+, in ',
+            # WAS: '^\s*File "(?P<path>.*)", line \d+, in ',
+            r'^\s*File "(?P<path>.*)", line \d+, in ',
             'File "'),
     ]

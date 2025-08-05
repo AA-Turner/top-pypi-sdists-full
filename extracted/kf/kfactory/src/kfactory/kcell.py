@@ -806,6 +806,7 @@ class ProtoTKCell(ProtoKCell[TUnit, TKCell], Generic[TUnit], ABC):
         save_options: kdb.SaveLayoutOptions | None = None,
         use_libraries: bool = True,
         library_save_options: kdb.SaveLayoutOptions | None = None,
+        technology: str | None = None,
     ) -> None:
         """Stream the gds to klive.
 
@@ -824,6 +825,7 @@ class ProtoTKCell(ProtoKCell[TUnit, TKCell], Generic[TUnit], ABC):
             save_options=save_options,
             use_libraries=use_libraries,
             library_save_options=library_save_options,
+            technology=technology,
         )
 
     def plot(
@@ -3432,6 +3434,7 @@ class VKCell(ProtoKCell[float, TVCell], UMGeometricObject, DCreatePort):
         save_options: kdb.SaveLayoutOptions | None = None,
         use_libraries: bool = True,
         library_save_options: kdb.SaveLayoutOptions | None = None,
+        technology: str | None = None,
     ) -> None:
         """Stream the gds to klive.
 
@@ -3455,6 +3458,7 @@ class VKCell(ProtoKCell[float, TVCell], UMGeometricObject, DCreatePort):
             save_options=save_options,
             use_libraries=use_libraries,
             library_save_options=library_save_options,
+            technology=technology,
         )
 
     def plot(self) -> None:
@@ -3676,10 +3680,12 @@ def show(
     layout: KCLayout | AnyKCell | Path | str,
     lyrdb: rdb.ReportDatabase | Path | str | None = None,
     l2n: kdb.LayoutToNetlist | Path | str | None = None,
+    technology: str | None = None,
     keep_position: bool = True,
     save_options: kdb.SaveLayoutOptions | None = None,
     use_libraries: bool = True,
     library_save_options: kdb.SaveLayoutOptions | None = None,
+    set_technology: bool = True,
 ) -> None:
     """Show GDS in klayout.
 
@@ -3776,6 +3782,8 @@ def show(
                     p = (dir_ / _kcl.name).with_suffix(".oas").resolve()
                 _kcl.write(p, library_save_options)
                 kcl_paths.append({"name": _kcl.name, "file": str(p)})
+        if technology is None and layout.technology_file is not None:
+            technology = layout.technology.name
 
     elif isinstance(layout, ProtoKCell):
         file = None
@@ -3820,6 +3828,8 @@ def show(
                 p = (dir_ / _kcl.name).with_suffix(".oas").resolve()
                 _kcl.write(p, library_save_options)
                 kcl_paths.append({"name": _kcl.name, "file": str(p)})
+        if technology is None and layout.kcl.technology_file is not None:
+            technology = layout.kcl.technology.name
 
     elif isinstance(layout, str | Path):
         file = Path(layout).expanduser().resolve()
@@ -3928,6 +3938,9 @@ def show(
             raise ValueError(f"{lyrdbfile} is not a File")
         data_dict["l2n"] = str(l2nfile)
 
+    if set_technology and technology is not None:
+        data_dict["technology"] = technology
+
     data = json.dumps(data_dict)
     try:
         conn = socket.create_connection(("127.0.0.1", 8082), timeout=0.5)
@@ -3945,17 +3958,39 @@ def show(
                 jmsg = json.loads(msg)
                 match jmsg["type"]:
                     case "open":
-                        logger.info(
-                            "klive v{version}: Opened file '{file}'",
-                            version=jmsg["version"],
-                            file=jmsg["file"],
-                        )
+                        info = jmsg.get("info")
+                        if info:
+                            (
+                                logger.info(
+                                    "klive v{version}: Opened file '{file}'"
+                                    ", Messages: {info}",
+                                    version=jmsg["version"],
+                                    file=jmsg["file"],
+                                    info=info,
+                                ),
+                            )
+                        else:
+                            logger.info(
+                                "klive v{version}: Opened file '{file}'",
+                                version=jmsg["version"],
+                                file=jmsg["file"],
+                            )
                     case "reload":
-                        logger.info(
-                            "klive v{version}: Reloaded file '{file}'",
-                            version=jmsg["version"],
-                            file=jmsg["file"],
-                        )
+                        info = jmsg.get("info")
+                        if info:
+                            logger.info(
+                                "klive v{version}: Reloaded file '{file}'"
+                                ", Messages: {info}",
+                                version=jmsg["version"],
+                                file=jmsg["file"],
+                                info=info,
+                            )
+                        else:
+                            logger.info(
+                                "klive v{version}: Reloaded file '{file}'",
+                                version=jmsg["version"],
+                                file=jmsg["file"],
+                            )
                 # check klive version
                 klive_version = [int(s) for s in jmsg["version"].split(".")]
                 rec_klive_version = (0, 3, 3)

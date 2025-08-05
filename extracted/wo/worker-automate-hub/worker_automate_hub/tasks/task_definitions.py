@@ -188,6 +188,7 @@ task_definitions = {
     "d60388f1-dc07-49d0-a154-ce318a529c1c": integracao_contabil_generica,
     "30544b48-7dc4-4f3e-ac6c-16be7bca57a4": integracao_contabil_generica,
     "0436cb8c-0c58-41a1-9609-443cc37c1801": integracao_contabil_generica,
+    "d34d8593-0cbf-4f8c-8647-5736e1168d89": integracao_contabil_generica,
     "c8527e90-c65b-4d68-b4cf-25008b678957": geracao_aprovacao_pedidos_34,
     "260380b7-a3e5-4c23-ab69-b428ee552830": geracao_aprovacao_pedidos_171,
     "c10bbf8c-3949-4a0e-9e10-3d85d367263d": abertura_livros_fiscais,

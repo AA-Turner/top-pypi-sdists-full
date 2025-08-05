@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: openlit
-Version: 1.34.43
+Version: 1.35.0
 Summary: OpenTelemetry-native Auto instrumentation library for monitoring LLM Applications and GPUs, facilitating the integration of observability into your GenAI-driven projects
 License: Apache-2.0
 Keywords: OpenTelemetry,otel,otlp,llm,tracing,openai,anthropic,claude,cohere,llm monitoring,observability,monitoring,gpt,Generative AI,chatGPT,gpu
@@ -23,6 +23,19 @@ Requires-Dist: openai-agents (>=0.0.3)
 Requires-Dist: opentelemetry-api (>=1.30.0,<2.0.0)
 Requires-Dist: opentelemetry-exporter-otlp (>=1.30.0,<2.0.0)
 Requires-Dist: opentelemetry-instrumentation (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-aiohttp-client (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-asgi (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-django (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-falcon (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-fastapi (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-flask (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-httpx (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-pyramid (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-requests (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-starlette (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-tornado (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-urllib (>=0.52b0,<1.0.0)
+Requires-Dist: opentelemetry-instrumentation-urllib3 (>=0.52b0,<1.0.0)
 Requires-Dist: opentelemetry-sdk (>=1.30.0,<2.0.0)
 Requires-Dist: pydantic (>=2.0.0,<3.0.0)
 Requires-Dist: requests (>=2.26.0,<3.0.0)

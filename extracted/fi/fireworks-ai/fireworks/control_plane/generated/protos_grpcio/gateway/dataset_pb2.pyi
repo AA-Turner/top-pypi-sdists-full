@@ -1,8 +1,8 @@
 from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
-from ..google.api import field_behavior_pb2 as _field_behavior_pb2
-from ..google.api import resource_pb2 as _resource_pb2
-from ..google.api import visibility_pb2 as _visibility_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.api import resource_pb2 as _resource_pb2
+from google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -14,7 +14,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Dataset(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "state", "status", "example_count", "access_policy", "user_uploaded", "evaluation_result", "fireworks_traced", "draft_model_states", "transformed", "splitted", "external_url", "format", "created_by", "update_time")
+    __slots__ = ("name", "display_name", "create_time", "state", "status", "example_count", "access_policy", "user_uploaded", "evaluation_result", "fireworks_traced", "draft_model_states", "transformed", "splitted", "external_url", "format", "created_by", "update_time", "source_job_name")
     class State(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         STATE_UNSPECIFIED: _ClassVar[Dataset.State]
@@ -56,6 +56,7 @@ class Dataset(_message.Message):
     FORMAT_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     UPDATE_TIME_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_JOB_NAME_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     create_time: _timestamp_pb2.Timestamp
@@ -73,7 +74,8 @@ class Dataset(_message.Message):
     format: Dataset.Format
     created_by: str
     update_time: _timestamp_pb2.Timestamp
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[_Union[Dataset.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., example_count: _Optional[int] = ..., access_policy: _Optional[_Union[Dataset.AccessPolicy, str]] = ..., user_uploaded: _Optional[_Union[UserUploaded, _Mapping]] = ..., evaluation_result: _Optional[_Union[EvaluationResult, _Mapping]] = ..., fireworks_traced: _Optional[_Union[FireworksTraced, _Mapping]] = ..., draft_model_states: _Optional[_Union[DraftModelStates, _Mapping]] = ..., transformed: _Optional[_Union[Transformed, _Mapping]] = ..., splitted: _Optional[_Union[Splitted, _Mapping]] = ..., external_url: _Optional[str] = ..., format: _Optional[_Union[Dataset.Format, str]] = ..., created_by: _Optional[str] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    source_job_name: str
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., state: _Optional[_Union[Dataset.State, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., example_count: _Optional[int] = ..., access_policy: _Optional[_Union[Dataset.AccessPolicy, str]] = ..., user_uploaded: _Optional[_Union[UserUploaded, _Mapping]] = ..., evaluation_result: _Optional[_Union[EvaluationResult, _Mapping]] = ..., fireworks_traced: _Optional[_Union[FireworksTraced, _Mapping]] = ..., draft_model_states: _Optional[_Union[DraftModelStates, _Mapping]] = ..., transformed: _Optional[_Union[Transformed, _Mapping]] = ..., splitted: _Optional[_Union[Splitted, _Mapping]] = ..., external_url: _Optional[str] = ..., format: _Optional[_Union[Dataset.Format, str]] = ..., created_by: _Optional[str] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., source_job_name: _Optional[str] = ...) -> None: ...
 
 class PreviewDatasetRequest(_message.Message):
     __slots__ = ("name", "page_size", "page_token", "filter", "order_by")
@@ -244,12 +246,14 @@ class ValidateDatasetUploadRequest(_message.Message):
     def __init__(self, name: _Optional[str] = ...) -> None: ...
 
 class GetDatasetDownloadEndpointRequest(_message.Message):
-    __slots__ = ("name", "read_mask")
+    __slots__ = ("name", "read_mask", "download_lineage")
     NAME_FIELD_NUMBER: _ClassVar[int]
     READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    DOWNLOAD_LINEAGE_FIELD_NUMBER: _ClassVar[int]
     name: str
     read_mask: _field_mask_pb2.FieldMask
-    def __init__(self, name: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
+    download_lineage: bool
+    def __init__(self, name: _Optional[str] = ..., read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ..., download_lineage: bool = ...) -> None: ...
 
 class GetDatasetDownloadEndpointResponse(_message.Message):
     __slots__ = ("filename_to_signed_urls",)

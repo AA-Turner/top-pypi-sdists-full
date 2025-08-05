@@ -11,7 +11,6 @@ use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
-use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -21,7 +20,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
-use crate::alt::class::base_class::BaseClass;
 use crate::alt::solve::TypeFormContext;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
@@ -31,6 +29,7 @@ use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
+use crate::binding::base_class::BaseClass;
 use crate::binding::binding::Key;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
@@ -76,7 +75,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn class_metadata_of(
         &self,
         cls: &Class,
-        bases: &[Expr],
+        bases: &[BaseClass],
         keywords: &[(Name, Expr)],
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
@@ -84,7 +83,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         let mut enum_metadata = None;
-        let mut bases: Vec<BaseClass> = bases.map(|x| self.base_class_of(x, errors));
+        let mut bases: Vec<BaseClass> = bases.to_vec();
         if let Some(special_base) = special_base {
             bases.push((**special_base).clone());
         }
@@ -104,9 +103,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     BaseClass::NamedTuple(..) => {
                         Some((self.stdlib.named_tuple_fallback().clone().to_type(), range))
                     }
-                    // Skip over empty generic. Empty protocol is only relevant for `protocol_metadata`, defined
-                    // above so we can skip it here.
-                    BaseClass::Generic(..) | BaseClass::Protocol(..) | BaseClass::TypedDict(..) => {
+                    BaseClass::TypedDict(..) => {
                         if is_new_type {
                             self.error(
                                 errors,
@@ -114,6 +111,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 ErrorInfo::Kind(ErrorKind::InvalidArgument),
                                 "Second argument to NewType is invalid".to_owned(),
                             );
+                        }
+                        None
+                    }
+                    BaseClass::Generic(args, _) | BaseClass::Protocol(args, _) => {
+                        if is_new_type {
+                            self.error(
+                                errors,
+                                range,
+                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                                "Second argument to NewType is invalid".to_owned(),
+                            );
+                        } else {
+                            let mut type_var_tuple_count = 0;
+                            args.iter().for_each(|x| {
+                                let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
+                                if let Type::Unpack(unpacked) = &ty
+                                    && unpacked.is_kind_type_var_tuple()
+                                {
+                                    if type_var_tuple_count == 1 {
+                                        self.error(
+                                            errors,
+                                            x.range(),
+                                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                                            "There cannot be more than one TypeVarTuple type parameter".to_owned(),
+                                        );
+                                    }
+                                    type_var_tuple_count += 1;
+                                }
+                            });
                         }
                         None
                     }
@@ -325,9 +351,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // this does not turn the class into a dataclass! Instead, it becomes a special base class
         // (or metaclass) that turns child classes into dataclasses.
         let mut dataclass_transform_metadata = dataclass_defaults_from_base_class.clone();
-        let mut dataclass_metadata = bases_with_metadata
-            .iter()
-            .find_map(|(_, metadata)| metadata.dataclass_metadata().cloned());
+        // If we inherit from a dataclass, inherit its metadata. Note that if this class is
+        // itself decorated with @dataclass, we'll compute new metadata and overwrite this.
+        let mut dataclass_metadata = bases_with_metadata.iter().find_map(|(_, metadata)| {
+            let mut m = metadata.dataclass_metadata().cloned()?;
+            // Avoid accidentally overwriting a non-synthesized `__init__`.
+            m.kws.init = false;
+            Some(m)
+        });
         // This is set when we should apply dataclass-like transformations to the class. The class
         // should be transformed if:
         // - it inherits from a base class decorated with `dataclass_transform(...)`, or
@@ -561,7 +592,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
         ClassMetadata::new(
-            bases_with_metadata,
+            bases_with_metadata
+                .into_iter()
+                .map(|(base, _)| base)
+                .collect(),
             metaclass,
             keywords,
             typed_dict_metadata,
@@ -707,9 +741,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn calculate_class_mro(&self, cls: &Class, errors: &ErrorCollector) -> ClassMro {
         let metadata = self.get_metadata_for_class(cls);
         let bases_with_mros = metadata
-            .bases_with_metadata()
+            .base_class_types()
             .iter()
-            .map(|(base, _)| {
+            .map(|base| {
                 let mro = self.get_mro_for_class(base.class_object());
                 (base, mro)
             })

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meilisearch-python-sdk
-Version: 4.7.2
+Version: 4.8.0
 Summary: A Python client providing both async and sync support for the Meilisearch API
 Project-URL: repository, https://github.com/sanders41/meilisearch-python-sdk
 Project-URL: homepage, https://github.com/sanders41/meilisearch-python-sdk

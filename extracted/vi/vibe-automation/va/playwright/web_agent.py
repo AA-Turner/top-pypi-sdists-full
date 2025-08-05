@@ -141,7 +141,7 @@ YOU MUST EXTRACT ALL OF THE INFORMATION THAT THE USER REQUESTS.
     You will be given:
     1. An instruction
     2. A list of DOM elements to extract from.
-    3. Optional schema to extract from. If provided, you must extract the data in the schema format.
+    3. (Optional) A screenshot of the page.
 
     Print the exact text from the DOM+accessibility tree elements with all symbols, characters, and endlines as is. Do not add any additional text or formatting.
 
@@ -701,7 +701,10 @@ class WebAgent(Agent):
             }
 
     async def extract(
-        self, prompt: str, schema: Optional[Type[BaseModel]] = None
+        self,
+        prompt: str,
+        schema: Optional[Type[BaseModel]] = None,
+        include_screenshot: bool = False,
     ) -> Any:
         """
         Extract data from the page using natural language.
@@ -712,12 +715,39 @@ class WebAgent(Agent):
         # Setup content for the LLM call
         content = f"""Instruction: {prompt} DOM+accessibility tree: {snapshot}"""
 
+        # If include_screenshot is True, capture and include the screenshot
+        if include_screenshot:
+            try:
+                screenshot_bytes = await self.page.screenshot()
+                screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+                content = (
+                    f"""Instruction: {prompt} DOM+accessibility tree: {snapshot}"""
+                )
+
+                # Create content with both text and image
+                content_list = [
+                    {"type": "text", "text": content},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": screenshot_base64,
+                        },
+                    },
+                ]
+            except Exception as e:
+                log.warning(f"Failed to capture screenshot for extraction: {e}")
+                content_list = [{"type": "text", "text": content}]
+        else:
+            content_list = [{"type": "text", "text": content}]
+
         # If schema is provided, use structured output
         if schema:
             response = self.instructor_client.messages.create(
                 model=self.model,
                 max_tokens=4000,
-                messages=[{"role": "user", "content": content}],
+                messages=[{"role": "user", "content": content_list}],
                 system=build_extract_system_prompt(),
                 response_model=schema,  # specify output format
             )
@@ -727,7 +757,8 @@ class WebAgent(Agent):
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=4000,
-                messages=[{"role": "user", "content": content}],
+                messages=[{"role": "user", "content": content_list}],
+                system=build_extract_system_prompt(),
             )
             # Extract text from TextBlock object
             return response.content[0].text

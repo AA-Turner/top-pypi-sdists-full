@@ -19,6 +19,7 @@ from wagtail.admin import messages
 from wagtail.admin.action_menu import PageActionMenu
 from wagtail.admin.mail import send_notification
 from wagtail.admin.models import EditingSession
+from wagtail.admin.telepath import JSContext
 from wagtail.admin.ui.components import MediaContainer
 from wagtail.admin.ui.editing_sessions import EditingSessionsModule
 from wagtail.admin.ui.side_panels import (
@@ -945,7 +946,12 @@ class EditView(WagtailAdminTemplateMixin, HookResponseMixin, View):
         action_menu = self.get_action_menu()
         side_panels = self.get_side_panels()
 
-        media = MediaContainer([bound_panel, self.form, action_menu, side_panels]).media
+        js_context = JSContext()
+        edit_handler_data = js_context.pack(bound_panel)
+
+        media = MediaContainer(
+            [bound_panel, self.form, action_menu, side_panels, js_context]
+        ).media
 
         context.update(
             {
@@ -953,6 +959,7 @@ class EditView(WagtailAdminTemplateMixin, HookResponseMixin, View):
                 "page_for_status": self.page_for_status,
                 "content_type": self.page_content_type,
                 "edit_handler": bound_panel,
+                "edit_handler_data": edit_handler_data,
                 "errors_debug": self.errors_debug,
                 "action_menu": action_menu,
                 "side_panels": side_panels,

@@ -50,7 +50,18 @@ class URL:
         if self._url is None:
             raise URLError("None url")
 
-        parsed_url = parse.urlparse(self._url)
+        try:
+            parsed_url = parse.urlparse(self._url)
+        except ValueError as e:
+            if str(e) == "Invalid IPv6 URL":
+                message = (
+                    "Please ensure the provided Tentaclio secret URL is in valid format."
+                    " If your password element contains special characters,"
+                    " please ensure it is URL encoded. You can do this using"
+                    "the Python urllib.parse.quote_plus() function."
+                )
+                raise ValueError("Invalid IPv6 URL : " + message)
+            raise e
 
         self._scheme = parsed_url.scheme
         self._username = parsed_url.username
@@ -92,7 +103,7 @@ class URL:
             hostname=hostname or self.hostname,
             port=port or self.port,
             path=path or self.path,
-            query=query or self.query,
+            query=query or self.query_string,
         )
 
     @classmethod
@@ -111,10 +122,12 @@ class URL:
             username=username, password=password, hostname=hostname, port=port
         )
         params = None
-        if query:
-            query = parse.urlencode(query)
+        if isinstance(query, dict):
+            query_str = parse.urlencode(query)
+        else:
+            query_str = query
         fragment = None
-        components = (scheme, netloc, path, params, query, fragment)
+        components = (scheme, netloc, path, params, query_str, fragment)
         url = parse.urlunparse(components)
         return URL(url)
 
@@ -123,7 +136,16 @@ class URL:
         password = self.password
         if password:
             password = "__secret__" + password[-4:]
-        return self.copy(password=password)._url
+
+        masked_query_dict = None
+        if self.query is not None:
+            masked_query_dict = self.query.copy()
+            keys_to_redact = ["private_key_path", "private_key_password"]
+            for key in keys_to_redact:
+                if masked_query_dict.get(key):
+                    masked_query_dict[key] = "__secret__"
+        query_str = parse.urlencode(masked_query_dict) if masked_query_dict is not None else None
+        return self.copy(password=password, query=query_str)._url
 
     def __eq__(self, other: Any):
         """Check if two urls are equal."""

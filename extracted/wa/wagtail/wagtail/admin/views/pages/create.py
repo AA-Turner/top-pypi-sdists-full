@@ -13,8 +13,9 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
-from wagtail.admin import messages, signals
+from wagtail.admin import messages
 from wagtail.admin.action_menu import PageActionMenu
+from wagtail.admin.telepath import JSContext
 from wagtail.admin.ui.components import MediaContainer
 from wagtail.admin.ui.side_panels import (
     ChecksSidePanel,
@@ -32,6 +33,7 @@ from wagtail.models import (
     PageSubscription,
     PageViewRestriction,
 )
+from wagtail.signals import init_new_page
 
 
 def add_subpage(request, parent_page_id):
@@ -389,9 +391,7 @@ class CreateView(WagtailAdminTemplateMixin, HookResponseMixin, View):
         return self.render_to_response(self.get_context_data())
 
     def get(self, request):
-        signals.init_new_page.send(
-            sender=CreateView, page=self.page, parent=self.parent_page
-        )
+        init_new_page.send(sender=CreateView, page=self.page, parent=self.parent_page)
         self.form = self.form_class(
             instance=self.page,
             subscription=self.subscription,
@@ -453,7 +453,12 @@ class CreateView(WagtailAdminTemplateMixin, HookResponseMixin, View):
         )
         side_panels = self.get_side_panels()
 
-        media = MediaContainer([bound_panel, self.form, action_menu, side_panels]).media
+        js_context = JSContext()
+        edit_handler_data = js_context.pack(bound_panel)
+
+        media = MediaContainer(
+            [bound_panel, self.form, action_menu, side_panels, js_context]
+        ).media
 
         context.update(
             {
@@ -461,6 +466,7 @@ class CreateView(WagtailAdminTemplateMixin, HookResponseMixin, View):
                 "page_class": self.page_class,
                 "parent_page": self.parent_page,
                 "edit_handler": bound_panel,
+                "edit_handler_data": edit_handler_data,
                 "action_menu": action_menu,
                 "side_panels": side_panels,
                 "form": self.form,

@@ -51,6 +51,7 @@ class ContentSourcePackagesApi:
     def create(
         self,
         deb_source_package: DebSourcePackage,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -70,6 +71,8 @@ class ContentSourcePackagesApi:
 
         :param deb_source_package: (required)
         :type deb_source_package: DebSourcePackage
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -94,6 +97,7 @@ class ContentSourcePackagesApi:
 
         _param = self._create_serialize(
             deb_source_package=deb_source_package,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -118,6 +122,7 @@ class ContentSourcePackagesApi:
     def create_with_http_info(
         self,
         deb_source_package: DebSourcePackage,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -137,6 +142,8 @@ class ContentSourcePackagesApi:
 
         :param deb_source_package: (required)
         :type deb_source_package: DebSourcePackage
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -161,6 +168,7 @@ class ContentSourcePackagesApi:
 
         _param = self._create_serialize(
             deb_source_package=deb_source_package,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -185,6 +193,7 @@ class ContentSourcePackagesApi:
     def create_without_preload_content(
         self,
         deb_source_package: DebSourcePackage,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -204,6 +213,8 @@ class ContentSourcePackagesApi:
 
         :param deb_source_package: (required)
         :type deb_source_package: DebSourcePackage
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -228,6 +239,7 @@ class ContentSourcePackagesApi:
 
         _param = self._create_serialize(
             deb_source_package=deb_source_package,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -247,6 +259,7 @@ class ContentSourcePackagesApi:
     def _create_serialize(
         self,
         deb_source_package,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -256,6 +269,7 @@ class ContentSourcePackagesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -270,6 +284,8 @@ class ContentSourcePackagesApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_source_package is not None:
@@ -327,6 +343,7 @@ class ContentSourcePackagesApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         architecture: Annotated[Optional[StrictStr], Field(description="Filter results where architecture matches value")] = None,
         binary: Annotated[Optional[StrictStr], Field(description="Filter results where binary matches value")] = None,
         build_conflicts: Annotated[Optional[StrictStr], Field(description="Filter results where build_conflicts matches value")] = None,
@@ -388,6 +405,8 @@ class ContentSourcePackagesApi:
 
         A Debian Source Package file represents a '.dsc' file along with its associated artifacts such as orig.tar.gz, debian.tar.gz...  Associated artifacts: Exactly one '.dsc' file.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param architecture: Filter results where architecture matches value
         :type architecture: str
         :param binary: Filter results where binary matches value
@@ -499,6 +518,7 @@ class ContentSourcePackagesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             architecture=architecture,
             binary=binary,
             build_conflicts=build_conflicts,
@@ -566,6 +586,7 @@ class ContentSourcePackagesApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         architecture: Annotated[Optional[StrictStr], Field(description="Filter results where architecture matches value")] = None,
         binary: Annotated[Optional[StrictStr], Field(description="Filter results where binary matches value")] = None,
         build_conflicts: Annotated[Optional[StrictStr], Field(description="Filter results where build_conflicts matches value")] = None,
@@ -627,6 +648,8 @@ class ContentSourcePackagesApi:
 
         A Debian Source Package file represents a '.dsc' file along with its associated artifacts such as orig.tar.gz, debian.tar.gz...  Associated artifacts: Exactly one '.dsc' file.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param architecture: Filter results where architecture matches value
         :type architecture: str
         :param binary: Filter results where binary matches value
@@ -738,6 +761,7 @@ class ContentSourcePackagesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             architecture=architecture,
             binary=binary,
             build_conflicts=build_conflicts,
@@ -805,6 +829,7 @@ class ContentSourcePackagesApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         architecture: Annotated[Optional[StrictStr], Field(description="Filter results where architecture matches value")] = None,
         binary: Annotated[Optional[StrictStr], Field(description="Filter results where binary matches value")] = None,
         build_conflicts: Annotated[Optional[StrictStr], Field(description="Filter results where build_conflicts matches value")] = None,
@@ -866,6 +891,8 @@ class ContentSourcePackagesApi:
 
         A Debian Source Package file represents a '.dsc' file along with its associated artifacts such as orig.tar.gz, debian.tar.gz...  Associated artifacts: Exactly one '.dsc' file.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param architecture: Filter results where architecture matches value
         :type architecture: str
         :param binary: Filter results where binary matches value
@@ -977,6 +1004,7 @@ class ContentSourcePackagesApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             architecture=architecture,
             binary=binary,
             build_conflicts=build_conflicts,
@@ -1039,6 +1067,7 @@ class ContentSourcePackagesApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         architecture,
         binary,
         build_conflicts,
@@ -1092,6 +1121,7 @@ class ContentSourcePackagesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -1288,6 +1318,8 @@ class ContentSourcePackagesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1329,6 +1361,7 @@ class ContentSourcePackagesApi:
     def read(
         self,
         deb_source_package_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1350,6 +1383,8 @@ class ContentSourcePackagesApi:
 
         :param deb_source_package_href: (required)
         :type deb_source_package_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1378,6 +1413,7 @@ class ContentSourcePackagesApi:
 
         _param = self._read_serialize(
             deb_source_package_href=deb_source_package_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1404,6 +1440,7 @@ class ContentSourcePackagesApi:
     def read_with_http_info(
         self,
         deb_source_package_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1425,6 +1462,8 @@ class ContentSourcePackagesApi:
 
         :param deb_source_package_href: (required)
         :type deb_source_package_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1453,6 +1492,7 @@ class ContentSourcePackagesApi:
 
         _param = self._read_serialize(
             deb_source_package_href=deb_source_package_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1479,6 +1519,7 @@ class ContentSourcePackagesApi:
     def read_without_preload_content(
         self,
         deb_source_package_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1500,6 +1541,8 @@ class ContentSourcePackagesApi:
 
         :param deb_source_package_href: (required)
         :type deb_source_package_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1528,6 +1571,7 @@ class ContentSourcePackagesApi:
 
         _param = self._read_serialize(
             deb_source_package_href=deb_source_package_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1549,6 +1593,7 @@ class ContentSourcePackagesApi:
     def _read_serialize(
         self,
         deb_source_package_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1560,6 +1605,7 @@ class ContentSourcePackagesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1586,6 +1632,8 @@ class ContentSourcePackagesApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1628,6 +1676,7 @@ class ContentSourcePackagesApi:
         self,
         deb_source_package_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1649,6 +1698,8 @@ class ContentSourcePackagesApi:
         :type deb_source_package_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1674,6 +1725,7 @@ class ContentSourcePackagesApi:
         _param = self._set_label_serialize(
             deb_source_package_href=deb_source_package_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1699,6 +1751,7 @@ class ContentSourcePackagesApi:
         self,
         deb_source_package_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1720,6 +1773,8 @@ class ContentSourcePackagesApi:
         :type deb_source_package_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1745,6 +1800,7 @@ class ContentSourcePackagesApi:
         _param = self._set_label_serialize(
             deb_source_package_href=deb_source_package_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1770,6 +1826,7 @@ class ContentSourcePackagesApi:
         self,
         deb_source_package_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1791,6 +1848,8 @@ class ContentSourcePackagesApi:
         :type deb_source_package_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1816,6 +1875,7 @@ class ContentSourcePackagesApi:
         _param = self._set_label_serialize(
             deb_source_package_href=deb_source_package_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1836,6 +1896,7 @@ class ContentSourcePackagesApi:
         self,
         deb_source_package_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1845,6 +1906,7 @@ class ContentSourcePackagesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1861,6 +1923,8 @@ class ContentSourcePackagesApi:
             _path_params['deb_source_package_href'] = deb_source_package_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1920,6 +1984,7 @@ class ContentSourcePackagesApi:
         self,
         deb_source_package_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1941,6 +2006,8 @@ class ContentSourcePackagesApi:
         :type deb_source_package_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1966,6 +2033,7 @@ class ContentSourcePackagesApi:
         _param = self._unset_label_serialize(
             deb_source_package_href=deb_source_package_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1991,6 +2059,7 @@ class ContentSourcePackagesApi:
         self,
         deb_source_package_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2012,6 +2081,8 @@ class ContentSourcePackagesApi:
         :type deb_source_package_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2037,6 +2108,7 @@ class ContentSourcePackagesApi:
         _param = self._unset_label_serialize(
             deb_source_package_href=deb_source_package_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2062,6 +2134,7 @@ class ContentSourcePackagesApi:
         self,
         deb_source_package_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2083,6 +2156,8 @@ class ContentSourcePackagesApi:
         :type deb_source_package_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2108,6 +2183,7 @@ class ContentSourcePackagesApi:
         _param = self._unset_label_serialize(
             deb_source_package_href=deb_source_package_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2128,6 +2204,7 @@ class ContentSourcePackagesApi:
         self,
         deb_source_package_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2137,6 +2214,7 @@ class ContentSourcePackagesApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2153,6 +2231,8 @@ class ContentSourcePackagesApi:
             _path_params['deb_source_package_href'] = deb_source_package_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:

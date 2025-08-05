@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: mercurial
-Version: 7.0.3
+Version: 7.1
 Summary: Fast scalable distributed SCM (revision control, version control) system
 Author-email: Olivia Mackall and many others <mercurial@mercurial-scm.org>
-License: GNU GPLv2 or any later version
+License-Expression: GPL-2.0-or-later
 Project-URL: home, https://mercurial-scm.org/
 Project-URL: download_url, https://mercurial-scm.org/release/
 Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: GNU General Public License (GPL)
 Classifier: Natural Language :: Danish
 Classifier: Natural Language :: English
 Classifier: Natural Language :: German
@@ -23,7 +22,7 @@ Classifier: Operating System :: POSIX
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Version Control
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: COPYING
 Dynamic: license-file

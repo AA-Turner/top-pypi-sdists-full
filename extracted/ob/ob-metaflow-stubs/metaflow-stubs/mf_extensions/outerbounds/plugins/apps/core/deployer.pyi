@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-01T20:12:28.677984                                                            #
+# Generated on 2025-08-04T19:06:54.456438                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -10,10 +10,10 @@ import typing
 import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
     import datetime
     import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig
 from .perimeters import PerimeterExtractor as PerimeterExtractor
@@ -38,7 +38,7 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
     ...
 
 class DeployedApp(object, metaclass=type):
-    def __init__(self, _id: str, capsule_type: str, public_url: str, available_replicas: int, name: str, deployed_version: str, deployed_at: str):
+    def __init__(self, _id: str, capsule_type: str, public_url: str, name: str, deployed_version: str, deployed_at: str):
         ...
     def logs(self, previous = False) -> typing.Dict[str, typing.List[metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine.LogLine]]:
         """
@@ -50,6 +50,8 @@ class DeployedApp(object, metaclass=type):
         """
         Returns a dictionary representing the deployed app.
         """
+        ...
+    def replicas(self):
         ...
     def scale_to_zero(self):
         """
@@ -69,9 +71,6 @@ class DeployedApp(object, metaclass=type):
         ...
     @property
     def public_url(self) -> str:
-        ...
-    @property
-    def available_replicas(self) -> int:
         ...
     @property
     def name(self) -> str:

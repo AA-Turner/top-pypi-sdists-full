@@ -50,7 +50,8 @@ class TestDebAptDistributionResponse(unittest.TestCase):
                     },
                 name = '',
                 repository = '',
-                publication = ''
+                publication = '',
+                checkpoint = True
             )
         else:
             return DebAptDistributionResponse(

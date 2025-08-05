@@ -4,9 +4,9 @@ from . import job_progress_pb2 as _job_progress_pb2
 from . import options_pb2 as _options_pb2
 from . import status_pb2 as _status_pb2
 from . import wandb_pb2 as _wandb_pb2
-from ..google.api import field_behavior_pb2 as _field_behavior_pb2
-from ..google.api import resource_pb2 as _resource_pb2
-from ..google.api import visibility_pb2 as _visibility_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.api import resource_pb2 as _resource_pb2
+from google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers

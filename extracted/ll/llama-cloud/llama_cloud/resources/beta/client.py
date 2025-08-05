@@ -15,6 +15,10 @@ from ...types.agent_data import AgentData
 from ...types.batch import Batch
 from ...types.batch_paginated_list import BatchPaginatedList
 from ...types.batch_public_output import BatchPublicOutput
+from ...types.file import File
+from ...types.file_create import FileCreate
+from ...types.file_filter import FileFilter
+from ...types.file_query_response import FileQueryResponse
 from ...types.filter_operation import FilterOperation
 from ...types.http_validation_error import HttpValidationError
 from ...types.llama_parse_parameters import LlamaParseParameters
@@ -610,6 +614,234 @@ class BetaClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def create_file(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        request: FileCreate,
+    ) -> File:
+        """
+        Create a new file in the project.
+
+        Args:
+        file_create: File creation data
+        project: Validated project from dependency
+        db: Database session
+
+        Returns:
+        The created file
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - request: FileCreate.
+        ---
+        from llama_cloud import FileCreate
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.create_file(
+            request=FileCreate(
+                name="string",
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/files"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(File, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def upsert_file(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        request: FileCreate,
+    ) -> File:
+        """
+        Upsert a file (create or update if exists) in the project.
+
+        Args:
+        file_create: File creation/update data
+        project: Validated project from dependency
+        db: Database session
+
+        Returns:
+        The upserted file
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - request: FileCreate.
+        ---
+        from llama_cloud import FileCreate
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.upsert_file(
+            request=FileCreate(
+                name="string",
+            ),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "PUT",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/files"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(File, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def query_files(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = OMIT,
+        page_token: typing.Optional[str] = OMIT,
+        filter: typing.Optional[FileFilter] = OMIT,
+        order_by: typing.Optional[str] = OMIT,
+    ) -> FileQueryResponse:
+        """
+        Query files with flexible filtering and pagination.
+
+        Args:
+        request: The query request with filters and pagination
+        project: Validated project from dependency
+        db: Database session
+
+        Returns:
+        Paginated response with files
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+
+            - filter: typing.Optional[FileFilter].
+
+            - order_by: typing.Optional[str].
+        ---
+        from llama_cloud import FileFilter
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.query_files(
+            filter=FileFilter(),
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if page_size is not OMIT:
+            _request["page_size"] = page_size
+        if page_token is not OMIT:
+            _request["page_token"] = page_token
+        if filter is not OMIT:
+            _request["filter"] = filter
+        if order_by is not OMIT:
+            _request["order_by"] = order_by
+        _response = self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/files/query"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(FileQueryResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def delete_file(
+        self, file_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> None:
+        """
+        Delete a single file from the project.
+
+        Args:
+        file_id: The ID of the file to delete
+        project: Validated project from dependency
+        db: Database session
+
+        Returns:
+        None (204 No Content on success)
+
+        Parameters:
+            - file_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import LlamaCloud
+
+        client = LlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        client.beta.delete_file(
+            file_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "DELETE",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/files/{file_id}"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
 
 class AsyncBetaClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -1179,6 +1411,234 @@ class AsyncBetaClient:
         )
         if 200 <= _response.status_code < 300:
             return pydantic.parse_obj_as(PaginatedResponseQuotaConfiguration, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def create_file(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        request: FileCreate,
+    ) -> File:
+        """
+        Create a new file in the project.
+
+        Args:
+        file_create: File creation data
+        project: Validated project from dependency
+        db: Database session
+
+        Returns:
+        The created file
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - request: FileCreate.
+        ---
+        from llama_cloud import FileCreate
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.create_file(
+            request=FileCreate(
+                name="string",
+            ),
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/files"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(File, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def upsert_file(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        request: FileCreate,
+    ) -> File:
+        """
+        Upsert a file (create or update if exists) in the project.
+
+        Args:
+        file_create: File creation/update data
+        project: Validated project from dependency
+        db: Database session
+
+        Returns:
+        The upserted file
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - request: FileCreate.
+        ---
+        from llama_cloud import FileCreate
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.upsert_file(
+            request=FileCreate(
+                name="string",
+            ),
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "PUT",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/files"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(File, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def query_files(
+        self,
+        *,
+        project_id: typing.Optional[str] = None,
+        organization_id: typing.Optional[str] = None,
+        page_size: typing.Optional[int] = OMIT,
+        page_token: typing.Optional[str] = OMIT,
+        filter: typing.Optional[FileFilter] = OMIT,
+        order_by: typing.Optional[str] = OMIT,
+    ) -> FileQueryResponse:
+        """
+        Query files with flexible filtering and pagination.
+
+        Args:
+        request: The query request with filters and pagination
+        project: Validated project from dependency
+        db: Database session
+
+        Returns:
+        Paginated response with files
+
+        Parameters:
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+
+            - page_size: typing.Optional[int].
+
+            - page_token: typing.Optional[str].
+
+            - filter: typing.Optional[FileFilter].
+
+            - order_by: typing.Optional[str].
+        ---
+        from llama_cloud import FileFilter
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.query_files(
+            filter=FileFilter(),
+        )
+        """
+        _request: typing.Dict[str, typing.Any] = {}
+        if page_size is not OMIT:
+            _request["page_size"] = page_size
+        if page_token is not OMIT:
+            _request["page_token"] = page_token
+        if filter is not OMIT:
+            _request["filter"] = filter
+        if order_by is not OMIT:
+            _request["order_by"] = order_by
+        _response = await self._client_wrapper.httpx_client.request(
+            "POST",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", "api/v1/beta/files/query"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            json=jsonable_encoder(_request),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return pydantic.parse_obj_as(FileQueryResponse, _response.json())  # type: ignore
+        if _response.status_code == 422:
+            raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
+        try:
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def delete_file(
+        self, file_id: str, *, project_id: typing.Optional[str] = None, organization_id: typing.Optional[str] = None
+    ) -> None:
+        """
+        Delete a single file from the project.
+
+        Args:
+        file_id: The ID of the file to delete
+        project: Validated project from dependency
+        db: Database session
+
+        Returns:
+        None (204 No Content on success)
+
+        Parameters:
+            - file_id: str.
+
+            - project_id: typing.Optional[str].
+
+            - organization_id: typing.Optional[str].
+        ---
+        from llama_cloud.client import AsyncLlamaCloud
+
+        client = AsyncLlamaCloud(
+            token="YOUR_TOKEN",
+        )
+        await client.beta.delete_file(
+            file_id="string",
+        )
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "DELETE",
+            urllib.parse.urljoin(f"{self._client_wrapper.get_base_url()}/", f"api/v1/beta/files/{file_id}"),
+            params=remove_none_from_dict({"project_id": project_id, "organization_id": organization_id}),
+            headers=self._client_wrapper.get_headers(),
+            timeout=60,
+        )
+        if 200 <= _response.status_code < 300:
+            return
         if _response.status_code == 422:
             raise UnprocessableEntityError(pydantic.parse_obj_as(HttpValidationError, _response.json()))  # type: ignore
         try:

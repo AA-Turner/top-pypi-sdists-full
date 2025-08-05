@@ -130,6 +130,7 @@ from .event import (
     clear_session_storage,
     console_log,
     download,
+    event,
     noop,
     prevent_default,
     redirect,
@@ -145,13 +146,12 @@ from .event import (
     upload_files,
     window_alert,
 )
-from .event import event as event
 from .experimental import _x
 from .istate.storage import Cookie, LocalStorage, SessionStorage
 from .istate.wrappers import get_state
 from .middleware import Middleware, middleware
 from .model import Model, asession, session
-from .page import page as page
+from .page import page
 from .state import ComponentState, State, dynamic, var
 from .style import Style, toggle_color_mode
 from .utils.imports import ImportDict, ImportVar
@@ -256,6 +256,7 @@ __all__ = [
     "dropdown_menu",
     "dynamic",
     "el",
+    "event",
     "field",
     "flex",
     "foreach",
@@ -290,6 +291,7 @@ __all__ = [
     "moment",
     "noop",
     "ordered_list",
+    "page",
     "plotly",
     "plugins",
     "popover",

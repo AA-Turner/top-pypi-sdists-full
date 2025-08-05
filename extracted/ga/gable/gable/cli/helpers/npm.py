@@ -9,13 +9,13 @@ import threading
 from typing import Any, List, Optional, Union
 
 import click
+from loguru import logger
+
 import gable.cli.helpers.sca_exceptions as sca_exceptions
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.auth import set_npm_config_credentials
-from gable.openapi import CreateTelemetryRequest, TelemetryType
-from loguru import logger
-
 from gable.cli.local import get_local_sca_path, get_local_sca_prime
+from gable.openapi import CreateTelemetryRequest, TelemetryType
 
 BASE_NPX_CMD = [
     "npx",
@@ -256,8 +256,14 @@ def get_base_npx_cmd(gable_api_endpoint: Union[str, None]) -> list[str]:
         logger.trace("Configuring local settings")
         try:
             local_sca_path = get_local_sca_path()
+            product_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.dirname(local_sca_path)))
+            )
+            tsx_path = os.path.join(
+                product_dir, "node_modules", "tsx", "dist", "cli.mjs"
+            )
             return [
-                "node",
+                tsx_path,
                 local_sca_path,
             ]
         except ImportError as e:
@@ -265,9 +271,15 @@ def get_base_npx_cmd(gable_api_endpoint: Union[str, None]) -> list[str]:
                 f'Error importing local config, trying GABLE_LOCAL_SCA_PATH: {os.environ.get("GABLE_LOCAL_SCA_PATH")}'
             )
             local_sca_path = os.environ.get("GABLE_LOCAL_SCA_PATH")
+            product_dir = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.dirname(local_sca_path)))
+            )
+            tsx_path = os.path.join(
+                product_dir, "node_modules", "tsx", "dist", "cli.mjs"
+            )
             if local_sca_path is not None:
                 return [
-                    "node",
+                    tsx_path,
                     local_sca_path,
                 ]
 
@@ -416,7 +428,7 @@ def get_sca_prime_results(
                     post_metrics_request = CreateTelemetryRequest(
                         id=None,
                         data=metrics,
-                        type=TelemetryType(__root__="SCA_PRIME"),
+                        type=TelemetryType(root="SCA_PRIME"),
                     )
                     post_metrics_response, post_metrics_success = client.post_telemetry(
                         post_metrics_request

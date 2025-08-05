@@ -1,9 +1,9 @@
 """Test suite for SGP4."""
 
 try:
-    from unittest2 import TestCase, main
+    from unittest2 import TestCase, SkipTest, main
 except ImportError:
-    from unittest import TestCase, main
+    from unittest import TestCase, SkipTest, main
 
 import datetime as dt
 import re
@@ -17,8 +17,6 @@ try:
     from io import StringIO
 except ImportError:
     from StringIO import StringIO
-
-import numpy as np
 
 from sgp4.api import WGS72OLD, WGS72, WGS84, Satrec, jday
 from sgp4.earth_gravity import wgs72
@@ -72,6 +70,10 @@ VANGUARD_EPOCH = 18441.78495062
 if sys.version_info[:2] == (2, 7) or sys.version_info[:2] == (2, 6):
     TestCase.assertRaisesRegex = TestCase.assertRaisesRegexp
 
+def skip_under_python2():
+    if sys.version_info[0] < 3:
+        raise SkipTest('feature not supported under Python 2')
+
 # ------------------------------------------------------------------------
 #                           Core Attributes
 #
@@ -118,6 +120,10 @@ def test_legacy_initialized_with_sgp4init():
 #                            Test array API
 
 def test_whether_array_logic_writes_nan_values_to_correct_row():
+    skip_under_python2()
+
+    import numpy as np
+
     # https://github.com/brandon-rhodes/python-sgp4/issues/87
     l1 = "1 44160U 19006AX  20162.79712247 +.00816806 +19088-3 +34711-2 0  9997"
     l2 = "2 44160 095.2472 272.0808 0216413 032.6694 328.7739 15.58006382062511"
@@ -242,6 +248,13 @@ def test_tle_export():
         if satrec.satnum not in expected_errs_line2:
             assertEqual(actual_line2, line2)
             assertEqual(actual_line2_old, line2)
+
+def test_export_tle_works_with_sgp4init():
+    # Does sgp4init() build a sat that can successfully export?
+    sat = Satrec()
+    args = sgp4init_args(VANGUARD_ATTRS)
+    sat.sgp4init(WGS72, 'i', VANGUARD_ATTRS['satnum'], VANGUARD_EPOCH, *args)
+    export_tle(sat)
 
 def test_export_tle_raises_error_for_out_of_range_angles():
     # See https://github.com/brandon-rhodes/python-sgp4/issues/70
@@ -834,6 +847,18 @@ def assert_satellites_match(sat1, sat2):
         value2 = getattr(sat2, attr)
         assertEqual(value1, value2, '%s %r != %r' % (attr, value1, value2))
 
+def test_omm_uses_gravconst_parameter():
+    fields = next(omm.parse_csv(StringIO(MARIO_CSV)))
+
+    sat1 = Satrec()
+    omm.initialize(sat1, fields, WGS72)
+
+    sat2 = Satrec()
+    omm.initialize(sat2, fields, WGS84)
+
+    assertEqual(sat1.mu, 398600.8)
+    assertEqual(sat2.mu, 398600.5)
+
 # Live example of OMM:
 # https://celestrak.com/NORAD/elements/gp.php?INTDES=2020-025&FORMAT=JSON-PRETTY
 
@@ -874,25 +899,25 @@ def load_tests(loader, tests, ignore):
     from sgp4.wulfgar import add_test_functions
     add_test_functions(loader, tests, __name__)
 
-    # Python 2.6 formats floating-point numbers a bit differently and
-    # breaks the doctest, so we only run the doctest on later versions.
-    if sys.version_info >= (2, 7):
-
-        def setUp(suite):
-            suite.olddir = os.getcwd()
-            os.chdir(os.path.dirname(__file__))
-            suite.oldaccel = api.accelerated
-            api.accelerated = True  # so doctest passes under 2.7
-        def tearDown(suite):
-            os.chdir(suite.olddir)
-            api.accelerated = suite.oldaccel
-
-        options = dict(optionflags=ELLIPSIS, setUp=setUp, tearDown=tearDown)
-        tests.addTests(DocTestSuite('sgp4', **options))
-        tests.addTests(DocTestSuite('sgp4.conveniences', **options))
-        tests.addTests(DocTestSuite('sgp4.functions', **options))
+    if sys.version_info[0] > 2:
+        load_doctests(tests)
 
     return tests
+
+def load_doctests(tests):
+    def setUp(suite):
+        suite.olddir = os.getcwd()
+        os.chdir(os.path.dirname(__file__))
+        suite.oldaccel = api.accelerated
+        api.accelerated = True  # so doctests pass even if compilation failed
+    def tearDown(suite):
+        os.chdir(suite.olddir)
+        api.accelerated = suite.oldaccel
+
+    options = dict(optionflags=ELLIPSIS, setUp=setUp, tearDown=tearDown)
+    tests.addTests(DocTestSuite('sgp4', **options))
+    tests.addTests(DocTestSuite('sgp4.conveniences', **options))
+    tests.addTests(DocTestSuite('sgp4.functions', **options))
 
 if __name__ == '__main__':
     main()

@@ -15,8 +15,6 @@ CFLAGS = []
 
 if sys.platform.startswith("linux"):
     define_macros = [
-        ("HAVE_CLOCK_GETTIME", "1"),
-        ("HAVE_LIBRT", "1"),
         ("HAVE_POSIX_MEMALIGN", "1"),
         ("HAVE_STRUCT_SYSINFO", "1"),
         ("HAVE_STRUCT_SYSINFO_MEM_UNIT", "1"),
@@ -24,10 +22,13 @@ if sys.platform.startswith("linux"):
         ("HAVE_SYSINFO", "1"),
         ("HAVE_SYS_SYSINFO_H", "1"),
         ("_FILE_OFFSET_BITS", "64"),
+        # ("DEBUG", "1"),
     ]
     libraries = ["crypto", "rt"]
     includes = ["/usr/local/include", "/usr/include"]
     CFLAGS.append("-O2")
+    CFLAGS.append("-g")
+    CFLAGS.append("-Wall")
 elif sys.platform.startswith("win32") and os.environ.get("MSYSTEM"):
     msys2_env = os.getenv("MSYSTEM")
     print(f"Building for MSYS2 {msys2_env!r} environment")
@@ -51,7 +52,12 @@ elif sys.platform.startswith("win32") and os.environ.get("MSYSTEM"):
 elif sys.platform.startswith("win32"):
     define_macros = [("inline", "__inline")]
 
-    extra_sources = ["scrypt-windows-stubs/gettimeofday.c"]
+    extra_sources = [
+        "scrypt-windows-stubs/gettimeofday.c",
+        "scrypt-windows-stubs/mman.c",
+        "scrypt-windows-stubs/syslog.c",
+    ]
+    CFLAGS.append("-DPOSIXFAIL_ABSTRACT_DECLARATOR")
     if struct.calcsize("P") == 8:
         if (
             os.path.isdir(r"c:\OpenSSL-v111-Win64")
@@ -66,7 +72,11 @@ elif sys.platform.startswith("win32"):
         else:
             openssl_dir = r"c:\OpenSSL-Win64"
         library_dirs = [openssl_dir + r"\lib"]
-        includes = [openssl_dir + r"\include", "scrypt-windows-stubs/include"]
+        includes = [
+            openssl_dir + r"\include",
+            "scrypt-windows-stubs/include",
+            "scrypt-windows-stubs/include/sys",
+        ]
     else:
         if os.path.isdir(r"c:\OpenSSL-v111-Win32"):
             openssl_dir = r"c:\OpenSSL-v111-Win32"
@@ -77,7 +87,11 @@ elif sys.platform.startswith("win32"):
         else:
             openssl_dir = r"c:\OpenSSL-Win32"
         library_dirs = [openssl_dir + r"\lib"]
-        includes = [openssl_dir + r"\include", "scrypt-windows-stubs/include"]
+        includes = [
+            openssl_dir + r"\include",
+            "scrypt-windows-stubs/include",
+            "scrypt-windows-stubs/include/sys",
+        ]
     windows_link_legacy_openssl = os.environ.get(
         "SCRYPT_WINDOWS_LINK_LEGACY_OPENSSL", None
     )
@@ -103,34 +117,41 @@ scrypt_module = Extension(
     "_scrypt",
     sources=[
         "src/scrypt.c",
-        "scrypt-1.2.1/lib/crypto/crypto_scrypt_smix_sse2.c",
-        "scrypt-1.2.1/lib/crypto/crypto_scrypt_smix.c",
-        "scrypt-1.2.1/lib/crypto/crypto_scrypt.c",
-        "scrypt-1.2.1/lib/scryptenc/scryptenc.c",
-        "scrypt-1.2.1/lib/scryptenc/scryptenc_cpuperf.c",
-        "scrypt-1.2.1/lib/util/memlimit.c",
-        "scrypt-1.2.1/libcperciva/alg/sha256.c",
-        "scrypt-1.2.1/libcperciva/crypto/crypto_aes_aesni.c",
-        "scrypt-1.2.1/libcperciva/crypto/crypto_aes.c",
-        "scrypt-1.2.1/libcperciva/crypto/crypto_aesctr.c",
-        "scrypt-1.2.1/libcperciva/crypto/crypto_entropy.c",
-        "scrypt-1.2.1/libcperciva/util/entropy.c",
-        "scrypt-1.2.1/libcperciva/util/insecure_memzero.c",
-        "scrypt-1.2.1/libcperciva/util/warnp.c",
-        "scrypt-1.2.1/libcperciva/util/humansize.c",
-        "scrypt-1.2.1/libcperciva/util/asprintf.c",
+        "scrypt-1.3.3/lib/crypto/crypto_scrypt_smix_sse2.c",
+        "scrypt-1.3.3/lib/crypto/crypto_scrypt_smix.c",
+        "scrypt-1.3.3/lib/crypto/crypto_scrypt.c",
+        "scrypt-1.3.3/lib/scryptenc/scryptenc.c",
+        "scrypt-1.3.3/lib/scryptenc/scryptenc_cpuperf.c",
+        "scrypt-1.3.3/lib/scryptenc/scryptenc_print_error.c",
+        "scrypt-1.3.3/lib/util/passphrase_entry.c",
+        "scrypt-1.3.3/lib/util/memlimit.c",
+        "scrypt-1.3.3/libcperciva/alg/sha256.c",
+        "scrypt-1.3.3/libcperciva/crypto/crypto_aes_aesni.c",
+        "scrypt-1.3.3/libcperciva/crypto/crypto_aes.c",
+        "scrypt-1.3.3/libcperciva/crypto/crypto_aesctr.c",
+        "scrypt-1.3.3/libcperciva/crypto/crypto_entropy.c",
+        "scrypt-1.3.3/libcperciva/crypto/crypto_verify_bytes.c",
+        "scrypt-1.3.3/libcperciva/util/entropy.c",
+        "scrypt-1.3.3/libcperciva/util/monoclock.c",
+        "scrypt-1.3.3/libcperciva/util/insecure_memzero.c",
+        "scrypt-1.3.3/libcperciva/util/warnp.c",
+        "scrypt-1.3.3/libcperciva/util/humansize.c",
+        "scrypt-1.3.3/libcperciva/util/readpass.c",
+        "scrypt-1.3.3/libcperciva/util/readpass_file.c",
+        "scrypt-1.3.3/libcperciva/util/asprintf.c",
     ]
     + extra_sources,
     include_dirs=[
-        "scrypt-1.2.1",
-        "scrypt-1.2.1/lib",
-        "scrypt-1.2.1/lib/scryptenc",
-        "scrypt-1.2.1/lib/crypto",
-        "scrypt-1.2.1/lib/util",
-        "scrypt-1.2.1/libcperciva/cpusupport",
-        "scrypt-1.2.1/libcperciva/alg",
-        "scrypt-1.2.1/libcperciva/util",
-        "scrypt-1.2.1/libcperciva/crypto",
+        "scrypt-1.3.3",
+        "scrypt-1.3.3/lib",
+        "scrypt-1.3.3/libscrypt-kdf",
+        "scrypt-1.3.3/lib/scryptenc",
+        "scrypt-1.3.3/lib/crypto",
+        "scrypt-1.3.3/lib/util",
+        "scrypt-1.3.3/libcperciva/cpusupport",
+        "scrypt-1.3.3/libcperciva/alg",
+        "scrypt-1.3.3/libcperciva/util",
+        "scrypt-1.3.3/libcperciva/crypto",
     ]
     + includes,
     define_macros=[("HAVE_CONFIG_H", None)] + define_macros,
@@ -141,7 +162,7 @@ scrypt_module = Extension(
 
 setup(
     name="scrypt",
-    version="0.8.29",
+    version="0.9.4",
     description="Bindings for the scrypt key derivation function library",
     author="Magnus Hallin",
     author_email="mhallin@gmail.com",
@@ -154,7 +175,6 @@ setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",

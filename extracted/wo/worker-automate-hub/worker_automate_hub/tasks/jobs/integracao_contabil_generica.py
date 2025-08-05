@@ -294,7 +294,9 @@ async def integracao_contabil_generica(
             imagem_finalizada = "assets\\integracao_contabil\\pesquisa_finalizada.png"
 
             if not os.path.exists(imagem_finalizada):
-                raise FileNotFoundError(f"Imagem não encontrada no caminho: {imagem_finalizada}")
+                raise FileNotFoundError(
+                    f"Imagem não encontrada no caminho: {imagem_finalizada}"
+                )
 
             print("Aguardando a imagem aparecer...")
 
@@ -304,7 +306,9 @@ async def integracao_contabil_generica(
             for tentativa in range(1, max_tentativas + 1):
                 print(f"Tentativa {tentativa} de {max_tentativas}...")
                 try:
-                    localizacao = pyautogui.locateOnScreen(imagem_finalizada, confidence=0.85)
+                    localizacao = pyautogui.locateOnScreen(
+                        imagem_finalizada, confidence=0.85
+                    )
                     if localizacao:
                         console.print("Imagem encontrada!")
                         break
@@ -312,17 +316,17 @@ async def integracao_contabil_generica(
                         print("Imagem não encontrada ainda.")
                 except Exception as e:
                     print(f"Erro ao verificar a imagem: {e}")
-                
+
                 await worker_sleep(20)
 
             if not localizacao:
                 console.print("Imagem não foi encontrada após 300 tentativas")
                 return RpaRetornoProcessoDTO(
-                        sucesso=False,
-                        retorno="Imagem de pesquisa finalizada não encontrada, favor verificar.",
-                        status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
-                    )
+                    sucesso=False,
+                    retorno="Imagem de pesquisa finalizada não encontrada, favor verificar.",
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)],
+                )
         except Exception as e:
             console.print(f"Erro ao procurar imagem: {e}")
 
@@ -433,6 +437,8 @@ async def integracao_contabil_generica(
                 + "lote_sem_complemento_error.png": "Integração não realizada. Lote encontrado sem complemento obrigatório.",
                 assets_int_cont
                 + "diferenca_cred_deb.png": "Integração não realizada. Existem diferença em lotes consistentes, por favor verificar.",
+                assets_int_cont
+                + "integracao_sucesso.png": "Integração Finalizada com Sucesso.",
             }
             # Aguardar finalizar
             while True:
@@ -445,16 +451,19 @@ async def integracao_contabil_generica(
                     # Antes de qualquer coisa, verifica por imagem de erro
                     for img_path, mensagem in err_dict.items():
                         try:
-                            err = pyautogui.locateOnScreen(img_path, confidence=0.86)
+                            err = pyautogui.locateOnScreen(img_path, confidence=0.97)
                         except:
                             continue
-                        if err:
-                            console.print(f"[red]Erro encontrado:[/red] {mensagem}")
 
-                            # Clique no botão OK da mensagem de erro antes de retornar
-                            msg_box.child_window(
-                                class_name="TBitBtn", found_index=0
-                            ).click_input()
+                        if err:
+                            if "integracao_sucesso.png" in img_path:
+                                console.print(f"[green]{mensagem}[/green]")
+                                msg_box.child_window(
+                                    class_name="TBitBtn", found_index=0
+                                ).click_input()
+                                break
+
+                            console.print(f"[red]Erro encontrado:[/red] {mensagem}")
 
                             return RpaRetornoProcessoDTO(
                                 sucesso=False,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-cohere
-Version: 0.4.4
+Version: 0.4.5
 Summary: An integration package connecting Cohere and LangChain
 Home-page: https://github.com/langchain-ai/langchain-cohere
 License: MIT

@@ -393,6 +393,10 @@ func (g *StandardGenerator) installPythonCUDA() (string, error) {
 	// TODO: check that python version is valid
 
 	py := g.Config.Build.PythonVersion
+	// Make sure we install 3.13.0 instead of a later version due to the GIL lock not working on packages with certain versions of Cython
+	if py == "3.13" {
+		py = "3.13.0"
+	}
 	return `ENV PATH="/root/.pyenv/shims:/root/.pyenv/bin:$PATH"
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked apt-get update -qq && apt-get install -qqy --no-install-recommends \
 	make \

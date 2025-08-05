@@ -309,7 +309,6 @@ class GetResourceOauth2TokenRequestTypeDef(TypedDict):
     resourceCredentialProviderName: str
     scopes: Sequence[str]
     oauth2Flow: Oauth2FlowTypeType
-    userId: NotRequired[str]
     resourceOauth2ReturnUrl: NotRequired[str]
     forceAuthentication: NotRequired[bool]
     customParameters: NotRequired[Mapping[str, str]]

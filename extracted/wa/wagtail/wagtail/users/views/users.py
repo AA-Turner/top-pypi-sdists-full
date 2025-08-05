@@ -5,7 +5,6 @@ from django.contrib.auth import (
 )
 from django.contrib.auth.models import Group
 from django.core.exceptions import FieldDoesNotExist, PermissionDenied
-from django.db.models import Q
 from django.forms import CheckboxSelectMultiple
 from django.urls import reverse
 from django.utils.functional import cached_property
@@ -13,13 +12,18 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
 
 from wagtail import hooks
-from wagtail.admin.filters import DateRangePickerWidget, WagtailFilterSet
+from wagtail.admin.filters import (
+    DateRangePickerWidget,
+    RelatedFilterMixin,
+    WagtailFilterSet,
+)
 from wagtail.admin.search import SearchArea
+from wagtail.admin.ui.menus import MenuItem
 from wagtail.admin.ui.tables import (
+    BooleanColumn,
     BulkActionsCheckboxColumn,
     Column,
     DateColumn,
-    StatusTagColumn,
     TitleColumn,
 )
 from wagtail.admin.utils import get_user_display_name
@@ -27,10 +31,12 @@ from wagtail.admin.views import generic
 from wagtail.admin.viewsets.model import ModelViewSet
 from wagtail.admin.widgets.boolean_radio_select import BooleanRadioSelect
 from wagtail.admin.widgets.button import (
-    BaseDropdownMenuButton,
+    BaseButton,
+    Button,
     ButtonWithDropdown,
 )
 from wagtail.compat import AUTH_USER_APP_LABEL, AUTH_USER_MODEL_NAME
+from wagtail.search import index
 from wagtail.users.forms import UserCreationForm, UserEditForm
 from wagtail.users.utils import user_can_delete_user
 
@@ -49,27 +55,12 @@ delete_user_perm = "{}.delete_{}".format(
 )
 
 
-def get_users_filter_query(q, model_fields):
-    conditions = Q()
-
-    for term in q.split():
-        if "username" in model_fields:
-            conditions |= Q(username__icontains=term)
-
-        if "first_name" in model_fields:
-            conditions |= Q(first_name__icontains=term)
-
-        if "last_name" in model_fields:
-            conditions |= Q(last_name__icontains=term)
-
-        if "email" in model_fields:
-            conditions |= Q(email__icontains=term)
-
-    return conditions
-
-
 class UserColumn(TitleColumn):
     cell_template_name = "wagtailusers/users/user_cell.html"
+
+
+class GroupFilter(RelatedFilterMixin, django_filters.ModelMultipleChoiceFilter):
+    pass
 
 
 class UserFilterSet(WagtailFilterSet):
@@ -81,14 +72,10 @@ class UserFilterSet(WagtailFilterSet):
         label=gettext_lazy("Last login"),
         widget=DateRangePickerWidget,
     )
-    group = django_filters.ModelMultipleChoiceFilter(
-        field_name="groups",
-        queryset=Group.objects.all(),
-        label=gettext_lazy("Group"),
-        widget=CheckboxSelectMultiple,
-    )
 
-    def __init__(self, data=None, queryset=None, *, request=None, prefix=None):
+    def __init__(
+        self, data=None, queryset=None, *, request=None, prefix=None, is_searching=False
+    ):
         super().__init__(data, queryset, request=request, prefix=prefix)
         try:
             self._meta.model._meta.get_field("is_active")
@@ -101,6 +88,14 @@ class UserFilterSet(WagtailFilterSet):
                 widget=BooleanRadioSelect,
             )
             self.filters.move_to_end("is_active", last=False)
+
+        self.filters["group"] = GroupFilter(
+            field_name="groups",
+            queryset=Group.objects.all(),
+            label=gettext_lazy("Group"),
+            use_subquery=is_searching,
+            widget=CheckboxSelectMultiple,
+        )
 
     class Meta:
         model = User
@@ -116,9 +111,6 @@ class IndexView(generic.IndexView):
     results_template_name = "wagtailusers/users/index_results.html"
     add_item_label = gettext_lazy("Add a user")
     context_object_name = "users"
-    # We don't set search_fields and the model may not be indexed, but we override
-    # search_queryset, so we set is_searchable to True to enable search
-    is_searchable = True
     page_title = gettext_lazy("Users")
     show_other_searches = True
 
@@ -153,13 +145,9 @@ class IndexView(generic.IndexView):
                 classname="level",
                 width="10%",
             ),
-            StatusTagColumn(
+            BooleanColumn(
                 "is_active",
-                accessor=lambda u: gettext_lazy("Active")
-                if u.is_active
-                else gettext_lazy("Inactive"),
-                primary=lambda u: u.is_active,
-                label=gettext_lazy("Status"),
+                label=gettext_lazy("Active"),
                 sort_key="is_active" if "is_active" in self.model_fields else None,
                 classname="status",
                 width="10%",
@@ -177,29 +165,46 @@ class IndexView(generic.IndexView):
     def model_fields(self):
         return {f.name for f in User._meta.get_fields()}
 
+    @cached_property
+    def search_fields(self):
+        # Use search_fields from the model if we're using Wagtail search
+        if index.class_is_indexed(User) and self.search_backend_name:
+            return None
+        return self.model_fields & {"username", "first_name", "last_name", "email"}
+
+    def get_filterset_kwargs(self):
+        kwargs = super().get_filterset_kwargs()
+        kwargs["is_searching"] = self.is_searching
+        return kwargs
+
     def get_delete_url(self, instance):
         if user_can_delete_user(self.request.user, instance):
             return super().get_delete_url(instance)
 
     def get_list_buttons(self, instance):
-        more_buttons = self.get_list_more_buttons(instance)
+        more_buttons = []
         list_buttons = []
 
+        buttons = self.get_list_more_buttons(instance)
         for hook in hooks.get_hooks("register_user_listing_buttons"):
-            hook_buttons = hook(user=instance, request_user=self.request.user)
+            buttons.extend(hook(user=instance, request_user=self.request.user))
 
-            for button in hook_buttons:
-                if isinstance(button, BaseDropdownMenuButton):
-                    # If the button is a dropdown menu, add it to the top-level
-                    # because we do not support nested dropdowns
-                    list_buttons.append(button)
-                else:
-                    # Otherwise, add it to the default "More" dropdown
-                    more_buttons.append(button)
+        for button in buttons:
+            if isinstance(button, BaseButton) and not button.allow_in_dropdown:
+                # If the button is not allowed in a dropdown menu, add it to
+                # the top-level list of buttons
+                list_buttons.append(button)
+            elif isinstance(button, MenuItem):
+                # Allow simple MenuItem instances to be passed in directly
+                if button.is_shown(self.request.user):
+                    more_buttons.append(Button.from_menu_item(button))
+            elif button.show:
+                # Otherwise, add it to the default "More" dropdown
+                more_buttons.append(button)
 
         list_buttons.append(
             ButtonWithDropdown(
-                buttons=sorted(more_buttons),
+                buttons=more_buttons,
                 icon_name="dots-horizontal",
                 attrs={
                     "aria-label": _("More options for '%(title)s'")
@@ -208,7 +213,7 @@ class IndexView(generic.IndexView):
             )
         )
 
-        return sorted(list_buttons)
+        return list_buttons
 
     def get_base_queryset(self):
         users = User._default_manager.all()
@@ -224,12 +229,6 @@ class IndexView(generic.IndexView):
         if self.ordering == "-name":
             return queryset.order_by("-last_name", "-first_name")
         return super().order_queryset(queryset)
-
-    def search_queryset(self, queryset):
-        if self.is_searching:
-            conditions = get_users_filter_query(self.search_query, self.model_fields)
-            return queryset.filter(conditions)
-        return queryset
 
 
 class CreateView(generic.CreateView):
@@ -361,14 +360,6 @@ class UserViewSet(ModelViewSet):
     history_view_class = HistoryView
 
     template_prefix = "wagtailusers/users/"
-
-    def get_common_view_kwargs(self, **kwargs):
-        return super().get_common_view_kwargs(
-            **{
-                "usage_url_name": None,
-                **kwargs,
-            }
-        )
 
     def get_form_class(self, for_update=False):
         if for_update:

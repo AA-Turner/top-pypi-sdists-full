@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: InvokeAI
-Version: 6.2.0
+Version: 6.3.0
 Summary: An implementation of Stable Diffusion which provides various new features and options to aid the image generation process
 Author-email: Invoke <support@invoke.ai>
 License:                                  Apache License
@@ -248,6 +248,16 @@ Requires-Dist: requests
 Requires-Dist: semver~=3.0.1
 Provides-Extra: xformers
 Requires-Dist: xformers>=0.0.28.post1; sys_platform != "darwin" and extra == "xformers"
+Provides-Extra: cpu
+Requires-Dist: torch==2.7.1+cpu; extra == "cpu"
+Requires-Dist: torchvision==0.22.1+cpu; extra == "cpu"
+Provides-Extra: cuda
+Requires-Dist: torch==2.7.1+cu128; extra == "cuda"
+Requires-Dist: torchvision==0.22.1+cu128; extra == "cuda"
+Provides-Extra: rocm
+Requires-Dist: torch==2.7.1+rocm6.3; extra == "rocm"
+Requires-Dist: torchvision==0.22.1+rocm6.3; extra == "rocm"
+Requires-Dist: pytorch-triton-rocm; extra == "rocm"
 Provides-Extra: onnx
 Requires-Dist: onnxruntime; extra == "onnx"
 Provides-Extra: onnx-cuda

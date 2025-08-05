@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: manifestoo_core
-Version: 1.9
+Version: 1.10
 Summary: A library to reason about Odoo addons manifests
 Project-URL: Homepage, https://github.com/acsone/manifestoo-core
 Project-URL: Documentation, https://manifestoo-core.readthedocs.io/en/stable/

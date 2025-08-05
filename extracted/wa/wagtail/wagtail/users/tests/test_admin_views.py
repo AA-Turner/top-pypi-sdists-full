@@ -10,6 +10,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import Q
 from django.http import HttpRequest, HttpResponse
+from django.middleware.csrf import get_token
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -19,7 +20,7 @@ from wagtail import hooks
 from wagtail.admin.admin_url_finder import AdminURLFinder
 from wagtail.admin.models import Admin
 from wagtail.admin.staticfiles import versioned_static
-from wagtail.admin.widgets.button import ButtonWithDropdown
+from wagtail.admin.widgets.button import Button, ButtonWithDropdown, ListingButton
 from wagtail.compat import AUTH_USER_APP_LABEL, AUTH_USER_MODEL_NAME
 from wagtail.log_actions import log
 from wagtail.models import (
@@ -32,6 +33,7 @@ from wagtail.models import (
 )
 from wagtail.test.customuser.forms import CustomUserCreationForm, CustomUserEditForm
 from wagtail.test.customuser.viewsets import CustomUserViewSet
+from wagtail.test.testapp.models import VariousOnDeleteModel
 from wagtail.test.utils import WagtailTestUtils
 from wagtail.test.utils.template_tests import AdminTemplateTestUtils
 from wagtail.users.forms import GroupForm
@@ -41,6 +43,7 @@ from wagtail.users.views.groups import GroupViewSet
 from wagtail.users.views.users import UserViewSet
 from wagtail.users.wagtail_hooks import get_viewset_cls
 from wagtail.users.widgets import UserListingButton
+from wagtail.utils.deprecation import RemovedInWagtail80Warning
 
 add_user_perm_codename = f"add_{AUTH_USER_MODEL_NAME.lower()}"
 delete_user_perm_codename = f"delete_{AUTH_USER_MODEL_NAME.lower()}"
@@ -119,8 +122,69 @@ class TestUserIndexView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
         results = response.context["users"]
         self.assertIn(self.test_user, results)
 
+    @unittest.skipUnless(
+        settings.AUTH_USER_MODEL == "customuser.CustomUser",
+        "Only applicable to CustomUser",
+    )
+    def test_search_query_with_search_backend(self):
+        custom_user_with_country = self.create_user(
+            username="testjoe",
+            email="testjoe@email.com",
+            password="password",
+            first_name="Joe",
+            last_name="Doe",
+            country="testcountry",
+        )
+        response = self.get({"q": "testco"})
+        self.assertEqual(response.status_code, 200)
+        results = response.context["users"]
+        self.assertEqual(list(results), [custom_user_with_country])
+
+        response = self.get({"q": "jo"})
+        self.assertEqual(response.status_code, 200)
+        results = response.context["users"]
+        self.assertEqual(list(results), [custom_user_with_country])
+
+        response = self.get({"q": "nonexistent"})
+        self.assertEqual(response.status_code, 200)
+        results = response.context["users"]
+        self.assertEqual(list(results), [])
+
+    @unittest.skipUnless(
+        settings.AUTH_USER_MODEL == "customuser.CustomUser",
+        "Only applicable to CustomUser",
+    )
+    def test_search_and_filter_by_group(self):
+        user_in_group = self.create_user(
+            username="raz",
+            email="raz@email.com",
+            password="password",
+            first_name="Razputin",
+            last_name="Aquato",
+            country="Grulovia",
+        )
+        self.create_user(
+            username="mirtala",
+            email="mirtala@email.com",
+            password="password",
+            first_name="Mirtala",
+            last_name="Aquato",
+            country="Grulovia",
+        )
+        psychonauts = Group.objects.create(name="Psychonauts")
+        user_in_group.groups.add(psychonauts)
+
+        response = self.get({"q": "gru", "group": psychonauts.pk})
+        self.assertEqual(response.status_code, 200)
+        results = response.context["users"]
+        self.assertEqual(list(results), [user_in_group])
+
     def test_search_query_multiple_fields(self):
-        response = self.get({"q": "first name last name"})
+        response = self.get({"q": "first nam"})
+        self.assertEqual(response.status_code, 200)
+        results = response.context["users"]
+        self.assertIn(self.test_user, results)
+        response = self.get({"q": "last na"})
         self.assertEqual(response.status_code, 200)
         results = response.context["users"]
         self.assertIn(self.test_user, results)
@@ -255,16 +319,41 @@ class TestUserIndexView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
         self.assertSequenceEqual(urls, expected_urls)
 
     def test_buttons_hook(self):
+        class CustomButton(Button):
+            template_name = "tests/custom_button.html"
+
+            def __init__(self, *args, user_pk, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.user_pk = user_pk
+
+            def get_context_data(self, parent_context):
+                context = super().get_context_data(parent_context)
+                context["user_pk"] = self.user_pk
+                context["csrf_token"] = get_token(context["request"])
+                return context
+
         def hook(user, request_user):
             self.assertEqual(request_user, self.user)
-            yield UserListingButton(
-                "Show profile",
+            # This should be a top-level button
+            yield ListingButton(
+                "Enhance profile",
                 f"/goes/to/a/url/{user.pk}",
                 priority=30,
             )
+            # These should be inside the default dropdown
+            yield Button("Show profile", f"/goes/to/a/url/{user.pk}", priority=20)
+            yield CustomButton(
+                "Impersonate",
+                f"/impersonate/{user.pk}",
+                priority=30,
+                icon_name="user",
+                user_pk=user.pk,
+            )
+            # This should be a top-level button
             yield ButtonWithDropdown(
                 label="Moar pls!",
-                buttons=[UserListingButton("Alrighty", "/cheers", priority=10)],
+                buttons=[ListingButton("Alrighty", "/cheers", priority=10)],
+                attrs={"data-foo": "bar"},
             )
 
         with self.register_hook("register_user_listing_buttons", hook):
@@ -279,16 +368,24 @@ class TestUserIndexView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
 
         profile_url = f"/goes/to/a/url/{self.test_user.pk}"
         actions = row.select_one("td ul.actions")
+        custom_buttons = actions.select(f"a[href='{profile_url}']")
+        self.assertEqual(len(custom_buttons), 2)
         top_level_custom_button = actions.select_one(f"li > a[href='{profile_url}']")
-        self.assertIsNone(top_level_custom_button)
-        custom_button = actions.select_one(
+        self.assertIs(top_level_custom_button, custom_buttons[0])
+        self.assertEqual(top_level_custom_button.text.strip(), "Enhance profile")
+        self.assertEqual(
+            top_level_custom_button.get("class"),
+            ["button", "button-small", "button-secondary"],
+        )
+        in_dropdown_custom_button = actions.select_one(
             f"li [data-controller='w-dropdown'] a[href='{profile_url}']"
         )
-        self.assertIsNotNone(custom_button)
+        self.assertIs(in_dropdown_custom_button, custom_buttons[1])
         self.assertEqual(
-            custom_button.text.strip(),
+            in_dropdown_custom_button.text.strip(),
             "Show profile",
         )
+        self.assertEqual(in_dropdown_custom_button.get("class"), [])
 
         nested_dropdown = actions.select_one(
             "li [data-controller='w-dropdown'] [data-controller='w-dropdown']"
@@ -297,16 +394,71 @@ class TestUserIndexView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
         dropdown_buttons = actions.select("li > [data-controller='w-dropdown']")
         # Default "More" button and the custom "Moar pls!" button
         self.assertEqual(len(dropdown_buttons), 2)
-        custom_dropdown = None
-        for button in dropdown_buttons:
-            if "Moar pls!" in button.text.strip():
-                custom_dropdown = button
+
+        default_dropdown = dropdown_buttons[0]
+        # Should allow a button with a custom template,
+        # e.g. rendering a <button> inside a <form> instead of a <a> tag
+        impersonate_form = default_dropdown.select_one(
+            f"form[action='/impersonate/{self.test_user.pk}']"
+        )
+        self.assertIsNotNone(impersonate_form)
+        self.assertEqual(
+            impersonate_form.select_one("input[name='user_pk']").attrs.get("value"),
+            str(self.test_user.pk),
+        )
+        self.assertEqual(
+            impersonate_form.select_one("button[type='submit']").text.strip(),
+            "Impersonate",
+        )
+        csrf_token = impersonate_form.select_one("input[name='csrfmiddlewaretoken']")
+        self.assertIsNotNone(csrf_token)
+
+        custom_dropdown = dropdown_buttons[1]
         self.assertIsNotNone(custom_dropdown)
         self.assertEqual(custom_dropdown.select_one("button").text.strip(), "Moar pls!")
+        self.assertEqual(custom_dropdown.get("data-foo"), "bar")
         # Should contain the custom button inside the custom dropdown
         custom_button = custom_dropdown.find("a", attrs={"href": "/cheers"})
         self.assertIsNotNone(custom_button)
         self.assertEqual(custom_button.text.strip(), "Alrighty")
+
+    def test_buttons_hook_with_deprecated_class(self):
+        def hook(user, request_user):
+            self.assertEqual(request_user, self.user)
+            yield UserListingButton(
+                "Show profile", f"/goes/to/a/url/{user.pk}", priority=20
+            )
+
+        with self.register_hook("register_user_listing_buttons", hook):
+            with self.assertWarnsMessage(
+                RemovedInWagtail80Warning,
+                "`UserListingButton` is deprecated. "
+                "Use `wagtail.admin.widgets.button.Button` "
+                "or `wagtail.admin.widgets.button.ListingButton` instead.",
+            ):
+                response = self.get()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "wagtailadmin/shared/buttons.html")
+
+        soup = self.get_soup(response.content)
+        row = soup.select_one(f"tbody tr:has([data-object-id='{self.test_user.pk}'])")
+        self.assertIsNotNone(row)
+
+        profile_url = f"/goes/to/a/url/{self.test_user.pk}"
+        actions = row.select_one("td ul.actions")
+        custom_buttons = actions.select(f"a[href='{profile_url}']")
+        self.assertEqual(len(custom_buttons), 1)
+        top_level_custom_button = actions.select_one(f"li > a[href='{profile_url}']")
+        self.assertIsNone(top_level_custom_button)
+        in_dropdown_custom_button = actions.select_one(
+            f"li [data-controller='w-dropdown'] a[href='{profile_url}']"
+        )
+        self.assertIs(in_dropdown_custom_button, custom_buttons[0])
+        self.assertEqual(
+            in_dropdown_custom_button.text.strip(),
+            "Show profile",
+        )
 
 
 class TestUserIndexResultsView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
@@ -729,6 +881,55 @@ class TestUserDeleteView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.content, b"Overridden!")
+
+    def test_delete_get_with_protected_reference(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            VariousOnDeleteModel.objects.create(
+                text="Undeletable",
+                protected_user=self.test_user,
+            )
+        model_name = User._meta.verbose_name
+        delete_url = reverse(
+            "wagtailusers_users:delete",
+            args=(self.test_user.pk,),
+        )
+        response = self.client.get(delete_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f"This {model_name} is referenced 1 time.")
+        self.assertContains(
+            response,
+            f"One or more references to this {model_name} prevent it "
+            "from being deleted.",
+        )
+        self.assertContains(
+            response,
+            reverse(
+                "wagtailusers_users:usage",
+                args=(self.test_user.pk,),
+            )
+            + "?describe_on_delete=1",
+        )
+        self.assertNotContains(response, "Yes, delete")
+        self.assertNotContains(response, delete_url)
+
+    def test_delete_post_with_protected_reference(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            VariousOnDeleteModel.objects.create(
+                text="Undeletable",
+                protected_user=self.test_user,
+            )
+        delete_url = reverse(
+            "wagtailusers_users:delete",
+            args=(self.test_user.pk,),
+        )
+        response = self.client.post(delete_url)
+
+        # Should throw a PermissionDenied error and redirect to the dashboard
+        self.assertEqual(response.status_code, 302)
+        self.assertRedirects(response, reverse("wagtailadmin_home"))
+
+        # Check that the user is still here
+        self.assertTrue(User.objects.filter(pk=self.test_user.pk).exists())
 
 
 class TestUserDeleteViewForNonSuperuser(
@@ -1376,6 +1577,58 @@ class TestUserHistoryView(WagtailTestUtils, TestCase):
         self.assertContains(response, "Edited")
 
 
+class TestUserUsageView(WagtailTestUtils, TestCase):
+    # More thorough tests are in test_model_viewset
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.test_user = cls.create_user(
+            username="testuser",
+            email="testuser@email.com",
+            first_name="Original",
+            last_name="User",
+            password="password",
+        )
+        cls.url = reverse("wagtailusers_users:usage", args=(cls.test_user.pk,))
+
+    def setUp(self):
+        self.user = self.login()
+
+    def test_simple(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            referrer = VariousOnDeleteModel.objects.create(
+                text="Undeletable",
+                protected_user=self.test_user,
+            )
+        response = self.client.get(self.url)
+        self.assertTemplateUsed("wagtailadmin/generic/listing.html")
+        soup = self.get_soup(response.content)
+        tds = soup.select("main table td")
+        self.assertEqual(
+            [td.text.strip() for td in tds],
+            [str(referrer), capfirst(referrer._meta.verbose_name), "Protected user"],
+        )
+
+    def test_describe_on_delete(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            referrer = VariousOnDeleteModel.objects.create(
+                text="Undeletable",
+                protected_user=self.test_user,
+            )
+        response = self.client.get(self.url + "?describe_on_delete=1")
+        self.assertTemplateUsed("wagtailadmin/generic/listing.html")
+        soup = self.get_soup(response.content)
+        tds = soup.select("main table td")
+        self.assertEqual(
+            [td.text.strip() for td in tds],
+            [
+                str(referrer),
+                capfirst(referrer._meta.verbose_name),
+                "Protected user: prevents deletion",
+            ],
+        )
+
+
 class TestGroupIndexView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
     def setUp(self):
         self.login()
@@ -1479,7 +1732,7 @@ class TestGroupCreateView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
     def test_num_queries(self):
         # Warm up the cache
         self.get()
-        with self.assertNumQueries(20):
+        with self.assertNumQueries(32):
             self.get()
 
     def test_create_group(self):
@@ -1904,7 +2157,7 @@ class TestGroupEditView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
     def test_num_queries(self):
         # Warm up the cache
         self.get()
-        with self.assertNumQueries(32):
+        with self.assertNumQueries(50):
             self.get()
 
     def test_nonexistent_group_redirect(self):

@@ -4,6 +4,7 @@ from collections import OrderedDict
 from collections.abc import Mapping
 
 from django.contrib.admin.utils import quote
+from django.contrib.humanize.templatetags.humanize import intcomma
 from django.forms import MediaDefiningClass
 from django.template.loader import get_template
 from django.templatetags.l10n import unlocalize
@@ -159,7 +160,7 @@ class Column(BaseColumn):
 
     def get_cell_context_data(self, instance, parent_context):
         context = super().get_cell_context_data(instance, parent_context)
-        value = self.get_value(instance)
+        context["raw_value"] = value = self.get_value(instance)
         if isinstance(value, int) and not isinstance(value, bool):
             # To prevent errors arising from USE_THOUSAND_SEPARATOR, we require all numbers output
             # on templates to be explicitly localized or unlocalized. For numeric table cells, we
@@ -170,6 +171,15 @@ class Column(BaseColumn):
             context["value"] = self.empty_value_display
         else:
             context["value"] = value
+        return context
+
+
+class NumberColumn(Column):
+    """A specialised column that displays numbers with locale-aware formatting"""
+
+    def get_cell_context_data(self, instance, parent_context):
+        context = super().get_cell_context_data(instance, parent_context)
+        context["value"] = intcomma(context["raw_value"])
         return context
 
 
@@ -401,6 +411,10 @@ class BulkActionsCheckboxColumn(BaseColumn):
             }
         )
         return context
+
+
+class UsageCountColumn(Column):
+    cell_template_name = "wagtailadmin/tables/usage_count_column_cell.html"
 
 
 class ReferencesColumn(Column):

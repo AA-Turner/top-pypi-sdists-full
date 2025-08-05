@@ -6,6 +6,7 @@ from django.utils import timezone
 from freezegun import freeze_time
 
 from wagtail.admin.staticfiles import versioned_static
+from wagtail.admin.templatetags.wagtailadmin_tags import absolute_static
 from wagtail.admin.views.generic.preview import PreviewOnEdit
 from wagtail.test.testapp.models import (
     EventCategory,
@@ -323,6 +324,39 @@ class TestPreview(WagtailTestUtils, TestCase):
             html=True,
         )
         self.assertNotContains(response, versioned_static("wagtailadmin/js/icons.js"))
+
+    @override_settings(WAGTAILADMIN_BASE_URL="http://other.example.com:8000")
+    def test_userbar_in_preview(self):
+        self.client.post(self.preview_on_edit_url, self.post_data)
+        response = self.client.get(self.preview_on_edit_url)
+
+        # Check the HTML response
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "tests/previewable_model.html")
+        soup = self.get_soup(response.content)
+        userbar = soup.select_one("wagtail-userbar")
+        self.assertIsNotNone(userbar)
+
+        # Absolute URLs to static assets should be rendered with the original
+        # request's host as the base URL, as snippets have no concept of the
+        # current site or fully qualified URLs.
+
+        css_links = soup.select("link[rel='stylesheet']")
+        self.assertEqual(
+            [link.get("href") for link in css_links],
+            [
+                absolute_static("wagtailadmin/css/core.css"),
+                "/path/to/my/custom.css",
+            ],
+        )
+        scripts = soup.select("script[src]")
+        self.assertEqual(
+            [script.get("src") for script in scripts],
+            [
+                absolute_static("wagtailadmin/js/vendor.js"),
+                absolute_static("wagtailadmin/js/userbar.js"),
+            ],
+        )
 
     def test_preview_revision(self):
         snippet = MultiPreviewModesModel.objects.create(text="Multiple modes")

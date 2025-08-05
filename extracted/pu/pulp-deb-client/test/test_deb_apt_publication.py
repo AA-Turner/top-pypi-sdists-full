@@ -40,6 +40,7 @@ class TestDebAptPublication(unittest.TestCase):
                 repository = '',
                 simple = True,
                 structured = True,
+                checkpoint = True,
                 signing_service = '',
                 publish_upstream_release_fields = True
             )

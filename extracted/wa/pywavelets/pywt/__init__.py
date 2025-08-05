@@ -1,7 +1,7 @@
 # flake8: noqa
 
 # Copyright (c) 2006-2012 Filip Wasilewski <http://en.ig.ma/>
-# Copyright (c) 2012-2020 The PyWavelets Developers
+# Copyright (c) 2012-     The PyWavelets Developers
 #                         <https://github.com/PyWavelets/pywt>
 # See LICENSE for more details.
 
@@ -9,8 +9,6 @@
 Discrete forward and inverse wavelet transform, stationary wavelet transform,
 wavelet packets signal decomposition and reconstruction module.
 """
-
-from __future__ import division, print_function, absolute_import
 
 from ._extensions._pywt import *
 from ._functions import *

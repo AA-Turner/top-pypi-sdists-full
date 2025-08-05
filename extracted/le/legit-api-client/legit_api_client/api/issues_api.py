@@ -1750,7 +1750,8 @@ class IssuesApi:
         statuses: Optional[List[IssueStatus]] = None,
         policy_name: Optional[StrictStr] = None,
         origin_type: Optional[Any] = None,
-        product_units: Optional[List[StrictStr]] = None,
+        product_units: Annotated[Optional[List[StrictStr]], Field(description="filter by product unit names. Dont use this filter along with the ProductUnitsIds filter (choose only one)")] = None,
+        product_units_ids: Annotated[Optional[List[StrictStr]], Field(description="filter by product unit ids. Dont use this filter along with the ProductUnits filter (choose only one)")] = None,
         detected_from_date: Optional[StrictStr] = None,
         detected_to_date: Optional[StrictStr] = None,
         source: Optional[StrictStr] = None,
@@ -1818,8 +1819,10 @@ class IssuesApi:
         :type policy_name: str
         :param origin_type:
         :type origin_type: OriginType
-        :param product_units:
+        :param product_units: filter by product unit names. Dont use this filter along with the ProductUnitsIds filter (choose only one)
         :type product_units: List[str]
+        :param product_units_ids: filter by product unit ids. Dont use this filter along with the ProductUnits filter (choose only one)
+        :type product_units_ids: List[str]
         :param detected_from_date:
         :type detected_from_date: str
         :param detected_to_date:
@@ -1914,6 +1917,7 @@ class IssuesApi:
             policy_name=policy_name,
             origin_type=origin_type,
             product_units=product_units,
+            product_units_ids=product_units_ids,
             detected_from_date=detected_from_date,
             detected_to_date=detected_to_date,
             source=source,
@@ -1977,7 +1981,8 @@ class IssuesApi:
         statuses: Optional[List[IssueStatus]] = None,
         policy_name: Optional[StrictStr] = None,
         origin_type: Optional[Any] = None,
-        product_units: Optional[List[StrictStr]] = None,
+        product_units: Annotated[Optional[List[StrictStr]], Field(description="filter by product unit names. Dont use this filter along with the ProductUnitsIds filter (choose only one)")] = None,
+        product_units_ids: Annotated[Optional[List[StrictStr]], Field(description="filter by product unit ids. Dont use this filter along with the ProductUnits filter (choose only one)")] = None,
         detected_from_date: Optional[StrictStr] = None,
         detected_to_date: Optional[StrictStr] = None,
         source: Optional[StrictStr] = None,
@@ -2045,8 +2050,10 @@ class IssuesApi:
         :type policy_name: str
         :param origin_type:
         :type origin_type: OriginType
-        :param product_units:
+        :param product_units: filter by product unit names. Dont use this filter along with the ProductUnitsIds filter (choose only one)
         :type product_units: List[str]
+        :param product_units_ids: filter by product unit ids. Dont use this filter along with the ProductUnits filter (choose only one)
+        :type product_units_ids: List[str]
         :param detected_from_date:
         :type detected_from_date: str
         :param detected_to_date:
@@ -2141,6 +2148,7 @@ class IssuesApi:
             policy_name=policy_name,
             origin_type=origin_type,
             product_units=product_units,
+            product_units_ids=product_units_ids,
             detected_from_date=detected_from_date,
             detected_to_date=detected_to_date,
             source=source,
@@ -2204,7 +2212,8 @@ class IssuesApi:
         statuses: Optional[List[IssueStatus]] = None,
         policy_name: Optional[StrictStr] = None,
         origin_type: Optional[Any] = None,
-        product_units: Optional[List[StrictStr]] = None,
+        product_units: Annotated[Optional[List[StrictStr]], Field(description="filter by product unit names. Dont use this filter along with the ProductUnitsIds filter (choose only one)")] = None,
+        product_units_ids: Annotated[Optional[List[StrictStr]], Field(description="filter by product unit ids. Dont use this filter along with the ProductUnits filter (choose only one)")] = None,
         detected_from_date: Optional[StrictStr] = None,
         detected_to_date: Optional[StrictStr] = None,
         source: Optional[StrictStr] = None,
@@ -2272,8 +2281,10 @@ class IssuesApi:
         :type policy_name: str
         :param origin_type:
         :type origin_type: OriginType
-        :param product_units:
+        :param product_units: filter by product unit names. Dont use this filter along with the ProductUnitsIds filter (choose only one)
         :type product_units: List[str]
+        :param product_units_ids: filter by product unit ids. Dont use this filter along with the ProductUnits filter (choose only one)
+        :type product_units_ids: List[str]
         :param detected_from_date:
         :type detected_from_date: str
         :param detected_to_date:
@@ -2368,6 +2379,7 @@ class IssuesApi:
             policy_name=policy_name,
             origin_type=origin_type,
             product_units=product_units,
+            product_units_ids=product_units_ids,
             detected_from_date=detected_from_date,
             detected_to_date=detected_to_date,
             source=source,
@@ -2427,6 +2439,7 @@ class IssuesApi:
         policy_name,
         origin_type,
         product_units,
+        product_units_ids,
         detected_from_date,
         detected_to_date,
         source,
@@ -2469,6 +2482,7 @@ class IssuesApi:
             'severities': 'multi',
             'statuses': 'multi',
             'productUnits': 'multi',
+            'productUnitsIds': 'multi',
             'issueIds': 'multi',
             'sourceScannerIds': 'multi',
             'workspaceIds': 'multi',
@@ -2529,6 +2543,10 @@ class IssuesApi:
         if product_units is not None:
             
             _query_params.append(('productUnits', product_units))
+            
+        if product_units_ids is not None:
+            
+            _query_params.append(('productUnitsIds', product_units_ids))
             
         if detected_from_date is not None:
             

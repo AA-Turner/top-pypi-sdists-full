@@ -1,6 +1,6 @@
 [project]
 name = "numpydantic"
-version = "1.6.9"
+version = "1.6.10"
 description = "Type and shape validation and serialization for arbitrary array types in pydantic models"
 authors = [
     { name = "sneakers-the-rat", email = "sneakers-the-rat@protonmail.com" },
@@ -99,6 +99,7 @@ includes = []
 
 [tool.pdm.scripts]
 test = "pytest"
+docs = "sphinx-autobuild ./docs ./docs/_build"
 
 [tool.pdm.scripts.lint]
 composite = [
@@ -122,6 +123,7 @@ testpaths = [
 ]
 filterwarnings = [
     "ignore:.*deprecated alias.*Deprecated NumPy 1\\.24.*",
+    "ignore:.*divide by zero encountered in log10.*",
 ]
 markers = [
     "dtype: mark test related to dtype validation",
@@ -136,6 +138,7 @@ markers = [
     "zarr: zarr interface",
     "union: union dtypes",
     "pipe_union: union dtypes specified with a pipe",
+    "scalar: scalar values",
 ]
 
 [tool.black]

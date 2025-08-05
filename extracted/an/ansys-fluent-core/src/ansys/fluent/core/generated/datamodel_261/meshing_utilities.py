@@ -178,17 +178,14 @@ class Root(PyMenu):
 
     class add_labels_on_cell_zones(PyCommand):
         """
-        Add labels on the specified cell zones.
+        Command add_labels_on_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -235,17 +232,14 @@ class Root(PyMenu):
 
     class add_labels_on_edge_zones(PyCommand):
         """
-        Add labels on the specified edge zones.
+        Command add_labels_on_edge_zones.
+
         Parameters
         ----------
         edge_zone_id_list : list[int]
-            List containing the edge zone IDs.
         edge_zone_name_list : list[str]
-            List containing the edge zone names.
         edge_zone_name_pattern : str
-            Edge zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -292,17 +286,14 @@ class Root(PyMenu):
 
     class add_labels_on_face_zones(PyCommand):
         """
-        Add labels on the specified face zones.
+        Command add_labels_on_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -349,7 +340,8 @@ class Root(PyMenu):
 
     class clean_face_zone_names(PyCommand):
         """
-        Clean up face zone names by removing IDs wherever possible.
+        Command clean_face_zone_names.
+
 
         Returns
         -------
@@ -370,7 +362,8 @@ class Root(PyMenu):
 
     class delete_all_sub_domains(PyCommand):
         """
-        Deletes all sub-domains (all domains other than global).
+        Command delete_all_sub_domains.
+
 
         Returns
         -------
@@ -391,15 +384,13 @@ class Root(PyMenu):
 
     class delete_empty_cell_zones(PyCommand):
         """
-        Delete empty cell zones.
+        Command delete_empty_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -440,15 +431,13 @@ class Root(PyMenu):
 
     class delete_empty_edge_zones(PyCommand):
         """
-        Delete empty edge zones.
+        Command delete_empty_edge_zones.
+
         Parameters
         ----------
         edge_zone_id_list : list[int]
-            List containing the edge zone IDs.
         edge_zone_name_list : list[str]
-            List containing the edge zone names.
         edge_zone_name_pattern : str
-            Edge zone name pattern.
 
         Returns
         -------
@@ -489,15 +478,13 @@ class Root(PyMenu):
 
     class delete_empty_face_zones(PyCommand):
         """
-        Delete empty face zones.
+        Command delete_empty_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -538,15 +525,13 @@ class Root(PyMenu):
 
     class delete_empty_zones(PyCommand):
         """
-        Delete empty zones based on the zones specified.
+        Command delete_empty_zones.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face or edge or cell or node zone IDs.
         zone_name_list : list[str]
-            List containing the face or edge or cell or node zone names.
         zone_name_pattern : str
-            Face or edge or cell or node zone name pattern.
 
         Returns
         -------
@@ -587,15 +572,13 @@ class Root(PyMenu):
 
     class delete_marked_faces_in_zones(PyCommand):
         """
-        Delete marked faces.
+        Command delete_marked_faces_in_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -636,16 +619,13 @@ class Root(PyMenu):
 
     class merge_cell_zones(PyCommand):
         """
-        - Merges the specified cell zones.
-        - Specify a list of cell zones or name pattern.
+        Command merge_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -686,11 +666,11 @@ class Root(PyMenu):
 
     class merge_cell_zones_with_same_prefix(PyCommand):
         """
-        Merge cell zones containing the specified prefix.
+        Command merge_cell_zones_with_same_prefix.
+
         Parameters
         ----------
         prefix : str
-            Cell zone prefix.
 
         Returns
         -------
@@ -717,11 +697,11 @@ class Root(PyMenu):
 
     class merge_cell_zones_with_same_suffix(PyCommand):
         """
-        Merge cell zones containing the specified suffix.
+        Command merge_cell_zones_with_same_suffix.
+
         Parameters
         ----------
         suffix : str
-            Cell zone suffix.
 
         Returns
         -------
@@ -748,14 +728,12 @@ class Root(PyMenu):
 
     class merge_face_zones(PyCommand):
         """
-        - Merges the specified face zones.
-        - Specify a list of zone IDs or name pattern.
+        Command merge_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -789,13 +767,12 @@ class Root(PyMenu):
 
     class merge_face_zones_of_type(PyCommand):
         """
-        Merges face zones of a given type based on name pattern.
+        Command merge_face_zones_of_type.
+
         Parameters
         ----------
         face_zone_type : str
-            Face zone type.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -828,11 +805,11 @@ class Root(PyMenu):
 
     class merge_face_zones_with_same_prefix(PyCommand):
         """
-        Merge face zones containing the specified prefix.
+        Command merge_face_zones_with_same_prefix.
+
         Parameters
         ----------
         prefix : str
-            Face zone prefix.
 
         Returns
         -------
@@ -859,7 +836,8 @@ class Root(PyMenu):
 
     class remove_id_suffix_from_face_zones(PyCommand):
         """
-        Removes the ID suffix from face zone names.
+        Command remove_id_suffix_from_face_zones.
+
 
         Returns
         -------
@@ -880,11 +858,11 @@ class Root(PyMenu):
 
     class remove_ids_from_zone_names(PyCommand):
         """
-        Remove the zone ID from zone ID list.
+        Command remove_ids_from_zone_names.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face or edge or cell or node zone IDs.
 
         Returns
         -------
@@ -911,17 +889,14 @@ class Root(PyMenu):
 
     class remove_labels_on_cell_zones(PyCommand):
         """
-        Removes the specified labels from the cell zones.
+        Command remove_labels_on_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -968,17 +943,14 @@ class Root(PyMenu):
 
     class remove_labels_on_edge_zones(PyCommand):
         """
-        Removes the specified labels from the edge zones.
+        Command remove_labels_on_edge_zones.
+
         Parameters
         ----------
         edge_zone_id_list : list[int]
-            List containing the edge zone IDs.
         edge_zone_name_list : list[str]
-            List containing the edge zone names.
         edge_zone_name_pattern : str
-            Edge zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -1025,17 +997,14 @@ class Root(PyMenu):
 
     class remove_labels_on_face_zones(PyCommand):
         """
-        Removes the specified labels from the face zones.
+        Command remove_labels_on_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -1082,15 +1051,13 @@ class Root(PyMenu):
 
     class rename_edge_zone(PyCommand):
         """
-        Renames an existing edge zone.
+        Command rename_edge_zone.
+
         Parameters
         ----------
         zone_id : int
-            Edge zone ID.
         zone_name : str
-            Edge zone name.
         new_name : str
-            New edge zone name.
 
         Returns
         -------
@@ -1129,15 +1096,13 @@ class Root(PyMenu):
 
     class rename_face_zone(PyCommand):
         """
-        Renames an existing face zone.
+        Command rename_face_zone.
+
         Parameters
         ----------
         zone_id : int
-            Face zone ID.
         zone_name : str
-            Face zone name.
         new_name : str
-            New face zone name.
 
         Returns
         -------
@@ -1178,15 +1143,13 @@ class Root(PyMenu):
 
     class rename_face_zone_label(PyCommand):
         """
-        Renames the face zone label.
+        Command rename_face_zone_label.
+
         Parameters
         ----------
         object_name : str
-            Mesh object name.
         old_label_name : str
-            Old label name.
         new_label_name : str
-            New label name.
 
         Returns
         -------
@@ -1225,13 +1188,12 @@ class Root(PyMenu):
 
     class rename_object(PyCommand):
         """
-        Renames the object.
+        Command rename_object.
+
         Parameters
         ----------
         old_object_name : str
-            Old object name.
         new_object_name : str
-            New object name.
 
         Returns
         -------
@@ -1264,13 +1226,12 @@ class Root(PyMenu):
 
     class renumber_zone_ids(PyCommand):
         """
-        Renumber zone IDs starting from the number specified (start_number).
+        Command renumber_zone_ids.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face or edge or cell or node zone IDs.
         start_number : int
-            Start number.
 
         Returns
         -------
@@ -1303,20 +1264,15 @@ class Root(PyMenu):
 
     class replace_cell_zone_suffix(PyCommand):
         """
-        - Replace the cell zone suffix to rename cell zones.
-        - Specify whether to merge the cell zones being renamed (set merge to True or False).
+        Command replace_cell_zone_suffix.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         old_suffix : str
-            Old cell zone name suffix.
         new_suffix : str
-            New cell zone name suffix.
         merge : bool
-            Specify whether to merge the cell zones being renamed.
 
         Returns
         -------
@@ -1368,20 +1324,15 @@ class Root(PyMenu):
 
     class replace_edge_zone_suffix(PyCommand):
         """
-        - Replace the edge zone suffix to rename edge zones.
-        - Specify whether to merge the edge zones being renamed (set merge to True or False).
+        Command replace_edge_zone_suffix.
+
         Parameters
         ----------
         edge_zone_id_list : list[int]
-            List containing the edge zone IDs.
         edge_zone_name_list : list[str]
-            List containing the edge zone names.
         old_suffix : str
-            Old edge zone name suffix.
         new_suffix : str
-            New edge zone name suffix.
         merge : bool
-            Specify whether to merge the edge zones being renamed.
 
         Returns
         -------
@@ -1433,21 +1384,15 @@ class Root(PyMenu):
 
     class replace_face_zone_suffix(PyCommand):
         """
-        - Replace the face zone suffix to rename face zones.
-        - Specify whether to merge the face zones being renamed (set merge to True or False).
-        - Note - If an empty string is specified for the separator (' '), the string specified for replace with will be appended to the face zone names.
+        Command replace_face_zone_suffix.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         separator : str
-            Face zone name separator.
         replace_with : str
-            New face zone name suffix.
         merge : bool
-            Specify whether to merge the face zones being renamed.
 
         Returns
         -------
@@ -1499,15 +1444,13 @@ class Root(PyMenu):
 
     class replace_label_suffix(PyCommand):
         """
-        Rename labels by replacing the label suffix with a new suffix.
+        Command replace_label_suffix.
+
         Parameters
         ----------
         object_name_list : list[str]
-            List containing the object names.
         separator : str
-            Label separator.
         new_suffix : str
-            New label suffix.
 
         Returns
         -------
@@ -1546,15 +1489,13 @@ class Root(PyMenu):
 
     class replace_object_suffix(PyCommand):
         """
-        Rename objects by replacing the object suffix with a new suffix.
+        Command replace_object_suffix.
+
         Parameters
         ----------
         object_name_list : list[str]
-            List containing the object names.
         separator : str
-            Mesh object name separator.
         new_suffix : str
-            New object name suffix.
 
         Returns
         -------
@@ -1593,13 +1534,11 @@ class Root(PyMenu):
 
     class set_number_of_parallel_compute_threads(PyCommand):
         """
-        - Set the number of compute threads to use for algorithms like mesh check and quality computation.
-        - You can use a variable number of compute threads for these algorithms depending on the current machine loads.
-        - The number of compute threads is between 2 and the value (maximum-cores-available - 1).
+        Command set_number_of_parallel_compute_threads.
+
         Parameters
         ----------
         nthreads : int
-            Number of compute threads.
 
         Returns
         -------
@@ -1626,13 +1565,12 @@ class Root(PyMenu):
 
     class set_object_cell_zone_type(PyCommand):
         """
-        Set object cell zone type.
+        Command set_object_cell_zone_type.
+
         Parameters
         ----------
         object_name : str
-            Mesh object name.
         cell_zone_type : str
-            Cell zone type.
 
         Returns
         -------
@@ -1665,12 +1603,11 @@ class Root(PyMenu):
 
     class set_quality_measure(PyCommand):
         """
-        - Set the quality measure.
-        - Specify the 'measure' as one of the 'Orthogonal Quality', 'Skewness', 'Equiangle Skewness', 'Size Change', 'Edge Ratio', 'Size', 'Aspect Ratio', 'Squish', 'Warp', 'Dihedral Angle', 'ICEMCFD Quality', 'Ortho Skew', 'FLUENT Aspect Ratio', 'Inverse Orthogonal Quality' value.
+        Command set_quality_measure.
+
         Parameters
         ----------
         measure : str
-            Quality measure.
 
         Returns
         -------
@@ -1697,7 +1634,8 @@ class Root(PyMenu):
 
     class _cell_zones_labels_fdl(PyQuery):
         """
-        Get a list containing the cell zone labels.
+        Query _cell_zones_labels_fdl.
+
 
         Returns
         -------
@@ -1711,7 +1649,8 @@ class Root(PyMenu):
 
     class _cell_zones_str_fdl(PyQuery):
         """
-        Get a list containing the cell zone IDs.
+        Query _cell_zones_str_fdl.
+
 
         Returns
         -------
@@ -1725,7 +1664,8 @@ class Root(PyMenu):
 
     class _edge_zones_labels_fdl(PyQuery):
         """
-        Get a list containing the edge zone labels.
+        Query _edge_zones_labels_fdl.
+
 
         Returns
         -------
@@ -1739,7 +1679,8 @@ class Root(PyMenu):
 
     class _edge_zones_str_fdl(PyQuery):
         """
-        Get a list containing the edge zone IDs.
+        Query _edge_zones_str_fdl.
+
 
         Returns
         -------
@@ -1753,7 +1694,8 @@ class Root(PyMenu):
 
     class _face_zones_labels_fdl(PyQuery):
         """
-        Get a list containing the face zone labels.
+        Query _face_zones_labels_fdl.
+
 
         Returns
         -------
@@ -1767,7 +1709,8 @@ class Root(PyMenu):
 
     class _face_zones_str_fdl(PyQuery):
         """
-        Get a list containing the face zone IDs.
+        Query _face_zones_str_fdl.
+
 
         Returns
         -------
@@ -1781,7 +1724,8 @@ class Root(PyMenu):
 
     class _node_zones_labels_fdl(PyQuery):
         """
-        Get a list containing the node zone labels.
+        Query _node_zones_labels_fdl.
+
 
         Returns
         -------
@@ -1795,7 +1739,8 @@ class Root(PyMenu):
 
     class _node_zones_str_fdl(PyQuery):
         """
-        Get a list containing the node zone IDs.
+        Query _node_zones_str_fdl.
+
 
         Returns
         -------
@@ -1809,7 +1754,8 @@ class Root(PyMenu):
 
     class _object_names_str_fdl(PyQuery):
         """
-        Get a list containing the object names.
+        Query _object_names_str_fdl.
+
 
         Returns
         -------
@@ -1823,7 +1769,8 @@ class Root(PyMenu):
 
     class _prism_cell_zones_labels_fdl(PyQuery):
         """
-        Get a list containing the prism cell zone labels.
+        Query _prism_cell_zones_labels_fdl.
+
 
         Returns
         -------
@@ -1837,7 +1784,8 @@ class Root(PyMenu):
 
     class _prism_cell_zones_str_fdl(PyQuery):
         """
-        Get a list containing the prism cell zone IDs.
+        Query _prism_cell_zones_str_fdl.
+
 
         Returns
         -------
@@ -1851,7 +1799,8 @@ class Root(PyMenu):
 
     class _regions_str_fdl(PyQuery):
         """
-        Get a list containing the region names.
+        Query _regions_str_fdl.
+
 
         Returns
         -------
@@ -1865,7 +1814,8 @@ class Root(PyMenu):
 
     class _zone_types_fdl(PyQuery):
         """
-        Get a list containing the zone type names.
+        Query _zone_types_fdl.
+
 
         Returns
         -------
@@ -1879,13 +1829,12 @@ class Root(PyMenu):
 
     class boundary_zone_exists(PyQuery):
         """
-        Report if the boundary face zone exists.
+        Query boundary_zone_exists.
+
         Parameters
         ----------
         zone_id : int
-            Zone ID.
         zone_name : str
-            Zone name.
 
         Returns
         -------
@@ -1900,13 +1849,12 @@ class Root(PyMenu):
 
     class cell_zone_exists(PyQuery):
         """
-        Report if the volume mesh exists.
+        Query cell_zone_exists.
+
         Parameters
         ----------
         zone_id : int
-            Cell zone ID.
         zone_name : str
-            Cell zone name.
 
         Returns
         -------
@@ -1921,11 +1869,11 @@ class Root(PyMenu):
 
     class convert_zone_ids_to_name_strings(PyQuery):
         """
-        Convert a list of IDs to a list of names.
+        Query convert_zone_ids_to_name_strings.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face or edge or cell or node zone IDs.
 
         Returns
         -------
@@ -1939,11 +1887,11 @@ class Root(PyMenu):
 
     class convert_zone_name_strings_to_ids(PyQuery):
         """
-        Convert a list of zone name strings to a list of IDs.
+        Query convert_zone_name_strings_to_ids.
+
         Parameters
         ----------
         zone_name_list : list[str]
-            List containing the face or edge or cell or node zone names.
 
         Returns
         -------
@@ -1957,18 +1905,14 @@ class Root(PyMenu):
 
     class copy_face_zone_labels(PyQuery):
         """
-        - Copy labels from one face zone to another.
-        - Specify either face zone names or IDs.
+        Query copy_face_zone_labels.
+
         Parameters
         ----------
         from_face_zone_id : int
-            Face zone ID.
         from_face_zone_name : str
-            Face zone name.
         to_face_zone_id : int
-            Face zone ID.
         to_face_zone_name : str
-            Face zone name.
 
         Returns
         -------
@@ -1982,15 +1926,13 @@ class Root(PyMenu):
 
     class count_marked_faces(PyQuery):
         """
-        Returns the count of marked faces for the face zones specified.
+        Query count_marked_faces.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -2005,17 +1947,13 @@ class Root(PyMenu):
 
     class create_boi_and_size_functions_from_refinement_regions(PyQuery):
         """
-        - Create bodies of influence and if required body of influence size functions from the mesh refinement regions.
-        - Specify the refinement region type (set 'region_type' to 'tet' or 'hexcore').
-        - Specify the prefix for the BOI zones ('boi_prefix_string'), and choose whether to create the size functions (set create_size_function to True or False).
+        Query create_boi_and_size_functions_from_refinement_regions.
+
         Parameters
         ----------
         region_type : str
-            Specify the refinement region type.
         boi_prefix_string : str
-            Specify the prefix for the BOI zones.
         create_size_function : bool
-            Specify whether to create the size functions.
 
         Returns
         -------
@@ -2029,11 +1967,11 @@ class Root(PyMenu):
 
     class dump_face_zone_orientation_in_region(PyQuery):
         """
-        Return the face zones and their orientation for the mesh file specified.
+        Query dump_face_zone_orientation_in_region.
+
         Parameters
         ----------
         file_name : str
-            Mesh file name.
 
         Returns
         -------
@@ -2047,17 +1985,14 @@ class Root(PyMenu):
 
     class fill_holes_in_face_zone_list(PyQuery):
         """
-        Fill holes associated with free edges for the face zones specified, based on the number of free edges (max_hole_edges).
+        Query fill_holes_in_face_zone_list.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         max_hole_edges : int
-            Number of maximum hole edges.
 
         Returns
         -------
@@ -2073,15 +2008,13 @@ class Root(PyMenu):
 
     class get_adjacent_cell_zones_for_given_face_zones(PyQuery):
         """
-        Return adjacent cell zones for given face zones.
+        Query get_adjacent_cell_zones_for_given_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -2097,15 +2030,13 @@ class Root(PyMenu):
 
     class get_adjacent_face_zones_for_given_cell_zones(PyQuery):
         """
-        Return adjacent boundary face zones for given cell zones.
+        Query get_adjacent_face_zones_for_given_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -2121,15 +2052,13 @@ class Root(PyMenu):
 
     class get_adjacent_interior_and_boundary_face_zones_for_given_cell_zones(PyQuery):
         """
-        Return adjacent interior and boundary face zones for given cell zones.
+        Query get_adjacent_interior_and_boundary_face_zones_for_given_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -2145,15 +2074,13 @@ class Root(PyMenu):
 
     class get_adjacent_zones_by_edge_connectivity(PyQuery):
         """
-        Return adjacent zones based on edge connectivity.
+        Query get_adjacent_zones_by_edge_connectivity.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face or edge or cell or node zone IDs.
         zone_name_list : list[str]
-            List containing the face or edge or cell or node zone names.
         zone_name_pattern : str
-            Face or edge or cell or node zone name pattern.
 
         Returns
         -------
@@ -2169,15 +2096,13 @@ class Root(PyMenu):
 
     class get_adjacent_zones_by_node_connectivity(PyQuery):
         """
-        Return adjacent zones based on node connectivity.
+        Query get_adjacent_zones_by_node_connectivity.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face or edge or cell or node zone IDs.
         zone_name_list : list[str]
-            List containing the face or edge or cell or node zone names.
         zone_name_pattern : str
-            Face or edge or cell or node zone name pattern.
 
         Returns
         -------
@@ -2193,7 +2118,8 @@ class Root(PyMenu):
 
     class get_all_objects(PyQuery):
         """
-        Return a list of all objects.
+        Query get_all_objects.
+
 
         Returns
         -------
@@ -2207,11 +2133,11 @@ class Root(PyMenu):
 
     class get_average_bounding_box_center(PyQuery):
         """
-        Return a suitable average point based on the zones specified.
+        Query get_average_bounding_box_center.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
 
         Returns
         -------
@@ -2225,11 +2151,11 @@ class Root(PyMenu):
 
     class get_baffles_for_face_zones(PyQuery):
         """
-        Return the baffle zones based on the face zone list specified.
+        Query get_baffles_for_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
 
         Returns
         -------
@@ -2243,11 +2169,11 @@ class Root(PyMenu):
 
     class get_bounding_box_of_zone_list(PyQuery):
         """
-        Return the bounding box extents for the list of zones.
+        Query get_bounding_box_of_zone_list.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face or edge or cell or node zone IDs.
 
         Returns
         -------
@@ -2261,22 +2187,16 @@ class Root(PyMenu):
 
     class get_cell_mesh_distribution(PyQuery):
         """
-        - Report the cell mesh distribution based on the specified measure, partitions, and range.
-        - Specify the 'measure' as one of the 'Orthogonal Quality', 'Skewness', 'Equiangle Skewness', 'Size Change', 'Edge Ratio', 'Size', 'Aspect Ratio', 'Squish', 'Warp', 'Dihedral Angle', 'ICEMCFD Quality', 'Ortho Skew', 'FLUENT Aspect Ratio', 'Inverse Orthogonal Quality' value.
+        Query get_cell_mesh_distribution.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
         measure : str
-            Measure.
         partitions : int
-            Partitions.
         range : list[float]
-            Range.
 
         Returns
         -------
@@ -2292,19 +2212,14 @@ class Root(PyMenu):
 
     class get_cell_quality_limits(PyQuery):
         """
-        - Report the number of cells and the cell quality limits (minimum, maximum, average quality) for the list of zones based on the measure specified.
-        - You can also report the cell size limits.
-        - Specify the 'measure' as one of the 'Orthogonal Quality', 'Skewness', 'Equiangle Skewness', 'Size Change', 'Edge Ratio', 'Size', 'Aspect Ratio', 'Squish', 'Warp', 'Dihedral Angle', 'ICEMCFD Quality', 'Ortho Skew', 'FLUENT Aspect Ratio', 'Inverse Orthogonal Quality' value.
+        Query get_cell_quality_limits.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
         measure : str
-            Measure.
 
         Returns
         -------
@@ -2320,15 +2235,13 @@ class Root(PyMenu):
 
     class get_cell_zone_count(PyQuery):
         """
-        Return count of entities for cell zones.
+        Query get_cell_zone_count.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -2344,17 +2257,14 @@ class Root(PyMenu):
 
     class get_cell_zone_id_list_with_labels(PyQuery):
         """
-        Returns the list of cell zones (by ID) containing the labels specified.
+        Query get_cell_zone_id_list_with_labels.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -2370,11 +2280,11 @@ class Root(PyMenu):
 
     class get_cell_zone_shape(PyQuery):
         """
-        Return cell zone shape as string.
+        Query get_cell_zone_shape.
+
         Parameters
         ----------
         cell_zone_id : int
-            Cell zone ID.
 
         Returns
         -------
@@ -2388,15 +2298,13 @@ class Root(PyMenu):
 
     class get_cell_zone_volume(PyQuery):
         """
-        Return cell zone volume for the specified zones.
+        Query get_cell_zone_volume.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -2412,19 +2320,13 @@ class Root(PyMenu):
 
     class get_cell_zones(PyQuery):
         """
-        - Get cell zones using 1 - maximum_entity_count and only_boundary or 2 - xyz_coordinates or 3 - filter.
-        - Return a list of cell zones at or closest to a specified location (xyz_coordinates).
-        - Return a list of cell zones with a count below the maximum entity count (maximum_entity_count) specified.
-        - You can choose to restrict the report to only boundary cell zones, if required (only_boundary set to True or False).
-        - Return a list of zones whose names contain the specified filter string.
+        Query get_cell_zones.
+
         Parameters
         ----------
         maximum_entity_count : float
-            Maximum entity count.
         xyz_coordinates : list[float]
-            X-Y-Z coordinates.
         filter : str
-            Cell zone name filter.
 
         Returns
         -------
@@ -2440,15 +2342,13 @@ class Root(PyMenu):
 
     class get_edge_size_limits(PyQuery):
         """
-        Report the edge size limits for the list of face zones.
+        Query get_edge_size_limits.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -2464,17 +2364,14 @@ class Root(PyMenu):
 
     class get_edge_zone_id_list_with_labels(PyQuery):
         """
-        Returns the list of edge zones (by ID) containing the labels specified.
+        Query get_edge_zone_id_list_with_labels.
+
         Parameters
         ----------
         edge_zone_id_list : list[int]
-            List containing the edge zone IDs.
         edge_zone_name_list : list[str]
-            List containing the edge zone names.
         edge_zone_name_pattern : str
-            Edge zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -2490,17 +2387,13 @@ class Root(PyMenu):
 
     class get_edge_zones(PyQuery):
         """
-        - Get edge zones using 1 - maximum_entity_count and only_boundary or 2 - filter Return a list of edge zones with a count below the maximum entity count (maximum_entity_count) specified.
-        - You can choose to restrict the report to only boundary edge zones, if required (only_boundary set to True or False).
-        - Return a list of zones whose names contain the specified filter string.
+        Query get_edge_zones.
+
         Parameters
         ----------
         maximum_entity_count : float
-            Maximum entity count.
         only_boundary : bool
-            Specify whether to restrict the report to only boundary edge zones.
         filter : str
-            Edge zone name filter.
 
         Returns
         -------
@@ -2515,11 +2408,11 @@ class Root(PyMenu):
 
     class get_edge_zones_list(PyQuery):
         """
-        Return a list of edge zones whose names contain the specified filter string.
+        Query get_edge_zones_list.
+
         Parameters
         ----------
         filter : list[str]
-            Edge zone name filter.
 
         Returns
         -------
@@ -2533,13 +2426,12 @@ class Root(PyMenu):
 
     class get_edge_zones_of_object(PyQuery):
         """
-        Return a list of edge zones in the specified object or objects.
+        Query get_edge_zones_of_object.
+
         Parameters
         ----------
         objects : list[str]
-            List containing the object names list.
         object_name : str
-            Mesh object name.
 
         Returns
         -------
@@ -2554,7 +2446,8 @@ class Root(PyMenu):
 
     class get_embedded_baffles(PyQuery):
         """
-        Return the embedded baffle zones.
+        Query get_embedded_baffles.
+
 
         Returns
         -------
@@ -2568,22 +2461,16 @@ class Root(PyMenu):
 
     class get_face_mesh_distribution(PyQuery):
         """
-        - Report the face mesh distribution based on the specified measure, partitions, and range.
-        - Specify the 'measure' as one of the 'Orthogonal Quality', 'Skewness', 'Equiangle Skewness', 'Size Change', 'Edge Ratio', 'Size', 'Aspect Ratio', 'Squish', 'Warp', 'Dihedral Angle', 'ICEMCFD Quality', 'Ortho Skew', 'FLUENT Aspect Ratio', 'Inverse Orthogonal Quality' value.
+        Query get_face_mesh_distribution.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         measure : str
-            Measure.
         partitions : int
-            Partitions.
         range : list[float]
-            Range.
 
         Returns
         -------
@@ -2599,19 +2486,14 @@ class Root(PyMenu):
 
     class get_face_quality_limits(PyQuery):
         """
-        - Report the number of faces and the face quality limits (minimum, maximum, average quality) for the list of zones based on the measure specified.
-        - You can also report the face size limits.
-        - Specify the 'measure' as one of the 'Orthogonal Quality', 'Skewness', 'Equiangle Skewness', 'Size Change', 'Edge Ratio', 'Size', 'Aspect Ratio', 'Squish', 'Warp', 'Dihedral Angle', 'ICEMCFD Quality', 'Ortho Skew', 'FLUENT Aspect Ratio', 'Inverse Orthogonal Quality' value.
+        Query get_face_quality_limits.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         measure : str
-            Measure.
 
         Returns
         -------
@@ -2627,15 +2509,13 @@ class Root(PyMenu):
 
     class get_face_zone_area(PyQuery):
         """
-        Return face zone area for the specified zones.
+        Query get_face_zone_area.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -2651,15 +2531,13 @@ class Root(PyMenu):
 
     class get_face_zone_count(PyQuery):
         """
-        Return count of entities for face zones.
+        Query get_face_zone_count.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -2675,17 +2553,14 @@ class Root(PyMenu):
 
     class get_face_zone_id_list_with_labels(PyQuery):
         """
-        Returns the list of face zones (by ID) containing the labels specified.
+        Query get_face_zone_id_list_with_labels.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         label_name_list : list[str]
-            List containing the label names.
 
         Returns
         -------
@@ -2701,13 +2576,12 @@ class Root(PyMenu):
 
     class get_face_zone_node_count(PyQuery):
         """
-        Returns the node count for the specified face zone.
+        Query get_face_zone_node_count.
+
         Parameters
         ----------
         face_zone_id : int
-            Face zone ID.
         face_zone_name : str
-            Face zone name.
 
         Returns
         -------
@@ -2722,24 +2596,15 @@ class Root(PyMenu):
 
     class get_face_zones(PyQuery):
         """
-        - Get face zones using 1 - maximum_entity_count and only_boundary or 2 - prism_control_name or 3 - xyz_coordinates or 4 - filter.
-        - Return a list of face zones at or closest to a specified location (xyz_coordinates - not applicable to polyhedra mesh).
-        - Return a list of face zones with a count below the maximum entity count (maximum_entity_count) specified.
-        - You can choose to restrict the report to only boundary face zones, if required (only_boundary set to True or False).
-        - Return a list of face zones to which the specified prism controls apply.
-        - Return a list of zones whose names contain the specified filter string.
+        Query get_face_zones.
+
         Parameters
         ----------
         maximum_entity_count : float
-            Maximum entity count.
         only_boundary : bool
-            Specify whether to restrict the report to only boundary face zones.
         prism_control_name : str
-            Prism control name.
         xyz_coordinates : list[float]
-            X-Y-Z coordinates.
         filter : str
-            Face zone name filter.
 
         Returns
         -------
@@ -2756,14 +2621,12 @@ class Root(PyMenu):
 
     class get_face_zones_by_zone_area(PyQuery):
         """
-        - Return a list of face zones with a maximum zone area below the maximum_zone_area specified.
-        - Return a list of face zones with a minimum zone area above the minimum_zone_area specified.
+        Query get_face_zones_by_zone_area.
+
         Parameters
         ----------
         maximum_zone_area : float
-            Maximum zone area.
         minimum_zone_area : float
-            Minimum zone area.
 
         Returns
         -------
@@ -2778,20 +2641,15 @@ class Root(PyMenu):
 
     class get_face_zones_of_object(PyQuery):
         """
-        - Return a list of face zones using 1 - object_name and regions or 2 - object_name and labels or 3 - object_name and region_type or 4 - object_name or 5 - objects.
-        - where region_type is one of the 'fluid-fluid', 'solid-solid', or 'fluid-solid' value.
+        Query get_face_zones_of_object.
+
         Parameters
         ----------
         regions : list[str]
-            List containing the region names.
         labels : list[str]
-            List containing the face zone labels.
         region_type : str
-            Region type.
         objects : list[str]
-            List containing the object names.
         object_name : str
-            Mesh object name.
 
         Returns
         -------
@@ -2809,7 +2667,8 @@ class Root(PyMenu):
 
     class get_face_zones_with_zone_specific_prisms_applied(PyQuery):
         """
-        Return a list of face zones with zone-specific prism settings applied.
+        Query get_face_zones_with_zone_specific_prisms_applied.
+
 
         Returns
         -------
@@ -2823,15 +2682,13 @@ class Root(PyMenu):
 
     class get_free_faces_count(PyQuery):
         """
-        Returns the count of free faces for the face zones specified.
+        Query get_free_faces_count.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -2847,15 +2704,13 @@ class Root(PyMenu):
 
     class get_interior_face_zones_for_given_cell_zones(PyQuery):
         """
-        Returns interior face zones connected to given cell zones.
+        Query get_interior_face_zones_for_given_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -2871,15 +2726,13 @@ class Root(PyMenu):
 
     class get_labels(PyQuery):
         """
-        Return a list of face zone labels in the specified object, whose names contain the specified filter or pattern string.
+        Query get_labels.
+
         Parameters
         ----------
         object_name : str
-            Mesh object name.
         filter : str
-            Label name filter.
         label_name_pattern : str
-            Label name pattern.
 
         Returns
         -------
@@ -2895,15 +2748,13 @@ class Root(PyMenu):
 
     class get_labels_on_cell_zones(PyQuery):
         """
-        Returns the list of labels for the specified cell zones.
+        Query get_labels_on_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -2919,15 +2770,13 @@ class Root(PyMenu):
 
     class get_labels_on_edge_zones(PyQuery):
         """
-        Returns the list of labels for the specified edge zones.
+        Query get_labels_on_edge_zones.
+
         Parameters
         ----------
         edge_zone_id_list : list[int]
-            List containing the edge zone IDs.
         edge_zone_name_list : list[str]
-            List containing the edge zone names.
         edge_zone_name_pattern : str
-            Edge zone name pattern.
 
         Returns
         -------
@@ -2943,15 +2792,13 @@ class Root(PyMenu):
 
     class get_labels_on_face_zones(PyQuery):
         """
-        Returns the list of labels for the specified face zones.
+        Query get_labels_on_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -2967,11 +2814,11 @@ class Root(PyMenu):
 
     class get_labels_on_face_zones_list(PyQuery):
         """
-        Returns the list of labels for the specified face zones.
+        Query get_labels_on_face_zones_list.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
 
         Returns
         -------
@@ -2985,15 +2832,13 @@ class Root(PyMenu):
 
     class get_maxsize_cell_zone_by_count(PyQuery):
         """
-        Return cell zone with maximum count of elements for given list or pattern of cell zones.
+        Query get_maxsize_cell_zone_by_count.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the cell zone IDs.
         zone_name_list : list[str]
-            List containing the cell zone names.
         zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -3009,15 +2854,13 @@ class Root(PyMenu):
 
     class get_maxsize_cell_zone_by_volume(PyQuery):
         """
-        Return cell zone with maximum volume for given list or pattern of cell zones.
+        Query get_maxsize_cell_zone_by_volume.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the cell zone IDs.
         zone_name_list : list[str]
-            List containing the cell zone names.
         zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -3033,15 +2876,13 @@ class Root(PyMenu):
 
     class get_minsize_face_zone_by_area(PyQuery):
         """
-        Return face zone with minimum area for given list or pattern of face zones.
+        Query get_minsize_face_zone_by_area.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face zone IDs.
         zone_name_list : list[str]
-            List containing the face zone names.
         zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3057,15 +2898,13 @@ class Root(PyMenu):
 
     class get_minsize_face_zone_by_count(PyQuery):
         """
-        Return face zone with minimum count of elements for given list or pattern of face zones.
+        Query get_minsize_face_zone_by_count.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the face zone IDs.
         zone_name_list : list[str]
-            List containing the face zone names.
         zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3081,15 +2920,13 @@ class Root(PyMenu):
 
     class get_multi_faces_count(PyQuery):
         """
-        Returns the count of multi-connected faces for the face zones specified.
+        Query get_multi_faces_count.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3105,11 +2942,11 @@ class Root(PyMenu):
 
     class get_node_zones(PyQuery):
         """
-        Return a list of zones whose names contain the specified filter string.
+        Query get_node_zones.
+
         Parameters
         ----------
         filter : str
-            Node zone name filter.
 
         Returns
         -------
@@ -3123,13 +2960,12 @@ class Root(PyMenu):
 
     class get_objects(PyQuery):
         """
-        Return a list of objects of the specified type or whose names contain the specified filter string.
+        Query get_objects.
+
         Parameters
         ----------
         type_name : str
-            Mesh object type name.
         filter : str
-            Mesh object name filter.
 
         Returns
         -------
@@ -3144,15 +2980,13 @@ class Root(PyMenu):
 
     class get_overlapping_face_zones(PyQuery):
         """
-        Return a list of overlapping face zones based on the area_tolerance and distance_tolerance specified.
+        Query get_overlapping_face_zones.
+
         Parameters
         ----------
         face_zone_name_pattern : str
-            Face zone name pattern.
         area_tolerance : float
-            Area tolerance.
         distance_tolerance : float
-            Distance tolerance.
 
         Returns
         -------
@@ -3166,27 +3000,16 @@ class Root(PyMenu):
 
     class get_pairs_of_overlapping_face_zones(PyQuery):
         """
-        - Return the pairs of overlapping face zones based on the join tolerance and feature angle.
-        - Specify the tolerance value for locating the overlapping faces (join_tolerance).
-        - Choose to use an absolute tolerance value or relative to face edges (set absolute_tolerance to True or False).
-        - Specify the feature angle to identify features in the overlap region (feature_angle).
-        - The default value is 40.
-        - Each member in the list returned includes the zone IDs for the overlapping zone pair and the join region represented by the bounding box.
-        - The same pair of zones may appear multiple times (with different join region bounding box coordinates) in the returned list.
+        Query get_pairs_of_overlapping_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         join_tolerance : float
-            Join tolerance.
         absolute_tolerance : bool
-            Specify whether to use an absolute tolerance value or relative to face edges.
         join_angle : float
-            Join angle.
 
         Returns
         -------
@@ -3202,15 +3025,13 @@ class Root(PyMenu):
 
     class get_prism_cell_zones(PyQuery):
         """
-        Return a list of prism cell zones.
+        Query get_prism_cell_zones.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the cell zone IDs.
         zone_name_list : list[str]
-            List containing the cell zone names.
         zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -3226,18 +3047,13 @@ class Root(PyMenu):
 
     class get_region_volume(PyQuery):
         """
-        - Get region volume using 1 - object_name and region_name or 2 - object_name and order.
-        - Return the region volume for the specified region of an object.
-        - Returns a sorted list of volumetric regions by volume for the object specified.
-        - Specify the order 'ascending' or 'descending'.
+        Query get_region_volume.
+
         Parameters
         ----------
         object_name : str
-            Mesh object name.
         region_name : str
-            Region name.
         sorting_order : str
-            Region volume sorting order.
 
         Returns
         -------
@@ -3252,15 +3068,13 @@ class Root(PyMenu):
 
     class get_regions(PyQuery):
         """
-        Return a list of regions in the specified object, whose names contain the specified filter string or specified name pattern.
+        Query get_regions.
+
         Parameters
         ----------
         object_name : str
-            Mesh object name.
         region_name_pattern : str
-            Region name pattern.
         filter : str
-            Region name filter.
 
         Returns
         -------
@@ -3276,15 +3090,13 @@ class Root(PyMenu):
 
     class get_regions_of_face_zones(PyQuery):
         """
-        Return a list of regions containing the face zones specified.
+        Query get_regions_of_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3300,15 +3112,13 @@ class Root(PyMenu):
 
     class get_shared_boundary_face_zones_for_given_cell_zones(PyQuery):
         """
-        Returns the number of faces and the boundary face zones that are shared with the specified cell zones.
+        Query get_shared_boundary_face_zones_for_given_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -3324,15 +3134,13 @@ class Root(PyMenu):
 
     class get_tet_cell_zones(PyQuery):
         """
-        Return a list of tet cell zones.
+        Query get_tet_cell_zones.
+
         Parameters
         ----------
         zone_id_list : list[int]
-            List containing the cell zone IDs.
         zone_name_list : list[str]
-            List containing the cell zone names.
         zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -3348,11 +3156,11 @@ class Root(PyMenu):
 
     class get_topos_on_face_zones_list(PyQuery):
         """
-        Returns the list of topo labels for the specified face zones.
+        Query get_topos_on_face_zones_list.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
 
         Returns
         -------
@@ -3362,13 +3170,12 @@ class Root(PyMenu):
 
     class get_unreferenced_cell_zones(PyQuery):
         """
-        Return a list of unreferenced cell zones by ID, whose names contain the specified pattern or filter.
+        Query get_unreferenced_cell_zones.
+
         Parameters
         ----------
         filter : str
-            Cell zone name filter.
         zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -3384,13 +3191,12 @@ class Root(PyMenu):
 
     class get_unreferenced_edge_zones(PyQuery):
         """
-        Return a list of unreferenced edge zones by ID, whose names contain the specified pattern or filter.
+        Query get_unreferenced_edge_zones.
+
         Parameters
         ----------
         filter : str
-            Edge zone name filter.
         zone_name_pattern : str
-            Edge zone name pattern.
 
         Returns
         -------
@@ -3406,13 +3212,12 @@ class Root(PyMenu):
 
     class get_unreferenced_face_zones(PyQuery):
         """
-        Return a list of unreferenced face zones by ID, whose names contain the specified pattern or filter.
+        Query get_unreferenced_face_zones.
+
         Parameters
         ----------
         filter : str
-            Face zone name filter.
         zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3428,7 +3233,8 @@ class Root(PyMenu):
 
     class get_wrapped_face_zones(PyQuery):
         """
-        Return a list of wrapped face zones.
+        Query get_wrapped_face_zones.
+
 
         Returns
         -------
@@ -3442,13 +3248,12 @@ class Root(PyMenu):
 
     class get_zone_type(PyQuery):
         """
-        Return zone type as integer.
+        Query get_zone_type.
+
         Parameters
         ----------
         zone_id : int
-            Zone ID.
         zone_name : str
-            Zone name.
 
         Returns
         -------
@@ -3463,13 +3268,12 @@ class Root(PyMenu):
 
     class get_zones(PyQuery):
         """
-        Return a list of zones of the specified default zone type, group or user-defined group.
+        Query get_zones.
+
         Parameters
         ----------
         type_name : str
-            Zone type name.
         group_name : str
-            Zone group name.
 
         Returns
         -------
@@ -3484,15 +3288,13 @@ class Root(PyMenu):
 
     class get_zones_with_free_faces_for_given_face_zones(PyQuery):
         """
-        Return a list of zones with free faces for the face zones specified.
+        Query get_zones_with_free_faces_for_given_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3508,15 +3310,13 @@ class Root(PyMenu):
 
     class get_zones_with_marked_faces_for_given_face_zones(PyQuery):
         """
-        Return a list of zones with marked faces for the face zones specified.
+        Query get_zones_with_marked_faces_for_given_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3532,15 +3332,13 @@ class Root(PyMenu):
 
     class get_zones_with_multi_faces_for_given_face_zones(PyQuery):
         """
-        Return a list of zones with multi-connected faces for the face zones specified.
+        Query get_zones_with_multi_faces_for_given_face_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3556,13 +3354,12 @@ class Root(PyMenu):
 
     class interior_zone_exists(PyQuery):
         """
-        Report if the interior face zone exists.
+        Query interior_zone_exists.
+
         Parameters
         ----------
         zone_id : int
-            Zone ID.
         zone_name : str
-            Zone name.
 
         Returns
         -------
@@ -3577,19 +3374,15 @@ class Root(PyMenu):
 
     class mark_bad_quality_faces(PyQuery):
         """
-        Mark bad quality faces on the boundary face zones specified, based on the quality limit (quality_limit) and number of rings (number_of_rings).
+        Query mark_bad_quality_faces.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         quality_limit : float
-            Quality limit.
         number_of_rings : int
-            Number of rings.
 
         Returns
         -------
@@ -3605,15 +3398,13 @@ class Root(PyMenu):
 
     class mark_duplicate_faces(PyQuery):
         """
-        Mark duplicate faces on the face zones specified.
+        Query mark_duplicate_faces.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3629,32 +3420,18 @@ class Root(PyMenu):
 
     class mark_face_strips_by_height_and_quality(PyQuery):
         """
-        - Mark face strips based on the strip_type, strip_height, quality_measure, quality_limit, and feature_angle specified.
-        - Possible values for strip_type are 1, 2, 3 and 4.
-        - 1 - 'boundary-boundary' strip, multi-connected face edges are also considered as boundary here.
-        - 2 - feature-feature strip between angle based features, feature edges, multi-connected edges, and free edges are angle based features and boundary edges will be considered features if there is an angle.
-        - 3 - 'all-all' strip between all boundaries and features.
-        - 4 - 'pure feature-feature' strip, only pure features, boundary edges and multi edges will not be considered as pure feature edges even if there is an angle based feature.
-        - The recommended value is 2.
-        - Specify the 'quality_measure' as one of the 'Skewness', 'Size Change', 'Edge Ratio', 'Area', 'Aspect Ratio', 'Warp', 'Dihedral Angle', 'Ortho Skew' value.
+        Query mark_face_strips_by_height_and_quality.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         strip_type : int
-            Strip type.
         strip_height : float
-            Strip height.
         quality_measure : str
-            Quality measure.
         quality_limit : float
-            Quality limit.
         feature_angle : float
-            Feature angle.
 
         Returns
         -------
@@ -3670,23 +3447,16 @@ class Root(PyMenu):
 
     class mark_faces_by_quality(PyQuery):
         """
-        - Mark faces based on the 'quality_measure' and 'quality_limit' specified.
-        - Specify whether to append the faces to those previously marked or clear previously marked faces (append_marking set to True or False).
-        - Specify the 'quality_measure' as one of the 'Skewness', 'Size Change', 'Edge Ratio', 'Area', 'Aspect Ratio', 'Warp', 'Dihedral Angle', 'Ortho Skew' value.
+        Query mark_faces_by_quality.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         quality_measure : str
-            Quality measure.
         quality_limit : float
-            Quality limit.
         append_marking : bool
-            Specify whether to append the faces to those previously marked or clear previously marked faces.
 
         Returns
         -------
@@ -3702,24 +3472,16 @@ class Root(PyMenu):
 
     class mark_faces_deviating_from_size_field(PyQuery):
         """
-        - Mark all faces at nodes based on deviation from the size field.
-        - Specify the size field type to be used to get size at node.
-        - Set 'size_factor_type_to_compare' to 'volumetric' or 'geodesic'.
-        - Faces will be marked if the minimum edge length at the node is less than min_size_factor × size_factor_type_to_compare or the maximum edge length is greater than max_size_factor × size_factor_type_to_compare.
+        Query mark_faces_deviating_from_size_field.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         min_size_factor : float
-            Minimum size factor.
         max_size_factor : float
-            Maximum size factor.
         size_factor_type_to_compare : str
-            Size field type to be used to get size at node.
 
         Returns
         -------
@@ -3735,24 +3497,17 @@ class Root(PyMenu):
 
     class mark_faces_in_self_proximity(PyQuery):
         """
-        - Mark faces in self-proximity on the face zones specified.
-        - Specify whether to use relative tolerance (relative_tolerance set to True or False), tolerance value, the angle, and whether to ignore orientation (ignore_orientation set to True or False).
+        Query mark_faces_in_self_proximity.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         relative_tolerance : bool
-            Specify whether to use relative tolerance.
         tolerance : float
-            Tolerance.
         proximity_angle : float
-            Proximity angle.
         ignore_orientation : bool
-            Specify whether to ignore orientation.
 
         Returns
         -------
@@ -3768,18 +3523,14 @@ class Root(PyMenu):
 
     class mark_faces_using_node_degree(PyQuery):
         """
-        - Mark all faces with node degree above the specified threshold.
-        - Node degree is defined as the number of edges connected to the node.
+        Query mark_faces_using_node_degree.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         node_degree_threshold : int
-            Number of edges connected to the node.
 
         Returns
         -------
@@ -3795,15 +3546,13 @@ class Root(PyMenu):
 
     class mark_free_faces(PyQuery):
         """
-        Mark free faces on the face zones specified.
+        Query mark_free_faces.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3819,15 +3568,13 @@ class Root(PyMenu):
 
     class mark_invalid_normals(PyQuery):
         """
-        Mark invalid normal locations on the face zones specified.
+        Query mark_invalid_normals.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3843,17 +3590,14 @@ class Root(PyMenu):
 
     class mark_island_faces(PyQuery):
         """
-        Mark island faces on the face zones specified, based on the island face count (island_face_count).
+        Query mark_island_faces.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         island_face_count : int
-            Island face count.
 
         Returns
         -------
@@ -3869,17 +3613,14 @@ class Root(PyMenu):
 
     class mark_multi_faces(PyQuery):
         """
-        Mark multi-connected faces on the face zones specified based on fringe length (fringe_length).
+        Query mark_multi_faces.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         fringe_length : int
-            Fringe length.
 
         Returns
         -------
@@ -3895,15 +3636,13 @@ class Root(PyMenu):
 
     class mark_point_contacts(PyQuery):
         """
-        Mark point contact locations on the face zones specified.
+        Query mark_point_contacts.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -3919,18 +3658,14 @@ class Root(PyMenu):
 
     class mark_self_intersecting_faces(PyQuery):
         """
-        - Mark self-intersecting faces on the face zones specified.
-        - Specify whether to mark folded faces or not (mark_folded set to True or False).
+        Query mark_self_intersecting_faces.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         mark_folded : bool
-            Specify whether to mark folded faces or not.
 
         Returns
         -------
@@ -3946,19 +3681,15 @@ class Root(PyMenu):
 
     class mark_sliver_faces(PyQuery):
         """
-        Mark sliver faces on the face zones specified, based on the maximum height (max_height) and skewness limit (skew_limit).
+        Query mark_sliver_faces.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         max_height : float
-            Maximum height.
         skew_limit : float
-            Skew limit.
 
         Returns
         -------
@@ -3974,17 +3705,14 @@ class Root(PyMenu):
 
     class mark_spikes(PyQuery):
         """
-        Mark spikes on the face zones specified, based on the spike angle (spike_angle).
+        Query mark_spikes.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         spike_angle : float
-            Spike angle.
 
         Returns
         -------
@@ -4000,19 +3728,15 @@ class Root(PyMenu):
 
     class mark_steps(PyQuery):
         """
-        Mark steps on the face zones specified, based on the step angle (step_angle) and step width (step_width).
+        Query mark_steps.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         step_angle : float
-            Step angle.
         step_width : float
-            Step width.
 
         Returns
         -------
@@ -4028,30 +3752,20 @@ class Root(PyMenu):
 
     class mesh_check(PyQuery):
         """
-        - Reports the selected mesh check statistics for the zones specified.
-        - Specify the 'type_name' as one of the 'bounding-box-statistics', 'volume-statistics', 'face-area-statistics', 'nodes-per-edge', 'nodes-per-face', 'nodes-per-cell', 'faces-or-neighbors-per-cell', 'cell-faces-or-neighbors', 'isolated-cells', 'face-handedness', 'periodic-face-pairs', 'face-children', 'zone-boundary-conditions', 'invalid-node-coordinates', 'poly-cells', 'parallel-invalid-zones', 'parallel-invalid-neighborhood', 'parallel-invalid-interfaces' value.
+        Query mesh_check.
+
         Parameters
         ----------
         type_name : str
-            Type name.
         edge_zone_id_list : list[int]
-            List containing the edge zone IDs.
         edge_zone_name_list : list[str]
-            List containing the edge zone names.
         edge_zone_name_pattern : str
-            Edge zone name pattern.
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------
@@ -4070,7 +3784,8 @@ class Root(PyMenu):
 
     class mesh_exists(PyQuery):
         """
-        Report if the volume mesh exists.
+        Query mesh_exists.
+
 
         Returns
         -------
@@ -4084,18 +3799,14 @@ class Root(PyMenu):
 
     class print_worst_quality_cell(PyQuery):
         """
-        - Report the worst quality cell (ID and location) for the cell zones based on the measure specified.
-        - Specify the 'measure' as one of the 'Orthogonal Quality', 'Skewness', 'Equiangle Skewness', 'Size Change', 'Edge Ratio', 'Size', 'Aspect Ratio', 'Squish', 'Warp', 'Dihedral Angle', 'ICEMCFD Quality', 'Ortho Skew', 'FLUENT Aspect Ratio', 'Inverse Orthogonal Quality' value.
+        Query print_worst_quality_cell.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
         measure : str
-            Measure.
 
         Returns
         -------
@@ -4111,12 +3822,11 @@ class Root(PyMenu):
 
     class project_zone_on_plane(PyQuery):
         """
-        - Project a zone on the plane specified.
-        - Specify three points for defining the plane.
+        Query project_zone_on_plane.
+
         Parameters
         ----------
         zone_id : int
-            Zone ID.
         plane : dict[str, Any]
 
         Returns
@@ -4131,15 +3841,13 @@ class Root(PyMenu):
 
     class refine_marked_faces_in_zones(PyQuery):
         """
-        Refine marked faces.
+        Query refine_marked_faces_in_zones.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -4155,22 +3863,16 @@ class Root(PyMenu):
 
     class scale_cell_zones_around_pivot(PyQuery):
         """
-        - Enables you to scale the cell zones around a pivot point or the bounding box center.
-        - Specify the cell zones, the scale factors in the X, Y, Z directions (scale), the pivot point (pivot), and choose whether to use the bounding box center (use_bbox_center set to True or False).
+        Query scale_cell_zones_around_pivot.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
         scale : list[float]
-            Scale factors in the X, Y, Z directions.
         pivot : list[float]
-            Pivot point.
         use_bbox_center : bool
-            Specify whether to use the bounding box center.
 
         Returns
         -------
@@ -4186,22 +3888,16 @@ class Root(PyMenu):
 
     class scale_face_zones_around_pivot(PyQuery):
         """
-        - Enables you to scale the face zones around a pivot point or the bounding box center.
-        - Specify the face zones, the scale factors in the X, Y, Z directions (scale), the pivot point (pivot), and choose whether to use the bounding box center (use_bbox_center set to True or False).
+        Query scale_face_zones_around_pivot.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         scale : list[float]
-            Scale factors in the X, Y, Z directions.
         pivot : list[float]
-            Pivot point.
         use_bbox_center : bool
-            Specify whether to use the bounding box center.
 
         Returns
         -------
@@ -4217,21 +3913,15 @@ class Root(PyMenu):
 
     class separate_cell_zone_layers_by_face_zone_using_id(PyQuery):
         """
-        - Separates cells that are connected to specified face zones into another cell zone.
-        - This separation method applies only to prism cells.
-        - Specify the number of layers of cells (nlayers) to be separated.
+        Query separate_cell_zone_layers_by_face_zone_using_id.
+
         Parameters
         ----------
         cell_zone_id : int
-            Cell zone ID.
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         nlayers : int
-            Number of layers of cells to be separated.
 
         Returns
         -------
@@ -4247,21 +3937,15 @@ class Root(PyMenu):
 
     class separate_cell_zone_layers_by_face_zone_using_name(PyQuery):
         """
-        - Separates cells that are connected to specified face zones into another cell zone.
-        - This separation method applies only to prism cells.
-        - Specify the number of layers of cells (nlayers) to be separated.
+        Query separate_cell_zone_layers_by_face_zone_using_name.
+
         Parameters
         ----------
         cell_zone_name : str
-            Cell zone name.
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
         nlayers : int
-            Number of layers of cells to be separated.
 
         Returns
         -------
@@ -4277,15 +3961,13 @@ class Root(PyMenu):
 
     class separate_face_zones_by_cell_neighbor(PyQuery):
         """
-        Separate face zones based on the cell neighbors.
+        Query separate_face_zones_by_cell_neighbor.
+
         Parameters
         ----------
         face_zone_id_list : list[int]
-            List containing the face zone IDs.
         face_zone_name_list : list[str]
-            List containing the face zone names.
         face_zone_name_pattern : str
-            Face zone name pattern.
 
         Returns
         -------
@@ -4301,15 +3983,13 @@ class Root(PyMenu):
 
     class unpreserve_cell_zones(PyQuery):
         """
-        Enables you to unpreserve some/all preserved cell zones during the meshing process.
+        Query unpreserve_cell_zones.
+
         Parameters
         ----------
         cell_zone_id_list : list[int]
-            List containing the cell zone IDs.
         cell_zone_name_list : list[str]
-            List containing the cell zone names.
         cell_zone_name_pattern : str
-            Cell zone name pattern.
 
         Returns
         -------

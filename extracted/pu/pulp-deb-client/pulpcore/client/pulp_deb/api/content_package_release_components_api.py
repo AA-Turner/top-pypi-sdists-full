@@ -50,6 +50,7 @@ class ContentPackageReleaseComponentsApi:
     def create(
         self,
         deb_package_release_component: DebPackageReleaseComponent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -69,6 +70,8 @@ class ContentPackageReleaseComponentsApi:
 
         :param deb_package_release_component: (required)
         :type deb_package_release_component: DebPackageReleaseComponent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -93,6 +96,7 @@ class ContentPackageReleaseComponentsApi:
 
         _param = self._create_serialize(
             deb_package_release_component=deb_package_release_component,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -117,6 +121,7 @@ class ContentPackageReleaseComponentsApi:
     def create_with_http_info(
         self,
         deb_package_release_component: DebPackageReleaseComponent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -136,6 +141,8 @@ class ContentPackageReleaseComponentsApi:
 
         :param deb_package_release_component: (required)
         :type deb_package_release_component: DebPackageReleaseComponent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -160,6 +167,7 @@ class ContentPackageReleaseComponentsApi:
 
         _param = self._create_serialize(
             deb_package_release_component=deb_package_release_component,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -184,6 +192,7 @@ class ContentPackageReleaseComponentsApi:
     def create_without_preload_content(
         self,
         deb_package_release_component: DebPackageReleaseComponent,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -203,6 +212,8 @@ class ContentPackageReleaseComponentsApi:
 
         :param deb_package_release_component: (required)
         :type deb_package_release_component: DebPackageReleaseComponent
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -227,6 +238,7 @@ class ContentPackageReleaseComponentsApi:
 
         _param = self._create_serialize(
             deb_package_release_component=deb_package_release_component,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -246,6 +258,7 @@ class ContentPackageReleaseComponentsApi:
     def _create_serialize(
         self,
         deb_package_release_component,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -255,6 +268,7 @@ class ContentPackageReleaseComponentsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -269,6 +283,8 @@ class ContentPackageReleaseComponentsApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_package_release_component is not None:
@@ -326,6 +342,7 @@ class ContentPackageReleaseComponentsApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `upstream_id` - Upstream id * `-upstream_id` - Upstream id (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `timestamp_of_interest` - Timestamp of interest * `-timestamp_of_interest` - Timestamp of interest (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -359,6 +376,8 @@ class ContentPackageReleaseComponentsApi:
 
         A PackageReleaseComponent associates a Package with a ReleaseComponent.  Associated artifacts: None; contains only metadata.  This simply stores the information which packages are part of which components.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -414,6 +433,7 @@ class ContentPackageReleaseComponentsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -453,6 +473,7 @@ class ContentPackageReleaseComponentsApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `upstream_id` - Upstream id * `-upstream_id` - Upstream id (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `timestamp_of_interest` - Timestamp of interest * `-timestamp_of_interest` - Timestamp of interest (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -486,6 +507,8 @@ class ContentPackageReleaseComponentsApi:
 
         A PackageReleaseComponent associates a Package with a ReleaseComponent.  Associated artifacts: None; contains only metadata.  This simply stores the information which packages are part of which components.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -541,6 +564,7 @@ class ContentPackageReleaseComponentsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -580,6 +604,7 @@ class ContentPackageReleaseComponentsApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         offset: Annotated[Optional[StrictInt], Field(description="The initial index from which to return the results.")] = None,
         ordering: Annotated[Optional[List[StrictStr]], Field(description="Ordering  * `pulp_id` - Pulp id * `-pulp_id` - Pulp id (descending) * `pulp_created` - Pulp created * `-pulp_created` - Pulp created (descending) * `pulp_last_updated` - Pulp last updated * `-pulp_last_updated` - Pulp last updated (descending) * `pulp_type` - Pulp type * `-pulp_type` - Pulp type (descending) * `upstream_id` - Upstream id * `-upstream_id` - Upstream id (descending) * `pulp_labels` - Pulp labels * `-pulp_labels` - Pulp labels (descending) * `timestamp_of_interest` - Timestamp of interest * `-timestamp_of_interest` - Timestamp of interest (descending) * `pk` - Pk * `-pk` - Pk (descending)")] = None,
@@ -613,6 +638,8 @@ class ContentPackageReleaseComponentsApi:
 
         A PackageReleaseComponent associates a Package with a ReleaseComponent.  Associated artifacts: None; contains only metadata.  This simply stores the information which packages are part of which components.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param offset: The initial index from which to return the results.
@@ -668,6 +695,7 @@ class ContentPackageReleaseComponentsApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             offset=offset,
             ordering=ordering,
@@ -702,6 +730,7 @@ class ContentPackageReleaseComponentsApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         offset,
         ordering,
@@ -727,6 +756,7 @@ class ContentPackageReleaseComponentsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
             'pulp_href__in': 'csv',
@@ -811,6 +841,8 @@ class ContentPackageReleaseComponentsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -852,6 +884,7 @@ class ContentPackageReleaseComponentsApi:
     def read(
         self,
         deb_package_release_component_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -873,6 +906,8 @@ class ContentPackageReleaseComponentsApi:
 
         :param deb_package_release_component_href: (required)
         :type deb_package_release_component_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -901,6 +936,7 @@ class ContentPackageReleaseComponentsApi:
 
         _param = self._read_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -927,6 +963,7 @@ class ContentPackageReleaseComponentsApi:
     def read_with_http_info(
         self,
         deb_package_release_component_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -948,6 +985,8 @@ class ContentPackageReleaseComponentsApi:
 
         :param deb_package_release_component_href: (required)
         :type deb_package_release_component_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -976,6 +1015,7 @@ class ContentPackageReleaseComponentsApi:
 
         _param = self._read_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1002,6 +1042,7 @@ class ContentPackageReleaseComponentsApi:
     def read_without_preload_content(
         self,
         deb_package_release_component_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1023,6 +1064,8 @@ class ContentPackageReleaseComponentsApi:
 
         :param deb_package_release_component_href: (required)
         :type deb_package_release_component_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1051,6 +1094,7 @@ class ContentPackageReleaseComponentsApi:
 
         _param = self._read_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1072,6 +1116,7 @@ class ContentPackageReleaseComponentsApi:
     def _read_serialize(
         self,
         deb_package_release_component_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1083,6 +1128,7 @@ class ContentPackageReleaseComponentsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1109,6 +1155,8 @@ class ContentPackageReleaseComponentsApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1151,6 +1199,7 @@ class ContentPackageReleaseComponentsApi:
         self,
         deb_package_release_component_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1172,6 +1221,8 @@ class ContentPackageReleaseComponentsApi:
         :type deb_package_release_component_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1197,6 +1248,7 @@ class ContentPackageReleaseComponentsApi:
         _param = self._set_label_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1222,6 +1274,7 @@ class ContentPackageReleaseComponentsApi:
         self,
         deb_package_release_component_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1243,6 +1296,8 @@ class ContentPackageReleaseComponentsApi:
         :type deb_package_release_component_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1268,6 +1323,7 @@ class ContentPackageReleaseComponentsApi:
         _param = self._set_label_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1293,6 +1349,7 @@ class ContentPackageReleaseComponentsApi:
         self,
         deb_package_release_component_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1314,6 +1371,8 @@ class ContentPackageReleaseComponentsApi:
         :type deb_package_release_component_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1339,6 +1398,7 @@ class ContentPackageReleaseComponentsApi:
         _param = self._set_label_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1359,6 +1419,7 @@ class ContentPackageReleaseComponentsApi:
         self,
         deb_package_release_component_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1368,6 +1429,7 @@ class ContentPackageReleaseComponentsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1384,6 +1446,8 @@ class ContentPackageReleaseComponentsApi:
             _path_params['deb_package_release_component_href'] = deb_package_release_component_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -1443,6 +1507,7 @@ class ContentPackageReleaseComponentsApi:
         self,
         deb_package_release_component_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1464,6 +1529,8 @@ class ContentPackageReleaseComponentsApi:
         :type deb_package_release_component_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1489,6 +1556,7 @@ class ContentPackageReleaseComponentsApi:
         _param = self._unset_label_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1514,6 +1582,7 @@ class ContentPackageReleaseComponentsApi:
         self,
         deb_package_release_component_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1535,6 +1604,8 @@ class ContentPackageReleaseComponentsApi:
         :type deb_package_release_component_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1560,6 +1631,7 @@ class ContentPackageReleaseComponentsApi:
         _param = self._unset_label_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1585,6 +1657,7 @@ class ContentPackageReleaseComponentsApi:
         self,
         deb_package_release_component_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1606,6 +1679,8 @@ class ContentPackageReleaseComponentsApi:
         :type deb_package_release_component_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1631,6 +1706,7 @@ class ContentPackageReleaseComponentsApi:
         _param = self._unset_label_serialize(
             deb_package_release_component_href=deb_package_release_component_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1651,6 +1727,7 @@ class ContentPackageReleaseComponentsApi:
         self,
         deb_package_release_component_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -1660,6 +1737,7 @@ class ContentPackageReleaseComponentsApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1676,6 +1754,8 @@ class ContentPackageReleaseComponentsApi:
             _path_params['deb_package_release_component_href'] = deb_package_release_component_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:

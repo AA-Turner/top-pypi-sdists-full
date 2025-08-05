@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-01T20:12:28.751692                                                            #
+# Generated on 2025-08-04T19:06:54.531623                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -84,6 +84,15 @@ class AuthConfig(object, metaclass=metaflow.mf_extensions.outerbounds.plugins.ap
     @staticmethod
     def validate(auth_config: "AuthConfig"):
         ...
+    def _get_field(cls, field_name: str) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils.ConfigField:
+        ...
+    ...
+
+class ScalingPolicyConfig(object, metaclass=metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils.ConfigMeta):
+    """
+    Policies for autoscaling replicas. Available policies:
+    - Request based Autoscaling (rpm)
+    """
     def _get_field(cls, field_name: str) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils.ConfigField:
         ...
     ...

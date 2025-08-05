@@ -522,12 +522,10 @@ class RunningJob(object):
         # 3. If the pod object hasn't shown up yet, we set the parallelism to 0
         #    to preempt it.
         client = self._client.get()
-
         if not self.is_done:
             if self.is_running:
                 # Case 1.
                 from kubernetes.stream import stream
-
                 api_instance = client.CoreV1Api
                 try:
                     # TODO: stream opens a web-socket connection. It may
@@ -594,6 +592,10 @@ class RunningJob(object):
         return "job %s" % self._name
 
     @property
+    def is_unschedulable(self):
+        return self._job["metadata"]["annotations"].get("metaflow/job_status", "") == "Unsatisfiable_Resource_Request"
+
+    @property
     def is_done(self):
         # Check if the container is done. As a side effect, also refreshes self._job and
         # self._pod with the latest state
@@ -606,6 +608,7 @@ class RunningJob(object):
                 or bool(self._job["status"].get("failed"))
                 or self._are_pod_containers_done
                 or (self._job["spec"]["parallelism"] == 0)
+                or self.is_unschedulable
             )
 
         if not done():
@@ -663,6 +666,7 @@ class RunningJob(object):
             bool(self._job["status"].get("failed"))
             or self._has_any_container_failed
             or (self._job["spec"]["parallelism"] == 0)
+            or self.is_unschedulable
         )
         return retval
 
@@ -760,6 +764,8 @@ class RunningJob(object):
                 return 0, None
             # Best effort since Pod object can disappear on us at anytime
             else:
+                if self.is_unschedulable:
+                    return 1, self._job["metadata"]["annotations"].get("metaflow/job_status_reason", "")
                 if self._pod.get("status", {}).get("phase") not in (
                     "Succeeded",
                     "Failed",

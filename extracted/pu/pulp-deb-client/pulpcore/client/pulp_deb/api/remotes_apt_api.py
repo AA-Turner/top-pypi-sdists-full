@@ -58,6 +58,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -79,6 +80,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -104,6 +107,7 @@ class RemotesAptApi:
         _param = self._add_role_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -129,6 +133,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -150,6 +155,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -175,6 +182,7 @@ class RemotesAptApi:
         _param = self._add_role_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -200,6 +208,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -221,6 +230,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -246,6 +257,7 @@ class RemotesAptApi:
         _param = self._add_role_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -266,6 +278,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -275,6 +288,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -291,6 +305,8 @@ class RemotesAptApi:
             _path_params['deb_apt_remote_href'] = deb_apt_remote_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -349,6 +365,7 @@ class RemotesAptApi:
     def create(
         self,
         deb_apt_remote: DebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -368,6 +385,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote: (required)
         :type deb_apt_remote: DebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -392,6 +411,7 @@ class RemotesAptApi:
 
         _param = self._create_serialize(
             deb_apt_remote=deb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -416,6 +436,7 @@ class RemotesAptApi:
     def create_with_http_info(
         self,
         deb_apt_remote: DebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -435,6 +456,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote: (required)
         :type deb_apt_remote: DebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -459,6 +482,7 @@ class RemotesAptApi:
 
         _param = self._create_serialize(
             deb_apt_remote=deb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -483,6 +507,7 @@ class RemotesAptApi:
     def create_without_preload_content(
         self,
         deb_apt_remote: DebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -502,6 +527,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote: (required)
         :type deb_apt_remote: DebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -526,6 +553,7 @@ class RemotesAptApi:
 
         _param = self._create_serialize(
             deb_apt_remote=deb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -545,6 +573,7 @@ class RemotesAptApi:
     def _create_serialize(
         self,
         deb_apt_remote,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -554,6 +583,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -568,6 +598,8 @@ class RemotesAptApi:
         # process the path parameters
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_apt_remote is not None:
@@ -626,6 +658,7 @@ class RemotesAptApi:
     def delete(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -645,6 +678,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -669,6 +704,7 @@ class RemotesAptApi:
 
         _param = self._delete_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -693,6 +729,7 @@ class RemotesAptApi:
     def delete_with_http_info(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -712,6 +749,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -736,6 +775,7 @@ class RemotesAptApi:
 
         _param = self._delete_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -760,6 +800,7 @@ class RemotesAptApi:
     def delete_without_preload_content(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -779,6 +820,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -803,6 +846,7 @@ class RemotesAptApi:
 
         _param = self._delete_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -822,6 +866,7 @@ class RemotesAptApi:
     def _delete_serialize(
         self,
         deb_apt_remote_href,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -831,6 +876,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -847,6 +893,8 @@ class RemotesAptApi:
             _path_params['deb_apt_remote_href'] = deb_apt_remote_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -887,6 +935,7 @@ class RemotesAptApi:
     @validate_call
     def list(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -930,6 +979,8 @@ class RemotesAptApi:
 
         An AptRemote represents an external APT repository content source.  It contains the location of the upstream APT repository, as well as the user options that are applied when using the remote to synchronize the upstream repository to Pulp.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -1005,6 +1056,7 @@ class RemotesAptApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1054,6 +1106,7 @@ class RemotesAptApi:
     @validate_call
     def list_with_http_info(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -1097,6 +1150,8 @@ class RemotesAptApi:
 
         An AptRemote represents an external APT repository content source.  It contains the location of the upstream APT repository, as well as the user options that are applied when using the remote to synchronize the upstream repository to Pulp.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -1172,6 +1227,7 @@ class RemotesAptApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1221,6 +1277,7 @@ class RemotesAptApi:
     @validate_call
     def list_without_preload_content(
         self,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         limit: Annotated[Optional[StrictInt], Field(description="Number of results to return per page.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results where name matches value")] = None,
         name__contains: Annotated[Optional[StrictStr], Field(description="Filter results where name contains value")] = None,
@@ -1264,6 +1321,8 @@ class RemotesAptApi:
 
         An AptRemote represents an external APT repository content source.  It contains the location of the upstream APT repository, as well as the user options that are applied when using the remote to synchronize the upstream repository to Pulp.
 
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param limit: Number of results to return per page.
         :type limit: int
         :param name: Filter results where name matches value
@@ -1339,6 +1398,7 @@ class RemotesAptApi:
         """ # noqa: E501
 
         _param = self._list_serialize(
+            x_task_diagnostics=x_task_diagnostics,
             limit=limit,
             name=name,
             name__contains=name__contains,
@@ -1383,6 +1443,7 @@ class RemotesAptApi:
 
     def _list_serialize(
         self,
+        x_task_diagnostics,
         limit,
         name,
         name__contains,
@@ -1418,6 +1479,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'name__in': 'csv',
             'ordering': 'csv',
             'prn__in': 'csv',
@@ -1589,6 +1651,8 @@ class RemotesAptApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1630,6 +1694,7 @@ class RemotesAptApi:
     def list_roles(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1651,6 +1716,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1679,6 +1746,7 @@ class RemotesAptApi:
 
         _param = self._list_roles_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1705,6 +1773,7 @@ class RemotesAptApi:
     def list_roles_with_http_info(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1726,6 +1795,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1754,6 +1825,7 @@ class RemotesAptApi:
 
         _param = self._list_roles_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1780,6 +1852,7 @@ class RemotesAptApi:
     def list_roles_without_preload_content(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1801,6 +1874,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1829,6 +1904,7 @@ class RemotesAptApi:
 
         _param = self._list_roles_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -1850,6 +1926,7 @@ class RemotesAptApi:
     def _list_roles_serialize(
         self,
         deb_apt_remote_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -1861,6 +1938,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -1887,6 +1965,8 @@ class RemotesAptApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -1928,6 +2008,7 @@ class RemotesAptApi:
     def my_permissions(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -1949,6 +2030,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -1977,6 +2060,7 @@ class RemotesAptApi:
 
         _param = self._my_permissions_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2003,6 +2087,7 @@ class RemotesAptApi:
     def my_permissions_with_http_info(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2024,6 +2109,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2052,6 +2139,7 @@ class RemotesAptApi:
 
         _param = self._my_permissions_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2078,6 +2166,7 @@ class RemotesAptApi:
     def my_permissions_without_preload_content(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2099,6 +2188,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2127,6 +2218,7 @@ class RemotesAptApi:
 
         _param = self._my_permissions_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2148,6 +2240,7 @@ class RemotesAptApi:
     def _my_permissions_serialize(
         self,
         deb_apt_remote_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2159,6 +2252,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2185,6 +2279,8 @@ class RemotesAptApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2227,6 +2323,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         patcheddeb_apt_remote: PatcheddebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2248,6 +2345,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param patcheddeb_apt_remote: (required)
         :type patcheddeb_apt_remote: PatcheddebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2273,6 +2372,7 @@ class RemotesAptApi:
         _param = self._partial_update_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             patcheddeb_apt_remote=patcheddeb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2298,6 +2398,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         patcheddeb_apt_remote: PatcheddebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2319,6 +2420,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param patcheddeb_apt_remote: (required)
         :type patcheddeb_apt_remote: PatcheddebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2344,6 +2447,7 @@ class RemotesAptApi:
         _param = self._partial_update_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             patcheddeb_apt_remote=patcheddeb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2369,6 +2473,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         patcheddeb_apt_remote: PatcheddebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2390,6 +2495,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param patcheddeb_apt_remote: (required)
         :type patcheddeb_apt_remote: PatcheddebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2415,6 +2522,7 @@ class RemotesAptApi:
         _param = self._partial_update_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             patcheddeb_apt_remote=patcheddeb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2435,6 +2543,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href,
         patcheddeb_apt_remote,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -2444,6 +2553,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -2460,6 +2570,8 @@ class RemotesAptApi:
             _path_params['deb_apt_remote_href'] = deb_apt_remote_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if patcheddeb_apt_remote is not None:
@@ -2518,6 +2630,7 @@ class RemotesAptApi:
     def read(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2539,6 +2652,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2567,6 +2682,7 @@ class RemotesAptApi:
 
         _param = self._read_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2593,6 +2709,7 @@ class RemotesAptApi:
     def read_with_http_info(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2614,6 +2731,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2642,6 +2761,7 @@ class RemotesAptApi:
 
         _param = self._read_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2668,6 +2788,7 @@ class RemotesAptApi:
     def read_without_preload_content(
         self,
         deb_apt_remote_href: StrictStr,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to include in the response.")] = None,
         exclude_fields: Annotated[Optional[List[StrictStr]], Field(description="A list of fields to exclude from the response.")] = None,
         _request_timeout: Union[
@@ -2689,6 +2810,8 @@ class RemotesAptApi:
 
         :param deb_apt_remote_href: (required)
         :type deb_apt_remote_href: str
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param fields: A list of fields to include in the response.
         :type fields: List[str]
         :param exclude_fields: A list of fields to exclude from the response.
@@ -2717,6 +2840,7 @@ class RemotesAptApi:
 
         _param = self._read_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
+            x_task_diagnostics=x_task_diagnostics,
             fields=fields,
             exclude_fields=exclude_fields,
             _request_auth=_request_auth,
@@ -2738,6 +2862,7 @@ class RemotesAptApi:
     def _read_serialize(
         self,
         deb_apt_remote_href,
+        x_task_diagnostics,
         fields,
         exclude_fields,
         _request_auth,
@@ -2749,6 +2874,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
             'fields': 'multi',
             'exclude_fields': 'multi',
         }
@@ -2775,6 +2901,8 @@ class RemotesAptApi:
             _query_params.append(('exclude_fields', exclude_fields))
             
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
 
@@ -2817,6 +2945,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2838,6 +2967,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2863,6 +2994,7 @@ class RemotesAptApi:
         _param = self._remove_role_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2888,6 +3020,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2909,6 +3042,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2934,6 +3069,7 @@ class RemotesAptApi:
         _param = self._remove_role_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2959,6 +3095,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         nested_role: NestedRole,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2980,6 +3117,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param nested_role: (required)
         :type nested_role: NestedRole
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3005,6 +3144,7 @@ class RemotesAptApi:
         _param = self._remove_role_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             nested_role=nested_role,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3025,6 +3165,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href,
         nested_role,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3034,6 +3175,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3050,6 +3192,8 @@ class RemotesAptApi:
             _path_params['deb_apt_remote_href'] = deb_apt_remote_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if nested_role is not None:
@@ -3109,6 +3253,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3130,6 +3275,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3155,6 +3302,7 @@ class RemotesAptApi:
         _param = self._set_label_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3180,6 +3328,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3201,6 +3350,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3226,6 +3377,7 @@ class RemotesAptApi:
         _param = self._set_label_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3251,6 +3403,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         set_label: SetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3272,6 +3425,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param set_label: (required)
         :type set_label: SetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3297,6 +3452,7 @@ class RemotesAptApi:
         _param = self._set_label_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             set_label=set_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3317,6 +3473,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href,
         set_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3326,6 +3483,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3342,6 +3500,8 @@ class RemotesAptApi:
             _path_params['deb_apt_remote_href'] = deb_apt_remote_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if set_label is not None:
@@ -3401,6 +3561,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3422,6 +3583,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3447,6 +3610,7 @@ class RemotesAptApi:
         _param = self._unset_label_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3472,6 +3636,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3493,6 +3658,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3518,6 +3685,7 @@ class RemotesAptApi:
         _param = self._unset_label_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3543,6 +3711,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         unset_label: UnsetLabel,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3564,6 +3733,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param unset_label: (required)
         :type unset_label: UnsetLabel
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3589,6 +3760,7 @@ class RemotesAptApi:
         _param = self._unset_label_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             unset_label=unset_label,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3609,6 +3781,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href,
         unset_label,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3618,6 +3791,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3634,6 +3808,8 @@ class RemotesAptApi:
             _path_params['deb_apt_remote_href'] = deb_apt_remote_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if unset_label is not None:
@@ -3693,6 +3869,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         deb_apt_remote: DebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3714,6 +3891,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param deb_apt_remote: (required)
         :type deb_apt_remote: DebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3739,6 +3918,7 @@ class RemotesAptApi:
         _param = self._update_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             deb_apt_remote=deb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3764,6 +3944,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         deb_apt_remote: DebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3785,6 +3966,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param deb_apt_remote: (required)
         :type deb_apt_remote: DebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3810,6 +3993,7 @@ class RemotesAptApi:
         _param = self._update_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             deb_apt_remote=deb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3835,6 +4019,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href: StrictStr,
         deb_apt_remote: DebAptRemote,
+        x_task_diagnostics: Annotated[Optional[List[StrictStr]], Field(description="List of profilers to use on tasks.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3856,6 +4041,8 @@ class RemotesAptApi:
         :type deb_apt_remote_href: str
         :param deb_apt_remote: (required)
         :type deb_apt_remote: DebAptRemote
+        :param x_task_diagnostics: List of profilers to use on tasks.
+        :type x_task_diagnostics: List[str]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3881,6 +4068,7 @@ class RemotesAptApi:
         _param = self._update_serialize(
             deb_apt_remote_href=deb_apt_remote_href,
             deb_apt_remote=deb_apt_remote,
+            x_task_diagnostics=x_task_diagnostics,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3901,6 +4089,7 @@ class RemotesAptApi:
         self,
         deb_apt_remote_href,
         deb_apt_remote,
+        x_task_diagnostics,
         _request_auth,
         _content_type,
         _headers,
@@ -3910,6 +4099,7 @@ class RemotesAptApi:
         _host = None
 
         _collection_formats: Dict[str, str] = {
+            'X-Task-Diagnostics': 'csv',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3926,6 +4116,8 @@ class RemotesAptApi:
             _path_params['deb_apt_remote_href'] = deb_apt_remote_href
         # process the query parameters
         # process the header parameters
+        if x_task_diagnostics is not None:
+            _header_params['X-Task-Diagnostics'] = x_task_diagnostics
         # process the form parameters
         # process the body parameter
         if deb_apt_remote is not None:

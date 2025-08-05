@@ -86,6 +86,7 @@ __all__ = (
     "ListDatasetsPaginatorName",
     "ListExecutionsPaginatorName",
     "ListGatewaysPaginatorName",
+    "ListInterfaceRelationshipsPaginatorName",
     "ListPortalsPaginatorName",
     "ListProjectAssetsPaginatorName",
     "ListProjectsPaginatorName",
@@ -125,7 +126,7 @@ AssetErrorCodeType = Literal["INTERNAL_FAILURE"]
 AssetModelActiveWaiterName = Literal["asset_model_active"]
 AssetModelNotExistsWaiterName = Literal["asset_model_not_exists"]
 AssetModelStateType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "PROPAGATING", "UPDATING"]
-AssetModelTypeType = Literal["ASSET_MODEL", "COMPONENT_MODEL"]
+AssetModelTypeType = Literal["ASSET_MODEL", "COMPONENT_MODEL", "INTERFACE"]
 AssetModelVersionTypeType = Literal["ACTIVE", "LATEST"]
 AssetNotExistsWaiterName = Literal["asset_not_exists"]
 AssetRelationshipTypeType = Literal["HIERARCHY"]
@@ -218,6 +219,7 @@ ListDashboardsPaginatorName = Literal["list_dashboards"]
 ListDatasetsPaginatorName = Literal["list_datasets"]
 ListExecutionsPaginatorName = Literal["list_executions"]
 ListGatewaysPaginatorName = Literal["list_gateways"]
+ListInterfaceRelationshipsPaginatorName = Literal["list_interface_relationships"]
 ListPortalsPaginatorName = Literal["list_portals"]
 ListProjectAssetsPaginatorName = Literal["list_project_assets"]
 ListProjectsPaginatorName = Literal["list_projects"]
@@ -271,6 +273,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -693,6 +696,7 @@ PaginatorName = Literal[
     "list_datasets",
     "list_executions",
     "list_gateways",
+    "list_interface_relationships",
     "list_portals",
     "list_project_assets",
     "list_projects",

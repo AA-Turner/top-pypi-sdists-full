@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: sgp4
-Version: 2.24
+Version: 2.25
 Summary: Track Earth satellites given TLE data, using up-to-date 2020 SGP4 routines.
 Home-page: https://github.com/brandon-rhodes/python-sgp4
 Author: Brandon Rhodes
@@ -17,16 +17,21 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Astronomy
+Provides: sgp4
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
+Dynamic: provides
 Dynamic: summary
-
 
 This package compiles the official C++ code from `Revisiting Spacetrack
 Report #3`_ (AIAA 2006-6753) — specifically, the 2023 May 09 release
@@ -223,6 +228,11 @@ The most verbose format is XML:
 
 Either way, the satellite object should wind up properly initialized and
 ready to start producing positions.
+
+The ``omm.initialize()`` routine uses the standard WGS72 gravity model
+by default.  To make your own choice of model, supply a third argument
+that is one of the three constants ``WGS72OLD``, ``WGS72``, or ``WGS84``
+(which are shown below in the section on ‘Gravity’).
 
 If you are interested in saving satellite parameters using the new OMM
 format, then read the section on “Export” below.
@@ -679,6 +689,10 @@ https://pypi.org/project/sgp4/1.4/
 Changelog
 ---------
 
+Not yet released — 2.25
+
+* Added a ``gravconst`` parameter to the ``omm.initialize()`` routine.
+
 2024-02-15 — 2.24
 
 * The documentation now specifies the acceptable range for orbital
@@ -780,4 +794,3 @@ Changelog
 | 2013-11-29 — 1.2 — Made ``epochyr`` 4 digits; add ``datetime`` for ``.epoch``
 | 2012-11-22 — 1.1 — Python 3 compatibility; more documentation
 | 2012-08-27 — 1.0 — Initial release
-

@@ -9,6 +9,7 @@ use std::iter;
 
 use dupe::Dupe;
 use pyrefly_python::dunder;
+use pyrefly_types::types::TArgs;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::name::Name;
@@ -173,9 +174,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ => None,
                 }
             }
-            Type::ClassDef(cls) => {
-                self.as_call_target(Type::type_form(self.instantiate_fresh_class(&cls)))
-            }
+            Type::ClassDef(cls) => self.as_call_target(Type::type_form(self.instantiate(&cls))),
             Type::Type(box Type::ClassType(cls)) | Type::Type(box Type::SelfType(cls)) => {
                 Some(CallTarget::new(Target::Class(cls)))
             }
@@ -277,7 +276,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, args, keywords, range, errors, context, None)
+        self.call_infer(
+            call_target,
+            args,
+            keywords,
+            range,
+            errors,
+            context,
+            None,
+            None,
+        )
     }
 
     /// Calls a magic dunder method. If no attribute exists with the given method name, returns None without attempting the call.
@@ -353,7 +361,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<&Type>,
     ) -> Option<Type> {
         let dunder_call = self.get_metaclass_dunder_call(cls)?;
-        Some(self.call_infer(
+        // Clone targs because we don't want instantiations from metaclass __call__
+        let mut ctor_targs = cls.targs().clone();
+        let mut ret = self.call_infer(
             self.as_call_target_or_error(
                 dunder_call,
                 CallStyle::Method(&dunder::CALL),
@@ -367,12 +377,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
             hint,
-        ))
+            Some(&mut ctor_targs),
+        );
+        self.solver()
+            .finish_class_targs(&mut ctor_targs, self.uniques);
+        ret.subst_mut(ctor_targs.substitution().as_map());
+        Some(ret)
     }
 
     fn construct_class(
         &self,
-        cls: ClassType,
+        mut cls: ClassType,
         args: &[CallArg],
         keywords: &[CallKeyword],
         range: TextRange,
@@ -381,8 +396,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<&Type>,
     ) -> Type {
         // Based on https://typing.readthedocs.io/en/latest/spec/constructors.html.
-        let instance_ty = Type::ClassType(cls.clone());
-        let mut overall_ret = None;
+        if let Some(hint) = hint {
+            self.solver()
+                .freshen_class_targs(cls.targs_mut(), self.uniques);
+
+            self.is_subset_eq(&cls.clone().to_type(), hint);
+            self.solver().generalize_class_targs(cls.targs_mut());
+        }
         if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context, hint)
             && !self.is_compatible_constructor_return(&ret, cls.class_object())
         {
@@ -393,9 +413,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Got something other than an instance of the class under construction.
             return ret;
         }
+        let mut dunder_new_ret = None;
         let (overrides_new, dunder_new_has_errors) =
             if let Some(new_method) = self.get_dunder_new(&cls) {
-                let cls_ty = Type::type_form(instance_ty.clone());
+                let cls_ty = Type::type_form(cls.clone().to_type());
                 let full_args = iter::once(CallArg::ty(&cls_ty, range))
                     .chain(args.iter().cloned())
                     .collect::<Vec<_>>();
@@ -414,16 +435,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &dunder_new_errors,
                     context,
                     hint,
+                    Some(cls.targs_mut()),
                 );
                 let has_errors = !dunder_new_errors.is_empty();
                 errors.extend(dunder_new_errors);
                 // Not quite an overload, but close enough
                 self.record_overload_trace_from_type(range, new_method);
                 if self.is_compatible_constructor_return(&ret, cls.class_object()) {
-                    overall_ret = Some(ret);
+                    dunder_new_ret = Some(ret);
                 } else {
                     // Got something other than an instance of the class under construction.
-                    return ret;
+                    self.solver()
+                        .finish_class_targs(cls.targs_mut(), self.uniques);
+                    return ret.subst(cls.targs().substitution().as_map());
                 }
                 (true, has_errors)
             } else {
@@ -454,6 +478,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 &dunder_init_errors,
                 context,
                 hint,
+                Some(cls.targs_mut()),
             );
             // Report `__init__` errors only when there are no `__new__` errors, to avoid redundant errors.
             if !dunder_new_has_errors {
@@ -462,17 +487,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Not quite an overload, but close enough
             self.record_overload_trace_from_type(range, init_method);
         }
-        if let Some(mut ret) = overall_ret {
-            ret.subst_self_type_mut(&instance_ty, &|_, _| true);
+        self.solver()
+            .finish_class_targs(cls.targs_mut(), self.uniques);
+        if let Some(mut ret) = dunder_new_ret {
+            ret.subst_mut(cls.targs().substitution().as_map());
+            ret.subst_self_type_mut(&cls.to_type(), &|_, _| true);
             ret
         } else {
-            instance_ty
+            cls.to_type()
         }
     }
 
     fn construct_typed_dict(
         &self,
-        typed_dict: TypedDict,
+        mut typed_dict: TypedDict,
         args: &[CallArg],
         keywords: &[CallKeyword],
         range: TextRange,
@@ -481,6 +509,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         hint: Option<&Type>,
     ) -> Type {
         // We know `__init__` exists because we synthesize it.
+        if let Some(hint) = hint {
+            self.solver()
+                .freshen_class_targs(typed_dict.targs_mut(), self.uniques);
+
+            self.is_subset_eq(&typed_dict.clone().to_type(), hint);
+            self.solver().generalize_class_targs(typed_dict.targs_mut());
+        }
         let init_method = self.get_typed_dict_dunder_init(&typed_dict).unwrap();
         self.call_infer(
             self.as_call_target_or_error(
@@ -496,7 +531,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
             hint,
+            Some(typed_dict.targs_mut()),
         );
+        self.solver()
+            .finish_class_targs(typed_dict.targs_mut(), self.uniques);
         Type::TypedDict(typed_dict)
     }
 
@@ -520,6 +558,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<&Type>,
+        ctor_targs: Option<&mut TArgs>,
     ) -> Type {
         let metadata = call_target.target.function_metadata();
         if let Some(m) = metadata
@@ -550,11 +589,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         };
         let res = match call_target.target {
             Target::Class(cls) => {
-                if let Some(hint) = hint {
-                    // If a hint is provided, use it to bind any variables in the return type
-                    // We only care about the side effect here, not the result
-                    self.is_subset_eq(&Type::ClassType(cls.clone()), hint);
-                }
                 if self
                     .get_metadata_for_class(cls.class_object())
                     .is_protocol()
@@ -578,11 +612,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.construct_class(cls, args, keywords, range, errors, context, hint)
             }
             Target::TypedDict(td) => {
-                if let Some(hint) = hint {
-                    // If a hint is provided, use it to bind any variables in the return type
-                    // We only care about the side effect here, not the result
-                    self.is_subset_eq(&Type::TypedDict(td.clone()), hint);
-                }
                 self.construct_typed_dict(td, args, keywords, range, errors, context, hint)
             }
             Target::BoundMethod(
@@ -602,9 +631,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 errors,
                 context,
                 hint,
+                ctor_targs,
             ),
             Target::Callable(callable) => self.callable_infer(
                 callable, None, None, args, keywords, range, errors, errors, context, hint,
+                ctor_targs,
             ),
             Target::Function(Function {
                 signature: mut callable,
@@ -612,25 +643,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }) => {
                 // Most instances of typing.Self are replaced in as_call_target, but __new__ is a
                 // staticmethod, so we don't have access to the first argument until we get here.
-                let id = metadata.kind.as_func_id();
-                let first_arg_type = if id.func == dunder::NEW {
-                    self.first_arg_type(args, errors)
-                } else {
-                    None
-                };
-                let self_obj = match first_arg_type {
-                    Some(Type::Type(box Type::ClassType(c))) => Some(c.to_type()),
-                    Some(Type::ClassDef(class)) => {
-                        Some(self.as_class_type_unchecked(&class).to_type())
-                    }
-                    _ => None,
-                };
-                if let Some(self_obj) = self_obj {
+                if let Some(self_obj) =
+                    self.get_self_obj_from_dunder_new_args(args, errors, &metadata)
+                {
                     callable.subst_self_type_mut(&self_obj, &|a, b| self.is_subset_eq(a, b));
                 }
                 self.callable_infer(
                     callable,
-                    Some(id),
+                    Some(metadata.kind.as_func_id()),
                     None,
                     args,
                     keywords,
@@ -639,11 +659,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                     context,
                     hint,
+                    ctor_targs,
                 )
             }
-            Target::FunctionOverload(overloads, meta) => {
+            Target::FunctionOverload(mut overloads, metadata) => {
+                // As with the Target::Function case, we need to substitute the type of `self` here.
+                if let Some(self_obj) =
+                    self.get_self_obj_from_dunder_new_args(args, errors, &metadata)
+                {
+                    for func in overloads.iter_mut() {
+                        func.signature
+                            .subst_self_type_mut(&self_obj, &|a, b| self.is_subset_eq(a, b));
+                    }
+                }
                 self.call_overloads(
-                    overloads, meta, None, args, keywords, range, errors, context, hint,
+                    overloads, metadata, None, args, keywords, range, errors, context, hint,
+                    ctor_targs,
                 )
                 .0
             }
@@ -658,6 +689,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     errors,
                     context,
                     hint,
+                    ctor_targs,
                 )
                 .0
             }
@@ -674,6 +706,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                         context,
                         hint,
+                        None, // hack
                     )
                 }))
             }
@@ -710,6 +743,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    // TODO: This is buggy. For constructor calls, `C()` we insert the first argument ourselves, and it
+    // has the correct type of the receiver. For calls like `A.__new__(B)`, we should use the receiver (A)
+    // as the self type, not the argument (B). See `test_self_type_subst_use_receiver`
+    fn get_self_obj_from_dunder_new_args(
+        &self,
+        args: &[CallArg<'_>],
+        errors: &ErrorCollector,
+        metadata: &FuncMetadata,
+    ) -> Option<Type> {
+        if metadata.kind.as_func_id().func == dunder::NEW {
+            self.first_arg_type(args, errors).and_then(|ty| match ty {
+                Type::Type(box Type::ClassType(c)) => Some(c.to_type()),
+                Type::ClassDef(class) => Some(self.as_class_type_unchecked(&class).to_type()),
+                _ => None,
+            })
+        } else {
+            None
+        }
+    }
+
     /// Calls an overloaded function, returning the return type and the closest matching overload signature.
     pub fn call_overloads(
         &self,
@@ -722,6 +775,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<&Type>,
+        ctor_targs: Option<&mut TArgs>,
     ) -> (Type, Callable) {
         // There may be Expr values in args and keywords.
         // If we infer them for each overload, we may end up infering them multiple times.
@@ -734,6 +788,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         let mut closest_overload: Option<CalledOverload> = None;
         for callable in overloads.iter() {
+            let mut ctor_targs_ = ctor_targs.as_ref().map(|x| (**x).clone());
             let arg_errors = self.error_collector();
             let call_errors = self.error_collector();
             let res = self.callable_infer(
@@ -750,6 +805,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // error with the necessary context.
                 None,
                 hint,
+                ctor_targs_.as_mut(),
             );
             if arg_errors.is_empty() && call_errors.is_empty() {
                 // An overload is chosen, we should record it to power IDE services.
@@ -772,6 +828,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorInfo::new(ErrorKind::Deprecated, context),
                         format!("Call to deprecated overload `{method_name}`"),
                     );
+                }
+                if let Some(targs) = ctor_targs {
+                    *targs = ctor_targs_.unwrap();
                 }
                 return (res, callable.signature.clone());
             }
@@ -876,7 +935,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, &[], &[], range, errors, context, None)
+        self.call_infer(call_target, &[], &[], range, errors, context, None, None)
     }
 
     /// Helper function hide details of call synthesis from the attribute resolution code.
@@ -895,7 +954,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, &[got], &[], range, errors, context, None)
+        self.call_infer(call_target, &[got], &[], range, errors, context, None, None)
     }
 
     /// Helper function hide details of call synthesis from the attribute resolution code.
@@ -925,7 +984,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, &args, &[], range, errors, context, None)
+        self.call_infer(call_target, &args, &[], range, errors, context, None, None)
     }
 
     /// Helper function hide details of call synthesis from the attribute resolution code.
@@ -950,7 +1009,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             errors,
             context,
         );
-        self.call_infer(call_target, &args, &[], range, errors, context, None)
+        self.call_infer(call_target, &args, &[], range, errors, context, None, None)
     }
 
     pub fn call_getattr_or_delattr(
@@ -971,6 +1030,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             context,
+            None,
             None,
         )
     }
@@ -994,6 +1054,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             range,
             errors,
             context,
+            None,
             None,
         )
     }

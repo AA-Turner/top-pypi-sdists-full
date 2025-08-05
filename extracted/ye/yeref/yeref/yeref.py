@@ -6846,25 +6846,44 @@ async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_p
 
 async def handle_mem_pack(bot, chat_id, lz, tid, username, title, desc, file_photo, IMGFLIP_UN, IMGFLIP_PS,
                           PROJECT_USERNAME, MEDIA_D, EXTRA_D, BASE_D, mem_type):
+    result = None
     try:
         print(f"{os.path.exists(file_photo)=}, {desc=}")
         if not os.path.exists(file_photo) or not desc: return
         result = await create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_photo, IMGFLIP_UN,
                                          IMGFLIP_PS, PROJECT_USERNAME, MEDIA_D, EXTRA_D, mem_type)
+        if not result: return
 
-        if result and PROJECT_USERNAME == 'FereyChannelBot' and mem_type == 'regular':
-            sql = "UPDATE CHANNEL SET CHANNEL_STICKERPACK=$1 WHERE CHANNEL_TID=$2"
-            await db_change_pg(sql, (result, tid,), BASE_D)
-            await bot.send_message(chat_id=chat_id, text=result)
-        elif result and PROJECT_USERNAME == 'FereyChannelBot' and mem_type == 'custom_emoji':
-            sql = "UPDATE CHANNEL SET CHANNEL_EMOJIPACK=$1 WHERE CHANNEL_TID=$2"
-            await db_change_pg(sql, (result, tid,), BASE_D)
+        if PROJECT_USERNAME == 'FereyChannelBot':
+            if mem_type == 'regular':
+                sql = "UPDATE \"CHANNEL\" SET CHANNEL_STICKERPACK=$1 WHERE CHANNEL_TID=$2"
+                await db_change_pg(sql, (result, tid,), BASE_D)
+                await bot.send_message(chat_id=chat_id, text=result)
+            elif mem_type == 'custom_emoji':
+                sql = "UPDATE \"CHANNEL\" SET CHANNEL_EMOJIPACK=$1 WHERE CHANNEL_TID=$2"
+                await db_change_pg(sql, (result, tid,), BASE_D)
+                await bot.send_message(chat_id=chat_id, text=result)
+        elif PROJECT_USERNAME == 'FereyBotBot':
+            sql = "SELECT BOT_TID, BOT_VARS FROM \"BOT\" WHERE BOT_TID=$1"
+            data_pack = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
+            if not len(data_pack): return
+            BOT_TID, BOT_VARS = data_pack[0]
+
+            BOT_VARS = json.loads(BOT_VARS) if BOT_VARS else json.loads(BOT_VARS_)
+
+            if mem_type == 'regular':
+                BOT_VARS['BOT_STICKERPACK'] = result
+            elif mem_type == 'custom_emoji':
+                BOT_VARS['BOT_EMOJIPACK'] = result
+
+            BOT_VARS = json.dumps(BOT_VARS, ensure_ascii=False)
+            sql = "UPDATE \"BOT\" SET BOT_VARS=$1 WHERE BOT_TID=$2"
+            await db_change_pg(sql, (BOT_VARS, tid,), BASE_D)
             await bot.send_message(chat_id=chat_id, text=result)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
-
-
+    return result
 # endregion
 
 
@@ -17477,7 +17496,7 @@ def cleanhtml(raw_html):
 async def format_text_md(txt, is_web=False):
     result = txt
     try:
-        if format_text == '': return result
+        if not txt or txt == '': return result
         result = result[0].upper() + result[1:]
         tmp_arr = re.split(r'\s+', result)
         entities = []
@@ -17646,7 +17665,7 @@ async def format_text_md(txt, is_web=False):
 async def format_link_md(txt):
     result = txt
     try:
-        if format_text == '': return result
+        if not txt or txt == '': return result
         tmp_arr = re.split(r'\s+', result)
         arr_links = []
         arr_tlg_links = []
@@ -17680,10 +17699,155 @@ async def format_link_md(txt):
     return result
 
 
+async def format_text_web(txt, is_userbot=False):
+    result = txt
+    try:
+        if not txt or txt.strip() == '': return result
+        result = result[0].upper() + result[1:]
+        tmp_arr = re.split(r'\s+', result)
+        entities = []
+        emoji.demojize(string=tmp_arr[0], language='en', version=-1,
+                       handle_version=lambda emj, emj_data: handle_ver(emj, emj_data, entities))
+        distinct_list = list({e['emoji'] for e in entities})
+        is_first_emoji = True if len(distinct_list) else False
+        # is_first_emoji = any(unicodedata.category(c).startswith('So') for c in result)
+        sym_lst = ('<', '>', '#', '$', '=', 'href')
+
+        if not is_first_emoji and len(tmp_arr) > 0:
+            if not tmp_arr[0].startswith(('<', '#', '$', '=', 'href')):
+                result = result.replace(tmp_arr[0], f"<b>{tmp_arr[0]}</b>", 1)
+
+        if not is_first_emoji:
+            item = random.choice(emojis_)
+            result = f"{item} {result}"
+
+        tmp_arr = re.split(r'\s+', result)
+        if len(tmp_arr) > 2 and not tmp_arr[1].startswith(sym_lst):
+            result = result.replace(tmp_arr[1], f"<b>{tmp_arr[1]}</b>", 1)
+
+        # italic
+        tmp_arr = re.split(r'\s+', result)
+        i = min(len(tmp_arr), 15)
+        while i > 0:
+            i -= 1
+            r_i = random.randint(0, len(tmp_arr) - 1)
+            word = tmp_arr[r_i]
+            if (0 < r_i < len(tmp_arr) - 1 and len(word) >= 4 and not word.startswith(sym_lst) and not any(
+                    map(lambda c: c.isascii() and not c.isalnum(), word))):
+                # print(f'italic: {word}')
+                # result = result.replace(word, f"<i>{word}</i>")
+                word_pattern = re.escape(word)
+                result = re.sub(rf'\b{word_pattern}\b', f"<i>{word}</i>", result)
+                break
+
+        # spoiler
+        tmp_arr = re.split(r'\s+', result)
+        i = min(len(tmp_arr), 15)
+        while i > 0:
+            i -= 1
+            r_i = random.randint(0, len(tmp_arr) - 1)
+            word = tmp_arr[r_i]
+            if (0 < r_i < len(tmp_arr) - 1 and len(word) >= 4 and not word.startswith(sym_lst) and not any(
+                    map(lambda c: c.isascii() and not c.isalnum(), word))):
+                # print(f'spoiler: {word}')
+                # result = result.replace(word, f"<tg-spoiler>{word}</tg-spoiler>")
+                word_pattern = re.escape(word)
+                # spoiler_tag = 'spoiler' if is_userbot else 'tg-spoiler'
+
+                if is_userbot:
+                    result = re.sub(rf'\b{word_pattern}\b', f"<tg-spoiler>{word}</tg-spoiler>", result)
+                else:
+                    result = re.sub(rf'\b{word_pattern}\b', f'<div class="tgui-86f452d8e92a2075" style="display: inline-block; white-space: pre-wrap; cursor: pointer;">{word}</div>', result)
+                break
+
+        # under
+        tmp_arr = re.split(r'\s+', result)
+        i = min(len(tmp_arr), 15)
+        while i > 0:
+            i -= 1
+            r_i = random.randint(0, len(tmp_arr) - 1)
+            word = tmp_arr[r_i]
+            if (0 < r_i < len(tmp_arr) - 1 and len(word) >= 4 and not word.startswith(sym_lst) and not any(
+                    map(lambda c: c.isascii() and not c.isalnum(), word))):
+                # print(f'under: {word}')
+                # result = result.replace(word, f"<u>{word}</u>")
+                word_pattern = re.escape(word)
+                result = re.sub(rf'\b{word_pattern}\b', f"<u>{word}</u>", result)
+                break
+
+        # bold
+        tmp_arr = re.split(r'\s+', result)
+        i = min(len(tmp_arr), 15)
+        while i > 0:
+            i -= 1
+            r_i = random.randint(0, len(tmp_arr) - 1)
+            word = tmp_arr[r_i]
+            if (0 < r_i < len(tmp_arr) - 1 and len(word) >= 4 and not word.startswith(sym_lst) and not any(
+                    map(lambda c: c.isascii() and not c.isalnum(), word))):
+                # print(f'bold: {word}')
+                # result = result.replace(word, f"<b>{word}</b>")
+                word_pattern = re.escape(word)
+                result = re.sub(rf'\b{word_pattern}\b', f"<b>{word}</b>", result)
+                break
+
+        # code
+        tmp_arr = re.split(r'\s+', result)
+        i = min(len(tmp_arr), 15)
+        while i > 0:
+            i -= 1
+            r_i = random.randint(0, len(tmp_arr) - 1)
+            word = tmp_arr[r_i]
+            if (0 < r_i < len(tmp_arr) - 1 and len(word) >= 4 and not word.startswith(sym_lst) and not any(
+                    map(lambda c: c.isascii() and not c.isalnum(), word))):
+                # print(f'mono: {word}')
+                # result = result.replace(word, f"<code>{word}</code>")
+                word_pattern = re.escape(word)
+                result = re.sub(rf'\b{word_pattern}\b', f"<code>{word}</code>", result)
+                break
+
+        # quote
+        tmp_arr = re.split(r'\s+', result)
+        i = min(len(tmp_arr), 15)
+        while i > 0:
+            i -= 1
+            r_i = random.randint(0, len(tmp_arr) - 1)
+            word = tmp_arr[r_i]
+            if (0 < r_i < len(tmp_arr) - 1 and len(word) >= 4 and not word.startswith(sym_lst) and not any(
+                    map(lambda c: c.isascii() and not c.isalnum(), word))):
+                # print(f'mono: {word}')
+                # result = result.replace(word, f"<code>{word}</code>")
+                word_pattern = re.escape(word)
+                result = re.sub(rf'\b{word_pattern}\b', f'<div class="tgui-79024fcb6d81ad79" style="display: inline-block; padding: 0px 4px;">{word}</div>', result)
+                break
+
+        # hashtag
+        tmp_arr = re.split(r'\s+', result)
+        i = min(len(tmp_arr), 15)
+        while i > 0:
+            i -= 1
+            r_i = random.randint(0, len(tmp_arr) - 1)
+            word = tmp_arr[r_i]
+            if (0 < r_i < len(tmp_arr) - 1 and len(word) >= 4 and not word.startswith(sym_lst) and not any(
+                    map(lambda c: c.isascii() and not c.isalnum(), word))):
+                # print(f'hashtag: {word}')
+                # result = result.replace(word, f"<span>#{word}</span>")
+                word_pattern = re.escape(word)
+                result = re.sub(rf'\b{word_pattern}\b', f'<span style="color: rgba(0, 123, 247, .99);">#{word}</span>', result)
+                break
+
+        result = result.replace('( ', '(')
+        result = result.replace(' )', ')')
+        result = result.replace(' ,', ',')
+    except Exception as e:
+        logger.info(log_ % str(e) + str(is_color))
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
+
+
 async def format_text(txt, is_color=False, is_userbot=False):
     result = txt
     try:
-        if txt.strip() == '': return result
+        if not txt or txt.strip() == '': return result
         result = result[0].upper() + result[1:]
         tmp_arr = re.split(r'\s+', result)
         entities = []
@@ -17891,7 +18055,7 @@ async def format_text(txt, is_color=False, is_userbot=False):
 async def format_link(txt):
     result = txt
     try:
-        if txt.strip() == '': return result
+        if not txt or txt.strip() == '': return result
         tmp_arr = re.split(r'\s+', result)
         arr_links = []
         arr_tlg_links = []

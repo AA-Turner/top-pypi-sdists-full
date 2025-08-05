@@ -554,7 +554,7 @@ class AsyncKafkaUtils:
         """
         producer_config = {
             "bootstrap_servers": self.bootstrap_servers,
-            "acks": 1,  # Changed from "all" for better throughput
+            "acks": "all",  # Changed from "all" for better throughput
             "enable_idempotence": True,
             "request_timeout_ms": 60000,  # Increased timeout
             "retry_backoff_ms": 100,  # Reduced backoff

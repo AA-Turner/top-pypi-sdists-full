@@ -240,7 +240,6 @@ class Area(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -295,7 +294,6 @@ class Area(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -506,7 +504,6 @@ class Audio(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -558,7 +555,6 @@ class Audio(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -798,7 +794,6 @@ class Img(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -852,7 +847,6 @@ class Img(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -1053,7 +1047,6 @@ class Map(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -1099,7 +1092,6 @@ class Map(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -1304,7 +1296,6 @@ class Track(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -1354,7 +1345,6 @@ class Track(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -1565,7 +1555,6 @@ class Video(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -1619,7 +1608,6 @@ class Video(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -1821,7 +1809,6 @@ class Embed(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -1868,7 +1855,6 @@ class Embed(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -2099,7 +2085,6 @@ class Iframe(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -2151,7 +2136,6 @@ class Iframe(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -2356,7 +2340,6 @@ class Object(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -2406,7 +2389,6 @@ class Object(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -2606,7 +2588,6 @@ class Picture(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -2651,7 +2632,6 @@ class Picture(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -2851,7 +2831,6 @@ class Portal(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -2896,7 +2875,6 @@ class Portal(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -3101,7 +3079,6 @@ class Source(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -3151,7 +3128,6 @@ class Source(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -3354,7 +3330,6 @@ class Svg(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -3402,7 +3377,6 @@ class Svg(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -3609,7 +3583,6 @@ class Text(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -3661,7 +3634,6 @@ class Text(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -3866,7 +3838,6 @@ class Line(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -3916,7 +3887,6 @@ class Line(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -4120,7 +4090,6 @@ class Circle(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -4169,7 +4138,6 @@ class Circle(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -4374,7 +4342,6 @@ class Ellipse(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -4424,7 +4391,6 @@ class Ellipse(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -4631,7 +4597,6 @@ class Rect(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -4683,7 +4648,6 @@ class Rect(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -4885,7 +4849,6 @@ class Polygon(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -4932,7 +4895,6 @@ class Polygon(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -5132,7 +5094,6 @@ class Defs(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -5177,7 +5138,6 @@ class Defs(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -5384,7 +5344,6 @@ class LinearGradient(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -5436,7 +5395,6 @@ class LinearGradient(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -5645,7 +5603,6 @@ class RadialGradient(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -5699,7 +5656,6 @@ class RadialGradient(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -5907,7 +5863,6 @@ class Stop(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -5955,7 +5910,6 @@ class Stop(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -6156,7 +6110,6 @@ class Path(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -6202,7 +6155,6 @@ class Path(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -6408,7 +6360,6 @@ class G(BaseHTML):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -6459,7 +6410,6 @@ class G(BaseHTML):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 
@@ -6674,7 +6624,6 @@ class SVG(ComponentNamespace):
         id: Any | None = None,
         ref: Var | None = None,
         class_name: Any | None = None,
-        autofocus: bool | None = None,
         custom_attrs: dict[str, Var | Any] | None = None,
         on_blur: EventType[()] | None = None,
         on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
@@ -6722,7 +6671,6 @@ class SVG(ComponentNamespace):
             id: The id for the component.
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
-            autofocus: Whether the component should take the focus once the page is loaded
             custom_attrs: custom attribute
             **props: The props of the component.
 

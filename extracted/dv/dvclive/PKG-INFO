@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: dvclive
-Version: 3.48.3
+Version: 3.48.4
 Summary: Experiments logger for ML projects.
 Author-email: Iterative <support@dvc.org>
 Maintainer-email: Iterative <support@dvc.org>
-License: Apache License 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/iterative/dvclive
 Project-URL: Documentation, https://dvc.org/doc/dvclive
 Project-URL: Repository, https://github.com/iterative/dvclive
 Project-URL: Changelog, https://github.com/iterative/dvclive/releases
 Project-URL: Issues, https://github.com/iterative/dvclive/issues
 Keywords: ai,metrics,collaboration,data-science,data-version-control,developer-tools,git,machine-learning,reproducibility
-Platform: any
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -54,7 +53,7 @@ Requires-Dist: transformers[torch]; extra == "tests"
 Requires-Dist: tf-keras; extra == "tests"
 Provides-Extra: dev
 Requires-Dist: dvclive[all,tests]; extra == "dev"
-Requires-Dist: mypy==1.15.0; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Provides-Extra: mmcv
 Requires-Dist: mmcv; extra == "mmcv"

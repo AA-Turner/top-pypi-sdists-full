@@ -23,11 +23,26 @@ if sys.version_info >= (3, 8) and sys.platform == "win32":
         os.add_dll_directory(build_dir)
 import importlib
 import importlib.util
+import os.path
 
-_scrypt = cdll.LoadLibrary(importlib.util.find_spec("_scrypt").origin)
+# Fix for finding the _scrypt module
+_scrypt_spec = importlib.util.find_spec("_scrypt")
+if _scrypt_spec and hasattr(_scrypt_spec, "origin"):
+    _scrypt = cdll.LoadLibrary(_scrypt_spec.origin)
+else:
+    # Fallback for Windows
+    import os.path
+    import sys
 
-__version__ = "0.8.29"
+    if sys.platform == "win32":
+        # Look for the DLL in common locations
+        _scrypt_dll = "_scrypt.pyd"
+        _path = os.path.abspath(os.path.dirname(__file__))
+        _scrypt = cdll.LoadLibrary(os.path.join(_path, _scrypt_dll))
 
+__version__ = "0.9.4"
+
+# Declare C functions from libscrypt
 _scryptenc_buf = _scrypt.exp_scryptenc_buf
 _scryptenc_buf.argtypes = [
     c_char_p,  # const uint_t  *inbuf
@@ -38,7 +53,11 @@ _scryptenc_buf.argtypes = [
     c_size_t,  # size_t         maxmem
     c_double,  # double         maxmemfrac
     c_double,  # double         maxtime
+    c_int,  # int            logN
+    c_uint32,  # uint32_t       r
+    c_uint32,  # uint32_t       p
     c_int,  # int            verbose
+    c_int,  # int            force
 ]
 _scryptenc_buf.restype = c_int
 
@@ -53,6 +72,9 @@ _scryptdec_buf.argtypes = [
     c_size_t,  # size_t         maxmem
     c_double,  # double         maxmemfrac
     c_double,  # double         maxtime
+    c_int,  # int            logN
+    c_uint32,  # uint32_t       r
+    c_uint32,  # uint32_t       p
     c_int,  # int            verbose
     c_int,  # int            force
 ]
@@ -72,12 +94,39 @@ _crypto_scrypt.argtypes = [
 ]
 _crypto_scrypt.restype = c_int
 
+# Define the pickparams C function interface
+_pickparams = _scrypt.exp_pickparams
+_pickparams.argtypes = [
+    c_size_t,  # size_t maxmem
+    c_double,  # double maxmemfrac
+    c_double,  # double maxtime
+    POINTER(c_int),  # int *logN
+    POINTER(c_uint32),  # uint32_t *r
+    POINTER(c_uint32),  # uint32_t *p
+    c_int,  # int verbose
+]
+_pickparams.restype = c_int
+
+# Define the checkparams C function interface
+_checkparams = _scrypt.exp_checkparams
+_checkparams.argtypes = [
+    c_size_t,  # size_t maxmem
+    c_double,  # double maxmemfrac
+    c_double,  # double maxtime
+    c_int,  # int logN
+    c_uint32,  # uint32_t r
+    c_uint32,  # uint32_t p
+    c_int,  # int verbose
+    c_int,  # int force
+]
+_checkparams.restype = c_int
+
 ERROR_MESSAGES = [
     "success",
     "getrlimit or sysctl(hw.usermem) failed",
     "clock_getres or clock_gettime failed",
     "error computing derived key",
-    "could not read salt from /dev/urandom",
+    "could not obtain cryptographically secure random bytes",
     "error in OpenSSL",
     "malloc failed",
     "data is not a valid scrypt-encrypted block",
@@ -87,6 +136,8 @@ ERROR_MESSAGES = [
     "password is incorrect",
     "error writing output file",
     "error reading input file",
+    "error in explicit parameters",
+    "error in explicit parameters (both SCRYPT_ETOOBIG and SCRYPT_ETOOSLOW)",
 ]
 
 MAXMEM_DEFAULT = 0
@@ -106,8 +157,18 @@ class error(Exception):
 
 
 def _ensure_bytes(data):
+    """Convert data to bytes if it's a string, otherwise return as is.
+
+    Args:
+        data: String or bytes to convert
+
+    Returns:
+        bytes: The input converted to bytes if needed
+    """
     if isinstance(data, str):
-        return bytes(data, "utf-8")
+        return data.encode("utf-8")
+    elif not isinstance(data, bytes):
+        raise TypeError(f"Expected str or bytes, got {type(data).__name__}")
 
     return data
 
@@ -118,23 +179,41 @@ def encrypt(
     maxtime=MAXTIME_DEFAULT_ENC,
     maxmem=MAXMEM_DEFAULT,
     maxmemfrac=MAXMEMFRAC_DEFAULT,
+    logN=0,
+    r=0,
+    p=0,
+    force=False,
+    verbose=False,
 ):
-    """Encrypt a string using a password.
-    The resulting data will have len = len(input)
-    + 128.
+    """Encrypt data using a password.
+    The resulting data will have len = len(input) + 128.
 
-    Notes for Python 2:
-      - `input` and `password` must be str instances
-      - The result will be a str instance
+    - `input` and `password` can be both str and bytes. If they are str
+      instances, they will be encoded with utf-8
+    - The result will be a bytes instance
+    - If logN, r, and p are all zero, optimal parameters will be chosen automatically
+    - If logN, r, and p are provided,
+      they must all be non-zero and will be used explicitly
 
-    Notes for Python 3:
-      - `input` and `password` can be both str and bytes. If they are str
-        instances, they will be encoded with utf-8
-      - The result will be a bytes instance
+    Args:
+        input: Data to encrypt (bytes or str)
+        password: Password for encryption (bytes or str)
+        maxtime: Maximum time to spend in seconds
+        maxmem: Maximum memory to use in bytes (0 for unlimited)
+        maxmemfrac: Maximum fraction of available memory to use (0.0 to 1.0)
+        logN: Log2 of the work factor (0 for automatic selection)
+        r: Block size parameter (0 for automatic selection)
+        p: Parallelization parameter (0 for automatic selection)
+        force: If True, do not check whether encryption will exceed the estimated
+               available memory or time
+        verbose: If True, display parameter information
+
+    Returns:
+        bytes: Encrypted data
 
     Exceptions raised:
       - TypeError on invalid input
-      - scrypt.error if encryption failed
+      - scrypt.error if encryption failed or parameters are invalid
 
     For more information on the `maxtime`, `maxmem`, and `maxmemfrac`
     parameters, see the scrypt documentation.
@@ -142,6 +221,16 @@ def encrypt(
 
     input = _ensure_bytes(input)
     password = _ensure_bytes(password)
+
+    # All parameters must be 0 or all must be non-zero
+    if not ((logN == 0 and r == 0 and p == 0) or (logN != 0 and r != 0 and p != 0)):
+        raise error(
+            "If providing explicit parameters, all of logN, r, and p must be non-zero"
+        )
+
+    # If parameters aren't provided, pick them automatically
+    if logN == 0 and r == 0 and p == 0:
+        logN, r, p = pickparams(maxmem, maxmemfrac, maxtime)
 
     outbuf = create_string_buffer(len(input) + 128)
     # verbose is set to zero
@@ -154,7 +243,11 @@ def encrypt(
         maxmem,
         maxmemfrac,
         maxtime,
-        0,
+        logN,
+        r,
+        p,
+        1 if verbose else 0,  # verbose parameter
+        1 if force else 0,  # force parameter
     )
     if result:
         raise error(result)
@@ -169,24 +262,35 @@ def decrypt(
     maxmem=MAXMEM_DEFAULT,
     maxmemfrac=MAXMEMFRAC_DEFAULT,
     encoding="utf-8",
+    verbose=False,
+    force=False,
 ):
-    """Decrypt a string using a password.
+    """Decrypt data using a password.
 
-    Notes for Python 2:
-      - `input` and `password` must be str instances
-      - The result will be a str instance
-      - The encoding parameter is ignored
+    - `input` and `password` can be both str and bytes. If they are str
+      instances, they will be encoded with utf-8. `input` *should*
+      really be a bytes instance, since that's what `encrypt` returns.
+    - The result will be a str instance decoded with `encoding`.
+      If encoding=None, the result will be a bytes instance.
 
-    Notes for Python 3:
-      - `input` and `password` can be both str and bytes. If they are str
-        instances, they wil be encoded with utf-8. `input` *should*
-        really be a bytes instance, since that's what `encrypt` returns.
-      - The result will be a str instance encoded with `encoding`.
-        If encoding=None, the result will be a bytes instance.
+    Args:
+        input: Encrypted data (bytes or str)
+        password: Password for decryption (bytes or str)
+        maxtime: Maximum time to spend in seconds
+        maxmem: Maximum memory to use in bytes (0 for unlimited)
+        maxmemfrac: Maximum fraction of available memory to use
+        encoding: Encoding to use for output string (None for raw bytes)
+        verbose: If True, display parameter information
+        force: If True, do not check whether decryption will exceed the estimated
+               available memory or time
+
+    Returns:
+        Decrypted data as str (if encoding is provided) or bytes (if encoding is None)
 
     Exceptions raised:
       - TypeError on invalid input
-      - scrypt.error if decryption failed
+      - scrypt.error if decryption failed or if decoding with the specified
+        encoding fails
 
     For more information on the `maxtime`, `maxmem`, and `maxmemfrac`
     parameters, see the scrypt documentation.
@@ -210,6 +314,9 @@ def decrypt(
         maxtime,
         0,
         0,
+        0,
+        1 if verbose else 0,  # verbose parameter
+        1 if force else 0,  # force parameter
     )
 
     if result:
@@ -220,7 +327,11 @@ def decrypt(
     if encoding is None:
         return out_bytes
 
-    return str(out_bytes, encoding)
+    try:
+        # More robust error handling for decoding
+        return out_bytes.decode(encoding)
+    except UnicodeDecodeError as e:
+        raise error(f"Failed to decode using {encoding} encoding: {str(e)}") from e
 
 
 def hash(password, salt, N=1 << 14, r=8, p=1, buflen=64):
@@ -260,4 +371,94 @@ def hash(password, salt, N=1 << 14, r=8, p=1, buflen=64):
     return outbuf.raw
 
 
-__all__ = ["error", "encrypt", "decrypt", "hash"]
+def pickparams(
+    maxmem=MAXMEM_DEFAULT,
+    maxmemfrac=MAXMEMFRAC_DEFAULT,
+    maxtime=MAXTIME_DEFAULT_ENC,
+    verbose=0,
+):
+    """
+    Pick the optimal scrypt parameters (logN, r, p) based on memory and CPU constraints.
+
+    This function automatically determines the best parameters for scrypt encryption
+    based on the available system resources. It balances security and performance
+    by selecting parameters that will use as much memory and CPU time as allowed
+    without exceeding the specified constraints.
+
+    Args:
+        maxmem: Maximum memory to use in bytes (0 for unlimited)
+        maxmemfrac: Maximum fraction of available memory to use (0.0 to 1.0)
+        maxtime: Maximum time to spend in seconds
+        verbose: Whether to display parameter information (0 or 1)
+
+    Returns:
+        tuple: (logN, r, p) parameters for scrypt encryption
+            - logN: The log2 of the work factor (N = 2^logN)
+            - r: Block size parameter, fixed at 8 for compatibility
+            - p: Parallelization parameter, adjusted based on CPU and memory
+
+    Example:
+        >>> from scrypt import pickparams
+        >>> logN, r, p = pickparams(maxtime=2.0)
+        >>> print(f"Optimal parameters: N=2^{logN} ({2**logN}), r={r}, p={p}")
+    """
+    # Create output parameters for the C function
+    logN = c_int(0)
+    r = c_uint32(0)
+    p = c_uint32(0)
+
+    # Call the C function
+    result = _pickparams(
+        maxmem, maxmemfrac, maxtime, pointer(logN), pointer(r), pointer(p), verbose
+    )
+
+    # Check for errors
+    if result:
+        raise error(result)
+
+    return logN.value, r.value, p.value
+
+
+def checkparams(
+    logN,
+    r,
+    p,
+    maxmem=MAXMEM_DEFAULT,
+    maxmemfrac=MAXMEMFRAC_DEFAULT,
+    maxtime=MAXTIME_DEFAULT_ENC,
+    verbose=0,
+    force=0,
+):
+    """
+    Check if the provided scrypt parameters are valid and within resource limits.
+
+    This function verifies that the scrypt parameters (logN, r, p) are valid and
+    can be computed within the specified memory and CPU time constraints.
+
+    Args:
+        logN: Log2 of the work factor (N = 2^logN)
+        r: Block size parameter
+        p: Parallelization parameter
+        maxmem: Maximum memory to use in bytes (0 for unlimited)
+        maxmemfrac: Maximum fraction of available memory to use (0.0 to 1.0)
+        maxtime: Maximum time to spend in seconds
+        verbose: Whether to display parameter information (0 or 1)
+        force: If 1, ignore resource limits
+
+    Returns:
+        0 on success, otherwise an error code
+
+    Exceptions raised:
+        - scrypt.error if parameters are invalid or would exceed resource limits
+    """
+    # Call the C function
+    result = _checkparams(maxmem, maxmemfrac, maxtime, logN, r, p, verbose, force)
+
+    # Check for errors
+    if result:
+        raise error(result)
+
+    return 0
+
+
+__all__ = ["error", "encrypt", "decrypt", "hash", "pickparams", "checkparams"]

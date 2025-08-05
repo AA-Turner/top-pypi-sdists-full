@@ -4,6 +4,16 @@ from typing import Dict, Optional, Union, List, Tuple
 import os
 import uuid
 
+from collections import deque
+from typing import Any, Dict, List, Optional
+import os
+import time
+import json
+import re
+import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 from matrice.deploy.utils.post_processing.core.config import (
     BaseConfig as PostProcessingConfig,
     AlertConfig as AlertingConfig,
@@ -306,6 +316,109 @@ class OutputConfig:
 
         return cls(**data)
 
+class _RealTimeJsonEventPicker:
+    """Stateful helper that replicates the original logic but works one frame at a time."""
+
+    def __init__(self, consecutive_threshold: int = 7, end_threshold: int = 120):
+        # Required sequence of severities
+        self._base_sequence: List[str] = ["low", "medium", "significant", "critical", "low"]
+        self._sequence: deque[str] = deque(self._base_sequence)
+        self._hit_counter: int = 0  # Counts consecutive frames for the current severity
+        self._end_counter: int = 0  # Counts consecutive idle frames after last severity
+        self._consecutive_threshold = consecutive_threshold
+        self._end_threshold = end_threshold
+
+    # ---------------------------------------------------------------------
+    # Public helpers
+    # ---------------------------------------------------------------------
+    def reset(self) -> None:
+        """Reset internal state to start detecting a brand-new event."""
+        #self._sequence = deque(self._base_sequence)
+        self._hit_counter = 0
+        self._end_counter = 0
+
+    def send_api_call(self,json_data):
+        headers = {'Content-Type': 'application/json'}
+        API_URL = "https://monthly-genuine-troll.ngrok-free.app" #https://matricedemo.forumalertcloud.io/matriceapi/
+        API_USER = "admin" #"matrice"
+        API_PASS = "admin" #"hR9aN9mQ"
+        try:
+            response = requests.post(
+            API_URL,
+            auth=(API_USER, API_PASS),
+            json=json_data,
+            headers=headers,
+            timeout=5,
+            verify=False
+        )
+            response.raise_for_status()
+            print(f"HTTP {response.status_code}")
+        except Exception as e:
+            print(f"Error forwarding frame: {e}")
+
+    def process(self, frame_id: int, frame_json: Dict) -> Optional[Dict[str, Any]]:
+        """Process a single incoming frame.
+
+        Parameters
+        ----------
+        frame_id : int
+            Zero-based identifier of the frame.
+        frame_json : Dict[str, Any]
+            The payload describing detections for the frame.
+
+        Returns
+        -------
+        Optional[Dict[str, Any]]
+            A dictionary describing the detected event or ``None`` if no event
+            boundary was reached for the supplied frame.
+        """
+        incidents = frame_json.get("result").get("value").get("agg_summary")[str(frame_id)].get("incidents") or []
+        has_alerts = bool(incidents and incidents.get("alerts")[0])
+       
+        if has_alerts:
+            # A detection was observed → reset idle counter
+
+            severity_level = incidents.get("severity_level")
+            if len(self._sequence)>=2 and severity_level == self._sequence[0]:
+                self._hit_counter += 1
+                if self._hit_counter > self._consecutive_threshold:
+                    ascending = incidents.get("alerts")[0].get("ascending")
+                    event = {
+                        "type": "severity_hit",
+                        "severity": severity_level,
+                        "ascending": ascending,
+                        "frame_id": int(frame_id)-6,
+                        "video_timestamp_secs": (int(frame_id)-6)/30
+                    }
+                    # Advance to next required severity
+                    self._sequence.popleft()
+                    self._hit_counter = 0
+                    self.send_api_call(frame_json)
+                    return event
+            elif self._hit_counter>0:
+                self._hit_counter-=1
+            elif self._hit_counter<0:
+                self._hit_counter=0
+
+        else:
+            # No detections in this frame
+            if len(self._sequence) == 1:  # Waiting for final idle period
+                self._hit_counter += 1
+                if self._hit_counter > self._end_threshold:
+                    event = {
+                        "type": "event_end",
+                        "frame_id": frame_id,
+                        "video_timestamp_secs": int(frame_id)/30
+                    }
+                    self.reset()
+                    self.send_api_call(frame_json)
+                    return event
+            elif self._hit_counter>0:
+                self._hit_counter-=1
+            elif self._hit_counter<0:
+                self._hit_counter=0
+
+        return None
 
 # Convenience functions for creating common configurations
 def create_camera_input(

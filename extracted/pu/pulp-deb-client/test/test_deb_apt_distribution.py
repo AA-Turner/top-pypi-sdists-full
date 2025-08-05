@@ -44,7 +44,8 @@ class TestDebAptDistribution(unittest.TestCase):
                     },
                 name = '0',
                 repository = '',
-                publication = ''
+                publication = '',
+                checkpoint = True
             )
         else:
             return DebAptDistribution(

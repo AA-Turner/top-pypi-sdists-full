@@ -1,8 +1,8 @@
-from ..google.api import field_behavior_pb2 as _field_behavior_pb2
-from ..google.api import visibility_pb2 as _visibility_pb2
+from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.api import visibility_pb2 as _visibility_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from ..google.type import money_pb2 as _money_pb2
+from google.type import money_pb2 as _money_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -236,3 +236,51 @@ class ListHuggingFaceBillingCostsResponse(_message.Message):
     REQUESTS_FIELD_NUMBER: _ClassVar[int]
     requests: _containers.RepeatedCompositeFieldContainer[BillingRequestCostRecord]
     def __init__(self, requests: _Optional[_Iterable[_Union[BillingRequestCostRecord, _Mapping]]] = ...) -> None: ...
+
+class GetAccountUsageRequest(_message.Message):
+    __slots__ = ("name", "start_time", "end_time")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(self, name: _Optional[str] = ..., start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class AccountUsage(_message.Message):
+    __slots__ = ("serverless_costs", "dedicated_costs")
+    class ServerlessUsage(_message.Message):
+        __slots__ = ("model_name", "prompt_tokens", "completion_tokens", "start_time", "end_time", "audio_input_seconds", "usage_type")
+        MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+        PROMPT_TOKENS_FIELD_NUMBER: _ClassVar[int]
+        COMPLETION_TOKENS_FIELD_NUMBER: _ClassVar[int]
+        START_TIME_FIELD_NUMBER: _ClassVar[int]
+        END_TIME_FIELD_NUMBER: _ClassVar[int]
+        AUDIO_INPUT_SECONDS_FIELD_NUMBER: _ClassVar[int]
+        USAGE_TYPE_FIELD_NUMBER: _ClassVar[int]
+        model_name: str
+        prompt_tokens: int
+        completion_tokens: int
+        start_time: _timestamp_pb2.Timestamp
+        end_time: _timestamp_pb2.Timestamp
+        audio_input_seconds: float
+        usage_type: str
+        def __init__(self, model_name: _Optional[str] = ..., prompt_tokens: _Optional[int] = ..., completion_tokens: _Optional[int] = ..., start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., audio_input_seconds: _Optional[float] = ..., usage_type: _Optional[str] = ...) -> None: ...
+    class DedicatedDeploymentUsage(_message.Message):
+        __slots__ = ("deployment_id", "accelerator_type", "accelerator_seconds", "start_time", "end_time")
+        DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+        ACCELERATOR_TYPE_FIELD_NUMBER: _ClassVar[int]
+        ACCELERATOR_SECONDS_FIELD_NUMBER: _ClassVar[int]
+        START_TIME_FIELD_NUMBER: _ClassVar[int]
+        END_TIME_FIELD_NUMBER: _ClassVar[int]
+        deployment_id: str
+        accelerator_type: str
+        accelerator_seconds: float
+        start_time: _timestamp_pb2.Timestamp
+        end_time: _timestamp_pb2.Timestamp
+        def __init__(self, deployment_id: _Optional[str] = ..., accelerator_type: _Optional[str] = ..., accelerator_seconds: _Optional[float] = ..., start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    SERVERLESS_COSTS_FIELD_NUMBER: _ClassVar[int]
+    DEDICATED_COSTS_FIELD_NUMBER: _ClassVar[int]
+    serverless_costs: _containers.RepeatedCompositeFieldContainer[AccountUsage.ServerlessUsage]
+    dedicated_costs: _containers.RepeatedCompositeFieldContainer[AccountUsage.DedicatedDeploymentUsage]
+    def __init__(self, serverless_costs: _Optional[_Iterable[_Union[AccountUsage.ServerlessUsage, _Mapping]]] = ..., dedicated_costs: _Optional[_Iterable[_Union[AccountUsage.DedicatedDeploymentUsage, _Mapping]]] = ...) -> None: ...

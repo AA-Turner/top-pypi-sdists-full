@@ -29,6 +29,7 @@ async def thread_ttl_sweep_loop():
         strategy=strategy,
         interval_minutes=sweep_interval_minutes,
     )
+    loop = asyncio.get_running_loop()
 
     from langgraph_runtime.ops import Threads
 
@@ -36,12 +37,14 @@ async def thread_ttl_sweep_loop():
         await asyncio.sleep(sweep_interval_minutes * 60)
         try:
             async with connect() as conn:
+                sweep_start = loop.time()
                 threads_processed, threads_deleted = await Threads.sweep_ttl(conn)
                 if threads_processed > 0:
                     await logger.ainfo(
                         f"Thread TTL sweep completed. Processed {threads_processed}",
                         threads_processed=threads_processed,
                         threads_deleted=threads_deleted,
+                        duration=loop.time() - sweep_start,
                     )
         except Exception as exc:
             logger.exception("Thread TTL sweep iteration failed", exc_info=exc)
