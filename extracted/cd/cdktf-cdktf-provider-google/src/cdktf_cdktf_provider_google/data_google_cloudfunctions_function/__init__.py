@@ -1,7 +1,7 @@
 r'''
 # `data_google_cloudfunctions_function`
 
-Refer to the Terraform Registry for docs: [`data_google_cloudfunctions_function`](https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function).
+Refer to the Terraform Registry for docs: [`data_google_cloudfunctions_function`](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataGoogleCloudfunctionsFunction(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.dataGoogleCloudfunctionsFunction.DataGoogleCloudfunctionsFunction",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function google_cloudfunctions_function}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function google_cloudfunctions_function}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class DataGoogleCloudfunctionsFunction(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function google_cloudfunctions_function} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function google_cloudfunctions_function} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: A user-defined name of the function. Function names must be unique globally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#name DataGoogleCloudfunctionsFunction#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#id DataGoogleCloudfunctionsFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project of the function. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#project DataGoogleCloudfunctionsFunction#project}
-        :param region: Region of function. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#region DataGoogleCloudfunctionsFunction#region}
+        :param name: A user-defined name of the function. Function names must be unique globally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#name DataGoogleCloudfunctionsFunction#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#id DataGoogleCloudfunctionsFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project of the function. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#project DataGoogleCloudfunctionsFunction#project}
+        :param region: Region of function. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#region DataGoogleCloudfunctionsFunction#region}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class DataGoogleCloudfunctionsFunction(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataGoogleCloudfunctionsFunction to import.
-        :param import_from_id: The id of the existing DataGoogleCloudfunctionsFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataGoogleCloudfunctionsFunction that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataGoogleCloudfunctionsFunction to import is found.
         '''
         if __debug__:
@@ -147,6 +147,13 @@ class DataGoogleCloudfunctionsFunction(
     @jsii.member(jsii_name="tfResourceType")
     def TF_RESOURCE_TYPE(cls) -> builtins.str:
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="automaticUpdatePolicy")
+    def automatic_update_policy(
+        self,
+    ) -> "DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyList":
+        return typing.cast("DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyList", jsii.get(self, "automaticUpdatePolicy"))
 
     @builtins.property
     @jsii.member(jsii_name="availableMemoryMb")
@@ -237,6 +244,13 @@ class DataGoogleCloudfunctionsFunction(
     @jsii.member(jsii_name="minInstances")
     def min_instances(self) -> jsii.Number:
         return typing.cast(jsii.Number, jsii.get(self, "minInstances"))
+
+    @builtins.property
+    @jsii.member(jsii_name="onDeployUpdatePolicy")
+    def on_deploy_update_policy(
+        self,
+    ) -> "DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyList":
+        return typing.cast("DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyList", jsii.get(self, "onDeployUpdatePolicy"))
 
     @builtins.property
     @jsii.member(jsii_name="runtime")
@@ -382,6 +396,147 @@ class DataGoogleCloudfunctionsFunction(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleCloudfunctionsFunction.DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicy",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicy:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicy(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleCloudfunctionsFunction.DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__353faa8b8e97d9234d33b498516f18309a258828bcd070695466c0ced6d630ee)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef1c30da4e88cc7d77e5aea5dd12a1fe40eee7675b77a5848d9040e485b52ae5)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eba985094623390b8b674a635c779b9deed3115a71f6bd1a37d5051f31cef7c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9225b4b307271a7fd59244f9ee7e4e3cb0eece9927a429572495a8b03d5e9b77)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__624ed94b369f693956b635ff847282b15c8caccbdeb5d489515fe5984a6f461b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleCloudfunctionsFunction.DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f02bfaffc5b25f442c56c7645c5c50c4cca7b35314961ac9905e6c5fab7e1af)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicy]:
+        return typing.cast(typing.Optional[DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicy], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicy],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c0387647d24adc93e4391df6807805b2673ed404b2e95ba144d9aa962a97aa1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-google.dataGoogleCloudfunctionsFunction.DataGoogleCloudfunctionsFunctionConfig",
     jsii_struct_bases=[_cdktf_9a9027ec.TerraformMetaArguments],
     name_mapping={
@@ -422,10 +577,10 @@ class DataGoogleCloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArgume
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: A user-defined name of the function. Function names must be unique globally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#name DataGoogleCloudfunctionsFunction#name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#id DataGoogleCloudfunctionsFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Project of the function. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#project DataGoogleCloudfunctionsFunction#project}
-        :param region: Region of function. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#region DataGoogleCloudfunctionsFunction#region}
+        :param name: A user-defined name of the function. Function names must be unique globally. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#name DataGoogleCloudfunctionsFunction#name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#id DataGoogleCloudfunctionsFunction#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Project of the function. If it is not provided, the provider project is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#project DataGoogleCloudfunctionsFunction#project}
+        :param region: Region of function. If it is not provided, the provider region is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#region DataGoogleCloudfunctionsFunction#region}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -534,7 +689,7 @@ class DataGoogleCloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def name(self) -> builtins.str:
         '''A user-defined name of the function. Function names must be unique globally.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#name DataGoogleCloudfunctionsFunction#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#name DataGoogleCloudfunctionsFunction#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -542,7 +697,7 @@ class DataGoogleCloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArgume
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#id DataGoogleCloudfunctionsFunction#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#id DataGoogleCloudfunctionsFunction#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -554,7 +709,7 @@ class DataGoogleCloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def project(self) -> typing.Optional[builtins.str]:
         '''Project of the function. If it is not provided, the provider project is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#project DataGoogleCloudfunctionsFunction#project}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#project DataGoogleCloudfunctionsFunction#project}
         '''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -563,7 +718,7 @@ class DataGoogleCloudfunctionsFunctionConfig(_cdktf_9a9027ec.TerraformMetaArgume
     def region(self) -> typing.Optional[builtins.str]:
         '''Region of function. If it is not provided, the provider region is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/data-sources/cloudfunctions_function#region DataGoogleCloudfunctionsFunction#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/data-sources/cloudfunctions_function#region DataGoogleCloudfunctionsFunction#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -880,6 +1035,152 @@ class DataGoogleCloudfunctionsFunctionEventTriggerOutputReference(
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7a3c79f2bad0a1c1793bdcb20c2e431d9cdd64cce692a42b047f5571f9966cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.dataGoogleCloudfunctionsFunction.DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicy",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicy:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicy(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleCloudfunctionsFunction.DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__69d7ac4ef4f594b511b78bb39422b084022fbfbc4055d00d812b8c8656d88227)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02b666fcdceae31cd28cd20911c3a891ec5c960b0411c942bb36852cc5a61d18)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97859203ff1b2e4e7b6cacecc8216ba210f6b11106543a88bbcaae5a86c22f99)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c56c9af8343064bd774efd3719c8a6447078aa518ece66973e09e9b5c0ced6d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6791b21284f34ea98f418c6133af7978be2fb4e9ab8e2300ca4e88add5cec11c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.dataGoogleCloudfunctionsFunction.DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8f56b2b7b8eeb890f17894e5e3a9f55deb5994a799518b6899ce11c661a21cb2)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeVersion")
+    def runtime_version(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "runtimeVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicy]:
+        return typing.cast(typing.Optional[DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicy], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicy],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a351f3884975f9a2d20f569548c8c50f73044081cb48f72e1edc2be1151145cf)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
@@ -1510,6 +1811,9 @@ class DataGoogleCloudfunctionsFunctionSourceRepositoryOutputReference(
 
 __all__ = [
     "DataGoogleCloudfunctionsFunction",
+    "DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicy",
+    "DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyList",
+    "DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicyOutputReference",
     "DataGoogleCloudfunctionsFunctionConfig",
     "DataGoogleCloudfunctionsFunctionEventTrigger",
     "DataGoogleCloudfunctionsFunctionEventTriggerFailurePolicy",
@@ -1517,6 +1821,9 @@ __all__ = [
     "DataGoogleCloudfunctionsFunctionEventTriggerFailurePolicyOutputReference",
     "DataGoogleCloudfunctionsFunctionEventTriggerList",
     "DataGoogleCloudfunctionsFunctionEventTriggerOutputReference",
+    "DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicy",
+    "DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyList",
+    "DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicyOutputReference",
     "DataGoogleCloudfunctionsFunctionSecretEnvironmentVariables",
     "DataGoogleCloudfunctionsFunctionSecretEnvironmentVariablesList",
     "DataGoogleCloudfunctionsFunctionSecretEnvironmentVariablesOutputReference",
@@ -1581,6 +1888,53 @@ def _typecheckingstub__05b827a3029f39b27e9557f5284962ab2067328687e1c3b5b467d8db3
 
 def _typecheckingstub__2d98464ed64d862ea50821365458a40261ee2a9b71fd7e2fcb586824769523b9(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__353faa8b8e97d9234d33b498516f18309a258828bcd070695466c0ced6d630ee(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef1c30da4e88cc7d77e5aea5dd12a1fe40eee7675b77a5848d9040e485b52ae5(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eba985094623390b8b674a635c779b9deed3115a71f6bd1a37d5051f31cef7c5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9225b4b307271a7fd59244f9ee7e4e3cb0eece9927a429572495a8b03d5e9b77(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__624ed94b369f693956b635ff847282b15c8caccbdeb5d489515fe5984a6f461b(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f02bfaffc5b25f442c56c7645c5c50c4cca7b35314961ac9905e6c5fab7e1af(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c0387647d24adc93e4391df6807805b2673ed404b2e95ba144d9aa962a97aa1(
+    value: typing.Optional[DataGoogleCloudfunctionsFunctionAutomaticUpdatePolicy],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1692,6 +2046,53 @@ def _typecheckingstub__724cd40ccfa8e5d7f5187dfdfe1156815f42e377d2a6f6a277aa27dc3
 
 def _typecheckingstub__a7a3c79f2bad0a1c1793bdcb20c2e431d9cdd64cce692a42b047f5571f9966cd(
     value: typing.Optional[DataGoogleCloudfunctionsFunctionEventTrigger],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69d7ac4ef4f594b511b78bb39422b084022fbfbc4055d00d812b8c8656d88227(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02b666fcdceae31cd28cd20911c3a891ec5c960b0411c942bb36852cc5a61d18(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97859203ff1b2e4e7b6cacecc8216ba210f6b11106543a88bbcaae5a86c22f99(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c56c9af8343064bd774efd3719c8a6447078aa518ece66973e09e9b5c0ced6d(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6791b21284f34ea98f418c6133af7978be2fb4e9ab8e2300ca4e88add5cec11c(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8f56b2b7b8eeb890f17894e5e3a9f55deb5994a799518b6899ce11c661a21cb2(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a351f3884975f9a2d20f569548c8c50f73044081cb48f72e1edc2be1151145cf(
+    value: typing.Optional[DataGoogleCloudfunctionsFunctionOnDeployUpdatePolicy],
 ) -> None:
     """Type checking stubs"""
     pass

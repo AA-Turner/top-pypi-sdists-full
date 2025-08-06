@@ -5,7 +5,6 @@ from functools import lru_cache
 from datetime import datetime, date
 import os
 import logging
-from prophecy.config.utils import ConfigurationRecord
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,7 @@ class ProjectConfig:
             del merged_values[key]
         return merged_values
 
-    def __init__(self, config_schema: ConfigurationRecord, config_values: dict):
+    def __init__(self, config_schema, config_values: dict):
         """
         :param config_schema: The schema.json of ProjectConfig variables.
         :param config_values: The final values as a dictionary. Same as <instance>.json.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ast-grep-py
-Version: 0.39.2
+Version: 0.39.3
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -15,7 +15,6 @@ Requires-Dist: pytest>=7 ; extra == 'test'
 Provides-Extra: test
 Summary: Structural Search and Rewrite code at large scale using precise AST pattern.
 Keywords: ast,pattern,codemod,structural search,rewrite
-Author: Herrington Darkholme <2883231+HerringtonDarkholme@users.noreply.github.com>
 Author-email: Herrington Darkholme <2883231+HerringtonDarkholme@users.noreply.github.com>
 Maintainer-email: Herrington Darkholme <2883231+HerringtonDarkholme@users.noreply.github.com>
 License: MIT

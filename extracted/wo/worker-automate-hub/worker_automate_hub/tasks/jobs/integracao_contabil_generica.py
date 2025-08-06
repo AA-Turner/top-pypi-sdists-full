@@ -451,7 +451,7 @@ async def integracao_contabil_generica(
                     # Antes de qualquer coisa, verifica por imagem de erro
                     for img_path, mensagem in err_dict.items():
                         try:
-                            err = pyautogui.locateOnScreen(img_path, confidence=0.97)
+                            err = pyautogui.locateOnScreen(img_path, confidence=0.90)
                         except:
                             continue
 

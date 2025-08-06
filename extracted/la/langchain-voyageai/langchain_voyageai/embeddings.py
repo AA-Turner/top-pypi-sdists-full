@@ -101,55 +101,90 @@ class VoyageAIEmbeddings(BaseModel, Embeddings):
 
         return _iter
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
-        """Embed search docs."""
-        embeddings: List[List[float]] = []
+    def _is_context_model(self) -> bool:
+        """Check if the model is a contextualized embedding model."""
+        return "context" in self.model
 
+    def _embed_context(
+        self, inputs: List[List[str]], input_type: str
+    ) -> List[List[float]]:
+        """Embed using contextualized embedding API."""
+        r = self._client.contextualized_embed(
+            inputs=inputs,
+            model=self.model,
+            input_type=input_type,
+            output_dimension=self.output_dimension,
+        ).results
+        return r[0].embeddings  # type: ignore
+
+    def _embed_regular(self, texts: List[str], input_type: str) -> List[List[float]]:
+        """Embed using regular embedding API."""
+        embeddings: List[List[float]] = []
         _iter = self._get_batch_iterator(texts)
         for i in _iter:
             r = self._client.embed(
                 texts[i : i + self.batch_size],
                 model=self.model,
-                input_type="document",
+                input_type=input_type,
                 truncation=self.truncation,
                 output_dimension=self.output_dimension,
             ).embeddings
             embeddings.extend(cast(Iterable[List[float]], r))
         return embeddings
 
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Embed search docs."""
+        if self._is_context_model():
+            return self._embed_context([texts], "document")
+        return self._embed_regular(texts, "document")
+
     def embed_query(self, text: str) -> List[float]:
         """Embed query text."""
-        r = self._client.embed(
-            [text],
+        if self._is_context_model():
+            result = self._embed_context([[text]], "query")
+        else:
+            result = self._embed_regular([text], "query")
+        return result[0]
+
+    async def _aembed_context(
+        self, inputs: List[List[str]], input_type: str
+    ) -> List[List[float]]:
+        """Async embed using contextualized embedding API."""
+        r = await self._aclient.contextualized_embed(
+            inputs=inputs,
             model=self.model,
-            input_type="query",
-            truncation=self.truncation,
+            input_type=input_type,
             output_dimension=self.output_dimension,
-        ).embeddings[0]
-        return cast(List[float], r)
+        )
+        return r.results[0].embeddings  # type: ignore
 
-    async def aembed_documents(self, texts: List[str]) -> List[List[float]]:
+    async def _aembed_regular(
+        self, texts: List[str], input_type: str
+    ) -> List[List[float]]:
+        """Async embed using regular embedding API."""
         embeddings: List[List[float]] = []
-
         _iter = self._get_batch_iterator(texts)
         for i in _iter:
             r = await self._aclient.embed(
                 texts[i : i + self.batch_size],
                 model=self.model,
-                input_type="document",
+                input_type=input_type,
                 truncation=self.truncation,
                 output_dimension=self.output_dimension,
             )
             embeddings.extend(cast(Iterable[List[float]], r.embeddings))
-
         return embeddings
 
+    async def aembed_documents(self, texts: List[str]) -> List[List[float]]:
+        """Async embed search docs."""
+        if self._is_context_model():
+            return await self._aembed_context([texts], "document")
+        return await self._aembed_regular(texts, "document")
+
     async def aembed_query(self, text: str) -> List[float]:
-        r = await self._aclient.embed(
-            [text],
-            model=self.model,
-            input_type="query",
-            truncation=self.truncation,
-            output_dimension=self.output_dimension,
-        )
-        return cast(List[float], r.embeddings[0])
+        """Async embed query text."""
+        if self._is_context_model():
+            result = await self._aembed_context([[text]], "query")
+        else:
+            result = await self._aembed_regular([text], "query")
+        return result[0]

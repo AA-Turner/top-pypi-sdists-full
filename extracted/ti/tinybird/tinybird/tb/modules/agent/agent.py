@@ -16,7 +16,7 @@ from requests import Response
 
 from tinybird.tb.check_pypi import CheckPypi
 from tinybird.tb.client import TinyB
-from tinybird.tb.config import CURRENT_VERSION
+from tinybird.tb.config import CURRENT_VERSION, get_display_cloud_host
 from tinybird.tb.modules.agent.animations import ThinkingAnimation
 from tinybird.tb.modules.agent.banner import display_banner
 from tinybird.tb.modules.agent.command_agent import CommandAgent
@@ -212,7 +212,12 @@ class TinybirdAgent:
 
         @self.agent.instructions
         def get_local_host(ctx: RunContext[TinybirdAgentContext]) -> str:
-            return f"Tinybird Local host: {ctx.deps.local_host}"
+            return f"""
+# Tinybird Local info:
+- API Host: {ctx.deps.local_host}
+- Token: {ctx.deps.local_token}
+- UI Dashboard URL: {get_display_cloud_host(ctx.deps.local_host)}/{ctx.deps.workspace_name}
+            """
 
         @self.agent.instructions
         def get_cloud_host(ctx: RunContext[TinybirdAgentContext]) -> str:
@@ -230,12 +235,14 @@ class TinybirdAgent:
 
             region_provider = region["provider"]
             region_name = region["name"]
-            return f"""Tinybird Cloud info (region details):
+            return f"""
+# Tinybird Cloud info (region details):
 - API Host: {ctx.deps.host}
 - Workspace ID: {ctx.deps.workspace_id}
 - Workspace Name: {project.workspace_name} (in Tinybird Local the workspace name is the same because it is synced with Cloud)
 - Region provider: {region_provider}
 - Region name: {region_name}
+- UI Dashboard URL: {get_display_cloud_host(ctx.deps.host)}/{ctx.deps.workspace_name}
 """
 
         @self.agent.instructions

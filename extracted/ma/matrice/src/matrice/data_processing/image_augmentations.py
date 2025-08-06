@@ -1,9 +1,10 @@
 """Module providing image_augmentations functionality."""
 
 import albumentations as A
+from typing import Dict, Any, List
 
 
-def get_augmentation_compose(augmentation_config):
+def get_augmentation_compose(augmentation_config: Dict[str, Dict[str, Any]]):
     augmentations = []
     for (
         augmentation_name,

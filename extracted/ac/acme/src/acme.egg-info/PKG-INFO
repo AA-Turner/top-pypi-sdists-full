@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acme
-Version: 4.1.1
+Version: 4.2.0
 Summary: ACME protocol implementation in Python
 Home-page: https://github.com/certbot/certbot
 Author: Certbot Project
@@ -24,7 +24,6 @@ Requires-Dist: cryptography>=43.0.0
 Requires-Dist: josepy>=2.0.0
 Requires-Dist: PyOpenSSL>=25.0.0
 Requires-Dist: pyrfc3339
-Requires-Dist: pytz>=2019.3
 Requires-Dist: requests>=2.20.0
 Provides-Extra: docs
 Requires-Dist: Sphinx>=1.0; extra == "docs"

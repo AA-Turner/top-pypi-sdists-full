@@ -32,8 +32,8 @@ use uv_client::{
 use uv_configuration::{BuildKind, BuildOutput, ConfigSettings, SourceStrategy};
 use uv_distribution_filename::{SourceDistExtension, WheelFilename};
 use uv_distribution_types::{
-    BuildableSource, DirectorySourceUrl, GitSourceUrl, HashPolicy, Hashed, IndexUrl, PathSourceUrl,
-    SourceDist, SourceUrl,
+    BuildableSource, DirectorySourceUrl, ExtraBuildRequirement, GitSourceUrl, HashPolicy, Hashed,
+    IndexUrl, PathSourceUrl, SourceDist, SourceUrl,
 };
 use uv_extract::hash::Hasher;
 use uv_fs::{rename_with_retry, write_atomic};
@@ -405,15 +405,12 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
     }
 
     /// Determine the extra build dependencies for the given package name.
-    fn extra_build_dependencies_for(
-        &self,
-        name: Option<&PackageName>,
-    ) -> &[uv_pep508::Requirement<uv_pypi_types::VerbatimParsedUrl>] {
+    fn extra_build_dependencies_for(&self, name: Option<&PackageName>) -> &[ExtraBuildRequirement] {
         name.and_then(|name| {
             self.build_context
-                .extra_build_dependencies()
+                .extra_build_requires()
                 .get(name)
-                .map(|v| v.as_slice())
+                .map(Vec::as_slice)
         })
         .unwrap_or(&[])
     }
@@ -629,15 +626,6 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
             }
         }
 
-        // If there are build settings or extra build dependencies, we need to scope to a cache shard.
-        let config_settings = self.config_settings_for(source.name());
-        let extra_build_deps = self.extra_build_dependencies_for(source.name());
-        let cache_shard = if config_settings.is_empty() && extra_build_deps.is_empty() {
-            cache_shard
-        } else {
-            cache_shard.shard(cache_digest(&(&config_settings, extra_build_deps)))
-        };
-
         // Otherwise, we either need to build the metadata.
         // If the backend supports `prepare_metadata_for_build_wheel`, use it.
         if let Some(metadata) = self
@@ -673,6 +661,15 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
                 hashes: revision.into_hashes(),
             });
         }
+
+        // If there are build settings or extra build dependencies, we need to scope to a cache shard.
+        let config_settings = self.config_settings_for(source.name());
+        let extra_build_deps = self.extra_build_dependencies_for(source.name());
+        let cache_shard = if config_settings.is_empty() && extra_build_deps.is_empty() {
+            cache_shard
+        } else {
+            cache_shard.shard(cache_digest(&(&config_settings, extra_build_deps)))
+        };
 
         let task = self
             .reporter
@@ -2386,11 +2383,13 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
             let base_python = if cfg!(unix) {
                 self.build_context
                     .interpreter()
+                    .await
                     .find_base_python()
                     .map_err(Error::BaseInterpreter)?
             } else {
                 self.build_context
                     .interpreter()
+                    .await
                     .to_base_python()
                     .map_err(Error::BaseInterpreter)?
             };
@@ -2485,7 +2484,7 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
         // Ensure that the _installed_ Python version is compatible with the `requires-python`
         // specifier.
         if let Some(requires_python) = source.requires_python() {
-            let installed = self.build_context.interpreter().python_version();
+            let installed = self.build_context.interpreter().await.python_version();
             let target = release_specifiers_to_ranges(requires_python.clone())
                 .bounding_range()
                 .map(|bounding_range| bounding_range.0.cloned())
@@ -2507,11 +2506,13 @@ impl<'a, T: BuildContext> SourceDistributionBuilder<'a, T> {
         let base_python = if cfg!(unix) {
             self.build_context
                 .interpreter()
+                .await
                 .find_base_python()
                 .map_err(Error::BaseInterpreter)?
         } else {
             self.build_context
                 .interpreter()
+                .await
                 .to_base_python()
                 .map_err(Error::BaseInterpreter)?
         };
@@ -2888,9 +2889,7 @@ impl LocalRevisionPointer {
     /// Read an [`LocalRevisionPointer`] from the cache.
     pub(crate) fn read_from(path: impl AsRef<Path>) -> Result<Option<Self>, Error> {
         match fs_err::read(path) {
-            Ok(cached) => Ok(Some(rmp_serde::from_slice::<LocalRevisionPointer>(
-                &cached,
-            )?)),
+            Ok(cached) => Ok(Some(rmp_serde::from_slice::<Self>(&cached)?)),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(err) => Err(Error::CacheRead(err)),
         }

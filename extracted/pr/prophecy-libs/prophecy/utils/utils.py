@@ -431,24 +431,24 @@ class ProphecyDataFrame:
         return DataFrame(result, self.sqlContext)
 
     def breakAndWriteDataFrameForOutputFile(
-        self, outputColumns, fileColumnName, format, delimiter
+        self, outputColumns, fileColumnName, fmt, delimiter
     ):
         self.extended_dataframe.breakAndWriteDataFrameForOutputFile(
             createScalaList(self.spark, outputColumns),
             fileColumnName,
-            format,
+            fmt,
             createScalaOption(self.spark, delimiter),
             createScalaOption(self.spark, None),
             True,
         )
 
     def breakAndWriteDataFrameForOutputFileWithSchema(
-        self, outputSchema, fileColumnName, format, delimiter=None
+        self, outputSchema, fileColumnName, fmt, delimiter=None
     ):
         self.extended_dataframe.breakAndWriteDataFrameForOutputFileWithSchema(
             outputSchema,
             fileColumnName,
-            format,
+            fmt,
             createScalaOption(self.spark, delimiter),
         )
 
@@ -523,8 +523,8 @@ class ProphecyDebugger:
     def is_prophecy_wheel(cls, path):
         import zipfile
 
-        zip = zipfile.ZipFile(path)
-        for name in zip.namelist():
+        zip_file = zipfile.ZipFile(path)
+        for name in zip_file.namelist():
             if "workflow.latest.json" in name:
                 return True
         return False
@@ -736,6 +736,29 @@ class ProphecyDebugger:
         return spark.sparkContext._jvm.org.apache.spark.sql.ProphecyDebugger.callScalaObjectMethodAsync(
             spark._jsparkSession, className, methodName, args
         )
+
+def process_captured_exception(captured_error: CapturedException) -> Optional[Py4JJavaError]:
+    if (
+        hasattr(captured_error, "getErrorClass")
+        and captured_error.getErrorClass()
+    ):
+        return captured_error._origin
+
+    if (
+        hasattr(captured_error, "cause")
+        and captured_error.cause
+        and hasattr(captured_error.cause, "getErrorClass")
+        and captured_error.cause.getErrorClass()
+    ):
+        return captured_error.cause._origin
+
+    if captured_error._origin:
+        return captured_error._origin
+    
+    if hasattr(captured_error, "cause") and captured_error.cause and captured_error.cause._origin:
+        return captured_error.cause._origin
+    
+    return None
 
 
 class MetricsCollector:
@@ -1707,19 +1730,7 @@ class MetricsCollector:
                         etrace = traceback.format_exc()
 
                         if isinstance(e, CapturedException):
-                            py4j_error = None
-                            if hasattr(e, "getErrorClass") and e.getErrorClass():
-                                py4j_error = e._origin
-                            elif (
-                                e.cause
-                                and hasattr(e.cause, "getErrorClass")
-                                and e.cause.getErrorClass()
-                            ):
-                                py4j_error = e.cause._origin
-                            elif e._origin:
-                                py4j_error = e._origin
-                            elif e.cause and e.cause._origin:
-                                py4j_error = e.cause._origin
+                            py4j_error = process_captured_exception(e)
                             sendPipelineProgressEvent(
                                 spark,
                                 sessionForInteractive,
@@ -2241,23 +2252,7 @@ def instrument(function):
             except CapturedException as captured_error:
                 state = TaskState.FAILED
                 captured_stdout, captured_stderr = data_manager.drain_thread_output()
-                py4j_error = None
-
-                if (
-                    hasattr(captured_error, "getErrorClass")
-                    and captured_error.getErrorClass()
-                ):
-                    py4j_error = captured_error._origin
-                elif (
-                    captured_error.cause
-                    and hasattr(captured_error.cause, "getErrorClass")
-                    and captured_error.cause.getErrorClass()
-                ):
-                    py4j_error = captured_error.cause._origin
-                elif captured_error._origin:
-                    py4j_error = captured_error._origin
-                elif captured_error.cause and captured_error.cause._origin:
-                    py4j_error = captured_error.cause._origin
+                py4j_error = process_captured_exception(captured_error)
                 sendGemProgressEvent(
                     spark,
                     user_session,

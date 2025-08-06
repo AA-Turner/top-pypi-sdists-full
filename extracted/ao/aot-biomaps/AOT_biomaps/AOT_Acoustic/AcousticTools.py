@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from scipy.interpolate import RegularGridInterpolator
 import torch
 import numpy as np
+import re
 
 
 def reshape_field(field,factor):
@@ -213,6 +214,19 @@ def getPattern(pathFile):
     except Exception as e:
         print(f"Error reading pattern from file: {e}")
         return None
+    
+def detect_space_0_and_space_1(hex_string):
+    binary_string = bin(int(hex_string, 16))[2:].zfill(len(hex_string) * 4)
+    
+    # Trouver la plus longue séquence de 0 consécutifs
+    zeros_groups = [len(s) for s in binary_string.split('1')]
+    space_0 = max(zeros_groups) if zeros_groups else 0
+
+    # Trouver la plus longue séquence de 1 consécutifs
+    ones_groups = [len(s) for s in binary_string.split('0')]
+    space_1 = max(ones_groups) if ones_groups else 0
+
+    return space_0, space_1
 
 def getAngle(pathFile):
     """

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dao-treasury"
-version = "0.0.41"
+version = "0.0.42"
 description = "Produce comprehensive financial reports for your on-chain org"
 authors = ["BobTheBuidler <bobthebuidlerdefi@gmail.com>"]
 license = "MIT"
@@ -33,6 +33,10 @@ requires = [
     "tomli>=2.0.0; python_version < '3.11'", 
     "types-tqdm", 
     "types-PyYAML",
+    "eth-typing==4.4.0",
+    "ez-a-sync>=0.32.7,<0.33",
+    "pony",
+    "pony-stubs",
 ]
 build-backend = "setuptools.build_meta"
 

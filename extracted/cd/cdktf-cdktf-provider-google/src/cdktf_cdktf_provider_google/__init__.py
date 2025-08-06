@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.46.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.47.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.46.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.47.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -178,6 +178,7 @@ __all__ = [
     "apigee_keystores_aliases_self_signed_cert",
     "apigee_nat_address",
     "apigee_organization",
+    "apigee_security_action",
     "apigee_security_monitoring_condition",
     "apigee_security_profile_v2",
     "apigee_sharedflow",
@@ -570,6 +571,7 @@ __all__ = [
     "data_google_apphub_discovered_service",
     "data_google_apphub_discovered_workload",
     "data_google_artifact_registry_docker_image",
+    "data_google_artifact_registry_docker_images",
     "data_google_artifact_registry_locations",
     "data_google_artifact_registry_repository",
     "data_google_artifact_registry_repository_iam_policy",
@@ -760,6 +762,7 @@ __all__ = [
     "data_google_iam_policy",
     "data_google_iam_role",
     "data_google_iam_testable_permissions",
+    "data_google_iam_workforce_pool_iam_policy",
     "data_google_iam_workload_identity_pool",
     "data_google_iam_workload_identity_pool_provider",
     "data_google_iap_app_engine_service_iam_policy",
@@ -1008,6 +1011,7 @@ __all__ = [
     "developer_connect_account_connector",
     "developer_connect_connection",
     "developer_connect_git_repository_link",
+    "developer_connect_insights_config",
     "dialogflow_agent",
     "dialogflow_cx_agent",
     "dialogflow_cx_entity_type",
@@ -1027,6 +1031,7 @@ __all__ = [
     "dialogflow_fulfillment",
     "dialogflow_intent",
     "discovery_engine_chat_engine",
+    "discovery_engine_cmek_config",
     "discovery_engine_data_store",
     "discovery_engine_recommendation_engine",
     "discovery_engine_schema",
@@ -1175,6 +1180,9 @@ __all__ = [
     "iam_principal_access_boundary_policy",
     "iam_projects_policy_binding",
     "iam_workforce_pool",
+    "iam_workforce_pool_iam_binding",
+    "iam_workforce_pool_iam_member",
+    "iam_workforce_pool_iam_policy",
     "iam_workforce_pool_provider",
     "iam_workforce_pool_provider_key",
     "iam_workload_identity_pool",
@@ -1637,6 +1645,7 @@ from . import apigee_keystores_aliases_pkcs12
 from . import apigee_keystores_aliases_self_signed_cert
 from . import apigee_nat_address
 from . import apigee_organization
+from . import apigee_security_action
 from . import apigee_security_monitoring_condition
 from . import apigee_security_profile_v2
 from . import apigee_sharedflow
@@ -2029,6 +2038,7 @@ from . import data_google_apphub_application
 from . import data_google_apphub_discovered_service
 from . import data_google_apphub_discovered_workload
 from . import data_google_artifact_registry_docker_image
+from . import data_google_artifact_registry_docker_images
 from . import data_google_artifact_registry_locations
 from . import data_google_artifact_registry_repository
 from . import data_google_artifact_registry_repository_iam_policy
@@ -2219,6 +2229,7 @@ from . import data_google_healthcare_hl7_v2_store_iam_policy
 from . import data_google_iam_policy
 from . import data_google_iam_role
 from . import data_google_iam_testable_permissions
+from . import data_google_iam_workforce_pool_iam_policy
 from . import data_google_iam_workload_identity_pool
 from . import data_google_iam_workload_identity_pool_provider
 from . import data_google_iap_app_engine_service_iam_policy
@@ -2467,6 +2478,7 @@ from . import deployment_manager_deployment
 from . import developer_connect_account_connector
 from . import developer_connect_connection
 from . import developer_connect_git_repository_link
+from . import developer_connect_insights_config
 from . import dialogflow_agent
 from . import dialogflow_cx_agent
 from . import dialogflow_cx_entity_type
@@ -2486,6 +2498,7 @@ from . import dialogflow_entity_type
 from . import dialogflow_fulfillment
 from . import dialogflow_intent
 from . import discovery_engine_chat_engine
+from . import discovery_engine_cmek_config
 from . import discovery_engine_data_store
 from . import discovery_engine_recommendation_engine
 from . import discovery_engine_schema
@@ -2634,6 +2647,9 @@ from . import iam_organizations_policy_binding
 from . import iam_principal_access_boundary_policy
 from . import iam_projects_policy_binding
 from . import iam_workforce_pool
+from . import iam_workforce_pool_iam_binding
+from . import iam_workforce_pool_iam_member
+from . import iam_workforce_pool_iam_policy
 from . import iam_workforce_pool_provider
 from . import iam_workforce_pool_provider_key
 from . import iam_workload_identity_pool

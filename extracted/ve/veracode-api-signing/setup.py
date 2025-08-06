@@ -1,4 +1,4 @@
-from imp import find_module, load_module
+from importlib.util import find_spec, module_from_spec
 
 try:
     from setuptools import setup
@@ -7,15 +7,19 @@ except ImportError:
 
 PROJECT_NAME = 'veracode-api-signing'
 # TODO: replace PROJECT_URL with new GitHub location when open-sourced
-PROJECT_URL = "https://help.veracode.com/r/t_install_api_authen"
+PROJECT_URL = "https://docs.veracode.com/r/t_install_api_authen"
 doclink = "Please visit {}.".format(PROJECT_URL)
 
-found = find_module('_version', ['veracode_api_signing'])
-_version = load_module('{}._version'.format('veracode_api_signing'), *found)
+spec = find_spec('veracode_api_signing._version')
+module = module_from_spec(spec)
+spec.loader.exec_module(module)
+
+with open('veracode_api_signing/_version.py') as f:
+    exec(f.read())
 
 setup(
     name=PROJECT_NAME,
-    version=_version.__version__,
+    version=__version__,
     description='Easily sign any request destined for the Veracode API Gateway',
     long_description=doclink,
     author='Veracode',
@@ -35,13 +39,14 @@ setup(
             'veracode_api_signing.plugin_httpie:HttpiePluginVeracodeHmacAuth',
         ],
     },
-    python_requires='>=3.7',
+    python_requires='>=3.9',
     include_package_data=True,
     install_requires=[
-        'requests>=2.27.1',
-        'docopt==0.6.2',
+        'docopt>=0.6.2',
         'httpie>=3.2.4',
-        'urllib3<2'
+        'pip>=23.3',
+        'requests>=2.27.1',
+        'setuptools>=70.0.0'
     ],
     license="MIT",
     zip_safe=False,
@@ -52,14 +57,12 @@ setup(
         'Environment :: Plugins',
         'Intended Audience :: Developers',
         'Natural Language :: English',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Topic :: Security',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Internet :: WWW/HTTP',

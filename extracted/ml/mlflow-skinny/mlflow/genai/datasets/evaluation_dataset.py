@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -61,8 +61,6 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def source(self) -> DatasetSource:
         """Source information for the dataset."""
-        if isinstance(self._dataset.source, DatasetSource):
-            return self._dataset.source
         return DatabricksEvaluationDatasetSource(table_name=self.name, dataset_id=self.dataset_id)
 
     @property
@@ -97,7 +95,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def merge_records(
         self,
-        records: Union[list[dict], "pd.DataFrame", "pyspark.sql.DataFrame"],
+        records: Union[list[dict[str, Any]], "pd.DataFrame", "pyspark.sql.DataFrame"],
     ) -> "EvaluationDataset":
         """Merge records into the dataset."""
         dataset = self._dataset.merge_records(records)

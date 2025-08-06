@@ -10,16 +10,19 @@ line-length = 88
 # Enable commonly used rule sets
 select = [
   "F405",
-  "TID",
+  "F82",
+  "TID",# flake8-tidy-imports
   "ICN",
+  "A"
   # "E",  # pycodestyle (PEP8)
   # "F",  # pyflakes
   # "I",  # isort (import sorting)
   # "B",  # flake8-bugbear
   # "UP", # pyupgrade
-  # "TID",# flake8-tidy-imports
   # "SIM",# flake8-simplify
-  # "TCH",# flake8-type-checking
+  # "TC", # flake8-type-checking
+  # "C4",
+  # "PTH",
 ]
 
 exclude = [

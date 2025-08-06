@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: groq
-Version: 0.30.0
+Version: 0.31.0
 Summary: The official Python library for the groq API
 Project-URL: Homepage, https://github.com/groq/groq-python
 Project-URL: Repository, https://github.com/groq/groq-python
@@ -30,7 +30,7 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.6; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Groq Python API library
@@ -130,7 +130,6 @@ pip install groq[aiohttp]
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
-import os
 import asyncio
 from groq import DefaultAioHttpClient
 from groq import AsyncGroq
@@ -138,7 +137,7 @@ from groq import AsyncGroq
 
 async def main() -> None:
     async with AsyncGroq(
-        api_key=os.environ.get("GROQ_API_KEY"),  # This is the default and can be omitted
+        api_key="My API Key",
         http_client=DefaultAioHttpClient(),
     ) as client:
         chat_completion = await client.chat.completions.create(

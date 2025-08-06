@@ -29,6 +29,7 @@ __all__ = (
     "ConversationRoleType",
     "DocumentFormatType",
     "GuardrailActionType",
+    "GuardrailAutomatedReasoningLogicWarningTypeType",
     "GuardrailContentFilterConfidenceType",
     "GuardrailContentFilterStrengthType",
     "GuardrailContentFilterTypeType",
@@ -69,6 +70,7 @@ CachePointTypeType = Literal["default"]
 ConversationRoleType = Literal["assistant", "user"]
 DocumentFormatType = Literal["csv", "doc", "docx", "html", "md", "pdf", "txt", "xls", "xlsx"]
 GuardrailActionType = Literal["GUARDRAIL_INTERVENED", "NONE"]
+GuardrailAutomatedReasoningLogicWarningTypeType = Literal["ALWAYS_FALSE", "ALWAYS_TRUE"]
 GuardrailContentFilterConfidenceType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 GuardrailContentFilterStrengthType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 GuardrailContentFilterTypeType = Literal[

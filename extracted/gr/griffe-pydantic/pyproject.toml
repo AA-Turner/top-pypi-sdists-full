@@ -38,7 +38,7 @@ classifiers = [
 dependencies = [
     "griffe>=1.6.3",
 ]
-version = "1.1.4"
+version = "1.1.5"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/griffe-pydantic"
@@ -60,6 +60,7 @@ getter = "scripts.get_version:get_version"
 [tool.pdm.build]
 excludes = [
     "**/.pytest_cache",
+    "**/.mypy_cache",
 ]
 source-includes = [
     "config",
@@ -110,10 +111,10 @@ docs = [
     "mkdocs>=1.6",
     "mkdocs-coverage>=1.0",
     "mkdocs-git-revision-date-localized-plugin>=1.2",
-    "mkdocs-llmstxt>=0.1",
+    "mkdocs-llmstxt>=0.2",
     "mkdocs-material>=9.5",
     "mkdocs-minify-plugin>=0.8",
-    "mkdocstrings[python]>=0.28",
     "mkdocs-section-index>=0.3",
+    "mkdocstrings[python]>=0.29",
     "tomli>=2.0; python_version < '3.11'",
 ]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: struqture-py
-Version: 2.2.0
+Version: 2.2.1
 Requires-Dist: numpy
 Requires-Dist: qoqo-calculator-pyo3>=1.5
 Requires-Dist: sphinx>=2.1 ; extra == 'docs'
@@ -12,9 +12,6 @@ Requires-Dist: sphinx-rtd-theme ; extra == 'docs'
 Requires-Dist: tomli ; extra == 'docs'
 Provides-Extra: docs
 License-File: LICENSE
-Summary: Python interface of struqture, the HQS tool for representing operators, Hamiltonians and open systems.
-Author: HQS Quantum Simulations <info@quantumsimulations.de>
-Author-email: HQS Quantum Simulations <info@quantumsimulations.de>
 Maintainer-email: HQS Quantum Simulations GmbH <info@quantumsimulations.de>
 License: Apache-2.0 AND Apache-2.0 with LLVM-exception AND MIT AND Unicode-DFS-2016 AND
 	BSD-2-Clause AND BSD-3-CLause

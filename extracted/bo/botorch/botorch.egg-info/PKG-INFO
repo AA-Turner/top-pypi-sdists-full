@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: botorch
-Version: 0.14.0
+Version: 0.15.0
 Summary: Bayesian Optimization in PyTorch
 Home-page: https://botorch.org
 Author: Meta Platforms, Inc.
@@ -30,6 +30,7 @@ Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: requests; extra == "dev"
+Requires-Dist: pymoo; extra == "dev"
 Requires-Dist: flake8; extra == "dev"
 Requires-Dist: ufmt; extra == "dev"
 Requires-Dist: flake8-docstrings; extra == "dev"
@@ -44,6 +45,7 @@ Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: requests; extra == "test"
+Requires-Dist: pymoo; extra == "test"
 Provides-Extra: tutorials
 Requires-Dist: cma; extra == "tutorials"
 Requires-Dist: jupyter; extra == "tutorials"
@@ -57,6 +59,8 @@ Requires-Dist: pandas; extra == "tutorials"
 Requires-Dist: lxml; extra == "tutorials"
 Requires-Dist: mdformat-myst; extra == "tutorials"
 Requires-Dist: tabulate; extra == "tutorials"
+Provides-Extra: pymoo
+Requires-Dist: pymoo; extra == "pymoo"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description

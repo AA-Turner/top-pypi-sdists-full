@@ -1,7 +1,7 @@
 r'''
 # `google_backup_dr_backup_vault`
 
-Refer to the Terraform Registry for docs: [`google_backup_dr_backup_vault`](https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault).
+Refer to the Terraform Registry for docs: [`google_backup_dr_backup_vault`](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BackupDrBackupVault(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.backupDrBackupVault.BackupDrBackupVault",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault google_backup_dr_backup_vault}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault google_backup_dr_backup_vault}.'''
 
     def __init__(
         self,
@@ -57,6 +57,7 @@ class BackupDrBackupVault(
         access_restriction: typing.Optional[builtins.str] = None,
         allow_missing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         annotations: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        backup_retention_inheritance: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         effective_time: typing.Optional[builtins.str] = None,
         force_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -75,26 +76,27 @@ class BackupDrBackupVault(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault google_backup_dr_backup_vault} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault google_backup_dr_backup_vault} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param backup_minimum_enforced_retention_duration: Required. The default and minimum enforced retention for each backup within the backup vault. The enforced retention for each backup can be extended. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#backup_minimum_enforced_retention_duration BackupDrBackupVault#backup_minimum_enforced_retention_duration}
-        :param backup_vault_id: Required. ID of the requesting object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#backup_vault_id BackupDrBackupVault#backup_vault_id}
-        :param location: The GCP location for the backup vault. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#location BackupDrBackupVault#location}
-        :param access_restriction: Access restriction for the backup vault. Default value is 'WITHIN_ORGANIZATION' if not provided during creation. Default value: "WITHIN_ORGANIZATION" Possible values: ["ACCESS_RESTRICTION_UNSPECIFIED", "WITHIN_PROJECT", "WITHIN_ORGANIZATION", "UNRESTRICTED", "WITHIN_ORG_BUT_UNRESTRICTED_FOR_BA"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#access_restriction BackupDrBackupVault#access_restriction}
-        :param allow_missing: Allow idempotent deletion of backup vault. The request will still succeed in case the backup vault does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#allow_missing BackupDrBackupVault#allow_missing}
-        :param annotations: Optional. User annotations. See https://google.aip.dev/128#annotations Stores small amounts of arbitrary data. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#annotations BackupDrBackupVault#annotations}
-        :param description: Optional. The description of the BackupVault instance (2048 characters or less). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#description BackupDrBackupVault#description}
-        :param effective_time: Optional. Time after which the BackupVault resource is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#effective_time BackupDrBackupVault#effective_time}
-        :param force_delete: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance containing no backups, but still containing empty datasources. - deletion of a backup vault instance that is being referenced by an active backup plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#force_delete BackupDrBackupVault#force_delete}
-        :param force_update: If set, allow update to extend the minimum enforced retention for backup vault. This overrides the restriction against conflicting retention periods. This conflict may occur when the expiration schedule defined by the associated backup plan is shorter than the minimum retention set by the backup vault. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#force_update BackupDrBackupVault#force_update}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#id BackupDrBackupVault#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_backup_plan_references: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance that is being referenced by an active backup plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#ignore_backup_plan_references BackupDrBackupVault#ignore_backup_plan_references}
-        :param ignore_inactive_datasources: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance containing no backups, but still containing empty datasources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#ignore_inactive_datasources BackupDrBackupVault#ignore_inactive_datasources}
-        :param labels: Optional. Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#labels BackupDrBackupVault#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#project BackupDrBackupVault#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#timeouts BackupDrBackupVault#timeouts}
+        :param backup_minimum_enforced_retention_duration: Required. The default and minimum enforced retention for each backup within the backup vault. The enforced retention for each backup can be extended. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_minimum_enforced_retention_duration BackupDrBackupVault#backup_minimum_enforced_retention_duration}
+        :param backup_vault_id: Required. ID of the requesting object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_vault_id BackupDrBackupVault#backup_vault_id}
+        :param location: The GCP location for the backup vault. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#location BackupDrBackupVault#location}
+        :param access_restriction: Access restriction for the backup vault. Default value is 'WITHIN_ORGANIZATION' if not provided during creation. Default value: "WITHIN_ORGANIZATION" Possible values: ["ACCESS_RESTRICTION_UNSPECIFIED", "WITHIN_PROJECT", "WITHIN_ORGANIZATION", "UNRESTRICTED", "WITHIN_ORG_BUT_UNRESTRICTED_FOR_BA"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#access_restriction BackupDrBackupVault#access_restriction}
+        :param allow_missing: Allow idempotent deletion of backup vault. The request will still succeed in case the backup vault does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#allow_missing BackupDrBackupVault#allow_missing}
+        :param annotations: Optional. User annotations. See https://google.aip.dev/128#annotations Stores small amounts of arbitrary data. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#annotations BackupDrBackupVault#annotations}
+        :param backup_retention_inheritance: How a backup's enforced retention end time is inherited. Default value is 'INHERIT_VAULT_RETENTION' if not provided during creation. Possible values: ["BACKUP_RETENTION_INHERITANCE_UNSPECIFIED", "INHERIT_VAULT_RETENTION", "MATCH_BACKUP_EXPIRE_TIME"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_retention_inheritance BackupDrBackupVault#backup_retention_inheritance}
+        :param description: Optional. The description of the BackupVault instance (2048 characters or less). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#description BackupDrBackupVault#description}
+        :param effective_time: Optional. Time after which the BackupVault resource is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#effective_time BackupDrBackupVault#effective_time}
+        :param force_delete: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance containing no backups, but still containing empty datasources. - deletion of a backup vault instance that is being referenced by an active backup plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#force_delete BackupDrBackupVault#force_delete}
+        :param force_update: If set, allow update to extend the minimum enforced retention for backup vault. This overrides the restriction against conflicting retention periods. This conflict may occur when the expiration schedule defined by the associated backup plan is shorter than the minimum retention set by the backup vault. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#force_update BackupDrBackupVault#force_update}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#id BackupDrBackupVault#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_backup_plan_references: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance that is being referenced by an active backup plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#ignore_backup_plan_references BackupDrBackupVault#ignore_backup_plan_references}
+        :param ignore_inactive_datasources: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance containing no backups, but still containing empty datasources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#ignore_inactive_datasources BackupDrBackupVault#ignore_inactive_datasources}
+        :param labels: Optional. Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#labels BackupDrBackupVault#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#project BackupDrBackupVault#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#timeouts BackupDrBackupVault#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -114,6 +116,7 @@ class BackupDrBackupVault(
             access_restriction=access_restriction,
             allow_missing=allow_missing,
             annotations=annotations,
+            backup_retention_inheritance=backup_retention_inheritance,
             description=description,
             effective_time=effective_time,
             force_delete=force_delete,
@@ -148,7 +151,7 @@ class BackupDrBackupVault(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BackupDrBackupVault to import.
-        :param import_from_id: The id of the existing BackupDrBackupVault that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BackupDrBackupVault that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BackupDrBackupVault to import is found.
         '''
         if __debug__:
@@ -168,9 +171,9 @@ class BackupDrBackupVault(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#create BackupDrBackupVault#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#delete BackupDrBackupVault#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#update BackupDrBackupVault#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#create BackupDrBackupVault#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#delete BackupDrBackupVault#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#update BackupDrBackupVault#update}.
         '''
         value = BackupDrBackupVaultTimeouts(
             create=create, delete=delete, update=update
@@ -189,6 +192,10 @@ class BackupDrBackupVault(
     @jsii.member(jsii_name="resetAnnotations")
     def reset_annotations(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAnnotations", []))
+
+    @jsii.member(jsii_name="resetBackupRetentionInheritance")
+    def reset_backup_retention_inheritance(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetBackupRetentionInheritance", []))
 
     @jsii.member(jsii_name="resetDescription")
     def reset_description(self) -> None:
@@ -340,6 +347,11 @@ class BackupDrBackupVault(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "backupMinimumEnforcedRetentionDurationInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="backupRetentionInheritanceInput")
+    def backup_retention_inheritance_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "backupRetentionInheritanceInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="backupVaultIdInput")
     def backup_vault_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "backupVaultIdInput"))
@@ -461,6 +473,18 @@ class BackupDrBackupVault(
             type_hints = typing.get_type_hints(_typecheckingstub__bcb0284c09c5f986ea27afc2261514a73489f6dcebb52551c16b1b50ae741496)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "backupMinimumEnforcedRetentionDuration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="backupRetentionInheritance")
+    def backup_retention_inheritance(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "backupRetentionInheritance"))
+
+    @backup_retention_inheritance.setter
+    def backup_retention_inheritance(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89cafbcfdd01445ba9b74545247a6cd9668a2a628160d9a46c7fec32e32f0763)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "backupRetentionInheritance", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="backupVaultId")
@@ -628,6 +652,7 @@ class BackupDrBackupVault(
         "access_restriction": "accessRestriction",
         "allow_missing": "allowMissing",
         "annotations": "annotations",
+        "backup_retention_inheritance": "backupRetentionInheritance",
         "description": "description",
         "effective_time": "effectiveTime",
         "force_delete": "forceDelete",
@@ -657,6 +682,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         access_restriction: typing.Optional[builtins.str] = None,
         allow_missing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         annotations: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        backup_retention_inheritance: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         effective_time: typing.Optional[builtins.str] = None,
         force_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -676,22 +702,23 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param backup_minimum_enforced_retention_duration: Required. The default and minimum enforced retention for each backup within the backup vault. The enforced retention for each backup can be extended. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#backup_minimum_enforced_retention_duration BackupDrBackupVault#backup_minimum_enforced_retention_duration}
-        :param backup_vault_id: Required. ID of the requesting object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#backup_vault_id BackupDrBackupVault#backup_vault_id}
-        :param location: The GCP location for the backup vault. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#location BackupDrBackupVault#location}
-        :param access_restriction: Access restriction for the backup vault. Default value is 'WITHIN_ORGANIZATION' if not provided during creation. Default value: "WITHIN_ORGANIZATION" Possible values: ["ACCESS_RESTRICTION_UNSPECIFIED", "WITHIN_PROJECT", "WITHIN_ORGANIZATION", "UNRESTRICTED", "WITHIN_ORG_BUT_UNRESTRICTED_FOR_BA"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#access_restriction BackupDrBackupVault#access_restriction}
-        :param allow_missing: Allow idempotent deletion of backup vault. The request will still succeed in case the backup vault does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#allow_missing BackupDrBackupVault#allow_missing}
-        :param annotations: Optional. User annotations. See https://google.aip.dev/128#annotations Stores small amounts of arbitrary data. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#annotations BackupDrBackupVault#annotations}
-        :param description: Optional. The description of the BackupVault instance (2048 characters or less). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#description BackupDrBackupVault#description}
-        :param effective_time: Optional. Time after which the BackupVault resource is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#effective_time BackupDrBackupVault#effective_time}
-        :param force_delete: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance containing no backups, but still containing empty datasources. - deletion of a backup vault instance that is being referenced by an active backup plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#force_delete BackupDrBackupVault#force_delete}
-        :param force_update: If set, allow update to extend the minimum enforced retention for backup vault. This overrides the restriction against conflicting retention periods. This conflict may occur when the expiration schedule defined by the associated backup plan is shorter than the minimum retention set by the backup vault. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#force_update BackupDrBackupVault#force_update}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#id BackupDrBackupVault#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param ignore_backup_plan_references: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance that is being referenced by an active backup plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#ignore_backup_plan_references BackupDrBackupVault#ignore_backup_plan_references}
-        :param ignore_inactive_datasources: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance containing no backups, but still containing empty datasources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#ignore_inactive_datasources BackupDrBackupVault#ignore_inactive_datasources}
-        :param labels: Optional. Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#labels BackupDrBackupVault#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#project BackupDrBackupVault#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#timeouts BackupDrBackupVault#timeouts}
+        :param backup_minimum_enforced_retention_duration: Required. The default and minimum enforced retention for each backup within the backup vault. The enforced retention for each backup can be extended. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_minimum_enforced_retention_duration BackupDrBackupVault#backup_minimum_enforced_retention_duration}
+        :param backup_vault_id: Required. ID of the requesting object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_vault_id BackupDrBackupVault#backup_vault_id}
+        :param location: The GCP location for the backup vault. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#location BackupDrBackupVault#location}
+        :param access_restriction: Access restriction for the backup vault. Default value is 'WITHIN_ORGANIZATION' if not provided during creation. Default value: "WITHIN_ORGANIZATION" Possible values: ["ACCESS_RESTRICTION_UNSPECIFIED", "WITHIN_PROJECT", "WITHIN_ORGANIZATION", "UNRESTRICTED", "WITHIN_ORG_BUT_UNRESTRICTED_FOR_BA"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#access_restriction BackupDrBackupVault#access_restriction}
+        :param allow_missing: Allow idempotent deletion of backup vault. The request will still succeed in case the backup vault does not exist. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#allow_missing BackupDrBackupVault#allow_missing}
+        :param annotations: Optional. User annotations. See https://google.aip.dev/128#annotations Stores small amounts of arbitrary data. **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration. Please refer to the field 'effective_annotations' for all of the annotations present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#annotations BackupDrBackupVault#annotations}
+        :param backup_retention_inheritance: How a backup's enforced retention end time is inherited. Default value is 'INHERIT_VAULT_RETENTION' if not provided during creation. Possible values: ["BACKUP_RETENTION_INHERITANCE_UNSPECIFIED", "INHERIT_VAULT_RETENTION", "MATCH_BACKUP_EXPIRE_TIME"] Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_retention_inheritance BackupDrBackupVault#backup_retention_inheritance}
+        :param description: Optional. The description of the BackupVault instance (2048 characters or less). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#description BackupDrBackupVault#description}
+        :param effective_time: Optional. Time after which the BackupVault resource is locked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#effective_time BackupDrBackupVault#effective_time}
+        :param force_delete: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance containing no backups, but still containing empty datasources. - deletion of a backup vault instance that is being referenced by an active backup plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#force_delete BackupDrBackupVault#force_delete}
+        :param force_update: If set, allow update to extend the minimum enforced retention for backup vault. This overrides the restriction against conflicting retention periods. This conflict may occur when the expiration schedule defined by the associated backup plan is shorter than the minimum retention set by the backup vault. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#force_update BackupDrBackupVault#force_update}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#id BackupDrBackupVault#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param ignore_backup_plan_references: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance that is being referenced by an active backup plan. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#ignore_backup_plan_references BackupDrBackupVault#ignore_backup_plan_references}
+        :param ignore_inactive_datasources: If set, the following restrictions against deletion of the backup vault instance can be overridden: * deletion of a backup vault instance containing no backups, but still containing empty datasources. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#ignore_inactive_datasources BackupDrBackupVault#ignore_inactive_datasources}
+        :param labels: Optional. Resource labels to represent user provided metadata. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#labels BackupDrBackupVault#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#project BackupDrBackupVault#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#timeouts BackupDrBackupVault#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -712,6 +739,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument access_restriction", value=access_restriction, expected_type=type_hints["access_restriction"])
             check_type(argname="argument allow_missing", value=allow_missing, expected_type=type_hints["allow_missing"])
             check_type(argname="argument annotations", value=annotations, expected_type=type_hints["annotations"])
+            check_type(argname="argument backup_retention_inheritance", value=backup_retention_inheritance, expected_type=type_hints["backup_retention_inheritance"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument effective_time", value=effective_time, expected_type=type_hints["effective_time"])
             check_type(argname="argument force_delete", value=force_delete, expected_type=type_hints["force_delete"])
@@ -747,6 +775,8 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["allow_missing"] = allow_missing
         if annotations is not None:
             self._values["annotations"] = annotations
+        if backup_retention_inheritance is not None:
+            self._values["backup_retention_inheritance"] = backup_retention_inheritance
         if description is not None:
             self._values["description"] = description
         if effective_time is not None:
@@ -838,7 +868,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The default and minimum enforced retention for each backup within the backup vault. The enforced retention for each backup can be extended.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#backup_minimum_enforced_retention_duration BackupDrBackupVault#backup_minimum_enforced_retention_duration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_minimum_enforced_retention_duration BackupDrBackupVault#backup_minimum_enforced_retention_duration}
         '''
         result = self._values.get("backup_minimum_enforced_retention_duration")
         assert result is not None, "Required property 'backup_minimum_enforced_retention_duration' is missing"
@@ -848,7 +878,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def backup_vault_id(self) -> builtins.str:
         '''Required. ID of the requesting object.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#backup_vault_id BackupDrBackupVault#backup_vault_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_vault_id BackupDrBackupVault#backup_vault_id}
         '''
         result = self._values.get("backup_vault_id")
         assert result is not None, "Required property 'backup_vault_id' is missing"
@@ -858,7 +888,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''The GCP location for the backup vault.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#location BackupDrBackupVault#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#location BackupDrBackupVault#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -870,7 +900,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Default value is 'WITHIN_ORGANIZATION' if not provided during creation. Default value: "WITHIN_ORGANIZATION" Possible values: ["ACCESS_RESTRICTION_UNSPECIFIED", "WITHIN_PROJECT", "WITHIN_ORGANIZATION", "UNRESTRICTED", "WITHIN_ORG_BUT_UNRESTRICTED_FOR_BA"]
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#access_restriction BackupDrBackupVault#access_restriction}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#access_restriction BackupDrBackupVault#access_restriction}
         '''
         result = self._values.get("access_restriction")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -881,7 +911,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Allow idempotent deletion of backup vault. The request will still succeed in case the backup vault does not exist.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#allow_missing BackupDrBackupVault#allow_missing}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#allow_missing BackupDrBackupVault#allow_missing}
         '''
         result = self._values.get("allow_missing")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -895,16 +925,27 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the annotations present in your configuration.
         Please refer to the field 'effective_annotations' for all of the annotations present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#annotations BackupDrBackupVault#annotations}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#annotations BackupDrBackupVault#annotations}
         '''
         result = self._values.get("annotations")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
+    def backup_retention_inheritance(self) -> typing.Optional[builtins.str]:
+        '''How a backup's enforced retention end time is inherited.
+
+        Default value is 'INHERIT_VAULT_RETENTION' if not provided during creation. Possible values: ["BACKUP_RETENTION_INHERITANCE_UNSPECIFIED", "INHERIT_VAULT_RETENTION", "MATCH_BACKUP_EXPIRE_TIME"]
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#backup_retention_inheritance BackupDrBackupVault#backup_retention_inheritance}
+        '''
+        result = self._values.get("backup_retention_inheritance")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''Optional. The description of the BackupVault instance (2048 characters or less).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#description BackupDrBackupVault#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#description BackupDrBackupVault#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -913,7 +954,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def effective_time(self) -> typing.Optional[builtins.str]:
         '''Optional. Time after which the BackupVault resource is locked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#effective_time BackupDrBackupVault#effective_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#effective_time BackupDrBackupVault#effective_time}
         '''
         result = self._values.get("effective_time")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -926,7 +967,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         - deletion of a backup vault instance that is being referenced by an active backup plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#force_delete BackupDrBackupVault#force_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#force_delete BackupDrBackupVault#force_delete}
         '''
         result = self._values.get("force_delete")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -942,14 +983,14 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         expiration schedule defined by the associated backup plan is shorter than the minimum
         retention set by the backup vault.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#force_update BackupDrBackupVault#force_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#force_update BackupDrBackupVault#force_update}
         '''
         result = self._values.get("force_update")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#id BackupDrBackupVault#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#id BackupDrBackupVault#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -963,7 +1004,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set, the following restrictions against deletion of the backup vault instance can be overridden:    * deletion of a backup vault instance that is being referenced by an active backup plan.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#ignore_backup_plan_references BackupDrBackupVault#ignore_backup_plan_references}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#ignore_backup_plan_references BackupDrBackupVault#ignore_backup_plan_references}
         '''
         result = self._values.get("ignore_backup_plan_references")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -974,7 +1015,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If set, the following restrictions against deletion of the backup vault instance can be overridden:    * deletion of a backup vault instance containing no backups, but still containing empty datasources.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#ignore_inactive_datasources BackupDrBackupVault#ignore_inactive_datasources}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#ignore_inactive_datasources BackupDrBackupVault#ignore_inactive_datasources}
         '''
         result = self._values.get("ignore_inactive_datasources")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -986,14 +1027,14 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#labels BackupDrBackupVault#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#labels BackupDrBackupVault#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#project BackupDrBackupVault#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#project BackupDrBackupVault#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1001,7 +1042,7 @@ class BackupDrBackupVaultConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BackupDrBackupVaultTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#timeouts BackupDrBackupVault#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#timeouts BackupDrBackupVault#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BackupDrBackupVaultTimeouts"], result)
@@ -1032,9 +1073,9 @@ class BackupDrBackupVaultTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#create BackupDrBackupVault#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#delete BackupDrBackupVault#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#update BackupDrBackupVault#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#create BackupDrBackupVault#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#delete BackupDrBackupVault#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#update BackupDrBackupVault#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__460855724eee534928abd6020ceeddc0e3dee14387c9591eb85c7f239a9b02b7)
@@ -1051,19 +1092,19 @@ class BackupDrBackupVaultTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#create BackupDrBackupVault#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#create BackupDrBackupVault#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#delete BackupDrBackupVault#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#delete BackupDrBackupVault#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/backup_dr_backup_vault#update BackupDrBackupVault#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/backup_dr_backup_vault#update BackupDrBackupVault#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1199,6 +1240,7 @@ def _typecheckingstub__883de27755f057d72506b0d2f8d7d9d286db08ec4e5bfe7309a6720b3
     access_restriction: typing.Optional[builtins.str] = None,
     allow_missing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     annotations: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    backup_retention_inheritance: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     effective_time: typing.Optional[builtins.str] = None,
     force_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
@@ -1248,6 +1290,12 @@ def _typecheckingstub__9ba02ec26c298edaa689724a62a163f0cfdce9a4632bfc3949b7cfd0a
     pass
 
 def _typecheckingstub__bcb0284c09c5f986ea27afc2261514a73489f6dcebb52551c16b1b50ae741496(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89cafbcfdd01445ba9b74545247a6cd9668a2a628160d9a46c7fec32e32f0763(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1334,6 +1382,7 @@ def _typecheckingstub__b687a1ce423476525f9b1f2ccf37e8909f62543de29958f39be3fadd8
     access_restriction: typing.Optional[builtins.str] = None,
     allow_missing: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     annotations: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    backup_retention_inheritance: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     effective_time: typing.Optional[builtins.str] = None,
     force_delete: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,

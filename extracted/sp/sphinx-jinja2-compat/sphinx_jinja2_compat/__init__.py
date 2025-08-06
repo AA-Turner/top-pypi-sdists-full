@@ -39,7 +39,7 @@ __all__: List[str] = []
 __author__: str = "Dominic Davis-Foster"
 __copyright__: str = "2022 Dominic Davis-Foster"
 __license__: str = "MIT License"
-__version__: str = "0.3.0"
+__version__: str = "0.4.0"
 __email__: str = "dominic@davis-foster.co.uk"
 
 if "NO_SPHINX_JINJA2_COMPAT" not in os.environ:
@@ -71,3 +71,19 @@ if "NO_SPHINX_JINJA2_COMPAT" not in os.environ:
 		# this package
 		from sphinx_jinja2_compat._meta_path import _Finder
 		sys.meta_path.insert(0, _Finder())
+
+	# Ensure sphinx_prompt can also be imported from sphinx-prompt
+	# (whether due to https://github.com/sbrunner/sphinx-prompt/issues/612
+	# or building from source or an eventual deliberate removal)
+
+	if sys.version_info >= (3, 12):
+		# Ensure distutils is patched first
+		__import__("_distutils_hack").add_shim()
+
+	try:
+		# 3rd party
+		import sphinx_prompt  # type: ignore[import]
+	except ImportError:
+		pass
+	else:
+		sys.modules["sphinx-prompt"] = sphinx_prompt

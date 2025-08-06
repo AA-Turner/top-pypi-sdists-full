@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.14.1
+Version: 1.15.0
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
-Requires-Python: <3.14,>=3.9.2
+Requires-Python: <3.15,>=3.9.2
 Requires-Dist: click>=7.1
 Requires-Dist: fsspec>=2022.4.0
 Requires-Dist: gitpython>=3.1.29
@@ -32,9 +32,11 @@ Requires-Dist: humanize>=4.4.0
 Requires-Dist: jsonpath-ng>=1.5.3
 Requires-Dist: orjson!=3.10.1,!=3.9.11,!=3.9.12,!=3.9.13,!=3.9.14,<4,>=3.6.7; platform_python_implementation != 'PyPy' and sys_platform != 'emscripten'
 Requires-Dist: orjson>=3.10.1; sys_platform != 'emscripten'
+Requires-Dist: orjson>=3.11.0; python_version > '3.13'
 Requires-Dist: packaging>=21.1
 Requires-Dist: pathvalidate>=2.5.2
 Requires-Dist: pendulum>=2.1.2
+Requires-Dist: pendulum>=3.0.0; python_version > '3.13'
 Requires-Dist: pluggy>=1.3.0
 Requires-Dist: pytz>=2022.6
 Requires-Dist: pywin32>=306; sys_platform == 'win32'
@@ -79,6 +81,8 @@ Provides-Extra: databricks
 Requires-Dist: databricks-sdk>=0.38.0; extra == 'databricks'
 Requires-Dist: databricks-sql-connector<4,>=2.9.3; (python_version <= '3.12') and extra == 'databricks'
 Requires-Dist: databricks-sql-connector>=3.6.0; (python_version >= '3.13') and extra == 'databricks'
+Provides-Extra: dbml
+Requires-Dist: pydbml; extra == 'dbml'
 Provides-Extra: deltalake
 Requires-Dist: deltalake>=0.25.1; extra == 'deltalake'
 Requires-Dist: pyarrow>=16.0.0; extra == 'deltalake'
@@ -178,7 +182,7 @@ Be it a Google Colab notebook, AWS Lambda function, an Airflow DAG, your local l
 
 ## Installation
 
-dlt supports Python 3.9 to Python 3.13.
+dlt supports Python 3.9 through Python 3.14 (beta 4). Note that some optional extras are not yet available for Python 3.14, so support for this version is considered experimental.
 
 ```sh
 pip install dlt

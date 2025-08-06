@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: browsergym-core
-Version: 0.14.1
+Version: 0.14.2
 Summary: BrowserGym: a gym environment for web task automation in the Chromium browser
 Project-URL: homepage, https://github.com/ServiceNow/BrowserGym
 Author: Rim Assouel, Léo Boisvert, Massimo Caccia, Alex Drouin, Maxime Gasse, Imene Kerboua, Alex Lacoste, Thibault Le Sellier De Chezelles, Tom Marty
@@ -14,7 +14,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >3.9
 Requires-Dist: beautifulsoup4>=4.12
 Requires-Dist: gymnasium>=0.27
-Requires-Dist: lxml>=4.9
+Requires-Dist: lxml<6.0.0,>=4.9
 Requires-Dist: mcp[cli]>=1.6.0
 Requires-Dist: numpy>=1.14
 Requires-Dist: pillow>=10.1

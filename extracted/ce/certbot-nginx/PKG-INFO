@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot-nginx
-Version: 4.1.1
+Version: 4.2.0
 Summary: Nginx plugin for Certbot
 Home-page: https://github.com/certbot/certbot
 Author: Certbot Project
@@ -26,8 +26,8 @@ Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9.2
 License-File: LICENSE.txt
-Requires-Dist: acme>=4.1.1
-Requires-Dist: certbot>=4.1.1
+Requires-Dist: acme>=4.2.0
+Requires-Dist: certbot>=4.2.0
 Requires-Dist: PyOpenSSL>=25.0.0
 Requires-Dist: pyparsing>=2.4.7
 Provides-Extra: test

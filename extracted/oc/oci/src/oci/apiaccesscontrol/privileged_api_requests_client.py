@@ -167,7 +167,7 @@ class PrivilegedApiRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/apiaccesscontrol/approve_privileged_api_request.py.html>`__ to see an example of how to use approve_privileged_api_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apiaccesscontrol/approve_privileged_api_request.py.html>`__ to see an example of how to use approve_privileged_api_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiRequestId']
@@ -289,7 +289,7 @@ class PrivilegedApiRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/apiaccesscontrol/close_privileged_api_request.py.html>`__ to see an example of how to use close_privileged_api_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apiaccesscontrol/close_privileged_api_request.py.html>`__ to see an example of how to use close_privileged_api_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiRequestId']
@@ -402,7 +402,7 @@ class PrivilegedApiRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/apiaccesscontrol/create_privileged_api_request.py.html>`__ to see an example of how to use create_privileged_api_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apiaccesscontrol/create_privileged_api_request.py.html>`__ to see an example of how to use create_privileged_api_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -496,7 +496,7 @@ class PrivilegedApiRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/apiaccesscontrol/get_privileged_api_request.py.html>`__ to see an example of how to use get_privileged_api_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apiaccesscontrol/get_privileged_api_request.py.html>`__ to see an example of how to use get_privileged_api_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiRequestId']
@@ -652,7 +652,7 @@ class PrivilegedApiRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/apiaccesscontrol/list_privileged_api_requests.py.html>`__ to see an example of how to use list_privileged_api_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apiaccesscontrol/list_privileged_api_requests.py.html>`__ to see an example of how to use list_privileged_api_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -813,7 +813,7 @@ class PrivilegedApiRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/apiaccesscontrol/reject_privileged_api_request.py.html>`__ to see an example of how to use reject_privileged_api_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apiaccesscontrol/reject_privileged_api_request.py.html>`__ to see an example of how to use reject_privileged_api_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiRequestId']
@@ -935,7 +935,7 @@ class PrivilegedApiRequestsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/apiaccesscontrol/revoke_privileged_api_request.py.html>`__ to see an example of how to use revoke_privileged_api_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apiaccesscontrol/revoke_privileged_api_request.py.html>`__ to see an example of how to use revoke_privileged_api_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['privilegedApiRequestId']

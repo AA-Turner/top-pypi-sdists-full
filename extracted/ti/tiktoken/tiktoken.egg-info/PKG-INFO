@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: tiktoken
-Version: 0.9.0
+Version: 0.10.0
 Summary: tiktoken is a fast BPE tokeniser for use with OpenAI's models
 Author: Shantanu Jain
 Author-email: shantanu@openai.com
@@ -36,6 +36,7 @@ Requires-Dist: regex>=2022.1.18
 Requires-Dist: requests>=2.26.0
 Provides-Extra: blobfile
 Requires-Dist: blobfile>=2; extra == "blobfile"
+Dynamic: license-file
 
 # ⏳ tiktoken
 

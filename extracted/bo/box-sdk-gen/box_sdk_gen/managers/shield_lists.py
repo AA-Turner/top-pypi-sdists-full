@@ -10,6 +10,22 @@ from box_sdk_gen.serialization.json import serialize
 
 from box_sdk_gen.networking.fetch_options import ResponseFormat
 
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_country_v2025_r0 import (
+    ShieldListContentCountryV2025R0,
+)
+
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_domain_v2025_r0 import (
+    ShieldListContentDomainV2025R0,
+)
+
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_email_v2025_r0 import (
+    ShieldListContentEmailV2025R0,
+)
+
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_ip_v2025_r0 import (
+    ShieldListContentIpV2025R0,
+)
+
 from box_sdk_gen.schemas.v2025_r0.shield_list_content_request_v2025_r0 import (
     ShieldListContentRequestV2025R0,
 )
@@ -73,7 +89,7 @@ class ShieldListsManager:
     ) -> ShieldListsV2025R0:
         """
         Retrieves all shield lists in the enterprise.
-        :param box_version: Version header, defaults to BoxVersionHeaderV2025R0._2025_0
+        :param box_version: Version header., defaults to BoxVersionHeaderV2025R0._2025_0
         :type box_version: BoxVersionHeaderV2025R0, optional
         :param extra_headers: Extra headers that will be included in the HTTP request., defaults to None
         :type extra_headers: Optional[Dict[str, Optional[str]]], optional
@@ -110,9 +126,9 @@ class ShieldListsManager:
         Creates a shield list.
         :param name: The name of the shield list.
         :type name: str
-        :param description: Description of Shield List: Optional., defaults to None
+        :param description: Optional description of Shield List., defaults to None
         :type description: Optional[str], optional
-        :param box_version: Version header, defaults to BoxVersionHeaderV2025R0._2025_0
+        :param box_version: Version header., defaults to BoxVersionHeaderV2025R0._2025_0
         :type box_version: BoxVersionHeaderV2025R0, optional
         :param extra_headers: Extra headers that will be included in the HTTP request., defaults to None
         :type extra_headers: Optional[Dict[str, Optional[str]]], optional
@@ -157,7 +173,7 @@ class ShieldListsManager:
         fetching all shield lists for the enterprise.
         Example: "90fb0e17-c332-40ed-b4f9-fa8908fbbb24 "
                 :type shield_list_id: str
-                :param box_version: Version header, defaults to BoxVersionHeaderV2025R0._2025_0
+                :param box_version: Version header., defaults to BoxVersionHeaderV2025R0._2025_0
                 :type box_version: BoxVersionHeaderV2025R0, optional
                 :param extra_headers: Extra headers that will be included in the HTTP request., defaults to None
                 :type extra_headers: Optional[Dict[str, Optional[str]]], optional
@@ -199,7 +215,7 @@ class ShieldListsManager:
         fetching all shield lists for the enterprise.
         Example: "90fb0e17-c332-40ed-b4f9-fa8908fbbb24 "
                 :type shield_list_id: str
-                :param box_version: Version header, defaults to BoxVersionHeaderV2025R0._2025_0
+                :param box_version: Version header., defaults to BoxVersionHeaderV2025R0._2025_0
                 :type box_version: BoxVersionHeaderV2025R0, optional
                 :param extra_headers: Extra headers that will be included in the HTTP request., defaults to None
                 :type extra_headers: Optional[Dict[str, Optional[str]]], optional
@@ -246,9 +262,9 @@ class ShieldListsManager:
                 :type shield_list_id: str
                 :param name: The name of the shield list.
                 :type name: str
-                :param description: Description of Shield List: Optional., defaults to None
+                :param description: Optional description of Shield List., defaults to None
                 :type description: Optional[str], optional
-                :param box_version: Version header, defaults to BoxVersionHeaderV2025R0._2025_0
+                :param box_version: Version header., defaults to BoxVersionHeaderV2025R0._2025_0
                 :type box_version: BoxVersionHeaderV2025R0, optional
                 :param extra_headers: Extra headers that will be included in the HTTP request., defaults to None
                 :type extra_headers: Optional[Dict[str, Optional[str]]], optional

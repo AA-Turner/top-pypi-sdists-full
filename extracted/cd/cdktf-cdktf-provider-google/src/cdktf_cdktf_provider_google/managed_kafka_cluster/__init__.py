@@ -1,7 +1,7 @@
 r'''
 # `google_managed_kafka_cluster`
 
-Refer to the Terraform Registry for docs: [`google_managed_kafka_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster).
+Refer to the Terraform Registry for docs: [`google_managed_kafka_cluster`](https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ManagedKafkaCluster(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaCluster",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster google_managed_kafka_cluster}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster google_managed_kafka_cluster}.'''
 
     def __init__(
         self,
@@ -60,6 +60,7 @@ class ManagedKafkaCluster(
         project: typing.Optional[builtins.str] = None,
         rebalance_config: typing.Optional[typing.Union["ManagedKafkaClusterRebalanceConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         timeouts: typing.Optional[typing.Union["ManagedKafkaClusterTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        tls_config: typing.Optional[typing.Union["ManagedKafkaClusterTlsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -68,19 +69,20 @@ class ManagedKafkaCluster(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster google_managed_kafka_cluster} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster google_managed_kafka_cluster} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param capacity_config: capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
-        :param cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
-        :param gcp_config: gcp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
-        :param location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.
-        :param rebalance_config: rebalance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
+        :param capacity_config: capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
+        :param cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
+        :param gcp_config: gcp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
+        :param location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.
+        :param rebalance_config: rebalance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
+        :param tls_config: tls_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#tls_config ManagedKafkaCluster#tls_config}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,6 +105,7 @@ class ManagedKafkaCluster(
             project=project,
             rebalance_config=rebalance_config,
             timeouts=timeouts,
+            tls_config=tls_config,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -127,7 +130,7 @@ class ManagedKafkaCluster(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ManagedKafkaCluster to import.
-        :param import_from_id: The id of the existing ManagedKafkaCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ManagedKafkaCluster that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ManagedKafkaCluster to import is found.
         '''
         if __debug__:
@@ -146,8 +149,8 @@ class ManagedKafkaCluster(
         vcpu_count: builtins.str,
     ) -> None:
         '''
-        :param memory_bytes: The memory to provision for the cluster in bytes. The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
-        :param vcpu_count: The number of vCPUs to provision for the cluster. The minimum is 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
+        :param memory_bytes: The memory to provision for the cluster in bytes. The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
+        :param vcpu_count: The number of vCPUs to provision for the cluster. The minimum is 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
         '''
         value = ManagedKafkaClusterCapacityConfig(
             memory_bytes=memory_bytes, vcpu_count=vcpu_count
@@ -163,8 +166,8 @@ class ManagedKafkaCluster(
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
-        :param kms_key: The Cloud KMS Key name to use for encryption. The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
+        :param kms_key: The Cloud KMS Key name to use for encryption. The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
         '''
         value = ManagedKafkaClusterGcpConfig(
             access_config=access_config, kms_key=kms_key
@@ -179,7 +182,7 @@ class ManagedKafkaCluster(
         mode: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param mode: The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
+        :param mode: The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
         '''
         value = ManagedKafkaClusterRebalanceConfig(mode=mode)
 
@@ -194,15 +197,33 @@ class ManagedKafkaCluster(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.
         '''
         value = ManagedKafkaClusterTimeouts(
             create=create, delete=delete, update=update
         )
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
+
+    @jsii.member(jsii_name="putTlsConfig")
+    def put_tls_config(
+        self,
+        *,
+        ssl_principal_mapping_rules: typing.Optional[builtins.str] = None,
+        trust_config: typing.Optional[typing.Union["ManagedKafkaClusterTlsConfigTrustConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param ssl_principal_mapping_rules: The rules for mapping mTLS certificate Distinguished Names (DNs) to shortened principal names for Kafka ACLs. This field corresponds exactly to the ssl.principal.mapping.rules broker config and matches the format and syntax defined in the Apache Kafka documentation. Setting or modifying this field will trigger a rolling restart of the Kafka brokers to apply the change. An empty string means that the default Kafka behavior is used. Example: 'RULE:^CN=(.?),OU=ServiceUsers.$/$1@example.com/,DEFAULT' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#ssl_principal_mapping_rules ManagedKafkaCluster#ssl_principal_mapping_rules}
+        :param trust_config: trust_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#trust_config ManagedKafkaCluster#trust_config}
+        '''
+        value = ManagedKafkaClusterTlsConfig(
+            ssl_principal_mapping_rules=ssl_principal_mapping_rules,
+            trust_config=trust_config,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putTlsConfig", [value]))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -223,6 +244,10 @@ class ManagedKafkaCluster(
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTimeouts", []))
+
+    @jsii.member(jsii_name="resetTlsConfig")
+    def reset_tls_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTlsConfig", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -283,6 +308,11 @@ class ManagedKafkaCluster(
         return typing.cast("ManagedKafkaClusterTimeoutsOutputReference", jsii.get(self, "timeouts"))
 
     @builtins.property
+    @jsii.member(jsii_name="tlsConfig")
+    def tls_config(self) -> "ManagedKafkaClusterTlsConfigOutputReference":
+        return typing.cast("ManagedKafkaClusterTlsConfigOutputReference", jsii.get(self, "tlsConfig"))
+
+    @builtins.property
     @jsii.member(jsii_name="updateTime")
     def update_time(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "updateTime"))
@@ -339,6 +369,11 @@ class ManagedKafkaCluster(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "ManagedKafkaClusterTimeouts"]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "ManagedKafkaClusterTimeouts"]], jsii.get(self, "timeoutsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tlsConfigInput")
+    def tls_config_input(self) -> typing.Optional["ManagedKafkaClusterTlsConfig"]:
+        return typing.cast(typing.Optional["ManagedKafkaClusterTlsConfig"], jsii.get(self, "tlsConfigInput"))
 
     @builtins.property
     @jsii.member(jsii_name="clusterId")
@@ -409,8 +444,8 @@ class ManagedKafkaCluster(
 class ManagedKafkaClusterCapacityConfig:
     def __init__(self, *, memory_bytes: builtins.str, vcpu_count: builtins.str) -> None:
         '''
-        :param memory_bytes: The memory to provision for the cluster in bytes. The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
-        :param vcpu_count: The number of vCPUs to provision for the cluster. The minimum is 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
+        :param memory_bytes: The memory to provision for the cluster in bytes. The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
+        :param vcpu_count: The number of vCPUs to provision for the cluster. The minimum is 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__86133390f27f41c1bc02323db97b2c1d56a6052201758a7b6198a67ef03faad3)
@@ -427,7 +462,7 @@ class ManagedKafkaClusterCapacityConfig:
 
         The value must be between 1 GiB and 8 GiB per vCPU. Ex. 1024Mi, 4Gi.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#memory_bytes ManagedKafkaCluster#memory_bytes}
         '''
         result = self._values.get("memory_bytes")
         assert result is not None, "Required property 'memory_bytes' is missing"
@@ -437,7 +472,7 @@ class ManagedKafkaClusterCapacityConfig:
     def vcpu_count(self) -> builtins.str:
         '''The number of vCPUs to provision for the cluster. The minimum is 3.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#vcpu_count ManagedKafkaCluster#vcpu_count}
         '''
         result = self._values.get("vcpu_count")
         assert result is not None, "Required property 'vcpu_count' is missing"
@@ -545,6 +580,7 @@ class ManagedKafkaClusterCapacityConfigOutputReference(
         "project": "project",
         "rebalance_config": "rebalanceConfig",
         "timeouts": "timeouts",
+        "tls_config": "tlsConfig",
     },
 )
 class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -567,6 +603,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         project: typing.Optional[builtins.str] = None,
         rebalance_config: typing.Optional[typing.Union["ManagedKafkaClusterRebalanceConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         timeouts: typing.Optional[typing.Union["ManagedKafkaClusterTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        tls_config: typing.Optional[typing.Union["ManagedKafkaClusterTlsConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param connection: 
@@ -576,15 +613,16 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param capacity_config: capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
-        :param cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
-        :param gcp_config: gcp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
-        :param location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.
-        :param rebalance_config: rebalance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
+        :param capacity_config: capacity_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
+        :param cluster_id: The ID to use for the cluster, which will become the final component of the cluster's name. The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
+        :param gcp_config: gcp_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
+        :param location: ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param labels: List of label KEY=VALUE pairs to add. Keys must start with a lowercase character and contain only hyphens (-), underscores ( ), lowercase characters, and numbers. Values must contain only hyphens (-), underscores ( ), lowercase characters, and numbers. **Note**: This field is non-authoritative, and will only manage the labels present in your configuration. Please refer to the field 'effective_labels' for all of the labels present on the resource. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.
+        :param rebalance_config: rebalance_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
+        :param tls_config: tls_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#tls_config ManagedKafkaCluster#tls_config}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -596,6 +634,8 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             rebalance_config = ManagedKafkaClusterRebalanceConfig(**rebalance_config)
         if isinstance(timeouts, dict):
             timeouts = ManagedKafkaClusterTimeouts(**timeouts)
+        if isinstance(tls_config, dict):
+            tls_config = ManagedKafkaClusterTlsConfig(**tls_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__766b988579c8db52e1fec541ecfa5913c57c5bb7d5708090d54662abd39715a3)
             check_type(argname="argument connection", value=connection, expected_type=type_hints["connection"])
@@ -614,6 +654,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument rebalance_config", value=rebalance_config, expected_type=type_hints["rebalance_config"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
+            check_type(argname="argument tls_config", value=tls_config, expected_type=type_hints["tls_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "capacity_config": capacity_config,
             "cluster_id": cluster_id,
@@ -644,6 +685,8 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["rebalance_config"] = rebalance_config
         if timeouts is not None:
             self._values["timeouts"] = timeouts
+        if tls_config is not None:
+            self._values["tls_config"] = tls_config
 
     @builtins.property
     def connection(
@@ -713,7 +756,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def capacity_config(self) -> ManagedKafkaClusterCapacityConfig:
         '''capacity_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#capacity_config ManagedKafkaCluster#capacity_config}
         '''
         result = self._values.get("capacity_config")
         assert result is not None, "Required property 'capacity_config' is missing"
@@ -725,7 +768,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The ID must be 1-63 characters long, and match the regular expression '`a-z <%5B-a-z0-9%5D*%5Ba-z0-9%5D>`_?' to comply with RFC 1035. This value is structured like: 'my-cluster-id'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#cluster_id ManagedKafkaCluster#cluster_id}
         '''
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
@@ -735,7 +778,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def gcp_config(self) -> "ManagedKafkaClusterGcpConfig":
         '''gcp_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#gcp_config ManagedKafkaCluster#gcp_config}
         '''
         result = self._values.get("gcp_config")
         assert result is not None, "Required property 'gcp_config' is missing"
@@ -745,7 +788,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''ID of the location of the Kafka resource. See https://cloud.google.com/managed-kafka/docs/locations for a list of supported locations.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#location ManagedKafkaCluster#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -753,7 +796,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#id ManagedKafkaCluster#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -770,14 +813,14 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
         Please refer to the field 'effective_labels' for all of the labels present on the resource.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#labels ManagedKafkaCluster#labels}
         '''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#project ManagedKafkaCluster#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -785,7 +828,7 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rebalance_config(self) -> typing.Optional["ManagedKafkaClusterRebalanceConfig"]:
         '''rebalance_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#rebalance_config ManagedKafkaCluster#rebalance_config}
         '''
         result = self._values.get("rebalance_config")
         return typing.cast(typing.Optional["ManagedKafkaClusterRebalanceConfig"], result)
@@ -794,10 +837,19 @@ class ManagedKafkaClusterConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ManagedKafkaClusterTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#timeouts ManagedKafkaCluster#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ManagedKafkaClusterTimeouts"], result)
+
+    @builtins.property
+    def tls_config(self) -> typing.Optional["ManagedKafkaClusterTlsConfig"]:
+        '''tls_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#tls_config ManagedKafkaCluster#tls_config}
+        '''
+        result = self._values.get("tls_config")
+        return typing.cast(typing.Optional["ManagedKafkaClusterTlsConfig"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -824,8 +876,8 @@ class ManagedKafkaClusterGcpConfig:
         kms_key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
-        :param kms_key: The Cloud KMS Key name to use for encryption. The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
+        :param kms_key: The Cloud KMS Key name to use for encryption. The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
         '''
         if isinstance(access_config, dict):
             access_config = ManagedKafkaClusterGcpConfigAccessConfig(**access_config)
@@ -843,7 +895,7 @@ class ManagedKafkaClusterGcpConfig:
     def access_config(self) -> "ManagedKafkaClusterGcpConfigAccessConfig":
         '''access_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#access_config ManagedKafkaCluster#access_config}
         '''
         result = self._values.get("access_config")
         assert result is not None, "Required property 'access_config' is missing"
@@ -855,7 +907,7 @@ class ManagedKafkaClusterGcpConfig:
 
         The key must be located in the same region as the cluster and cannot be changed. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/keyRings/KEY_RING/cryptoKeys/KEY'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#kms_key ManagedKafkaCluster#kms_key}
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -884,7 +936,7 @@ class ManagedKafkaClusterGcpConfigAccessConfig:
         network_configs: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
+        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a9111cf8e82a2d05ed732106173d0b2d27bb6602f16feb7ac3f96dac5a484df5)
@@ -899,7 +951,7 @@ class ManagedKafkaClusterGcpConfigAccessConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs"]]:
         '''network_configs block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
         '''
         result = self._values.get("network_configs")
         assert result is not None, "Required property 'network_configs' is missing"
@@ -925,7 +977,7 @@ class ManagedKafkaClusterGcpConfigAccessConfig:
 class ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs:
     def __init__(self, *, subnet: builtins.str) -> None:
         '''
-        :param subnet: Name of the VPC subnet from which the cluster is accessible. Both broker and bootstrap server IP addresses and DNS entries are automatically created in the subnet. There can only be one subnet per network, and the subnet must be located in the same region as the cluster. The project may differ. The name of the subnet must be in the format 'projects/PROJECT_ID/regions/REGION/subnetworks/SUBNET'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#subnet ManagedKafkaCluster#subnet}
+        :param subnet: Name of the VPC subnet from which the cluster is accessible. Both broker and bootstrap server IP addresses and DNS entries are automatically created in the subnet. There can only be one subnet per network, and the subnet must be located in the same region as the cluster. The project may differ. The name of the subnet must be in the format 'projects/PROJECT_ID/regions/REGION/subnetworks/SUBNET'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#subnet ManagedKafkaCluster#subnet}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3d69a1317283cb612b1d05b06d8713b9a1150a7822e8ae5249efd84f2cc1aab4)
@@ -940,7 +992,7 @@ class ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs:
 
         Both broker and bootstrap server IP addresses and DNS entries are automatically created in the subnet. There can only be one subnet per network, and the subnet must be located in the same region as the cluster. The project may differ. The name of the subnet must be in the format 'projects/PROJECT_ID/regions/REGION/subnetworks/SUBNET'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#subnet ManagedKafkaCluster#subnet}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#subnet ManagedKafkaCluster#subnet}
         '''
         result = self._values.get("subnet")
         assert result is not None, "Required property 'subnet' is missing"
@@ -1204,7 +1256,7 @@ class ManagedKafkaClusterGcpConfigOutputReference(
         network_configs: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ManagedKafkaClusterGcpConfigAccessConfigNetworkConfigs, typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
+        :param network_configs: network_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#network_configs ManagedKafkaCluster#network_configs}
         '''
         value = ManagedKafkaClusterGcpConfigAccessConfig(
             network_configs=network_configs
@@ -1269,7 +1321,7 @@ class ManagedKafkaClusterGcpConfigOutputReference(
 class ManagedKafkaClusterRebalanceConfig:
     def __init__(self, *, mode: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param mode: The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
+        :param mode: The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64b250199e7e42e99035beb596f0c6a2780adc3686da4d443b46e2de82113292)
@@ -1282,7 +1334,7 @@ class ManagedKafkaClusterRebalanceConfig:
     def mode(self) -> typing.Optional[builtins.str]:
         '''The rebalance behavior for the cluster. When not specified, defaults to 'NO_REBALANCE'. Possible values: 'MODE_UNSPECIFIED', 'NO_REBALANCE', 'AUTO_REBALANCE_ON_SCALE_UP'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#mode ManagedKafkaCluster#mode}
         '''
         result = self._values.get("mode")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1370,9 +1422,9 @@ class ManagedKafkaClusterTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3a08c41710b680901c9ba4c017ab221290759c8b25bce30fa92f28740356bb93)
@@ -1389,19 +1441,19 @@ class ManagedKafkaClusterTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#create ManagedKafkaCluster#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#delete ManagedKafkaCluster#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.46.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#update ManagedKafkaCluster#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1518,6 +1570,463 @@ class ManagedKafkaClusterTimeoutsOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaClusterTlsConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "ssl_principal_mapping_rules": "sslPrincipalMappingRules",
+        "trust_config": "trustConfig",
+    },
+)
+class ManagedKafkaClusterTlsConfig:
+    def __init__(
+        self,
+        *,
+        ssl_principal_mapping_rules: typing.Optional[builtins.str] = None,
+        trust_config: typing.Optional[typing.Union["ManagedKafkaClusterTlsConfigTrustConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''
+        :param ssl_principal_mapping_rules: The rules for mapping mTLS certificate Distinguished Names (DNs) to shortened principal names for Kafka ACLs. This field corresponds exactly to the ssl.principal.mapping.rules broker config and matches the format and syntax defined in the Apache Kafka documentation. Setting or modifying this field will trigger a rolling restart of the Kafka brokers to apply the change. An empty string means that the default Kafka behavior is used. Example: 'RULE:^CN=(.?),OU=ServiceUsers.$/$1@example.com/,DEFAULT' Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#ssl_principal_mapping_rules ManagedKafkaCluster#ssl_principal_mapping_rules}
+        :param trust_config: trust_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#trust_config ManagedKafkaCluster#trust_config}
+        '''
+        if isinstance(trust_config, dict):
+            trust_config = ManagedKafkaClusterTlsConfigTrustConfig(**trust_config)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c98ba08a9f91d410a06a137cfefc4f48fee49174ea556d93725a8606a47f58f6)
+            check_type(argname="argument ssl_principal_mapping_rules", value=ssl_principal_mapping_rules, expected_type=type_hints["ssl_principal_mapping_rules"])
+            check_type(argname="argument trust_config", value=trust_config, expected_type=type_hints["trust_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if ssl_principal_mapping_rules is not None:
+            self._values["ssl_principal_mapping_rules"] = ssl_principal_mapping_rules
+        if trust_config is not None:
+            self._values["trust_config"] = trust_config
+
+    @builtins.property
+    def ssl_principal_mapping_rules(self) -> typing.Optional[builtins.str]:
+        '''The rules for mapping mTLS certificate Distinguished Names (DNs) to shortened principal names for Kafka ACLs.
+
+        This field corresponds exactly to the ssl.principal.mapping.rules broker config and matches the format and syntax defined in the Apache Kafka documentation. Setting or modifying this field will trigger a rolling restart of the Kafka brokers to apply the change. An empty string means that the default Kafka behavior is used. Example: 'RULE:^CN=(.?),OU=ServiceUsers.$/$1@example.com/,DEFAULT'
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#ssl_principal_mapping_rules ManagedKafkaCluster#ssl_principal_mapping_rules}
+        '''
+        result = self._values.get("ssl_principal_mapping_rules")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def trust_config(
+        self,
+    ) -> typing.Optional["ManagedKafkaClusterTlsConfigTrustConfig"]:
+        '''trust_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#trust_config ManagedKafkaCluster#trust_config}
+        '''
+        result = self._values.get("trust_config")
+        return typing.cast(typing.Optional["ManagedKafkaClusterTlsConfigTrustConfig"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ManagedKafkaClusterTlsConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ManagedKafkaClusterTlsConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaClusterTlsConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8534cbe3ee62f512558b80b1736ac8a7ccd68b8846a97964d78c464afeeaba5)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putTrustConfig")
+    def put_trust_config(
+        self,
+        *,
+        cas_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ManagedKafkaClusterTlsConfigTrustConfigCasConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param cas_configs: cas_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#cas_configs ManagedKafkaCluster#cas_configs}
+        '''
+        value = ManagedKafkaClusterTlsConfigTrustConfig(cas_configs=cas_configs)
+
+        return typing.cast(None, jsii.invoke(self, "putTrustConfig", [value]))
+
+    @jsii.member(jsii_name="resetSslPrincipalMappingRules")
+    def reset_ssl_principal_mapping_rules(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSslPrincipalMappingRules", []))
+
+    @jsii.member(jsii_name="resetTrustConfig")
+    def reset_trust_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetTrustConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="trustConfig")
+    def trust_config(self) -> "ManagedKafkaClusterTlsConfigTrustConfigOutputReference":
+        return typing.cast("ManagedKafkaClusterTlsConfigTrustConfigOutputReference", jsii.get(self, "trustConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sslPrincipalMappingRulesInput")
+    def ssl_principal_mapping_rules_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sslPrincipalMappingRulesInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="trustConfigInput")
+    def trust_config_input(
+        self,
+    ) -> typing.Optional["ManagedKafkaClusterTlsConfigTrustConfig"]:
+        return typing.cast(typing.Optional["ManagedKafkaClusterTlsConfigTrustConfig"], jsii.get(self, "trustConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="sslPrincipalMappingRules")
+    def ssl_principal_mapping_rules(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "sslPrincipalMappingRules"))
+
+    @ssl_principal_mapping_rules.setter
+    def ssl_principal_mapping_rules(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e8152902249d3931b81b450534c1a60b8b38c604c5cee25a493a1ac312e852e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sslPrincipalMappingRules", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[ManagedKafkaClusterTlsConfig]:
+        return typing.cast(typing.Optional[ManagedKafkaClusterTlsConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ManagedKafkaClusterTlsConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a296667648d0244b90142cbe283db84c5b77bba9cc236e1a915c14b6548a966c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaClusterTlsConfigTrustConfig",
+    jsii_struct_bases=[],
+    name_mapping={"cas_configs": "casConfigs"},
+)
+class ManagedKafkaClusterTlsConfigTrustConfig:
+    def __init__(
+        self,
+        *,
+        cas_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["ManagedKafkaClusterTlsConfigTrustConfigCasConfigs", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param cas_configs: cas_configs block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#cas_configs ManagedKafkaCluster#cas_configs}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f654df8b406aa0d2499d6b0a5bcde793d8df73eb25c67469917d6bd62444037b)
+            check_type(argname="argument cas_configs", value=cas_configs, expected_type=type_hints["cas_configs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if cas_configs is not None:
+            self._values["cas_configs"] = cas_configs
+
+    @builtins.property
+    def cas_configs(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ManagedKafkaClusterTlsConfigTrustConfigCasConfigs"]]]:
+        '''cas_configs block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#cas_configs ManagedKafkaCluster#cas_configs}
+        '''
+        result = self._values.get("cas_configs")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ManagedKafkaClusterTlsConfigTrustConfigCasConfigs"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ManagedKafkaClusterTlsConfigTrustConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaClusterTlsConfigTrustConfigCasConfigs",
+    jsii_struct_bases=[],
+    name_mapping={"ca_pool": "caPool"},
+)
+class ManagedKafkaClusterTlsConfigTrustConfigCasConfigs:
+    def __init__(self, *, ca_pool: builtins.str) -> None:
+        '''
+        :param ca_pool: The name of the CA pool to pull CA certificates from. The CA pool does not need to be in the same project or location as the Kafka cluster. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/caPools/CA_POOL_ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#ca_pool ManagedKafkaCluster#ca_pool}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cffa86cc2e316e737dab407026c51e889c222df59edd70c15d65a21d144f95de)
+            check_type(argname="argument ca_pool", value=ca_pool, expected_type=type_hints["ca_pool"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ca_pool": ca_pool,
+        }
+
+    @builtins.property
+    def ca_pool(self) -> builtins.str:
+        '''The name of the CA pool to pull CA certificates from.
+
+        The CA pool does not need to be in the same project or location as the Kafka cluster. Must be in the format 'projects/PROJECT_ID/locations/LOCATION/caPools/CA_POOL_ID.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.47.0/docs/resources/managed_kafka_cluster#ca_pool ManagedKafkaCluster#ca_pool}
+        '''
+        result = self._values.get("ca_pool")
+        assert result is not None, "Required property 'ca_pool' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ManagedKafkaClusterTlsConfigTrustConfigCasConfigs(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class ManagedKafkaClusterTlsConfigTrustConfigCasConfigsList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaClusterTlsConfigTrustConfigCasConfigsList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d334fb5b41b33a147a35d67a0ece407bae2c19221074e04e94d99fcf1bf75363)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "ManagedKafkaClusterTlsConfigTrustConfigCasConfigsOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ead6aa310cc4ed41b019c23eec78859aebec6292b2985f482ee780740090a67)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("ManagedKafkaClusterTlsConfigTrustConfigCasConfigsOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef73caaeb0955058f744f11efb30e1c8a8e81302ba3a3342af2e30cf8e9d367e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__223f4af63fb815a044864b0c963383511370fb32b1a1b9d10be0b488ec88cefa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62adf624620d553c374783f039bb94b51df6c4153c24ef04c5e2e1a5790aeeca)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1522125360c6081b038d126f8cad3dd120e8aec5b5ac040957114d7b65ef8f04)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class ManagedKafkaClusterTlsConfigTrustConfigCasConfigsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaClusterTlsConfigTrustConfigCasConfigsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c7ee01639ace0c3b0e0436158e74653acdba698a3cd430a1b179ca75eefce13)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="caPoolInput")
+    def ca_pool_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "caPoolInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="caPool")
+    def ca_pool(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "caPool"))
+
+    @ca_pool.setter
+    def ca_pool(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d1a862e9db2ba3e0fb0df5779dae1bb791eefe6bfb27edc6b24e1951486dec09)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "caPool", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__239a269a197dead650c4388ecf2a53c1898749ce9f54149c55a4b89b9c4f6209)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class ManagedKafkaClusterTlsConfigTrustConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-google.managedKafkaCluster.ManagedKafkaClusterTlsConfigTrustConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__805a84452b5cf6e10261b6cbfd8c89451a10f168540efdc2e46765d860ef79c7)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putCasConfigs")
+    def put_cas_configs(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04e056df96d2150d43f6d4638640db016bfd5a40908cffb0dcf2e3cd48f252ba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putCasConfigs", [value]))
+
+    @jsii.member(jsii_name="resetCasConfigs")
+    def reset_cas_configs(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetCasConfigs", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="casConfigs")
+    def cas_configs(self) -> ManagedKafkaClusterTlsConfigTrustConfigCasConfigsList:
+        return typing.cast(ManagedKafkaClusterTlsConfigTrustConfigCasConfigsList, jsii.get(self, "casConfigs"))
+
+    @builtins.property
+    @jsii.member(jsii_name="casConfigsInput")
+    def cas_configs_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]]], jsii.get(self, "casConfigsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[ManagedKafkaClusterTlsConfigTrustConfig]:
+        return typing.cast(typing.Optional[ManagedKafkaClusterTlsConfigTrustConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[ManagedKafkaClusterTlsConfigTrustConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f56b259931727b255323bfa0b2c0a6f4cc97467055a6f732c08a8e1c8db6890b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 __all__ = [
     "ManagedKafkaCluster",
     "ManagedKafkaClusterCapacityConfig",
@@ -1534,6 +2043,13 @@ __all__ = [
     "ManagedKafkaClusterRebalanceConfigOutputReference",
     "ManagedKafkaClusterTimeouts",
     "ManagedKafkaClusterTimeoutsOutputReference",
+    "ManagedKafkaClusterTlsConfig",
+    "ManagedKafkaClusterTlsConfigOutputReference",
+    "ManagedKafkaClusterTlsConfigTrustConfig",
+    "ManagedKafkaClusterTlsConfigTrustConfigCasConfigs",
+    "ManagedKafkaClusterTlsConfigTrustConfigCasConfigsList",
+    "ManagedKafkaClusterTlsConfigTrustConfigCasConfigsOutputReference",
+    "ManagedKafkaClusterTlsConfigTrustConfigOutputReference",
 ]
 
 publication.publish()
@@ -1551,6 +2067,7 @@ def _typecheckingstub__1b287f92d9d9d037f892b656b79c6aeb590277e050d79e1a21ef0e09e
     project: typing.Optional[builtins.str] = None,
     rebalance_config: typing.Optional[typing.Union[ManagedKafkaClusterRebalanceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[ManagedKafkaClusterTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    tls_config: typing.Optional[typing.Union[ManagedKafkaClusterTlsConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -1652,6 +2169,7 @@ def _typecheckingstub__766b988579c8db52e1fec541ecfa5913c57c5bb7d5708090d54662abd
     project: typing.Optional[builtins.str] = None,
     rebalance_config: typing.Optional[typing.Union[ManagedKafkaClusterRebalanceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     timeouts: typing.Optional[typing.Union[ManagedKafkaClusterTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    tls_config: typing.Optional[typing.Union[ManagedKafkaClusterTlsConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1837,6 +2355,125 @@ def _typecheckingstub__33509c4556789b9e29d132319e98603c77647028630eb66b908d0999c
 
 def _typecheckingstub__073297ee2b9eee5bff85075962784d036d77fd4a262520c3711ed4d5a2eb6be3(
     value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ManagedKafkaClusterTimeouts]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c98ba08a9f91d410a06a137cfefc4f48fee49174ea556d93725a8606a47f58f6(
+    *,
+    ssl_principal_mapping_rules: typing.Optional[builtins.str] = None,
+    trust_config: typing.Optional[typing.Union[ManagedKafkaClusterTlsConfigTrustConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8534cbe3ee62f512558b80b1736ac8a7ccd68b8846a97964d78c464afeeaba5(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e8152902249d3931b81b450534c1a60b8b38c604c5cee25a493a1ac312e852e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a296667648d0244b90142cbe283db84c5b77bba9cc236e1a915c14b6548a966c(
+    value: typing.Optional[ManagedKafkaClusterTlsConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f654df8b406aa0d2499d6b0a5bcde793d8df73eb25c67469917d6bd62444037b(
+    *,
+    cas_configs: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cffa86cc2e316e737dab407026c51e889c222df59edd70c15d65a21d144f95de(
+    *,
+    ca_pool: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d334fb5b41b33a147a35d67a0ece407bae2c19221074e04e94d99fcf1bf75363(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ead6aa310cc4ed41b019c23eec78859aebec6292b2985f482ee780740090a67(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef73caaeb0955058f744f11efb30e1c8a8e81302ba3a3342af2e30cf8e9d367e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__223f4af63fb815a044864b0c963383511370fb32b1a1b9d10be0b488ec88cefa(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62adf624620d553c374783f039bb94b51df6c4153c24ef04c5e2e1a5790aeeca(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1522125360c6081b038d126f8cad3dd120e8aec5b5ac040957114d7b65ef8f04(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c7ee01639ace0c3b0e0436158e74653acdba698a3cd430a1b179ca75eefce13(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1a862e9db2ba3e0fb0df5779dae1bb791eefe6bfb27edc6b24e1951486dec09(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__239a269a197dead650c4388ecf2a53c1898749ce9f54149c55a4b89b9c4f6209(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, ManagedKafkaClusterTlsConfigTrustConfigCasConfigs]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__805a84452b5cf6e10261b6cbfd8c89451a10f168540efdc2e46765d860ef79c7(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04e056df96d2150d43f6d4638640db016bfd5a40908cffb0dcf2e3cd48f252ba(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[ManagedKafkaClusterTlsConfigTrustConfigCasConfigs, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f56b259931727b255323bfa0b2c0a6f4cc97467055a6f732c08a8e1c8db6890b(
+    value: typing.Optional[ManagedKafkaClusterTlsConfigTrustConfig],
 ) -> None:
     """Type checking stubs"""
     pass

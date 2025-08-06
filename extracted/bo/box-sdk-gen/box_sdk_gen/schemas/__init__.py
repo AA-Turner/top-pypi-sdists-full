@@ -28,6 +28,12 @@ from box_sdk_gen.schemas.ai_llm_endpoint_params_open_ai import *
 
 from box_sdk_gen.schemas.ai_llm_endpoint_params import *
 
+from box_sdk_gen.schemas.ai_agent_spreadsheet_tool import *
+
+from box_sdk_gen.schemas.ai_studio_agent_spreadsheet_tool import *
+
+from box_sdk_gen.schemas.ai_studio_agent_spreadsheet_tool_response import *
+
 from box_sdk_gen.schemas.ai_agent_basic_text_tool_base import *
 
 from box_sdk_gen.schemas.ai_agent_basic_text_tool_text_gen import *
@@ -187,6 +193,8 @@ from box_sdk_gen.schemas.metadata_full import *
 from box_sdk_gen.schemas.metadata_cascade_policy import *
 
 from box_sdk_gen.schemas.metadata_cascade_policies import *
+
+from box_sdk_gen.schemas.metadata_error import *
 
 from box_sdk_gen.schemas.metadata_field_filter_date_range import *
 

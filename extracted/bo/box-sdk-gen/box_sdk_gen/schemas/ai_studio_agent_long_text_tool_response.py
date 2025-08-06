@@ -2,6 +2,14 @@ from typing import Optional
 
 from typing import List
 
+from box_sdk_gen.schemas.ai_llm_endpoint_params_open_ai import AiLlmEndpointParamsOpenAi
+
+from box_sdk_gen.schemas.ai_llm_endpoint_params_google import AiLlmEndpointParamsGoogle
+
+from box_sdk_gen.schemas.ai_llm_endpoint_params_aws import AiLlmEndpointParamsAws
+
+from box_sdk_gen.schemas.ai_llm_endpoint_params_ibm import AiLlmEndpointParamsIbm
+
 from box_sdk_gen.schemas.ai_llm_endpoint_params import AiLlmEndpointParams
 
 from box_sdk_gen.schemas.ai_agent_basic_text_tool_base import AiAgentBasicTextToolBase
@@ -34,9 +42,9 @@ class AiStudioAgentLongTextToolResponse(AiStudioAgentLongTextTool):
         **kwargs
     ):
         """
-                :param warnings: Warnings concerning tool, defaults to None
+                :param warnings: Warnings concerning tool., defaults to None
                 :type warnings: Optional[List[str]], optional
-                :param is_custom_instructions_included: True if system message contains custom instructions placeholder, false otherwise, defaults to None
+                :param is_custom_instructions_included: True if system message contains custom instructions placeholder, false otherwise., defaults to None
                 :type is_custom_instructions_included: Optional[bool], optional
                 :param system_message: System messages try to help the LLM "understand" its role and what it is supposed to do., defaults to None
                 :type system_message: Optional[str], optional

@@ -1352,6 +1352,9 @@ UxeCp6
 
     def connect_async(self):
         self.__link_log.debug("connect_async")
+        if self.__linkkit_state == LinkKit.LinkKitState.CONNECTED:
+            self.__link_log.info("already connected, returning")
+            return
         if self.__linkkit_state not in (LinkKit.LinkKitState.INITIALIZED, LinkKit.LinkKitState.DISCONNECTED):
             raise LinkKit.StateError("not in INITIALIZED or DISCONNECTED state")
         self.__connect_async_req = True

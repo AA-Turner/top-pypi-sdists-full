@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: sphinx-jinja2-compat
-Version: 0.3.0
+Version: 0.4.0
 Summary: Patches Jinja2 v3 to restore compatibility with earlier Sphinx versions.
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
 License: MIT
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Documentation
@@ -128,7 +129,7 @@ The patches can be disabled by setting the environment variable ``NO_SPHINX_JINJ
 .. |language| image:: https://img.shields.io/github/languages/top/sphinx-toolbox/sphinx-jinja2-compat
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/sphinx-toolbox/sphinx-jinja2-compat/v0.3.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/sphinx-toolbox/sphinx-jinja2-compat/v0.4.0
 	:target: https://github.com/sphinx-toolbox/sphinx-jinja2-compat/pulse
 	:alt: GitHub commits since tagged version
 
@@ -136,7 +137,7 @@ The patches can be disabled by setting the environment variable ``NO_SPHINX_JINJ
 	:target: https://github.com/sphinx-toolbox/sphinx-jinja2-compat/commit/master
 	:alt: GitHub last commit
 
-.. |maintained| image:: https://img.shields.io/maintenance/yes/2024
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2025
 	:alt: Maintenance
 
 .. |pypi-downloads| image:: https://img.shields.io/pypi/dm/sphinx-jinja2-compat

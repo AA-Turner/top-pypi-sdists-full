@@ -17,27 +17,32 @@ properties:
     type: string
     example: myapp
     mutation_behavior: union
+    cli_option: --name
   port:
     description: |-
       Port where the app is hosted. When deployed this will be port on which we will deploy the app. (validation applied)
     type: integer
     example: 8000
     mutation_behavior: union
+    cli_option: --port
   description:
     description: The description of the app to deploy.
     type: string
     example: This is a description of my app.
     mutation_behavior: union
+    cli_option: --description
   app_type:
     description: The User defined type of app to deploy. Its only used for bookkeeping purposes.
     type: string
     example: MyCustomAgent
     mutation_behavior: union
+    cli_option: --app-type
   image:
     description: The Docker image to deploy with the App.
     type: string
     example: python:3.10-slim
     mutation_behavior: union
+    cli_option: --image
   tags:
     description: The tags of the app to deploy. (validation applied)
     type: array
@@ -47,6 +52,7 @@ properties:
     - foo: bar
     - x: y
     mutation_behavior: union
+    cli_option: --tag
   secrets:
     description: |-
       Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code. (validation applied)
@@ -56,6 +62,7 @@ properties:
     example:
     - hf-token
     mutation_behavior: union
+    cli_option: --secret
   compute_pools:
     description: A list of compute pools to deploy the app to.
     type: array
@@ -65,6 +72,7 @@ properties:
     - default
     - large
     mutation_behavior: union
+    cli_option: --compute-pools
   environment:
     description: Environment variables to deploy with the App.
     type: object
@@ -78,6 +86,7 @@ properties:
       - http://localhost:3000
       - https://myapp.com
     mutation_behavior: union
+    cli_option: --env
   commands:
     description: A list of commands to run the app with.
     type: array
@@ -99,23 +108,27 @@ properties:
         default: '1'
         example: 500m
         mutation_behavior: union
+        cli_option: --cpu
       memory:
         description: Memory resource request and limit. (validation applied)
         type: string
         default: 4Gi
         example: 512Mi
         mutation_behavior: union
+        cli_option: --memory
       gpu:
         description: GPU resource request and limit. (validation applied)
         type: string
         example: '1'
         mutation_behavior: union
+        cli_option: --gpu
       disk:
         description: Storage resource request and limit. (validation applied)
         type: string
         default: 20Gi
         example: 1Gi
         mutation_behavior: union
+        cli_option: --disk
     mutation_behavior: union
   auth:
     title: AuthConfig
@@ -132,12 +145,14 @@ properties:
         - API
         example: Browser
         mutation_behavior: union
+        cli_option: --auth-type
       public:
         description: Whether the app is public or not.
         type: boolean
         default: true
         example: true
         mutation_behavior: union
+        cli_option: --public-access/--private-access
     mutation_behavior: union
   replicas:
     title: ReplicaConfig
@@ -151,16 +166,19 @@ properties:
         type: integer
         example: 1
         mutation_behavior: union
+        cli_option: --fixed-replicas
       min:
         description: The minimum number of replicas to deploy the app with.
         type: integer
         example: 1
         mutation_behavior: union
+        cli_option: --min-replicas
       max:
         description: The maximum number of replicas to deploy the app with.
         type: integer
         example: 10
         mutation_behavior: union
+        cli_option: --max-replicas
       scaling_policy:
         title: ScalingPolicyConfig
         description: |-
@@ -175,6 +193,7 @@ properties:
             type: integer
             default: 60
             mutation_behavior: union
+            cli_option: --scaling-rpm
         mutation_behavior: union
     mutation_behavior: union
   dependencies:
@@ -188,16 +207,19 @@ properties:
         type: string
         example: requirements.txt
         mutation_behavior: not_allowed
+        cli_option: --dep-from-requirements
       from_pyproject_toml:
         description: The path to the pyproject.toml file to attach to the app.
         type: string
         example: pyproject.toml
         mutation_behavior: not_allowed
+        cli_option: --dep-from-pyproject
       python:
         description: The Python version to use for the app.
         type: string
         example: '3.10'
         mutation_behavior: not_allowed
+        cli_option: --python
       pypi:
         description: |-
           A dictionary of pypi dependencies to attach to the app. The key is the package name and the value is the version.
@@ -207,6 +229,7 @@ properties:
           numpy: 1.23.0
           pandas: ''
         mutation_behavior: not_allowed
+        cli_option: --pypi
       conda:
         description: |-
           A dictionary of conda dependencies to attach to the app. The key is the package name and the value is the version.
@@ -216,6 +239,7 @@ properties:
           numpy: 1.23.0
           pandas: ''
         mutation_behavior: not_allowed
+        cli_option: --conda
     mutation_behavior: union
   package:
     title: PackageConfig
@@ -228,6 +252,7 @@ properties:
         type: string
         example: ./
         mutation_behavior: union
+        cli_option: --package-src-path
       suffixes:
         description: A list of suffixes to add to the source code to deploy with the App.
         type: array
@@ -237,17 +262,20 @@ properties:
         - .py
         - .ipynb
         mutation_behavior: union
+        cli_option: --package-suffixes
     mutation_behavior: union
   no_deps:
     description: Do not bake any dependencies. Directly used the image provided
     type: boolean
     default: false
     mutation_behavior: union
+    cli_option: --no-deps
   force_upgrade:
     description: Force upgrade the app even if it is currently being upgraded.
     type: boolean
     default: false
     mutation_behavior: union
+    cli_option: --force-upgrade
   persistence:
     description: The persistence mode to deploy the app with. (validation applied)
     type: string
@@ -258,18 +286,21 @@ properties:
     example: postgres
     experimental: true
     mutation_behavior: union
+    cli_option: --persistence
   project:
     description: The project name to deploy the app to.
     type: string
     example: my-project
     experimental: true
     mutation_behavior: union
+    cli_option: --project
   branch:
     description: The branch name to deploy the app to.
     type: string
     example: main
     experimental: true
     mutation_behavior: union
+    cli_option: --branch
   models:
     type: array
     items:

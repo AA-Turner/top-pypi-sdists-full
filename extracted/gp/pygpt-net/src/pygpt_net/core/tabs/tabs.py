@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.07.20 23:00:00                  #
+# Updated Date: 2025.08.05 21:00:00                  #
 # ================================================== #
 
 import uuid
@@ -277,6 +277,8 @@ class Tabs:
         tab = self.get_tab_by_pid(pid)
         if tab is None:
             return
+
+        tab.cleanup() # unload assigned data from memory
         column_idx = tab.column_idx
         self.window.ui.layout.get_tabs_by_idx(column_idx).removeTab(tab.idx)
         del self.pids[pid]
@@ -871,6 +873,7 @@ class Tabs:
         tab_widget = TabBody(self.window)
         tab_widget.append(widget)
         tab_widget.setLayout(layout)
+        tab_widget.add_ref(widget)  # add reference to widget
         return tab_widget
 
     def from_layout(self, layout: QLayout) -> TabBody:

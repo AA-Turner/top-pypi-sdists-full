@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "16.8.0",
+    "version": "16.9.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -75,6 +75,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.apigee_keystores_aliases_self_signed_cert",
         "cdktf_cdktf_provider_google.apigee_nat_address",
         "cdktf_cdktf_provider_google.apigee_organization",
+        "cdktf_cdktf_provider_google.apigee_security_action",
         "cdktf_cdktf_provider_google.apigee_security_monitoring_condition",
         "cdktf_cdktf_provider_google.apigee_security_profile_v2",
         "cdktf_cdktf_provider_google.apigee_sharedflow",
@@ -467,6 +468,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_apphub_discovered_service",
         "cdktf_cdktf_provider_google.data_google_apphub_discovered_workload",
         "cdktf_cdktf_provider_google.data_google_artifact_registry_docker_image",
+        "cdktf_cdktf_provider_google.data_google_artifact_registry_docker_images",
         "cdktf_cdktf_provider_google.data_google_artifact_registry_locations",
         "cdktf_cdktf_provider_google.data_google_artifact_registry_repository",
         "cdktf_cdktf_provider_google.data_google_artifact_registry_repository_iam_policy",
@@ -657,6 +659,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.data_google_iam_policy",
         "cdktf_cdktf_provider_google.data_google_iam_role",
         "cdktf_cdktf_provider_google.data_google_iam_testable_permissions",
+        "cdktf_cdktf_provider_google.data_google_iam_workforce_pool_iam_policy",
         "cdktf_cdktf_provider_google.data_google_iam_workload_identity_pool",
         "cdktf_cdktf_provider_google.data_google_iam_workload_identity_pool_provider",
         "cdktf_cdktf_provider_google.data_google_iap_app_engine_service_iam_policy",
@@ -905,6 +908,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.developer_connect_account_connector",
         "cdktf_cdktf_provider_google.developer_connect_connection",
         "cdktf_cdktf_provider_google.developer_connect_git_repository_link",
+        "cdktf_cdktf_provider_google.developer_connect_insights_config",
         "cdktf_cdktf_provider_google.dialogflow_agent",
         "cdktf_cdktf_provider_google.dialogflow_cx_agent",
         "cdktf_cdktf_provider_google.dialogflow_cx_entity_type",
@@ -924,6 +928,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.dialogflow_fulfillment",
         "cdktf_cdktf_provider_google.dialogflow_intent",
         "cdktf_cdktf_provider_google.discovery_engine_chat_engine",
+        "cdktf_cdktf_provider_google.discovery_engine_cmek_config",
         "cdktf_cdktf_provider_google.discovery_engine_data_store",
         "cdktf_cdktf_provider_google.discovery_engine_recommendation_engine",
         "cdktf_cdktf_provider_google.discovery_engine_schema",
@@ -1072,6 +1077,9 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.iam_principal_access_boundary_policy",
         "cdktf_cdktf_provider_google.iam_projects_policy_binding",
         "cdktf_cdktf_provider_google.iam_workforce_pool",
+        "cdktf_cdktf_provider_google.iam_workforce_pool_iam_binding",
+        "cdktf_cdktf_provider_google.iam_workforce_pool_iam_member",
+        "cdktf_cdktf_provider_google.iam_workforce_pool_iam_policy",
         "cdktf_cdktf_provider_google.iam_workforce_pool_provider",
         "cdktf_cdktf_provider_google.iam_workforce_pool_provider_key",
         "cdktf_cdktf_provider_google.iam_workload_identity_pool",
@@ -1480,7 +1488,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@16.8.0.jsii.tgz"
+            "provider-google@16.9.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"
@@ -1490,7 +1498,7 @@ kwargs = json.loads(
     "install_requires": [
         "cdktf>=0.21.0, <0.22.0",
         "constructs>=10.4.2, <11.0.0",
-        "jsii>=1.112.0, <2.0.0",
+        "jsii>=1.113.0, <2.0.0",
         "publication>=0.0.3",
         "typeguard>=2.13.3,<4.3.0"
     ],

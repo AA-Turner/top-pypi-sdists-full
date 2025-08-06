@@ -160,7 +160,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/add_distributed_autonomous_database_gds_control_node.py.html>`__ to see an example of how to use add_distributed_autonomous_database_gds_control_node API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/add_distributed_autonomous_database_gds_control_node.py.html>`__ to see an example of how to use add_distributed_autonomous_database_gds_control_node API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -280,7 +280,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/change_distributed_autonomous_database_compartment.py.html>`__ to see an example of how to use change_distributed_autonomous_database_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/change_distributed_autonomous_database_compartment.py.html>`__ to see an example of how to use change_distributed_autonomous_database_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -400,7 +400,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/configure_distributed_autonomous_database_gsms.py.html>`__ to see an example of how to use configure_distributed_autonomous_database_gsms API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/configure_distributed_autonomous_database_gsms.py.html>`__ to see an example of how to use configure_distributed_autonomous_database_gsms API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -525,7 +525,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/configure_distributed_autonomous_database_sharding.py.html>`__ to see an example of how to use configure_distributed_autonomous_database_sharding API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/configure_distributed_autonomous_database_sharding.py.html>`__ to see an example of how to use configure_distributed_autonomous_database_sharding API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -641,7 +641,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/create_distributed_autonomous_database.py.html>`__ to see an example of how to use create_distributed_autonomous_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/create_distributed_autonomous_database.py.html>`__ to see an example of how to use create_distributed_autonomous_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -746,7 +746,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/delete_distributed_autonomous_database.py.html>`__ to see an example of how to use delete_distributed_autonomous_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/delete_distributed_autonomous_database.py.html>`__ to see an example of how to use delete_distributed_autonomous_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -864,7 +864,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/download_distributed_autonomous_database_gsm_certificate_signing_request.py.html>`__ to see an example of how to use download_distributed_autonomous_database_gsm_certificate_signing_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/download_distributed_autonomous_database_gsm_certificate_signing_request.py.html>`__ to see an example of how to use download_distributed_autonomous_database_gsm_certificate_signing_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -986,7 +986,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/generate_distributed_autonomous_database_gsm_certificate_signing_request.py.html>`__ to see an example of how to use generate_distributed_autonomous_database_gsm_certificate_signing_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/generate_distributed_autonomous_database_gsm_certificate_signing_request.py.html>`__ to see an example of how to use generate_distributed_autonomous_database_gsm_certificate_signing_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId', 'caBundleId']
@@ -1111,7 +1111,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/generate_distributed_autonomous_database_wallet.py.html>`__ to see an example of how to use generate_distributed_autonomous_database_wallet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/generate_distributed_autonomous_database_wallet.py.html>`__ to see an example of how to use generate_distributed_autonomous_database_wallet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -1226,7 +1226,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/get_distributed_autonomous_database.py.html>`__ to see an example of how to use get_distributed_autonomous_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/get_distributed_autonomous_database.py.html>`__ to see an example of how to use get_distributed_autonomous_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -1366,7 +1366,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/list_distributed_autonomous_databases.py.html>`__ to see an example of how to use list_distributed_autonomous_databases API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/list_distributed_autonomous_databases.py.html>`__ to see an example of how to use list_distributed_autonomous_databases API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1522,7 +1522,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/patch_distributed_autonomous_database.py.html>`__ to see an example of how to use patch_distributed_autonomous_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/patch_distributed_autonomous_database.py.html>`__ to see an example of how to use patch_distributed_autonomous_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -1639,7 +1639,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/rotate_distributed_autonomous_database_passwords.py.html>`__ to see an example of how to use rotate_distributed_autonomous_database_passwords API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/rotate_distributed_autonomous_database_passwords.py.html>`__ to see an example of how to use rotate_distributed_autonomous_database_passwords API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -1754,7 +1754,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/start_distributed_autonomous_database.py.html>`__ to see an example of how to use start_distributed_autonomous_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/start_distributed_autonomous_database.py.html>`__ to see an example of how to use start_distributed_autonomous_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -1869,7 +1869,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/stop_distributed_autonomous_database.py.html>`__ to see an example of how to use stop_distributed_autonomous_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/stop_distributed_autonomous_database.py.html>`__ to see an example of how to use stop_distributed_autonomous_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -1980,7 +1980,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/update_distributed_autonomous_database.py.html>`__ to see an example of how to use update_distributed_autonomous_database API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/update_distributed_autonomous_database.py.html>`__ to see an example of how to use update_distributed_autonomous_database API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -2102,7 +2102,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/upload_distributed_autonomous_database_signed_certificate_and_generate_wallet.py.html>`__ to see an example of how to use upload_distributed_autonomous_database_signed_certificate_and_generate_wallet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/upload_distributed_autonomous_database_signed_certificate_and_generate_wallet.py.html>`__ to see an example of how to use upload_distributed_autonomous_database_signed_certificate_and_generate_wallet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']
@@ -2228,7 +2228,7 @@ class DistributedAutonomousDbServiceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.0/distributeddatabase/validate_distributed_autonomous_database_network.py.html>`__ to see an example of how to use validate_distributed_autonomous_database_network API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/distributeddatabase/validate_distributed_autonomous_database_network.py.html>`__ to see an example of how to use validate_distributed_autonomous_database_network API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['distributedAutonomousDatabaseId']

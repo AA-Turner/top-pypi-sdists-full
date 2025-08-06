@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yamlloader
-Version: 1.5.1
+Version: 1.5.2
 Summary: Ordered YAML loader and dumper for PyYAML.
 Project-URL: Documentation, https://yamlloader.readthedocs.io/
 Project-URL: Homepage, https://github.com/Phynix/yamlloader
@@ -70,6 +70,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Python: >=3.7
+Requires-Dist: pyyaml
 Provides-Extra: dev
 Requires-Dist: coverage; extra == 'dev'
 Requires-Dist: hypothesis; extra == 'dev'

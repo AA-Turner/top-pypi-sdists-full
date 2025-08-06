@@ -211,32 +211,7 @@ impl GetEnumerate for OneOfSchema {
         definitions: &'a SchemaDefinitions,
         schema_context: &'a SchemaContext,
     ) -> tombi_future::BoxFuture<'b, Option<Vec<DisplayValue>>> {
-        async move {
-            let mut enumerate_values = Vec::new();
-            for schema in self.schemas.write().await.iter_mut() {
-                match schema
-                    .resolve(
-                        Cow::Borrowed(schema_url),
-                        Cow::Borrowed(definitions),
-                        schema_context.store,
-                    )
-                    .await
-                {
-                    Ok(Some(resolved)) => {
-                        if let Some(values) = resolved
-                            .value_schema
-                            .get_enumerate(schema_url, definitions, schema_context)
-                            .await
-                        {
-                            enumerate_values.extend(values);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Some(enumerate_values)
-        }
-        .boxed()
+        get_enumerate_from_schemas(&self.schemas, schema_url, definitions, schema_context)
     }
 }
 
@@ -247,32 +222,7 @@ impl GetEnumerate for AnyOfSchema {
         definitions: &'a SchemaDefinitions,
         schema_context: &'a SchemaContext,
     ) -> tombi_future::BoxFuture<'b, Option<Vec<DisplayValue>>> {
-        async move {
-            let mut enumerate_values = Vec::new();
-            for schema in self.schemas.write().await.iter_mut() {
-                match schema
-                    .resolve(
-                        Cow::Borrowed(schema_url),
-                        Cow::Borrowed(definitions),
-                        schema_context.store,
-                    )
-                    .await
-                {
-                    Ok(Some(resolved)) => {
-                        if let Some(values) = resolved
-                            .value_schema
-                            .get_enumerate(schema_url, definitions, schema_context)
-                            .await
-                        {
-                            enumerate_values.extend(values);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-            Some(enumerate_values)
-        }
-        .boxed()
+        get_enumerate_from_schemas(&self.schemas, schema_url, definitions, schema_context)
     }
 }
 
@@ -283,31 +233,46 @@ impl GetEnumerate for AllOfSchema {
         definitions: &'a SchemaDefinitions,
         schema_context: &'a SchemaContext,
     ) -> tombi_future::BoxFuture<'b, Option<Vec<DisplayValue>>> {
-        async move {
-            let mut enumerate_values = Vec::new();
-            for schema in self.schemas.write().await.iter_mut() {
-                match schema
-                    .resolve(
-                        Cow::Borrowed(schema_url),
-                        Cow::Borrowed(definitions),
-                        schema_context.store,
-                    )
-                    .await
-                {
-                    Ok(Some(resolved)) => {
-                        if let Some(values) = resolved
-                            .value_schema
-                            .get_enumerate(schema_url, definitions, schema_context)
-                            .await
-                        {
-                            enumerate_values.extend(values);
-                        }
+        get_enumerate_from_schemas(&self.schemas, schema_url, definitions, schema_context)
+    }
+}
+
+/// Helper function to get enumerate values from a collection of schemas
+fn get_enumerate_from_schemas<'a: 'b, 'b>(
+    schemas: &'a tombi_schema_store::ReferableValueSchemas,
+    schema_url: &'a SchemaUrl,
+    definitions: &'a SchemaDefinitions,
+    schema_context: &'a SchemaContext,
+) -> tombi_future::BoxFuture<'b, Option<Vec<DisplayValue>>> {
+    async move {
+        let mut enumerate_values = Vec::new();
+        for schema in schemas.write().await.iter_mut() {
+            match schema
+                .resolve(
+                    Cow::Borrowed(schema_url),
+                    Cow::Borrowed(definitions),
+                    schema_context.store,
+                )
+                .await
+            {
+                Ok(Some(resolved)) => {
+                    if let Some(values) = resolved
+                        .value_schema
+                        .get_enumerate(schema_url, definitions, schema_context)
+                        .await
+                    {
+                        enumerate_values.extend(values);
                     }
-                    _ => {}
                 }
+                _ => {}
             }
+        }
+
+        if enumerate_values.is_empty() {
+            None
+        } else {
             Some(enumerate_values)
         }
-        .boxed()
     }
+    .boxed()
 }

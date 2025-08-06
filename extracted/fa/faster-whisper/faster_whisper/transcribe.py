@@ -25,7 +25,6 @@ from faster_whisper.vad import (
     VadOptions,
     collect_chunks,
     get_speech_timestamps,
-    merge_segments,
 )
 
 
@@ -125,7 +124,7 @@ class BatchedInferencePipeline:
         segmented_outputs = []
         segment_sizes = []
         for chunk_metadata, output in zip(chunks_metadata, outputs):
-            duration = chunk_metadata["end_time"] - chunk_metadata["start_time"]
+            duration = chunk_metadata["duration"]
             segment_size = int(ceil(duration) * self.model.frames_per_second)
             segment_sizes.append(segment_size)
             (
@@ -135,7 +134,7 @@ class BatchedInferencePipeline:
             ) = self.model._split_segments_by_timestamps(
                 tokenizer=tokenizer,
                 tokens=output["tokens"],
-                time_offset=chunk_metadata["start_time"],
+                time_offset=chunk_metadata["offset"],
                 segment_size=segment_size,
                 segment_duration=duration,
                 seek=0,
@@ -153,7 +152,7 @@ class BatchedInferencePipeline:
                             tokenizer.decode(subsegment["tokens"])
                         ),
                         seek=int(
-                            chunk_metadata["start_time"] * self.model.frames_per_second
+                            chunk_metadata["offset"] * self.model.frames_per_second
                         ),
                     )
                     for subsegment in subsegments
@@ -409,8 +408,7 @@ class BatchedInferencePipeline:
                         **vad_parameters, max_speech_duration_s=chunk_length
                     )
 
-                active_segments = get_speech_timestamps(audio, vad_parameters)
-                clip_timestamps = merge_segments(active_segments, vad_parameters)
+                clip_timestamps = get_speech_timestamps(audio, vad_parameters)
             # run the audio if it is less than 30 sec even without clip_timestamps
             elif duration < chunk_length:
                 clip_timestamps = [{"start": 0, "end": audio.shape[0]}]
@@ -419,6 +417,15 @@ class BatchedInferencePipeline:
                     "No clip timestamps found. "
                     "Set 'vad_filter' to True or provide 'clip_timestamps'."
                 )
+        else:
+            clip_timestamps = [
+                {k: int(v * sampling_rate) for k, v in segment.items()}
+                for segment in clip_timestamps
+            ]
+
+        audio_chunks, chunks_metadata = collect_chunks(
+            audio, clip_timestamps, max_duration=chunk_length
+        )
 
         duration_after_vad = (
             sum((segment["end"] - segment["start"]) for segment in clip_timestamps)
@@ -430,7 +437,6 @@ class BatchedInferencePipeline:
             format_timestamp(duration - duration_after_vad),
         )
 
-        audio_chunks, chunks_metadata = collect_chunks(audio, clip_timestamps)
         features = (
             [self.model.feature_extractor(chunk)[..., :-1] for chunk in audio_chunks]
             if duration_after_vad
@@ -541,6 +547,7 @@ class BatchedInferencePipeline:
             options,
             log_progress,
         )
+        segments = restore_speech_timestamps(segments, clip_timestamps, sampling_rate)
 
         return segments, info
 
@@ -596,6 +603,8 @@ class WhisperModel:
         download_root: Optional[str] = None,
         local_files_only: bool = False,
         files: dict = None,
+        revision: Optional[str] = None,
+        use_auth_token: Optional[Union[str, bool]] = None,
         **model_kwargs,
     ):
         """Initializes the Whisper model.
@@ -627,6 +636,11 @@ class WhisperModel:
           files: Load model files from the memory. This argument is a dictionary mapping file names
             to file contents as file-like or bytes objects. If this is set, model_path acts as an
             identifier for this model.
+          revision:
+            An optional Git revision id which can be a branch name, a tag, or a
+            commit hash.
+          use_auth_token: HuggingFace authentication token or True to use the
+            token stored by the HuggingFace config folder.
         """
         self.logger = get_logger()
 
@@ -642,6 +656,8 @@ class WhisperModel:
                 model_size_or_path,
                 local_files_only=local_files_only,
                 cache_dir=download_root,
+                revision=revision,
+                use_auth_token=use_auth_token,
             )
 
         self.model = ctranslate2.models.Whisper(
@@ -1823,7 +1839,7 @@ def restore_speech_timestamps(
 
         else:
             segment.start = ts_map.get_original_time(segment.start)
-            segment.end = ts_map.get_original_time(segment.end)
+            segment.end = ts_map.get_original_time(segment.end, is_end=True)
 
         yield segment
 

@@ -84,12 +84,19 @@ from .usecases import (
     WindmillMaintenanceUseCase,
     FlowerUseCase,
     SmokerDetectionUseCase,
+    RoadTrafficUseCase,
+    RoadViewSegmentationUseCase,
+    FaceRecognitionUseCase,
+    DrowsyDriverUseCase,
+    WaterBodyUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
     SkinCancerClassificationUseCase,
     PlaqueSegmentationUseCase,
     CardiomegalyUseCase,
+    HistopathologicalCancerDetectionUseCase,
+
 
 )
 
@@ -207,12 +214,18 @@ class PostProcessor:
         registry.register_use_case("general", "parking_det", ParkingUseCase)
         registry.register_use_case("agriculture", "leaf_det", LeafUseCase)
         registry.register_use_case("general", "smoker_detection", SmokerDetectionUseCase)
+        registry.register_use_case("automobile", "road_traffic_density", RoadTrafficUseCase)
+        registry.register_use_case("automobile", "road_view_segmentation", RoadViewSegmentationUseCase)
+        registry.register_use_case("security", "face_recognition", FaceRecognitionUseCase)
+        registry.register_use_case("automobile", "drowsy_driver_detection", DrowsyDriverUseCase)
+        registry.register_use_case("agriculture", "waterbody_segmentation", WaterBodyUseCase)
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
         registry.register_use_case("healthcare", "skincancer_img_classification", SkinCancerClassificationUseCase)
         registry.register_use_case("healthcare", "plaque_img_segmentation", PlaqueSegmentationUseCase)
         registry.register_use_case("healthcare", "cardiomegaly_classification", CardiomegalyUseCase)
+        registry.register_use_case("healthcare", "histopathological_cancer_detection", HistopathologicalCancerDetectionUseCase)
         
 
         logger.debug("Registered use cases with registry")
@@ -366,6 +379,16 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, ParkingSpaceUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, RoadTrafficUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, RoadViewSegmentationUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, FaceRecognitionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, DrowsyDriverUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, WaterBodyUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
 
             
             #Put all IMAGE based usecases here
@@ -377,7 +400,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, CardiomegalyUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
-
+            elif isinstance(use_case, HistopathologicalCancerDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
 
             else:
                 result = use_case.process(data, parsed_config, context, stream_info)

@@ -15,7 +15,11 @@ import warnings
 from decimal import Decimal
 
 import numpy as np
-import pandas as pd
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 try:
     import polars as pl
@@ -31,7 +35,20 @@ from bson.raw_bson import RawBSONDocument
 from numpy import ndarray
 from pyarrow import Schema as ArrowSchema
 from pyarrow import Table, timestamp
-from pyarrow.types import is_date32, is_date64
+from pyarrow.types import (
+    is_date32,
+    is_date64,
+    is_duration,
+    is_float16,
+    is_float32,
+    is_int8,
+    is_int16,
+    is_list,
+    is_uint8,
+    is_uint16,
+    is_uint32,
+    is_uint64,
+)
 from pymongo.common import MAX_WRITE_BATCH_SIZE
 
 from pymongoarrow.context import PyMongoArrowContext
@@ -170,6 +187,9 @@ def _arrow_to_pandas(arrow_table):
     See https://arrow.apache.org/docs/python/pandas.html#reducing-memory-use-in-table-to-pandas
     for details.
     """
+    if pd is None:
+        msg = "pandas is not installed. Try pip install pandas."
+        raise ValueError(msg)
     return arrow_table.to_pandas(split_blocks=True, self_destruct=True)
 
 
@@ -238,10 +258,10 @@ def _arrow_to_numpy(arrow_table, schema=None):
 
     for fname in schema:
         dtype = get_numpy_type(schema[fname])
+        container[fname] = arrow_table[fname].to_numpy()
         if dtype == np.str_:
-            container[fname] = arrow_table[fname].to_pandas().to_numpy(dtype=dtype)
-        else:
-            container[fname] = arrow_table[fname].to_numpy()
+            container[fname] = container[fname].astype(np.str_)
+
     return container
 
 
@@ -427,7 +447,7 @@ def _tabular_generator(tabular, *, exclude_none=False):
                     yield {k: v for k, v in row.items() if v is not None}
                 else:
                     yield row
-    elif isinstance(tabular, pd.DataFrame):
+    elif pd is not None and isinstance(tabular, pd.DataFrame):
         for row in tabular.to_dict("records"):
             if exclude_none:
                 yield {k: v for k, v in row.items() if not np.isnan(v)}
@@ -468,7 +488,7 @@ class _DecimalCodec(TypeEncoder):
         return Decimal128(value)
 
 
-def write(collection, tabular, *, exclude_none: bool = False):
+def write(collection, tabular, *, exclude_none: bool = False, auto_convert: bool = True):
     """Write data from `tabular` into the given MongoDB `collection`.
 
     :Parameters:
@@ -476,6 +496,7 @@ def write(collection, tabular, *, exclude_none: bool = False):
         against which to run the operation.
       - `tabular`: A tabular data store to use for the write operation.
       - `exclude_none`: Whether to skip writing `null` fields in documents.
+      - `auto_convert` (optional): Whether to attempt a best-effort conversion of unsupported types.
 
     :Returns:
       An instance of :class:`result.ArrowWriteResult`.
@@ -493,12 +514,27 @@ def write(collection, tabular, *, exclude_none: bool = False):
             if is_date32(dtype) or is_date64(dtype):
                 changed = True
                 dtype = timestamp("ms")  # noqa: PLW2901
+            elif auto_convert:
+                if is_uint8(dtype) or is_uint16(dtype) or is_int8(dtype) or is_int16(dtype):
+                    changed = True
+                    dtype = pa.int32()  # noqa: PLW2901
+                elif is_uint32(dtype) or is_uint64(dtype) or is_duration(dtype):
+                    changed = True
+                    dtype = pa.int64()  # noqa: PLW2901
+                elif is_float16(dtype) or is_float32(dtype):
+                    changed = True
+                    dtype = pa.float64()  # noqa: PLW2901
             new_types.append(dtype)
         if changed:
-            cols = [tabular.column(i).cast(new_types[i]) for i in range(tabular.num_columns)]
+            cols = [
+                tabular.column(i).cast(new_types[i])
+                if not is_list(new_types[i])
+                else tabular.column(i)
+                for i in range(tabular.num_columns)
+            ]
             tabular = Table.from_arrays(cols, names=tabular.column_names)
         _validate_schema(tabular.schema.types)
-    elif isinstance(tabular, pd.DataFrame):
+    elif pd is not None and isinstance(tabular, pd.DataFrame):
         _validate_schema(ArrowSchema.from_pandas(tabular).types)
     elif pl is not None and isinstance(tabular, pl.DataFrame):
         tabular = tabular.to_arrow()  # zero-copy in most cases and done in tabular_gen anyway
@@ -523,7 +559,10 @@ def write(collection, tabular, *, exclude_none: bool = False):
 
     # Add handling for special case types.
     codec_options = collection.codec_options
-    type_registry = TypeRegistry([_PandasNACodec(), _DecimalCodec()])
+    if pd is not None:
+        type_registry = TypeRegistry([_PandasNACodec(), _DecimalCodec()])
+    else:
+        type_registry = TypeRegistry([_DecimalCodec()])
     codec_options = codec_options.with_options(type_registry=type_registry)
 
     while cur_offset < tab_size:

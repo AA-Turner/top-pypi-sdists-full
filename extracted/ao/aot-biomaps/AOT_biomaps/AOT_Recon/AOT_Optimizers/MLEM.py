@@ -112,6 +112,7 @@ def _MLEM_CPU_multi(SMatrix, y, numIterations, isSavingEachIteration, withTumor)
     except Exception as e:
         print("Error in multi-threaded CPU MLEM:", type(e).__name__, ":", e)
         return None
+    
 
 def _MLEM_CPU_opti(SMatrix, y, numIterations, isSavingEachIteration, withTumor):
     try:

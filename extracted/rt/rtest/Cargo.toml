@@ -1,8 +1,9 @@
 
 [package]
 name = "rtest-py"
-version = "0.0.31"
+version = "0.0.34"
 edition = "2021"
+readme = "README.md"
 
 [lib]
 name = "_rtest"
@@ -17,3 +18,4 @@ clap = { version = "4.5.4", features = ["derive"] }
 
 [dev-dependencies]
 tempfile = "3.0"
+indoc = "2.0"

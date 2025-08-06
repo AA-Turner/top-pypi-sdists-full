@@ -1,5 +1,6 @@
 """Module for Session class handling project sessions."""
 
+import os
 from datetime import datetime
 from matrice.projects import Projects
 from matrice.rpc import RPC
@@ -26,25 +27,41 @@ class Session:
     def __init__(
         self,
         account_number,
-        access_key,
-        secret_key,
+        access_key=None,
+        secret_key=None,
         project_id=None,
         project_name=None,
     ):
-        self.rpc = RPC(
-            access_key,
-            secret_key,
-            project_id=project_id,
-        )
-        self.account_number = account_number
+        access_key = access_key or os.environ.get("MATRICE_ACCESS_KEY_ID")
+        secret_key = secret_key or os.environ.get("MATRICE_SECRET_ACCESS_KEY")
+
+        if not access_key or not secret_key:
+            raise ValueError(
+                "Access key and Secret key are required. "
+                "Set them as environment variables MATRICE_ACCESS_KEY_ID and MATRICE_SECRET_ACCESS_KEY or pass them explicitly."
+            )
+
+
+        os.environ["MATRICE_ACCESS_KEY_ID"] = access_key
+        os.environ["MATRICE_SECRET_ACCESS_KEY"] = secret_key
+
         self.access_key = access_key
         self.secret_key = secret_key
-        self.last_refresh_time = datetime.now()
+        self.account_number = account_number
         self.project_id = project_id
         self.project_name = project_name
-        if project_name and not project_id:
+        self.last_refresh_time = datetime.now()
+
+        self.rpc = RPC(
+            self.access_key,
+            self.secret_key,
+            project_id=self.project_id,
+        )
+
+        if self.project_name and not self.project_id:
             self.project_id = self._get_project_id_by_name()
             self.refresh()
+
 
     def _get_project_id_by_name(self):
         path = f"/v1/accounting/get_project_by_name?name={self.project_name}"

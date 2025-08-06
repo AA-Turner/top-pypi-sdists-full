@@ -1813,28 +1813,40 @@ class ApplicationListenerRule(
 ):
     '''Define a new listener rule.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticloadbalancingv2 as elbv2
+        import aws_cdk.aws_lambda as lambda_
         
-        # application_listener: elbv2.ApplicationListener
-        # application_target_group: elbv2.ApplicationTargetGroup
-        # listener_action: elbv2.ListenerAction
-        # listener_condition: elbv2.ListenerCondition
+        # cluster: ecs.Cluster
+        # task_definition: ecs.TaskDefinition
+        # lambda_hook: lambda.Function
+        # blue_target_group: elbv2.ApplicationTargetGroup
+        # green_target_group: elbv2.ApplicationTargetGroup
+        # prod_listener_rule: elbv2.ApplicationListenerRule
         
-        application_listener_rule = elbv2.ApplicationListenerRule(self, "MyApplicationListenerRule",
-            listener=application_listener,
-            priority=123,
         
-            # the properties below are optional
-            action=listener_action,
-            conditions=[listener_condition],
-            target_groups=[application_target_group]
+        service = ecs.FargateService(self, "Service",
+            cluster=cluster,
+            task_definition=task_definition,
+            deployment_strategy=ecs.DeploymentStrategy.BLUE_GREEN
         )
+        
+        service.add_lifecycle_hook(ecs.DeploymentLifecycleLambdaTarget(lambda_hook, "PreScaleHook",
+            lifecycle_stages=[ecs.DeploymentLifecycleStage.PRE_SCALE_UP]
+        ))
+        
+        target = service.load_balancer_target(ecs.LoadBalancerTargetOptions(
+            container_name="nginx",
+            container_port=80,
+            protocol=ecs.Protocol.TCP
+        ), ecs.AlternateTarget("AlternateTarget",
+            alternate_target_group=green_target_group,
+            production_listener=ecs.ListenerRuleConfiguration.application_listener_rule(prod_listener_rule)
+        ))
+        
+        target.attach_to_application_target_group(blue_target_group)
     '''
 
     def __init__(

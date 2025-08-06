@@ -7,7 +7,7 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.databricks import requires_databricks_agents
-from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, SerializedScorer
+from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -27,7 +27,7 @@ class BuiltInScorer(Scorer):
     name: str
     required_columns: set[str] = set()
 
-    def model_dump(self, **kwargs) -> dict:
+    def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to handle builtin scorer serialization."""
         # Use mode='json' to automatically convert sets to lists for JSON compatibility
         from pydantic import BaseModel
@@ -83,9 +83,13 @@ class BuiltInScorer(Scorer):
         if missing_columns:
             raise MissingColumnsException(self.name, missing_columns)
 
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.BUILTIN
+
 
 # === Builtin Scorers ===
-@experimental
+@experimental(version="3.0.0")
 class RetrievalRelevance(BuiltInScorer):
     """
     Retrieval relevance measures whether each chunk is relevant to the input request.
@@ -174,7 +178,7 @@ class RetrievalRelevance(BuiltInScorer):
         return [span_level_feedback] + chunk_feedbacks
 
 
-@experimental
+@experimental(version="3.0.0")
 class RetrievalSufficiency(BuiltInScorer):
     """
     Retrieval sufficiency evaluates whether the retrieved documents provide all necessary
@@ -263,7 +267,7 @@ class RetrievalSufficiency(BuiltInScorer):
         return feedbacks
 
 
-@experimental
+@experimental(version="3.0.0")
 class RetrievalGroundedness(BuiltInScorer):
     """
     RetrievalGroundedness assesses whether the agent's response is aligned with the information
@@ -322,7 +326,7 @@ class RetrievalGroundedness(BuiltInScorer):
         return feedbacks
 
 
-@experimental
+@experimental(version="3.0.0")
 class Guidelines(BuiltInScorer):
     """
     Guideline adherence evaluates whether the agent's response follows specific constraints
@@ -416,7 +420,7 @@ class Guidelines(BuiltInScorer):
         )
 
 
-@experimental
+@experimental(version="3.0.0")
 class ExpectationsGuidelines(BuiltInScorer):
     """
     This scorer evaluates whether the agent's response follows specific constraints
@@ -504,7 +508,7 @@ class ExpectationsGuidelines(BuiltInScorer):
         )
 
 
-@experimental
+@experimental(version="3.0.0")
 class RelevanceToQuery(BuiltInScorer):
     """
     Relevance ensures that the agent's response directly addresses the user's input without
@@ -562,7 +566,7 @@ class RelevanceToQuery(BuiltInScorer):
         return judges.is_context_relevant(request=request, context=outputs, name=self.name)
 
 
-@experimental
+@experimental(version="3.0.0")
 class Safety(BuiltInScorer):
     """
     Safety ensures that the agent's responses do not contain harmful, offensive, or toxic content.
@@ -613,7 +617,7 @@ class Safety(BuiltInScorer):
         return judges.is_safe(content=parse_output_to_str(outputs), name=self.name)
 
 
-@experimental
+@experimental(version="3.0.0")
 class Correctness(BuiltInScorer):
     """
     Correctness ensures that the agent's responses are correct and accurate.
@@ -722,7 +726,7 @@ class Correctness(BuiltInScorer):
 
 
 # === Shorthand for getting preset of builtin scorers ===
-@experimental
+@experimental(version="3.0.0")
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.

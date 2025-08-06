@@ -7509,21 +7509,6 @@ class MetricAlertConditionInput(sgqlc.types.Input):
     id = sgqlc.types.Field(String, graphql_name="id")
 
 
-class MetricDimensionFilter(sgqlc.types.Input):
-    """Filter in key value pairs that would be applied in dimensions"""
-
-    __schema__ = schema
-    __field_names__ = ("key", "value", "value_str")
-    key = sgqlc.types.Field(String, graphql_name="key")
-    """name of the dimension."""
-
-    value = sgqlc.types.Field(Float, graphql_name="value")
-    """float value field."""
-
-    value_str = sgqlc.types.Field(String, graphql_name="valueStr")
-    """string value field. This field and value field should be exclusive"""
-
-
 class MetricsFilter(sgqlc.types.Input):
     """Filters for the metrics to be fetched"""
 
@@ -14975,6 +14960,7 @@ class ConversionResult(sgqlc.types.Type):
     __field_names__ = (
         "account_name",
         "account_uuid",
+        "has_job_connection",
         "use_cbp_v2",
         "table_monitor_specs",
         "removed_table_monitor_specs",
@@ -14988,7 +14974,7 @@ class ConversionResult(sgqlc.types.Type):
         "converted_monitor_uuids",
         "monitored_tables_count",
         "selected_tables_count",
-        "top_mcons_by_monitor_count",
+        "top_multicovered_mcons_by_monitor_count",
         "sample_covered_not_monitored",
         "sample_monitored_not_covered",
         "mcons_covered_by_table_monitor_audiences",
@@ -15007,6 +14993,10 @@ class ConversionResult(sgqlc.types.Type):
     account_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="accountName")
 
     account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
+
+    has_job_connection = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasJobConnection"
+    )
 
     use_cbp_v2 = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="useCbpV2")
 
@@ -15055,9 +15045,9 @@ class ConversionResult(sgqlc.types.Type):
 
     selected_tables_count = sgqlc.types.Field(Int, graphql_name="selectedTablesCount")
 
-    top_mcons_by_monitor_count = sgqlc.types.Field(
+    top_multicovered_mcons_by_monitor_count = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MconCountPair"))),
-        graphql_name="topMconsByMonitorCount",
+        graphql_name="topMulticoveredMconsByMonitorCount",
     )
 
     sample_covered_not_monitored = sgqlc.types.Field(
@@ -19715,6 +19705,7 @@ class ExtendedDataSource(sgqlc.types.Type):
         "segments",
         "connection_uuid",
         "uuid",
+        "segment_count_hint",
     )
     data_source = sgqlc.types.Field(
         sgqlc.types.non_null(DataSourceInputInterface), graphql_name="dataSource"
@@ -19737,6 +19728,9 @@ class ExtendedDataSource(sgqlc.types.Type):
 
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """UUID of the data source."""
+
+    segment_count_hint = sgqlc.types.Field(Int, graphql_name="segmentCountHint")
+    """Segment count from the previous run."""
 
 
 class FHEvent(sgqlc.types.Type):
@@ -21942,6 +21936,7 @@ class JobRoutingRuleSpec(sgqlc.types.Type):
         "original_rule_uuid",
         "audience",
         "job_anomaly_types",
+        "job_sub_types",
         "job_asset_rules",
         "description",
     )
@@ -21954,6 +21949,11 @@ class JobRoutingRuleSpec(sgqlc.types.Type):
     job_anomaly_types = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="jobAnomalyTypes",
+    )
+
+    job_sub_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="jobSubTypes",
     )
 
     job_asset_rules = sgqlc.types.Field(GenericScalar, graphql_name="jobAssetRules")
@@ -40615,45 +40615,6 @@ class NodeProperties(sgqlc.types.Type):
     """
 
 
-class NonTableMetric(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = (
-        "metric",
-        "value",
-        "measurement_timestamp",
-        "dimensions",
-        "job_execution_uuid",
-        "thresholds",
-    )
-    metric = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metric")
-    """Metric for which to fetch results. E.g; custom_metric_uuid"""
-
-    value = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="value")
-    """Measurement value for the metric"""
-
-    measurement_timestamp = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="measurementTimestamp"
-    )
-    """Time when measurement value was obtained"""
-
-    dimensions = sgqlc.types.Field(MetricDimensions, graphql_name="dimensions")
-    """List of key/value dimension pairs applied as filters"""
-
-    job_execution_uuid = sgqlc.types.Field(UUID, graphql_name="jobExecutionUuid")
-    """UUID of the job execution that produced the measurement"""
-
-    thresholds = sgqlc.types.Field(sgqlc.types.list_of("Threshold"), graphql_name="thresholds")
-    """Thresholds"""
-
-
-class NonTableMetrics(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("metrics", "is_partial_date_range")
-    metrics = sgqlc.types.Field(sgqlc.types.list_of(NonTableMetric), graphql_name="metrics")
-
-    is_partial_date_range = sgqlc.types.Field(Boolean, graphql_name="isPartialDateRange")
-
-
 class NotMonitoredReason(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("mcon", "reason", "rule")
@@ -42317,7 +42278,6 @@ class Query(sgqlc.types.Type):
         "get_metrics_v4",
         "get_field_metric_definitions",
         "get_comparison_monitor_field_metric_definitions",
-        "get_non_table_metrics",
         "get_top_segmented_where_condition_labels",
         "get_segmented_where_condition_labels",
         "get_segmented_where_condition_label_count",
@@ -53169,43 +53129,6 @@ class Query(sgqlc.types.Type):
       metrics
     """
 
-    get_non_table_metrics = sgqlc.types.Field(
-        NonTableMetrics,
-        graphql_name="getNonTableMetrics",
-        args=sgqlc.types.ArgDict(
-            (
-                ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
-                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
-                ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                (
-                    "dimension_filters",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(MetricDimensionFilter),
-                        graphql_name="dimensionFilters",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. Retrieves metric values in a given time
-    range AND in a given measurement time range
-
-    Arguments:
-
-    * `dw_id` (`UUID`): Warehouse the table is contained in
-    * `mcon` (`String`): the mcon associated with the metric
-    * `metric` (`String`): Type of metric (e.g. row_count)
-    * `start_time` (`DateTime`): Filter for data newer than this
-    * `end_time` (`DateTime`): Filter for data older than this
-    * `first` (`Int`): Number of metrics to retrieve
-    * `dimension_filters` (`[MetricDimensionFilter]`): Filter by a
-      list of key/value dimension pairs
-    """
-
     get_top_segmented_where_condition_labels = sgqlc.types.Field(
         sgqlc.types.list_of(CategoryLabelRank),
         graphql_name="getTopSegmentedWhereConditionLabels",
@@ -58352,6 +58275,7 @@ class RoutingRuleData(sgqlc.types.Type):
         "digest_settings_id",
         "created_by_id",
         "last_update_user_id",
+        "custom_message",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="uuid")
 
@@ -58386,6 +58310,8 @@ class RoutingRuleData(sgqlc.types.Type):
     created_by_id = sgqlc.types.Field(Int, graphql_name="createdById")
 
     last_update_user_id = sgqlc.types.Field(Int, graphql_name="lastUpdateUserId")
+
+    custom_message = sgqlc.types.Field(String, graphql_name="customMessage")
 
 
 class RowCountResponseType(sgqlc.types.Type):
@@ -61062,6 +60988,7 @@ class TableMonitorSpec(sgqlc.types.Type):
         "source_monitored_table_rules",
         "created_by_id",
         "distinct_mcons_count",
+        "notes",
     )
     warehouse_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="warehouseUuid")
 
@@ -61095,6 +61022,8 @@ class TableMonitorSpec(sgqlc.types.Type):
     created_by_id = sgqlc.types.Field(Int, graphql_name="createdById")
 
     distinct_mcons_count = sgqlc.types.Field(Int, graphql_name="distinctMconsCount")
+
+    notes = sgqlc.types.Field(String, graphql_name="notes")
 
 
 class TableMonitorStatus(sgqlc.types.Type):
@@ -71375,6 +71304,7 @@ class TableMonitor(sgqlc.types.Type, Node):
         "uuid",
         "account_uuid",
         "is_deleted",
+        "deleted_at",
         "description",
         "notes",
         "is_template_managed",
@@ -71383,7 +71313,6 @@ class TableMonitor(sgqlc.types.Type, Node):
         "warehouse_uuid",
         "monitor_name",
         "is_paused",
-        "deleted_time",
         "deleted_by",
         "domain_restrictions",
         "asset_selection",
@@ -71406,6 +71335,8 @@ class TableMonitor(sgqlc.types.Type, Node):
     """Customer account id"""
 
     is_deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDeleted")
+
+    deleted_at = sgqlc.types.Field(DateTime, graphql_name="deletedAt")
 
     description = sgqlc.types.Field(String, graphql_name="description")
 
@@ -71433,9 +71364,6 @@ class TableMonitor(sgqlc.types.Type, Node):
 
     is_paused = sgqlc.types.Field(Boolean, graphql_name="isPaused")
     """Is this monitor paused?"""
-
-    deleted_time = sgqlc.types.Field(DateTime, graphql_name="deletedTime")
-    """When the monitor was deleted"""
 
     deleted_by = sgqlc.types.Field("User", graphql_name="deletedBy")
     """Deleted by"""

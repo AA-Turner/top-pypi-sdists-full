@@ -11698,32 +11698,30 @@ class CfnVersionProps:
 class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="aws-cdk-lib.aws_lambda.Code"):
     '''Represents the Lambda Handler Code.
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        import aws_cdk.aws_lambda as lambda_
+        # Create or reference an existing L1 CfnApplicationInferenceProfile
+        cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
+            inference_profile_name="my-cfn-profile",
+            model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
+                copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
+            ),
+            description="Profile created via L1 construct"
+        )
         
+        # Import the L1 construct as an L2 ApplicationInferenceProfile
+        imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
         
-        fn = lambda_.Function(self, "MyFunc",
-            runtime=lambda_.Runtime.NODEJS_LATEST,
+        # Grant permissions to use the imported profile
+        lambda_function = lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime.PYTHON_3_11,
             handler="index.handler",
-            code=lambda_.Code.from_inline("exports.handler = handler.toString()")
+            code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
         )
         
-        rule = events.Rule(self, "rule",
-            event_pattern=events.EventPattern(
-                source=["aws.ec2"]
-            )
-        )
-        
-        queue = sqs.Queue(self, "Queue")
-        
-        rule.add_target(targets.LambdaFunction(fn,
-            dead_letter_queue=queue,  # Optional: add a dead letter queue
-            max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-            retry_attempts=2
-        ))
+        imported_from_cfn.grant_profile_usage(lambda_function)
     '''
 
     def __init__(self) -> None:
@@ -16838,32 +16836,30 @@ class FunctionProps(FunctionOptions):
         :param handler: The name of the method within your code that Lambda calls to execute your function. The format includes the file name. It can also include namespaces and other qualifiers, depending on the runtime. For more information, see https://docs.aws.amazon.com/lambda/latest/dg/foundation-progmodel.html. Use ``Handler.FROM_IMAGE`` when defining a function from a Docker image. NOTE: If you specify your source code as inline text by specifying the ZipFile property within the Code property, specify index.function_name as the handler.
         :param runtime: The runtime environment for the Lambda function that you are uploading. For valid values, see the Runtime property in the AWS Lambda Developer Guide. Use ``Runtime.FROM_IMAGE`` when defining a function from a Docker image.
 
-        :exampleMetadata: infused
+        :exampleMetadata: fixture=default infused
 
         Example::
 
-            import aws_cdk.aws_lambda as lambda_
+            # Create or reference an existing L1 CfnApplicationInferenceProfile
+            cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
+                inference_profile_name="my-cfn-profile",
+                model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
+                    copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
+                ),
+                description="Profile created via L1 construct"
+            )
             
+            # Import the L1 construct as an L2 ApplicationInferenceProfile
+            imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
             
-            fn = lambda_.Function(self, "MyFunc",
-                runtime=lambda_.Runtime.NODEJS_LATEST,
+            # Grant permissions to use the imported profile
+            lambda_function = lambda_.Function(self, "MyFunction",
+                runtime=lambda_.Runtime.PYTHON_3_11,
                 handler="index.handler",
-                code=lambda_.Code.from_inline("exports.handler = handler.toString()")
+                code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
             )
             
-            rule = events.Rule(self, "rule",
-                event_pattern=events.EventPattern(
-                    source=["aws.ec2"]
-                )
-            )
-            
-            queue = sqs.Queue(self, "Queue")
-            
-            rule.add_target(targets.LambdaFunction(fn,
-                dead_letter_queue=queue,  # Optional: add a dead letter queue
-                max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-                retry_attempts=2
-            ))
+            imported_from_cfn.grant_profile_usage(lambda_function)
         '''
         if isinstance(adot_instrumentation, dict):
             adot_instrumentation = AdotInstrumentationConfig(**adot_instrumentation)
@@ -20554,6 +20550,18 @@ class LambdaInsightsVersion(
         return typing.cast("LambdaInsightsVersion", jsii.sget(cls, "VERSION_1_0_333_0"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VERSION_1_0_391_0")
+    def VERSION_1_0_391_0(cls) -> "LambdaInsightsVersion":
+        '''Version 1.0.391.0.'''
+        return typing.cast("LambdaInsightsVersion", jsii.sget(cls, "VERSION_1_0_391_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VERSION_1_0_404_0")
+    def VERSION_1_0_404_0(cls) -> "LambdaInsightsVersion":
+        '''Version 1.0.404.0.'''
+        return typing.cast("LambdaInsightsVersion", jsii.sget(cls, "VERSION_1_0_404_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VERSION_1_0_54_0")
     def VERSION_1_0_54_0(cls) -> "LambdaInsightsVersion":
         '''Version 1.0.54.0.'''
@@ -22317,27 +22325,30 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Runtime
     If you need to use a runtime name that doesn't exist as a static member, you
     can instantiate a ``Runtime`` object, e.g: ``new Runtime('nodejs99.99')``.
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        import aws_cdk.aws_signer as signer
-        
-        
-        signing_profile = signer.SigningProfile(self, "SigningProfile",
-            platform=signer.Platform.AWS_LAMBDA_SHA384_ECDSA
+        # Create or reference an existing L1 CfnApplicationInferenceProfile
+        cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
+            inference_profile_name="my-cfn-profile",
+            model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
+                copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
+            ),
+            description="Profile created via L1 construct"
         )
         
-        code_signing_config = lambda_.CodeSigningConfig(self, "CodeSigningConfig",
-            signing_profiles=[signing_profile]
-        )
+        # Import the L1 construct as an L2 ApplicationInferenceProfile
+        imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
         
-        lambda_.Function(self, "Function",
-            code_signing_config=code_signing_config,
-            runtime=lambda_.Runtime.NODEJS_18_X,
+        # Grant permissions to use the imported profile
+        lambda_function = lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime.PYTHON_3_11,
             handler="index.handler",
-            code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler"))
+            code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
         )
+        
+        imported_from_cfn.grant_profile_usage(lambda_function)
     '''
 
     def __init__(
@@ -29414,32 +29425,30 @@ class Function(
     This construct does not yet reproduce all features from the underlying resource
     library.
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        import aws_cdk.aws_lambda as lambda_
+        # Create or reference an existing L1 CfnApplicationInferenceProfile
+        cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
+            inference_profile_name="my-cfn-profile",
+            model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
+                copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
+            ),
+            description="Profile created via L1 construct"
+        )
         
+        # Import the L1 construct as an L2 ApplicationInferenceProfile
+        imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
         
-        fn = lambda_.Function(self, "MyFunc",
-            runtime=lambda_.Runtime.NODEJS_LATEST,
+        # Grant permissions to use the imported profile
+        lambda_function = lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime.PYTHON_3_11,
             handler="index.handler",
-            code=lambda_.Code.from_inline("exports.handler = handler.toString()")
+            code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
         )
         
-        rule = events.Rule(self, "rule",
-            event_pattern=events.EventPattern(
-                source=["aws.ec2"]
-            )
-        )
-        
-        queue = sqs.Queue(self, "Queue")
-        
-        rule.add_target(targets.LambdaFunction(fn,
-            dead_letter_queue=queue,  # Optional: add a dead letter queue
-            max_event_age=Duration.hours(2),  # Optional: set the maxEventAge retry policy
-            retry_attempts=2
-        ))
+        imported_from_cfn.grant_profile_usage(lambda_function)
     '''
 
     def __init__(

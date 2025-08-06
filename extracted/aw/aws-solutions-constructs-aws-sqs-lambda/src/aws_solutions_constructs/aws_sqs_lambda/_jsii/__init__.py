@@ -34,9 +34,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-solutions-constructs/aws-sqs-lambda",
-    "2.90.3",
+    "2.90.4",
     __name__[0:-6],
-    "aws-sqs-lambda@2.90.3.jsii.tgz",
+    "aws-sqs-lambda@2.90.4.jsii.tgz",
 )
 
 __all__ = [

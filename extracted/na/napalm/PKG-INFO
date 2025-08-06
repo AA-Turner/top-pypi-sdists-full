@@ -1,20 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: napalm
-Version: 5.0.0
+Version: 5.1.0
 Summary: Network Automation and Programmability Abstraction Layer with Multivendor support
 Home-page: https://github.com/napalm-automation/napalm
-Author: David Barroso, Kirk Byers, Mircea Ulinic
-Author-email: dbarrosop@dravetech.com, ping@mirceaulinic.net, ktbyers@twb-tech.com
-License: Apache 2.0
+Author: David Barroso, Kirk Byers, Mircea Ulinic, Brandon Ewing
+Author-email: dbarrosop@dravetech.com, ping@mirceaulinic.net, ktbyers@twb-tech.com, brandon.ewing@warningg.com
+License: Apache-2.0
 Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Description-Content-Type: text/markdown
@@ -28,15 +28,24 @@ Requires-Dist: jinja2
 Requires-Dist: netaddr
 Requires-Dist: pyYAML
 Requires-Dist: pyeapi>=1.0.2
-Requires-Dist: netmiko>=4.1.0
-Requires-Dist: junos-eznc>=2.7.0
-Requires-Dist: scp
+Requires-Dist: netmiko>=4.4.0
+Requires-Dist: junos-eznc>=2.7.4
 Requires-Dist: lxml>=4.3.0
 Requires-Dist: ncclient
 Requires-Dist: ttp
 Requires-Dist: ttp_templates
 Requires-Dist: netutils>=1.0.0
 Requires-Dist: typing-extensions>=4.3.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 [![PyPI](https://img.shields.io/pypi/v/napalm.svg)](https://pypi.python.org/pypi/napalm)
 [![PyPI versions](https://img.shields.io/pypi/pyversions/napalm.svg)](https://pypi.python.org/pypi/napalm)
@@ -71,14 +80,14 @@ Install
 pip install napalm
 ```
 
+*Note*: Beginning with release 5.1.0 and later, NAPALM offers support for
+Python 3.9+ only.
+
 *Note*: Beginning with release 5.0.0 and later, NAPALM offers support for
 Python 3.8+ only.
 
 *Note*: Beginning with release 4.0.0 and later, NAPALM offers support for
 Python 3.7+ only.
-
-*Note*: Beginning with release 3.0.0 and later, NAPALM offers support for
-Python 3.6+ only.
 
 
 Upgrading

@@ -1,14 +1,9 @@
 Metadata-Version: 2.4
 Name: power-grid-model
-Version: 1.11.45
+Version: 1.11.49
 Summary: Python/C++ library for distribution power system analysis
-Author-email: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
+Author-Email: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>
 License-Expression: MPL-2.0
-Project-URL: Home-page, https://lfenergy.org/projects/power-grid-model/
-Project-URL: GitHub, https://github.com/PowerGridModel/power-grid-model
-Project-URL: Documentation, https://power-grid-model.readthedocs.io/en/stable/
-Project-URL: Mailing-list, https://lists.lfenergy.org/g/powergridmodel
-Project-URL: Discussion, https://github.com/orgs/PowerGridModel/discussions
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: C++
@@ -19,9 +14,12 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS
 Classifier: Topic :: Scientific/Engineering :: Physics
+Project-URL: Home-page, https://lfenergy.org/projects/power-grid-model/
+Project-URL: GitHub, https://github.com/PowerGridModel/power-grid-model
+Project-URL: Documentation, https://power-grid-model.readthedocs.io/en/stable/
+Project-URL: Mailing-list, https://lists.lfenergy.org/g/powergridmodel
+Project-URL: Discussion, https://github.com/orgs/PowerGridModel/discussions
 Requires-Python: >=3.11
-Description-Content-Type: text/markdown
-License-File: LICENSE
 Requires-Dist: numpy>=1.21.0
 Provides-Extra: dev
 Requires-Dist: msgpack; extra == "dev"
@@ -42,7 +40,7 @@ Requires-Dist: numpydoc; extra == "doc"
 Requires-Dist: pandas; extra == "doc"
 Requires-Dist: gitpython; extra == "doc"
 Requires-Dist: pylint; extra == "doc"
-Dynamic: license-file
+Description-Content-Type: text/markdown
 
 <!--
 SPDX-FileCopyrightText: Contributors to the Power Grid Model project <powergridmodel@lfenergy.org>

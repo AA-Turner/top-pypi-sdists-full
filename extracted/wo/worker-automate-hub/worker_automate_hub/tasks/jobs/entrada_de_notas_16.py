@@ -557,9 +557,23 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
 
         try:
             console.print("Verificando itens não localizados ou NCM...\n")
-            itens_by_supplier = await is_window_open_by_class("TFrmAguarde", "TMessageForm")
+            
+            max_tentativas = 3
+            tentativa = 0
+            itens_by_supplier = {"IsOpened": False}
 
-            if itens_by_supplier["IsOpened"] == True:
+            while tentativa < max_tentativas:
+                itens_by_supplier = await is_window_open_by_class("TFrmAguarde", "TMessageForm")
+
+                if itens_by_supplier["IsOpened"]:
+                    break  # janela foi detectada
+
+                tentativa += 1
+                if tentativa < max_tentativas:
+                    console.print(f"Tentativa {tentativa} falhou. Aguardando 10 segundos antes de tentar novamente...")
+                    await asyncio.sleep(10)
+
+            if itens_by_supplier["IsOpened"]:
                 itens_by_supplier_work = await itens_not_found_supplier(nota.get("nfe"))
 
                 if not itens_by_supplier_work.sucesso:
@@ -572,6 +586,7 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
             )
+
 
         await worker_sleep(3)
 
@@ -869,4 +884,3 @@ async def entrada_de_notas_16(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
             status=RpaHistoricoStatusEnum.Falha,
             tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
         )
-    

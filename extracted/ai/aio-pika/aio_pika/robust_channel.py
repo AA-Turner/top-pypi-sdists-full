@@ -23,7 +23,7 @@ from .tools import CallbackCollection
 log = get_logger(__name__)
 
 
-class RobustChannel(Channel, AbstractRobustChannel):    # type: ignore
+class RobustChannel(Channel, AbstractRobustChannel):
     """ Channel abstraction """
 
     QUEUE_CLASS: Type[Queue] = RobustQueue
@@ -143,6 +143,7 @@ class RobustChannel(Channel, AbstractRobustChannel):    # type: ignore
         await channel.basic_qos(
             prefetch_count=self._prefetch_count,
             prefetch_size=self._prefetch_size,
+            global_=self._global_qos,
         )
 
         for exchange in exchanges:

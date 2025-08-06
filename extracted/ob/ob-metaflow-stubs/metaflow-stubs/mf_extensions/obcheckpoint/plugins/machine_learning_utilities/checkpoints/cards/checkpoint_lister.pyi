@@ -1,14 +1,14 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-04T19:06:54.525496                                                            #
+# MF version: 2.17.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-05T23:30:10.050011                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import threading
 import typing
 import metaflow
+import threading
 if typing.TYPE_CHECKING:
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures
     import threading

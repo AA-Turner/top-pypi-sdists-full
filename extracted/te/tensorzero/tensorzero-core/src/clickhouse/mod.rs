@@ -51,6 +51,47 @@ pub fn make_clickhouse_http_client() -> Result<Client, Error> {
         })
 }
 
+/// Defines all of the ClickHouse tables that we write to from Rust
+/// This will be used to implement per-table ClickHouse write batching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TableName {
+    BatchModelInference,
+    BatchRequest,
+    ChatInference,
+    ChatInferenceDatapoint,
+    JsonInference,
+    JsonInferenceDatapoint,
+    ModelInference,
+    ModelInferenceCache,
+    DeploymentID,
+    TensorZeroMigration,
+    BooleanMetricFeedback,
+    FloatMetricFeedback,
+    DemonstrationFeedback,
+    CommentFeedback,
+}
+
+impl TableName {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TableName::BatchModelInference => "BatchModelInference",
+            TableName::BatchRequest => "BatchRequest",
+            TableName::ChatInference => "ChatInference",
+            TableName::ChatInferenceDatapoint => "ChatInferenceDatapoint",
+            TableName::JsonInference => "JsonInference",
+            TableName::JsonInferenceDatapoint => "JsonInferenceDatapoint",
+            TableName::ModelInference => "ModelInference",
+            TableName::ModelInferenceCache => "ModelInferenceCache",
+            TableName::DeploymentID => "DeploymentID",
+            TableName::TensorZeroMigration => "TensorZeroMigration",
+            TableName::BooleanMetricFeedback => "BooleanMetricFeedback",
+            TableName::FloatMetricFeedback => "FloatMetricFeedback",
+            TableName::DemonstrationFeedback => "DemonstrationFeedback",
+            TableName::CommentFeedback => "CommentFeedback",
+        }
+    }
+}
+
 impl ClickHouseConnectionInfo {
     /// Create a new ClickHouse connection info from a database URL.
     /// You should always use this function in production code or generic integration tests that
@@ -121,18 +162,18 @@ impl ClickHouseConnectionInfo {
     pub async fn write(
         &self,
         rows: &[impl Serialize + Send + Sync],
-        table: &str,
+        table: TableName,
     ) -> Result<(), Error> {
         match self {
             Self::Disabled => Ok(()),
             Self::Mock { mock_data, .. } => {
-                write_mock(rows, table, &mut mock_data.write().await).await
+                write_mock(rows, table.as_str(), &mut mock_data.write().await).await
             }
             Self::Production {
                 database_url,
                 client,
                 ..
-            } => write_production(database_url, client, rows, table).await,
+            } => write_production(database_url, client, rows, table.as_str()).await,
         }
     }
 
@@ -217,6 +258,16 @@ impl ClickHouseConnectionInfo {
         query: String,
         parameters: &HashMap<&str, &str>,
     ) -> Result<ClickHouseResponse, Error> {
+        self.run_query_synchronous_with_err_logging(query, parameters, true)
+            .await
+    }
+
+    pub async fn run_query_synchronous_with_err_logging(
+        &self,
+        query: String,
+        parameters: &HashMap<&str, &str>,
+        err_logging: bool,
+    ) -> Result<ClickHouseResponse, Error> {
         match self {
             Self::Disabled => Ok(ClickHouseResponse {
                 response: String::new(),
@@ -257,9 +308,12 @@ impl ClickHouseConnectionInfo {
                     .send()
                     .await
                     .map_err(|e| {
-                        Error::new(ErrorDetails::ClickHouseQuery {
-                            message: DisplayOrDebugGateway::new(e).to_string(),
-                        })
+                        Error::new_with_err_logging(
+                            ErrorDetails::ClickHouseQuery {
+                                message: DisplayOrDebugGateway::new(e).to_string(),
+                            },
+                            err_logging,
+                        )
                     })?;
                 let status = res.status();
 
@@ -268,16 +322,26 @@ impl ClickHouseConnectionInfo {
                     // NOTE: X-Clickhouse-Summary is a ClickHouse-specific header that contains information about the query execution.
                     // It is not formally specified in the ClickHouse documentation so we only warn if it isn't working but won't error here.
                     let summary_str = summary.to_str().map_err(|e| {
-                        Error::new(ErrorDetails::ClickHouseQuery {
-                            message: format!("Failed to parse x-clickhouse-summary header: {e}"),
-                        })
+                        Error::new_with_err_logging(
+                            ErrorDetails::ClickHouseQuery {
+                                message: format!(
+                                    "Failed to parse x-clickhouse-summary header: {e}"
+                                ),
+                            },
+                            err_logging,
+                        )
                     })?;
 
                     serde_json::from_str::<ClickHouseResponseMetadata>(summary_str).map_err(
                         |e| {
-                            Error::new(ErrorDetails::ClickHouseQuery {
-                                message: format!("Failed to deserialize x-clickhouse-summary: {e}"),
-                            })
+                            Error::new_with_err_logging(
+                                ErrorDetails::ClickHouseQuery {
+                                    message: format!(
+                                        "Failed to deserialize x-clickhouse-summary: {e}"
+                                    ),
+                                },
+                                err_logging,
+                            )
                         },
                     )?
                 } else {
@@ -289,9 +353,12 @@ impl ClickHouseConnectionInfo {
                 };
 
                 let response_body = res.text().await.map_err(|e| {
-                    Error::new(ErrorDetails::ClickHouseQuery {
-                        message: DisplayOrDebugGateway::new(e).to_string(),
-                    })
+                    Error::new_with_err_logging(
+                        ErrorDetails::ClickHouseQuery {
+                            message: DisplayOrDebugGateway::new(e).to_string(),
+                        },
+                        err_logging,
+                    )
                 })?;
 
                 match status {
@@ -299,9 +366,12 @@ impl ClickHouseConnectionInfo {
                         response: response_body,
                         metadata,
                     }),
-                    _ => Err(Error::new(ErrorDetails::ClickHouseQuery {
-                        message: response_body,
-                    })),
+                    _ => Err(Error::new_with_err_logging(
+                        ErrorDetails::ClickHouseQuery {
+                            message: response_body,
+                        },
+                        err_logging,
+                    )),
                 }
             }
         }
@@ -618,7 +688,7 @@ fn set_clickhouse_format_settings(database_url: &mut Url) {
         }
     }
 
-    for setting in OVERRIDDEN_SETTINGS.iter() {
+    for setting in &OVERRIDDEN_SETTINGS {
         database_url.query_pairs_mut().append_pair(setting, "0");
     }
     database_url.query_pairs_mut().finish();

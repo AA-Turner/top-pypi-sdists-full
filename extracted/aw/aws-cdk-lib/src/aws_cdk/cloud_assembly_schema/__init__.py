@@ -4865,6 +4865,7 @@ class EndpointServiceAvailabilityZonesContextQuery(ContextLookupRoleOptions):
     name_mapping={
         "explanation": "explanation",
         "recommended_value": "recommendedValue",
+        "unconfigured_behaves_like": "unconfiguredBehavesLike",
         "user_value": "userValue",
     },
 )
@@ -4874,12 +4875,14 @@ class FeatureFlag:
         *,
         explanation: typing.Optional[builtins.str] = None,
         recommended_value: typing.Any = None,
+        unconfigured_behaves_like: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         user_value: typing.Any = None,
     ) -> None:
         '''A single feature flag.
 
         :param explanation: Explanation about the purpose of this flag that can be shown to the user. Default: - No description
         :param recommended_value: The library-recommended value for this flag, if any. It is possible that there is no recommended value. Default: - No recommended value.
+        :param unconfigured_behaves_like: The value of the flag if it is unconfigured. Default: - No value
         :param user_value: The value configured by the user. This is the value configured at the root of the tree. Users may also have configured values at specific locations in the tree; we don't report on those. Default: - Not configured by the user
 
         :exampleMetadata: fixture=_generated
@@ -4891,11 +4894,15 @@ class FeatureFlag:
             from aws_cdk import cloud_assembly_schema
             
             # recommended_value: Any
+            # unconfigured_behaves_like: Any
             # user_value: Any
             
             feature_flag = FeatureFlag(
                 explanation="explanation",
                 recommended_value=recommended_value,
+                unconfigured_behaves_like={
+                    "unconfigured_behaves_like_key": unconfigured_behaves_like
+                },
                 user_value=user_value
             )
         '''
@@ -4903,12 +4910,15 @@ class FeatureFlag:
             type_hints = typing.get_type_hints(_typecheckingstub__d7ccfacd89aa44cd30dd2b6b40d937da9546cf5f11f13266ca45710d4e373233)
             check_type(argname="argument explanation", value=explanation, expected_type=type_hints["explanation"])
             check_type(argname="argument recommended_value", value=recommended_value, expected_type=type_hints["recommended_value"])
+            check_type(argname="argument unconfigured_behaves_like", value=unconfigured_behaves_like, expected_type=type_hints["unconfigured_behaves_like"])
             check_type(argname="argument user_value", value=user_value, expected_type=type_hints["user_value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if explanation is not None:
             self._values["explanation"] = explanation
         if recommended_value is not None:
             self._values["recommended_value"] = recommended_value
+        if unconfigured_behaves_like is not None:
+            self._values["unconfigured_behaves_like"] = unconfigured_behaves_like
         if user_value is not None:
             self._values["user_value"] = user_value
 
@@ -4931,6 +4941,17 @@ class FeatureFlag:
         '''
         result = self._values.get("recommended_value")
         return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def unconfigured_behaves_like(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''The value of the flag if it is unconfigured.
+
+        :default: - No value
+        '''
+        result = self._values.get("unconfigured_behaves_like")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
     def user_value(self) -> typing.Any:
@@ -4986,6 +5007,7 @@ class FeatureFlagReportProperties:
             from aws_cdk import cloud_assembly_schema
             
             # recommended_value: Any
+            # unconfigured_behaves_like: Any
             # user_value: Any
             
             feature_flag_report_properties = FeatureFlagReportProperties(
@@ -4993,6 +5015,9 @@ class FeatureFlagReportProperties:
                     "flags_key": FeatureFlag(
                         explanation="explanation",
                         recommended_value=recommended_value,
+                        unconfigured_behaves_like={
+                            "unconfigured_behaves_like_key": unconfigured_behaves_like
+                        },
                         user_value=user_value
                     )
                 },
@@ -5876,7 +5901,7 @@ class IntegManifest:
 
         :param test_cases: test cases.
         :param version: Version of the manifest.
-        :param enable_lookups: Enable lookups for this test. If lookups are enabled then ``stackUpdateWorkflow`` must be set to false. Lookups should only be enabled when you are explicitely testing lookups. Default: false
+        :param enable_lookups: Enable lookups for this test. If lookups are enabled then ``stackUpdateWorkflow`` must be set to false. Lookups should only be enabled when you are explicitly testing lookups. Default: false
         :param synth_context: Additional context to use when performing a synth. Any context provided here will override any default context Default: - no additional context
 
         :exampleMetadata: fixture=_generated
@@ -6035,7 +6060,7 @@ class IntegManifest:
 
         If lookups are enabled
         then ``stackUpdateWorkflow`` must be set to false.
-        Lookups should only be enabled when you are explicitely testing
+        Lookups should only be enabled when you are explicitly testing
         lookups.
 
         :default: false
@@ -9569,6 +9594,7 @@ def _typecheckingstub__d7ccfacd89aa44cd30dd2b6b40d937da9546cf5f11f13266ca45710d4
     *,
     explanation: typing.Optional[builtins.str] = None,
     recommended_value: typing.Any = None,
+    unconfigured_behaves_like: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     user_value: typing.Any = None,
 ) -> None:
     """Type checking stubs"""

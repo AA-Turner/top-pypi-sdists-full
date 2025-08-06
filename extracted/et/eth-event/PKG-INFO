@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: eth-event
-Version: 1.3.4
+Version: 1.3.5
 Summary: Ethereum event decoder and topic generator
 Home-page: https://github.com/iamdefinitelyahuman/eth-event
 Author: Benjamin Hauser

@@ -1,12 +1,12 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-  "setuptools",
+  "setuptools>=77",
 ]
 
 [project]
 name = "time-machine"
-version = "2.16.0"
+version = "2.17.0"
 description = "Travel through time in your tests."
 readme = "README.rst"
 keywords = [
@@ -19,6 +19,8 @@ keywords = [
   "time",
   "warp",
 ]
+license = "MIT"
+license-files = [ "LICENSE" ]
 authors = [
   { name = "Adam Johnson", email = "me@adamj.eu" },
 ]
@@ -27,7 +29,6 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Pytest",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
@@ -36,25 +37,94 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
 ]
 dependencies = [
   "python-dateutil",
 ]
-urls.Changelog = "https://github.com/adamchainz/time-machine/blob/main/CHANGELOG.rst"
+optional-dependencies.cli = [
+  "tokenize-rt",
+]
+urls.Changelog = "https://time-machine.readthedocs.io/en/latest/changelog.html"
+urls.Documentation = "https://time-machine.readthedocs.io/"
 urls.Funding = "https://adamj.eu/books/"
 urls.Repository = "https://github.com/adamchainz/time-machine"
 entry-points.pytest11.time_machine = "time_machine"
 
-[tool.isort]
-add_imports = [
-  "from __future__ import annotations",
+[dependency-groups]
+test = [
+  "backports-zoneinfo; python_version<'3.9'",
+  "coverage[toml]",
+  "pytest",
+  "pytest-randomly",
+  "python-dateutil",
 ]
-force_single_line = true
-profile = "black"
+docs = [
+  "furo>=2024.8.6",
+  "sphinx>=7.4.7",
+  "sphinx-build-compatibility",
+  "sphinx-copybutton>=0.5.2",
+]
+
+[tool.cibuildwheel]
+build = [
+  "cp314-*",
+  "cp314t-*",
+  "cp313-*",
+  "cp313t-*",
+  "cp312-*",
+  "cp311-*",
+  "cp310-*",
+  "cp39-*",
+]
+enable = [
+  # Enable free-threaded wheels on Python 3.13 (where it was experimental)
+  "cpython-freethreading",
+]
+linux.archs = [ "x86_64", "i686", "aarch64" ]
+macos.archs = [ "x86_64", "universal2" ]
+windows.archs = [ "AMD64", "x86", "ARM64" ]
+
+[tool.ruff]
+lint.select = [
+  # flake8-bugbear
+  "B",
+  # flake8-comprehensions
+  "C4",
+  # pycodestyle
+  "E",
+  # Pyflakes errors
+  "F",
+  # isort
+  "I",
+  # flake8-simplify
+  "SIM",
+  # flake8-tidy-imports
+  "TID",
+  # pyupgrade
+  "UP",
+  # Pyflakes warnings
+  "W",
+]
+lint.ignore = [
+  # flake8-bugbear opinionated rules
+  "B9",
+  # line-too-long
+  "E501",
+  # suppressible-exception
+  "SIM105",
+  # if-else-block-instead-of-if-exp
+  "SIM108",
+]
+lint.extend-safe-fixes = [
+  # non-pep585-annotation
+  "UP006",
+]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
 
 [tool.pyproject-fmt]
-max_supported_python = "3.13"
+max_supported_python = "3.14"
 
 [tool.pytest.ini_options]
 addopts = """\
@@ -67,7 +137,7 @@ xfail_strict = true
 branch = true
 parallel = true
 source = [
-  "src/_time_machine.c",
+  "time_machine",
   "tests",
 ]
 
@@ -97,3 +167,6 @@ allow_untyped_defs = true
 
 [tool.rstcheck]
 report_level = "ERROR"
+
+[tool.uv.sources]
+sphinx-build-compatibility = { git = "https://github.com/readthedocs/sphinx-build-compatibility", rev = "4f304bd4562cdc96316f4fec82b264ca379d23e0" }

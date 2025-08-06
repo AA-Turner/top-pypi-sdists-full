@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.16.8.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-04T19:06:54.499193                                                            #
+# MF version: 2.17.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-05T23:30:10.024200                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 import logging
 if typing.TYPE_CHECKING:
-    import logging
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._vendor.spinner.spinners
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.utils
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._vendor.spinner.spinners
+    import logging
 
 from ......_vendor import click as click
 from ._vendor.spinner.spinners import Spinners as Spinners

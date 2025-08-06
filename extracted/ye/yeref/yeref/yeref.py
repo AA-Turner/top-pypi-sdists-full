@@ -118,7 +118,6 @@ from yeref.l_ import l_inline_demo, l_inline_bot, l_inline_post, l_inline_media,
     l_payment_success, l_payment_hashtag, l_inline_codex, l_permissions_add_members, l_admin_closed_group_reject, \
     l_insert_group_link, l_start_group_check, l_check_group_members, l_admin_rights_required
 
-
 # region group links
 payment_link = 'http://bagazhznaniy.ru/wp-content/uploads/2014/03/zhivaya-priroda.jpg'
 # channel_library_ru_link = 'https://t.me/+f-0AbTALTOg4ODBk'
@@ -2461,6 +2460,8 @@ img_jpg = '/9j/4AAQSkZJRgABAQAAAQABAAD//gAfQ29tcHJlc3NlZCBieSBqcGVnLXJlY29tcHJlc
 text1024 = f"""<code>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Morbi tincidunt augue interdum velit euismod in pellentesque massa. Sit amet aliquam id diam maecenas. Morbi tristique senectus et netus. Eu feugiat pretium nibh ipsum consequat nisl vel. Ipsum dolor sit amet consectetur adipiscing elit duis tristique sollicitudin. Consectetur purus ut faucibus pulvinar elementum integer enim. Dignissim enim sit amet venenatis. Varius vel pharetra vel turpis nunc eget. Erat pellentesque adipiscing commodo elit. Iaculis nunc sed augue lacus viverra vitae congue eu. At imperdiet dui accumsan sit. Viverra vitae congue eu consequat ac. Ut ornare lectus sit amet est placerat in egestas. Libero enim sed faucibus turpis in eu mi bibendum. Quis vel eros donec ac odio tempor orci dapibus ultrices. Turpis massa tincidunt dui ut ornare lectus sit. Sit amet massa vitae tortor condimentum lacinia quis. Nulla malesuada pellentesque elit eget gravida cum sociis natoque</code>"""
 text2048 = f"""<code>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Morbi tincidunt augue interdum velit euismod in pellentesque massa. Sit amet aliquam id diam maecenas. Morbi tristique senectus et netus. Eu feugiat pretium nibh ipsum consequat nisl vel. Ipsum dolor sit amet consectetur adipiscing elit duis tristique sollicitudin. Consectetur purus ut faucibus pulvinar elementum integer enim. Dignissim enim sit amet venenatis. Varius vel pharetra vel turpis nunc eget. Erat pellentesque adipiscing commodo elit. Iaculis nunc sed augue lacus viverra vitae congue eu. At imperdiet dui accumsan sit. Viverra vitae congue eu consequat ac. Ut ornare lectus sit amet est placerat in egestas. Libero enim sed faucibus turpis in eu mi bibendum. Quis vel eros donec ac odio tempor orci dapibus ultrices. Turpis massa tincidunt dui ut ornare lectus sit. Sit amet massa vitae tortor condimentum lacinia quis. Nulla malesuada pellentesque elit eget gravida cum sociis natoque. Etiam non quam lacus suspendisse faucibus. Enim praesent elementum facilisis leo. Et netus et malesuada fames. Felis donec et odio pellentesque diam. Tellus id interdum velit laoreet id. Faucibus ornare suspendisse sed nisi lacus sed viverra. Risus sed vulputate odio ut enim blandit volutpat maecenas volutpat. Eget gravida cum sociis natoque penatibus et magnis. Elit at imperdiet dui accumsan. Facilisis gravida neque convallis a cras semper. Pretium viverra suspendisse potenti nullam ac tortor vitae. Non quam lacus suspendisse faucibus interdum posuere lorem ipsum dolor. Purus in mollis nunc sed id semper. Dignissim sodales ut eu sem integer vitae. Ridiculus mus mauris vitae ultricies. Orci sagittis eu volutpat odio facilisis mauris. Quis commodo odio aenean sed adipiscing diam donec adipiscing. Natoque penatibus et magnis dis parturient montes. Libero id faucibus nisl tincidunt eget nullam non nisi est. Vitae elementum curabitur vitae nunc sed velit dignissim sodales ut. Ullamcorper malesuada proin libero</code>"""
 text4096 = f"""<code>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Morbi tincidunt augue interdum velit euismod in pellentesque massa. Sit amet aliquam id diam maecenas. Morbi tristique senectus et netus. Eu feugiat pretium nibh ipsum consequat nisl vel. Ipsum dolor sit amet consectetur adipiscing elit duis tristique sollicitudin. Consectetur purus ut faucibus pulvinar elementum integer enim. Dignissim enim sit amet venenatis. Varius vel pharetra vel turpis nunc eget. Erat pellentesque adipiscing commodo elit. Iaculis nunc sed augue lacus viverra vitae congue eu. At imperdiet dui accumsan sit. Viverra vitae congue eu consequat ac. Ut ornare lectus sit amet est placerat in egestas. Libero enim sed faucibus turpis in eu mi bibendum. Quis vel eros donec ac odio tempor orci dapibus ultrices. Turpis massa tincidunt dui ut ornare lectus sit. Sit amet massa vitae tortor condimentum lacinia quis. Nulla malesuada pellentesque elit eget gravida cum sociis natoque. Etiam non quam lacus suspendisse faucibus. Enim praesent elementum facilisis leo. Et netus et malesuada fames. Felis donec et odio pellentesque diam. Tellus id interdum velit laoreet id. Faucibus ornare suspendisse sed nisi lacus sed viverra. Risus sed vulputate odio ut enim blandit volutpat maecenas volutpat. Eget gravida cum sociis natoque penatibus et magnis. Elit at imperdiet dui accumsan. Facilisis gravida neque convallis a cras semper. Pretium viverra suspendisse potenti nullam ac tortor vitae. Non quam lacus suspendisse faucibus interdum posuere lorem ipsum dolor. Purus in mollis nunc sed id semper. Dignissim sodales ut eu sem integer vitae. Ridiculus mus mauris vitae ultricies. Orci sagittis eu volutpat odio facilisis mauris. Quis commodo odio aenean sed adipiscing diam donec adipiscing. Natoque penatibus et magnis dis parturient montes. Libero id faucibus nisl tincidunt eget nullam non nisi est. Vitae elementum curabitur vitae nunc sed velit dignissim sodales ut. Ullamcorper malesuada proin libero nunc consequat interdum. Tincidunt augue interdum velit euismod. Fringilla ut morbi tincidunt augue. Est velit egestas dui id ornare arcu. Vestibulum rhoncus est pellentesque elit. Massa tincidunt dui ut ornare lectus sit. Tristique et egestas quis ipsum suspendisse ultrices gravida dictum. Ornare massa eget egestas purus viverra accumsan in nisl. Tristique nulla aliquet enim tortor at. Imperdiet nulla malesuada pellentesque elit eget gravida cum sociis. Sit amet tellus cras adipiscing. Interdum velit laoreet id donec ultrices tincidunt arcu. Arcu cursus euismod quis viverra nibh. Mattis pellentesque id nibh tortor id aliquet lectus proin nibh. Viverra adipiscing at in tellus integer feugiat. Ipsum faucibus vitae aliquet nec ullamcorper sit amet. Et sollicitudin ac orci phasellus egestas tellus. Enim nulla aliquet porttitor lacus. Sed sed risus pretium quam vulputate dignissim. Gravida dictum fusce ut placerat orci. Vel orci porta non pulvinar neque. Fames ac turpis egestas maecenas pharetra convallis. Sit amet cursus sit amet dictum sit. Tellus in hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Venenatis a condimentum vitae sapien. Facilisis sed odio morbi quis commodo odio aenean sed. Aliquet enim tortor at auctor urna nunc. Non odio euismod lacinia at quis risus sed vulputate odio. Aliquam purus sit amet luctus. In est ante in nibh mauris cursus mattis. Nulla facilisi cras fermentum odio eu feugiat pretium nibh. Ut ornare lectus sit amet est. Nunc mi ipsum faucibus vitae aliquet nec. Ac odio tempor orci dapibus ultrices in iaculis. Et netus et malesuada fames ac turpis. Volutpat est velit egestas dui id ornare. Non pulvinar neque laoreet suspendisse interdum. Egestas diam in arcu cursus euismod quis viverra nibh cras. Nulla pellentesque dignissim enim sit amet venenatis. Enim ut sem viverra aliquet eget. Congue nisi vitae suscipit tellus. Sodales neque sodales ut etiam sit amet. Ut ornare lectus sit amet est. Tincidunt arcu non sodales neque sodales ut etiam. Amet risus nullam eget feli ege</code>"""
+
+
 # endregion
 # endregion
 
@@ -2523,7 +2524,8 @@ async def db_change(sql, param=None, db=None):
         except Exception as e:
             # logger.info(log_ % str(e))
             logger.info(log_ % f"{os.path.basename(db)}: {str(e)} ({retry=})")
-            if 'no such column' in str(e) or 'binding' in str(e) or 'unable to open database' in str(e) or 'no such table' in str(e):
+            if 'no such column' in str(e) or 'binding' in str(e) or 'unable to open database' in str(
+                    e) or 'no such table' in str(e):
                 return result
             await asyncio.sleep(round(random.uniform(1, 2), 2))
             retry -= 1
@@ -4062,6 +4064,8 @@ async def not_del_if_payments(chat_id, status, MEDIA_D, BASE_P):
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+
 # endregion
 
 
@@ -5265,7 +5269,7 @@ async def outsource_generate(lst, path='link_path'):
                                         res = await client.images.generate(prompt=item['prompt'],
                                                                            model=f"gpt-image-1",
                                                                            n=1,  # max 1 for dalle-3
-                                                                           quality="low",   # low 2,55 rub, medium 12 rub
+                                                                           quality="low",  # low 2,55 rub, medium 12 rub
                                                                            # response_format='url',
                                                                            size="1024x1024",
                                                                            # size="512x512",
@@ -5317,7 +5321,8 @@ async def outsource_generate(lst, path='link_path'):
 
                                         response = await client.audio.speech.create(
                                             # model="tts-1",  # gpt-4o-mini-tts - new better and cheaper (34 < 43)
-                                            model="gpt-4o-mini-tts",  # gpt-4o-mini-tts - new better and cheaper (34 < 43)
+                                            model="gpt-4o-mini-tts",
+                                            # gpt-4o-mini-tts - new better and cheaper (34 < 43)
                                             input=input_,
                                             voice=random.choice(['alloy', 'shimmer'])
                                         )
@@ -6113,6 +6118,8 @@ async def get_access_token_hume(API_KEY, SECRET_KEY):
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
+
+
 # endregion
 
 
@@ -6160,13 +6167,13 @@ async def logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, 
             shutil.copyfile(file_photo, file_logo)
 
         if file_logo and os.path.exists(file_logo):
-            mem_format = 'static' if random.choice([True, False]) else 'video'
+            mem_format = 'static' if random.choice([False, True]) else 'video'
             rnd_emoji = random.choices(animated_emoji, k=random.randint(2, 5))
             rnd_words = random.choices(trg_utms, k=random.randint(2, 5))
             size_kb = 256000 if mem_format == 'video' else 512000
             side_sz = '512' if mem_type == 'regular' else '100'
             w, h = await resize_to_max_side(file_logo, side_sz, mem_type)
-            pixels_str = f"{w}x{h}"
+            pixels_str = f"{side_sz}x{side_sz}"
 
             # region size
             quality = 90
@@ -6188,7 +6195,7 @@ async def logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, 
             # endregion
 
             if mem_format == 'static':
-                await photo_to_circle(file_logo)
+                await photo_to_circle(file_logo, mem_type)
 
                 image = Image.open(file_logo)
                 fn_ = datetime.now(timezone.utc).strftime(f'%d-%m-%Y_%H-%M-%S-%f.webp')
@@ -6213,7 +6220,7 @@ async def logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, 
 
                 for it_png in [file_logo, file_gray]:
                     try:
-                        await photo_to_circle(it_png)
+                        await photo_to_circle(it_png, mem_type)
                     except Exception as e:
                         logger.info(log_ % str(e))
                         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -6278,6 +6285,8 @@ async def desc_to_sticker(bot, chat_id, name, stickers, username, title, desc, M
             sticker_txt = f"@{username}\n{desc}"
         elif username and not desc:
             sticker_txt = f"@{username}\n{title}"
+        elif title.lower().endswith('bot'):
+            sticker_txt = f'@{title}\n{desc}'
         elif not username and desc:
             sticker_txt = f'{title[:20]}\n{desc}'
 
@@ -6355,23 +6364,65 @@ async def text_to_sticker(text, media_dir, img_width):
     return result, file_name_part
 
 
-async def photo_to_circle(file_photo):
+async def photo_to_circle(file_photo, mem_type):
     try:
-        fill_ = 255
+        # Load image and correct orientation
         image = Image.open(file_photo)
         image = await correct_orientation(image)
         image = image.convert("RGBA")
-        image.save(file_photo)
-        mask = Image.new('L', image.size, 0)
+
+        # Crop to centered square
+        width, height = image.size
+        side = min(width, height)
+        if side % 2:
+            side -= 1
+        cx, cy = width // 2, height // 2
+        half = side // 2
+        box = (cx - half, cy - half, cx + half, cy + half)
+        square = image.crop(box)
+
+        # Create circular mask
+        mask = Image.new('L', (side, side), 0)
         draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0, side, side), fill=255)
 
-        left, top, right, bottom = (0, 0, image.width, image.height)
-        draw.pieslice(((left, top), (right, bottom)), 0, 360, fill=fill_, outline=fill_)
+        # Apply mask to get perfect circle
+        circle = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+        circle.paste(square, (0, 0), mask)
 
-        res = Image.new('RGBA', image.size, (0, 0, 0, 0))
-        res.paste(image, mask=mask)
-        res.save(file_photo)
-        res.close()
+        # Resize proportionally if диаметр больше лимита
+        max_diameter = 512 if mem_type == 'regular' else 100
+        if side > max_diameter:
+            circle.thumbnail((max_diameter, max_diameter), Image.LANCZOS)
+
+        # Paste onto transparent canvas
+        canvas = Image.new('RGBA', (max_diameter, max_diameter), (0, 0, 0, 0))
+        x = (max_diameter - circle.width) // 2
+        y = (max_diameter - circle.height) // 2
+        canvas.paste(circle, (x, y), circle)
+
+        # Save result (перезаписываем оригинал или в новый файл)
+        canvas.save(file_photo)
+        canvas.close()
+        circle.close()
+        square.close()
+        image.close()
+
+        # fill_ = 255
+        # image = Image.open(file_photo)
+        # image = await correct_orientation(image)
+        # image = image.convert("RGBA")
+        # image.save(file_photo)
+        # mask = Image.new('L', image.size, 0)
+        # draw = ImageDraw.Draw(mask)
+        #
+        # left, top, right, bottom = (0, 0, image.width, image.height)
+        # draw.pieslice(((left, top), (right, bottom)), 0, 360, fill=fill_, outline=fill_)
+        #
+        # res = Image.new('RGBA', image.size, (0, 0, 0, 0))
+        # res.paste(image, mask=mask)
+        # res.save(file_photo)
+        # res.close()
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -6388,9 +6439,11 @@ async def resize_to_max_side(input_image_path, target_max_side, mem_type='regula
                 if width > height:
                     new_width = 100
                     new_height = int((100 / width) * height)
+                    if new_height % 2 != 0: new_height -= 1
                 else:
                     new_height = 100
                     new_width = int((100 / height) * width)
+                    if new_width % 2 != 0: new_width -= 1
 
                 resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                 resized_img = resized_img.convert("RGBA")
@@ -6408,9 +6461,11 @@ async def resize_to_max_side(input_image_path, target_max_side, mem_type='regula
                 if width > height:
                     new_width = target_max_side
                     new_height = int((target_max_side / width) * height)
+                    if new_height % 2 != 0: new_height -= 1
                 else:
                     new_height = target_max_side
                     new_width = int((target_max_side / height) * width)
+                    if new_width % 2 != 0: new_width -= 1
 
                 resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
                 resized_img = resized_img.convert("RGBA")
@@ -6457,6 +6512,7 @@ async def create_mem(bot, chat_id, lz, tid, mem_item, username, title, desc, fil
         if len(lst) == 1: lst.append(f"+ {title}")
         lst = random.sample(lst, 2)
         # lst = [file_photo, title]
+        lst = [s_.strip() for s_ in lst]
         mem_top_txt, mem_bottom_txt = lst
         print(f"{mem_link=}, {lst=}, {mem_format=}")
 
@@ -6757,7 +6813,7 @@ async def create_mem(bot, chat_id, lz, tid, mem_item, username, title, desc, fil
 
 async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_photo, IMGFLIP_UN, IMGFLIP_PS,
                             PROJECT_USERNAME, MEDIA_D, EXTRA_D, mem_type):
-    result = None
+    result = file_photo_for = None
     try:
         # region json
         async with aiofiles.open(os.path.join(EXTRA_D, 'memes.json'), 'r', encoding='utf-8') as file:
@@ -6783,25 +6839,27 @@ async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_p
         name = f"{username}_by_{PROJECT_USERNAME}"
         logger.info(log_ % f"Start ({mem_type}): -> https://t.me/{mem_type_str}/{username}_by_{PROJECT_USERNAME}")
 
-        stickers = await logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, MEDIA_D, mem_type)
+        file_photo_for = file_photo.replace(".", "_copy.")
+        shutil.copy(file_photo, file_photo_for)
+        stickers = await logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo_for, title, MEDIA_D, mem_type)
         # if mem_type == 'regular':
         stickers = await desc_to_sticker(bot, chat_id, name, stickers, username_orig, title, desc, MEDIA_D, mem_type)
 
         i = 0
         lst_type = []
-        await photo_to_circle(file_photo)
+        await photo_to_circle(file_photo_for, mem_type)
         for mem_id, mem_item in memes_data.items():
             sticker = None
             try:
                 print(f"====== {i=}. {len(lst_type)=}")
-                if len(lst_type) >= 6 or not os.path.exists(file_photo): break
+                if len(lst_type) >= 6 or not os.path.exists(file_photo_for): break
                 if lst_type.count('static') >= 4 and mem_item.get('link').lower().endswith(('.jpg', '.png')): continue
                 if lst_type.count('video') >= 2 and mem_item.get('link').lower().endswith(('.mp4', '.gif')): continue
                 if i >= 10: break
 
                 mem_item['id'] = mem_id
                 file_id, mem_format = await create_mem(bot, chat_id, lz, tid, mem_item, username_orig, title, desc,
-                                                       file_photo, IMGFLIP_UN, IMGFLIP_PS, MEDIA_D, mem_type)
+                                                       file_photo_for, IMGFLIP_UN, IMGFLIP_PS, MEDIA_D, mem_type)
                 if file_id:
                     rnd_emoji = random.choices(animated_emoji, k=random.randint(2, 5))
                     rnd_words = random.choices(trg_utms, k=random.randint(2, 5))
@@ -6841,32 +6899,34 @@ async def create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_p
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
+    finally:
+        if file_photo_for and os.path.exists(file_photo_for): os.remove(file_photo_for)
     return result
 
 
 async def handle_mem_pack(bot, chat_id, lz, tid, username, title, desc, file_photo, IMGFLIP_UN, IMGFLIP_PS,
-                          PROJECT_USERNAME, MEDIA_D, EXTRA_D, BASE_D, mem_type):
+                          PROJECT_USERNAME, MEDIA_D, EXTRA_D, BASE_P, mem_type):
     result = None
     try:
         print(f"{os.path.exists(file_photo)=}, {desc=}")
-        if not os.path.exists(file_photo) or not desc: return
+        if not os.path.exists(file_photo) or not desc: return result
         result = await create_neuro_pack(bot, chat_id, lz, tid, username, title, desc, file_photo, IMGFLIP_UN,
                                          IMGFLIP_PS, PROJECT_USERNAME, MEDIA_D, EXTRA_D, mem_type)
-        if not result: return
+        if not result: return result
 
         if PROJECT_USERNAME == 'FereyChannelBot':
             if mem_type == 'regular':
                 sql = "UPDATE \"CHANNEL\" SET CHANNEL_STICKERPACK=$1 WHERE CHANNEL_TID=$2"
-                await db_change_pg(sql, (result, tid,), BASE_D)
+                await db_change_pg(sql, (result, tid,), BASE_P)
                 await bot.send_message(chat_id=chat_id, text=result)
             elif mem_type == 'custom_emoji':
                 sql = "UPDATE \"CHANNEL\" SET CHANNEL_EMOJIPACK=$1 WHERE CHANNEL_TID=$2"
-                await db_change_pg(sql, (result, tid,), BASE_D)
+                await db_change_pg(sql, (result, tid,), BASE_P)
                 await bot.send_message(chat_id=chat_id, text=result)
-        elif PROJECT_USERNAME == 'FereyBotBot':
+        else:
             sql = "SELECT BOT_TID, BOT_VARS FROM \"BOT\" WHERE BOT_TID=$1"
-            data_pack = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
-            if not len(data_pack): return
+            data_pack = await db_select_pg(sql, (int(tid),), BASE_P)
+            if not len(data_pack): return result
             BOT_TID, BOT_VARS = data_pack[0]
 
             BOT_VARS = json.loads(BOT_VARS) if BOT_VARS else json.loads(BOT_VARS_)
@@ -6878,12 +6938,14 @@ async def handle_mem_pack(bot, chat_id, lz, tid, username, title, desc, file_pho
 
             BOT_VARS = json.dumps(BOT_VARS, ensure_ascii=False)
             sql = "UPDATE \"BOT\" SET BOT_VARS=$1 WHERE BOT_TID=$2"
-            await db_change_pg(sql, (BOT_VARS, tid,), BASE_D)
+            await db_change_pg(sql, (BOT_VARS, int(tid),), BASE_P)
             await bot.send_message(chat_id=chat_id, text=result)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
+
+
 # endregion
 
 
@@ -7386,7 +7448,8 @@ async def get_smc_info(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -7479,7 +7542,8 @@ async def get_wallet_address(address, master, KEYS_JSON, is_test_only=False, is_
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -7588,7 +7652,8 @@ async def get_nft_data(address, KEYS_JSON, is_test_only=False, help_link=None):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -7746,7 +7811,8 @@ async def get_nft_address_of_collection(address, limit, offset, KEYS_JSON, is_te
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -7862,7 +7928,8 @@ async def get_nft_address_by_index(address, index, KEYS_JSON, is_test_only=False
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -7939,7 +8006,8 @@ async def get_collection_data(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8056,7 +8124,8 @@ async def get_royalty_params(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8136,7 +8205,8 @@ async def get_editor(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8225,7 +8295,8 @@ async def get_nft_in_account(address, collection, KEYS_JSON, is_test_only=False,
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8296,7 +8367,8 @@ async def get_any_activity(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8374,7 +8446,8 @@ async def get_any_nfts(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8451,7 +8524,8 @@ async def get_any_jettons(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8527,9 +8601,9 @@ async def calculate_wallet_address(owner, master, KEYS_JSON, is_test_only=False)
         items = []
         for provider, keys in data["ton"].items():
             for _ in keys:
-                if provider == "tonapi":    # continue
+                if provider == "tonapi":  # continue
                     key = random.choice([it['all'] for it in keys if 'all' in it]) if keys else None
-                    
+
                     if key:
                         items.append([
                             'tonapi',
@@ -8540,8 +8614,9 @@ async def calculate_wallet_address(owner, master, KEYS_JSON, is_test_only=False)
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
-                    if key: 
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    if key:
                         items.append([
                             'toncenter',
                             f'https://{pfx_testnet}toncenter.com/api/v3/jetton/wallets'
@@ -8613,7 +8688,8 @@ async def get_jetton_data(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8735,7 +8811,8 @@ async def get_wallet_data(address, decimals, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8820,7 +8897,8 @@ async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
                             }
                         ])
                 elif provider == "toncenter":
-                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
+                    key = next((it['testnet'] if is_test_only else it['mainnet'] for it in keys if
+                                (is_test_only and 'testnet' in it) or (not is_test_only and 'mainnet' in it)), None)
                     if key:
                         items.append([
                             'toncenter',
@@ -8858,7 +8936,9 @@ async def get_next_admin_address(address, KEYS_JSON, is_test_only=False):
 
                         try:
                             print(f"{data=}")
-                            result['next_admin_address'] = (Cell.one_from_boc(data['stack'][0]['value']).begin_parse().load_address()).to_str(is_user_friendly=False)
+                            result['next_admin_address'] = (
+                                Cell.one_from_boc(data['stack'][0]['value']).begin_parse().load_address()).to_str(
+                                is_user_friendly=False)
                         except Exception as _:
                             result['next_admin_address'] = ""
 
@@ -8893,6 +8973,8 @@ async def calculate_wallet_address_old(owner_address, master_address, jetton_wal
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
+
+
 # endregion
 
 
@@ -9068,7 +9150,8 @@ async def upd_user_data_main(data, web_app_init_data, BASE_P, BOT_TOKEN_E18B, re
                 if lc in ['zh', 'zh-chs', 'zh-cht', 'ja', 'ko', 'zh-CN', 'zh-TW', 'th', 'vi', 'tw', 'sg']:
                     lz = 'zh'
                 # arabic    # ir, af
-                elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir', 'af']:
+                elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir',
+                            'af']:
                     lz = 'ar'
                 # spanish   # portugal: 'pt', 'br', 'ao', 'mz'
                 elif lc in ['es', 'ar', 'cl', 'co', 'cu', 've', 'bo', 'pe', 'ec', 'pt', 'br', 'ao', 'mz']:
@@ -9220,7 +9303,8 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
                 if lc in ['zh', 'zh-chs', 'zh-cht', 'ja', 'ko', 'zh-CN', 'zh-TW', 'th', 'vi', 'tw', 'sg']:
                     lz = 'zh'
                 # arabic    # ir, af
-                elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir', 'af']:
+                elif lc in ['ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir',
+                            'af']:
                     lz = 'ar'
                 # spanish   # portugal: 'pt', 'br', 'ao', 'mz'
                 elif lc in ['es', 'ar', 'cl', 'co', 'cu', 've', 'bo', 'pe', 'ec', 'pt', 'br', 'ao', 'mz']:
@@ -9284,6 +9368,8 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return USER_TID, username, full_name, USER_GAMES, USER_VARS, USER_LSTS
+
+
 # endregion
 
 
@@ -9770,11 +9856,9 @@ async def get_chn_btn(bot, chat_id, lz):
         reply_markup = InlineKeyboardBuilder()
         reply_markup.row(types.InlineKeyboardButton(text=f"♥ {str(l_chn[lz]).capitalize()}", url=url_))
 
-
-
         await bot.send_message(chat_id=chat_id, text='♥',
-                            message_effect_id='5159385139981059251',    # heart
-                            reply_markup=reply_markup.as_markup())
+                               message_effect_id='5159385139981059251',  # heart
+                               reply_markup=reply_markup.as_markup())
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
@@ -9783,7 +9867,8 @@ async def get_chn_btn(bot, chat_id, lz):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload='-', subscription_period: Optional[int] = 2592000, photo_url=None):
+async def star_invoice_link(bot, PROJECT_USERNAME, chat_id, stars, payload='-',
+                            subscription_period: Optional[int] = 2592000, photo_url=None):
     result = None
     try:
         invoice = await bot.create_invoice_link(title=PROJECT_USERNAME,
@@ -9843,11 +9928,11 @@ async def list_star_invoice_link(bot, PROJECT_USERNAME, PROJECT_TYPE):
         payload = '1'
         subscription_period = 2592000
         star_invoice_subscription_1 = await bot.create_invoice_link(title=f"#{PROJECT_TYPE}",
-                                           description=f"@{PROJECT_USERNAME}",
-                                           payload=payload,
-                                           currency='XTR',
-                                           prices=[LabeledPrice(label="XTR", amount=stars)],
-                                           subscription_period=subscription_period)  # 604800 2592000
+                                                                    description=f"@{PROJECT_USERNAME}",
+                                                                    payload=payload,
+                                                                    currency='XTR',
+                                                                    prices=[LabeledPrice(label="XTR", amount=stars)],
+                                                                    subscription_period=subscription_period)  # 604800 2592000
 
         print(f"star_invoice_subscription_{stars} = '{star_invoice_subscription_1}'")
 
@@ -9855,11 +9940,11 @@ async def list_star_invoice_link(bot, PROJECT_USERNAME, PROJECT_TYPE):
         payload = '1'
         subscription_period = 2592000
         star_invoice_subscription_250 = await bot.create_invoice_link(title=f"#{PROJECT_TYPE}",
-                                           description=f"@{PROJECT_USERNAME}",
-                                           payload=payload,
-                                           currency='XTR',
-                                           prices=[LabeledPrice(label="XTR", amount=stars)],
-                                           subscription_period=subscription_period)  # 604800 2592000
+                                                                      description=f"@{PROJECT_USERNAME}",
+                                                                      payload=payload,
+                                                                      currency='XTR',
+                                                                      prices=[LabeledPrice(label="XTR", amount=stars)],
+                                                                      subscription_period=subscription_period)  # 604800 2592000
 
         print(f"star_invoice_subscription_{stars} = '{star_invoice_subscription_250}'")
         result = [star_invoice_link_1, star_invoice_list_2, star_invoice_dialog_100, star_invoice_link_10,
@@ -9930,6 +10015,8 @@ async def check_sub_is_paid(user_payments, bot_cpayperiod):
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
+
+
 # endregion
 
 
@@ -9960,7 +10047,8 @@ async def calc_metrics(bot, PROJECT_USERNAME, dataroom_folder_id, EXTRA_D, BASE_
             entry_dt = f"{entry_dt_obj.strftime('%d-%m-%Y')}_{datetime.now().strftime('%H-%M-%S')}"
             utm = random.choice(["/start", "/startapp"])
 
-            valid_months = [m for m in months if datetime.strptime(m + "-01", "%Y-%m-%d") >= entry_dt_obj.replace(day=1)]
+            valid_months = [m for m in months if
+                            datetime.strptime(m + "-01", "%Y-%m-%d") >= entry_dt_obj.replace(day=1)]
             if not valid_months:
                 valid_months = [entry_month]
 
@@ -9998,7 +10086,8 @@ async def calc_metrics(bot, PROJECT_USERNAME, dataroom_folder_id, EXTRA_D, BASE_
                 USER_STATUSES = [{random.choice(["left", "kicked"]): churn_ts}]
 
             user_dau = sorted(user_dau_dates)
-            wallet = f"wallet{random.randint(1, 100)}" if txs else random.choice([f"wallet{random.randint(1, 100)}", ""])
+            wallet = f"wallet{random.randint(1, 100)}" if txs else random.choice(
+                [f"wallet{random.randint(1, 100)}", ""])
 
             data_users.append((
                 random.randint(100000, 999999),
@@ -10265,7 +10354,7 @@ async def return_unit_metrics(bot, data_users, EXTRA_D):
         cumulative_users = 0
         results = []
         first_mrr = None
-        
+
         for idx, mo in enumerate(all_months):
             data = metrics[mo]
             new_u = data["new_users"]
@@ -10378,7 +10467,7 @@ async def return_cohort_metrics(bot, data_users, EXTRA_D):
         counts = [[0] * num_months for _ in range(num_months)]
         for i in range(num_months):
             calendar_mo = cohort_months[i]
-            row = [f"M{i+1}"]
+            row = [f"M{i + 1}"]
             row_sum = 0
 
             for j in range(num_months):
@@ -10482,7 +10571,7 @@ async def return_retention_metrics(bot, data_users, EXTRA_D):
 
             for i in range(num_cohorts):
                 calendar_mo = add_months(first_cohort, i)
-                row = [f"M{i+1}"]
+                row = [f"M{i + 1}"]
                 row_sum = 0.0
                 for c in cohort_months:
                     y0, m0 = map(int, c.split("-"))
@@ -10582,6 +10671,8 @@ async def return_acquisition_retention_metrics(bot, data_users, EXTRA_D):
         print(f"Written CSV to {f_name}")
 
         result = f_name
+        thumb = types.FSInputFile(os.path.join(EXTRA_D, "parse.jpg"))
+        await bot.send_document(chat_id=my_tid, document=types.FSInputFile(f_name), thumbnail=thumb)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -10660,11 +10751,13 @@ async def return_profit_and_loss_metrics(bot, data_users, EXTRA_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
 
+
 # endregion
 
 
 # region pst
-async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJECT_USERNAME, PROJECT_TYPE, is_paid=False):
+async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJECT_USERNAME, PROJECT_TYPE,
+                    is_paid=False):
     result = {'result': True, 'bot': True, 'post': data_web['post']}
     try:
         chat_id = int(data_user['user']['id'])
@@ -10711,7 +10804,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_DT = await get_utc_from_local(POST_DT, POST_TZ)
         POST_DT = datetime.strptime(POST_DT, "%Y-%m-%dT%H:%M") if POST_DT else None
 
-        if not POST_DT and PROJECT_USERNAME == 'FereyBotBot' and len(targets) > 5:
+        if not POST_DT and PROJECT_USERNAME == 'FereyBotBot' and len(targets) > 1:
             POST_DT = datetime.now().replace(second=0, microsecond=0)
         POST_TR = post['POST_TR'] if 'POST_TR' in post else ''
         POST_TR = await get_utc_from_local(POST_TR, POST_TZ)
@@ -11403,7 +11496,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
         try:
             if result and BASE_S and POST_TYPE == 'text' and POST_CHKBOX.get('POST_ISSTORY', False) and int(
                     chat_id) == int(
-                    ENT_TID):
+                ENT_TID):
                 member_ = await bot.get_chat_member(chat_id=int(ENT_TID), user_id=bot.id)
 
                 if member_.can_post_stories and member_.can_promote_members:
@@ -11419,7 +11512,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
         try:
             if result and BASE_S and result.chat.username and POST_CHKBOX.get('POST_ISPODCAST', False) and int(
                     chat_id) == int(
-                    ENT_TID) and len(POST_MEDIA):
+                ENT_TID) and len(POST_MEDIA):
                 member_ = await bot.get_chat_member(chat_id=int(ENT_TID), user_id=bot.id)
 
                 if member_.can_manage_video_chats and member_.can_promote_members:
@@ -11983,7 +12076,8 @@ async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, du
                 if update.participant.action != GroupCallParticipant.Action.JOINED: return
 
                 if not str(update.participant.user_id).startswith('-100'):
-                    await add_to_push_podcast(bot, app, update.participant.user_id, ENT_TID, POST_ID, BASE_D, PROJECT_USERNAME)
+                    await add_to_push_podcast(bot, app, update.participant.user_id, ENT_TID, POST_ID, BASE_D,
+                                              PROJECT_USERNAME)
             except Exception as exc:
                 logger.info(log_ % str(exc))
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -12785,6 +12879,8 @@ async def ch_games(USER_GAMES, game, condition, balls=-1):
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return USER_GAMES
+
+
 # endregion
 
 
@@ -14272,6 +14368,8 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
     return result
+
+
 # endregion
 
 
@@ -14347,10 +14445,10 @@ async def bots_by_inline(chat_id, message, BASE_D):
             input_message_content = types.InputTextMessageContent(message_text=text,
                                                                   disable_web_page_preview=False)
             result.append(types.InlineQueryResultArticle(id=str(uuid4()),
-                                               title=title,
-                                               description=desc,
-                                               thumb_url=logo_jpg,
-                                               input_message_content=input_message_content))
+                                                         title=title,
+                                                         description=desc,
+                                                         thumb_url=logo_jpg,
+                                                         input_message_content=input_message_content))
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -14364,7 +14462,7 @@ async def get_buttons_main(lz, bot_un, BASE_D):
                   types.InlineKeyboardButton(text="🔗",
                                              url=f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'),
                   types.InlineKeyboardButton(text=f"♥️{(await read_likes(BASE_D))}", callback_data=f"like"),
-                  types.InlineKeyboardButton(text="ᵗᶢᴿᴬᴾᴴ",     # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
+                  types.InlineKeyboardButton(text="ᵗᶢᴿᴬᴾᴴ",  # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
                                              web_app=types.WebAppInfo(url='https://telegra.ph/Links-07-05-462')),
                   types.InlineKeyboardButton(text="ᶜᵸᴬᴺᴺᴱᴸ", url=f"https://t.me/{get_tg_channel(lz)}"),
                   types.InlineKeyboardButton(text="ᴬᴾᴾ⁺", switch_inline_query_current_chat=f"~")]
@@ -14816,21 +14914,20 @@ async def fun_empty(txt):
 async def get_lz_code(lc):
     result = 'en'
     try:
-        if lc in {'zh','zh-chs','zh-cht','ja','ko','zh-CN','zh-TW','th','vi','tw','sg'}:
+        if lc in {'zh', 'zh-chs', 'zh-cht', 'ja', 'ko', 'zh-CN', 'zh-TW', 'th', 'vi', 'tw', 'sg'}:
             result = 'zh'
-        elif lc in {'ar-XA','ar','tr','ur','fa','tj','dz','eg','iq','sy','ae','sa','tn','ir','af'}:
+        elif lc in {'ar-XA', 'ar', 'tr', 'ur', 'fa', 'tj', 'dz', 'eg', 'iq', 'sy', 'ae', 'sa', 'tn', 'ir', 'af'}:
             result = 'ar'
-        elif lc in {'es','ar','cl','co','cu','ve','bo','pe','ec','pt','br','ao','mz'}:
+        elif lc in {'es', 'ar', 'cl', 'co', 'cu', 've', 'bo', 'pe', 'ec', 'pt', 'br', 'ao', 'mz'}:
             result = 'es'
-        elif lc in {'fr','ch','be','ca'}:
+        elif lc in {'fr', 'ch', 'be', 'ca'}:
             result = 'fr'
-        elif lc in {'ru','kz','kg','uz','tm','md','am','uk-UA','uk','kk','tk','ky'}:
+        elif lc in {'ru', 'kz', 'kg', 'uz', 'tm', 'md', 'am', 'uk-UA', 'uk', 'kk', 'tk', 'ky'}:
             result = 'ru'
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
     return result
-
 
 
 async def lz_code(chat_id, lan, BASE_D):
@@ -15980,6 +16077,8 @@ async def send_response(UB_TID, UB_TOKENTGPH, WEBHOOK_HOST, PROJECT_PATH, cmd, p
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+
 # endregion
 
 
@@ -16191,6 +16290,9 @@ async def correct_txt_tags_for_tg(txt):
         txt = txt.replace('<span style="caret-color: var(--tg-theme-hint-color);">', '')
         txt = txt.replace('</span>', '')
         txt = re.sub(r'</?div[^>]*>', '', txt)
+
+        txt = re.sub(r'<span[^>]*>', '', txt)
+        txt = txt.replace('</span>', '')
         result = txt[0:4096].strip()
         print(f"correct_txt_tags_for_tg finish {result=}")
     except Exception as e:
@@ -16358,7 +16460,8 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
                             FILE_NAME = F_NAME
                             await asyncio.sleep(0.05)
                             image.save(F_NAME, format="webp", quality=50)
-                            if os.path.getsize(F_NAME) > 1048576: return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
+                            if os.path.getsize(
+                                F_NAME) > 1048576: return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
                             MEDIA = types.FSInputFile(F_NAME)
                         else:
                             print(f"else tgs")
@@ -16479,7 +16582,7 @@ async def return_file_link(bot, chat_id, FILE_NAME, KEYS_JSON, MSG_VID, MSG_TYPE
         else:
             print(f'hare ai in FILE_NAME, {MSG_TYPE=}, {result=}')
             if MSG_TYPE in ['document', 'web'] and not FILE_NAME.lower().endswith(
-                ('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.webp', '.webm', '.mp3')): return result
+                    ('.png', '.jpg', '.jpeg', '.gif', '.mp4', '.webp', '.webm', '.mp3')): return result
 
             res = await get_link_for_media(bot, MSG_VID, FILE_NAME, KEYS_JSON)
             if res:
@@ -16612,7 +16715,8 @@ async def jpg_photo_preview(bot, chat_id, KEYS_JSON, file_link, BOT_TID, MSG_TYP
         tmpls = [photo_jpg, gif_jpg, video_jpg, video_note_jpg, audio_jpg, voice_jpg, sticker_jpg, web_jpg,
                  document_jpg]
         if MSG_TYPE in ['audio', 'voice', 'document'] or file_link in tmpls or MSG_TYPE in [
-            'web'] and not file_link.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.webm', '.mp4', '.gif')): return result
+            'web'] and not file_link.lower().endswith(
+            ('.jpg', '.jpeg', '.png', '.webp', '.webm', '.mp4', '.gif')): return result
 
         dt = datetime.now(timezone.utc).strftime(f'%d-%m-%Y_%H-%M-%S-%f.jpg')
         dt_finish = datetime.now(timezone.utc).strftime(f'%d-%m-%Y_%H-%M-%S-%f-2.jpg')
@@ -16694,7 +16798,8 @@ async def resize_video_note(file_name, basewidth):
             result = file_name
         if basewidth == 440:
             clip = VideoFileClip(file_name)
-            clip_convert = Crop(x1=int(basewidth / 2), y1=int(basewidth / 2), x2=int(basewidth / 2), y2=int(basewidth / 2)).apply(clip)
+            clip_convert = Crop(x1=int(basewidth / 2), y1=int(basewidth / 2), x2=int(basewidth / 2),
+                                y2=int(basewidth / 2)).apply(clip)
             # clip_convert.write_videofile(filename=file_video_note, codec='libx264', audio_codec='aac',
             #                              temp_audiofile='temp-audio.m4a', remove_temp=True)
             # clip_resized = clip.resize((basewidth, basewidth))
@@ -17322,7 +17427,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
 
                     # clip = mp.VideoFileClip(input_file)
                     # width, height = clip.size
-                    
+
                     import tempfile
                     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
                     tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mp4')
@@ -17376,7 +17481,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
                 # ]
                 # else:
                 ffmpeg_command = ['ffmpeg', '-i', input_file, '-filter_complex_threads', '2', '-r', str(fps), '-b:v',
-                              '40k', '-crf', '30', '-s', pixels_str, '-t', '3', '-an', '-y', file_mp4]
+                                  '40k', '-crf', '30', '-s', pixels_str, '-t', '3', '-an', '-y', file_mp4]
                 print(f"{ffmpeg_command=}")
                 p = await asyncio.create_subprocess_exec(*ffmpeg_command)
                 await p.communicate()
@@ -17405,8 +17510,8 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
             ]
         else:
             ffmpeg_command = ['ffmpeg', '-i', i_input_data, '-filter_complex', rounded, '-filter_complex_threads', '2',
-                          '-c:v', 'libvpx-vp9', '-r', str(fps), '-b:v', bitrate, '-crf', '30', '-s', pixels_str,
-                          '-pix_fmt', 'yuva420p', '-t', '3', '-an', '-y', file_webm]
+                              '-c:v', 'libvpx-vp9', '-r', str(fps), '-b:v', bitrate, '-crf', '30', '-s', pixels_str,
+                              '-pix_fmt', 'yuva420p', '-t', '3', '-an', '-y', file_webm]
         print(f"{ffmpeg_command=}")
         p = await asyncio.create_subprocess_exec(*ffmpeg_command)
         await p.communicate()
@@ -17757,7 +17862,9 @@ async def format_text_web(txt, is_userbot=False):
                 if is_userbot:
                     result = re.sub(rf'\b{word_pattern}\b', f"<tg-spoiler>{word}</tg-spoiler>", result)
                 else:
-                    result = re.sub(rf'\b{word_pattern}\b', f'<div class="tgui-86f452d8e92a2075" style="display: inline-block; white-space: pre-wrap; cursor: pointer;">{word}</div>', result)
+                    result = re.sub(rf'\b{word_pattern}\b',
+                                    f'<div class="tgui-86f452d8e92a2075" style="display: inline-block; white-space: pre-wrap; cursor: pointer;">{word}</div>',
+                                    result)
                 break
 
         # under
@@ -17817,7 +17924,9 @@ async def format_text_web(txt, is_userbot=False):
                 # print(f'mono: {word}')
                 # result = result.replace(word, f"<code>{word}</code>")
                 word_pattern = re.escape(word)
-                result = re.sub(rf'\b{word_pattern}\b', f'<div class="tgui-79024fcb6d81ad79" style="display: inline-block; padding: 0px 4px;">{word}</div>', result)
+                result = re.sub(rf'\b{word_pattern}\b',
+                                f'<div class="tgui-79024fcb6d81ad79" style="display: inline-block; padding: 0px 4px;">{word}</div>',
+                                result)
                 break
 
         # hashtag
@@ -17832,14 +17941,15 @@ async def format_text_web(txt, is_userbot=False):
                 # print(f'hashtag: {word}')
                 # result = result.replace(word, f"<span>#{word}</span>")
                 word_pattern = re.escape(word)
-                result = re.sub(rf'\b{word_pattern}\b', f'<span style="color: rgba(0, 123, 247, .99);">#{word}</span>', result)
+                result = re.sub(rf'\b{word_pattern}\b', f'<span style="color: rgba(0, 123, 247, .99);">#{word}</span>',
+                                result)
                 break
 
         result = result.replace('( ', '(')
         result = result.replace(' )', ')')
         result = result.replace(' ,', ',')
     except Exception as e:
-        logger.info(log_ % str(e) + str(is_color))
+        logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
 
@@ -18525,6 +18635,8 @@ async def correct_link(link):
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(1, 2), 2))
     return result
+
+
 # endregion
 
 
@@ -18546,7 +18658,7 @@ async def text_title(text):
     content = text.strip()
     try:
         res = text.strip().splitlines()
-        if res and len(res) >= 2 and len(res[0].strip()) < 20:
+        if res and len(res) >= 2 and len(res[0].strip()) <= 21:
             title = res[0].strip()
             content = text.strip().replace(title, '', 1).strip()
             content = content.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ')
@@ -18880,6 +18992,8 @@ Remain valley who mrs uneasy remove wooded him you. Her questions favourite him 
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
+
+
 # endregion
 
 
@@ -19343,13 +19457,13 @@ async def set_privacy(app):
         for key in keys:
             try:
                 if key.QUALNAME == InputPrivacyKeyPhoneNumber().QUALNAME:
-                    await app.invoke(SetPrivacy(key=key, rules=[InputPrivacyValueDisallowAll()]))   # type: ignore
+                    await app.invoke(SetPrivacy(key=key, rules=[InputPrivacyValueDisallowAll()]))  # type: ignore
                 elif key.QUALNAME == InputPrivacyKeyVoiceMessages().QUALNAME:
                     await app.invoke(SetPrivacy(key=key, rules=[InputPrivacyValueAllowAll()]))  # type: ignore
                 elif key.QUALNAME == InputPrivacyKeyProfilePhoto().QUALNAME:
                     await app.invoke(SetPrivacy(key=key, rules=[InputPrivacyValueAllowAll()]))  # type: ignore
                 else:
-                    await app.invoke(SetPrivacy(key=key, rules=[InputPrivacyValueAllowContacts()]))     # type: ignore
+                    await app.invoke(SetPrivacy(key=key, rules=[InputPrivacyValueAllowContacts()]))  # type: ignore
             except Exception as e:
                 logger.info(log_ % f"{str(e)}")
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -20232,6 +20346,7 @@ async def create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME, ENT_FN, B
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
+
 
 # endregion
 

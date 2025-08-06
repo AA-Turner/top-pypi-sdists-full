@@ -728,7 +728,11 @@ def local_runner(ctx, model_path, pool_size, verbose):
     model_versions = [v for v in model.list_versions()]
     if len(model_versions) == 0:
         logger.warning("No model versions found. Creating a new version for local runner.")
-        version = model.create_version(pretrained_model_config={"local_dev": True}).model_version
+        # add the signatures for local runner on how to call it.
+        signatures = builder.get_method_signatures(mocking=True)
+        version = model.create_version(
+            pretrained_model_config={"local_dev": True}, method_signatures=signatures
+        ).model_version
         ctx.obj.current.CLARIFAI_MODEL_VERSION_ID = version.id
         ctx.obj.to_yaml()
     else:
@@ -882,30 +886,6 @@ def local_runner(ctx, model_path, pool_size, verbose):
         except Exception as e:
             logger.error(f"Failed to customize Ollama model: {e}")
             raise click.Abort()
-
-    # don't mock for local runner since you need the dependencies to run the code anyways.
-    method_signatures = builder.get_method_signatures(mocking=False)
-
-    from clarifai.runners.utils import code_script
-
-    snippet = code_script.generate_client_script(
-        method_signatures,
-        user_id=user_id,
-        app_id=app_id,
-        model_id=model_id,
-        deployment_id=deployment_id,
-        base_url=ctx.obj.current.api_base,
-    )
-
-    logger.info(f"""\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-# About to start up the local runner in this terminal...
-# Here is a code snippet to call this model once it start from another terminal:{snippet}
-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-""")
-
-    logger.info(
-        f"Playground: To chat with your model, visit:\n{ctx.obj.current.ui}/playground?model={model.id}__{version.id}&user_id={user_id}&app_id={app_id}"
-    )
 
     logger.info("✅ Starting local runner...")
 

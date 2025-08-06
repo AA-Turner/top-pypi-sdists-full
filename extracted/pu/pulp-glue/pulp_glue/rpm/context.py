@@ -1,6 +1,7 @@
 import typing as t
 
 from pulp_glue.common.context import (
+    BATCH_SIZE,
     EntityDefinition,
     PluginRequirement,
     PulpACSContext,
@@ -123,6 +124,15 @@ class PulpRpmPackageContext(PulpContentContext):
                 self.pulp_ctx.needs_plugin(PluginRequirement("rpm", specifier=">=3.18.0"))
             else:
                 PulpException(_("--relative-path must be provided"))
+        return body
+
+    def list_iterator(
+        self,
+        parameters: t.Optional[t.Dict[str, t.Any]] = None,
+        offset: int = 0,
+        batch_size: int = BATCH_SIZE,
+        stats: t.Optional[t.Dict[str, t.Any]] = None,
+    ) -> t.Iterator[t.Any]:
         contains_startswith = [
             "name__contains",
             "name__startswith",
@@ -131,11 +141,18 @@ class PulpRpmPackageContext(PulpContentContext):
             "arch__contains",
             "arch__startswith",
         ]
-        if any(k in body for k in contains_startswith):
+        if parameters is not None and any(
+            v for k, v in parameters.items() if k in contains_startswith
+        ):
             self.pulp_ctx.needs_plugin(
                 PluginRequirement("rpm", specifier=">=3.20.0", feature=_("substring filters"))
             )
-        return body
+        return super().list_iterator(
+            parameters=parameters,
+            offset=offset,
+            batch_size=batch_size,
+            stats=stats,
+        )
 
 
 class PulpRpmAdvisoryContext(PulpContentContext):
@@ -307,17 +324,7 @@ class PulpRpmRemoteContext(PulpRemoteContext):
     ENTITIES = _("rpm remotes")
     HREF = "rpm_rpm_remote_href"
     ID_PREFIX = "remotes_rpm_rpm"
-    NULLABLES = {
-        "ca_cert",
-        "client_cert",
-        "client_key",
-        "username",
-        "password",
-        "proxy_url",
-        "proxy_username",
-        "proxy_password",
-        "sles_auth_token",
-    }
+    NULLABLES = PulpRemoteContext.NULLABLES | {"sles_auth_token"}
     NEEDS_PLUGINS = [PluginRequirement("rpm", specifier=">=3.9.0")]
     CAPABILITIES = {"roles": [PluginRequirement("rpm", specifier=">=3.19.0")]}
 

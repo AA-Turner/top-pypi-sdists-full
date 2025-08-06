@@ -22,6 +22,7 @@ class QwakContainer(containers.DeclarativeContainer):
         status_for_retry=(
             grpc.StatusCode.UNAVAILABLE,
             grpc.StatusCode.CANCELLED,
+            grpc.StatusCode.DEADLINE_EXCEEDED,
         ),
     )
 
@@ -37,5 +38,8 @@ class QwakContainer(containers.DeclarativeContainer):
         url=config.grpc.builds.internal_address,
         enable_ssl=config.grpc.builds.enable_ssl,
         enable_auth=False,
-        status_for_retry=(grpc.StatusCode.UNAVAILABLE,),
+        status_for_retry=(
+            grpc.StatusCode.UNAVAILABLE,
+            grpc.StatusCode.DEADLINE_EXCEEDED,
+        ),
     )

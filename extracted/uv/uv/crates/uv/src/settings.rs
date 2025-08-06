@@ -598,6 +598,7 @@ pub(crate) struct ToolInstallSettings {
     pub(crate) from: Option<String>,
     pub(crate) with: Vec<String>,
     pub(crate) with_requirements: Vec<PathBuf>,
+    pub(crate) with_executables_from: Vec<String>,
     pub(crate) with_editable: Vec<String>,
     pub(crate) constraints: Vec<PathBuf>,
     pub(crate) overrides: Vec<PathBuf>,
@@ -622,6 +623,7 @@ impl ToolInstallSettings {
             with,
             with_editable,
             with_requirements,
+            with_executables_from,
             constraints,
             overrides,
             build_constraints,
@@ -661,6 +663,10 @@ impl ToolInstallSettings {
             with_requirements: with_requirements
                 .into_iter()
                 .filter_map(Maybe::into_option)
+                .collect(),
+            with_executables_from: with_executables_from
+                .into_iter()
+                .flat_map(CommaSeparatedRequirements::into_iter)
                 .collect(),
             constraints: constraints
                 .into_iter()
@@ -1431,9 +1437,9 @@ impl AddSettings {
 
         // Warn user if an ambiguous relative path was passed as a value for
         // `--index` or `--default-index`.
-        indexes
-            .iter()
-            .for_each(|index| index.url().warn_on_disambiguated_relative_path());
+        for index in &indexes {
+            index.url().warn_on_disambiguated_relative_path();
+        }
 
         // If the user passed an `--index-url` or `--extra-index-url`, warn.
         if installer

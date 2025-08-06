@@ -54,6 +54,10 @@ class Output:
         if tab is None or tab.type != Tab.TAB_CHAT:
             return 0
         col_idx = tab.column_idx
+        if col_idx not in self.mapping:
+            self.mapping[col_idx] = {}
+        if col_idx not in self.last_pids:
+            self.last_pids[col_idx] = {}
         self.mapping[col_idx][pid] = meta.id
         self.last_pids[col_idx][meta.id] = pid
         self.last_pid = pid
@@ -245,3 +249,19 @@ class Output:
         for node in self.window.ui.nodes['output_plain'].values():
             nodes.append(node)
         return nodes
+
+    def remove_pid(self, pid: int):
+        """
+        Remove PID from mapping
+
+        :param pid: PID
+        """
+        self.init()
+        for col_idx in self.mapping:
+            if pid in self.mapping[col_idx]:
+                del self.mapping[col_idx][pid]
+                break
+        if pid in self.last_pids:
+            del self.last_pids[pid]
+        if pid == self.last_pid:
+            self.last_pid = 0

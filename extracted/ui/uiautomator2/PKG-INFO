@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: uiautomator2
-Version: 3.3.4
+Version: 3.4.0
 Summary: uiautomator for android device
 Home-page: https://github.com/openatx/uiautomator2
 License: MIT
@@ -1243,6 +1243,10 @@ To specify a device, pass `--serial`, e.g., `python -m uiautomator2 --serial bff
     # With specific device
     uiautomator2 --serial <YOUR_DEVICE_SERIAL> screenshot screenshot.jpg
     ```
+
+- `copy-assets`: Copy assets/ to current directory
+
+    Used for pyinstaller、nuitka
 
 - `current`: Get current package name and activity
 

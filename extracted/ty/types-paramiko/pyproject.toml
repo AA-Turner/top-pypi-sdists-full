@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-paramiko"
-version = "3.5.0.20250801"
+version = "4.0.0.20250806"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for paramiko"
@@ -15,7 +15,7 @@ This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
 the [`paramiko`](https://github.com/paramiko/paramiko) package. It can be used by type checkers
 to check code that uses `paramiko`. This version of
 `types-paramiko` aims to provide accurate annotations for
-`paramiko==3.5.*`.
+`paramiko==4.0.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -28,7 +28,7 @@ This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 1.16.1
 * [pyright](https://github.com/microsoft/pyright) 1.1.403
 It was generated from typeshed commit
-[`8edafa8029b48c2bb877dde68a572dc4a4349557`](https://github.com/python/typeshed/commit/8edafa8029b48c2bb877dde68a572dc4a4349557).
+[`d01dc82bd221a86383c869bde670f679d88e79e6`](https://github.com/python/typeshed/commit/d01dc82bd221a86383c869bde670f679d88e79e6).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

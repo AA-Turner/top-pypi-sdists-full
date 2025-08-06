@@ -9,7 +9,7 @@ from rapidfuzz import fuzz
 
 def create_regex_searchable_string(search_string: str) -> str:
     regex_string = f"^{search_string.replace('*', '.+')}$"
-    escape_parens = regex_string.replace('(', "\(").replace(')', "\)")
+    escape_parens = regex_string.replace('(', "\\(").replace(')', "\\)")
     return escape_parens
 
 

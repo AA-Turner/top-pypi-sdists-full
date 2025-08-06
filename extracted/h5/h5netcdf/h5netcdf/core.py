@@ -677,7 +677,7 @@ def _unlabeled_dimension_mix(h5py_dataset):
     if not dimlist:
         status = "nodim"
     else:
-        dimset = set([len(j) for j in dimlist])
+        dimset = {len(j) for j in dimlist}
         # either all dimensions have exactly one scale
         # or all dimensions have no scale
         if dimset ^ {0} == set():
@@ -788,7 +788,7 @@ def _check_fillvalue(group, fillvalue, dtype):
             # 1. we need to warn the user that writing enums with default values
             # which are defined in the enum dict will mask those values
             if (h5fillvalue or 0) in dtype.enum_dict.values():
-                reverse = dict((v, k) for k, v in dtype.enum_dict.items())
+                reverse = {v: k for k, v in dtype.enum_dict.items()}
                 msg = (
                     f"Creating variable with default fill_value {h5fillvalue or 0!r}"
                     f" which IS defined in enum type {dtype!r}."
@@ -1271,10 +1271,8 @@ class Group(Mapping):
         return item
 
     def __iter__(self):
-        for name in self.groups:
-            yield name
-        for name in self.variables:
-            yield name
+        yield from self.groups
+        yield from self.variables
 
     def __len__(self):
         return len(self.variables) + len(self.groups)
@@ -1527,7 +1525,7 @@ class File(Group):
                         mode = "r+"
                     self._h5py = h5pyd
                     try:
-                        self._h5file = self._h5py.File(
+                        self.__h5file = self._h5py.File(
                             path, mode, track_order=track_order, **kwargs
                         )
                         self._preexisting_file = mode != "w"
@@ -1535,7 +1533,7 @@ class File(Group):
                         # if file does not exist, create it
                         if _mode == "a":
                             mode = "w"
-                            self._h5file = self._h5py.File(
+                            self.__h5file = self._h5py.File(
                                 path, mode, track_order=track_order, **kwargs
                             )
                             self._preexisting_file = False
@@ -1551,19 +1549,19 @@ class File(Group):
                 else:
                     self._preexisting_file = os.path.exists(path) and mode != "w"
                     self._h5py = h5py
-                    self._h5file = self._h5py.File(
+                    self.__h5file = self._h5py.File(
                         path, mode, track_order=track_order, **kwargs
                     )
             elif isinstance(path, h5py.File):
                 self._preexisting_file = mode in {"r", "r+", "a"}
                 self._h5py = h5py
-                self._h5file = path
+                self.__h5file = path
                 # h5py File passed in: let the caller decide when to close it
                 self._close_h5file = False
             else:  # file-like object
                 self._preexisting_file = mode in {"r", "r+", "a"}
                 self._h5py = h5py
-                self._h5file = self._h5py.File(
+                self.__h5file = self._h5py.File(
                     path, mode, track_order=track_order, **kwargs
                 )
         except Exception:
@@ -1572,6 +1570,7 @@ class File(Group):
         else:
             self._closed = False
 
+        self._filename = self._h5file.filename
         self._mode = mode
         self._writable = mode != "r"
         self._root_ref = weakref.ref(self)
@@ -1696,12 +1695,18 @@ class File(Group):
 
     sync = flush
 
+    @property
+    def _h5file(self):
+        if self._closed:
+            raise ValueError(f"I/O operation on {self}: {self._filename!r}")
+        return self.__h5file
+
     def close(self):
         if not self._closed:
             self.flush()
             if self._close_h5file:
                 self._h5file.close()
-            self._h5file = None
+            self.__h5file = None
             self._closed = True
 
     __del__ = close

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-llmstxt
-Version: 0.3.0
+Version: 0.3.1
 Summary: MkDocs plugin to generate an /llms.txt file.
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
 License-Expression: ISC

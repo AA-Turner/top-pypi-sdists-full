@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: asynckivy
-Version: 0.8.1
+Version: 0.9.0
 Summary: Async library for Kivy
 License: MIT
 Keywords: async,kivy
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
-Requires-Dist: asyncgui (>=0.7.2,<0.9)
+Requires-Dist: asyncgui (>=0.9.3,<0.10)
 Project-URL: Homepage, https://github.com/asyncgui/asynckivy
 Project-URL: Repository, https://github.com/asyncgui/asynckivy
 Description-Content-Type: text/markdown
@@ -81,8 +81,8 @@ ak.managed_start(what_you_want_to_do(...))
 Pin the minor version.
 
 ```text
-poetry add asynckivy@~0.8
-pip install "asynckivy>=0.8,<0.9"
+poetry add asynckivy@~0.9
+pip install "asynckivy>=0.9,<0.10"
 ```
 
 ## Usage

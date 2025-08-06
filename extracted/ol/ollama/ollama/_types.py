@@ -79,7 +79,7 @@ class SubscriptableBaseModel(BaseModel):
     if key in self.model_fields_set:
       return True
 
-    if value := self.model_fields.get(key):
+    if value := self.__class__.model_fields.get(key):
       return value.default is not None
 
     return False
@@ -284,6 +284,9 @@ class Message(SubscriptableBaseModel):
   Valid image formats depend on the model. See the model card for more information.
   """
 
+  tool_name: Optional[str] = None
+  'Name of the executed tool.'
+
   class ToolCall(SubscriptableBaseModel):
     """
     Model tool calls.
@@ -310,7 +313,7 @@ class Message(SubscriptableBaseModel):
 
 
 class Tool(SubscriptableBaseModel):
-  type: Optional[Literal['function']] = 'function'
+  type: Optional[str] = 'function'
 
   class Function(SubscriptableBaseModel):
     name: Optional[str] = None
@@ -530,6 +533,7 @@ class ProcessResponse(SubscriptableBaseModel):
     size: Optional[ByteSize] = None
     size_vram: Optional[ByteSize] = None
     details: Optional[ModelDetails] = None
+    context_length: Optional[int] = None
 
   models: Sequence[Model]
 

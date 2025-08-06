@@ -16,7 +16,7 @@ class Events(BaseObject):
         self,
         *,
         chunk_size: Optional[int] = None,
-        next_stream_position: Optional[Union[str, float]] = None,
+        next_stream_position: Optional[Union[str, int]] = None,
         entries: Optional[List[Event]] = None,
         **kwargs
     ):
@@ -25,8 +25,8 @@ class Events(BaseObject):
                 :type chunk_size: Optional[int], optional
                 :param next_stream_position: The stream position of the start of the next page (chunk)
         of events., defaults to None
-                :type next_stream_position: Optional[Union[str, float]], optional
-                :param entries: A list of events, defaults to None
+                :type next_stream_position: Optional[Union[str, int]], optional
+                :param entries: A list of events., defaults to None
                 :type entries: Optional[List[Event]], optional
         """
         super().__init__(**kwargs)

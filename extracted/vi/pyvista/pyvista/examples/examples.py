@@ -10,6 +10,7 @@ Examples
 
 from __future__ import annotations
 
+import math
 import os
 from pathlib import Path
 
@@ -473,7 +474,7 @@ def load_sphere_vectors():
 
 
 def _sphere_vectors_load_func() -> pyvista.PolyData:
-    sphere = pyvista.Sphere(radius=3.14)
+    sphere = pyvista.Sphere(radius=math.pi)
 
     # make cool swirly pattern
     vectors = np.vstack(
@@ -566,7 +567,7 @@ def load_nut():
 _dataset_nut = _SingleFileDownloadableDatasetLoader(nutfile)
 
 
-def load_hydrogen_orbital(n=1, l=0, m=0, zoom_fac=1.0):
+def load_hydrogen_orbital(n=1, l=0, m=0, zoom_fac=1.0):  # noqa: PLR0917
     """Load the hydrogen wave function for a :class:`pyvista.ImageData`.
 
     This is the solution to the Schrödinger equation for hydrogen
@@ -616,7 +617,7 @@ def load_hydrogen_orbital(n=1, l=0, m=0, zoom_fac=1.0):
     >>> grid = examples.load_hydrogen_orbital(3, 2, -2)
     >>> grid.plot(volume=True, opacity=[1, 0, 1], cmap='magma')
 
-    See :ref:`plot_atomic_orbitals_example` for additional examples using
+    See :ref:`atomic_orbitals_example` for additional examples using
     this function.
 
     .. seealso::
@@ -628,7 +629,7 @@ def load_hydrogen_orbital(n=1, l=0, m=0, zoom_fac=1.0):
     return _dataset_hydrogen_orbital.load(n=n, l=l, m=m, zoom_fac=zoom_fac)
 
 
-def _hydrogen_orbital_load_func(n=1, l=0, m=0, zoom_fac=1.0):
+def _hydrogen_orbital_load_func(n=1, l=0, m=0, zoom_fac=1.0):  # noqa: PLR0917
     try:
         from sympy import lambdify
         from sympy.abc import phi

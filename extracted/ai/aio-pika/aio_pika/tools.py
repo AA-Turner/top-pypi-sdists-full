@@ -304,6 +304,8 @@ class OneShotCallback:
 
             try:
                 await self.callback(*args, **kwargs)
+            except Exception:
+                log.exception("Callback %r error", self)
             finally:
                 self.loop.call_soon(self.finished.set)
                 del self.callback
@@ -334,7 +336,7 @@ def ensure_awaitable(
 
     @wraps(func)
     async def wrapper(*args: _Params.args, **kwargs: _Params.kwargs) -> T:
-        nonlocal func
+        nonlocal func       # noqa
 
         result = func(*args, **kwargs)
         if not hasattr(result, "__await__"):

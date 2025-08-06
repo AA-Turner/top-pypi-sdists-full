@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: td-client
-Version: 1.3.0
+Version: 1.4.0
 Summary: Treasure Data API library for Python
 Author-email: "Treasure Data, Inc." <support@treasure-data.com>
 License: Apache Software License
@@ -29,6 +29,7 @@ Requires-Dist: ruff; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: license-file
 
 
 Treasure Data API library for Python

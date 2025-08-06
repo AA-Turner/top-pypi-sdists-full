@@ -36,7 +36,8 @@ class CreateUserAndCompanyRequest(betterproto.Message):
     email: str = betterproto.string_field(2)
     password: str = betterproto.string_field(3)
     company_name: str = betterproto.string_field(4)
-    groups: List["DefaultGroup"] = betterproto.enum_field(5)
+    company_uuid: str = betterproto.string_field(5)
+    groups: List["DefaultGroup"] = betterproto.enum_field(6)
 
 
 @dataclass

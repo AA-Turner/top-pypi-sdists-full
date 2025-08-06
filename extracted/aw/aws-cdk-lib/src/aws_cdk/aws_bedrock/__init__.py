@@ -3539,27 +3539,30 @@ class CfnApplicationInferenceProfile(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html
     :cloudformationResource: AWS::Bedrock::ApplicationInferenceProfile
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_bedrock as bedrock
-        
-        cfn_application_inference_profile = bedrock.CfnApplicationInferenceProfile(self, "MyCfnApplicationInferenceProfile",
-            inference_profile_name="inferenceProfileName",
-        
-            # the properties below are optional
-            description="description",
-            model_source=bedrock.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
-                copy_from="copyFrom"
+        # Create or reference an existing L1 CfnApplicationInferenceProfile
+        cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
+            inference_profile_name="my-cfn-profile",
+            model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
+                copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
             ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
+            description="Profile created via L1 construct"
         )
+        
+        # Import the L1 construct as an L2 ApplicationInferenceProfile
+        imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
+        
+        # Grant permissions to use the imported profile
+        lambda_function = lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime.PYTHON_3_11,
+            handler="index.handler",
+            code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
+        )
+        
+        imported_from_cfn.grant_profile_usage(lambda_function)
     '''
 
     def __init__(
@@ -3899,27 +3902,30 @@ class CfnApplicationInferenceProfileProps:
         :param tags: A list of tags associated with the inference profile.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-applicationinferenceprofile.html
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: fixture=default infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
-            
-            cfn_application_inference_profile_props = bedrock.CfnApplicationInferenceProfileProps(
-                inference_profile_name="inferenceProfileName",
-            
-                # the properties below are optional
-                description="description",
-                model_source=bedrock.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
-                    copy_from="copyFrom"
+            # Create or reference an existing L1 CfnApplicationInferenceProfile
+            cfn_profile = aws_bedrock_cfn.CfnApplicationInferenceProfile(self, "CfnProfile",
+                inference_profile_name="my-cfn-profile",
+                model_source=aws_bedrock_cfn.CfnApplicationInferenceProfile.InferenceProfileModelSourceProperty(
+                    copy_from=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_SONNET_V1_0.invokable_arn
                 ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
+                description="Profile created via L1 construct"
             )
+            
+            # Import the L1 construct as an L2 ApplicationInferenceProfile
+            imported_from_cfn = bedrock.ApplicationInferenceProfile.from_cfn_application_inference_profile(cfn_profile)
+            
+            # Grant permissions to use the imported profile
+            lambda_function = lambda_.Function(self, "MyFunction",
+                runtime=lambda_.Runtime.PYTHON_3_11,
+                handler="index.handler",
+                code=lambda_.Code.from_inline("def handler(event, context): return \"Hello\"")
+            )
+            
+            imported_from_cfn.grant_profile_usage(lambda_function)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__396027668dce29a45dd42acb9bb8358fa9135a15e45d6925e8a78acced3bd78d)

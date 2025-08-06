@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langfuse
-Version: 3.2.1
+Version: 3.2.2
 Summary: A client library for accessing langfuse
 License: MIT
 Author: langfuse
@@ -23,13 +23,13 @@ Requires-Dist: openai (>=0.27.8) ; extra == "openai"
 Requires-Dist: opentelemetry-api (>=1.33.1,<2.0.0)
 Requires-Dist: opentelemetry-exporter-otlp (>=1.33.1,<2.0.0)
 Requires-Dist: opentelemetry-sdk (>=1.33.1,<2.0.0)
-Requires-Dist: packaging (>=23.2,<25.0)
+Requires-Dist: packaging (>=23.2,<26.0)
 Requires-Dist: pydantic (>=1.10.7,<3.0)
 Requires-Dist: requests (>=2,<3)
 Requires-Dist: wrapt (>=1.14,<2.0)
 Description-Content-Type: text/markdown
 
-![GitHub Banner](https://github.com/langfuse/langfuse-python/assets/2834609/3c36488e-6fe6-4a82-b0f5-5419250ddf86)
+![Langfuse GitHub Banner](https://langfuse.com/langfuse_logo_white.png)
 
 # Langfuse Python SDK
 
@@ -43,7 +43,7 @@ Description-Content-Type: text/markdown
 ## Installation
 
 > [!IMPORTANT]
-> The SDK was rewritten in v2 and released on December 17, 2023. Refer to the [v2 migration guide](https://langfuse.com/docs/sdk/python/low-level-sdk#upgrading-from-v1xx-to-v2xx) for instructions on updating your code.
+> The SDK was rewritten in v3 and released in June 2025. Refer to the [v3 migration guide](https://langfuse.com/docs/sdk/python/sdk-v3#upgrade-from-v2) for instructions on updating your code.
 
 ```
 pip install langfuse
@@ -51,21 +51,5 @@ pip install langfuse
 
 ## Docs
 
-- Decorators: https://langfuse.com/docs/sdk/python/decorators
-- Low-level SDK: https://langfuse.com/docs/sdk/python/low-level-sdk
-- Langchain integration: https://langfuse.com/docs/integrations/langchain/tracing
-
-## Interfaces
-
-Interfaces:
-
-- `@observe()` decorator ([docs](https://langfuse.com/docs/sdk/python/decorators))
-- Low-level tracing SDK ([docs](https://langfuse.com/docs/sdk/python/low-level-sdk))
-- Wrapper of Langfuse public API
-
-Integrations
-
-- OpenAI SDK ([docs](https://langfuse.com/docs/integrations/openai))
-- LlamaIndex ([docs](https://langfuse.com/docs/integrations/llama-index))
-- LangChain ([docs](https://langfuse.com/docs/integrations/langchain))
+Please [see our docs](https://langfuse.com/docs/sdk/python/sdk-v3) for detailed information on this SDK.
 

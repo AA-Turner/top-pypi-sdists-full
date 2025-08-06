@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-solutions-constructs.aws-sqs-lambda
-Version: 2.90.3
+Version: 2.90.4
 Summary: CDK constructs for defining an interaction between an Amazon SQS queue and an AWS Lambda function.
 Home-page: https://github.com/awslabs/aws-solutions-constructs.git
 Author: Amazon Web Services
@@ -19,7 +19,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aws-cdk-lib<3.0.0,>=2.206.0
-Requires-Dist: aws-solutions-constructs.core==2.90.3
+Requires-Dist: aws-solutions-constructs.core==2.90.4
 Requires-Dist: constructs<11.0.0,>=10.0.0
 Requires-Dist: jsii<2.0.0,>=1.111.0
 Requires-Dist: publication>=0.0.3

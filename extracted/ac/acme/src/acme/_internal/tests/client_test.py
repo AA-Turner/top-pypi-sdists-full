@@ -548,27 +548,38 @@ class ClientV2Test(unittest.TestCase):
 
     @mock.patch('acme.client.datetime')
     def test_renewal_time_renewal_info_errors(self, dt_mock):
-        utc_now = datetime.datetime(2025, 3, 15, tzinfo=datetime.timezone.utc)
-        dt_mock.datetime.now.return_value = utc_now
+        def now(tzinfo=None):
+            return datetime.datetime(2025, 3, 15, tzinfo=tzinfo)
+        dt_mock.datetime.now.side_effect = now
+        dt_mock.timedelta = datetime.timedelta
+        dt_mock.timezone = datetime.timezone
+
         self.client.directory = messages.Directory({
             'renewalInfo': 'https://www.letsencrypt-demo.org/acme/renewal-info',
         })
-        # Failure to fetch the 'renewalInfo' URL should return None
-        self.net.get.side_effect = requests.exceptions.RequestException
+        # Failure to fetch the 'renewalInfo' URL should raise an ARIError with the exception raised
+        # by self.net.get as the __cause__ and a Retry-After 6 hours in the future
+        expected_cause = requests.exceptions.RequestException
+        expected_retry_after = now() + datetime.timedelta(seconds=6 * 60 * 60)
+        self.net.get.side_effect = expected_cause
 
         cert_pem = make_cert_for_renewal(
             not_before=datetime.datetime(2025, 3, 12, 00, 00, 00),
             not_after=datetime.datetime(2025, 3, 20, 00, 00, 00),
         )
-        t, _ = self.client.renewal_time(cert_pem)
-        assert t == None
+        with pytest.raises(errors.ARIError) as exception_info:
+            self.client.renewal_time(cert_pem)
+        assert isinstance(exception_info.value.__cause__, expected_cause)
+        assert exception_info.value.retry_after == expected_retry_after
 
         cert_pem = make_cert_for_renewal(
             not_before=datetime.datetime(2025, 3, 12, 00, 00, 00),
             not_after=datetime.datetime(2025, 3, 30, 00, 00, 00),
         )
-        t, _ = self.client.renewal_time(cert_pem)
-        assert t == None
+        with pytest.raises(errors.ARIError) as exception_info:
+            self.client.renewal_time(cert_pem)
+        assert isinstance(exception_info.value.__cause__, expected_cause)
+        assert exception_info.value.retry_after == expected_retry_after
 
     @mock.patch('acme.client.datetime')
     def test_renewal_time_returns_retry_after(self, dt_mock):
@@ -884,20 +895,6 @@ class ClientNetworkTest(unittest.TestCase):
         with pytest.raises(requests.exceptions.RequestException):
             self.net._send_request('GET', 'uri')
 
-    def test_urllib_error(self):
-        # Using a connection error to test a properly formatted error message
-        try:
-            # pylint: disable=protected-access
-            self.net._send_request('GET', "http://localhost:19123/nonexistent.txt")
-
-        # Value Error Generated Exceptions
-        except ValueError as y:
-            assert "Requesting localhost/nonexistent: " \
-                             "Connection refused" == str(y)
-
-        # Requests Library Exceptions
-        except requests.exceptions.ConnectionError as z: #pragma: no cover
-            assert "'Connection aborted.'" in str(z) or "[WinError 10061]" in str(z)
 
 class ClientNetworkWithMockedResponseTest(unittest.TestCase):
     """Tests for acme.client.ClientNetwork which mock out response."""

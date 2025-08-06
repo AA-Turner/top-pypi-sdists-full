@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-codestar-alpha",
-    "2.208.0-alpha.0",
+    "2.209.1-alpha.0",
     __name__[0:-6],
-    "aws-codestar-alpha@2.208.0-alpha.0.jsii.tgz",
+    "aws-codestar-alpha@2.209.1-alpha.0.jsii.tgz",
 )
 
 __all__ = [

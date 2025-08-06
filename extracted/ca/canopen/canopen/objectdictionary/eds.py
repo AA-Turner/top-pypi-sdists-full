@@ -1,11 +1,18 @@
+from __future__ import annotations
+
 import copy
 import logging
 import re
-from configparser import RawConfigParser, NoOptionError, NoSectionError
+from configparser import NoOptionError, NoSectionError, RawConfigParser
+from typing import TYPE_CHECKING
 
 from canopen import objectdictionary
 from canopen.objectdictionary import ObjectDictionary, datatypes
 from canopen.sdo import SdoClient
+
+if TYPE_CHECKING:
+    import canopen.network
+
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +92,13 @@ def import_eds(source, node_id):
                 pass
 
     if eds.has_section("DeviceComissioning"):
-        od.bitrate = int(eds.get("DeviceComissioning", "Baudrate")) * 1000
-        od.node_id = int(eds.get("DeviceComissioning", "NodeID"), 0)
-        node_id = node_id or od.node_id
+        if val := eds.getint("DeviceComissioning", "Baudrate", fallback=None):
+            od.bitrate = val * 1000
+
+        if node_id is None:
+            if val := eds.get("DeviceComissioning", "NodeID", fallback=None):
+                node_id = int(val, base=0)
+        od.node_id = node_id
 
     for section in eds.sections():
         # Match dummy definitions
@@ -168,7 +179,7 @@ def import_eds(source, node_id):
     return od
 
 
-def import_from_node(node_id, network):
+def import_from_node(node_id: int, network: canopen.network.Network):
     """ Download the configuration from the remote node
     :param int node_id: Identifier of the node
     :param network: network object
@@ -462,7 +473,7 @@ def export_eds(od, dest=None, file_info={}, device_commisioning=False):
     for rate in od.device_information.allowed_baudrates.union(
             {10e3, 20e3, 50e3, 125e3, 250e3, 500e3, 800e3, 1000e3}):
         eds.set(
-            "DeviceInfo", f"BaudRate_{rate//1000}",
+            "DeviceInfo", f"BaudRate_{int(rate//1000)}",
             int(rate in od.device_information.allowed_baudrates))
 
     if device_commisioning and (od.bitrate or od.node_id):

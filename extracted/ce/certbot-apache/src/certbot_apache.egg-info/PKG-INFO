@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot-apache
-Version: 4.1.1
+Version: 4.2.0
 Summary: Apache plugin for Certbot
 Home-page: https://github.com/certbot/certbot
 Author: Certbot Project
@@ -26,8 +26,8 @@ Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9.2
 License-File: LICENSE.txt
-Requires-Dist: acme>=4.1.1
-Requires-Dist: certbot>=4.1.1
+Requires-Dist: acme>=4.2.0
+Requires-Dist: certbot>=4.2.0
 Requires-Dist: python-augeas
 Provides-Extra: dev
 Requires-Dist: apacheconfig>=0.3.2; extra == "dev"

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from mcp import ErrorData, McpError
 from mcp.types import INTERNAL_ERROR, INVALID_PARAMS, ImageContent, TextContent
@@ -68,29 +68,38 @@ class AnthropicComputerTool(HudComputerTool):
         self,
         width: int = 1400,
         height: int = 850,
+        environment_width: int = 1920,
+        environment_height: int = 1080,
         display_num: int | None = None,
         platform_type: Literal["auto", "xdo", "pyautogui"] = "auto",
         rescale_images: bool = False,
+        **kwargs: Any,
     ) -> None:
         """
         Initialize with Anthropic's default dimensions.
 
         Args:
-            width: Target width for rescaling (default: 1024 for Anthropic)
-            height: Target height for rescaling (default: 768 for Anthropic)
+            width: Target width for rescaling (default: 1400 for Anthropic)
+            height: Target height for rescaling (default: 850 for Anthropic)
+            environment_width: Environment screen width (default: 1920)
+            environment_height: Environment screen height (default: 1080)
             display_num: X display number
             platform_type: Which executor to use:
                 - "auto": Automatically detect based on platform
                 - "xdo": Use XDOExecutor (Linux/X11 only)
                 - "pyautogui": Use PyAutoGUIExecutor (cross-platform)
             rescale_images: If True, rescale screenshots. If False, only rescale action coordinates
+            **kwargs: Additional arguments passed to HudComputerTool (e.g., executor)
         """
         super().__init__(
             width=width,
             height=height,
             display_num=display_num,
+            environment_width=environment_width,
+            environment_height=environment_height,
             platform_type=platform_type,
             rescale_images=rescale_images,
+            **kwargs,
         )
 
     def to_params(self) -> BetaToolComputerUse20250124Param:

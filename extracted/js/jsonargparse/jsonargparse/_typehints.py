@@ -680,10 +680,10 @@ class ActionTypeHint(Action):
             return ["true", "false", "null"]
         elif is_subclass(self._typehint, Enum):
             enum = self._typehint
-            return list(enum.__members__.keys())
+            return list(enum.__members__)
         elif is_optional(self._typehint, Enum):
             enum = get_optional_arg(self._typehint)
-            return list(enum.__members__.keys()) + ["null"]
+            return list(enum.__members__) + ["null"]
         elif is_optional(self._typehint, Path):
             files_completer = get_files_completer()
             return ["null"] + sorted(files_completer(prefix, **kwargs))
@@ -773,7 +773,7 @@ def adapt_typehints(
     # Literal
     elif typehint_origin in literal_types:
         if val not in subtypehints and isinstance(val, str):
-            subtypes = Union[tuple({type(v) for v in subtypehints if type(v) is not str})]
+            subtypes = Union[tuple((type(v) for v in subtypehints if type(v) is not str))]
             val = adapt_typehints(val, subtypes, **adapt_kwargs)
         if val not in subtypehints:
             raise_unexpected_value(f"Expected a {typehint}", val)
@@ -1081,7 +1081,8 @@ def adapt_typehints(
             )
 
         try:
-            val_class = import_object(resolve_class_path_by_name(typehint, val["class_path"]))
+            class_path = resolve_class_path_by_name(typehint, val["class_path"])
+            val_class = import_object(class_path)
             if is_instance_or_supports_protocol(val_class, typehint):
                 return val_class  # importable instance
             if is_protocol(val_class):
@@ -1098,10 +1099,14 @@ def adapt_typehints(
             elif prev_implicit_defaults:
                 inner_parser = ActionTypeHint.get_class_parser(typehint, sub_add_kwargs)
                 prev_val.init_args = inner_parser.get_defaults()
+                if prev_val.class_path != class_path:
+                    inner_parser = ActionTypeHint.get_class_parser(val_class, sub_add_kwargs)
+                    for key in inner_parser.get_defaults().keys():
+                        prev_val.init_args.pop(key, None)
             if not_subclass:
                 msg = "implement protocol" if is_protocol(typehint) else "correspond to a subclass of"
                 raise_unexpected_value(f"Import path {val['class_path']} does not {msg} {typehint.__name__}")
-            val["class_path"] = get_import_path(val_class)
+            val["class_path"] = class_path
             val = adapt_class_type(val, serialize, instantiate_classes, sub_add_kwargs, prev_val=prev_val)
         except (ImportError, AttributeError, AssertionError, ArgumentError) as ex:
             class_path = val if isinstance(val, str) else val["class_path"]
@@ -1446,7 +1451,7 @@ def adapt_class_type(
             value["init_args"] = load_value(parser.dump(init_args, **dump_kwargs.get()))
     else:
         if isinstance(dict_kwargs, dict):
-            for key in list(dict_kwargs.keys()):
+            for key in list(dict_kwargs):
                 if _find_action(parser, key):
                     init_args[key] = dict_kwargs.pop(key)
         elif dict_kwargs:
@@ -1571,7 +1576,7 @@ def typehint_metavar(typehint):
         metavar = iter_to_set_str(enum.__members__)
     elif is_optional(typehint, Enum):
         enum = typehint.__args__[0]
-        metavar = iter_to_set_str(list(enum.__members__.keys()) + ["null"])
+        metavar = iter_to_set_str(list(enum.__members__) + ["null"])
     elif typehint_origin in tuple_set_origin_types:
         metavar = "[ITEM,...]"
     return metavar

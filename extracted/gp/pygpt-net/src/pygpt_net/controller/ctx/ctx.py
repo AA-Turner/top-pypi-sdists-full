@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.01 19:00:00                  #
+# Updated Date: 2025.08.06 01:00:00                  #
 # ================================================== #
 
 from typing import Optional, List
@@ -287,7 +287,7 @@ class Ctx:
         data = {
             "meta": meta,
         }
-        event = RenderEvent(RenderEvent.CLEAR, data)
+        event = RenderEvent(RenderEvent.FRESH, data)
         self.window.dispatch(event)
 
         if not force:  # only if real click on new context button
@@ -313,6 +313,8 @@ class Ctx:
 
         # switch to new context if non-chat tab
         self.select(meta.id)
+
+        # self.window.core.debug.mem("NEW")  # debug memory usage
         return meta
 
     def add(self, ctx: CtxItem):
@@ -405,6 +407,11 @@ class Ctx:
 
         # reset appended data / prepare new ctx
         if meta is not None:
+            data = {
+                "meta": meta,
+            }
+            event = RenderEvent(RenderEvent.FRESH, data)
+            self.window.dispatch(event)
             data = {
                 "meta": meta,
             }

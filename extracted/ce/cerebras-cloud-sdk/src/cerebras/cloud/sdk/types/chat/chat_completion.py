@@ -1,8 +1,10 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 import builtins
-from typing import TYPE_CHECKING, List, Union, Optional
+from typing import TYPE_CHECKING, Dict, List, Union, Optional
 from typing_extensions import Literal, TypeAlias
+
+from pydantic import Field as FieldInfo
 
 from ..._models import BaseModel
 
@@ -44,6 +46,7 @@ class ChatCompletionResponseChoiceMessageToolCallFunction(BaseModel):
 
     name: str
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -55,9 +58,11 @@ class ChatCompletionResponseChoiceMessageToolCall(BaseModel):
     id: str
 
     function: ChatCompletionResponseChoiceMessageToolCallFunction
+    """Non-streaming only. Represents a function call in an assistant tool call."""
 
     type: Literal["function"]
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -70,8 +75,11 @@ class ChatCompletionResponseChoiceMessage(BaseModel):
 
     content: Optional[str] = None
 
+    reasoning: Optional[str] = None
+
     tool_calls: Optional[List[ChatCompletionResponseChoiceMessageToolCall]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -86,6 +94,7 @@ class ChatCompletionResponseChoiceLogprobsContentTopLogprob(BaseModel):
 
     bytes: Optional[List[int]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -102,6 +111,7 @@ class ChatCompletionResponseChoiceLogprobsContent(BaseModel):
 
     bytes: Optional[List[int]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -116,6 +126,7 @@ class ChatCompletionResponseChoiceLogprobsRefusalTopLogprob(BaseModel):
 
     bytes: Optional[List[int]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -132,6 +143,7 @@ class ChatCompletionResponseChoiceLogprobsRefusal(BaseModel):
 
     bytes: Optional[List[int]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -144,6 +156,7 @@ class ChatCompletionResponseChoiceLogprobs(BaseModel):
 
     refusal: Optional[List[ChatCompletionResponseChoiceLogprobsRefusal]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -160,6 +173,7 @@ class ChatCompletionResponseChoice(BaseModel):
 
     logprobs: Optional[ChatCompletionResponseChoiceLogprobs] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -176,6 +190,7 @@ class ChatCompletionResponseTimeInfo(BaseModel):
 
     total_time: Optional[float] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -186,6 +201,7 @@ class ChatCompletionResponseTimeInfo(BaseModel):
 class ChatCompletionResponseUsagePromptTokensDetails(BaseModel):
     cached_tokens: Optional[int] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -202,6 +218,7 @@ class ChatCompletionResponseUsage(BaseModel):
 
     total_tokens: Optional[int] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -228,6 +245,7 @@ class ChatCompletionResponse(BaseModel):
 
     service_tier: Optional[str] = None
 
+    __pydantic_extra__: Dict[str, builtins.object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -236,10 +254,11 @@ class ChatCompletionResponse(BaseModel):
 
 
 class ChatChunkResponseChoiceDeltaToolCallFunction(BaseModel):
-    arguments: str
+    arguments: Optional[str] = None
 
-    name: str
+    name: Optional[str] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -248,14 +267,16 @@ class ChatChunkResponseChoiceDeltaToolCallFunction(BaseModel):
 
 
 class ChatChunkResponseChoiceDeltaToolCall(BaseModel):
-    id: str
-
     function: ChatChunkResponseChoiceDeltaToolCallFunction
+    """Streaming only. Represents a function in an assistant tool call."""
 
     type: Literal["function"]
 
+    id: Optional[str] = None
+
     index: Optional[int] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -266,10 +287,13 @@ class ChatChunkResponseChoiceDeltaToolCall(BaseModel):
 class ChatChunkResponseChoiceDelta(BaseModel):
     content: Optional[str] = None
 
+    reasoning: Optional[str] = None
+
     role: Optional[Literal["assistant", "user", "system", "tool"]] = None
 
     tool_calls: Optional[List[ChatChunkResponseChoiceDeltaToolCall]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -284,6 +308,7 @@ class ChatChunkResponseChoiceLogprobsContentTopLogprob(BaseModel):
 
     bytes: Optional[List[int]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -300,6 +325,7 @@ class ChatChunkResponseChoiceLogprobsContent(BaseModel):
 
     bytes: Optional[List[int]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -314,6 +340,7 @@ class ChatChunkResponseChoiceLogprobsRefusalTopLogprob(BaseModel):
 
     bytes: Optional[List[int]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -330,6 +357,7 @@ class ChatChunkResponseChoiceLogprobsRefusal(BaseModel):
 
     bytes: Optional[List[int]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -342,6 +370,7 @@ class ChatChunkResponseChoiceLogprobs(BaseModel):
 
     refusal: Optional[List[ChatChunkResponseChoiceLogprobsRefusal]] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -358,6 +387,7 @@ class ChatChunkResponseChoice(BaseModel):
 
     logprobs: Optional[ChatChunkResponseChoiceLogprobs] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -374,6 +404,7 @@ class ChatChunkResponseTimeInfo(BaseModel):
 
     total_time: Optional[float] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -384,6 +415,7 @@ class ChatChunkResponseTimeInfo(BaseModel):
 class ChatChunkResponseUsagePromptTokensDetails(BaseModel):
     cached_tokens: Optional[int] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -400,6 +432,7 @@ class ChatChunkResponseUsage(BaseModel):
 
     total_tokens: Optional[int] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -426,6 +459,7 @@ class ChatChunkResponse(BaseModel):
 
     usage: Optional[ChatChunkResponseUsage] = None
 
+    __pydantic_extra__: Dict[str, builtins.object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -442,6 +476,7 @@ class ErrorChunkResponseError(BaseModel):
 
     type: Optional[str] = None
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.
@@ -454,6 +489,7 @@ class ErrorChunkResponse(BaseModel):
 
     status_code: int
 
+    __pydantic_extra__: Dict[str, object] = FieldInfo(init=False)  # pyright: ignore[reportIncompatibleVariableOverride]
     if TYPE_CHECKING:
         # Stub to indicate that arbitrary properties are accepted.
         # To access properties that are not valid identifiers you can use `getattr`, e.g.

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-bedrock
-Version: 1.40.0
-Summary: Type annotations for boto3 Bedrock 1.40.0 service generated with mypy-boto3-builder 8.11.0
+Version: 1.40.3
+Summary: Type annotations for boto3 Bedrock 1.40.3 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Bedrock 1.40.0](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Bedrock 1.40.3](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -118,7 +118,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.3' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Bedrock` service.
 4. Use provided commands to install generated packages.
@@ -352,6 +352,10 @@ from boto3.session import Session
 
 from mypy_boto3_bedrock import BedrockClient
 from mypy_boto3_bedrock.paginator import (
+    ListAutomatedReasoningPoliciesPaginator,
+    ListAutomatedReasoningPolicyBuildWorkflowsPaginator,
+    ListAutomatedReasoningPolicyTestCasesPaginator,
+    ListAutomatedReasoningPolicyTestResultsPaginator,
     ListCustomModelDeploymentsPaginator,
     ListCustomModelsPaginator,
     ListEvaluationJobsPaginator,
@@ -371,6 +375,18 @@ client: BedrockClient = Session().client("bedrock")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+list_automated_reasoning_policies_paginator: ListAutomatedReasoningPoliciesPaginator = (
+    client.get_paginator("list_automated_reasoning_policies")
+)
+list_automated_reasoning_policy_build_workflows_paginator: ListAutomatedReasoningPolicyBuildWorkflowsPaginator = client.get_paginator(
+    "list_automated_reasoning_policy_build_workflows"
+)
+list_automated_reasoning_policy_test_cases_paginator: ListAutomatedReasoningPolicyTestCasesPaginator = client.get_paginator(
+    "list_automated_reasoning_policy_test_cases"
+)
+list_automated_reasoning_policy_test_results_paginator: ListAutomatedReasoningPolicyTestResultsPaginator = client.get_paginator(
+    "list_automated_reasoning_policy_test_results"
+)
 list_custom_model_deployments_paginator: ListCustomModelDeploymentsPaginator = client.get_paginator(
     "list_custom_model_deployments"
 )

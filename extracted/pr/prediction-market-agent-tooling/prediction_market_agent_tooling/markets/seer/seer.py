@@ -2,6 +2,7 @@ import asyncio
 import typing as t
 from datetime import timedelta
 
+import cachetools
 from cowdao_cowpy.common.api.errors import UnexpectedResponseError
 from eth_typing import ChecksumAddress
 from web3 import Web3
@@ -97,6 +98,11 @@ from prediction_market_agent_tooling.tools.utils import check_not_none, utcnow
 
 # We place a larger bet amount by default than Omen so that cow presents valid quotes.
 SEER_TINY_BET_AMOUNT = USD(0.1)
+
+
+SHARED_CACHE: cachetools.TTLCache[t.Hashable, t.Any] = cachetools.TTLCache(
+    maxsize=256, ttl=10 * 60
+)
 
 
 class SeerAgentMarket(AgentMarket):
@@ -541,6 +547,7 @@ class SeerAgentMarket(AgentMarket):
         liquidity = self.get_liquidity_for_outcome(outcome)
         return liquidity > self.minimum_market_liquidity_required
 
+    @cachetools.cached(cache=SHARED_CACHE, key=lambda self: f"has_liquidity_{self.id}")
     def has_liquidity(self) -> bool:
         # We define a market as having liquidity if it has liquidity for all outcomes except for the invalid (index -1)
         return all(
@@ -594,7 +601,7 @@ class SeerAgentMarket(AgentMarket):
                     f"Expected exactly 1 trade from {order_metadata=}, but got {len(trades)=}."
                 )
             cow_tx_hash = trades[0].txHash
-            logger.info(f"TxHash for {order_metadata.uid.root=} is {cow_tx_hash=}.")
+            logger.info(f"TxHash is {cow_tx_hash=} for {order_metadata.uid.root=}.")
             return cow_tx_hash.hex()
 
         except (
@@ -626,7 +633,9 @@ class SeerAgentMarket(AgentMarket):
                 amount_wei=amount_wei,
                 web3=web3,
             )
-            return tx_receipt["transactionHash"].hex()
+            swap_pool_tx_hash = tx_receipt["transactionHash"].hex()
+            logger.info(f"TxHash is {swap_pool_tx_hash=}.")
+            return swap_pool_tx_hash
 
     def place_bet(
         self,

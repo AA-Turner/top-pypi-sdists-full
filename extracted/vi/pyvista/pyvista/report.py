@@ -8,6 +8,8 @@ import sys
 
 import scooby
 
+from pyvista._deprecate_positional_args import _deprecate_positional_args
+
 _cmd = """\
 import pyvista; \
 plotter = pyvista.Plotter(notebook=False, off_screen=True); \
@@ -158,11 +160,19 @@ class Report(scooby.Report):
 
     """
 
-    def __init__(self, additional=None, ncol=3, text_width=80, sort=False, gpu=True):
+    @_deprecate_positional_args
+    def __init__(  # noqa: PLR0917
+        self,
+        additional=None,
+        ncol=3,
+        text_width=80,
+        sort=False,  # noqa: FBT002
+        gpu=True,  # noqa: FBT002
+    ):
         """Generate a :class:`scooby.Report` instance."""
-        from vtkmodules.vtkRenderingCore import vtkRenderWindow
+        from vtkmodules.vtkRenderingCore import vtkRenderWindow  # noqa: PLC0415
 
-        from pyvista.plotting.tools import check_math_text_support
+        from pyvista.plotting.tools import check_math_text_support  # noqa: PLC0415
 
         # Mandatory packages
         core = ['pyvista', 'vtk', 'numpy', 'matplotlib', 'scooby', 'pooch', 'pillow']
@@ -190,12 +200,12 @@ class Report(scooby.Report):
             'nest_asyncio',
         ]
 
-        # Information about the GPU - bare except in case there is a rendering
+        # Information about the GPU - catch all Exception in case there is a rendering
         # bug that the user is trying to report.
         if gpu:
             try:
                 extra_meta = GPUInfo().get_info()
-            except:
+            except Exception:  # noqa: BLE001
                 extra_meta = [
                     ('GPU Details', 'error'),
                 ]

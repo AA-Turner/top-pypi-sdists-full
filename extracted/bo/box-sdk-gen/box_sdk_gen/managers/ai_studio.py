@@ -14,6 +14,10 @@ from box_sdk_gen.serialization.json import serialize
 
 from box_sdk_gen.networking.fetch_options import ResponseFormat
 
+from box_sdk_gen.schemas.user_base import UserBase
+
+from box_sdk_gen.schemas.group_base import GroupBase
+
 from box_sdk_gen.schemas.ai_agent_allowed_entity import AiAgentAllowedEntity
 
 from box_sdk_gen.schemas.ai_studio_agent_ask import AiStudioAgentAsk
@@ -149,7 +153,7 @@ class AiStudioManager:
                 :param type: The type of agent used to handle queries., defaults to CreateAiAgentType.AI_AGENT
                 :type type: CreateAiAgentType, optional
                 :param icon_reference: The icon reference of the AI Agent. It should have format of the URL `https://cdn01.boxcdn.net/app-assets/aistudio/avatars/<file_name>`
-        where possible values of `file_name` are: `logo_boxAi.png`,`logo_stamp.png`,`logo_legal.png`,`logo_finance.png`,`logo_config.png`,`logo_handshake.png`,`logo_analytics.png`,`logo_classification.png`, defaults to None
+        where possible values of `file_name` are: `logo_boxAi.png`,`logo_stamp.png`,`logo_legal.png`,`logo_finance.png`,`logo_config.png`,`logo_handshake.png`,`logo_analytics.png`,`logo_classification.png`., defaults to None
                 :type icon_reference: Optional[str], optional
                 :param allowed_entities: List of allowed users or groups., defaults to None
                 :type allowed_entities: Optional[List[AiAgentAllowedEntity]], optional
@@ -211,7 +215,7 @@ class AiStudioManager:
                 :param type: The type of agent used to handle queries., defaults to UpdateAiAgentByIdType.AI_AGENT
                 :type type: UpdateAiAgentByIdType, optional
                 :param icon_reference: The icon reference of the AI Agent. It should have format of the URL `https://cdn01.boxcdn.net/app-assets/aistudio/avatars/<file_name>`
-        where possible values of `file_name` are: `logo_boxAi.png`,`logo_stamp.png`,`logo_legal.png`,`logo_finance.png`,`logo_config.png`,`logo_handshake.png`,`logo_analytics.png`,`logo_classification.png`, defaults to None
+        where possible values of `file_name` are: `logo_boxAi.png`,`logo_stamp.png`,`logo_legal.png`,`logo_finance.png`,`logo_config.png`,`logo_handshake.png`,`logo_analytics.png`,`logo_classification.png`., defaults to None
                 :type icon_reference: Optional[str], optional
                 :param allowed_entities: List of allowed users or groups., defaults to None
                 :type allowed_entities: Optional[List[AiAgentAllowedEntity]], optional

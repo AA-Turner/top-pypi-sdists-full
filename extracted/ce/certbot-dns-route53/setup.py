@@ -4,7 +4,7 @@ import sys
 from setuptools import find_packages
 from setuptools import setup
 
-version = '4.1.1'
+version = '4.2.0'
 
 install_requires = [
     'boto3>=1.15.15',

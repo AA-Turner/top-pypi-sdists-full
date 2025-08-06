@@ -340,6 +340,7 @@ class Projects:
         file_path,
         dataset_type,
         input_type="image",
+        project_type='detection',
         bucket_alias="",
         compute_alias="",
         source_credential_alias="",
@@ -383,6 +384,7 @@ class Projects:
         return self._create_dataset(
             dataset_name=dataset_name,
             dataset_type=dataset_type,
+            project_type=project_type,
             input_type=input_type,
             dataset_path=file_path,
             bucket_alias=bucket_alias,

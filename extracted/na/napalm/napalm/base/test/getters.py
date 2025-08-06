@@ -90,7 +90,7 @@ def wrap_test_cases(func):
             attr.current_test = ""  # Empty them to avoid side effects
             attr.current_test_case = ""  # Empty them to avoid side effects
 
-        return result
+        return None
 
     @functools.wraps(func)
     def real_wrapper(cls, test_case):
@@ -249,7 +249,7 @@ class BaseTestGetters(object):
         assert get_bgp_config == {} or len(get_bgp_config) > 0
 
         for bgp_group in get_bgp_config.values():
-            assert helpers.test_model(models.BPGConfigGroupDict, bgp_group)
+            assert helpers.test_model(models.BGPConfigGroupDict, bgp_group)
             for bgp_neighbor in bgp_group.get("neighbors", {}).values():
                 assert helpers.test_model(models.BGPConfigNeighborDict, bgp_neighbor)
 
@@ -311,7 +311,9 @@ class BaseTestGetters(object):
 
         for peer, peer_details in get_ntp_peers.items():
             assert isinstance(peer, str)
-            assert helpers.test_model(models.NTPPeerDict, peer_details)
+            assert helpers.test_model(
+                models.NTPPeerDict, peer_details, allow_subset=True
+            )
 
         return get_ntp_peers
 
@@ -323,7 +325,9 @@ class BaseTestGetters(object):
 
         for server, server_details in get_ntp_servers.items():
             assert isinstance(server, str)
-            assert helpers.test_model(models.NTPServerDict, server_details)
+            assert helpers.test_model(
+                models.NTPServerDict, server_details, allow_subset=True
+            )
 
         return get_ntp_servers
 

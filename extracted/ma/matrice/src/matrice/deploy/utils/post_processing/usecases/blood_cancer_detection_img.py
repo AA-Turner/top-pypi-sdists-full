@@ -72,6 +72,7 @@ class BloodCancerDetectionUseCase(BaseProcessor):
     def __init__(self):
         super().__init__("bloodcancer_img_detection")
         self.category = "healthcare"
+        
 
         # List of  categories to track
         self.target_categories = ['Benign', 'Early', 'Pre', 'Pro']

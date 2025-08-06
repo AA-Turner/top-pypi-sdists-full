@@ -59,6 +59,7 @@ __all__ = (
     "AutoMountHomeEFSType",
     "AutotuneModeType",
     "AwsManagedHumanLoopRequestSourceType",
+    "BatchAddClusterNodesErrorCodeType",
     "BatchDeleteClusterNodesErrorCodeType",
     "BatchStrategyType",
     "BooleanOperatorType",
@@ -66,14 +67,17 @@ __all__ = (
     "CandidateStatusType",
     "CandidateStepTypeType",
     "CapacityReservationPreferenceType",
+    "CapacityReservationTypeType",
     "CapacitySizeTypeType",
     "CaptureModeType",
     "CaptureStatusType",
     "ClarifyFeatureTypeType",
     "ClarifyTextGranularityType",
     "ClarifyTextLanguageType",
+    "ClusterEventResourceTypeType",
     "ClusterInstanceStatusType",
     "ClusterInstanceTypeType",
+    "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
     "ClusterSortByType",
     "ClusterStatusType",
@@ -107,6 +111,7 @@ __all__ = (
     "EndpointInServiceWaiterName",
     "EndpointSortKeyType",
     "EndpointStatusType",
+    "EventSortByType",
     "ExecutionRoleIdentityConfigType",
     "ExecutionStatusType",
     "FailureHandlingPolicyType",
@@ -173,6 +178,7 @@ __all__ = (
     "ListAssociationsPaginatorName",
     "ListAutoMLJobsPaginatorName",
     "ListCandidatesForAutoMLJobPaginatorName",
+    "ListClusterEventsPaginatorName",
     "ListClusterNodesPaginatorName",
     "ListClusterSchedulerConfigsPaginatorName",
     "ListClustersPaginatorName",
@@ -731,6 +737,7 @@ AutotuneModeType = Literal["Enabled"]
 AwsManagedHumanLoopRequestSourceType = Literal[
     "AWS/Rekognition/DetectModerationLabels/Image/V3", "AWS/Textract/AnalyzeDocument/Forms/V1"
 ]
+BatchAddClusterNodesErrorCodeType = Literal["InstanceGroupNotFound", "InvalidInstanceGroupStatus"]
 BatchDeleteClusterNodesErrorCodeType = Literal["InvalidNodeStatus", "NodeIdInUse", "NodeIdNotFound"]
 BatchStrategyType = Literal["MultiRecord", "SingleRecord"]
 BooleanOperatorType = Literal["And", "Or"]
@@ -740,6 +747,7 @@ CandidateStepTypeType = Literal[
     "AWS::SageMaker::ProcessingJob", "AWS::SageMaker::TrainingJob", "AWS::SageMaker::TransformJob"
 ]
 CapacityReservationPreferenceType = Literal["capacity-reservations-only"]
+CapacityReservationTypeType = Literal["CRG", "ODCR"]
 CapacitySizeTypeType = Literal["CAPACITY_PERCENT", "INSTANCE_COUNT"]
 CaptureModeType = Literal["Input", "InputAndOutput", "Output"]
 CaptureStatusType = Literal["Started", "Stopped"]
@@ -807,8 +815,15 @@ ClarifyTextLanguageType = Literal[
     "yo",
     "zh",
 ]
+ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
 ClusterInstanceStatusType = Literal[
-    "DeepHealthCheckInProgress", "Failure", "Pending", "Running", "ShuttingDown", "SystemUpdating"
+    "DeepHealthCheckInProgress",
+    "Failure",
+    "NotFound",
+    "Pending",
+    "Running",
+    "ShuttingDown",
+    "SystemUpdating",
 ]
 ClusterInstanceTypeType = Literal[
     "ml.c5.12xlarge",
@@ -924,6 +939,7 @@ ClusterInstanceTypeType = Literal[
     "ml.trn1n.32xlarge",
     "ml.trn2.48xlarge",
 ]
+ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
 ClusterSortByType = Literal["CREATION_TIME", "NAME"]
 ClusterStatusType = Literal[
@@ -977,6 +993,7 @@ EndpointStatusType = Literal[
     "UpdateRollbackFailed",
     "Updating",
 ]
+EventSortByType = Literal["EventTime"]
 ExecutionRoleIdentityConfigType = Literal["DISABLED", "USER_PROFILE_NAME"]
 ExecutionStatusType = Literal[
     "Completed", "CompletedWithViolations", "Failed", "InProgress", "Pending", "Stopped", "Stopping"
@@ -1243,6 +1260,7 @@ ListArtifactsPaginatorName = Literal["list_artifacts"]
 ListAssociationsPaginatorName = Literal["list_associations"]
 ListAutoMLJobsPaginatorName = Literal["list_auto_ml_jobs"]
 ListCandidatesForAutoMLJobPaginatorName = Literal["list_candidates_for_auto_ml_job"]
+ListClusterEventsPaginatorName = Literal["list_cluster_events"]
 ListClusterNodesPaginatorName = Literal["list_cluster_nodes"]
 ListClusterSchedulerConfigsPaginatorName = Literal["list_cluster_scheduler_configs"]
 ListClustersPaginatorName = Literal["list_clusters"]
@@ -2822,6 +2840,7 @@ PaginatorName = Literal[
     "list_associations",
     "list_auto_ml_jobs",
     "list_candidates_for_auto_ml_job",
+    "list_cluster_events",
     "list_cluster_nodes",
     "list_cluster_scheduler_configs",
     "list_clusters",

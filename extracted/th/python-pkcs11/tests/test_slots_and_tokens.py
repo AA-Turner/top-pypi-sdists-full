@@ -5,22 +5,26 @@ PKCS#11 Slots and Tokens
 import unittest
 
 import pkcs11
+from pkcs11 import PKCS11Error
 
 from . import LIB, TOKEN, Not, Only
 
 
 class SlotsAndTokensTests(unittest.TestCase):
     def test_double_initialise(self):
-        self.assertIsNotNone(pkcs11.lib(LIB))
-        self.assertIsNotNone(pkcs11.lib(LIB))
+        attempt1 = pkcs11.lib(LIB)
+        attempt2 = pkcs11.lib(LIB)
+        self.assertIsNotNone(attempt1)
+        self.assertIsNotNone(attempt2)
+        self.assertIs(attempt1, attempt2)
 
     def test_nonexistent_lib(self):
         with self.assertRaises(RuntimeError):
             pkcs11.lib("thislibdoesntexist.so")
 
-    def test_double_initialise_different_libs(self):
+    def test_double_initialise_nonexistent_lib(self):
         self.assertIsNotNone(pkcs11.lib(LIB))
-        with self.assertRaises(pkcs11.AlreadyInitialized):
+        with self.assertRaises(RuntimeError):
             pkcs11.lib("somethingelse.so")
 
     @Only.softhsm2
@@ -39,6 +43,43 @@ class SlotsAndTokensTests(unittest.TestCase):
         slot, *_ = lib.get_slots()
         mechanisms = slot.get_mechanisms()
         self.assertIn(pkcs11.Mechanism.RSA_PKCS, mechanisms)
+
+    def test_reinitialize(self):
+        lib = pkcs11.lib(LIB)
+        slots = lib.get_slots()
+        self.assertGreaterEqual(len(slots), 1)
+
+        lib.reinitialize()
+
+        self.assertTrue(lib.initialized)
+        lib = pkcs11.lib(LIB)
+        slots = lib.get_slots()
+        self.assertGreaterEqual(len(slots), 1)
+
+    def test_finalize(self):
+        lib = pkcs11.lib(LIB)
+        slots = lib.get_slots()
+        self.assertGreaterEqual(len(slots), 1)
+
+        lib.finalize()
+        self.assertFalse(lib.initialized)
+        self.assertRaises(PKCS11Error, lib.get_slots)
+
+    def test_auto_reinitialise(self):
+        lib = pkcs11.lib(LIB)
+        lib.finalize()
+        self.assertFalse(lib.initialized)
+        lib = pkcs11.lib(LIB)
+        slots = lib.get_slots()
+        self.assertGreaterEqual(len(slots), 1)
+
+    def test_unload_reload(self):
+        pkcs11.lib(LIB)
+        pkcs11.unload(LIB)
+
+        lib = pkcs11.lib(LIB)
+        slots = lib.get_slots()
+        self.assertGreaterEqual(len(slots), 1)
 
     def test_get_mechanism_info(self):
         lib = pkcs11.lib(LIB)

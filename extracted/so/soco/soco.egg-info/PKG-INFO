@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: soco
-Version: 0.30.10
+Version: 0.30.11
 Summary: SoCo (Sonos Controller) is a simple library to control Sonos speakers.
 Author-email: The SoCo-Team <python-soco@googlegroups.com>
 License: MIT License

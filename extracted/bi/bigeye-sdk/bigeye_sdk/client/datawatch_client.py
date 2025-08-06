@@ -143,6 +143,10 @@ def create_api_key_for_configuration(cred: ApiAuth, name: str, description: Opti
     return __get_all_workspace_client(cred=cred).create_personal_api_key(name=name, description=description).api_key
 
 
+def create_agent_api_key(cred: ApiAuth, name: str, description: Optional[str] = "") -> str:
+    return __get_all_workspace_client(cred=cred).create_agent_api_key(name=name, description=description).api_key
+
+
 def get_all_workspaces_for_login(cred: ApiAuth) -> List[Workspace]:
     return __get_all_workspace_client(cred=cred).get_workspaces().workspaces
 
@@ -155,6 +159,16 @@ def get_allowed_emails_for_workspace(cred: ApiAuth, workspace_id: int) -> List[s
     return [user.email.lower() for user in
             __get_all_workspace_client(cred=cred).get_workspace_accessors(workspace_id=workspace_id).users
             ]
+
+def verify_agent_api_key(self, *, base_url: str, agent_api_key: str) -> bool:
+    response = requests.get(url=f"{base_url}/api/v1/agent-api-keys/verify",
+                            headers={"Authorization": f"apikey {agent_api_key}"})
+    return True if response.status_code == 204 else False
+
+def verify_personal_api_key(self, *, base_url: str, personal_api_key: str) -> bool:
+    response = requests.get(url=f"{base_url}/api/v1/personal-api-keys/verify",
+                            headers={"Authorization": f"apikey {personal_api_key}"})
+    return True if response.status_code == 204 else False
 
 
 class DatawatchClient(BaseApiClient, GeneratedDatawatchClient, ABC):

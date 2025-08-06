@@ -51,6 +51,7 @@ class TestCompletions:
             n=0,
             parallel_tool_calls=True,
             presence_penalty=-2,
+            reasoning_effort="low",
             response_format={"type": "text"},
             seed=0,
             service_tier="auto",
@@ -116,7 +117,9 @@ class TestCompletions:
 
 
 class TestAsyncCompletions:
-    parametrize = pytest.mark.parametrize("async_client", [False, True], indirect=True, ids=["loose", "strict"])
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
 
     @parametrize
     async def test_method_create(self, async_client: AsyncCerebras) -> None:
@@ -152,6 +155,7 @@ class TestAsyncCompletions:
             n=0,
             parallel_tool_calls=True,
             presence_penalty=-2,
+            reasoning_effort="low",
             response_format={"type": "text"},
             seed=0,
             service_tier="auto",

@@ -1,7 +1,7 @@
 from AOT_biomaps.Config import config
 from ._mainAcoustic import AcousticField
 from .AcousticEnums import WaveType
-from .AcousticTools import next_power_of_2, reshape_field
+from .AcousticTools import next_power_of_2, reshape_field, detect_space_0_and_space_1, getAngle
 
 import os
 import numpy as np
@@ -101,12 +101,13 @@ class StructuredWave(AcousticField):
             """
             return f"Pattern structure: {self.to_string()}"
 
-    def __init__(self, angle_deg, space_0, space_1, move_head_0_2tail, move_tail_1_2head, **kwargs):
+    def __init__(self, fileName = None, angle_deg = None, space_0 = None, space_1 = None, move_head_0_2tail = None, move_tail_1_2head = None, **kwargs):
         """
         Initialize the StructuredWave object.
 
         Args:
             angle_deg (float): Angle in degrees.
+            fileName (str): Name of the file containing the hexadecimal active list and the angle (format : activelisthEXA_Angle)
             space_0 (int): Number of zeros in the pattern.
             space_1 (int): Number of ones in the pattern.
             move_head_0_2tail (int): Number of zeros to move from head to tail.
@@ -117,10 +118,19 @@ class StructuredWave(AcousticField):
             super().__init__(**kwargs)
             self.waveType = WaveType.StructuredWave
             self.kgrid.setTime(int(self.kgrid.Nt*1.5),self.kgrid.dt) # Extend the time grid to allow for delays
-            self.pattern = self.PatternParams(space_0, space_1, move_head_0_2tail, move_tail_1_2head)
+            if space_0 is not None and space_1 is not None and move_head_0_2tail is not None and move_tail_1_2head is not None and angle_deg is not None:
+                self.pattern = self.PatternParams(space_0, space_1, move_head_0_2tail, move_tail_1_2head)
+                self.angle = angle_deg
+                self.pattern.activeList = self.pattern.generate_pattern()
+            elif fileName is not None:
+                self.pattern = self.PatternParams(0,0,0,0)
+                self.pattern.space_0, self.pattern.space_1 = detect_space_0_and_space_1(fileName.split('_')[0])
+                self.angle = getAngle(fileName)
+                self.pattern.activeList = fileName.split('_')[0]
+            else:
+                raise ValueError("Invalid pattern parameters, must provide either fileName or all space/move parameters.")
+            
             self.pattern.len_hex = self.params['num_elements'] // 4
-            self.pattern.activeList = self.pattern.generate_pattern()
-            self.angle = angle_deg
             self.f_s = self._getDecimationFrequency()
 
             if self.angle < -20 or self.angle > 20:

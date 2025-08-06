@@ -24,7 +24,7 @@ aiofiles = ">=22.1.0"
 
 [tool.poetry]
 name = "neptune-scale"
-version = "0.19.0"
+version = "0.20.0"
 description = "A minimal client library"
 authors = ["neptune.ai <contact@neptune.ai>"]
 repository = "https://github.com/neptune-ai/neptune-client-scale"
@@ -103,7 +103,7 @@ ignore_missing_imports = "True"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-addopts = "--doctest-modules -n 8 --tap-stream"
+addopts = "--doctest-modules -n 8"
 retries = 3
 retry_delay = 2
 

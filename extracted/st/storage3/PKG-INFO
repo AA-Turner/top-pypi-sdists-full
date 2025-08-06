@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: storage3
-Version: 0.12.0
+Version: 0.12.1
 Summary: Supabase Storage client for Python.
 License: MIT
 Author: Joel Lee

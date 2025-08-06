@@ -36,6 +36,7 @@ from .paginator import (
     ListAssociationsPaginator,
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
+    ListClusterEventsPaginator,
     ListClusterNodesPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
@@ -116,6 +117,8 @@ from .type_defs import (
     AssociateTrialComponentResponseTypeDef,
     AttachClusterNodeVolumeRequestTypeDef,
     AttachClusterNodeVolumeResponseTypeDef,
+    BatchAddClusterNodesRequestTypeDef,
+    BatchAddClusterNodesResponseTypeDef,
     BatchDeleteClusterNodesRequestTypeDef,
     BatchDeleteClusterNodesResponseTypeDef,
     BatchDescribeModelPackageInputTypeDef,
@@ -332,6 +335,8 @@ from .type_defs import (
     DescribeAutoMLJobResponseTypeDef,
     DescribeAutoMLJobV2RequestTypeDef,
     DescribeAutoMLJobV2ResponseTypeDef,
+    DescribeClusterEventRequestTypeDef,
+    DescribeClusterEventResponseTypeDef,
     DescribeClusterNodeRequestTypeDef,
     DescribeClusterNodeResponseTypeDef,
     DescribeClusterRequestTypeDef,
@@ -488,6 +493,8 @@ from .type_defs import (
     ListAutoMLJobsResponseTypeDef,
     ListCandidatesForAutoMLJobRequestTypeDef,
     ListCandidatesForAutoMLJobResponseTypeDef,
+    ListClusterEventsRequestTypeDef,
+    ListClusterEventsResponseTypeDef,
     ListClusterNodesRequestTypeDef,
     ListClusterNodesResponseTypeDef,
     ListClusterSchedulerConfigsRequestTypeDef,
@@ -876,6 +883,17 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/attach_cluster_node_volume.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#attach_cluster_node_volume)
+        """
+
+    def batch_add_cluster_nodes(
+        self, **kwargs: Unpack[BatchAddClusterNodesRequestTypeDef]
+    ) -> BatchAddClusterNodesResponseTypeDef:
+        """
+        Adds nodes to a HyperPod cluster by incrementing the target count for one or
+        more instance groups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/batch_add_cluster_nodes.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#batch_add_cluster_nodes)
         """
 
     def batch_delete_cluster_nodes(
@@ -2204,6 +2222,17 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_cluster)
         """
 
+    def describe_cluster_event(
+        self, **kwargs: Unpack[DescribeClusterEventRequestTypeDef]
+    ) -> DescribeClusterEventResponseTypeDef:
+        """
+        Retrieves detailed information about a specific event for a given HyperPod
+        cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_cluster_event.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_cluster_event)
+        """
+
     def describe_cluster_node(
         self, **kwargs: Unpack[DescribeClusterNodeRequestTypeDef]
     ) -> DescribeClusterNodeResponseTypeDef:
@@ -2995,6 +3024,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_candidates_for_auto_ml_job.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_candidates_for_auto_ml_job)
+        """
+
+    def list_cluster_events(
+        self, **kwargs: Unpack[ListClusterEventsRequestTypeDef]
+    ) -> ListClusterEventsResponseTypeDef:
+        """
+        Retrieves a list of event summaries for a specified HyperPod cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_cluster_events.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_cluster_events)
         """
 
     def list_cluster_nodes(
@@ -4604,6 +4643,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_candidates_for_auto_ml_job"]
     ) -> ListCandidatesForAutoMLJobPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cluster_events"]
+    ) -> ListClusterEventsPaginator:
         """
         Create a paginator for an operation.
 

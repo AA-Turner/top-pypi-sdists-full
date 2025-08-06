@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.07.28 00:00:00                  #
+# Updated Date: 2025.08.05 00:00:00                  #
 # ================================================== #
 
 import base64
@@ -49,6 +49,8 @@ class StreamWorker(QObject, QRunnable):
         stopped = False
         chunk_type = "raw"
         response = None
+        generator = self.ctx.stream
+        self.ctx.stream = None
         data = {
             "meta": self.ctx.meta,
             "ctx": self.ctx
@@ -57,9 +59,9 @@ class StreamWorker(QObject, QRunnable):
         self.eventReady.emit(event)
 
         try:
-            if self.ctx.stream is not None:
+            if generator is not None:
                 tool_calls = []
-                for chunk in self.ctx.stream:
+                for chunk in generator:
                     # if force stop then break
                     if self.window.controller.kernel.stopped():
                         self.ctx.msg_id = None  # reset message ID
@@ -248,7 +250,7 @@ class StreamWorker(QObject, QRunnable):
 
                         # ---------- response ID ----------
                         elif etype == "response.created":
-                            self.ctx.msg_id = chunk.response.id
+                            self.ctx.msg_id = str(chunk.response.id)
                             self.window.core.ctx.update_item(self.ctx)  # prevent non-existing response ID
 
                         # ---------- end / error ----------
@@ -340,7 +342,13 @@ class StreamWorker(QObject, QRunnable):
         if has_unclosed_code_tag(output):
             output += "\n```"
 
-        # update ctx
+        if generator and hasattr(generator, 'close'):
+            try:
+                generator.close()  # close generator if it has close method
+            except Exception as e:
+                pass
+        del generator
+
         self.ctx.output = output
         self.ctx.set_tokens(self.ctx.input_tokens, output_tokens)
         self.window.core.ctx.update_item(self.ctx)  # update ctx
@@ -354,9 +362,29 @@ class StreamWorker(QObject, QRunnable):
                 self.window.core.debug.error(f"[chat] Error downloading container files: {e}")
 
         # handle end
-        self.end.emit(self.ctx)
         if error:
             self.errorOccurred.emit(error)
+
+        self.end.emit(self.ctx)
+        self.cleanup()
+
+    def cleanup(self):
+        try:
+            self.eventReady.disconnect()
+        except Exception:
+            pass
+        try:
+            self.errorOccurred.disconnect()
+        except Exception:
+            pass
+        try:
+            self.end.disconnect()
+        except Exception:
+            pass
+
+        self.ctx = None
+        self.window = None
+        self.deleteLater()
 
 
 class Stream:
@@ -406,13 +434,13 @@ class Stream:
         self.context = context
         self.extra = extra if extra is not None else {}
 
-        self.worker = StreamWorker(ctx, self.window)
-        self.worker.eventReady.connect(self.handleEvent)
-        self.worker.errorOccurred.connect(self.handleError)
-        self.worker.end.connect(self.handleEnd)
+        worker = StreamWorker(ctx, self.window)
+        worker.eventReady.connect(self.handleEvent)
+        worker.errorOccurred.connect(self.handleError)
+        worker.end.connect(self.handleEnd)
 
         self.window.core.debug.info("[chat] Stream begin...")
-        self.window.threadpool.start(self.worker)
+        self.window.threadpool.start(worker)
 
     @Slot(object)
     def handleEnd(self, ctx: CtxItem):

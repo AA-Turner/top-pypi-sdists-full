@@ -1715,6 +1715,7 @@ ClusterTypeDef = TypedDict(
         "remoteNetworkConfig": NotRequired[RemoteNetworkConfigResponseTypeDef],
         "computeConfig": NotRequired[ComputeConfigResponseTypeDef],
         "storageConfig": NotRequired[StorageConfigResponseTypeDef],
+        "deletionProtection": NotRequired[bool],
     },
 )
 
@@ -1889,6 +1890,7 @@ class CreateClusterRequestTypeDef(TypedDict):
     remoteNetworkConfig: NotRequired[RemoteNetworkConfigRequestTypeDef]
     computeConfig: NotRequired[ComputeConfigRequestTypeDef]
     storageConfig: NotRequired[StorageConfigRequestTypeDef]
+    deletionProtection: NotRequired[bool]
 
 
 class UpdateClusterConfigRequestTypeDef(TypedDict):
@@ -1903,6 +1905,7 @@ class UpdateClusterConfigRequestTypeDef(TypedDict):
     kubernetesNetworkConfig: NotRequired[KubernetesNetworkConfigRequestTypeDef]
     storageConfig: NotRequired[StorageConfigRequestTypeDef]
     remoteNetworkConfig: NotRequired[RemoteNetworkConfigRequestTypeDef]
+    deletionProtection: NotRequired[bool]
 
 
 class DescribeInsightResponseTypeDef(TypedDict):

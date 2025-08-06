@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pytest-mergify"
-version = "2025.8.1.1"
+version = "2025.8.5.1"
 description = "Pytest plugin for Mergify"
 authors = ["Julien Danjou <jd@mergify.com>"]
 license = "GPL-3.0-only"
@@ -22,6 +22,7 @@ poethepoet = ">=0.30"
 codespell = "^2.3.0"
 yamllint = "^1.35.1"
 anys = "^0.3.1"
+responses = "^0.25.7"
 
 [build-system]
 requires = ["poetry-core", "poetry-dynamic-versioning"]
@@ -46,6 +47,10 @@ target-version = "py38"
 module = [
   "pytest_opentelemetry.*"
 ]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "requests"
 ignore_missing_imports = true
 
 [tool.poetry-dynamic-versioning]

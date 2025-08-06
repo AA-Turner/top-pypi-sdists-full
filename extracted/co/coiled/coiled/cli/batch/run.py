@@ -401,6 +401,15 @@ def get_kwargs_from_header(f: dict, click_params: list):
     ),
 )
 @click.option(
+    "--package-sync-ignore",
+    default=None,
+    multiple=True,
+    help=(
+        "A list of package names to exclude from the environment. Note their dependencies may still be installed,"
+        "or they may be installed by another package that depends on them!"
+    ),
+)
+@click.option(
     "--host-setup-script",
     default=None,
     help="Path to local script which will be run on each VM prior to running any tasks.",
@@ -724,8 +733,9 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         "tags": {**tags, **{"coiled-cluster-type": "batch"}},
         "allow_ssh_from": kwargs["allow_ssh_from"],
         # "mount_bucket": mount_bucket,
-        "package_sync_strict": kwargs["package_sync_strict"],
-        "package_sync_conda_extras": kwargs["package_sync_conda_extras"],
+        "package_sync_strict": kwargs.get("package_sync_strict"),
+        "package_sync_conda_extras": kwargs.get("package_sync_conda_extras"),
+        "package_sync_ignore": kwargs.get("package_sync_ignore"),
         "allow_cross_zone": True if kwargs["allow_cross_zone"] is None else kwargs["allow_cross_zone"],
     }
 

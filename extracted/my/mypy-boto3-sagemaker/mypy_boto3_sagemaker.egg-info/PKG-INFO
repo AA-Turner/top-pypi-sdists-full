@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-sagemaker
-Version: 1.40.2
-Summary: Type annotations for boto3 SageMaker 1.40.2 service generated with mypy-boto3-builder 8.11.0
+Version: 1.40.3
+Summary: Type annotations for boto3 SageMaker 1.40.3 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 SageMaker 1.40.2](https://pypi.org/project/boto3/)
+Type annotations for [boto3 SageMaker 1.40.3](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -119,7 +119,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.2' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.3' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `SageMaker` service.
 4. Use provided commands to install generated packages.
@@ -363,6 +363,7 @@ from mypy_boto3_sagemaker.paginator import (
     ListAssociationsPaginator,
     ListAutoMLJobsPaginator,
     ListCandidatesForAutoMLJobPaginator,
+    ListClusterEventsPaginator,
     ListClusterNodesPaginator,
     ListClusterSchedulerConfigsPaginator,
     ListClustersPaginator,
@@ -454,6 +455,9 @@ list_associations_paginator: ListAssociationsPaginator = client.get_paginator("l
 list_auto_ml_jobs_paginator: ListAutoMLJobsPaginator = client.get_paginator("list_auto_ml_jobs")
 list_candidates_for_auto_ml_job_paginator: ListCandidatesForAutoMLJobPaginator = (
     client.get_paginator("list_candidates_for_auto_ml_job")
+)
+list_cluster_events_paginator: ListClusterEventsPaginator = client.get_paginator(
+    "list_cluster_events"
 )
 list_cluster_nodes_paginator: ListClusterNodesPaginator = client.get_paginator("list_cluster_nodes")
 list_cluster_scheduler_configs_paginator: ListClusterSchedulerConfigsPaginator = (

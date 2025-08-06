@@ -2866,7 +2866,7 @@ class ProviderProps:
 
         :default: - A default role will be created.
 
-        :deprecated: - Use frameworkOnEventLambdaRole, frameworkIsCompleteLambdaRole, frameworkOnTimeoutLambdaRole
+        :deprecated: - Use frameworkOnEventRole, frameworkCompleteAndTimeoutRole
 
         :stability: deprecated
         '''

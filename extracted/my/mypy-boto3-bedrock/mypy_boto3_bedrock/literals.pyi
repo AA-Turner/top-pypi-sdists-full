@@ -26,6 +26,16 @@ __all__ = (
     "ApplicationTypeType",
     "AttributeTypeType",
     "AuthorizationStatusType",
+    "AutomatedReasoningCheckLogicWarningTypeType",
+    "AutomatedReasoningCheckResultType",
+    "AutomatedReasoningPolicyAnnotationStatusType",
+    "AutomatedReasoningPolicyBuildDocumentContentTypeType",
+    "AutomatedReasoningPolicyBuildMessageTypeType",
+    "AutomatedReasoningPolicyBuildResultAssetTypeType",
+    "AutomatedReasoningPolicyBuildWorkflowStatusType",
+    "AutomatedReasoningPolicyBuildWorkflowTypeType",
+    "AutomatedReasoningPolicyTestRunResultType",
+    "AutomatedReasoningPolicyTestRunStatusType",
     "BedrockServiceName",
     "CommitmentDurationType",
     "CustomModelDeploymentStatusType",
@@ -56,6 +66,10 @@ __all__ = (
     "InferenceProfileTypeType",
     "InferenceTypeType",
     "JobStatusDetailsType",
+    "ListAutomatedReasoningPoliciesPaginatorName",
+    "ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName",
+    "ListAutomatedReasoningPolicyTestCasesPaginatorName",
+    "ListAutomatedReasoningPolicyTestResultsPaginatorName",
     "ListCustomModelDeploymentsPaginatorName",
     "ListCustomModelsPaginatorName",
     "ListEvaluationJobsPaginatorName",
@@ -103,6 +117,39 @@ AgreementStatusType = Literal["AVAILABLE", "ERROR", "NOT_AVAILABLE", "PENDING"]
 ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
 AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
 AuthorizationStatusType = Literal["AUTHORIZED", "NOT_AUTHORIZED"]
+AutomatedReasoningCheckLogicWarningTypeType = Literal["ALWAYS_FALSE", "ALWAYS_TRUE"]
+AutomatedReasoningCheckResultType = Literal[
+    "IMPOSSIBLE",
+    "INVALID",
+    "NO_TRANSLATION",
+    "SATISFIABLE",
+    "TOO_COMPLEX",
+    "TRANSLATION_AMBIGUOUS",
+    "VALID",
+]
+AutomatedReasoningPolicyAnnotationStatusType = Literal["APPLIED", "FAILED"]
+AutomatedReasoningPolicyBuildDocumentContentTypeType = Literal["pdf", "txt"]
+AutomatedReasoningPolicyBuildMessageTypeType = Literal["ERROR", "INFO", "WARNING"]
+AutomatedReasoningPolicyBuildResultAssetTypeType = Literal[
+    "BUILD_LOG", "POLICY_DEFINITION", "QUALITY_REPORT"
+]
+AutomatedReasoningPolicyBuildWorkflowStatusType = Literal[
+    "BUILDING",
+    "CANCELLED",
+    "CANCEL_REQUESTED",
+    "COMPLETED",
+    "FAILED",
+    "PREPROCESSING",
+    "SCHEDULED",
+    "TESTING",
+]
+AutomatedReasoningPolicyBuildWorkflowTypeType = Literal[
+    "IMPORT_POLICY", "INGEST_CONTENT", "REFINE_POLICY"
+]
+AutomatedReasoningPolicyTestRunResultType = Literal["FAILED", "PASSED"]
+AutomatedReasoningPolicyTestRunStatusType = Literal[
+    "COMPLETED", "FAILED", "IN_PROGRESS", "NOT_STARTED", "SCHEDULED"
+]
 CommitmentDurationType = Literal["OneMonth", "SixMonths"]
 CustomModelDeploymentStatusType = Literal["Active", "Creating", "Failed"]
 CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED"]
@@ -171,6 +218,16 @@ InferenceProfileTypeType = Literal["APPLICATION", "SYSTEM_DEFINED"]
 InferenceTypeType = Literal["ON_DEMAND", "PROVISIONED"]
 JobStatusDetailsType = Literal[
     "Completed", "Failed", "InProgress", "NotStarted", "Stopped", "Stopping"
+]
+ListAutomatedReasoningPoliciesPaginatorName = Literal["list_automated_reasoning_policies"]
+ListAutomatedReasoningPolicyBuildWorkflowsPaginatorName = Literal[
+    "list_automated_reasoning_policy_build_workflows"
+]
+ListAutomatedReasoningPolicyTestCasesPaginatorName = Literal[
+    "list_automated_reasoning_policy_test_cases"
+]
+ListAutomatedReasoningPolicyTestResultsPaginatorName = Literal[
+    "list_automated_reasoning_policy_test_results"
 ]
 ListCustomModelDeploymentsPaginatorName = Literal["list_custom_model_deployments"]
 ListCustomModelsPaginatorName = Literal["list_custom_models"]
@@ -250,6 +307,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -650,6 +708,10 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "list_automated_reasoning_policies",
+    "list_automated_reasoning_policy_build_workflows",
+    "list_automated_reasoning_policy_test_cases",
+    "list_automated_reasoning_policy_test_results",
     "list_custom_model_deployments",
     "list_custom_models",
     "list_evaluation_jobs",

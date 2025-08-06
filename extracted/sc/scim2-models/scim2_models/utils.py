@@ -1,5 +1,6 @@
 import base64
 import re
+from typing import TYPE_CHECKING
 from typing import Annotated
 from typing import Literal
 from typing import Optional
@@ -9,6 +10,9 @@ from pydantic import EncodedBytes
 from pydantic import EncoderProtocol
 from pydantic.alias_generators import to_snake
 from pydantic_core import PydanticCustomError
+
+if TYPE_CHECKING:
+    from .base import BaseModel
 
 try:
     from types import UnionType
@@ -103,9 +107,7 @@ def _validate_scim_path_syntax(path: str) -> bool:
     """Check if path syntax is valid according to RFC 7644 simplified rules.
 
     :param path: The path to validate
-    :type path: str
     :return: True if path syntax is valid, False otherwise
-    :rtype: bool
     """
     if not path or not path.strip():
         return False
@@ -135,9 +137,7 @@ def _validate_scim_urn_syntax(path: str) -> bool:
     """Validate URN-based path format.
 
     :param path: The URN path to validate
-    :type path: str
     :return: True if URN path format is valid, False otherwise
-    :rtype: bool
     """
     # Basic URN validation: should start with urn:
     if not path.startswith("urn:"):
@@ -181,20 +181,16 @@ def _extract_field_name(path: str) -> Optional[str]:
     return path
 
 
-def _find_field_name(resource_class, attr_name: str) -> Optional[str]:
+def _find_field_name(model_class: type["BaseModel"], attr_name: str) -> Optional[str]:
     """Find the actual field name in a resource class from an attribute name.
 
-    Args:
-        resource_class: The resource class to search in
-        attr_name: The attribute name to find (e.g., "nickName")
-
-    Returns:
-        The actual field name if found (e.g., "nick_name"), None otherwise
-
+    :param resource_class: The resource class to search in
+    :param attr_name: The attribute name to find (e.g., "nickName")
+    :returns: The actual field name if found (e.g., "nick_name"), None otherwise
     """
     normalized_attr_name = _normalize_attribute_name(attr_name)
 
-    for field_key in resource_class.model_fields:
+    for field_key in model_class.model_fields:
         if _normalize_attribute_name(field_key) == normalized_attr_name:
             return field_key
 

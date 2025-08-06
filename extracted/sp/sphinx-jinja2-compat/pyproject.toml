@@ -4,7 +4,7 @@ build-backend = "whey"
 
 [project]
 name = "sphinx-jinja2-compat"
-version = "0.3.0"
+version = "0.4.0"
 description = "Patches Jinja2 v3 to restore compatibility with earlier Sphinx versions."
 readme = "README.rst"
 requires-python = ">=3.6"
@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -46,6 +47,7 @@ Homepage = "https://github.com/sphinx-toolbox/sphinx-jinja2-compat"
 [tool.mkrecipe]
 conda-channels = [ "conda-forge", "domdfcoding",]
 extras = "all"
+max-python-version = 3.12
 
 [tool.whey]
 base-classifiers = [
@@ -55,7 +57,7 @@ base-classifiers = [
     "Topic :: Documentation :: Sphinx",
     "Topic :: Software Development :: Documentation",
 ]
-python-versions = [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12",]
+python-versions = [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13",]
 python-implementations = [ "CPython", "PyPy",]
 platforms = [ "Windows", "macOS", "Linux",]
 license-key = "MIT"

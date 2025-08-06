@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import random
 from collections.abc import Callable, Sequence
@@ -154,6 +155,10 @@ class Slider(FormComponent):
         """
         Number.raise_if_out_of_bounds(payload, self.minimum, self.maximum)
         return Number.round_to_precision(payload, self.precision)
+
+    def read_from_flag(self, payload: Any):
+        """Sliders are stored as strings in the flagging file, so we need to parse them as json."""
+        return json.loads(payload)
     from typing import Callable, Literal, Sequence, Any, TYPE_CHECKING
     from gradio.blocks import Block
     if TYPE_CHECKING:

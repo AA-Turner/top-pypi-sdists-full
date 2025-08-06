@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from griffe import ObjectNode
 
 
-_logger = get_logger(__name__)
+_logger = get_logger("griffe_pydantic")
 
 
 class PydanticExtension(Extension):
@@ -47,7 +47,7 @@ class PydanticExtension(Extension):
             return
 
         try:
-            import pydantic
+            import pydantic  # noqa: PLC0415
         except ImportError:
             _logger.warning("could not import pydantic - models will not be detected")
             return

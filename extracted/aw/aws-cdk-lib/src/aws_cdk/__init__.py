@@ -3552,6 +3552,7 @@ class Aws(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Aws"):
     name_mapping={
         "cloud_formation_execution_role_arn": "cloudFormationExecutionRoleArn",
         "deploy_role_arn": "deployRoleArn",
+        "qualifier": "qualifier",
     },
 )
 class BootstraplessSynthesizerProps:
@@ -3560,11 +3561,13 @@ class BootstraplessSynthesizerProps:
         *,
         cloud_formation_execution_role_arn: typing.Optional[builtins.str] = None,
         deploy_role_arn: typing.Optional[builtins.str] = None,
+        qualifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Construction properties of ``BootstraplessSynthesizer``.
 
         :param cloud_formation_execution_role_arn: The CFN execution Role ARN to use. Default: - No CloudFormation role (use CLI credentials)
         :param deploy_role_arn: The deploy Role ARN to use. Default: - No deploy role (use CLI credentials)
+        :param qualifier: The qualifier used to specialize strings. Can be used to specify custom bootstrapped role names Default: 'hnb659fds'
 
         :exampleMetadata: fixture=_generated
 
@@ -3576,18 +3579,22 @@ class BootstraplessSynthesizerProps:
             
             bootstrapless_synthesizer_props = cdk.BootstraplessSynthesizerProps(
                 cloud_formation_execution_role_arn="cloudFormationExecutionRoleArn",
-                deploy_role_arn="deployRoleArn"
+                deploy_role_arn="deployRoleArn",
+                qualifier="qualifier"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f56ec309bd76e41562731f3b986025649d4592e71caa79fed875d7020f66bfc)
             check_type(argname="argument cloud_formation_execution_role_arn", value=cloud_formation_execution_role_arn, expected_type=type_hints["cloud_formation_execution_role_arn"])
             check_type(argname="argument deploy_role_arn", value=deploy_role_arn, expected_type=type_hints["deploy_role_arn"])
+            check_type(argname="argument qualifier", value=qualifier, expected_type=type_hints["qualifier"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if cloud_formation_execution_role_arn is not None:
             self._values["cloud_formation_execution_role_arn"] = cloud_formation_execution_role_arn
         if deploy_role_arn is not None:
             self._values["deploy_role_arn"] = deploy_role_arn
+        if qualifier is not None:
+            self._values["qualifier"] = qualifier
 
     @builtins.property
     def cloud_formation_execution_role_arn(self) -> typing.Optional[builtins.str]:
@@ -3605,6 +3612,17 @@ class BootstraplessSynthesizerProps:
         :default: - No deploy role (use CLI credentials)
         '''
         result = self._values.get("deploy_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def qualifier(self) -> typing.Optional[builtins.str]:
+        '''The qualifier used to specialize strings.
+
+        Can be used to specify custom bootstrapped role names
+
+        :default: 'hnb659fds'
+        '''
+        result = self._values.get("qualifier")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -11614,7 +11632,12 @@ class CustomResourceProviderRuntime(enum.Enum):
     :stability: deprecated
     '''
     NODEJS_16_X = "NODEJS_16_X"
-    '''Node.js 16.x.'''
+    '''(deprecated) Node.js 16.x.
+
+    :deprecated: Use latest version
+
+    :stability: deprecated
+    '''
     NODEJS_18_X = "NODEJS_18_X"
     '''Node.js 18.x.'''
     NODEJS_20_X = "NODEJS_20_X"
@@ -37436,7 +37459,8 @@ class BootstraplessSynthesizer(
         
         bootstrapless_synthesizer = cdk.BootstraplessSynthesizer(
             cloud_formation_execution_role_arn="cloudFormationExecutionRoleArn",
-            deploy_role_arn="deployRoleArn"
+            deploy_role_arn="deployRoleArn",
+            qualifier="qualifier"
         )
     '''
 
@@ -37445,14 +37469,17 @@ class BootstraplessSynthesizer(
         *,
         cloud_formation_execution_role_arn: typing.Optional[builtins.str] = None,
         deploy_role_arn: typing.Optional[builtins.str] = None,
+        qualifier: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param cloud_formation_execution_role_arn: The CFN execution Role ARN to use. Default: - No CloudFormation role (use CLI credentials)
         :param deploy_role_arn: The deploy Role ARN to use. Default: - No deploy role (use CLI credentials)
+        :param qualifier: The qualifier used to specialize strings. Can be used to specify custom bootstrapped role names Default: 'hnb659fds'
         '''
         props = BootstraplessSynthesizerProps(
             cloud_formation_execution_role_arn=cloud_formation_execution_role_arn,
             deploy_role_arn=deploy_role_arn,
+            qualifier=qualifier,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -38696,6 +38723,7 @@ def _typecheckingstub__3f56ec309bd76e41562731f3b986025649d4592e71caa79fed875d702
     *,
     cloud_formation_execution_role_arn: typing.Optional[builtins.str] = None,
     deploy_role_arn: typing.Optional[builtins.str] = None,
+    qualifier: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

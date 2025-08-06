@@ -262,26 +262,30 @@ def read_legacy_netcdf(tmp_netcdf, read_module, write_module):
         assert ds.other_attr == "yes"
     with raises(AttributeError, match="not found"):
         ds.does_not_exist
-    assert set(ds.dimensions) == set(
-        ["x", "y", "z", "empty", "string3", "mismatched_dim", "unlimited"]
-    )
-    assert set(ds.variables) == set(
-        [
-            "enum_var",
-            "foo",
-            "y",
-            "z",
-            "intscalar",
-            "scalar",
-            "var_len_str",
-            "mismatched_dim",
-            "foo_unlimited",
-        ]
-    )
+    assert set(ds.dimensions) == {
+        "x",
+        "y",
+        "z",
+        "empty",
+        "string3",
+        "mismatched_dim",
+        "unlimited",
+    }
+    assert set(ds.variables) == {
+        "enum_var",
+        "foo",
+        "y",
+        "z",
+        "intscalar",
+        "scalar",
+        "var_len_str",
+        "mismatched_dim",
+        "foo_unlimited",
+    }
 
-    assert set(ds.enumtypes) == set(["enum_t"])
+    assert set(ds.enumtypes) == {"enum_t"}
 
-    assert set(ds.groups) == set(["subgroup"])
+    assert set(ds.groups) == {"subgroup"}
     assert ds.parent is None
     v = ds.variables["foo"]
     assert array_equal(v, np.ones((4, 5)))
@@ -382,27 +386,31 @@ def read_h5netcdf(tmp_netcdf, write_module, decode_vlen_strings):
     if write_module is not netCDF4:
         # skip for now: https://github.com/Unidata/netcdf4-python/issues/388
         assert ds.attrs["other_attr"] == "yes"
-    assert set(ds.dimensions) == set(
-        ["x", "y", "z", "empty", "string3", "mismatched_dim", "unlimited"]
-    )
-    variables = set(
-        [
-            "enum_var",
-            "foo",
-            "z",
-            "intscalar",
-            "scalar",
-            "var_len_str",
-            "mismatched_dim",
-            "foo_unlimited",
-        ]
-    )
+    assert set(ds.dimensions) == {
+        "x",
+        "y",
+        "z",
+        "empty",
+        "string3",
+        "mismatched_dim",
+        "unlimited",
+    }
+    variables = {
+        "enum_var",
+        "foo",
+        "z",
+        "intscalar",
+        "scalar",
+        "var_len_str",
+        "mismatched_dim",
+        "foo_unlimited",
+    }
     # fix current failure of hsds/h5pyd
     if not remote_file:
-        variables |= set(["y"])
+        variables |= {"y"}
     assert set(ds.variables) == variables
 
-    assert set(ds.groups) == set(["subgroup"])
+    assert set(ds.groups) == {"subgroup"}
     assert ds.parent is None
 
     v = ds["foo"]
@@ -845,13 +853,13 @@ def test_hierarchical_access_auto_create(tmp_local_or_remote_netcdf):
     ds.create_variable("/foo/bar", data=1)
     g = ds.create_group("foo/baz")
     g.create_variable("/foo/hello", data=2)
-    assert set(ds) == set(["foo"])
-    assert set(ds["foo"]) == set(["bar", "baz", "hello"])
+    assert set(ds) == {"foo"}
+    assert set(ds["foo"]) == {"bar", "baz", "hello"}
     ds.close()
 
     ds = h5netcdf.File(tmp_local_or_remote_netcdf, "r")
-    assert set(ds) == set(["foo"])
-    assert set(ds["foo"]) == set(["bar", "baz", "hello"])
+    assert set(ds) == {"foo"}
+    assert set(ds["foo"]) == {"bar", "baz", "hello"}
     ds.close()
 
 
@@ -1766,10 +1774,10 @@ def test_track_order_specification(tmp_local_netcdf):
 # This should always work with the default file opening settings
 # https://github.com/h5netcdf/h5netcdf/issues/136#issuecomment-1017457067
 def test_more_than_7_attr_creation(tmp_local_netcdf):
-    with h5netcdf.File(tmp_local_netcdf, "w") as h5file:
+    with h5netcdf.File(tmp_local_netcdf, "w") as _h5file:
         for i in range(100):
-            h5file.attrs[f"key{i}"] = i
-            h5file.attrs[f"key{i}"] = 0
+            _h5file.attrs[f"key{i}"] = i
+            _h5file.attrs[f"key{i}"] = 0
 
 
 # Add a test that is supposed to fail in relation to issue #136
@@ -1778,10 +1786,10 @@ def test_more_than_7_attr_creation(tmp_local_netcdf):
 # https://github.com/h5netcdf/h5netcdf/issues/136#issuecomment-1017457067
 @pytest.mark.parametrize("track_order", [False, True])
 def test_more_than_7_attr_creation_track_order(tmp_local_netcdf, track_order):
-    with h5netcdf.File(tmp_local_netcdf, "w", track_order=track_order) as h5file:
+    with h5netcdf.File(tmp_local_netcdf, "w", track_order=track_order) as _h5file:
         for i in range(100):
-            h5file.attrs[f"key{i}"] = i
-            h5file.attrs[f"key{i}"] = 0
+            _h5file.attrs[f"key{i}"] = i
+            _h5file.attrs[f"key{i}"] = 0
 
 
 def test_group_names(tmp_local_netcdf):
@@ -2817,3 +2825,16 @@ def test_h5pyd_append(hsds_up):
 
     with h5netcdf.File(fname, "a", driver="h5pyd") as ds:
         assert ds._preexisting_file
+
+
+def test_raise_on_closed_file(tmp_local_netcdf):
+    f = h5netcdf.File(tmp_local_netcdf, "w")
+    f.dimensions = {"x": 5}
+    v = f.create_variable("hello", ("x",), float)
+    v[:] = np.ones(5)
+    f.close()
+    with pytest.raises(
+        ValueError,
+        match=f"I/O operation on <Closed h5netcdf.File>: '{tmp_local_netcdf}'",
+    ):
+        print(v[:])

@@ -6,6 +6,7 @@ edition.workspace = true
 description = "TOML Formatter/Linter CLI Tool."
 repository.workspace = true
 license.workspace = true
+readme = "README.md"
 
 [[bin]]
 name = "tombi"

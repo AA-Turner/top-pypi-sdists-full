@@ -234,36 +234,11 @@ class TestBackend(IBMTestCase):
         backend_copy = copy.deepcopy(backend)
         self.assertEqual(backend_copy.name, backend.name)
 
-    def test_too_many_circuits(self):
-        """Test exception when number of circuits exceeds backend._max_circuits"""
-        model_backend = FakeManilaV2()
-        backend = IBMBackend(
-            configuration=model_backend.configuration(),
-            service=mock.MagicMock(),
-            api_client=None,
-            instance=None,
-        )
-        sampler = SamplerV2(backend)
-        max_circs = backend.configuration().max_experiments
-
-        circs = []
-        for _ in range(max_circs + 1):
-            circ = QuantumCircuit(1)
-            circ.x(0)
-            circs.append(circ)
-        with self.assertRaises(ValueError) as err:
-            sampler.run([circs])
-        self.assertIn(
-            f"{max_circs+1}",
-            str(err.exception),
-        )
-
     def test_control_flow_converter(self):
         """Test that control flow instructions are properly added to the target."""
         backend = FakeSherbrooke()
         backend._get_conf_dict_from_json()
         backend._set_props_dict_from_json()
-        backend._set_defs_dict_from_json()
         target = convert_to_target(
             BackendConfiguration.from_dict(backend._conf_dict),
             BackendProperties.from_dict(backend._props_dict),
@@ -282,7 +257,6 @@ class TestBackend(IBMTestCase):
         backend = FakeSherbrooke()
         backend._get_conf_dict_from_json()
         backend._set_props_dict_from_json()
-        backend._set_defs_dict_from_json()
         target = convert_to_target(
             BackendConfiguration.from_dict(backend._conf_dict),
             BackendProperties.from_dict(backend._props_dict),

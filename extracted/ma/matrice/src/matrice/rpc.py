@@ -16,8 +16,8 @@ class RPC:
 
     def __init__(
         self,
-        access_key,
-        secret_key,
+        access_key=None,
+        secret_key=None,
         project_id=None,
     ):
         """Initialize the RPC client with optional project ID."""
@@ -25,6 +25,20 @@ class RPC:
         self.BASE_URL = (
             f"https://{os.environ.get('ENV', 'prod')}.backend.app.matrice.ai"
         )
+
+        access_key = access_key or os.environ.get("MATRICE_ACCESS_KEY_ID")
+        secret_key = secret_key or os.environ.get("MATRICE_SECRET_ACCESS_KEY")
+
+        if not access_key or not secret_key:
+            raise ValueError(
+                "Access key and Secret key are required. "
+                "Set them as environment variables MATRICE_ACCESS_KEY_ID and MATRICE_SECRET_ACCESS_KEY or pass them explicitly."
+            )
+
+
+        os.environ["MATRICE_ACCESS_KEY_ID"] = access_key
+        os.environ["MATRICE_SECRET_ACCESS_KEY"] = secret_key
+
         self.access_key = access_key
         self.secret_key = secret_key
         self.Refresh_Token = RefreshToken(access_key, secret_key)

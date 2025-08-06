@@ -87,6 +87,7 @@ class PredefinedMetricName(betterproto.Enum):
     COUNT_VALUE_IN_LIST = 75
     PERCENT_DISTINCT = 76
     PERCENT_DUPLICATES = 77
+    HOURS_SINCE_MAX_STRING = 78
 
 
 class FieldType(betterproto.Enum):
@@ -775,6 +776,12 @@ class TableSortField(betterproto.Enum):
     TABLE_SORT_FIELD_NAME_LENGTH = 6
 
 
+class SourceConnectionType(betterproto.Enum):
+    SOURCE_CONNECTION_TYPE_UNSPECIFIED = 0
+    SOURCE_CONNECTION_TYPE_DIRECT_CONNECT = 1
+    SOURCE_CONNECTION_TYPE_AGENT = 2
+
+
 class ColumnSortField(betterproto.Enum):
     COLUMN_SORT_FIELD_UNSPECIFIED = 0
     COLUMN_SORT_FIELD_NAME = 1
@@ -879,6 +886,14 @@ class DashboardDataPointType(betterproto.Enum):
     DASHBOARD_DATA_POINT_TYPE_PCT_ISSUES_INTERACTED = 21
     DASHBOARD_DATA_POINT_TYPE_PCT_TABLES_WITHOUT_ISSUE_BY_CATEGORY = 22
     DASHBOARD_DATA_POINT_TYPE_TOTAL_TABLES_WITHOUT_ISSUE_BY_CATEGORY = 23
+    DASHBOARD_DATA_POINT_TYPE_PCT_METRICS_WO_ISSUE_BY_DIMENSION = 24
+    DASHBOARD_DATA_POINT_TYPE_NUMBER_METRICS_WITH_ISSUE_BY_DIMENSION = 25
+    DASHBOARD_DATA_POINT_TYPE_NUMBER_METRICS_BY_DIMENSION = 26
+    DASHBOARD_DATA_POINT_TYPE_PCT_TABLES_WITH_METRICS_BY_DIMENSION = 27
+    DASHBOARD_DATA_POINT_TYPE_TOTAL_TABLES_WITH_METRICS_BY_DIMENSION = 28
+    DASHBOARD_DATA_POINT_TYPE_PCT_TABLES_WO_ISSUE_BY_DIMENSION = 29
+    DASHBOARD_DATA_POINT_TYPE_TOTAL_TABLES_WITH_ISSUE_BY_DIMENSION = 30
+    DASHBOARD_DATA_POINT_TYPE_TOTAL_TABLES_WITHOUT_ISSUE_BY_DIMENSION = 31
 
 
 class DashboardDateAggregationType(betterproto.Enum):
@@ -1848,6 +1863,7 @@ class MetricSuite(betterproto.Message):
     row_creation_cohorts: List["CohortDefinition"] = betterproto.message_field(3)
     auto_apply_on_indexing: bool = betterproto.bool_field(4)
     namespace: str = betterproto.string_field(5)
+    invoking_user: int = betterproto.int32_field(6)
 
 
 @dataclass
@@ -1921,6 +1937,35 @@ class GetMetricScorecardRequest(betterproto.Message):
 @dataclass
 class GetMetricScorecardResponse(betterproto.Message):
     scorecards: List["MetricCategoryScorecard"] = betterproto.message_field(1)
+
+
+@dataclass
+class DimensionScorecard(betterproto.Message):
+    dimension: "Dimension" = betterproto.message_field(1)
+    metric_run_counts: List["MetricScorecardCounts"] = betterproto.message_field(2)
+
+
+@dataclass
+class GetDimensionScorecardResponse(betterproto.Message):
+    scorecards: List["DimensionScorecard"] = betterproto.message_field(1)
+
+
+@dataclass
+class GetCurrentDimensionScorecardRequest(betterproto.Message):
+    where: "WhereClause" = betterproto.message_field(1)
+
+
+@dataclass
+class GetCurrentDimensionScorecardResponse(betterproto.Message):
+    items: List["CurrentDimensionScorecardItem"] = betterproto.message_field(1)
+
+
+@dataclass
+class CurrentDimensionScorecardItem(betterproto.Message):
+    dimension: "Dimension" = betterproto.message_field(1)
+    metric_type: "MetricType" = betterproto.message_field(2)
+    num_metrics: int = betterproto.int64_field(3)
+    num_issues: int = betterproto.int64_field(4)
 
 
 @dataclass
@@ -4092,6 +4137,7 @@ class Source(betterproto.Message):
     auth_type: "AuthType" = betterproto.enum_field(28)
     cross_source_agent_health_status: "AgentHealthStatus" = betterproto.enum_field(29)
     ignore_schemas_prefix: str = betterproto.string_field(30)
+    indexing_schedule: "IdAndDisplayName" = betterproto.message_field(31)
 
 
 @dataclass
@@ -4120,6 +4166,7 @@ class CreateSourceRequest(betterproto.Message):
     max_pool_size: int = betterproto.int32_field(21)
     auth_type: "AuthType" = betterproto.enum_field(22)
     ignore_schemas_prefix: str = betterproto.string_field(23)
+    indexing_schedule: "MetricSchedule" = betterproto.message_field(24)
 
 
 @dataclass
@@ -4214,6 +4261,7 @@ class GetTableListRequest(betterproto.Message):
     workspace_id: int = betterproto.int32_field(10)
     include_data_node_ids: bool = betterproto.bool_field(11)
     tag_ids: List[int] = betterproto.int32_field(12)
+    source_connection_types: List["SourceConnectionType"] = betterproto.enum_field(13)
 
 
 @dataclass
@@ -5308,6 +5356,7 @@ class MetricDeploysRequest(betterproto.Message):
     bulk_metric_configuration: "BulkMetricConfiguration" = betterproto.message_field(2)
     company_id: int = betterproto.int32_field(3)
     rct_fields: "SetDateColumnRequest" = betterproto.message_field(4)
+    invoking_user: int = betterproto.int32_field(5)
 
 
 @dataclass
@@ -5981,6 +6030,22 @@ class MoveDimensionRequest(betterproto.Message):
     name: str = betterproto.string_field(3)
     is_override: bool = betterproto.bool_field(4)
     target_dimension_id: int = betterproto.int32_field(5)
+
+
+@dataclass
+class AgentPasswordResponse(betterproto.Message):
+    encrypted_password: str = betterproto.string_field(1)
+
+
+@dataclass
+class DimensionRevision(betterproto.Message):
+    revision_info: "RevisionInfo" = betterproto.message_field(1)
+    dimension: "Dimension" = betterproto.message_field(2)
+
+
+@dataclass
+class GetDimensionRevisionsResponse(betterproto.Message):
+    revisions: List["DimensionRevision"] = betterproto.message_field(1)
 
 
 @dataclass
@@ -7627,6 +7692,7 @@ class TableServiceStub(betterproto.ServiceStub):
         workspace_id: int = 0,
         include_data_node_ids: bool = False,
         tag_ids: List[int] = [],
+        source_connection_types: List["SourceConnectionType"] = [],
     ) -> GetTableListResponse:
         """Get tables"""
 
@@ -7643,6 +7709,7 @@ class TableServiceStub(betterproto.ServiceStub):
         request.workspace_id = workspace_id
         request.include_data_node_ids = include_data_node_ids
         request.tag_ids = tag_ids
+        request.source_connection_types = source_connection_types
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.TableService/GetTables",
@@ -8536,6 +8603,7 @@ class SourceServiceStub(betterproto.ServiceStub):
         max_pool_size: int = 0,
         auth_type: "AuthType" = 0,
         ignore_schemas_prefix: str = "",
+        indexing_schedule: Optional["MetricSchedule"] = None,
     ) -> SourceValidationResponse:
         """Validate source"""
 
@@ -8564,6 +8632,8 @@ class SourceServiceStub(betterproto.ServiceStub):
         request.max_pool_size = max_pool_size
         request.auth_type = auth_type
         request.ignore_schemas_prefix = ignore_schemas_prefix
+        if indexing_schedule is not None:
+            request.indexing_schedule = indexing_schedule
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.SourceService/ValidateSource",
@@ -8597,6 +8667,7 @@ class SourceServiceStub(betterproto.ServiceStub):
         max_pool_size: int = 0,
         auth_type: "AuthType" = 0,
         ignore_schemas_prefix: str = "",
+        indexing_schedule: Optional["MetricSchedule"] = None,
     ) -> CreateSourceResponse:
         """Create or update source"""
 
@@ -8625,6 +8696,8 @@ class SourceServiceStub(betterproto.ServiceStub):
         request.max_pool_size = max_pool_size
         request.auth_type = auth_type
         request.ignore_schemas_prefix = ignore_schemas_prefix
+        if indexing_schedule is not None:
+            request.indexing_schedule = indexing_schedule
 
         return await self._unary_unary(
             "/com.bigeye.models.generated.SourceService/CreateOrUpdateSource",

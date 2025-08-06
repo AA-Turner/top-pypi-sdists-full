@@ -120,6 +120,7 @@ from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, Blo
 from .usecases.skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
 from .usecases.plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
 from .usecases.smoker_detection import SmokerDetectionUseCase, SmokerDetectionConfig
+from .usecases.Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig, HistopathologicalCancerDetectionUseCase
 
 # Use case implementations
 from .usecases import (
@@ -177,6 +178,8 @@ from .usecases import (
     BloodCancerDetectionUseCase,
     SkinCancerClassificationUseCase,
     PlaqueSegmentationUseCase,
+    HistopathologicalCancerDetectionUseCase,
+
 )
 
 # Register use cases automatically
@@ -241,6 +244,7 @@ _smoker_detection = SmokerDetectionUseCase()
 _blood_cancer_detection = BloodCancerDetectionUseCase()
 _skin_cancer_classification = SkinCancerClassificationUseCase()
 _plaque_segmentation = PlaqueSegmentationUseCase()
+_histopathological_cancer_detection = HistopathologicalCancerDetectionUseCase()
 
 
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
@@ -306,6 +310,7 @@ registry.register_use_case(_smoker_detection.category, _smoker_detection.name, S
 registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
 registry.register_use_case(_skin_cancer_classification.category, _skin_cancer_classification.name, SkinCancerClassificationUseCase)
 registry.register_use_case(_plaque_segmentation.category, _plaque_segmentation.name, PlaqueSegmentationUseCase)
+registry.register_use_case(_histopathological_cancer_detection.category, _histopathological_cancer_detection.name, HistopathologicalCancerDetectionUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
@@ -493,6 +498,7 @@ __all__ = [
     'BloodCancerDetectionConfig',
     'SkinCancerClassificationConfig',
     'PlaqueSegmentationConfig',
+    'HistopathologicalCancerDetectionConfig',
 
     # Use case classes
     'PeopleCountingUseCase',
@@ -551,6 +557,7 @@ __all__ = [
     'BloodCancerDetectionUseCase',
     'SkinCancerClassificationUseCase',
     'PlaqueSegmentationUseCase',
+    'HistopathologicalCancerDetectionUseCase',
     
     # Base classes for extension
     'BaseProcessor',

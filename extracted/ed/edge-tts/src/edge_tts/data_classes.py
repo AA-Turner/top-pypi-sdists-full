@@ -5,6 +5,7 @@
 import argparse
 import re
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass
@@ -17,6 +18,7 @@ class TTSConfig:
     rate: str
     volume: str
     pitch: str
+    boundary: Literal["WordBoundary", "SentenceBoundary"]
 
     @staticmethod
     def validate_string_param(param_name: str, param_value: str, pattern: str) -> str:
@@ -55,7 +57,7 @@ class TTSConfig:
             region = match.group(2)
             name = match.group(3)
             if name.find("-") != -1:
-                region = region + "-" + name[: name.find("-")]
+                region = f"{region}-{name[:name.find('-')]}"
                 name = name[name.find("-") + 1 :]
             self.voice = (
                 "Microsoft Server Speech Text to Speech Voice"
@@ -83,7 +85,6 @@ class UtilArgs(argparse.Namespace):
     rate: str
     volume: str
     pitch: str
-    words_in_cue: int
     write_media: str
     write_subtitles: str
     proxy: str

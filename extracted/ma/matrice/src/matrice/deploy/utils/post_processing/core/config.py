@@ -449,12 +449,18 @@ class ConfigManager:
             'face_emotion': None,
             'flower_segmentation': None,
             'smoker_detection': None,
+            'road_traffic_density': None,
+            'road_view_segmentation': None,
+            'face_recognition': None,
+            'drowsy_driver_detection': None,
+            'waterbody_segmentation': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
             'skin_cancer_classification_img': None,
             'plaque_segmentation_img': None,
             'cardiomegaly_classification': None,
+            'histopathological_cancer_detection' : None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -804,6 +810,46 @@ class ConfigManager:
         except ImportError:
             return None
     
+    def road_traffic_density_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.road_traffic_density import RoadTrafficConfig
+            return RoadTrafficConfig
+        except ImportError:
+            return None
+    
+    def road_view_segmentation_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.road_view_segmentation import RoadViewSegmentationConfig
+            return RoadViewSegmentationConfig
+        except ImportError:
+            return None
+    
+    def face_recognition_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.face_recognition import FaceRecognitionConfig
+            return FaceRecognitionConfig
+        except ImportError:
+            return None
+    
+    def drowsy_driver_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.drowsy_driver_detection import DrowsyDriverConfig
+            return DrowsyDriverConfig
+        except ImportError:
+            return None
+    
+    def waterbody_segmentation_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.waterbody_segmentation import WaterBodyConfig
+            return WaterBodyConfig
+        except ImportError:
+            return None
+    
     #put all image based usecases here::
     def blood_cancer_detection_config_class(self):
         """Register a configuration class for a use case."""
@@ -833,6 +879,14 @@ class ConfigManager:
         try:
             from ..usecases.cardiomegaly_classification import CardiomegalyConfig
             return CardiomegalyConfig
+        except ImportError:
+            return None
+        
+    def histopathological_cancer_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig
+            return HistopathologicalCancerDetectionConfig
         except ImportError:
             return None
 
@@ -1652,6 +1706,85 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        
+        elif usecase == "road_traffic_density":
+            # Import here to avoid circular import
+            from ..usecases.road_traffic_density import RoadTrafficConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = RoadTrafficConfig(
+                category=category or "automobile",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "road_view_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.road_view_segmentation import RoadViewSegmentationConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = RoadViewSegmentationConfig(
+                category=category or "automobile",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "face_recognition":
+            # Import here to avoid circular import
+            from ..usecases.face_recognition import FaceRecognitionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = FaceRecognitionConfig(
+                category=category or "security",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "drowsy_driver_detection":
+            # Import here to avoid circular import
+            from ..usecases.drowsy_driver_detection import DrowsyDriverConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = DrowsyDriverConfig(
+                category=category or "automobile",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "waterbody_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.waterbody_segmentation import WaterBodyConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = WaterBodyConfig(
+                category=category or "agriculture",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
 
         
         #Add IMAGE based usecases here::
@@ -1710,6 +1843,21 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = CardiomegalyConfig(
+                category=category or "healthcare",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "histopathological_cancer_detection":
+            # Import here to avoid circular import
+            from ..usecases.Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = HistopathologicalCancerDetectionConfig(
                 category=category or "healthcare",
                 usecase=usecase,
                 alert_config=alert_config,
@@ -2057,6 +2205,31 @@ class ConfigManager:
             from ..usecases.smoker_detection import SmokerDetectionConfig
             default_config = SmokerDetectionConfig()
             return default_config.to_dict()
+        elif usecase == "road_traffic_density":
+            # Import here to avoid circular import
+            from ..usecases.road_traffic_density import RoadTrafficConfig
+            default_config = RoadTrafficConfig()
+            return default_config.to_dict()
+        elif usecase == "road_view_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.road_view_segmentation import RoadViewSegmentationConfig
+            default_config = RoadViewSegmentationConfig()
+            return default_config.to_dict()
+        elif usecase == "face_recognition":
+            # Import here to avoid circular import
+            from ..usecases.face_recognition import FaceRecognitionConfig
+            default_config = FaceRecognitionConfig()
+            return default_config.to_dict()
+        elif usecase == "drowsy_driver_detection":
+            # Import here to avoid circular import
+            from ..usecases.drowsy_driver_detection import DrowsyDriverConfig
+            default_config = DrowsyDriverConfig()
+            return default_config.to_dict()
+        elif usecase == "waterbody_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.waterbody_segmentation import WaterBodyConfig
+            default_config = WaterBodyConfig()
+            return default_config.to_dict()
 
         #Add all image based usecases here
         elif usecase == "blood_cancer_detection_img":
@@ -2078,6 +2251,11 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.cardiomegaly_classification import CardiomegalyConfig
             default_config = CardiomegalyConfig()
+            return default_config.to_dict()
+        elif usecase == "histopathological_cancer_detection":
+            # Import here to avoid circular import
+            from ..usecases.Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig
+            default_config = HistopathologicalCancerDetectionConfig()
             return default_config.to_dict()
 
         elif usecase not in self._config_classes:

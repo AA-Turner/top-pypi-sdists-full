@@ -12,6 +12,10 @@ Usage::
 
     from types_boto3_bedrock.client import BedrockClient
     from types_boto3_bedrock.paginator import (
+        ListAutomatedReasoningPoliciesPaginator,
+        ListAutomatedReasoningPolicyBuildWorkflowsPaginator,
+        ListAutomatedReasoningPolicyTestCasesPaginator,
+        ListAutomatedReasoningPolicyTestResultsPaginator,
         ListCustomModelDeploymentsPaginator,
         ListCustomModelsPaginator,
         ListEvaluationJobsPaginator,
@@ -30,6 +34,10 @@ Usage::
     session = Session()
     client: BedrockClient = session.client("bedrock")
 
+    list_automated_reasoning_policies_paginator: ListAutomatedReasoningPoliciesPaginator = client.get_paginator("list_automated_reasoning_policies")
+    list_automated_reasoning_policy_build_workflows_paginator: ListAutomatedReasoningPolicyBuildWorkflowsPaginator = client.get_paginator("list_automated_reasoning_policy_build_workflows")
+    list_automated_reasoning_policy_test_cases_paginator: ListAutomatedReasoningPolicyTestCasesPaginator = client.get_paginator("list_automated_reasoning_policy_test_cases")
+    list_automated_reasoning_policy_test_results_paginator: ListAutomatedReasoningPolicyTestResultsPaginator = client.get_paginator("list_automated_reasoning_policy_test_results")
     list_custom_model_deployments_paginator: ListCustomModelDeploymentsPaginator = client.get_paginator("list_custom_model_deployments")
     list_custom_models_paginator: ListCustomModelsPaginator = client.get_paginator("list_custom_models")
     list_evaluation_jobs_paginator: ListEvaluationJobsPaginator = client.get_paginator("list_evaluation_jobs")
@@ -54,6 +62,14 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListAutomatedReasoningPoliciesRequestPaginateTypeDef,
+    ListAutomatedReasoningPoliciesResponseTypeDef,
+    ListAutomatedReasoningPolicyBuildWorkflowsRequestPaginateTypeDef,
+    ListAutomatedReasoningPolicyBuildWorkflowsResponseTypeDef,
+    ListAutomatedReasoningPolicyTestCasesRequestPaginateTypeDef,
+    ListAutomatedReasoningPolicyTestCasesResponseTypeDef,
+    ListAutomatedReasoningPolicyTestResultsRequestPaginateTypeDef,
+    ListAutomatedReasoningPolicyTestResultsResponseTypeDef,
     ListCustomModelDeploymentsRequestPaginateTypeDef,
     ListCustomModelDeploymentsResponseTypeDef,
     ListCustomModelsRequestPaginateTypeDef,
@@ -89,6 +105,10 @@ else:
 
 
 __all__ = (
+    "ListAutomatedReasoningPoliciesPaginator",
+    "ListAutomatedReasoningPolicyBuildWorkflowsPaginator",
+    "ListAutomatedReasoningPolicyTestCasesPaginator",
+    "ListAutomatedReasoningPolicyTestResultsPaginator",
     "ListCustomModelDeploymentsPaginator",
     "ListCustomModelsPaginator",
     "ListEvaluationJobsPaginator",
@@ -103,6 +123,104 @@ __all__ = (
     "ListPromptRoutersPaginator",
     "ListProvisionedModelThroughputsPaginator",
 )
+
+
+if TYPE_CHECKING:
+    _ListAutomatedReasoningPoliciesPaginatorBase = Paginator[
+        ListAutomatedReasoningPoliciesResponseTypeDef
+    ]
+else:
+    _ListAutomatedReasoningPoliciesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAutomatedReasoningPoliciesPaginator(_ListAutomatedReasoningPoliciesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAutomatedReasoningPolicies.html#Bedrock.Paginator.ListAutomatedReasoningPolicies)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listautomatedreasoningpoliciespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutomatedReasoningPoliciesRequestPaginateTypeDef]
+    ) -> PageIterator[ListAutomatedReasoningPoliciesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAutomatedReasoningPolicies.html#Bedrock.Paginator.ListAutomatedReasoningPolicies.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listautomatedreasoningpoliciespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAutomatedReasoningPolicyBuildWorkflowsPaginatorBase = Paginator[
+        ListAutomatedReasoningPolicyBuildWorkflowsResponseTypeDef
+    ]
+else:
+    _ListAutomatedReasoningPolicyBuildWorkflowsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAutomatedReasoningPolicyBuildWorkflowsPaginator(
+    _ListAutomatedReasoningPolicyBuildWorkflowsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAutomatedReasoningPolicyBuildWorkflows.html#Bedrock.Paginator.ListAutomatedReasoningPolicyBuildWorkflows)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listautomatedreasoningpolicybuildworkflowspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutomatedReasoningPolicyBuildWorkflowsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAutomatedReasoningPolicyBuildWorkflowsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAutomatedReasoningPolicyBuildWorkflows.html#Bedrock.Paginator.ListAutomatedReasoningPolicyBuildWorkflows.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listautomatedreasoningpolicybuildworkflowspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAutomatedReasoningPolicyTestCasesPaginatorBase = Paginator[
+        ListAutomatedReasoningPolicyTestCasesResponseTypeDef
+    ]
+else:
+    _ListAutomatedReasoningPolicyTestCasesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAutomatedReasoningPolicyTestCasesPaginator(
+    _ListAutomatedReasoningPolicyTestCasesPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAutomatedReasoningPolicyTestCases.html#Bedrock.Paginator.ListAutomatedReasoningPolicyTestCases)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listautomatedreasoningpolicytestcasespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutomatedReasoningPolicyTestCasesRequestPaginateTypeDef]
+    ) -> PageIterator[ListAutomatedReasoningPolicyTestCasesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAutomatedReasoningPolicyTestCases.html#Bedrock.Paginator.ListAutomatedReasoningPolicyTestCases.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listautomatedreasoningpolicytestcasespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAutomatedReasoningPolicyTestResultsPaginatorBase = Paginator[
+        ListAutomatedReasoningPolicyTestResultsResponseTypeDef
+    ]
+else:
+    _ListAutomatedReasoningPolicyTestResultsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAutomatedReasoningPolicyTestResultsPaginator(
+    _ListAutomatedReasoningPolicyTestResultsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAutomatedReasoningPolicyTestResults.html#Bedrock.Paginator.ListAutomatedReasoningPolicyTestResults)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listautomatedreasoningpolicytestresultspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAutomatedReasoningPolicyTestResultsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAutomatedReasoningPolicyTestResultsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/paginator/ListAutomatedReasoningPolicyTestResults.html#Bedrock.Paginator.ListAutomatedReasoningPolicyTestResults.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock/paginators/#listautomatedreasoningpolicytestresultspaginator)
+        """
 
 
 if TYPE_CHECKING:

@@ -19,10 +19,9 @@ import ipaddress
 import os
 import re
 import socket
-import telnetlib
+from netmiko._telnetlib import telnetlib
 import tempfile
 import uuid
-from collections import defaultdict
 
 from netmiko import FileTransfer, InLineTransfer
 
@@ -2076,7 +2075,7 @@ class IOSDriver(NetworkDriver):
         return bgp_neighbor_data
 
     def get_bgp_neighbors_detail(self, neighbor_address=""):
-        bgp_detail = defaultdict(lambda: defaultdict(lambda: []))
+        bgp_detail = {}
 
         raw_bgp_sum = self._send_command("show ip bgp all sum").strip()
 
@@ -2227,6 +2226,14 @@ class IOSDriver(NetworkDriver):
                         "export_policy": bgp_neigh_afi["policy_out"],
                     }
                 )
+
+            vrf_name = details["routing_table"]
+            if vrf_name not in bgp_detail.keys():
+                bgp_detail[vrf_name] = {}
+            remote_as = details["remote_as"]
+            if remote_as not in bgp_detail[vrf_name].keys():
+                bgp_detail[vrf_name][remote_as] = []
+
             bgp_detail[details["routing_table"]][details["remote_as"]].append(details)
         return bgp_detail
 
@@ -3796,7 +3803,7 @@ class IOSDriver(NetworkDriver):
             output = self._send_command("show vlan id {}".format(vlan_id))
             _vlans = self._get_vlan_all_ports(output)
             if len(_vlans) == 0:
-                vlans[vlan_id] = {"name": vlan_name, "interfaces": []}
+                vlans[vlan_id] = {"name": vlan_name.strip(), "interfaces": []}
             elif len(_vlans) == 1:
                 vlans.update(_vlans)
             elif len(_vlans.keys()) > 1:

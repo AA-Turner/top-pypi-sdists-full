@@ -67,7 +67,9 @@ from vtkmodules.vtkCommonComputationalGeometry import (
 from vtkmodules.vtkCommonComputationalGeometry import (
     vtkParametricConicSpiral as vtkParametricConicSpiral,
 )
-from vtkmodules.vtkCommonComputationalGeometry import vtkParametricCrossCap as vtkParametricCrossCap
+from vtkmodules.vtkCommonComputationalGeometry import (
+    vtkParametricCrossCap as vtkParametricCrossCap,
+)
 from vtkmodules.vtkCommonComputationalGeometry import vtkParametricDini as vtkParametricDini
 from vtkmodules.vtkCommonComputationalGeometry import (
     vtkParametricEllipsoid as vtkParametricEllipsoid,
@@ -76,7 +78,9 @@ from vtkmodules.vtkCommonComputationalGeometry import vtkParametricEnneper as vt
 from vtkmodules.vtkCommonComputationalGeometry import (
     vtkParametricFigure8Klein as vtkParametricFigure8Klein,
 )
-from vtkmodules.vtkCommonComputationalGeometry import vtkParametricFunction as vtkParametricFunction
+from vtkmodules.vtkCommonComputationalGeometry import (
+    vtkParametricFunction as vtkParametricFunction,
+)
 from vtkmodules.vtkCommonComputationalGeometry import (
     vtkParametricHenneberg as vtkParametricHenneberg,
 )
@@ -176,7 +180,9 @@ from vtkmodules.vtkCommonDataModel import VTK_EMPTY_CELL as VTK_EMPTY_CELL
 from vtkmodules.vtkCommonDataModel import VTK_HEXAGONAL_PRISM as VTK_HEXAGONAL_PRISM
 from vtkmodules.vtkCommonDataModel import VTK_HEXAHEDRON as VTK_HEXAHEDRON
 from vtkmodules.vtkCommonDataModel import VTK_HIGHER_ORDER_EDGE as VTK_HIGHER_ORDER_EDGE
-from vtkmodules.vtkCommonDataModel import VTK_HIGHER_ORDER_HEXAHEDRON as VTK_HIGHER_ORDER_HEXAHEDRON
+from vtkmodules.vtkCommonDataModel import (
+    VTK_HIGHER_ORDER_HEXAHEDRON as VTK_HIGHER_ORDER_HEXAHEDRON,
+)
 from vtkmodules.vtkCommonDataModel import VTK_HIGHER_ORDER_POLYGON as VTK_HIGHER_ORDER_POLYGON
 from vtkmodules.vtkCommonDataModel import VTK_HIGHER_ORDER_PYRAMID as VTK_HIGHER_ORDER_PYRAMID
 from vtkmodules.vtkCommonDataModel import VTK_HIGHER_ORDER_QUAD as VTK_HIGHER_ORDER_QUAD
@@ -195,9 +201,13 @@ from vtkmodules.vtkCommonDataModel import VTK_LAGRANGE_WEDGE as VTK_LAGRANGE_WED
 from vtkmodules.vtkCommonDataModel import VTK_LINE as VTK_LINE
 from vtkmodules.vtkCommonDataModel import VTK_PARAMETRIC_CURVE as VTK_PARAMETRIC_CURVE
 from vtkmodules.vtkCommonDataModel import VTK_PARAMETRIC_HEX_REGION as VTK_PARAMETRIC_HEX_REGION
-from vtkmodules.vtkCommonDataModel import VTK_PARAMETRIC_QUAD_SURFACE as VTK_PARAMETRIC_QUAD_SURFACE
+from vtkmodules.vtkCommonDataModel import (
+    VTK_PARAMETRIC_QUAD_SURFACE as VTK_PARAMETRIC_QUAD_SURFACE,
+)
 from vtkmodules.vtkCommonDataModel import VTK_PARAMETRIC_SURFACE as VTK_PARAMETRIC_SURFACE
-from vtkmodules.vtkCommonDataModel import VTK_PARAMETRIC_TETRA_REGION as VTK_PARAMETRIC_TETRA_REGION
+from vtkmodules.vtkCommonDataModel import (
+    VTK_PARAMETRIC_TETRA_REGION as VTK_PARAMETRIC_TETRA_REGION,
+)
 from vtkmodules.vtkCommonDataModel import VTK_PARAMETRIC_TRI_SURFACE as VTK_PARAMETRIC_TRI_SURFACE
 from vtkmodules.vtkCommonDataModel import VTK_PENTAGONAL_PRISM as VTK_PENTAGONAL_PRISM
 from vtkmodules.vtkCommonDataModel import VTK_PIXEL as VTK_PIXEL
@@ -220,11 +230,19 @@ from vtkmodules.vtkCommonDataModel import VTK_QUADRATIC_WEDGE as VTK_QUADRATIC_W
 from vtkmodules.vtkCommonDataModel import VTK_TETRA as VTK_TETRA
 from vtkmodules.vtkCommonDataModel import VTK_TRIANGLE as VTK_TRIANGLE
 from vtkmodules.vtkCommonDataModel import VTK_TRIANGLE_STRIP as VTK_TRIANGLE_STRIP
-from vtkmodules.vtkCommonDataModel import VTK_TRIQUADRATIC_HEXAHEDRON as VTK_TRIQUADRATIC_HEXAHEDRON
+from vtkmodules.vtkCommonDataModel import (
+    VTK_TRIQUADRATIC_HEXAHEDRON as VTK_TRIQUADRATIC_HEXAHEDRON,
+)
 from vtkmodules.vtkCommonDataModel import VTK_VERTEX as VTK_VERTEX
 from vtkmodules.vtkCommonDataModel import VTK_VOXEL as VTK_VOXEL
 from vtkmodules.vtkCommonDataModel import VTK_WEDGE as VTK_WEDGE
 from vtkmodules.vtkCommonDataModel import vtkAbstractCellLocator as vtkAbstractCellLocator
+from vtkmodules.vtkCommonDataModel import vtkBezierCurve as vtkBezierCurve
+from vtkmodules.vtkCommonDataModel import vtkBezierHexahedron as vtkBezierHexahedron
+from vtkmodules.vtkCommonDataModel import vtkBezierQuadrilateral as vtkBezierQuadrilateral
+from vtkmodules.vtkCommonDataModel import vtkBezierTetra as vtkBezierTetra
+from vtkmodules.vtkCommonDataModel import vtkBezierTriangle as vtkBezierTriangle
+from vtkmodules.vtkCommonDataModel import vtkBezierWedge as vtkBezierWedge
 from vtkmodules.vtkCommonDataModel import vtkBiQuadraticQuad as vtkBiQuadraticQuad
 from vtkmodules.vtkCommonDataModel import (
     vtkBiQuadraticQuadraticHexahedron as vtkBiQuadraticQuadraticHexahedron,
@@ -254,6 +272,11 @@ from vtkmodules.vtkCommonDataModel import vtkImplicitFunction as vtkImplicitFunc
 from vtkmodules.vtkCommonDataModel import (
     vtkIterativeClosestPointTransform as vtkIterativeClosestPointTransform,
 )
+from vtkmodules.vtkCommonDataModel import vtkLagrangeCurve as vtkLagrangeCurve
+from vtkmodules.vtkCommonDataModel import vtkLagrangeHexahedron as vtkLagrangeHexahedron
+from vtkmodules.vtkCommonDataModel import vtkLagrangeQuadrilateral as vtkLagrangeQuadrilateral
+from vtkmodules.vtkCommonDataModel import vtkLagrangeTriangle as vtkLagrangeTriangle
+from vtkmodules.vtkCommonDataModel import vtkLagrangeWedge as vtkLagrangeWedge
 from vtkmodules.vtkCommonDataModel import vtkLine as vtkLine
 from vtkmodules.vtkCommonDataModel import vtkMultiBlockDataSet as vtkMultiBlockDataSet
 from vtkmodules.vtkCommonDataModel import vtkNonMergingPointLocator as vtkNonMergingPointLocator
@@ -341,6 +364,9 @@ from vtkmodules.vtkFiltersCore import vtkGlyph3D as vtkGlyph3D
 from vtkmodules.vtkFiltersCore import vtkImplicitPolyDataDistance as vtkImplicitPolyDataDistance
 from vtkmodules.vtkFiltersCore import vtkMarchingCubes as vtkMarchingCubes
 from vtkmodules.vtkFiltersCore import vtkMassProperties as vtkMassProperties
+
+with contextlib.suppress(ImportError):  # Introduced VTK 9.4
+    from vtkmodules.vtkFiltersCore import vtkOrientPolyData as vtkOrientPolyData
 from vtkmodules.vtkFiltersCore import vtkPointDataToCellData as vtkPointDataToCellData
 from vtkmodules.vtkFiltersCore import vtkPolyDataNormals as vtkPolyDataNormals
 from vtkmodules.vtkFiltersCore import vtkQuadricDecimation as vtkQuadricDecimation
@@ -354,7 +380,9 @@ from vtkmodules.vtkFiltersCore import vtkTubeFilter as vtkTubeFilter
 from vtkmodules.vtkFiltersCore import (
     vtkUnstructuredGridToExplicitStructuredGrid as vtkUnstructuredGridToExplicitStructuredGrid,
 )
-from vtkmodules.vtkFiltersCore import vtkWindowedSincPolyDataFilter as vtkWindowedSincPolyDataFilter
+from vtkmodules.vtkFiltersCore import (
+    vtkWindowedSincPolyDataFilter as vtkWindowedSincPolyDataFilter,
+)
 from vtkmodules.vtkFiltersExtraction import vtkExtractCellsByType as vtkExtractCellsByType
 from vtkmodules.vtkFiltersExtraction import vtkExtractGeometry as vtkExtractGeometry
 from vtkmodules.vtkFiltersExtraction import vtkExtractGrid as vtkExtractGrid
@@ -413,7 +441,9 @@ from vtkmodules.vtkFiltersModeling import (
 from vtkmodules.vtkFiltersModeling import (
     vtkButterflySubdivisionFilter as vtkButterflySubdivisionFilter,
 )
-from vtkmodules.vtkFiltersModeling import vtkCollisionDetectionFilter as vtkCollisionDetectionFilter
+from vtkmodules.vtkFiltersModeling import (
+    vtkCollisionDetectionFilter as vtkCollisionDetectionFilter,
+)
 from vtkmodules.vtkFiltersModeling import (
     vtkDijkstraGraphGeodesicPath as vtkDijkstraGraphGeodesicPath,
 )
@@ -445,7 +475,9 @@ from vtkmodules.vtkFiltersSources import vtkArrowSource as vtkArrowSource
 
 with contextlib.suppress(ImportError):
     # Deprecated in 9.3
-    from vtkmodules.vtkFiltersSources import vtkCapsuleSource as vtkCapsuleSource
+    from vtkmodules.vtkFiltersSources import (  # type: ignore[attr-defined]
+        vtkCapsuleSource as vtkCapsuleSource,
+    )
 
 from vtkmodules.vtkFiltersSources import vtkConeSource as vtkConeSource
 from vtkmodules.vtkFiltersSources import vtkCubeSource as vtkCubeSource
@@ -491,6 +523,7 @@ from vtkmodules.vtkImagingCore import vtkImageWrapPad as vtkImageWrapPad
 from vtkmodules.vtkImagingCore import vtkRTAnalyticSource as vtkRTAnalyticSource
 from vtkmodules.vtkImagingGeneral import vtkImageGaussianSmooth as vtkImageGaussianSmooth
 from vtkmodules.vtkImagingGeneral import vtkImageMedian3D as vtkImageMedian3D
+from vtkmodules.vtkImagingHybrid import vtkGaussianSplatter as vtkGaussianSplatter
 from vtkmodules.vtkImagingHybrid import vtkSampleFunction as vtkSampleFunction
 from vtkmodules.vtkImagingHybrid import (
     vtkSurfaceReconstructionFilter as vtkSurfaceReconstructionFilter,
@@ -505,6 +538,10 @@ from vtkmodules.vtkIOGeometry import vtkIVWriter as vtkIVWriter
 from vtkmodules.vtkIOGeometry import vtkOBJWriter as vtkOBJWriter
 from vtkmodules.vtkIOGeometry import vtkProStarReader as vtkProStarReader
 from vtkmodules.vtkIOGeometry import vtkSTLWriter as vtkSTLWriter
+
+with contextlib.suppress(ImportError):  # Introduced VTK v9.4.0
+    from vtkmodules.vtkIOHDF import vtkHDFWriter as vtkHDFWriter
+
 from vtkmodules.vtkIOInfovis import vtkDelimitedTextReader as vtkDelimitedTextReader
 from vtkmodules.vtkIOLegacy import vtkDataReader as vtkDataReader
 from vtkmodules.vtkIOLegacy import vtkDataSetReader as vtkDataSetReader
@@ -550,12 +587,12 @@ try:
 except ImportError:  # pragma: no cover
     # `vtkmodules.vtkPythonContext2D` is unavailable in some versions of `vtk` (see #3224)
 
-    class vtkPythonItem:  # type: ignore[no-redef]
+    class vtkPythonItem:  # type: ignore[no-redef]  # noqa: N801
         """Empty placeholder."""
 
         def __init__(self):  # pragma: no cover
             """Raise version error on init."""
-            from pyvista.core.errors import VTKVersionError
+            from pyvista.core.errors import VTKVersionError  # noqa: PLC0415
 
             msg = 'Chart backgrounds require the vtkPythonContext2D module'
             raise VTKVersionError(msg)
@@ -592,8 +629,11 @@ class VersionInfo(NamedTuple):
     minor: int
     micro: int
 
+    def __str__(self):
+        return str((self.major, self.minor, self.micro))
 
-def VTKVersionInfo():
+
+def VTKVersionInfo():  # noqa: N802
     """Return the vtk version as a namedtuple.
 
     Returns
@@ -617,7 +657,7 @@ def VTKVersionInfo():
 vtk_version_info = VTKVersionInfo()
 
 
-class vtkPyVistaOverride:
+class vtkPyVistaOverride:  # noqa: N801
     """Base class to automatically override VTK classes with PyVista classes."""
 
     def __init_subclass__(cls, **kwargs):
@@ -650,7 +690,7 @@ class DisableVtkSnakeCase:
         if vtk_version_info >= (9, 4) and sys.meta_path is not None:
             # Raise error if accessing attributes from VTK's pythonic snake_case API
 
-            import pyvista as pv
+            import pyvista as pv  # noqa: PLC0415
 
             state = pv._VTK_SNAKE_CASE_STATE
             if state != 'allow':
@@ -659,7 +699,10 @@ class DisableVtkSnakeCase:
                     and attr[0].islower()
                     and is_vtk_attribute(target, attr)
                 ):
-                    msg = f'The attribute {attr!r} is defined by VTK and is not part of the PyVista API'
+                    msg = (
+                        f'The attribute {attr!r} is defined by VTK and is not part of the '
+                        f'PyVista API'
+                    )
                     if state == 'error':
                         raise pv.PyVistaAttributeError(msg)
                     else:
@@ -692,3 +735,18 @@ def is_vtk_attribute(obj: object, attr: str):  # numpydoc ignore=RT01
 
     cls = _find_defining_class(obj if isinstance(obj, type) else obj.__class__, attr)
     return cls is not None and cls.__module__.startswith('vtkmodules')
+
+
+class VTKObjectWrapperCheckSnakeCase(VTKObjectWrapper):
+    """Superclass for classes that wrap VTK objects with Python objects.
+
+    This class overrides __getattr__ to disable the VTK snake case API.
+    """
+
+    def __getattr__(self, name: str):
+        """Forward unknown attribute requests to VTKArray's __getattr__."""
+        if self.VTKObject is not None:
+            # Check if forwarding snake_case attributes
+            DisableVtkSnakeCase.check_attribute(self.VTKObject, name)
+            return getattr(self.VTKObject, name)
+        raise AttributeError

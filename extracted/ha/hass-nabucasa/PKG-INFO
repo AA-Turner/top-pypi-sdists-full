@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hass-nabucasa
-Version: 0.111.0
+Version: 0.111.1
 Summary: Home Assistant cloud integration by Nabu Casa, Inc.
 Author-email: "Nabu Casa, Inc." <opensource@nabucasa.com>
 License: GPL v3
@@ -32,15 +32,16 @@ Requires-Dist: yarl<2,>=1.20
 Requires-Dist: sentence-stream==1.1.0
 Provides-Extra: test
 Requires-Dist: codespell==2.4.1; extra == "test"
-Requires-Dist: freezegun==1.5.3; extra == "test"
-Requires-Dist: mypy==1.17.0; extra == "test"
+Requires-Dist: freezegun==1.5.4; extra == "test"
+Requires-Dist: mypy==1.17.1; extra == "test"
 Requires-Dist: pre-commit==4.2.0; extra == "test"
 Requires-Dist: pre-commit-hooks==5.0.0; extra == "test"
 Requires-Dist: pylint==3.3.7; extra == "test"
 Requires-Dist: pytest-aiohttp==1.1.0; extra == "test"
+Requires-Dist: pytest-socket==0.7.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
 Requires-Dist: pytest==8.4.1; extra == "test"
-Requires-Dist: ruff==0.12.4; extra == "test"
+Requires-Dist: ruff==0.12.7; extra == "test"
 Requires-Dist: types_atomicwrites==1.4.5.1; extra == "test"
 Requires-Dist: types_pyOpenSSL==24.1.0.20240722; extra == "test"
 Requires-Dist: xmltodict==0.14.2; extra == "test"

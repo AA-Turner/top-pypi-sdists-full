@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp
-Version: 2.14.0
+Version: 2.14.1
 Summary: Kubeflow Pipelines SDK
 Home-page: https://github.com/kubeflow/pipelines
 Author: The Kubeflow Authors

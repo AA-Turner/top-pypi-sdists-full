@@ -147,10 +147,12 @@ class Tomography(Experiment):
     def _generateAcousticFields_STRUCT_CPU(self, fieldDataPath, fieldParamPath, show_log):
         if not os.path.exists(fieldParamPath):
             raise FileNotFoundError(f"Field parameter file {fieldParamPath} not found.")
-        if not fieldDataPath is None:
+        if fieldDataPath is not None:
             os.makedirs(fieldDataPath, exist_ok=True)
+
         listAcousticFields = []
         patternList = []
+
         with open(fieldParamPath, 'r') as file:
             lines = file.readlines()
             for line in lines:
@@ -158,67 +160,156 @@ class Tomography(Experiment):
                 if not line:
                     continue  # skip empty lines
 
-                try:
-                    # Sécurise l'évaluation en supprimant accès à builtins
-                    parsed = eval(line, {"__builtins__": None})
+                # 🔍 Tentative de lecture comme string type fileName
+                if "_" in line and all(c in "0123456789abcdefABCDEF" for c in line.split("_")[0]):
+                    patternList.append({"fileName": line})
+                    continue
 
+                # 🔍 Sinon, tentative de parsing classique
+                try:
+                    parsed = eval(line, {"__builtins__": None})
                     if isinstance(parsed, tuple) and len(parsed) == 2:
                         coords, angles = parsed
                         for angle in angles:
-                            patternList.append([*coords, angle])
+                            patternList.append({
+                                "space_0": coords[0],
+                                "space_1": coords[1],
+                                "move_head_0_2tail": coords[2],
+                                "move_tail_1_2head": coords[3],
+                                "angle": angle
+                            })
                     else:
                         raise ValueError("Ligne inattendue (pas un tuple de deux éléments)")
-
                 except Exception as e:
                     print(f"Erreur de parsing sur la ligne : {line}\n{e}")
 
-        progress_bar = trange(0,len(patternList), desc="Generating acoustic fields")
+        progress_bar = trange(0, len(patternList), desc="Generating acoustic fields")
 
         for i in progress_bar:
             memory = psutil.virtual_memory()
             pattern = patternList[i]
-            if len(pattern) != 5:
-                raise ValueError(f"Invalid pattern format: {pattern}. Expected 5 values.")
-            # Initialisation de l'objet AcousticField
-            AcousticField = StructuredWave(
-                angle_deg=pattern[4],
-                space_0=pattern[0],
-                space_1=pattern[1],
-                move_head_0_2tail=pattern[2],
-                move_tail_1_2head=pattern[3],
-                params=self.params
-            )
 
+            # Cas 1 : format avec fileName (hex_angle)
+            if "fileName" in pattern:
+                AcousticField = StructuredWave(fileName=pattern["fileName"],params=self.params)
+            # Cas 2 : format structuré classique
+            else:
+                AcousticField = StructuredWave(
+                    angle_deg=pattern["angle"],
+                    space_0=pattern["space_0"],
+                    space_1=pattern["space_1"],
+                    move_head_0_2tail=pattern["move_head_0_2tail"],
+                    move_tail_1_2head=pattern["move_tail_1_2head"],
+                    params=self.params
+                )
+
+            # Déterminer chemin de sauvegarde
             if fieldDataPath is None:
                 pathField = None
             else:
-                pathField = os.path.join(fieldDataPath, os.path.basename(AcousticField.getName_field() + self.FormatSave.value))
+                pathField = os.path.join(fieldDataPath, AcousticField.getName_field() + self.FormatSave.value)
 
-            if not pathField is None and os.path.exists(pathField):
-                if progress_bar is not None:
-                    progress_bar.set_postfix_str(f"Loading field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
-                    try:
-                        AcousticField.load_field(fieldDataPath,  self.FormatSave)
-                    except:
-                        progress_bar.set_postfix_str(f"Error loading field -> Generating field - {AcousticField.getName_field()} -- Memory used :{memory.percent}% ---- processing on {config.get_process().upper()} ----")
-                        AcousticField.generate_field(show_log = show_log)
-                        if not pathField is None and not os.path.exists(pathField):
-                            progress_bar.set_postfix_str(f"Saving field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
-                            os.makedirs(os.path.dirname(pathField), exist_ok=True) 
-                            AcousticField.save_field(fieldDataPath)
+            # Charger ou générer
+            if pathField is not None and os.path.exists(pathField):
+                progress_bar.set_postfix_str(f"Loading field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
+                try:
+                    AcousticField.load_field(fieldDataPath, self.FormatSave)
+                except:
+                    progress_bar.set_postfix_str(f"Error loading field -> Generating field - {AcousticField.getName_field()} -- Memory used :{memory.percent}% ---- processing on {config.get_process().upper()} ----")
+                    AcousticField.generate_field(show_log=show_log)
+                    if not os.path.exists(pathField):
+                        progress_bar.set_postfix_str(f"Saving field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
+                        os.makedirs(os.path.dirname(pathField), exist_ok=True)
+                        AcousticField.save_field(fieldDataPath)
 
             elif pathField is None or not os.path.exists(pathField):
                 progress_bar.set_postfix_str(f"Generating field - {AcousticField.getName_field()} -- Memory used :{memory.percent}% ---- processing on {config.get_process().upper()} ----")
-                AcousticField.generate_field(show_log = show_log)
-            
-            if not pathField is None and not os.path.exists(pathField):
-                progress_bar.set_postfix_str(f"Saving field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
-                os.makedirs(os.path.dirname(pathField), exist_ok=True) 
-                AcousticField.save_field(fieldDataPath)
+                AcousticField.generate_field(show_log=show_log)
+                if pathField is not None and not os.path.exists(pathField):
+                    progress_bar.set_postfix_str(f"Saving field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
+                    os.makedirs(os.path.dirname(pathField), exist_ok=True)
+                    AcousticField.save_field(fieldDataPath)
 
             listAcousticFields.append(AcousticField)
-            # Réinitialiser le texte de la barre de progression pour l'itération suivante
             progress_bar.set_postfix_str("")
-   
+
         return listAcousticFields
+
+    # def _generateAcousticFields_STRUCT_CPU(self, fieldDataPath, fieldParamPath, show_log):
+    #     if not os.path.exists(fieldParamPath):
+    #         raise FileNotFoundError(f"Field parameter file {fieldParamPath} not found.")
+    #     if not fieldDataPath is None:
+    #         os.makedirs(fieldDataPath, exist_ok=True)
+    #     listAcousticFields = []
+    #     patternList = []
+    #     with open(fieldParamPath, 'r') as file:
+    #         lines = file.readlines()
+    #         for line in lines:
+    #             line = line.strip()
+    #             if not line:
+    #                 continue  # skip empty lines
+
+    #             try:
+    #                 # Sécurise l'évaluation en supprimant accès à builtins
+    #                 parsed = eval(line, {"__builtins__": None})
+
+    #                 if isinstance(parsed, tuple) and len(parsed) == 2:
+    #                     coords, angles = parsed
+    #                     for angle in angles:
+    #                         patternList.append([*coords, angle])
+    #                 else:
+    #                     raise ValueError("Ligne inattendue (pas un tuple de deux éléments)")
+
+    #             except Exception as e:
+    #                 print(f"Erreur de parsing sur la ligne : {line}\n{e}")
+
+    #     progress_bar = trange(0,len(patternList), desc="Generating acoustic fields")
+
+    #     for i in progress_bar:
+    #         memory = psutil.virtual_memory()
+    #         pattern = patternList[i]
+    #         if len(pattern) != 5:
+    #             raise ValueError(f"Invalid pattern format: {pattern}. Expected 5 values.")
+    #         # Initialisation de l'objet AcousticField
+    #         AcousticField = StructuredWave(
+    #             angle_deg=pattern[4],
+    #             space_0=pattern[0],
+    #             space_1=pattern[1],
+    #             move_head_0_2tail=pattern[2],
+    #             move_tail_1_2head=pattern[3],
+    #             params=self.params
+    #         )
+
+    #         if fieldDataPath is None:
+    #             pathField = None
+    #         else:
+    #             pathField = os.path.join(fieldDataPath, os.path.basename(AcousticField.getName_field() + self.FormatSave.value))
+
+    #         if not pathField is None and os.path.exists(pathField):
+    #             if progress_bar is not None:
+    #                 progress_bar.set_postfix_str(f"Loading field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
+    #                 try:
+    #                     AcousticField.load_field(fieldDataPath,  self.FormatSave)
+    #                 except:
+    #                     progress_bar.set_postfix_str(f"Error loading field -> Generating field - {AcousticField.getName_field()} -- Memory used :{memory.percent}% ---- processing on {config.get_process().upper()} ----")
+    #                     AcousticField.generate_field(show_log = show_log)
+    #                     if not pathField is None and not os.path.exists(pathField):
+    #                         progress_bar.set_postfix_str(f"Saving field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
+    #                         os.makedirs(os.path.dirname(pathField), exist_ok=True) 
+    #                         AcousticField.save_field(fieldDataPath)
+
+    #         elif pathField is None or not os.path.exists(pathField):
+    #             progress_bar.set_postfix_str(f"Generating field - {AcousticField.getName_field()} -- Memory used :{memory.percent}% ---- processing on {config.get_process().upper()} ----")
+    #             AcousticField.generate_field(show_log = show_log)
+            
+    #         if not pathField is None and not os.path.exists(pathField):
+    #             progress_bar.set_postfix_str(f"Saving field - {AcousticField.getName_field()} -- Memory used :{memory.percent}%")
+    #             os.makedirs(os.path.dirname(pathField), exist_ok=True) 
+    #             AcousticField.save_field(fieldDataPath)
+
+    #         listAcousticFields.append(AcousticField)
+    #         # Réinitialiser le texte de la barre de progression pour l'itération suivante
+    #         progress_bar.set_postfix_str("")
+   
+    #     return listAcousticFields
     

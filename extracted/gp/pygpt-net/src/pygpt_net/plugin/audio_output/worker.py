@@ -6,15 +6,12 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.01.18 03:00:00                  #
+# Updated Date: 2025.08.06 01:00:00                  #
 # ================================================== #
 
 import time
-import pyaudio
 import wave
-import numpy as np
 import io
-from pydub import AudioSegment
 
 from PySide6.QtCore import Slot, Signal
 
@@ -53,6 +50,16 @@ class Worker(BaseWorker):
                 self.play()
         except Exception as e:
             self.error(e)
+        finally:
+            self.on_destroy()
+
+    def on_destroy(self):
+        """Handle destroyed event."""
+        self.p = None
+        self.stream = None
+        self.is_stopped = True
+        self.event = None
+        self.cleanup()
 
     def generate(self):
         """Generate and play audio file"""
@@ -78,6 +85,9 @@ class Worker(BaseWorker):
         :param audio_file: audio file path
         """
         try:
+            import pyaudio
+            import numpy as np
+            from pydub import AudioSegment
             self.signals.playback.emit(self.event)
             audio = AudioSegment.from_file(audio_file)
             audio = audio.set_frame_rate(44100)  # resample to 44.1 kHz

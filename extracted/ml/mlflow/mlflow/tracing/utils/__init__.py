@@ -9,7 +9,7 @@ from collections import Counter
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -17,6 +17,7 @@ from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import (
+    ASSESSMENT_ID_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
     TokenUsageKey,
@@ -33,7 +34,7 @@ SPANS_COLUMN_NAME = "spans"
 if TYPE_CHECKING:
     from mlflow.entities import LiveSpan, Trace
     from mlflow.pyfunc.context import Context
-    from mlflow.types.chat import ChatMessage, ChatTool
+    from mlflow.types.chat import ChatTool
 
 
 def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
@@ -160,6 +161,17 @@ def decode_id(span_or_trace_id: str) -> int:
     return int(span_or_trace_id, 16)
 
 
+def get_mlflow_span_for_otel_span(span: OTelSpan) -> Optional[LiveSpan]:
+    """
+    Get the active MLflow span for the given OpenTelemetry span.
+    """
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
+    mlflow_span_id = encode_span_id(span.get_span_context().span_id)
+    return InMemoryTraceManager.get_instance().get_span_from_id(trace_id, mlflow_span_id)
+
+
 def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
     """
     Build an OpenTelemetry SpanContext object from the given trace and span IDs.
@@ -200,7 +212,9 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]]:
     """Aggregate token usage information from all spans in the trace."""
-    input_tokens, output_tokens, total_tokens = 0, 0, 0
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
     has_usage_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
@@ -256,7 +270,7 @@ def _try_get_prediction_context():
     #     relies on numpy, which is not installed in skinny.
     try:
         from mlflow.pyfunc.context import get_prediction_context
-    except ImportError:
+    except (ImportError, KeyError):
         return
 
     return get_prediction_context()
@@ -279,7 +293,7 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schemas() -> Optional[dict]:
+def maybe_get_dependencies_schemas() -> Optional[dict[str, Any]]:
     context = _try_get_prediction_context()
     if context:
         return context.dependencies_schemas
@@ -348,66 +362,6 @@ def maybe_set_prediction_context(context: Optional["Context"]):
         yield
 
 
-def set_span_chat_messages(
-    span: LiveSpan,
-    messages: list[Union[dict, ChatMessage]],
-    append=False,
-):
-    """
-    Set the `mlflow.chat.messages` attribute on the specified span. This
-    attribute is used in the UI, and also by downstream applications that
-    consume trace data, such as MLflow evaluate.
-
-    Args:
-        span: The LiveSpan to add the attribute to
-        messages: A list of standardized chat messages (refer to the
-                 `spec <../llms/tracing/tracing-schema.html#chat-completion-spans>`_
-                 for details)
-        append: If True, the messages will be appended to the existing messages. Otherwise,
-                the attribute will be overwritten entirely. Default is False.
-                This is useful when you want to record messages incrementally, e.g., log
-                input messages first, and then log output messages later.
-
-    Example:
-
-    .. code-block:: python
-        :test:
-
-        import mlflow
-        from mlflow.tracing import set_span_chat_messages
-
-
-        @mlflow.trace
-        def f():
-            messages = [{"role": "user", "content": "hello"}]
-            span = mlflow.get_current_active_span()
-            set_span_chat_messages(span, messages)
-            return 0
-
-
-        f()
-    """
-    from mlflow.types.chat import ChatMessage
-
-    sanitized_messages = []
-    for message in messages:
-        if isinstance(message, dict):
-            ChatMessage.validate_compat(message)
-            sanitized_messages.append(message)
-        elif isinstance(message, ChatMessage):
-            # NB: ChatMessage is used for both request and response messages. In OpenAI's API spec,
-            #   some fields are only present in either the request or response (e.g., tool_call_id).
-            #   Those fields should not be recorded unless set explicitly, so we set
-            #   exclude_unset=True here to avoid recording unset fields.
-            sanitized_messages.append(message.model_dump_compat(exclude_unset=True))
-
-    if append:
-        existing_messages = span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
-        sanitized_messages = existing_messages + sanitized_messages
-
-    span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, sanitized_messages)
-
-
 def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     """
     Set the `mlflow.chat.tools` attribute on the specified span. This
@@ -473,42 +427,6 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
             sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
-
-
-def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
-    """
-    Set the `mlflow.chat.messages` and `mlflow.chat.tools` attributes on the specified span
-    based on the inputs and outputs of the function.
-
-    Usually those attributes are set by autologging integrations. This utility function handles
-    special cases where we want to set chat attributes for manually created spans via @mlflow.trace
-    decorator, such as ResponsesAgent tracing spans.
-    """
-    try:
-        from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-        from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
-
-        if isinstance(outputs, ResponsesAgentResponse):
-            inputs = inputs["request"].model_dump_compat()
-            set_span_chat_attributes(span, inputs, outputs)
-        elif isinstance(outputs, list) and all(
-            isinstance(o, ResponsesAgentStreamEvent) for o in outputs
-        ):
-            inputs = inputs["request"].model_dump_compat()
-            output_items = []
-            custom_outputs = None
-            for o in outputs:
-                if o.type == "response.output_item.done":
-                    output_items.append(o.item)
-                if o.custom_outputs:
-                    custom_outputs = o.custom_outputs
-            output = ResponsesAgentResponse(
-                output=output_items,
-                custom_outputs=custom_outputs,
-            )
-            set_span_chat_attributes(span, inputs, output)
-    except Exception:
-        pass
 
 
 def _calculate_percentile(sorted_data: list[float], percentile: float) -> float:
@@ -612,3 +530,14 @@ def update_trace_state_from_span_conditionally(trace, root_span):
     # and we should preserve it
     if trace.info.state == TraceState.IN_PROGRESS:
         trace.info.state = TraceState.from_otel_status(root_span.status)
+
+
+def generate_assessment_id() -> str:
+    """
+    Generates an assessment ID of the form 'a-<uuid4>' in hex string format.
+
+    Returns:
+        A unique identifier for an assessment that will be logged to a trace tag.
+    """
+    id = uuid.uuid4().hex
+    return f"{ASSESSMENT_ID_PREFIX}{id}"

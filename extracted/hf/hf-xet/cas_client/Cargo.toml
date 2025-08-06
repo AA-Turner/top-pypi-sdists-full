@@ -13,7 +13,6 @@ deduplication = { path = "../deduplication" }
 error_printer = { path = "../error_printer" }
 file_utils = { path = "../file_utils" }
 mdb_shard = { path = "../mdb_shard" }
-merkledb = { path = "../merkledb" }
 merklehash = { path = "../merklehash" }
 progress_tracking = { path = "../progress_tracking" }
 utils = { path = "../utils" }
@@ -24,7 +23,6 @@ async-trait = { workspace = true }
 bytes = { workspace = true }
 derivative = { workspace = true }
 futures = { workspace = true }
-heed = { workspace = true }
 http = { workspace = true }
 more-asserts = { workspace = true }
 tempfile = { workspace = true }
@@ -34,12 +32,15 @@ tokio-retry = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 lazy_static = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 reqwest-middleware = "0.4"
 reqwest-retry = "0.7"
-reqwest = { version = "0.12", features = [
+reqwest = { version = "0.12.22", features = [
     "json",
     "stream",
+    "system-proxy",
 ], default-features = false }
 hyper-util = "0.1.10"
 tower-service = "0.3.3"
@@ -66,6 +67,9 @@ native-tls = ["reqwest/native-tls"]
 # library size.
 native-tls-vendored = ["reqwest/native-tls-vendored"]
 
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+heed = { workspace = true }
 
 [dev-dependencies]
 httpmock = { workspace = true }

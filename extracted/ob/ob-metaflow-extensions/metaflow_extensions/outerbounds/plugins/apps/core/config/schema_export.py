@@ -276,6 +276,9 @@ def _get_field_schema(field_info) -> Dict[str, Any]:
     if field_info.behavior:
         field_schema["mutation_behavior"] = field_info.behavior
 
+    if field_info.cli_meta is not None:
+        field_schema["cli_option"] = field_info.cli_meta.cli_option_str
+
     # Handle validation from CLI metadata
     if field_info.cli_meta and field_info.validation_fn:
         # Add validation hints in description

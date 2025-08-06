@@ -16,6 +16,8 @@ class _EnvironmentVariable:
     """
 
     def __init__(self, name, type_, default):
+        if type_ == bool and not isinstance(self, _BooleanEnvironmentVariable):
+            raise ValueError("Use _BooleanEnvironmentVariable instead for boolean variables")
         self.name = name
         self.type = type_
         self.default = default
@@ -634,12 +636,13 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
 )
 
-#: Whether to writing trace to the MLflow backend from a model running in a Databricks
-#: model serving endpoint. If true, the trace will be written to both the MLflow backend
-#: and the Inference Table.
-_MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING = _EnvironmentVariable(
-    "MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", bool, False
-)
+#: Specifies the sampling ratio for traces. Value should be between 0.0 and 1.0.
+#: A value of 1.0 means all traces are sampled (default behavior).
+#: A value of 0.5 means 50% of traces are sampled.
+#: A value of 0.0 means no traces are sampled.
+#: (default: ``1.0``)
+MLFLOW_TRACE_SAMPLING_RATIO = _EnvironmentVariable("MLFLOW_TRACE_SAMPLING_RATIO", float, 1.0)
+
 
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
@@ -858,4 +861,23 @@ MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS = _EnvironmentVariable(
 #: (default: ``10``)
 MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
     "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
+)
+
+#: Whether to disable schema details in error messages for MLflow schema enforcement.
+#: (default: ``False``)
+MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
+
+#: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
+#: data will be collected. (default: ``False``)
+MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
+
+
+#: Internal flag to enable telemetry in mlflow tests.
+#: (default: ``False``)
+_MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
+
+#: Whether to allow setting thread local tracing destination.
+#: (default: ``False``)
+MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_THREAD_LOCAL_TRACING_DESTINATION", False
 )

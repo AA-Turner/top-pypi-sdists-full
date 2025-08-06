@@ -6,7 +6,6 @@ import http.client as http_client
 import logging
 import math
 import random
-import re
 import time
 from typing import Any
 from typing import cast
@@ -336,6 +335,12 @@ class ClientV2:
         :param bytes cert_pem: cert as pem file
 
         :returns: Tuple of time to attempt renewal, next time to ask for renewal info
+
+        :raises errors.ARIError: If an error occurs fetching ARI from the
+            server. Explicit exception chaining is used so the original error
+            can be accessed through the __cause__ attribute on the ARIError if
+            desired.
+
         """
         now = datetime.datetime.now()
         # https://www.ietf.org/archive/id/draft-ietf-acme-ari-08.html#section-4.3.3
@@ -359,10 +364,9 @@ class ClientV2:
         ari_url = renewal_info_base_url + '/' + _renewal_info_path_component(cert)
         try:
             resp = self.net.get(ari_url, content_type='application/json')
-        except (requests.exceptions.RequestException, messages.Error) as error:
-            logger.info("failed to fetch renewal_info URL (%s): %s", ari_url, error)
-            return None, now + default_retry_after
-
+        except Exception as e:  # pylint: disable=broad-except
+            error_msg = f'failed to fetch renewal_info URL {ari_url}'
+            raise errors.ARIError(error_msg, now + default_retry_after) from e
         renewal_info: messages.RenewalInfo = messages.RenewalInfo.from_json(resp.json())
 
         start = renewal_info.suggested_window.start # pylint: disable=no-member
@@ -745,30 +749,7 @@ class ClientNetwork:
         kwargs.setdefault('headers', {})
         kwargs['headers'].setdefault('User-Agent', self.user_agent)
         kwargs.setdefault('timeout', self._default_timeout)
-        try:
-            response = self.session.request(method, url, *args, **kwargs)
-        except requests.exceptions.RequestException as e:
-            # pylint: disable=pointless-string-statement
-            """Requests response parsing
-
-            The requests library emits exceptions with a lot of extra text.
-            We parse them with a regexp to raise a more readable exceptions.
-
-            Example:
-            HTTPSConnectionPool(host='acme-v01.api.letsencrypt.org',
-            port=443): Max retries exceeded with url: /directory
-            (Caused by NewConnectionError('
-            <requests.packages.urllib3.connection.VerifiedHTTPSConnection
-            object at 0x108356c50>: Failed to establish a new connection:
-            [Errno 65] No route to host',))"""
-
-            # pylint: disable=line-too-long
-            err_regex = r".*host='(\S*)'.*Max retries exceeded with url\: (\/\w*).*(\[Errno \d+\])([A-Za-z ]*)"
-            m = re.match(err_regex, str(e))
-            if m is None:
-                raise  # pragma: no cover
-            host, path, _err_no, err_msg = m.groups()
-            raise ValueError(f"Requesting {host}{path}:{err_msg}")
+        response = self.session.request(method, url, *args, **kwargs)
 
         # If an Accept header was sent in the request, the response may not be
         # UTF-8 encoded. In this case, we don't set response.encoding and log

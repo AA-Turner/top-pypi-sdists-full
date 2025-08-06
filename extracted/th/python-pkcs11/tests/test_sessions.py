@@ -3,8 +3,17 @@ PKCS#11 Sessions
 """
 
 import pkcs11
+from pkcs11 import (
+    Attribute,
+    AttributeSensitive,
+    AttributeTypeInvalid,
+    ObjectClass,
+    PKCS11Error,
+)
+from pkcs11.attributes import AttributeMapper, handle_bool, handle_str
+from pkcs11.exceptions import PinIncorrect, PinLenRange
 
-from . import FIXME, TOKEN_PIN, TOKEN_SO_PIN, Not, Only, TestCase, requires
+from . import TOKEN_PIN, TOKEN_SO_PIN, Not, Only, TestCase, requires
 
 
 class SessionTests(TestCase):
@@ -86,7 +95,6 @@ class SessionTests(TestCase):
             self.assertEqual(len(search), 1)
             self.assertEqual(key, search[0])
 
-    @FIXME.opencryptoki
     def test_create_object(self):
         with self.token.open(user_pin=TOKEN_PIN) as session:
             key = session.create_object(
@@ -145,6 +153,15 @@ class SessionTests(TestCase):
             with self.assertRaises(pkcs11.MultipleObjectsReturned):
                 session.get_key(key_type=pkcs11.KeyType.AES)
 
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_key_search_by_id(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key1 = session.generate_key(pkcs11.KeyType.AES, 128, label="KEY", id=b"1")
+            key2 = session.generate_key(pkcs11.KeyType.AES, 128, label="KEY", id=b"2")
+            self.assertEqual(session.get_key(id=b"1"), key1)
+            self.assertEqual(session.get_key(id=b"2"), key2)
+            self.assertNotEqual(session.get_key(id=b"1"), session.get_key(id=b"2"))
+
     @Not.nfast  # Not supported
     @Not.opencryptoki  # Not supported
     def test_seed_random(self):
@@ -157,3 +174,170 @@ class SessionTests(TestCase):
             self.assertEqual(len(random), 16)
             # Ensure we didn't get 16 bytes of zeros
             self.assertTrue(all(c != "\0" for c in random))
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_attribute_reading_failures(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, label="SAMPLE KEY")
+
+            with self.assertRaises(AttributeSensitive):
+                key.__getitem__(Attribute.VALUE)
+
+            with self.assertRaises(AttributeTypeInvalid):
+                key.__getitem__(Attribute.CERTIFICATE_TYPE)
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_bulk_attribute_raise_error_if_no_result(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, label="SAMPLE KEY")
+
+            with self.assertRaises(AttributeSensitive):
+                key.get_attributes([Attribute.VALUE])
+
+            with self.assertRaises(AttributeTypeInvalid):
+                key.get_attributes([Attribute.CERTIFICATE_TYPE])
+            # we can't know which error code the token will choose here
+            with self.assertRaises(PKCS11Error):
+                key.get_attributes([Attribute.VALUE, Attribute.CERTIFICATE_TYPE])
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_bulk_attribute_partial_success_sensitive_attribute(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, label="SAMPLE KEY")
+            result = key.get_attributes([Attribute.LABEL, Attribute.VALUE, Attribute.CLASS])
+            expected = {Attribute.LABEL: "SAMPLE KEY", Attribute.CLASS: ObjectClass.SECRET_KEY}
+            self.assertDictEqual(expected, result)
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_bulk_attribute_partial_success_irrelevant_attribute(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, label="SAMPLE KEY", id=b"a")
+
+            result = key.get_attributes(
+                [Attribute.LABEL, Attribute.CERTIFICATE_TYPE, Attribute.CLASS, Attribute.ID]
+            )
+            expected = {
+                Attribute.LABEL: "SAMPLE KEY",
+                Attribute.CLASS: ObjectClass.SECRET_KEY,
+                Attribute.ID: b"a",
+            }
+            self.assertDictEqual(expected, result)
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_bulk_attribute_partial_success_with_some_empty_attrs(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, label="", id=b"")
+
+            result = key.get_attributes(
+                [Attribute.LABEL, Attribute.CLASS, Attribute.VALUE, Attribute.ID]
+            )
+            expected = {
+                Attribute.LABEL: "",
+                Attribute.CLASS: ObjectClass.SECRET_KEY,
+                Attribute.ID: b"",
+            }
+            self.assertDictEqual(expected, result)
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_bulk_attribute_only_empty_attrs(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, label="", id=b"")
+
+            result = key.get_attributes([Attribute.LABEL, Attribute.ID])
+            expected = {
+                Attribute.LABEL: "",
+                Attribute.ID: b"",
+            }
+            self.assertDictEqual(expected, result)
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_bulk_attribute_empty_key_list(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, label="SAMPLE KEY")
+
+            result = key.get_attributes([])
+            self.assertDictEqual({}, result)
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_custom_attribute_mapper(self):
+        custom_mapper = AttributeMapper()
+        custom_mapper.register_handler(Attribute.ID, *handle_str)
+
+        with self.token.open(user_pin=TOKEN_PIN, attribute_mapper=custom_mapper) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, id="SAMPLE KEY")
+            id_attr = key[Attribute.ID]
+            self.assertIsInstance(id_attr, str)
+            self.assertEqual("SAMPLE KEY", id_attr)
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_set_unsupported_attribute(self):
+        with self.token.open(user_pin=TOKEN_PIN) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, label="TEST")
+
+            with self.assertRaises(NotImplementedError):
+                key[0xDEADBEEF] = b"1234"
+
+    @requires(pkcs11.Mechanism.AES_KEY_GEN)
+    def test_treat_empty_bool_as_false(self):
+        class CustomMapper(AttributeMapper):
+            # contrived handler that decodes the 'ID' attribute as a bool
+            def _handler(self, key):
+                orig = super()._handler(key)
+                if key == Attribute.ID:
+                    return orig[0], handle_bool[1]
+                return orig
+
+        with self.token.open(user_pin=TOKEN_PIN, attribute_mapper=CustomMapper()) as session:
+            key = session.generate_key(pkcs11.KeyType.AES, 128, id=b"")
+            bool_read = key[Attribute.ID]
+            self.assertIsInstance(bool_read, bool)
+            self.assertFalse(bool_read, False)
+
+    @Only.softhsm2
+    def test_set_pin(self):
+        old_token_pin = TOKEN_PIN
+        new_token_pin = f"{TOKEN_PIN}56"
+
+        with self.token.open(rw=True, user_pin=old_token_pin) as session:
+            session.set_pin(old_token_pin, new_token_pin)
+
+        with self.token.open(user_pin=new_token_pin) as session:
+            self.assertIsInstance(session, pkcs11.Session)
+
+        with self.token.open(rw=True, user_pin=new_token_pin) as session:
+            session.set_pin(new_token_pin, old_token_pin)
+
+        with self.token.open(user_pin=old_token_pin) as session:
+            self.assertIsInstance(session, pkcs11.Session)
+
+        with self.token.open(rw=True, user_pin=old_token_pin) as session:
+            with self.assertRaises(AttributeError):
+                session.set_pin(None, new_token_pin)
+            with self.assertRaises(AttributeError):
+                session.set_pin(old_token_pin, None)
+            with self.assertRaises(PinLenRange):
+                session.set_pin(old_token_pin, "")
+            with self.assertRaises(PinIncorrect):
+                session.set_pin("", new_token_pin)
+
+    @Only.softhsm2
+    def test_init_pin(self):
+        new_token_pin = f"{TOKEN_PIN}56"
+
+        with self.token.open(rw=True, so_pin=TOKEN_SO_PIN) as session:
+            session.init_pin(new_token_pin)
+
+        with self.token.open(rw=True, user_pin=new_token_pin) as session:
+            self.assertIsInstance(session, pkcs11.Session)
+
+        with self.token.open(rw=True, so_pin=TOKEN_SO_PIN) as session:
+            session.init_pin(TOKEN_PIN)
+
+        with self.token.open(rw=True, user_pin=TOKEN_PIN) as session:
+            self.assertIsInstance(session, pkcs11.Session)
+
+        with self.token.open(rw=True, so_pin=TOKEN_SO_PIN) as session:
+            with self.assertRaises(AttributeError):
+                session.init_pin(None)
+            with self.assertRaises(PinLenRange):
+                session.init_pin("")

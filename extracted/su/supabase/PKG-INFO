@@ -1,28 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: supabase
-Version: 2.17.0
+Version: 2.18.0
 Summary: Supabase client for Python.
-Home-page: https://github.com/supabase/supabase-py
-License: MIT
-Author: Joel Lee
-Author-email: joel@joellee.org
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
+Author: Joel Lee, Leon Fedden, Daniel Reinón García, Leynier Gutiérrez González, Anand, Andrew Smith
+Author-email: Joel Lee <joel@joellee.org>, Leon Fedden <leonfedden@gmail.com>, Daniel Reinón García <danielreinon@outlook.com>, Leynier Gutiérrez González <leynier41@gmail.com>, Andrew Smith <a.smith@silentworks.co.uk>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: gotrue (==2.12.3)
-Requires-Dist: httpx (>=0.26,<0.29)
-Requires-Dist: postgrest (==1.1.1)
-Requires-Dist: realtime (==2.6.0)
-Requires-Dist: storage3 (==0.12.0)
-Requires-Dist: supafunc (==0.10.1)
-Project-URL: Documentation, https://github.com/supabase/supabase-py
-Project-URL: Repository, https://github.com/supabase/supabase-py
+Classifier: Operating System :: OS Independent
+Requires-Dist: postgrest==1.1.1
+Requires-Dist: realtime==2.7.0
+Requires-Dist: gotrue==2.12.3
+Requires-Dist: storage3==0.12.1
+Requires-Dist: supafunc==0.10.1
+Requires-Dist: httpx>=0.26,<0.29
+Requires-Python: >=3.9
+Project-URL: documentation, https://github.com/supabase/supabase-py
+Project-URL: homepage, https://github.com/supabase/supabase-py
+Project-URL: repository, https://github.com/supabase/supabase-py
 Description-Content-Type: text/markdown
 
 # `supabase-py`
@@ -45,7 +40,13 @@ cd supabase-py
 
 ### Create and Activate a Virtual Environment
 
-We recommend activating your virtual environment. For example, we like `poetry` and `conda`! Click [here](https://docs.python.org/3/library/venv.html) for more about Python virtual environments and working with [conda](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#activating-an-environment) and [poetry](https://python-poetry.org/docs/basic-usage/).
+We recommend activating your virtual environment. For example, we like `uv` and `conda`! Click [here](https://docs.python.org/3/library/venv.html) for more about Python virtual environments and working with [conda](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#activating-an-environment) and [uv](https://docs.astral.sh/uv/getting-started/features/).
+
+Using uv:
+```
+uv venv supabase-py
+source supabase-py/bin/activate
+```
 
 Using venv (Python 3 built-in):
 
@@ -321,4 +322,3 @@ The above test database is a blank supabase instance that has populated the `cou
 [![Github Forks](https://img.shields.io/github/forks/supabase/supabase-py?style=flat&logo=github)](https://github.com/supabase/supabase-py/network/members)
 [![Github Watchers](https://img.shields.io/github/watchers/supabase/supabase-py?style=flat&logo=github)](https://github.com/supabase/supabase-py)
 [![GitHub contributors](https://img.shields.io/github/contributors/supabase/supabase-py)](https://github.com/supabase/supabase-py/graphs/contributors)
-

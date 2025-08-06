@@ -12,11 +12,10 @@ from evidently.core.metric_types import SingleValueTest
 from evidently.core.metric_types import TestStatus
 from evidently.core.metric_types import Value
 from evidently.core.report import Context
-from evidently.legacy.utils.types import ApproxValue
-from evidently.tests.reference import Reference
-
-ThresholdType = Union[float, int, ApproxValue, Reference]
-ThresholdValue = Union[float, int, ApproxValue]
+from evidently.core.tests import ApproxValue
+from evidently.core.tests import Reference
+from evidently.core.tests import ThresholdType
+from evidently.core.tests import ThresholdValue
 
 
 class ComparisonTest(MetricTest):
@@ -34,9 +33,10 @@ class ComparisonTest(MetricTest):
             threshold = self.get_threshold(context, value.get_metric_value_location())
             title_threshold = f"{threshold:0.3f}"
             if isinstance(self.threshold, Reference):
-                title_threshold = "Reference"
                 if isinstance(threshold, ApproxValue):
-                    title_threshold += f" ± {threshold.tolerance:0.3f}"
+                    title_threshold += f"Reference {threshold:0.3f} ± {threshold.tolerance:0.3f}"
+                else:
+                    title_threshold = f"Reference {threshold:0.3f}"
             return MetricTestResult(
                 id=self.__short_name__,
                 name=f"{value.display_name}: {self.__full_name__} {title_threshold}",
@@ -104,10 +104,6 @@ class EqualMetricTestBase(MetricTest, abc.ABC):
         else:
             expected = self.expected
         title_expected = f"{expected:0.3f}"
-        if isinstance(self.expected, Reference):
-            title_expected = "Reference"
-            if isinstance(expected, ApproxValue):
-                title_expected += f" ± {expected.tolerance:0.3f}"
         return expected, title_expected, expected == value.value
 
 
@@ -120,7 +116,8 @@ class EqualMetricTest(EqualMetricTestBase):
             return MetricTestResult(
                 id="eq",
                 name=f"{metric.display_name()}: Equal {title_expected}",
-                description=f"Actual value {value.value:0.3f} {f', but expected {expected:0.3f}' if not is_equal else ''}",
+                description=f"Actual value {value.value:0.3f}"
+                f" {f', but expected {expected:0.3f}' if not is_equal else f' expected {expected:0.3f}'}",
                 status=TestStatus.SUCCESS if is_equal else TestStatus.FAIL,
                 metric_config=metric.to_metric_config(),
                 test_config=self.dict(),
@@ -136,7 +133,8 @@ class NotEqualMetricTest(EqualMetricTestBase):
             return MetricTestResult(
                 id="not_eq",
                 name=f"{metric.display_name()}: Not equal {title_expected}",
-                description=f"Actual value {value.value} {f', but expected not {expected}' if is_equal else ''}",
+                description=f"Actual value {value.value}"
+                f" {f', but expected not {expected:0.3f}' if is_equal else f' not equal to {expected:0.3f}'}",
                 status=TestStatus.SUCCESS if not is_equal else TestStatus.FAIL,
                 metric_config=metric.to_metric_config(),
                 test_config=self.dict(),

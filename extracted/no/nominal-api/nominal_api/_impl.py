@@ -14287,6 +14287,52 @@ module_BatchArchiveModulesResponse.__qualname__ = "BatchArchiveModulesResponse"
 module_BatchArchiveModulesResponse.__module__ = "nominal_api.module"
 
 
+class module_BatchGetModuleApplicationsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', List[modules_api_ModuleApplicationRid])
+        }
+
+    __slots__: List[str] = ['_requests']
+
+    def __init__(self, requests: List[str]) -> None:
+        self._requests = requests
+
+    @builtins.property
+    def requests(self) -> List[str]:
+        return self._requests
+
+
+module_BatchGetModuleApplicationsRequest.__name__ = "BatchGetModuleApplicationsRequest"
+module_BatchGetModuleApplicationsRequest.__qualname__ = "BatchGetModuleApplicationsRequest"
+module_BatchGetModuleApplicationsRequest.__module__ = "nominal_api.module"
+
+
+class module_BatchGetModuleApplicationsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'results': ConjureFieldDefinition('results', List[module_ModuleApplication])
+        }
+
+    __slots__: List[str] = ['_results']
+
+    def __init__(self, results: List["module_ModuleApplication"]) -> None:
+        self._results = results
+
+    @builtins.property
+    def results(self) -> List["module_ModuleApplication"]:
+        return self._results
+
+
+module_BatchGetModuleApplicationsResponse.__name__ = "BatchGetModuleApplicationsResponse"
+module_BatchGetModuleApplicationsResponse.__qualname__ = "BatchGetModuleApplicationsResponse"
+module_BatchGetModuleApplicationsResponse.__module__ = "nominal_api.module"
+
+
 class module_BatchGetModulesRequest(ConjureBeanType):
 
     @builtins.classmethod
@@ -15334,6 +15380,38 @@ to assets. The Modules Service provides the api for managing these collections a
 
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), module_UpdateModuleApplicationResponse, self._return_none_for_unknown_union_types)
+
+    def batch_get_module_applications(self, auth_header: str, request: "module_BatchGetModuleApplicationsRequest") -> "module_BatchGetModuleApplicationsResponse":
+        """Get a list of module applications by their RIDs.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/v2/module/applications/batch-get'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), module_BatchGetModuleApplicationsResponse, self._return_none_for_unknown_union_types)
 
     def get_derived_series(self, auth_header: str, request: "module_GetDerivedSeriesRequest") -> "module_GetDerivedSeriesResponse":
         """Get the derived series from modules applied to an asset.

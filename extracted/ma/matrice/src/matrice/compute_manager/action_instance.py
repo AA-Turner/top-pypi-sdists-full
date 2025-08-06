@@ -62,6 +62,7 @@ class ActionInstance:
             "data_prep": data_preparation_execute,
             "dataset_annotation": dataset_annotation_execute,
             "dataset_augmentation": dataset_augmentation_execute,
+            "augmentation_setup": augmentation_server_creation_execute,
             "image_build": image_build_execute,
             "resource_clone": resource_clone_execute,
             "kafka_setup": kafka_setup_execute,
@@ -761,6 +762,20 @@ def dataset_augmentation_execute(
     logging.info("cmd: %s", cmd)
     self.start(cmd, "dataset_augmentation")
 
+@log_errors(raise_exception=False)
+def augmentation_server_creation_execute(
+    self: ActionInstance,
+):
+    """Create Augmentation Server"""
+    work_fs = get_max_file_system()
+    action_details = self.get_action_details()
+    external_port = self.scaling.get_open_port()
+    if not action_details:
+        return
+    self.setup_action_requirements(action_details, work_fs)
+    cmd = f'{self.get_base_docker_cmd(work_fs)} python3 /usr/src/app/aug_server.py {self.action_record_id} {external_port} "'
+    logging.info("cmd: %s", cmd)
+    self.start(cmd, "augmentation_setup")
 
 @log_errors(raise_exception=False)
 def deploy_aggregator_execute(

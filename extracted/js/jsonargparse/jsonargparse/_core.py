@@ -222,7 +222,7 @@ class ArgumentGroup(ActionsContainer, argparse._ArgumentGroup):
     """Extension of argparse._ArgumentGroup to support additional functionalities."""
 
     dest: Optional[str] = None
-    parser: Optional[Union["ArgumentParser", "ActionsContainer"]] = None
+    parser: Optional[Union["ArgumentParser", ActionsContainer]] = None
 
 
 class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, LoggerProperty, argparse.ArgumentParser):
@@ -275,7 +275,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
         self.exit_on_error = exit_on_error
         self.required_args: Set[str] = set()
         self.save_path_content: Set[str] = set()
-        self.default_config_files = default_config_files  # type: ignore[assignment]
+        self.default_config_files = default_config_files
         self.default_meta = default_meta
         self.default_env = default_env
         self.env_prefix = env_prefix
@@ -1352,9 +1352,9 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
             cfg_branch = cfg
             cfg = Namespace()
             cfg[parent_key] = cfg_branch
-            keys = [parent_key + "." + k for k in cfg_branch.__dict__.keys()]
+            keys = [parent_key + "." + k for k in cfg_branch.__dict__]
         else:
-            keys = list(cfg.__dict__.keys())
+            keys = list(cfg.__dict__)
 
         if prev_cfg:
             prev_cfg = prev_cfg.clone()
@@ -1594,7 +1594,7 @@ class ArgumentParser(ParserDeprecations, ActionsContainer, ArgumentLinking, Logg
         if parser_mode == "omegaconf":
             set_omegaconf_loader()
         if parser_mode not in loaders:
-            raise ValueError(f"The only accepted values for parser_mode are {set(loaders.keys())}.")
+            raise ValueError(f"The only accepted values for parser_mode are {set(loaders)}.")
         if parser_mode == "jsonnet":
             import_jsonnet("parser_mode=jsonnet")
         self._parser_mode = parser_mode

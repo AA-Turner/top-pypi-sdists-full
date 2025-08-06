@@ -15,6 +15,8 @@ import re
 from datetime import datetime
 from typing import Optional, List
 
+from PySide6 import QtCore
+
 from pygpt_net.core.render.base import BaseRenderer
 from pygpt_net.core.text.utils import has_unclosed_code_tag
 from pygpt_net.item.ctx import CtxItem, CtxMeta
@@ -87,12 +89,16 @@ class Renderer(BaseRenderer):
         if pid is None or pid not in self.pids:
             return
         self.pids[pid].loaded = True
+        node = self.get_output_node(meta)
+
         if self.pids[pid].html != "" and not self.pids[pid].use_buffer:
             self.clear_chunks_input(pid)
             self.clear_chunks_output(pid)
             self.clear_nodes(pid)
             self.append(pid, self.pids[pid].html, flush=True)
             self.pids[pid].html = ""
+
+        node.setUpdatesEnabled(True)
 
     def get_pid(self, meta: CtxMeta):
         """
@@ -157,24 +163,33 @@ class Renderer(BaseRenderer):
                 pid = self.get_pid(meta)
                 if pid is not None:
                     node = self.get_output_node_by_pid(pid)
-                    node.page().runJavaScript(
-                        f"if (typeof window.showLoading !== 'undefined') showLoading();")
+                    try:
+                        node.page().runJavaScript(
+                            f"if (typeof window.showLoading !== 'undefined') showLoading();")
+                    except Exception as e:
+                        pass
 
         # IDLE: all pids
         elif state == RenderEvent.STATE_IDLE:
             for pid in self.pids:
                 node = self.get_output_node_by_pid(pid)
                 if node is not None:
-                    node.page().runJavaScript(
-                        f"if (typeof window.hideLoading !== 'undefined') hideLoading();")
+                    try:
+                        node.page().runJavaScript(
+                            f"if (typeof window.hideLoading !== 'undefined') hideLoading();")
+                    except Exception as e:
+                        pass
 
         # ERROR: all pids
         elif state == RenderEvent.STATE_ERROR:
             for pid in self.pids:
                 node = self.get_output_node_by_pid(pid)
                 if node is not None:
-                    node.page().runJavaScript(
-                        f"if (typeof window.hideLoading !== 'undefined') hideLoading();")
+                    try:
+                        node.page().runJavaScript(
+                            f"if (typeof window.hideLoading !== 'undefined') hideLoading();")
+                    except Exception as e:
+                        pass
 
     def begin(
             self,
@@ -491,7 +506,7 @@ class Renderer(BaseRenderer):
                 pass
                 #html += "<br/>"  # add line break at the end
 
-       # print('[' + raw_chunk + ']', '[' + html + ']', replace)
+        # print('[' + raw_chunk + ']', '[' + html + ']', replace)
 
         # if prev replace and current code block then add \n to chunk
         code_block_arg = "false"
@@ -1259,6 +1274,25 @@ class Renderer(BaseRenderer):
         self.pids[pid].document = html
         self.get_output_node_by_pid(pid).setHtml(html, baseUrl="file://")
 
+    def fresh(
+            self,
+            meta: Optional[CtxMeta] = None
+    ):
+        """
+        Reset page
+
+        :param meta: context meta
+        """
+        pid = self.get_or_create_pid(meta)
+        if pid is None:
+            return
+        html = self.body.get_html(pid)
+        self.pids[pid].loaded = False
+        self.pids[pid].document = html
+        node = self.get_output_node_by_pid(pid)
+        node.resetPage()
+        node.setHtml(html, baseUrl="file://")
+
     def get_output_node(
             self,
             meta: Optional[CtxMeta] = None
@@ -1487,11 +1521,14 @@ class Renderer(BaseRenderer):
         for pid in self.pids:
             if self.pids[pid].loaded:
                 for node in nodes:
-                    node.page().runJavaScript("if (typeof window.updateCSS !== 'undefined') updateCSS({});".format(to_json))
-                    if self.window.core.config.get('render.blocks'):
-                        node.page().runJavaScript("if (typeof window.enableBlocks !== 'undefined') enableBlocks();")
-                    else:
-                        node.page().runJavaScript("if (typeof window.disableBlocks !== 'undefined') disableBlocks();")  # TODO: ctx!!!!!
+                    try:
+                        node.page().runJavaScript("if (typeof window.updateCSS !== 'undefined') updateCSS({});".format(to_json))
+                        if self.window.core.config.get('render.blocks'):
+                            node.page().runJavaScript("if (typeof window.enableBlocks !== 'undefined') enableBlocks();")
+                        else:
+                            node.page().runJavaScript("if (typeof window.disableBlocks !== 'undefined') disableBlocks();")  # TODO: ctx!!!!!
+                    except Exception as e:
+                        pass
                 return
 
     def on_theme_change(self):
@@ -1590,3 +1627,10 @@ class Renderer(BaseRenderer):
         :return: True if debug mode is enabled
         """
         return self.window.core.config.get("debug.render", False)
+
+    def remove_pid(self, pid: int):
+        """
+        Remove PID from renderer
+        """
+        if pid in self.pids:
+            del self.pids[pid]

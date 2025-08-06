@@ -1,4 +1,5 @@
 import unittest
+
 from canopen import objectdictionary as od
 
 
@@ -248,6 +249,18 @@ class TestObjectDictionary(unittest.TestCase):
         self.assertEqual(test_od["Test Array.Test Variable"], member1)
         self.assertEqual(test_od["Test Array.Test Variable 2"], member2)
 
+    def test_get_item_index(self):
+        test_od = od.ObjectDictionary()
+        array = od.ODArray("Test Array", 0x1000)
+        test_od.add_object(array)
+        item = test_od[0x1000]
+        self.assertIsInstance(item, od.ODArray)
+        self.assertIs(item, array)
+        item = test_od["Test Array"]
+        self.assertIsInstance(item, od.ODArray)
+        self.assertIs(item, array)
+
+
 class TestArray(unittest.TestCase):
 
     def test_subindexes(self):
@@ -261,3 +274,7 @@ class TestArray(unittest.TestCase):
         self.assertEqual(array[1].name, "Test Variable")
         self.assertEqual(array[2].name, "Test Variable 2")
         self.assertEqual(array[3].name, "Test Variable_3")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -3,8 +3,8 @@ utils::configurable_constants! {
     /// The target shard size; shards.
     ref MDB_SHARD_TARGET_SIZE: u64 = 64 * 1024 * 1024;
 
-    /// Minimum shard size; small shards are aggregated until they are at least this.
-    ref MDB_SHARD_MIN_TARGET_SIZE: u64 = 64 * 1024 * 1024;
+    /// Maximum shard size; small shards are aggregated until they are at most this.
+    ref MDB_SHARD_MAX_TARGET_SIZE: u64 = 64 * 1024 * 1024;
 
     /// The global dedup chunk modulus; a chunk is considered global dedup
     /// eligible if the hash modulus this value is zero.
@@ -17,7 +17,7 @@ utils::configurable_constants! {
     ///
     /// Note the cache is pruned to below this value at the beginning of a session,
     /// but during a single session new shards may be added such that this limit is exceeded.
-    ref SHARD_CACHE_SIZE_LIMIT : u64 = 16 * 1024 * 1024 * 1024;
+    ref SHARD_CACHE_SIZE_LIMIT : u64 = 16_000_000_000;
 
     /// The amount of time a shard should be expired by before it's deleted, in seconds.
     /// By default set to 7 days.

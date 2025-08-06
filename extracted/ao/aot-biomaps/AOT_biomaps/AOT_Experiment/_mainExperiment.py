@@ -52,8 +52,8 @@ class Experiment(ABC):
         max_t = float(max_t)
         min_t = float(min_t)
 
-        min_sample = int(np.floor(min_t * float(self.params.acoustic['f_AQ'])))
-        max_sample = int(np.floor(max_t * float(self.params.acoustic['f_AQ'])))
+        min_sample = int(np.floor(min_t * float(self.params.acoustic['f_saving'])))
+        max_sample = int(np.floor(max_t * float(self.params.acoustic['f_saving'])))
 
         if min_sample < 0 or max_sample < 0:
             raise ValueError("min_sample and max_sample must be non-negative integers.")

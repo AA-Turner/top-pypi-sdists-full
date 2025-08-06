@@ -7,8 +7,131 @@ import subprocess
 import logging
 import inspect
 import importlib
+import base64
+import hashlib
+from datetime import datetime, timezone
 from functools import lru_cache, wraps
+from typing import Any, List, Optional
 
+class ErrorType:
+    NOT_FOUND = "NotFound"
+    PRECONDITION_FAILED = "PreconditionFailed"
+    VALIDATION_ERROR = "ValidationError"
+    UNAUTHORIZED = "Unauthorized"
+    UNAUTHENTICATED = "Unauthenticated"
+    INTERNAL = "Internal"
+    UNKNOWN = "Unknown"
+    TIMEOUT = "Timeout"
+    VALUE_ERROR = "ValueError"
+    TYPE_ERROR = "TypeError"
+    INDEX_ERROR = "IndexError"
+    KEY_ERROR = "KeyError"
+    ATTRIBUTE_ERROR = "AttributeError"
+    IMPORT_ERROR = "ImportError"
+    FILE_NOT_FOUND = "FileNotFound"
+    PERMISSION_DENIED = "PermissionDenied"
+    CONNECTION_ERROR = "ConnectionError"
+    JSON_DECODE_ERROR = "JSONDecodeError"
+    ASSERTION_ERROR = "AssertionError"
+    RUNTIME_ERROR = "RuntimeError"
+    MEMORY_ERROR = "MemoryError"
+    OS_ERROR = "OSError"
+    STOP_ITERATION = "StopIteration"
+
+ERROR_TYPE_TO_MESSAGE = {
+    ErrorType.NOT_FOUND: "The requested resource was not found.",
+    ErrorType.PRECONDITION_FAILED: "A precondition for this request was not met.",
+    ErrorType.VALIDATION_ERROR: "Some input values are invalid. Please check your request.",
+    ErrorType.UNAUTHORIZED: "You do not have permission to perform this action.",
+    ErrorType.UNAUTHENTICATED: "Authentication is required to access this resource.",
+    ErrorType.INTERNAL: "An internal server error occurred. Please try again later.",
+    ErrorType.UNKNOWN: "An unknown error occurred.",
+    ErrorType.TIMEOUT: "The operation timed out. Please try again.",
+    ErrorType.VALUE_ERROR: "An invalid value was provided.",
+    ErrorType.TYPE_ERROR: "An operation was applied to an object of inappropriate type.",
+    ErrorType.INDEX_ERROR: "An index is out of range.",
+    ErrorType.KEY_ERROR: "A required key was not found in the dictionary.",
+    ErrorType.ATTRIBUTE_ERROR: "The requested attribute is missing or invalid.",
+    ErrorType.IMPORT_ERROR: "There was an issue importing a module or object.",
+    ErrorType.FILE_NOT_FOUND: "The specified file could not be found.",
+    ErrorType.PERMISSION_DENIED: "You do not have permission to access this file or resource.",
+    ErrorType.CONNECTION_ERROR: "A connection error occurred. Check your network or endpoint.",
+    ErrorType.JSON_DECODE_ERROR: "Failed to decode the JSON data. The format might be incorrect.",
+    ErrorType.ASSERTION_ERROR: "An assertion failed during execution.",
+    ErrorType.RUNTIME_ERROR: "A runtime error occurred.",
+    ErrorType.MEMORY_ERROR: "The system ran out of memory while processing the request.",
+    ErrorType.OS_ERROR: "An operating system-level error occurred.",
+    ErrorType.STOP_ITERATION: "No further items in iterator.",
+}
+
+class ErrorLog:
+    def __init__(
+        self,
+        service_name: str,
+        stack_trace: str,
+        error_type: str,
+        description: str,
+        file_name: str,
+        function_name: str,
+        hash: str,
+        action_record_id: str = None,
+        created_at: datetime = None,
+        is_resolved: bool = False,
+        more_info: Optional[Any] = None,
+    ):
+        self.action_record_id = action_record_id
+        self.service_name = service_name
+        self.created_at = created_at or datetime.now(timezone.utc)
+        self.stack_trace = stack_trace
+        self.error_type = error_type
+        self.description = description
+        self.file_name = file_name
+        self.function_name = function_name
+        self.hash = hash
+        self.is_resolved = is_resolved
+        self.more_info = more_info
+
+    def to_dict(self) -> dict:
+        return {
+            "actionRecordId": self.action_record_id,
+            "serviceName": self.service_name,
+            "createdAt": self.created_at.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            "stackTrace": self.stack_trace,
+            "errorType": self.error_type,
+            "description": self.description,
+            "fileName": self.file_name,
+            "functionName": self.function_name,
+            "hash": self.hash,
+            "isResolved": self.is_resolved,
+            "moreInfo": self.more_info,
+        }
+
+class AppError(Exception):
+    def __init__(
+        self,
+        error_type: str,
+        error: Exception,
+        service_name: str,
+        details: Optional[List[Any]] = None,
+        action_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ):
+        self.error_type = error_type
+        self.error = error
+        self.service_name = service_name
+        self.details = details or []
+        self.action_id = action_id or os.environ.get("MATRICE_ACTION_ID")
+        self.session_id = session_id or os.environ.get("MATRICE_SESSION_ID") or None
+        self.message = ERROR_TYPE_TO_MESSAGE.get(error_type, "An unknown error occurred.")
+        super().__init__(self.message)
+
+    def append(self, *details: Any) -> "AppError":
+        self.details.extend(details)
+        return self
+
+    def generate_hash(self) -> str:
+        error_str = f"{self.error_type}{str(self.error)}{self.service_name}{''.join(str(d) for d in self.details)}"
+        return hashlib.sha256(error_str.encode()).hexdigest()
 
 def _make_hashable(obj):
     """Recursively convert unhashable types to hashable ones."""
@@ -19,31 +142,24 @@ def _make_hashable(obj):
     elif isinstance(obj, set):
         return tuple(sorted(_make_hashable(e) for e in obj))
     elif hasattr(obj, '__dict__') and not isinstance(obj, type):
-        # Handle custom objects by converting their __dict__ to a hashable form
         try:
             return ('__object__', obj.__class__.__name__, _make_hashable(obj.__dict__))
         except (AttributeError, TypeError):
-            # If we can't make the object hashable, use its string representation
             return ('__str__', str(obj))
     else:
-        # For primitive types and other hashable objects
         try:
             hash(obj)
             return obj
         except TypeError:
-            # If it's not hashable, convert to string as last resort
             return ('__str__', str(obj))
-
 
 def cacheable(f):
     """Wraps a function to make its args hashable before caching."""
-
     @lru_cache(maxsize=128)
     def wrapped(*args_hashable, **kwargs_hashable):
         try:
             return f(*args_hashable, **kwargs_hashable)
         except Exception as e:
-            # If there's an error with unhashable arguments, log and re-raise
             logging.warning(f"Error in cacheable function {f.__name__}: {str(e)}")
             raise
 
@@ -54,22 +170,55 @@ def cacheable(f):
             hashable_kwargs = {k: _make_hashable(v) for k, v in kwargs.items()}
             return wrapped(*hashable_args, **hashable_kwargs)
         except Exception as e:
-            # If there's an error in making args hashable, fall back to original function
-            logging.warning(
-                f"Caching failed for {f.__name__}, using original function: {str(e)}"
-            )
+            logging.warning(f"Caching failed for {f.__name__}, using original function: {str(e)}")
             return f(*args, **kwargs)
 
     return wrapper
 
-
 @lru_cache(maxsize=1)
-def _get_error_logging_producer():
-    """Get the Kafka producer for error logging. Cached since it has no arguments."""
+def _get_error_logging_producer(rpc_client=None ,access_key=None, secret_key=None):
+    """Get the Kafka producer for error logging, fetching config via RPC."""
     try:
         from confluent_kafka import Producer
+        
+        access_key = access_key or os.environ.get("MATRICE_ACCESS_KEY_ID")
+        secret_key = secret_key or os.environ.get("MATRICE_SECRET_ACCESS_KEY")
+
+        if not access_key or not secret_key:
+            raise ValueError(
+                "Access key and Secret key are required. "
+                "Set them as environment variables MATRICE_ACCESS_KEY_ID and MATRICE_SECRET_ACCESS_KEY or pass them explicitly."
+            )
+
+
+        os.environ["MATRICE_ACCESS_KEY_ID"] = access_key
+        os.environ["MATRICE_SECRET_ACCESS_KEY"] = secret_key
+
+        try:
+            if rpc_client is None:
+                from matrice.rpc import RPC
+                ## Importing RPC here to avoid cyclic import issues
+                rpc_client = RPC(access_key=access_key, secret_key=secret_key)
+        except ImportError:
+            raise ImportError("RPC client is not available. Check for cyclic import.")
+        
+        path = "/v1/actions/get_kafka_info"
+
+        response = rpc_client.get(path=path, raise_exception=True)
+
+        if not response or not response.get("success"):
+            raise ValueError(f"Failed to fetch Kafka config: {response.get('message', 'No response')}")
+
+        # Decode base64 fields
+        encoded_ip = response["data"]["ip"]
+        encoded_port = response["data"]["port"]
+        ip = base64.b64decode(encoded_ip).decode("utf-8")
+        port = base64.b64decode(encoded_port).decode("utf-8")
+        bootstrap_servers = f"{ip}:{port}"
+
+        
         return Producer({
-            "bootstrap.servers": "34.66.122.137:9092",
+            "bootstrap.servers": bootstrap_servers,
             "acks": "all",
             "retries": 3,
             "retry.backoff.ms": 1000,
@@ -85,54 +234,83 @@ def _get_error_logging_producer():
         logging.warning("KafkaUtils not available, error logging to Kafka disabled")
         return None
 
-
 def send_error_log(
-    filename,
-    function_name,
-    error_message,
-    traceback_str=None,
-    additional_info=None,
+    filename: str,
+    function_name: str,
+    error_message: str,
+    traceback_str: Optional[str] = None,
+    additional_info: Optional[dict] = None,
+    error_type: str = ErrorType.INTERNAL,
+    service_name: str = "matrice-sdk",
+    action_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    access_key: Optional[str] = None,
+    secret_key: Optional[str] = None,
 ):
-    """Log error to the backend system.
-
-    Args:
-        filename (str): Name of the file where error occurred
-        function_name (str): Name of the function where error occurred
-        error_message (str): Error message to log
-        traceback_str (str, optional): Traceback string. If None, will be generated. Defaults to None.
-        additional_info (dict, optional): Additional information to include in the log. Defaults to None.
-    """
+    """Log error to the backend system, sending to Kafka."""
     if traceback_str is None:
-        traceback_str = traceback.format_exc()
+        traceback_str = traceback.format_exc().rstrip()
 
     more_info = {}
     if additional_info and isinstance(additional_info, dict):
         more_info.update(additional_info)
 
-    action_id = os.environ.get("MATRICE_ACTION_ID")
+    secret_key = secret_key or os.environ.get("MATRICE_SECRET_ACCESS_KEY")
+    if not secret_key:
+        raise ValueError("Secret key is required for RPC authentication")
+    
+    access_key = access_key or os.environ.get("MATRICE_ACCESS_KEY_ID")
+    if not access_key:
+        raise ValueError("Access key is required for RPC authentication")
+    
+    action_id = action_id or os.environ.get("MATRICE_ACTION_ID")
+    ## verify ENV var name
     if action_id:
         more_info["actionId"] = action_id
 
-    # Try to send to Kafka if available
+    session_id = session_id or os.environ.get("MATRICE_SESSION_ID") or None
+    if session_id:
+        more_info["sessionId"] = session_id
+
+    # Generate hash
+    error_str = f"{error_type}{error_message}{service_name}{json.dumps(more_info)}"
+    error_hash = hashlib.sha256(error_str.encode()).hexdigest()
+
+    error_log = ErrorLog(
+        service_name=service_name,
+        stack_trace=traceback_str,
+        error_type=error_type,
+        description=error_message,
+        file_name=filename,
+        function_name=function_name,
+        hash=error_hash,
+        action_record_id=action_id,
+        more_info=more_info,
+    )
+
+    def print_callback(err, msg):
+        if err:
+            print(f"Delivery failed: {err}")
+            logging.error(f"Delivery failed: {err}")
+        else:
+            print(f"Delivery succeeded: {msg.offset()}")
+            logging.info(f"Delivery succeeded: {msg.offset()}")
+
     try:
         producer = _get_error_logging_producer()
         if producer:
             producer.produce(
-                "error_logs",
-                value=json.dumps({
-                    "serviceName": "matrice-sdk",
-                    "stackTrace": traceback_str,
-                    "errorType": "Internal",
-                    "description": error_message,
-                    "fileName": filename,
-                    "functionName": function_name,
-                    "moreInfo": more_info,
-                }).encode('utf-8')
+                topic="error_logs",
+                value=json.dumps(error_log.to_dict()).encode('utf-8'),
+                key=service_name.encode('utf-8')
+                # callback=print_callback
             )
+           
+            producer.flush()
     except Exception as e:
         logging.error(f"Failed to send error log to Kafka: {str(e)}")
 
-
+            
 def log_errors(func=None, default_return=None, raise_exception=False, log_error=True):
     """Decorator to automatically log exceptions raised in functions.
 
@@ -147,8 +325,8 @@ def log_errors(func=None, default_return=None, raise_exception=False, log_error=
     Returns:
         The wrapped function with error logging
     """
-
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
@@ -160,12 +338,11 @@ def log_errors(func=None, default_return=None, raise_exception=False, log_error=
                 except (TypeError, ValueError):
                     func_file = "unknown_file"
 
-                # Get parameter names and values (safely)
+                # Get parameter names and values
                 try:
                     sig = inspect.signature(func)
                     bound_args = sig.bind(*args, **kwargs)
                     bound_args.apply_defaults()
-                    # Limit parameter string length for very large arguments
                     param_str = ", ".join(
                         f"{name}={repr(value)[:100] + '...' if isinstance(value, (str, bytes, list, dict)) and len(repr(value)) > 100 else repr(value)}"
                         for name, value in bound_args.arguments.items()
@@ -174,18 +351,20 @@ def log_errors(func=None, default_return=None, raise_exception=False, log_error=
                     param_str = "unable to format parameters"
 
                 traceback_str = traceback.format_exc().rstrip()
-
-                # Log detailed error info
                 error_msg = f"Exception in {func_file}, function '{func_name}({param_str})': {str(e)}"
+                print(error_msg)  # Debug print for development
                 logging.error(error_msg)
-                print(error_msg)
+                
+                error_type = type(e).__name__ if type(e).__name__ in ErrorType.__dict__.values() else ErrorType.INTERNAL
+                
+                service_name = "matrice-sdk"
+                ## NOTE: Hardcoded value : Need to reconsider while refactoring py-sdk packages
 
                 # Additional context for the error log
                 additional_info = {"parameters": param_str}
 
-                # Use the log_error parameter from the decorator
-                nonlocal log_error
-                if log_error:
+                if log_error :
+                # and error_type in [ErrorType.INTERNAL, ErrorType.UNKNOWN]:
                     try:
                         send_error_log(
                             filename=func_file,
@@ -193,33 +372,33 @@ def log_errors(func=None, default_return=None, raise_exception=False, log_error=
                             error_message=error_msg,
                             traceback_str=traceback_str,
                             additional_info=additional_info,
+                            error_type=error_type,
+                            service_name=service_name,
+                            action_id=os.environ.get("MATRICE_ACTION_ID"),
+                            session_id=os.environ.get("MATRICE_SESSION_ID") or None,
                         )
                     except Exception as logging_error:
                         logging.error(f"Failed to log error: {str(logging_error)}")
 
                 if raise_exception:
-                    raise
+                    raise AppError(
+                        error_type=error_type,
+                        error=e,
+                        service_name=service_name,
+                        details=[param_str],
+                        action_id=os.environ.get("MATRICE_ACTION_ID"),
+                        session_id=os.environ.get("MATRICE_SESSION_ID") or None,
+                    )
                 return default_return
 
         return wrapper
 
-    # Handle both @log_errors and @log_errors(default_return=value) syntax
     if func is None:
         return decorator
     return decorator(func)
 
-
 def handle_response(response, success_message, failure_message):
-    """Handle API response and return appropriate result.
-
-    Args:
-        response (dict): API response
-        success_message (str): Message to return on success
-        failure_message (str): Message to return on failure
-
-    Returns:
-        tuple: (result, error, message)
-    """
+    """Handle API response and return appropriate result."""
     if response and response.get("success"):
         result = response.get("data")
         error = None
@@ -230,25 +409,8 @@ def handle_response(response, success_message, failure_message):
         message = failure_message
     return result, error, message
 
-
 def check_for_duplicate(session, service, name):
-    """Check if an item with the given name already exists for the specified service.
-
-    Args:
-        session: Session object containing RPC client
-        service (str): The name of the service to check (e.g., 'dataset', 'annotation')
-        name (str): The name of the item to check for duplication
-
-    Returns:
-        tuple: (API response, error_message, status_message)
-
-    Example:
-        >>> resp, err, msg = check_for_duplicate('dataset', 'MyDataset')
-        >>> if err:
-        >>>     print(f"Error: {err}")
-        >>> else:
-        >>>     print(f"Duplicate check result: {resp}")
-    """
+    """Check if an item with the given name already exists for the specified service."""
     service_config = {
         "dataset": {
             "path": f"/v1/dataset/check_for_duplicate?datasetName={name}",
@@ -267,7 +429,7 @@ def check_for_duplicate(session, service, name):
             "item_name": "Model Train",
         },
         "projects": {
-            "path": f"/v1/accounting/check_for_duplicate?name={name}",
+            "path": f"/v1/project/check_for_duplicate?name={name}",
             "item_name": "Project",
         },
         "deployment": {
@@ -301,25 +463,8 @@ def check_for_duplicate(session, service, name):
         f"Could not check for this {service} name",
     )
 
-
 def get_summary(session, project_id, service_name):
-    """Fetch a summary of the specified service in the project.
-
-    Args:
-        session: Session object containing RPC client
-        project_id (str): The project ID
-        service_name (str): Service to fetch summary for ('annotations', 'models', etc)
-
-    Returns:
-        tuple: (summary_data, error_message)
-
-    Example:
-        >>> summary, error = get_summary(rpc, project_id, 'models')
-        >>> if error:
-        >>>     print(f"Error: {error}")
-        >>> else:
-        >>>     print(f"Summary: {summary}")
-    """
+    """Fetch a summary of the specified service in the project."""
     service_paths = {
         "annotations": "/v1/annotations/summary",
         "models": "/v1/model/summary",
@@ -351,7 +496,6 @@ def get_summary(session, project_id, service_name):
         error_messages.get(service_name, "Operation failed"),
     )
 
-
 def _is_package_installed(package_name):
     """Check if a package is already installed."""
     try:
@@ -360,54 +504,33 @@ def _is_package_installed(package_name):
     except (ImportError, OSError):
         return False
 
-
 @lru_cache(maxsize=64)
 def _install_package(package_name):
-    """Helper function to install a package using subprocess.
-    This function is separated from the cached function to avoid issues with subprocess.
-    """
+    """Helper function to install a package using subprocess."""
     try:
         subprocess.run(
             ["pip", "install", package_name],
             check=True,
         )
-        logging.info(
-            "Successfully installed %s",
-            package_name,
-        )
+        logging.info("Successfully installed %s", package_name)
         return True
     except subprocess.CalledProcessError as exc:
-        logging.error(
-            "Failed to install %s: %s",
-            package_name,
-            exc,
-        )
+        logging.error("Failed to install %s: %s", package_name, exc)
         return False
     except Exception as e:
         logging.error("Unexpected error installing %s: %s", package_name, str(e))
         return False
 
-
 def dependencies_check(package_names):
-    """Check and install required dependencies.
-
-    Args:
-        package_names (str or list): Package name(s) to check/install
-
-    Returns:
-        bool: True if all packages were installed successfully, False otherwise
-    """
+    """Check and install required dependencies."""
     if not isinstance(package_names, list):
         package_names = [package_names]
 
     success = True
     for package_name in package_names:
-        # Check if package is already installed before attempting to install
         if _is_package_installed(package_name):
             logging.debug(f"Package {package_name} is already installed, skipping installation")
             continue
-            
         if not _install_package(package_name):
             success = False
-
     return success

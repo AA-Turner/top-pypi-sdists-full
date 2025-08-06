@@ -30,7 +30,6 @@ from mlflow.models import (
     EvaluationMetric,
     make_metric,
 )
-from mlflow.utils.annotations import experimental
 
 
 def latency() -> EvaluationMetric:
@@ -51,6 +50,9 @@ def token_count() -> EvaluationMetric:
     """
     This function will create a metric for calculating token_count. Token count is calculated
     using tiktoken by using the `cl100k_base` tokenizer.
+
+    Note: For air-gapped environments, you can set the TIKTOKEN_CACHE_DIR environment variable
+    to specify a local cache directory for tiktoken to avoid downloading the tokenizer files.
     """
     return make_metric(
         eval_fn=_token_count_eval_fn,
@@ -423,7 +425,6 @@ def f1_score() -> EvaluationMetric:
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
 
 
-@experimental
 def bleu() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `bleu`_.

@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import typing as t
@@ -27,7 +28,7 @@ try:
 except ImportError:
     HAS_CLICK_SHELL = False
 
-__version__ = "0.34.0"
+__version__ = "0.35.0"
 translation = get_translation(__package__)
 _ = translation.gettext
 # Keep track to prevent loading plugins twice
@@ -208,19 +209,17 @@ def main(
     timeout: int,
     cid: str,
 ) -> None:
-    def _debug_callback(level: int, x: str) -> None:
-        if verbose >= level:
-            click.secho(x, err=True, bold=True)
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG + 4 - verbose, format="%(message)s")
 
     api_kwargs = dict(
         base_url=base_url,
         headers=dict((header.split(":", maxsplit=1) for header in headers)),
         cert=cert,
         key=key,
-        validate_certs=verify_ssl,
+        verify_ssl=verify_ssl,
         refresh_cache=refresh_api,
-        safe_calls_only=dry_run,
-        debug_callback=_debug_callback,
+        dry_run=dry_run,
         user_agent=f"Pulp-CLI/{__version__}",
         cid=cid,
     )

@@ -3758,6 +3758,7 @@ class DBClusterTypeDef(TypedDict):
     PerformanceInsightsKMSKeyId: NotRequired[str]
     PerformanceInsightsRetentionPeriod: NotRequired[int]
     ServerlessV2ScalingConfiguration: NotRequired[ServerlessV2ScalingConfigurationInfoTypeDef]
+    ServerlessV2PlatformVersion: NotRequired[str]
     NetworkType: NotRequired[str]
     DBSystemId: NotRequired[str]
     MasterUserSecret: NotRequired[MasterUserSecretTypeDef]

@@ -40,7 +40,7 @@ Below is an example of using primitives within a session::
     from qiskit_ibm_runtime import QiskitRuntimeService, Session
     from qiskit_ibm_runtime import SamplerV2 as Sampler
     from qiskit_ibm_runtime import EstimatorV2 as Estimator
-    from qiskit.circuit.library import RealAmplitudes
+    from qiskit.circuit.library import real_amplitudes
     from qiskit.circuit import QuantumCircuit, QuantumRegister, ClassicalRegister
     from qiskit.quantum_info import SparsePauliOp
     from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
@@ -49,7 +49,7 @@ Below is an example of using primitives within a session::
     service = QiskitRuntimeService()
 
     # Prepare inputs.
-    psi = RealAmplitudes(num_qubits=2, reps=2)
+    psi = real_amplitudes(num_qubits=2, reps=2)
     H1 = SparsePauliOp.from_list([("II", 1), ("IZ", 2), ("XI", 3)])
     theta = [0, 1, 1, 2, 3, 5]
     # Bell Circuit
@@ -92,7 +92,7 @@ backends in ``qiskit_ibm_runtime.fake_provider`` or a Qiskit Aer backend
 instance is used when instantiating a primitive or a session. For example::
 
     from qiskit_aer import AerSimulator
-    from qiskit.circuit.library import RealAmplitudes
+    from qiskit.circuit.library import real_amplitudes
     from qiskit.circuit import QuantumCircuit, QuantumRegister, ClassicalRegister
     from qiskit.quantum_info import SparsePauliOp
     from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
@@ -198,6 +198,7 @@ Classes
    RuntimeDecoder
 """
 
+import sys
 import logging
 import warnings
 
@@ -237,3 +238,12 @@ QISKIT_IBM_RUNTIME_LOG_LEVEL = "QISKIT_IBM_RUNTIME_LOG_LEVEL"
 """The environment variable name that is used to set the level for the IBM Quantum logger."""
 QISKIT_IBM_RUNTIME_LOG_FILE = "QISKIT_IBM_RUNTIME_LOG_FILE"
 """The environment variable name that is used to set the file for the IBM Quantum logger."""
+
+if sys.version_info < (3, 10):
+    warnings.warn(
+        "Using qiskit-ibm-runtime with Python 3.9 is deprecated as of the 0.41.0 release. "
+        "Support for running qiskit-ibm-runtime with Python 3.9 will be removed in a future "
+        "release.",
+        DeprecationWarning,
+        stacklevel=2,
+    )

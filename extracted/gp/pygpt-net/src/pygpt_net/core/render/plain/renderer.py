@@ -43,6 +43,15 @@ class Renderer(BaseRenderer):
         """
         self.pids = {}
 
+    def fresh(self, meta: CtxMeta):
+        """
+        Fresh renderer
+
+        :param meta: context PID
+        """
+        self.reset(meta)
+        self.clear_output(meta)
+
     def get_pid(self, meta: CtxMeta):
         """
         Get PID for context meta
@@ -528,9 +537,19 @@ class Renderer(BaseRenderer):
     def clear_all(self):
         """Clear all"""
         for node in self.get_all_nodes():
-            node.clear()
-            node.document().setDefaultStyleSheet("")
-            node.setStyleSheet("")
-            node.document().setMarkdown("")
-            node.document().setHtml("")
-            node.setPlainText("")
+            try:
+                node.clear()
+                node.document().setDefaultStyleSheet("")
+                node.setStyleSheet("")
+                node.document().setMarkdown("")
+                node.document().setHtml("")
+                node.setPlainText("")
+            except Exception as e:
+                pass
+
+    def remove_pid(self, pid: int):
+        """
+        Remove PID from renderer
+        """
+        if pid in self.pids:
+            del self.pids[pid]

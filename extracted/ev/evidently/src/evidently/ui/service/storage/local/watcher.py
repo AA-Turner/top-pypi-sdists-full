@@ -1,5 +1,6 @@
 import os.path
 import re
+from json import JSONDecodeError
 from pathlib import Path
 
 import uuid6
@@ -89,7 +90,6 @@ class WorkspaceDirHandler(FileSystemEventHandler):
             self.state.projects[project.id] = project.bind(self.state.project_manager, NO_USER.id)
             if project.id not in self.state.snapshots:
                 self.state.snapshots[project.id] = {}
-                self.state.snapshot_data[project.id] = {}
         if event.event_type in (EVENT_TYPE_MODIFIED,):
             project = load_project(self.state.location, project_id)
             if project is None:
@@ -99,7 +99,6 @@ class WorkspaceDirHandler(FileSystemEventHandler):
             pid = uuid6.UUID(project_id)
             del self.state.projects[pid]
             del self.state.snapshots[pid]
-            del self.state.snapshot_data[pid]
 
     def on_snapshot_event(self, event):
         project_id, snapshot_id = self.parse_project_and_snapshot_id(event.src_path)
@@ -113,7 +112,10 @@ class WorkspaceDirHandler(FileSystemEventHandler):
         if (event.event_type in (EVENT_TYPE_MODIFIED, EVENT_TYPE_CREATED, EVENT_TYPE_MOVED)) and os.path.exists(
             event.src_path
         ):
-            self.state.reload_snapshot(project, sid)
+            try:
+                self.state.reload_snapshot(project, sid)
+            except JSONDecodeError:  # ignore bc probably write is not complete
+                pass
         if (
             event.event_type == EVENT_TYPE_DELETED
             or event.event_type == EVENT_TYPE_MOVED
@@ -121,5 +123,3 @@ class WorkspaceDirHandler(FileSystemEventHandler):
         ):
             if pid in self.state.snapshots and sid in self.state.snapshots[pid]:
                 del self.state.snapshots[pid][sid]
-            if pid in self.state.snapshot_data and sid in self.state.snapshot_data[pid]:
-                del self.state.snapshot_data[pid][sid]

@@ -8814,7 +8814,7 @@ class RecordSet(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -8900,7 +8900,7 @@ class RecordSetOptions:
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -9012,7 +9012,7 @@ class RecordSetOptions:
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -9025,6 +9025,10 @@ class RecordSetOptions:
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -9182,7 +9186,7 @@ class RecordSetProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -9303,7 +9307,7 @@ class RecordSetProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -9316,6 +9320,10 @@ class RecordSetProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -9707,7 +9715,7 @@ class SrvRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -9788,7 +9796,7 @@ class SrvRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -9909,7 +9917,7 @@ class SrvRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -9922,6 +9930,10 @@ class SrvRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -10188,7 +10200,7 @@ class TxtRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -10269,7 +10281,7 @@ class TxtRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -10370,7 +10382,7 @@ class TxtRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -10383,6 +10395,10 @@ class TxtRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -10794,7 +10810,7 @@ class ZoneDelegationRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -10875,7 +10891,7 @@ class ZoneDelegationRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -10991,7 +11007,7 @@ class ZoneDelegationRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -11004,6 +11020,10 @@ class ZoneDelegationRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -11254,7 +11274,7 @@ class ARecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -11318,7 +11338,7 @@ class ARecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -11403,7 +11423,7 @@ class ARecordAttrs(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -11501,7 +11521,7 @@ class ARecordAttrs(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -11514,6 +11534,10 @@ class ARecordAttrs(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -11676,7 +11700,7 @@ class ARecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -11778,7 +11802,7 @@ class ARecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -11791,6 +11815,10 @@ class ARecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -11960,7 +11988,7 @@ class AaaaRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -12041,7 +12069,7 @@ class AaaaRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -12139,7 +12167,7 @@ class AaaaRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -12152,6 +12180,10 @@ class AaaaRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -12312,7 +12344,7 @@ class CaaAmazonRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -12424,7 +12456,7 @@ class CaaAmazonRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -12437,6 +12469,10 @@ class CaaAmazonRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -12621,7 +12657,7 @@ class CaaRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -12702,7 +12738,7 @@ class CaaRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -12822,7 +12858,7 @@ class CaaRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -12835,6 +12871,10 @@ class CaaRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -13027,7 +13067,7 @@ class CnameRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -13108,7 +13148,7 @@ class CnameRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -13229,7 +13269,7 @@ class CnameRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -13242,6 +13282,10 @@ class CnameRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -13412,7 +13456,7 @@ class DsRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -13493,7 +13537,7 @@ class DsRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -13592,7 +13636,7 @@ class DsRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -13605,6 +13649,10 @@ class DsRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -14183,7 +14231,7 @@ class MxRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -14264,7 +14312,7 @@ class MxRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -14383,7 +14431,7 @@ class MxRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -14396,6 +14444,10 @@ class MxRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -14566,7 +14618,7 @@ class NsRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -14647,7 +14699,7 @@ class NsRecordProps(RecordSetOptions):
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false
@@ -14746,7 +14798,7 @@ class NsRecordProps(RecordSetOptions):
 
     @builtins.property
     def delete_existing(self) -> typing.Optional[builtins.bool]:
-        '''Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
+        '''(deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!).
 
         This allows to deploy a new record set while minimizing the downtime because the
         new record set will be created immediately after the existing one is deleted. It
@@ -14759,6 +14811,10 @@ class NsRecordProps(RecordSetOptions):
            will delete the record!
 
         :default: false
+
+        :deprecated: This property is dangerous and can lead to unintended record deletion in case of deployment failure.
+
+        :stability: deprecated
         '''
         result = self._values.get("delete_existing")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -15213,7 +15269,7 @@ class CaaAmazonRecord(
         :param zone: The hosted zone in which to define the new record.
         :param cidr_routing_config: The object that is specified in resource record set object when you are linking a resource record set to a CIDR location. A LocationName with an asterisk “*” can be used to create a default CIDR record. CollectionId is still required for default record. Default: - No CIDR routing configured
         :param comment: A comment to add on the record. Default: no comment
-        :param delete_existing: Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
+        :param delete_existing: (deprecated) Whether to delete the same record set in the hosted zone if it already exists (dangerous!). This allows to deploy a new record set while minimizing the downtime because the new record set will be created immediately after the existing one is deleted. It also avoids "manual" actions to delete existing record sets. .. epigraph:: **N.B.:** this feature is dangerous, use with caution! It can only be used safely when ``deleteExisting`` is set to ``true`` as soon as the resource is added to the stack. Changing an existing Record Set's ``deleteExisting`` property from ``false -> true`` after deployment will delete the record! Default: false
         :param geo_location: The geographical origin for this record to return DNS records based on the user's location.
         :param health_check: The health check to associate with the record set. Route53 will return this record set in response to DNS queries only if the health check is passing. Default: - No health check configured
         :param multi_value_answer: Whether to return multiple values, such as IP addresses for your web servers, in response to DNS queries. Default: false

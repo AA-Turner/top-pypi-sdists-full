@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: forecasting-tools
-Version: 0.2.52
+Version: 0.2.54
 Summary: AI forecasting and research tools to help humans reason about and forecast the future
 License: MIT
 Keywords: ai,forecasting,research,metaculus,prediction,future,market
@@ -21,22 +21,23 @@ Requires-Dist: aiofiles (>=24.1.0,<25.0.0)
 Requires-Dist: aiohttp (>=3.9.3,<4.0.0)
 Requires-Dist: aiolimiter (>=1.1.0,<2.0.0)
 Requires-Dist: asknews (>=0.9.1,<0.12.0)
-Requires-Dist: asyncio (>=3.4.3,<4.0.0)
+Requires-Dist: asyncio (>=4.0.0,<5.0.0)
 Requires-Dist: exceptiongroup (>=1.2.2,<2.0.0)
 Requires-Dist: faker (>=37.0.1,<38.0.0)
-Requires-Dist: hyperbrowser (==0.48.0)
+Requires-Dist: hyperbrowser (>=0.53.0,<0.54.0)
 Requires-Dist: litellm (>=1.59.1,<2.0.0)
 Requires-Dist: nest-asyncio (>=1.5.8,<2.0.0)
 Requires-Dist: numpy (>=1.26.0,<3.0.0)
 Requires-Dist: openai (>=1.51.0,<2.0.0)
-Requires-Dist: openai-agents (==0.0.17)
+Requires-Dist: openai-agents (>=0.2.4,<0.3.0)
 Requires-Dist: pandas (>=2.2.3,<3.0.0)
+Requires-Dist: pendulum (>=3.1.0,<4.0.0)
 Requires-Dist: pillow (>=9.0.0,<12.0.0)
 Requires-Dist: plotly (>=5.24.1,<7.0.0)
 Requires-Dist: pydantic (>=2.9.2,<3.0.0)
 Requires-Dist: pytest-asyncio (>=1.0.0,<2.0.0)
 Requires-Dist: python-dotenv (>=1.0.0,<2.0.0)
-Requires-Dist: regex (>=2024.11.6,<2025.0.0)
+Requires-Dist: regex (>=2024.11.6,<2026.0.0)
 Requires-Dist: requests (>=2.32.3,<3.0.0)
 Requires-Dist: scikit-learn (>=1.5.2,<2.0.0)
 Requires-Dist: scipy (>=1.12.0,<2.0.0)

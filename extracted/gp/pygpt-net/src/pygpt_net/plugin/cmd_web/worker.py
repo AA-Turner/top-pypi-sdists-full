@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2024.12.15 01:00:00                  #
+# Updated Date: 2025.08.06 01:00:00                  #
 # ================================================== #
 
 import json
@@ -85,6 +85,12 @@ class Worker(BaseWorker):
         if self.msg is not None:
             self.log(self.msg)
             self.status(self.msg)
+
+        self.on_destroy()
+
+    def on_destroy(self):
+        """Handle destroyed event."""
+        self.cleanup()
 
     def cmd_web_search(self, item: dict) -> dict:
         """
@@ -293,7 +299,7 @@ class Worker(BaseWorker):
         url = ""
         if self.has_param(item, "url"):
             url = self.get_param(item, "url")  # from default param
-        if "url" in args:
+        if isinstance(args, dict) and "url" in args:
             url = args["url"]  # override from args
 
         if not url:

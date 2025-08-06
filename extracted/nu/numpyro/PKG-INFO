@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: numpyro
-Version: 0.18.0
+Version: 0.19.0
 Summary: Pyro PPL on NumPy
 Home-page: https://github.com/pyro-ppl/numpyro
 Author: Uber AI Labs
@@ -25,6 +25,7 @@ Requires-Dist: jaxlib>=0.4.25
 Requires-Dist: multipledispatch
 Requires-Dist: numpy
 Requires-Dist: tqdm
+Requires-Dist: typing_extensions; python_version < "3.10"
 Provides-Extra: doc
 Requires-Dist: ipython; extra == "doc"
 Requires-Dist: nbsphinx>=0.8.9; extra == "doc"
@@ -41,18 +42,20 @@ Requires-Dist: pyro-api>=0.1.1; extra == "test"
 Requires-Dist: scikit-learn; extra == "test"
 Requires-Dist: scipy>=1.9; extra == "test"
 Provides-Extra: dev
-Requires-Dist: dm-haiku; extra == "dev"
+Requires-Dist: dm-haiku>=0.0.14; python_version >= "3.10" and extra == "dev"
+Requires-Dist: dm-haiku<0.0.14; python_version < "3.10" and extra == "dev"
+Requires-Dist: equinox; extra == "dev"
 Requires-Dist: flax; extra == "dev"
 Requires-Dist: funsor>=0.4.1; extra == "dev"
 Requires-Dist: graphviz; extra == "dev"
-Requires-Dist: jaxns==2.6.3; extra == "dev"
+Requires-Dist: jaxns<=2.6.9,>=2.6.3; extra == "dev"
 Requires-Dist: matplotlib; extra == "dev"
 Requires-Dist: optax>=0.0.6; extra == "dev"
 Requires-Dist: pylab-sdk; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pyyaml; extra == "dev"
 Requires-Dist: requests; extra == "dev"
-Requires-Dist: tensorflow_probability>=0.18.0; extra == "dev"
+Requires-Dist: tfp-nightly; extra == "dev"
 Provides-Extra: examples
 Requires-Dist: arviz; extra == "examples"
 Requires-Dist: jupyter; extra == "examples"
@@ -74,6 +77,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

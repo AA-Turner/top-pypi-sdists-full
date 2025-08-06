@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot-dns-cloudflare
-Version: 4.1.1
+Version: 4.2.0
 Summary: Cloudflare DNS Authenticator plugin for Certbot
 Home-page: https://github.com/certbot/certbot
 Author: Certbot Project
@@ -27,8 +27,8 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.9.2
 License-File: LICENSE.txt
 Requires-Dist: cloudflare<2.20,>=2.19
-Requires-Dist: acme>=4.1.1
-Requires-Dist: certbot>=4.1.1
+Requires-Dist: acme>=4.2.0
+Requires-Dist: certbot>=4.2.0
 Provides-Extra: docs
 Requires-Dist: Sphinx>=1.0; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"

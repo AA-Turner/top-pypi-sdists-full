@@ -6,11 +6,10 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2024.01.18 12:00:00                  #
+# Updated Date: 2025.08.06 01:00:00                  #
 # ================================================== #
 
 import os
-import cv2
 import time
 
 from PySide6.QtCore import QObject, Signal, QRunnable, Slot
@@ -44,9 +43,10 @@ class CaptureSignals(QObject):
     error = Signal(object)
 
 
-class CaptureWorker(QRunnable):
+class CaptureWorker(QObject, QRunnable):
     def __init__(self, *args, **kwargs):
-        super(CaptureWorker, self).__init__()
+        QObject.__init__(self)
+        QRunnable.__init__(self)
         self.signals = CaptureSignals()
         self.args = args
         self.kwargs = kwargs
@@ -59,6 +59,7 @@ class CaptureWorker(QRunnable):
     def setup_camera(self):
         """Initialize camera"""
         try:
+            import cv2
             # get params from global config
             self.capture = cv2.VideoCapture(self.window.core.config.get('vision.capture.idx'))
             if not self.capture or not self.capture.isOpened():
@@ -80,6 +81,7 @@ class CaptureWorker(QRunnable):
         fps_interval = 1.0 / target_fps
         self.allow_finish = True
         try:
+            import cv2
             if not self.initialized:
                 self.setup_camera()
                 self.signals.started.emit()
@@ -111,6 +113,20 @@ class CaptureWorker(QRunnable):
                 self.signals.finished.emit()
             else:
                 self.signals.unfinished.emit()
+
+        # cleanup
+        if self.signals is not None:
+            self.signals.error.disconnect()
+            self.signals.finished.disconnect()
+            self.signals.destroyed.disconnect()
+            self.signals.unfinished.disconnect()
+            self.signals.capture.disconnect()
+            self.signals.stopped.disconnect()
+            self.window = None
+            self.capture = None
+            self.frame = None
+            self.allow_finish = False
+            self.deleteLater()
 
     def release(self):
         """Release camera"""

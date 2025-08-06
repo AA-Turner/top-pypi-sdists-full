@@ -46,7 +46,7 @@ def _is_branch_key(parser, key: str) -> bool:
 
 
 def _find_action_and_subcommand(
-    parser: Union["ArgumentParser", "ActionsContainer"],
+    parser: Union[ArgumentParser, ActionsContainer],
     dest: str,
     exclude: Optional[Union[Type[ArgparseAction], Tuple[Type[ArgparseAction], ...]]] = None,
 ) -> Tuple[Optional[ArgparseAction], Optional[str]]:
@@ -83,7 +83,7 @@ def _find_action_and_subcommand(
 
 
 def _find_action(
-    parser: Union["ArgumentParser", "ActionsContainer"],
+    parser: Union[ArgumentParser, ActionsContainer],
     dest: str,
     exclude: Optional[Union[Type[ArgparseAction], Tuple[Type[ArgparseAction], ...]]] = None,
 ) -> Optional[ArgparseAction]:
@@ -91,7 +91,7 @@ def _find_action(
 
 
 def _find_parent_action_and_subcommand(
-    parser: "ArgumentParser",
+    parser: ArgumentParser,
     key: str,
     exclude: Optional[Union[Type[ArgparseAction], Tuple[Type[ArgparseAction], ...]]] = None,
 ) -> Tuple[Optional[ArgparseAction], Optional[str]]:
@@ -106,7 +106,7 @@ def _find_parent_action_and_subcommand(
 
 
 def _find_parent_action(
-    parser: "ArgumentParser",
+    parser: ArgumentParser,
     key: str,
     exclude: Optional[Union[Type[ArgparseAction], Tuple[Type[ArgparseAction], ...]]] = None,
 ) -> Optional[ArgparseAction]:
@@ -516,7 +516,7 @@ class ActionParser:
 
     def __init__(
         self,
-        parser: Optional["ArgumentParser"] = None,
+        parser: Optional[ArgumentParser] = None,
     ):
         """Initializer for ActionParser instance.
 
@@ -544,7 +544,7 @@ class ActionParser:
         title = kwargs.pop("title", kwargs.pop("help", None))
         description = kwargs.pop("description", subparser.description)
         if len(kwargs) > 0:
-            raise ValueError(f"ActionParser does not accept the following parameters: {set(kwargs.keys())}")
+            raise ValueError(f"ActionParser does not accept the following parameters: {set(kwargs)}")
         if not (len(args) == 1 and args[0].startswith("--")):
             raise ValueError(f"ActionParser only accepts a single optional key but got {args}")
         prefix = args[0][2:]
@@ -558,7 +558,7 @@ class ActionParser:
         for key, action in filter_default_actions(subparser._option_string_actions).items():
             option_string_actions[add_prefix(key)] = action
 
-        isect = set(option_string_actions.keys()).intersection(set(parser._option_string_actions.keys()))
+        isect = set(option_string_actions).intersection(set(parser._option_string_actions))
         if len(isect) > 0:
             raise ValueError(f"ActionParser conflicting keys: {isect}")
 
@@ -616,7 +616,7 @@ def parent_parsers_context(key, parser):
 class _ActionSubCommands(_SubParsersAction):
     """Extension of argparse._SubParsersAction to modify subcommands functionality."""
 
-    parent_parser: "ArgumentParser"
+    parent_parser: ArgumentParser
     env_prefix: str
 
     def add_parser(self, name, **kwargs):
@@ -692,11 +692,11 @@ class _ActionSubCommands(_SubParsersAction):
 
     @staticmethod
     def get_subcommands(
-        parser: "ArgumentParser",
+        parser: ArgumentParser,
         cfg: Namespace,
         prefix: str = "",
         fail_no_subcommand: bool = True,
-    ) -> Tuple[Optional[List[str]], Optional[List["ArgumentParser"]]]:
+    ) -> Tuple[Optional[List[str]], Optional[List[ArgumentParser]]]:
         """Returns subcommand names and corresponding subparsers."""
         if parser._subcommands_action is None:
             return None, None
@@ -705,7 +705,7 @@ class _ActionSubCommands(_SubParsersAction):
         require_single = single_subcommand.get()
 
         # Get subcommand settings keys
-        subcommand_keys = [k for k in action.choices.keys() if isinstance(cfg.get(prefix + k), Namespace)]
+        subcommand_keys = [k for k in action.choices if isinstance(cfg.get(prefix + k), Namespace)]
 
         # Get subcommand
         subcommand = None
@@ -735,7 +735,7 @@ class _ActionSubCommands(_SubParsersAction):
                 # If subcommand is required and no subcommand is provided,
                 # present the user with a friendly error message to remind them of
                 # the available subcommands and to select one.
-                available_subcommands = list(action._name_parser_map.keys())
+                available_subcommands = list(action._name_parser_map)
                 if len(available_subcommands) <= 5:
                     candidate_subcommands_str = "{" + ",".join(available_subcommands) + "}"
                 else:
@@ -748,11 +748,11 @@ class _ActionSubCommands(_SubParsersAction):
 
     @staticmethod
     def get_subcommand(
-        parser: "ArgumentParser",
+        parser: ArgumentParser,
         cfg: Namespace,
         prefix: str = "",
         fail_no_subcommand: bool = True,
-    ) -> Tuple[Optional[str], Optional["ArgumentParser"]]:
+    ) -> Tuple[Optional[str], Optional[ArgumentParser]]:
         """Returns a single subcommand name and corresponding subparser."""
         subcommands, subparsers = _ActionSubCommands.get_subcommands(
             parser,
@@ -764,7 +764,7 @@ class _ActionSubCommands(_SubParsersAction):
 
     @staticmethod
     def handle_subcommands(
-        parser: "ArgumentParser",
+        parser: ArgumentParser,
         cfg: Namespace,
         env: Optional[bool],
         defaults: bool,

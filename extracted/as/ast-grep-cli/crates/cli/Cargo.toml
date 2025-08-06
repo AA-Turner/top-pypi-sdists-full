@@ -5,7 +5,7 @@ keywords = ["ast", "pattern", "codemod", "search", "rewrite"]
 categories = ["command-line-utilities", "development-tools", "parsing"]
 default-run = "ast-grep"
 # use relative path because maturin does not recognize
-readme = "../../README.md"
+readme = "README.md"
 
 version.workspace = true
 authors.workspace = true

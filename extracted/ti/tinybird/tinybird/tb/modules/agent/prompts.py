@@ -5,7 +5,6 @@ from typing import Any
 from pydantic_ai import format_as_xml
 
 from tinybird.prompts import (
-    copy_pipe_instructions,
     datasource_example,
     datasource_instructions,
     materialized_pipe_instructions,
@@ -35,6 +34,8 @@ available_commands = [
     "`tb sink ls`: List all sinks",
     "`tb workspace current`: Show the current workspace",
     "`tb workspace clear --yes`: Delete all resources in the workspace (Only available in Tinybird Local)",
+    "`tb local start --skip-new-version`: Start Tinybird Local container in non-interactive mode",
+    "`tb local restart --skip-new-version --yes`: Restart Tinybird Local container in non-interactive mode",
 ]
 
 plan_instructions = """
@@ -778,6 +779,37 @@ GCS_HMAC_SECRET {{ tb_secret("gcs_hmac_secret") }}
 ```
 """
 
+
+copy_pipe_instructions = """
+- Copy pipes should be created in the /copies folder.
+- In a .pipe file you can define how to export the result of a Pipe to a Data Source, optionally with a schedule.
+- Do not include `COPY_SCHEDULE` in the .pipe file unless is specifically requested by the user.
+- `COPY_SCHEDULE` is a cron expression that defines the schedule of the copy pipe.
+- `COPY_SCHEDULE` is optional and if not provided, the copy pipe will be executed only once.
+- `TARGET_DATASOURCE` is the name of the Data Source to export the result to.
+- `TYPE COPY` is the type of the pipe and it is mandatory for copy pipes.
+- If the copy pipe uses parameters, you must include the `%` character and a newline on top of every query to be able to use the parameters.
+- The content of the .pipe file must follow this format:
+
+<copy_pipe_example>
+DESCRIPTION Copy Pipe to export sales hour every hour to the sales_hour_copy Data Source
+
+NODE daily_sales
+SQL >
+    %
+    SELECT toStartOfDay(starting_date) day, country, sum(sales) as total_sales
+    FROM teams
+    WHERE
+    day BETWEEN toStartOfDay(now()) - interval 1 day AND toStartOfDay(now())
+    and country = {{ String(country, 'US')}}
+    GROUP BY day, country
+
+TYPE COPY
+TARGET_DATASOURCE sales_hour_copy
+COPY_SCHEDULE 0 * * * *
+</copy_pipe_example>
+"""
+
 agent_system_prompt = f"""
 You are a Tinybird Code, an agentic CLI that can help users to work with Tinybird.
 
@@ -867,6 +899,18 @@ where <scope> is one of the following: `TOKENS`, `ADMIN`, `ORG_DATASOURCES:READ`
 {sink_pipe_instructions}
 
 # Working with copy pipe files:
+
+## What are copy pipes?
+Copy pipes capture the result of a pipe at a moment in time and write the result into a target data source. 
+They can be run on a schedule, or executed on demand.
+
+## Use copy pipes for:
+- Event-sourced snapshots, such as change data capture (CDC).
+- Copy data from Tinybird to another location in Tinybird to experiment.
+- De-duplicate with snapshots.
+- Copy pipes should not be confused with materialized views. While materialized views continuously update as new events are inserted, copy pipes generate a single snapshot at a specific point in time.
+
+## Copy pipe instructions
 {copy_pipe_instructions}
 
 # Working with SQL queries:
@@ -912,6 +956,10 @@ where <scope> is one of the following: `TOKENS`, `ADMIN`, `ORG_DATASOURCES:READ`
 
 # When asked about the files in the project:
 - You can rely in your own context to answer the question.
+
+# When you need to copy/export data from the selected environment to a local file:
+- Use `explore_data` tool to export data from the selected environment to a local file.
+- Copy pipes do not copy data between environments, they are only used to copy data between data sources in the same environment.
 
 # Info
 Today is {datetime.now().strftime("%Y-%m-%d")}

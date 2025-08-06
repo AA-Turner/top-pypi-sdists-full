@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edge-tts
-Version: 7.0.2
+Version: 7.2.0
 Summary: Microsoft Edge's TTS
 Home-page: https://github.com/rany2/edge-tts
 Author: rany
@@ -14,7 +14,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp<4.0.0,>=3.8.0
 Requires-Dist: certifi>=2023.11.17
-Requires-Dist: srt<4.0.0,>=3.4.1
 Requires-Dist: tabulate<1.0.0,>=0.4.4
 Requires-Dist: typing-extensions<5.0.0,>=4.1.0
 Provides-Extra: dev

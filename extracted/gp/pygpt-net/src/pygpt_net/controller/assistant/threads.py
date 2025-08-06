@@ -62,6 +62,8 @@ class Threads(QObject):
         ctx.from_previous()  # append previous result if exists
         self.window.core.ctx.update_item(ctx)
         self.window.controller.chat.output.handle(ctx, 'assistant', stream)
+        if ctx.meta and not ctx.meta.initialized:
+            self.window.controller.ctx.summarizer.summarize(ctx.meta.id, ctx)
         if stream:
             return  # handled in: self.handle_output_message_after_stream() after stream:handleEvent
 
@@ -611,10 +613,11 @@ class RunSignals(QObject):
     started = Signal()
 
 
-class RunWorker(QRunnable):
+class RunWorker(QObject, QRunnable):
     """Status check async worker"""
     def __init__(self, *args, **kwargs):
-        super(RunWorker, self).__init__()
+        QObject.__init__(self)
+        QRunnable.__init__(self)
         self.signals = RunSignals()
         self.args = args
         self.kwargs = kwargs
@@ -663,3 +666,10 @@ class RunWorker(QRunnable):
             self.window.core.debug.log(e)
             if self.signals.destroyed is not None:
                 self.signals.destroyed.emit()
+        finally:
+            self.args = None
+            self.kwargs = None
+            self.window = None
+            self.ctx = None
+            self.signals = None
+            self.deleteLater()

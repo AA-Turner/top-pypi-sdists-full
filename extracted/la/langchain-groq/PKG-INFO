@@ -1,14 +1,14 @@
 Metadata-Version: 2.1
 Name: langchain-groq
-Version: 0.3.6
+Version: 0.3.7
 Summary: An integration package connecting Groq and LangChain
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain/tree/master/libs/partners/groq
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain-groq%3D%3D0%22&expanded=true
 Project-URL: repository, https://github.com/langchain-ai/langchain
 Requires-Python: >=3.9
-Requires-Dist: langchain-core<1.0.0,>=0.3.68
-Requires-Dist: groq<1,>=0.29.0
+Requires-Dist: langchain-core<1.0.0,>=0.3.72
+Requires-Dist: groq<1,>=0.30.0
 Description-Content-Type: text/markdown
 
 # langchain-groq
@@ -25,8 +25,8 @@ Beyond the architecture, our software is designed to empower developers like you
 
 Want more Groq? Check out our [website](https://groq.com) for more resources and join our [Discord community](https://discord.gg/JvNsBDKeCG) to connect with our developers!
 
-
 ## Installation and Setup
+
 Install the integration package:
 
 ```bash
@@ -40,6 +40,7 @@ export GROQ_API_KEY=gsk_...
 ```
 
 ## Chat Model
+
 See a [usage example](https://python.langchain.com/docs/integrations/chat/groq).
 
 ## Development

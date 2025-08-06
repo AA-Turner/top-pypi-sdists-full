@@ -5,7 +5,6 @@ from requests_oauthlib import OAuth2Session
 from http import HTTPStatus
 from dotenv import load_dotenv
 import grpc
-import threading
 from va.store.orby.http.server import OAuthCallbackServer
 from va.utils.auth import Credential, save_credential, get_credential
 import os
@@ -23,7 +22,6 @@ class OrbyClient:
     """Singleton OAuth client for Orby API calls with automatic token management"""
 
     _instance = None
-    _lock = threading.Lock()
 
     def __init__(self):
         if OrbyClient._instance is not None:
@@ -42,13 +40,11 @@ class OrbyClient:
 
     @classmethod
     def get_instance(cls) -> "OrbyClient":
-        """thread-safe method to get the singleton instance of OrbyClient"""
+        """Get the singleton instance of OrbyClient"""
         if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    instance = cls.__new__(cls)
-                    instance.__init__()
-                    cls._instance = instance
+            instance = cls.__new__(cls)
+            instance.__init__()
+            cls._instance = instance
         return cls._instance
 
     def _setup_grpc_channel(self):
@@ -59,7 +55,7 @@ class OrbyClient:
             hostname = server_address.split("/")[0].split(":")[0]
             grpc_address = f"{hostname}:443"
 
-            logger.debug(f"Setting up gRPC channel: {grpc_address}")
+            logger.info(f"Setting up gRPC channel: {grpc_address}")
 
             # Create secure gRPC channel since it's HTTPS
             credentials = grpc.ssl_channel_credentials()
@@ -89,18 +85,13 @@ class OrbyClient:
 
         return metadata
 
-    def call_grpc_channel(
-        self, stub_method, request, metadata: list[tuple[str, str]] | None = None
-    ):
+    def call_grpc_channel(self, stub_method, request):
         """Helper to call any gRPC method with authentication"""
         if not self._grpc_channel:
             raise RuntimeError("gRPC channel not available")
-        # Start with authentication metadata
-        all_metadata = self._get_grpc_metadata()
-        # Add any additional metadata
-        if metadata:
-            all_metadata.extend(metadata)
-        return stub_method(request, metadata=all_metadata)
+
+        metadata = self._get_grpc_metadata()
+        return stub_method(request, metadata=metadata)
 
     def _load_credential(self):
         """Load credential from file"""

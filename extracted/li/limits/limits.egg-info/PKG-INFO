@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: limits
-Version: 5.4.0
+Version: 5.5.0
 Summary: Rate limiting utilities
 Home-page: https://limits.readthedocs.org
 Author: Ali-Akber Saifee
@@ -22,10 +22,10 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 License-File: LICENSE.txt
 Requires-Dist: deprecated>=1.2
-Requires-Dist: packaging<26,>=21
+Requires-Dist: packaging>=21
 Requires-Dist: typing_extensions
 Provides-Extra: redis
-Requires-Dist: redis!=4.5.2,!=4.5.3,<6.0.0,>3; extra == "redis"
+Requires-Dist: redis!=4.5.2,!=4.5.3,<7.0.0,>3; extra == "redis"
 Provides-Extra: rediscluster
 Requires-Dist: redis!=4.5.2,!=4.5.3,>=4.2.0; extra == "rediscluster"
 Provides-Extra: memcached
@@ -35,7 +35,7 @@ Requires-Dist: pymongo<5,>4.1; extra == "mongodb"
 Provides-Extra: valkey
 Requires-Dist: valkey>=6; extra == "valkey"
 Provides-Extra: async-redis
-Requires-Dist: coredis<5,>=3.4.0; extra == "async-redis"
+Requires-Dist: coredis<6,>=3.4.0; extra == "async-redis"
 Provides-Extra: async-memcached
 Requires-Dist: memcachio>=0.3; extra == "async-memcached"
 Provides-Extra: async-mongodb
@@ -43,12 +43,12 @@ Requires-Dist: motor<4,>=3; extra == "async-mongodb"
 Provides-Extra: async-valkey
 Requires-Dist: valkey>=6; extra == "async-valkey"
 Provides-Extra: all
-Requires-Dist: redis!=4.5.2,!=4.5.3,<6.0.0,>3; extra == "all"
+Requires-Dist: redis!=4.5.2,!=4.5.3,<7.0.0,>3; extra == "all"
 Requires-Dist: redis!=4.5.2,!=4.5.3,>=4.2.0; extra == "all"
 Requires-Dist: pymemcache<5.0.0,>3; extra == "all"
 Requires-Dist: pymongo<5,>4.1; extra == "all"
 Requires-Dist: valkey>=6; extra == "all"
-Requires-Dist: coredis<5,>=3.4.0; extra == "all"
+Requires-Dist: coredis<6,>=3.4.0; extra == "all"
 Requires-Dist: memcachio>=0.3; extra == "all"
 Requires-Dist: motor<4,>=3; extra == "all"
 Requires-Dist: valkey>=6; extra == "all"

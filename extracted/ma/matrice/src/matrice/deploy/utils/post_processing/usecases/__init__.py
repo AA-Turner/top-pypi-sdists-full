@@ -62,12 +62,18 @@ from .flower_segmentation import FlowerUseCase, FlowerConfig
 from .parking import ParkingConfig, ParkingUseCase
 from .leaf import LeafConfig, LeafUseCase
 from .smoker_detection import SmokerDetectionConfig, SmokerDetectionUseCase
+from .road_traffic_density import RoadTrafficConfig, RoadTrafficUseCase
+from .road_view_segmentation import RoadViewSegmentationConfig, RoadViewSegmentationUseCase
+from .face_recognition import FaceRecognitionConfig, FaceRecognitionUseCase
+from .drowsy_driver_detection import DrowsyDriverUseCase, DrowsyDriverUseCase
+from .waterbody_segmentation import WaterBodyConfig, WaterBodyUseCase
 
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
 from .skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
 from .plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
 from .cardiomegaly_classification import CardiomegalyConfig, CardiomegalyUseCase
+from .Histopathological_Cancer_Detection_img import HistopathologicalCancerDetectionConfig,HistopathologicalCancerDetectionUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -120,12 +126,18 @@ __all__ = [
     'WindmillMaintenanceUseCase',
     'FlowerUseCase',
     'SmokerDetectionUseCase',
+    'RoadTrafficUseCase',
+    'RoadViewSegmentationUseCase',
+    'FaceRecognitionUseCase',
+    'DrowsyDriverUseCase',
+    'WaterBodyUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
     'SkinCancerClassificationUseCase',
     'PlaqueSegmentationUseCase',
     'CardiomegalyUseCase',
+    'HistopathologicalCancerDetectionUseCase',
 
 
 
@@ -178,7 +190,11 @@ __all__ = [
     'WindmillMaintenanceConfig',
     'FlowerConfig',
     'SmokerDetectionConfig',
-
+    'RoadTrafficConfig',
+    'RoadViewSegmentationConfig',
+    'FaceRecognitionConfig',
+    'DrowsyDriverUseCase',
+    'WaterBodyConfig',
 
 
 
@@ -187,6 +203,7 @@ __all__ = [
     'SkinCancerClassificationConfig',
     'PlaqueSegmentationConfig',
     'CardiomegalyConfig',
+    'HistopathologicalCancerDetectionConfig',
 
 
 ]

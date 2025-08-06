@@ -257,19 +257,31 @@ def open_url(url: str, *, new_tab: bool = False) -> bool:
 
     # 2. Inside WSL, prefer `wslview` if the user has it (wslu package).
     if _running_in_wsl() and shutil.which("wslview"):
-        subprocess.Popen(["wslview", url])
-        return True
+        try:
+            subprocess.Popen(["wslview", url])
+            return True
+        except Exception:
+            # wslview not found, continue to next fallback
+            pass
 
     # 3. Secondary WSL fallback use Windows **start** through cmd.exe.
     #    Empty "" argument is required so long URLs are not treated as a window title.
     if _running_in_wsl():
-        subprocess.Popen(["cmd.exe", "/c", "start", "", url])
-        return True
+        try:
+            subprocess.Popen(["cmd.exe", "/c", "start", "", url])
+            return True
+        except Exception:
+            # cmd.exe not found, continue to next fallback
+            pass
 
     # 4. Unix last-ditch fallback xdg-open (most minimal container images have it)
     if shutil.which("xdg-open"):
-        subprocess.Popen(["xdg-open", url])
-        return True
+        try:
+            subprocess.Popen(["xdg-open", url])
+            return True
+        except Exception:
+            # xdg-open not found, continue to next fallback
+            pass
 
     # 5. If everything failed, let the caller know.
     return False

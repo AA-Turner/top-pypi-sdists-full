@@ -5,9 +5,11 @@ from typing import (
     Dict,
     List,
     Mapping,
+    Union,
     Optional,
     Sequence,
     Tuple,
+    Literal,
 )
 from aleph_alpha_client.prompt import Prompt
 
@@ -415,9 +417,11 @@ class EmbeddingV2Request:
 
     Parameters:
         input
-            The text to be embedded.
+            The input to be embedded. Can be a string, list of strings, list of integers (i.e.
+            tokens) or a list of lists of integers (i.e. multiple token strings).
         dimensions
-            The number of dimensions the resulting output embeddings should have.
+            The number of dimensions the resulting output embeddings should have. Note, not all
+            models support this parameter.
 
     Examples
         >>> request = EmbeddingV2Request(
@@ -427,14 +431,17 @@ class EmbeddingV2Request:
             result = model.embeddings(request)
     """
 
-    input: str
-    dimensions: int
+    input: Union[str, List[str], List[int], List[List[int]]]
+    dimensions: Optional[int] = None
+    encoding_format: Optional[Literal["float", "base64"]] = None
 
     def to_json(self) -> Mapping[str, Any]:
-        return {
-            "dimensions": self.dimensions,
-            "input": self.input,
-        }
+        body: Dict[str, Any] = {"input": self.input}
+        if self.dimensions is not None:
+            body["dimensions"] = self.dimensions
+        if self.encoding_format is not None:
+            body["encoding_format"] = self.encoding_format
+        return body
 
 
 @dataclass(frozen=True)
@@ -455,7 +462,7 @@ class Usage:
 
 
 @dataclass(frozen=True)
-class EmbeddingV2ReponseData:
+class EmbeddingV2ResponseData:
     """
     Data structure for the embedding response in OpenAI compatible format.
     """
@@ -465,8 +472,8 @@ class EmbeddingV2ReponseData:
     index: int
 
     @staticmethod
-    def from_json(json: Dict[str, Any]) -> "EmbeddingV2ReponseData":
-        return EmbeddingV2ReponseData(
+    def from_json(json: Dict[str, Any]) -> "EmbeddingV2ResponseData":
+        return EmbeddingV2ResponseData(
             object=json["object"],
             embedding=json["embedding"],
             index=json["index"],
@@ -490,7 +497,7 @@ class EmbeddingV2Response:
     """
 
     object: str
-    data: List[EmbeddingV2ReponseData]
+    data: List[EmbeddingV2ResponseData]
     model: str
     usage: Usage
 
@@ -498,7 +505,7 @@ class EmbeddingV2Response:
     def from_json(json: Dict[str, Any]) -> "EmbeddingV2Response":
         return EmbeddingV2Response(
             object=json["object"],
-            data=[EmbeddingV2ReponseData.from_json(item) for item in json["data"]],
+            data=[EmbeddingV2ResponseData.from_json(item) for item in json["data"]],
             model=json["model"],
             usage=Usage.from_json(json["usage"]),
         )

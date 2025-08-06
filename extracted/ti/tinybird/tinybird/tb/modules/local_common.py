@@ -220,29 +220,32 @@ def start_tinybird_local(
     docker_client: DockerClient,
     use_aws_creds: bool,
     volumes_path: Optional[str] = None,
+    skip_new_version: bool = False,
 ) -> None:
     """Start the Tinybird container."""
     pull_show_prompt = False
     pull_required = False
-    try:
-        local_image = docker_client.images.get(TB_IMAGE_NAME)
-        local_image_id = local_image.attrs["RepoDigests"][0].split("@")[1]
-        remote_image = docker_client.images.get_registry_data(TB_IMAGE_NAME)
-        pull_show_prompt = local_image_id != remote_image.id
-    except Exception:
-        pull_show_prompt = False
-        pull_required = True
 
-    if pull_show_prompt and click.confirm(
-        FeedbackManager.warning(message="△ New version detected, download? [y/N]:"),
-        show_default=False,
-        prompt_suffix="",
-    ):
-        click.echo(FeedbackManager.info(message="* Downloading latest version of Tinybird Local..."))
-        pull_required = True
+    if not skip_new_version:
+        try:
+            local_image = docker_client.images.get(TB_IMAGE_NAME)
+            local_image_id = local_image.attrs["RepoDigests"][0].split("@")[1]
+            remote_image = docker_client.images.get_registry_data(TB_IMAGE_NAME)
+            pull_show_prompt = local_image_id != remote_image.id
+        except Exception:
+            pull_show_prompt = False
+            pull_required = True
 
-    if pull_required:
-        docker_client.images.pull(TB_IMAGE_NAME, platform="linux/amd64")
+        if pull_show_prompt and click.confirm(
+            FeedbackManager.warning(message="△ New version detected, download? [y/N]:"),
+            show_default=False,
+            prompt_suffix="",
+        ):
+            click.echo(FeedbackManager.info(message="* Downloading latest version of Tinybird Local..."))
+            pull_required = True
+
+        if pull_required:
+            docker_client.images.pull(TB_IMAGE_NAME, platform="linux/amd64")
 
     environment = get_use_aws_creds() if use_aws_creds else {}
 

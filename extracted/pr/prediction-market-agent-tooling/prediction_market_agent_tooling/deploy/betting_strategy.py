@@ -443,8 +443,11 @@ class KellyBettingStrategy(BettingStrategy):
             kelly_bet_size = min(kelly_bet.size, max_price_impact_bet_amount)
 
         bet_outcome = direction if kelly_bet.direction else other_direction
+
         amounts = {
-            bet_outcome: market.get_token_in_usd(kelly_bet_size),
+            bet_outcome: BettingStrategy.cap_to_profitable_bet_amount(
+                market, market.get_token_in_usd(kelly_bet_size), bet_outcome
+            ),
         }
         target_position = Position(market_id=market.id, amounts_current=amounts)
         trades = self._build_rebalance_trades_from_positions(
@@ -475,12 +478,12 @@ class KellyBettingStrategy(BettingStrategy):
         self, market: AgentMarket, kelly_bet: SimpleBet, direction: OutcomeStr
     ) -> CollateralToken:
         def calculate_price_impact_deviation_from_target_price_impact(
-            bet_amount_usd: float,  # Needs to be float because it's used in minimize_scalar internally.
+            bet_amount_collateral: float,  # Needs to be float because it's used in minimize_scalar internally.
         ) -> float:
             outcome_idx = market.get_outcome_index(direction)
             price_impact = self.calculate_price_impact_for_bet_amount(
                 outcome_idx=outcome_idx,
-                bet_amount=market.get_usd_in_token(USD(bet_amount_usd)),
+                bet_amount=CollateralToken(bet_amount_collateral),
                 pool_balances=pool_balances,
                 fees=market.fees,
             )
@@ -504,7 +507,7 @@ class KellyBettingStrategy(BettingStrategy):
             calculate_price_impact_deviation_from_target_price_impact,
             bounds=(0, 1000 * total_pool_balance),
             method="bounded",
-            tol=1e-11,
+            tol=1e-13,
             options={"maxiter": 10000},
         )
         return CollateralToken(optimized_bet_amount.x)

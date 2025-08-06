@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.01 19:00:00                  #
+# Updated Date: 2025.08.05 00:00:00                  #
 # ================================================== #
 
 import asyncio
@@ -216,8 +216,7 @@ class Kernel(QObject):
             return
 
         if event.name == KernelEvent.REQUEST:
-            asyncio.create_task(self.window.core.bridge.request(context, extra))
-            return True
+            return self.window.core.bridge.request(context, extra)
         elif event.name == KernelEvent.REQUEST_NEXT:
             return self.window.core.bridge.request_next(context, extra)
         elif event.name in [
@@ -368,6 +367,7 @@ class Kernel(QObject):
 
         :param event: event
         """
+        return
         # last 30 events
         if len(self.last_stack) > 10:
             self.last_stack.pop(0)

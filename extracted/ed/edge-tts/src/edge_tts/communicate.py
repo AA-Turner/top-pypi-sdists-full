@@ -16,6 +16,7 @@ from typing import (
     Dict,
     Generator,
     List,
+    Literal,
     Optional,
     Tuple,
     Union,
@@ -308,31 +309,12 @@ def ssml_headers_plus_data(request_id: str, timestamp: str, ssml: str) -> str:
     )
 
 
-def calc_max_mesg_size(tts_config: TTSConfig) -> int:
-    """Calculates the maximum message size for the given voice, rate, and volume.
-
-    Returns:
-        int: The maximum message size.
-    """
-    websocket_max_size: int = 2**16
-    overhead_per_message: int = (
-        len(
-            ssml_headers_plus_data(
-                connect_id(),
-                date_to_string(),
-                mkssml(tts_config, ""),
-            )
-        )
-        + 50  # margin of error
-    )
-    return websocket_max_size - overhead_per_message
-
-
 class Communicate:
     """
     Communicate with the service.
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         text: str,
@@ -341,13 +323,14 @@ class Communicate:
         rate: str = "+0%",
         volume: str = "+0%",
         pitch: str = "+0Hz",
+        boundary: Literal["WordBoundary", "SentenceBoundary"] = "SentenceBoundary",
         connector: Optional[aiohttp.BaseConnector] = None,
         proxy: Optional[str] = None,
         connect_timeout: Optional[int] = 10,
         receive_timeout: Optional[int] = 60,
     ):
         # Validate TTS settings and store the TTSConfig object.
-        self.tts_config = TTSConfig(voice, rate, volume, pitch)
+        self.tts_config = TTSConfig(voice, rate, volume, pitch, boundary)
 
         # Validate the text parameter.
         if not isinstance(text, str):
@@ -356,7 +339,7 @@ class Communicate:
         # Split the text into multiple strings and store them.
         self.texts = split_text_by_byte_length(
             escape(remove_incompatible_characters(text)),
-            calc_max_mesg_size(self.tts_config),
+            4096,
         )
 
         # Validate the proxy parameter.
@@ -392,7 +375,7 @@ class Communicate:
     def __parse_metadata(self, data: bytes) -> TTSChunk:
         for meta_obj in json.loads(data)["Metadata"]:
             meta_type = meta_obj["Type"]
-            if meta_type == "WordBoundary":
+            if meta_type in ("WordBoundary", "SentenceBoundary"):
                 current_offset = (
                     meta_obj["Data"]["Offset"] + self.state["offset_compensation"]
                 )
@@ -411,12 +394,16 @@ class Communicate:
     async def __stream(self) -> AsyncGenerator[TTSChunk, None]:
         async def send_command_request() -> None:
             """Sends the command request to the service."""
+            word_boundary = self.tts_config.boundary == "WordBoundary"
+            wd = "true" if word_boundary else "false"
+            sq = "true" if not word_boundary else "false"
             await websocket.send_str(
                 f"X-Timestamp:{date_to_string()}\r\n"
                 "Content-Type:application/json; charset=utf-8\r\n"
                 "Path:speech.config\r\n\r\n"
                 '{"context":{"synthesis":{"audio":{"metadataoptions":{'
-                '"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},'
+                f'"sentenceBoundaryEnabled":"{sq}","wordBoundaryEnabled":"{wd}"'
+                "},"
                 '"outputFormat":"audio-24khz-48kbitrate-mono-mp3"'
                 "}}}}\r\n"
             )
@@ -603,9 +590,9 @@ class Communicate:
             async for message in self.stream():
                 if message["type"] == "audio":
                     audio.write(message["data"])
-                elif (
-                    isinstance(metadata, TextIOWrapper)
-                    and message["type"] == "WordBoundary"
+                elif isinstance(metadata, TextIOWrapper) and message["type"] in (
+                    "WordBoundary",
+                    "SentenceBoundary",
                 ):
                     json.dump(message, metadata)
                     metadata.write("\n")

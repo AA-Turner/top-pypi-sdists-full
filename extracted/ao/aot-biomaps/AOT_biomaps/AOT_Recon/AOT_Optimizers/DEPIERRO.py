@@ -33,7 +33,7 @@ def _DEPIERRO_GPU(SMatrix, y, Omega, numIterations, beta, sigma, isSavingEachIte
         normalization_factor_flat = normalization_factor.reshape(-1)
         adj_index, adj_values = _build_adjacency_sparse_GPU(Z, X, device=device)
 
-        description = f"AOT-BioMaps -- Bayesian Reconstruction Tomography: DE PIERRO (Sparse QUADRATIC σ:{sigma:.4f}) ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
+        description = f"AOT-BioMaps -- Bayesian Reconstruction Tomography: DE PIERRO (Sparse QUADRATIC β:{beta:.4f}, σ:{sigma:.4f}) ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- processing on single GPU no.{torch.cuda.current_device()} ----"
 
 
         for p in trange(numIterations, desc=description):
@@ -96,7 +96,7 @@ def _DEPIERRO_CPU(SMatrix, y, Omega, numIterations, beta, sigma, isSavingEachIte
         normalization_factor_flat = normalization_factor.reshape(-1)
         adj_index, adj_values = _build_adjacency_sparse_CPU(Z, X)
 
-        description = f"AOT-BioMaps -- Bayesian Reconstruction Tomography: DE PIERRO (Sparse QUADRATIC σ:{sigma:.4f}) ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- processing on single CPU ----"
+        description = f"AOT-BioMaps -- Bayesian Reconstruction Tomography: DE PIERRO (Sparse QUADRATIC β:{beta:.4f}, σ:{sigma:.4f}) ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- processing on single CPU ----"
 
 
         for p in trange(numIterations, desc=description):

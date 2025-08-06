@@ -119,7 +119,13 @@ def remove() -> None:
     default=None,
     help="Path to the volumes directory. If not provided, the container data won't be persisted.",
 )
-def start(use_aws_creds: bool, volumes_path: str) -> None:
+@click.option(
+    "--skip-new-version",
+    default=False,
+    is_flag=True,
+    help="Skip pulling the latest Tinybird Local image. Use directly your current local image.",
+)
+def start(use_aws_creds: bool, volumes_path: str, skip_new_version: bool) -> None:
     """Start Tinybird Local"""
     if volumes_path is not None:
         absolute_path = Path(volumes_path).absolute()
@@ -128,7 +134,7 @@ def start(use_aws_creds: bool, volumes_path: str) -> None:
 
     click.echo(FeedbackManager.highlight(message="» Starting Tinybird Local..."))
     docker_client = get_docker_client()
-    start_tinybird_local(docker_client, use_aws_creds, volumes_path)
+    start_tinybird_local(docker_client, use_aws_creds, volumes_path, skip_new_version)
     click.echo(FeedbackManager.success(message="✓ Tinybird Local is ready!"))
 
 
@@ -144,7 +150,19 @@ def start(use_aws_creds: bool, volumes_path: str) -> None:
     default=None,
     help="Path to the volumes directory. If not provided, the container data won't be persisted.",
 )
-def restart(use_aws_creds: bool, volumes_path: str) -> None:
+@click.option(
+    "--skip-new-version",
+    default=False,
+    is_flag=True,
+    help="Skip pulling the latest Tinybird Local image. Use directly your current local image.",
+)
+@click.option(
+    "--yes",
+    default=False,
+    is_flag=True,
+    help="Skip the confirmation prompt. If provided, the container will be restarted without asking for confirmation.",
+)
+def restart(use_aws_creds: bool, volumes_path: str, skip_new_version: bool, yes: bool) -> None:
     """Restart Tinybird Local"""
     if volumes_path is not None:
         absolute_path = Path(volumes_path).absolute()
@@ -153,9 +171,10 @@ def restart(use_aws_creds: bool, volumes_path: str) -> None:
 
     click.echo(FeedbackManager.highlight(message="» Restarting Tinybird Local..."))
     docker_client = get_docker_client()
-    remove_tinybird_local(docker_client, volumes_path is not None)
+    persist_data = volumes_path is not None or yes
+    remove_tinybird_local(docker_client, persist_data)
     click.echo(FeedbackManager.info(message="✓ Tinybird Local stopped"))
-    start_tinybird_local(docker_client, use_aws_creds, volumes_path)
+    start_tinybird_local(docker_client, use_aws_creds, volumes_path, skip_new_version)
     click.echo(FeedbackManager.success(message="✓ Tinybird Local is ready!"))
 
 

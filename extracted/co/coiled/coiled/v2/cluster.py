@@ -548,6 +548,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         batch_job_container: str | None = None,
         pause_on_exit: bool | None = None,
     ):
+        self.pause_on_exit = pause_on_exit
         self.init_time = datetime.datetime.now(tz=datetime.timezone.utc)
         type(self)._instances.add(self)
 
@@ -1591,6 +1592,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     extra_user_container=self.extra_user_container,
                     extra_user_container_ignore_entrypoint=self.extra_user_container_ignore_entrypoint,
                     host_setup_script_content=self.host_setup_script_content,
+                    pause_on_exit=self.pause_on_exit,
                 )
                 cluster_created = not cluster_existed
 

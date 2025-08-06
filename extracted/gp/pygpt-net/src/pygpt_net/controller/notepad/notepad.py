@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.07.13 19:00:00                  #
+# Updated Date: 2025.08.05 21:00:00                  #
 # ================================================== #
 
 from typing import Optional, Tuple
@@ -96,8 +96,26 @@ class Notepad:
         if tab:
             if not tab.title:
                 tab.title = title
-        children = self.window.core.tabs.from_widget(self.window.ui.notepad[data_id])
-        return children, idx, data_id
+        child = self.window.core.tabs.from_widget(self.window.ui.notepad[data_id])
+        child.on_delete = self.on_delete  # cleanup callback
+        return child, idx, data_id
+
+    def on_delete(self, body: TabBody):
+        """
+        On delete notepad tab
+
+        :param body: TabBody instance
+        """
+        tab = body.owner
+        if not tab.owner:
+            return
+        if tab.type != Tab.TAB_NOTEPAD:
+            return
+        idx = tab.data_id
+        if idx in self.window.ui.notepad:
+            self.window.ui.notepad[idx].on_delete()
+            del self.window.ui.notepad[idx]
+        self.update()
 
     def load(self):
         """Load all notepads contents"""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: reductoai
-Version: 0.9.0
+Version: 0.10.0
 Summary: The official Python library for the reducto API
 Project-URL: Homepage, https://github.com/reductoai/reducto-python-sdk
 Project-URL: Repository, https://github.com/reductoai/reducto-python-sdk
@@ -251,7 +251,7 @@ client.with_options(max_retries=5).parse.run(
 
 ### Timeouts
 
-By default requests time out after 15 minutes. You can configure this with a `timeout` option,
+By default requests time out after 487 days. You can configure this with a `timeout` option,
 which accepts a float or an [`httpx.Timeout`](https://www.python-httpx.org/advanced/timeouts/#fine-tuning-the-configuration) object:
 
 ```python
@@ -259,7 +259,7 @@ from reducto import Reducto
 
 # Configure the default for all requests:
 client = Reducto(
-    # 20 seconds (default is 15 minutes)
+    # 20 seconds (default is 487 days)
     timeout=20.0,
 )
 

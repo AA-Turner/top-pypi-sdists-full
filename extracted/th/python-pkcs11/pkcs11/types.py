@@ -5,22 +5,15 @@ This module provides stubs that are overrideen in pkcs11._pkcs11.
 """
 
 from binascii import hexlify
-from threading import RLock
+from functools import cached_property
 
-try:
-    from functools import cached_property
-except ImportError:
-    from cached_property import cached_property
-
-from .constants import (
+from pkcs11 import CancelStrategy
+from pkcs11.constants import (
     Attribute,
     MechanismFlag,
     ObjectClass,
-    SlotFlag,
-    TokenFlag,
-    UserType,
 )
-from .exceptions import (
+from pkcs11.exceptions import (
     ArgumentsBad,
     AttributeTypeInvalid,
     MultipleObjectsReturned,
@@ -28,15 +21,33 @@ from .exceptions import (
     SignatureInvalid,
     SignatureLenRange,
 )
-from .mechanisms import KeyType, Mechanism
+from pkcs11.mechanisms import KeyType, Mechanism
 
 PROTECTED_AUTH = object()
 """Indicate the pin should be supplied via an external mechanism (e.g. pin pad)"""
 
 
+class IdentifiedBy:
+    __slots__ = ()
+
+    def _identity(self):
+        raise NotImplementedError()
+
+    def __eq__(self, other):
+        return isinstance(other, IdentifiedBy) and self._identity() == other._identity()
+
+    def __hash__(self):
+        return hash(self._identity())
+
+
 def _CK_UTF8CHAR_to_str(data):
-    """Convert CK_UTF8CHAR to string."""
-    return data.rstrip(b"\0").decode("utf-8").rstrip()
+    """
+    Convert CK_UTF8CHAR to string.
+
+    Substitutes invalid bytes with the replacement character to make usage more
+    robust with non-compliant tokens.
+    """
+    return data.rstrip(b"\0").decode("utf-8", errors="replace").rstrip()
 
 
 def _CK_VERSION_to_tuple(data):
@@ -85,7 +96,7 @@ class MechanismInfo:
         )
 
 
-class Slot:
+class Slot(IdentifiedBy):
     """
     A PKCS#11 device slot.
 
@@ -94,31 +105,42 @@ class Slot:
     a physical or software :class:`Token` installed.
     """
 
-    def __init__(
-        self,
-        lib,
-        slot_id,
-        slotDescription=None,
-        manufacturerID=None,
-        hardwareVersion=None,
-        firmwareVersion=None,
-        flags=None,
-        **kwargs,
-    ):
-        self._lib = lib  # Hold a reference to the lib to prevent gc
+    __slots__ = ()
 
-        self.slot_id = slot_id
-        """Slot identifier (opaque)."""
-        self.slot_description = _CK_UTF8CHAR_to_str(slotDescription)
-        """Slot name (:class:`str`)."""
-        self.manufacturer_id = _CK_UTF8CHAR_to_str(manufacturerID)
-        """Slot/device manufacturer's name (:class:`str`)."""
-        self.hardware_version = _CK_VERSION_to_tuple(hardwareVersion)
-        """Hardware version (:class:`tuple`)."""
-        self.firmware_version = _CK_VERSION_to_tuple(firmwareVersion)
-        """Firmware version (:class:`tuple`)."""
-        self.flags = SlotFlag(flags)
+    @property
+    def flags(self):
         """Capabilities of this slot (:class:`SlotFlag`)."""
+        raise NotImplementedError()
+
+    @property
+    def hardware_version(self):
+        """Hardware version (:class:`tuple`)."""
+        raise NotImplementedError()
+
+    @property
+    def firmware_version(self):
+        """Firmware version (:class:`tuple`)."""
+        raise NotImplementedError()
+
+    @property
+    def cryptoki_version(self):
+        """PKCS#11 API version (:class: `tuple`)"""
+        raise NotImplementedError()
+
+    @property
+    def slot_id(self):
+        """Slot identifier (opaque)."""
+        raise NotImplementedError()
+
+    @property
+    def slot_description(self):
+        """Slot name (:class:`str`)."""
+        raise NotImplementedError()
+
+    @property
+    def manufacturer_id(self):
+        """Slot/device manufacturer's name (:class:`str`)."""
+        raise NotImplementedError()
 
     def get_token(self):
         """
@@ -145,27 +167,8 @@ class Slot:
         """
         raise NotImplementedError()
 
-    def __eq__(self, other):
-        return self.slot_id == other.slot_id
 
-    def __str__(self):
-        return "\n".join(
-            (
-                "Slot Description: %s" % self.slot_description,
-                "Manufacturer ID: %s" % self.manufacturer_id,
-                "Hardware Version: %s.%s" % self.hardware_version,
-                "Firmware Version: %s.%s" % self.firmware_version,
-                "Flags: %s" % self.flags,
-            )
-        )
-
-    def __repr__(self):
-        return "<{klass} (slotID={slot_id} flags={flags})>".format(
-            klass=type(self).__name__, slot_id=self.slot_id, flags=str(self.flags)
-        )
-
-
-class Token:
+class Token(IdentifiedBy):
     """
     A PKCS#11 token.
 
@@ -173,39 +176,57 @@ class Token:
     token, depending on your PKCS#11 library.
     """
 
-    def __init__(
-        self,
-        slot,
-        label=None,
-        serialNumber=None,
-        model=None,
-        manufacturerID=None,
-        hardwareVersion=None,
-        firmwareVersion=None,
-        flags=None,
-        **kwargs,
-    ):
-        self.slot = slot
-        """The :class:`Slot` this token is installed in."""
-        self.label = _CK_UTF8CHAR_to_str(label)
-        """Label of this token (:class:`str`)."""
-        self.serial = serialNumber.rstrip()
-        """Serial number of this token (:class:`bytes`)."""
-        self.manufacturer_id = _CK_UTF8CHAR_to_str(manufacturerID)
-        """Manufacturer ID."""
-        self.model = _CK_UTF8CHAR_to_str(model)
-        """Model name."""
-        self.hardware_version = _CK_VERSION_to_tuple(hardwareVersion)
+    __slots__ = ()
+
+    @property
+    def flags(self):
+        """Capabilities of this token (:class:`TokenFlag`)."""
+        raise NotImplementedError()
+
+    @property
+    def hardware_version(self):
         """Hardware version (:class:`tuple`)."""
-        self.firmware_version = _CK_VERSION_to_tuple(firmwareVersion)
+        raise NotImplementedError()
+
+    @property
+    def firmware_version(self):
         """Firmware version (:class:`tuple`)."""
-        self.flags = TokenFlag(flags)
-        """Capabilities of this token (:class:`pkcs11.flags.TokenFlag`)."""
+        raise NotImplementedError()
 
-    def __eq__(self, other):
-        return self.slot == other.slot
+    @property
+    def slot(self):
+        """The :class:`Slot` this token is installed in."""
+        raise NotImplementedError()
 
-    def open(self, rw=False, user_pin=None, so_pin=None, user_type=None):
+    @property
+    def label(self):
+        """Label of this token (:class:`str`)."""
+        raise NotImplementedError()
+
+    @property
+    def serial(self):
+        """Serial number of this token (:class:`bytes`)."""
+        raise NotImplementedError()
+
+    @property
+    def manufacturer_id(self):
+        """Manufacturer ID (:class:`str`)."""
+        raise NotImplementedError()
+
+    @property
+    def model(self):
+        """Model name (:class:`str`)."""
+        raise NotImplementedError()
+
+    def open(
+        self,
+        rw=False,
+        user_pin=None,
+        so_pin=None,
+        user_type=None,
+        attribute_mapper=None,
+        cancel_strategy=CancelStrategy.DEFAULT,
+    ):
         """
         Open a session on the token and optionally log in as a user or
         security officer (pass one of `user_pin` or `so_pin`). Pass PROTECTED_AUTH to
@@ -226,21 +247,17 @@ class Token:
         :param user_type: Sets the userType parameter to C_Login.
             Allows for vendor-defined values. Defaults to UserType.SO if
             so_pin is set, otherwise UserType.USER.
+        :param attribute_mapper:
+            Optionally pass in a custom :class:`pkcs11.attributes.AttributeMapper`.
+        :param cancel_strategy:
+            Cancellation strategy for interrupted cryptographic operations.
 
         :rtype: Session
         """
         raise NotImplementedError()
 
-    def __str__(self):
-        return self.label
 
-    def __repr__(self):
-        return "<{klass} (label='{label}' serial={serial} flags={flags})>".format(
-            klass=type(self).__name__, label=self.label, serial=self.serial, flags=str(self.flags)
-        )
-
-
-class Session:
+class Session(IdentifiedBy):
     """
     A PKCS#11 :class:`Token` session.
 
@@ -251,26 +268,7 @@ class Session:
     context manager or closed with :meth:`close`.
     """
 
-    def __init__(self, token, handle, rw=False, user_type=UserType.NOBODY):
-        self.token = token
-        """:class:`Token` this session is on."""
-
-        self._handle = handle
-        # Big operation lock prevents other threads from entering/reentering
-        # operations. If the same thread enters the lock, they will get a
-        # Cryptoki warning
-        self._operation_lock = RLock()
-
-        self.rw = rw
-        """True if this is a read/write session."""
-        self.user_type = user_type
-        """User type for this session (:class:`pkcs11.constants.UserType`)."""
-
-    def __eq__(self, other):
-        return self.token == other.token and self._handle == other._handle
-
-    def __hash__(self):
-        return hash(self._handle)
+    __slots__ = ()
 
     def __enter__(self):
         return self
@@ -278,8 +276,21 @@ class Session:
     def __exit__(self, type_, value, traceback):
         self.close()
 
+    @property
+    def token(self):
+        """:class:`Token` this session is on."""
+        raise NotImplementedError()
+
+    @property
+    def rw(self):
+        """True if this is a read/write session."""
+        raise NotImplementedError()
+
     def close(self):
         """Close the session."""
+        raise NotImplementedError()
+
+    def reaffirm_credentials(self, pin):
         raise NotImplementedError()
 
     def get_key(self, object_class=None, key_type=None, label=None, id=None):
@@ -318,22 +329,17 @@ class Session:
             attrs[Attribute.ID] = id
 
         iterator = self.get_objects(attrs)
+        try:
+            key = next(iterator)
+        except StopIteration as ex:
+            raise NoSuchKey("No key matching %s" % attrs) from ex
 
         try:
-            try:
-                key = next(iterator)
-            except StopIteration as ex:
-                raise NoSuchKey("No key matching %s" % attrs) from ex
-
-            try:
-                next(iterator)
-                raise MultipleObjectsReturned("More than 1 key matches %s" % attrs)
-            except StopIteration:
-                return key
-        finally:
-            # Force finalizing SearchIter rather than waiting for garbage
-            # collection, so that we release the operation lock.
-            iterator._finalize()
+            next(iterator)
+            raise MultipleObjectsReturned("More than 1 key matches %s" % attrs)
+        except StopIteration:
+            pass
+        return key
 
     def get_objects(self, attrs=None):
         """
@@ -436,7 +442,7 @@ class Session:
             but be aware they may be difficult to retrieve.
 
         :param KeyType key_type: Key type these parameters are for
-        :param int params_length: Size of the parameters (e.g. prime length)
+        :param int param_length: Size of the parameters (e.g. prime length)
             in bits.
         :param store: Store these parameters in the HSM
         :param Mechanism mechanism: Optional generation mechanism (or default)
@@ -521,6 +527,9 @@ class Session:
         else:
             return self._generate_keypair(key_type, key_length=key_length, **kwargs)
 
+    def _generate_keypair(self, key_type, key_length=None, **kwargs):
+        raise NotImplementedError()
+
     def seed_random(self, seed):
         """
         Mix additional seed material into the RNG (if supported).
@@ -567,8 +576,27 @@ class Session:
 
         return self._digest_generator(data, **kwargs)
 
+    def set_pin(self, old_pin, new_pin):
+        """Change the user pin."""
+        raise NotImplementedError()
 
-class Object:
+    def init_pin(self, pin):
+        """
+        Initializes the user PIN.
+
+        Differs from set_pin in that it sets the user PIN for the first time.
+        Once set, the pin can be changed using set_pin.
+        """
+        raise NotImplementedError()
+
+    def _digest(self, data, mechanism=None, mechanism_param=None):
+        raise NotImplementedError()
+
+    def _digest_generator(self, data, mechanism=None, mechanism_param=None):
+        raise NotImplementedError()
+
+
+class Object(IdentifiedBy):
     """
     A PKCS#11 object residing on a :class:`Token`.
 
@@ -583,16 +611,22 @@ class Object:
     object_class = None
     """:class:`pkcs11.constants.ObjectClass` of this Object."""
 
-    def __init__(self, session, handle):
-        self.session = session
-        """:class:`Session` this object is valid for."""
-        self._handle = handle
+    @property
+    def session(self):
+        raise NotImplementedError()
 
-    def __eq__(self, other):
-        return self.session == other.session and self._handle == other._handle
+    @property
+    def handle(self):
+        raise NotImplementedError()
 
-    def __hash__(self):
-        return hash((self.session, self._handle))
+    def __getitem__(self, key):
+        raise NotImplementedError()
+
+    def __setitem__(self, key, value):
+        raise NotImplementedError()
+
+    def get_attributes(self, keys):
+        raise NotImplementedError()
 
     def copy(self, attrs):
         """
@@ -637,25 +671,6 @@ class DomainParameters(Object):
     in DSA and Diffie-Hellman.
     """
 
-    def __init__(self, session, handle, params=None):
-        super().__init__(session, handle)
-        self.params = params
-
-    def __getitem__(self, key):
-        if self._handle is None:
-            try:
-                return self.params[key]
-            except KeyError as ex:
-                raise AttributeTypeInvalid from ex
-        else:
-            return super().__getitem__(key)
-
-    def __setitem__(self, key, value):
-        if self._handle is None:
-            self.params[key] = value
-        else:
-            super().__setitem__(key, value)
-
     @cached_property
     def key_type(self):
         """
@@ -694,8 +709,46 @@ class DomainParameters(Object):
         raise NotImplementedError()
 
 
-class Key(Object):
+class LocalDomainParameters(DomainParameters):
+    def __init__(self, session, params):
+        self._session = session
+        self.params = params
+
+    @property
+    def session(self):
+        return self._session
+
+    @property
+    def handle(self):
+        return None
+
+    def __getitem__(self, key):
+        try:
+            return self.params[key]
+        except KeyError as ex:
+            raise AttributeTypeInvalid from ex
+
+    def get_attributes(self, keys):
+        return {key: self.params[key] for key in keys if key in self.params}
+
+    def __setitem__(self, key, value):
+        self.params[key] = value
+
+
+class HasKeyType(Object):
+    @cached_property
+    def key_type(self):
+        """Key type (:class:`pkcs11.mechanisms.KeyType`)."""
+        return self[Attribute.KEY_TYPE]
+
+
+class Key(HasKeyType):
     """Base class for all key :class:`Object` types."""
+
+    @property
+    def key_length(self):
+        """Key length in bits."""
+        raise NotImplementedError
 
     @cached_property
     def id(self):
@@ -706,11 +759,6 @@ class Key(Object):
     def label(self):
         """Key label (:class:`str`)."""
         return self[Attribute.LABEL]
-
-    @cached_property
-    def key_type(self):
-        """Key type (:class:`pkcs11.mechanisms.KeyType`)."""
-        return self[Attribute.KEY_TYPE]
 
     @cached_property
     def _key_description(self):
@@ -808,7 +856,7 @@ class Certificate(Object):
         return self[Attribute.CERTIFICATE_TYPE]
 
 
-class EncryptMixin(Object):
+class EncryptMixin(HasKeyType):
     """
     This :class:`Object` supports the encrypt capability.
     """
@@ -893,7 +941,7 @@ class EncryptMixin(Object):
             return self._encrypt_generator(data, buffer_size=buffer_size, **kwargs)
 
 
-class DecryptMixin(Object):
+class DecryptMixin(HasKeyType):
     """
     This :class:`Object` supports the decrypt capability.
     """
@@ -925,7 +973,7 @@ class DecryptMixin(Object):
             return self._decrypt_generator(data, buffer_size=buffer_size, **kwargs)
 
 
-class SignMixin(Object):
+class SignMixin(HasKeyType):
     """
     This :class:`Object` supports the sign capability.
     """
@@ -962,7 +1010,7 @@ class SignMixin(Object):
             return self._sign_generator(data, **kwargs)
 
 
-class VerifyMixin(Object):
+class VerifyMixin(HasKeyType):
     """
     This :class:`Object` supports the verify capability.
     """
@@ -1006,7 +1054,7 @@ class VerifyMixin(Object):
             return False
 
 
-class WrapMixin(Object):
+class WrapMixin(HasKeyType):
     """
     This :class:`Object` supports the wrap capability.
     """
@@ -1027,7 +1075,7 @@ class WrapMixin(Object):
         raise NotImplementedError()
 
 
-class UnwrapMixin(Object):
+class UnwrapMixin(HasKeyType):
     """
     This :class:`Object` supports the unwrap capability.
     """
@@ -1066,7 +1114,7 @@ class UnwrapMixin(Object):
         raise NotImplementedError()
 
 
-class DeriveMixin(Object):
+class DeriveMixin(HasKeyType):
     """
     This :class:`Object` supports the derive capability.
     """

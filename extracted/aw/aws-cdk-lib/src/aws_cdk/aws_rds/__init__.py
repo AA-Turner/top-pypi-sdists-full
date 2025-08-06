@@ -3222,6 +3222,12 @@ class AuroraMysqlEngineVersion(
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_09_0"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_3_10_0")
+    def VER_3_10_0(cls) -> "AuroraMysqlEngineVersion":
+        '''Version "8.0.mysql_aurora.3.10.0".'''
+        return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_12")
     def VER_5_7_12(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "5.7.12".

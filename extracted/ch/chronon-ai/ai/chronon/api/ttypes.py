@@ -1916,11 +1916,14 @@ class Join(object):
     Including a column with key "*" and value "*", means that every raw column will be included along with the derived
     columns.
 
+     - modelTransforms: (CHIP-9) A list of model_trnsforms that will convert derivations (raw data) into model outputs for each
+    of the models in the list. The union of the model outputs will become the final output of the join.
+
 
     """
 
 
-    def __init__(self, metaData=None, left=None, joinParts=None, skewKeys=None, onlineExternalParts=None, labelPart=None, bootstrapParts=None, rowIds=None, derivations=None,):
+    def __init__(self, metaData=None, left=None, joinParts=None, skewKeys=None, onlineExternalParts=None, labelPart=None, bootstrapParts=None, rowIds=None, derivations=None, modelTransforms=None,):
         self.metaData = metaData
         self.left = left
         self.joinParts = joinParts
@@ -1930,6 +1933,7 @@ class Join(object):
         self.bootstrapParts = bootstrapParts
         self.rowIds = rowIds
         self.derivations = derivations
+        self.modelTransforms = modelTransforms
 
     def read(self, iprot):
         if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
@@ -2028,6 +2032,12 @@ class Join(object):
                     iprot.readListEnd()
                 else:
                     iprot.skip(ftype)
+            elif fid == 10:
+                if ftype == TType.STRUCT:
+                    self.modelTransforms = ModelTransforms()
+                    self.modelTransforms.read(iprot)
+                else:
+                    iprot.skip(ftype)
             else:
                 iprot.skip(ftype)
             iprot.readFieldEnd()
@@ -2095,6 +2105,10 @@ class Join(object):
             for iter192 in self.derivations:
                 iter192.write(oprot)
             oprot.writeListEnd()
+            oprot.writeFieldEnd()
+        if self.modelTransforms is not None:
+            oprot.writeFieldBegin('modelTransforms', TType.STRUCT, 10)
+            self.modelTransforms.write(oprot)
             oprot.writeFieldEnd()
         oprot.writeFieldStop()
         oprot.writeStructEnd()
@@ -2582,6 +2596,374 @@ class TDataType(object):
 
     def __ne__(self, other):
         return not (self == other)
+
+
+class InferenceSpec(object):
+    """
+    Attributes:
+     - modelBackend
+     - modelBackendParams
+
+    """
+
+
+    def __init__(self, modelBackend=None, modelBackendParams=None,):
+        self.modelBackend = modelBackend
+        self.modelBackendParams = modelBackendParams
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, [self.__class__, self.thrift_spec])
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.STRING:
+                    self.modelBackend = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.MAP:
+                    self.modelBackendParams = {}
+                    (_ktype215, _vtype216, _size214) = iprot.readMapBegin()
+                    for _i218 in range(_size214):
+                        _key219 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        _val220 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        self.modelBackendParams[_key219] = _val220
+                    iprot.readMapEnd()
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, [self.__class__, self.thrift_spec]))
+            return
+        oprot.writeStructBegin('InferenceSpec')
+        if self.modelBackend is not None:
+            oprot.writeFieldBegin('modelBackend', TType.STRING, 1)
+            oprot.writeString(self.modelBackend.encode('utf-8') if sys.version_info[0] == 2 else self.modelBackend)
+            oprot.writeFieldEnd()
+        if self.modelBackendParams is not None:
+            oprot.writeFieldBegin('modelBackendParams', TType.MAP, 2)
+            oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.modelBackendParams))
+            for kiter221, viter222 in self.modelBackendParams.items():
+                oprot.writeString(kiter221.encode('utf-8') if sys.version_info[0] == 2 else kiter221)
+                oprot.writeString(viter222.encode('utf-8') if sys.version_info[0] == 2 else viter222)
+            oprot.writeMapEnd()
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class Model(object):
+    """
+    Attributes:
+     - metaData
+     - inferenceSpec
+     - inputSchema
+     - outputSchema
+
+    """
+
+
+    def __init__(self, metaData=None, inferenceSpec=None, inputSchema=None, outputSchema=None,):
+        self.metaData = metaData
+        self.inferenceSpec = inferenceSpec
+        self.inputSchema = inputSchema
+        self.outputSchema = outputSchema
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, [self.__class__, self.thrift_spec])
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.STRUCT:
+                    self.metaData = MetaData()
+                    self.metaData.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.STRUCT:
+                    self.inferenceSpec = InferenceSpec()
+                    self.inferenceSpec.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 3:
+                if ftype == TType.STRUCT:
+                    self.inputSchema = TDataType()
+                    self.inputSchema.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 4:
+                if ftype == TType.STRUCT:
+                    self.outputSchema = TDataType()
+                    self.outputSchema.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, [self.__class__, self.thrift_spec]))
+            return
+        oprot.writeStructBegin('Model')
+        if self.metaData is not None:
+            oprot.writeFieldBegin('metaData', TType.STRUCT, 1)
+            self.metaData.write(oprot)
+            oprot.writeFieldEnd()
+        if self.inferenceSpec is not None:
+            oprot.writeFieldBegin('inferenceSpec', TType.STRUCT, 2)
+            self.inferenceSpec.write(oprot)
+            oprot.writeFieldEnd()
+        if self.inputSchema is not None:
+            oprot.writeFieldBegin('inputSchema', TType.STRUCT, 3)
+            self.inputSchema.write(oprot)
+            oprot.writeFieldEnd()
+        if self.outputSchema is not None:
+            oprot.writeFieldBegin('outputSchema', TType.STRUCT, 4)
+            self.outputSchema.write(oprot)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class ModelTransform(object):
+    """
+    Attributes:
+     - model
+     - inputMappings
+     - outputMappings
+     - prefix
+
+    """
+
+
+    def __init__(self, model=None, inputMappings=None, outputMappings=None, prefix=None,):
+        self.model = model
+        self.inputMappings = inputMappings
+        self.outputMappings = outputMappings
+        self.prefix = prefix
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, [self.__class__, self.thrift_spec])
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.STRUCT:
+                    self.model = Model()
+                    self.model.read(iprot)
+                else:
+                    iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.MAP:
+                    self.inputMappings = {}
+                    (_ktype224, _vtype225, _size223) = iprot.readMapBegin()
+                    for _i227 in range(_size223):
+                        _key228 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        _val229 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        self.inputMappings[_key228] = _val229
+                    iprot.readMapEnd()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 3:
+                if ftype == TType.MAP:
+                    self.outputMappings = {}
+                    (_ktype231, _vtype232, _size230) = iprot.readMapBegin()
+                    for _i234 in range(_size230):
+                        _key235 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        _val236 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        self.outputMappings[_key235] = _val236
+                    iprot.readMapEnd()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 4:
+                if ftype == TType.STRING:
+                    self.prefix = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, [self.__class__, self.thrift_spec]))
+            return
+        oprot.writeStructBegin('ModelTransform')
+        if self.model is not None:
+            oprot.writeFieldBegin('model', TType.STRUCT, 1)
+            self.model.write(oprot)
+            oprot.writeFieldEnd()
+        if self.inputMappings is not None:
+            oprot.writeFieldBegin('inputMappings', TType.MAP, 2)
+            oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.inputMappings))
+            for kiter237, viter238 in self.inputMappings.items():
+                oprot.writeString(kiter237.encode('utf-8') if sys.version_info[0] == 2 else kiter237)
+                oprot.writeString(viter238.encode('utf-8') if sys.version_info[0] == 2 else viter238)
+            oprot.writeMapEnd()
+            oprot.writeFieldEnd()
+        if self.outputMappings is not None:
+            oprot.writeFieldBegin('outputMappings', TType.MAP, 3)
+            oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.outputMappings))
+            for kiter239, viter240 in self.outputMappings.items():
+                oprot.writeString(kiter239.encode('utf-8') if sys.version_info[0] == 2 else kiter239)
+                oprot.writeString(viter240.encode('utf-8') if sys.version_info[0] == 2 else viter240)
+            oprot.writeMapEnd()
+            oprot.writeFieldEnd()
+        if self.prefix is not None:
+            oprot.writeFieldBegin('prefix', TType.STRING, 4)
+            oprot.writeString(self.prefix.encode('utf-8') if sys.version_info[0] == 2 else self.prefix)
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class ModelTransforms(object):
+    """
+    Attributes:
+     - transforms
+     - passthroughFields
+
+    """
+
+
+    def __init__(self, transforms=None, passthroughFields=None,):
+        self.transforms = transforms
+        self.passthroughFields = passthroughFields
+
+    def read(self, iprot):
+        if iprot._fast_decode is not None and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None:
+            iprot._fast_decode(self, iprot, [self.__class__, self.thrift_spec])
+            return
+        iprot.readStructBegin()
+        while True:
+            (fname, ftype, fid) = iprot.readFieldBegin()
+            if ftype == TType.STOP:
+                break
+            if fid == 1:
+                if ftype == TType.LIST:
+                    self.transforms = []
+                    (_etype244, _size241) = iprot.readListBegin()
+                    for _i245 in range(_size241):
+                        _elem246 = ModelTransform()
+                        _elem246.read(iprot)
+                        self.transforms.append(_elem246)
+                    iprot.readListEnd()
+                else:
+                    iprot.skip(ftype)
+            elif fid == 2:
+                if ftype == TType.LIST:
+                    self.passthroughFields = []
+                    (_etype250, _size247) = iprot.readListBegin()
+                    for _i251 in range(_size247):
+                        _elem252 = iprot.readString().decode('utf-8') if sys.version_info[0] == 2 else iprot.readString()
+                        self.passthroughFields.append(_elem252)
+                    iprot.readListEnd()
+                else:
+                    iprot.skip(ftype)
+            else:
+                iprot.skip(ftype)
+            iprot.readFieldEnd()
+        iprot.readStructEnd()
+
+    def write(self, oprot):
+        if oprot._fast_encode is not None and self.thrift_spec is not None:
+            oprot.trans.write(oprot._fast_encode(self, [self.__class__, self.thrift_spec]))
+            return
+        oprot.writeStructBegin('ModelTransforms')
+        if self.transforms is not None:
+            oprot.writeFieldBegin('transforms', TType.LIST, 1)
+            oprot.writeListBegin(TType.STRUCT, len(self.transforms))
+            for iter253 in self.transforms:
+                iter253.write(oprot)
+            oprot.writeListEnd()
+            oprot.writeFieldEnd()
+        if self.passthroughFields is not None:
+            oprot.writeFieldBegin('passthroughFields', TType.LIST, 2)
+            oprot.writeListBegin(TType.STRING, len(self.passthroughFields))
+            for iter254 in self.passthroughFields:
+                oprot.writeString(iter254.encode('utf-8') if sys.version_info[0] == 2 else iter254)
+            oprot.writeListEnd()
+            oprot.writeFieldEnd()
+        oprot.writeFieldStop()
+        oprot.writeStructEnd()
+
+    def validate(self):
+        return
+
+    def __repr__(self):
+        L = ['%s=%r' % (key, value)
+             for key, value in self.__dict__.items()]
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not (self == other)
 all_structs.append(Query)
 Query.thrift_spec = (
     None,  # 0
@@ -2729,6 +3111,7 @@ Join.thrift_spec = (
     (7, TType.LIST, 'bootstrapParts', (TType.STRUCT, [BootstrapPart, None], False), None, ),  # 7
     (8, TType.LIST, 'rowIds', (TType.STRING, 'UTF8', False), None, ),  # 8
     (9, TType.LIST, 'derivations', (TType.STRUCT, [Derivation, None], False), None, ),  # 9
+    (10, TType.STRUCT, 'modelTransforms', [ModelTransforms, None], None, ),  # 10
 )
 all_structs.append(BootstrapPart)
 BootstrapPart.thrift_spec = (
@@ -2768,6 +3151,34 @@ TDataType.thrift_spec = (
     (1, TType.I32, 'kind', None, None, ),  # 1
     (2, TType.LIST, 'params', (TType.STRUCT, [DataField, None], False), None, ),  # 2
     (3, TType.STRING, 'name', 'UTF8', None, ),  # 3
+)
+all_structs.append(InferenceSpec)
+InferenceSpec.thrift_spec = (
+    None,  # 0
+    (1, TType.STRING, 'modelBackend', 'UTF8', None, ),  # 1
+    (2, TType.MAP, 'modelBackendParams', (TType.STRING, 'UTF8', TType.STRING, 'UTF8', False), None, ),  # 2
+)
+all_structs.append(Model)
+Model.thrift_spec = (
+    None,  # 0
+    (1, TType.STRUCT, 'metaData', [MetaData, None], None, ),  # 1
+    (2, TType.STRUCT, 'inferenceSpec', [InferenceSpec, None], None, ),  # 2
+    (3, TType.STRUCT, 'inputSchema', [TDataType, None], None, ),  # 3
+    (4, TType.STRUCT, 'outputSchema', [TDataType, None], None, ),  # 4
+)
+all_structs.append(ModelTransform)
+ModelTransform.thrift_spec = (
+    None,  # 0
+    (1, TType.STRUCT, 'model', [Model, None], None, ),  # 1
+    (2, TType.MAP, 'inputMappings', (TType.STRING, 'UTF8', TType.STRING, 'UTF8', False), None, ),  # 2
+    (3, TType.MAP, 'outputMappings', (TType.STRING, 'UTF8', TType.STRING, 'UTF8', False), None, ),  # 3
+    (4, TType.STRING, 'prefix', 'UTF8', None, ),  # 4
+)
+all_structs.append(ModelTransforms)
+ModelTransforms.thrift_spec = (
+    None,  # 0
+    (1, TType.LIST, 'transforms', (TType.STRUCT, [ModelTransform, None], False), None, ),  # 1
+    (2, TType.LIST, 'passthroughFields', (TType.STRING, 'UTF8', False), None, ),  # 2
 )
 fix_spec(all_structs)
 del all_structs

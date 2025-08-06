@@ -37,6 +37,12 @@ APP_NAME_TO_USECASE = {
     "license_plate_detection": "license_plate_detection",
     "shoplifting_detection": "shoplifting_detection",
     "cardiomegaly_classification": "cardiomegaly_classification",
+    "road_traffic_density": "road_traffic_density",
+    "histopathological_cancer_detection" : "histopathological_cancer_detection",
+    "road_view_segmentation": "road_view_segmentation",
+    "face_recognition": "face_recognition",
+    "drowsy_driver_detection": "drowsy_driver_detection",
+    "waterbody_segmentation": "waterbody_segmentation",
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -78,6 +84,12 @@ APP_NAME_TO_CATEGORY = {
     "license_plate_detection": "license_plate",
     "shoplifting_detection": "security",
     "cardiomegaly_classification": "healthcare",
+    "road_traffic_density": "automobile",
+    "histopathological_cancer_detection" : "healthcare",
+    "road_view_segmentation": "automobile",
+    "face_recognition": "security",
+    "drowsy_driver_detection": "automobile",
+    "waterbody_segmentation": "agriculture",
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: certbot
-Version: 4.1.1
+Version: 4.2.0
 Summary: ACME client
 Home-page: https://github.com/certbot/certbot
 Author: Certbot Project
@@ -27,7 +27,7 @@ Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9.2
 License-File: LICENSE.txt
-Requires-Dist: acme>=4.1.1
+Requires-Dist: acme>=4.2.0
 Requires-Dist: ConfigArgParse>=1.5.3
 Requires-Dist: configobj>=5.0.6
 Requires-Dist: cryptography>=43.0.0
@@ -36,13 +36,13 @@ Requires-Dist: importlib_metadata>=8.6.1; python_version < "3.10"
 Requires-Dist: josepy>=2.0.0
 Requires-Dist: parsedatetime>=2.4
 Requires-Dist: pyrfc3339
-Requires-Dist: pytz>=2019.3
 Requires-Dist: pywin32>=300; sys_platform == "win32"
 Provides-Extra: all
 Requires-Dist: azure-devops; extra == "all"
 Requires-Dist: ipdb; extra == "all"
 Requires-Dist: poetry>=1.2.0; extra == "all"
 Requires-Dist: poetry-plugin-export>=1.9.0; extra == "all"
+Requires-Dist: towncrier; extra == "all"
 Requires-Dist: twine; extra == "all"
 Requires-Dist: Sphinx>=1.2; extra == "all"
 Requires-Dist: sphinx_rtd_theme; extra == "all"
@@ -57,7 +57,6 @@ Requires-Dist: setuptools; extra == "all"
 Requires-Dist: tox; extra == "all"
 Requires-Dist: types-httplib2; extra == "all"
 Requires-Dist: types-pyRFC3339; extra == "all"
-Requires-Dist: types-pytz; extra == "all"
 Requires-Dist: types-pywin32; extra == "all"
 Requires-Dist: types-requests; extra == "all"
 Requires-Dist: types-setuptools; extra == "all"
@@ -67,6 +66,7 @@ Requires-Dist: azure-devops; extra == "dev"
 Requires-Dist: ipdb; extra == "dev"
 Requires-Dist: poetry>=1.2.0; extra == "dev"
 Requires-Dist: poetry-plugin-export>=1.9.0; extra == "dev"
+Requires-Dist: towncrier; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: Sphinx>=1.2; extra == "docs"
@@ -83,7 +83,6 @@ Requires-Dist: setuptools; extra == "test"
 Requires-Dist: tox; extra == "test"
 Requires-Dist: types-httplib2; extra == "test"
 Requires-Dist: types-pyRFC3339; extra == "test"
-Requires-Dist: types-pytz; extra == "test"
 Requires-Dist: types-pywin32; extra == "test"
 Requires-Dist: types-requests; extra == "test"
 Requires-Dist: types-setuptools; extra == "test"

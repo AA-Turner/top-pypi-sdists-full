@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scim2-models
-Version: 0.4.1
+Version: 0.4.2
 Summary: SCIM2 models serialization and validation with pydantic
 Project-URL: documentation, https://scim2-models.readthedocs.io
 Project-URL: repository, https://github.com/python-scim/scim2-models

@@ -4,6 +4,26 @@ from box_sdk_gen.internal.base_object import BaseObject
 
 from typing import List
 
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_country_v2025_r0 import (
+    ShieldListContentCountryV2025R0,
+)
+
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_domain_v2025_r0 import (
+    ShieldListContentDomainV2025R0,
+)
+
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_email_v2025_r0 import (
+    ShieldListContentEmailV2025R0,
+)
+
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_ip_v2025_r0 import (
+    ShieldListContentIpV2025R0,
+)
+
+from box_sdk_gen.schemas.v2025_r0.shield_list_content_integration_v2025_r0 import (
+    ShieldListContentIntegrationV2025R0,
+)
+
 from box_sdk_gen.schemas.v2025_r0.enterprise_reference_v2025_r0 import (
     EnterpriseReferenceV2025R0,
 )
@@ -42,7 +62,7 @@ class ShieldListV2025R0(BaseObject):
         :type created_at: DateTime
         :param updated_at: ISO date time string when this shield list object was updated.
         :type updated_at: DateTime
-        :param description: Description of Shield List, defaults to None
+        :param description: Description of Shield List., defaults to None
         :type description: Optional[str], optional
         """
         super().__init__(**kwargs)

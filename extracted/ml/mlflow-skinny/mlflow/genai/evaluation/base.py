@@ -16,7 +16,6 @@ from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, vali
 from mlflow.genai.utils.trace_utils import (
     clean_up_extra_traces,
     convert_predict_fn,
-    copy_model_serving_trace_to_eval_run,
 )
 from mlflow.models.evaluation.base import (
     EvaluationResult,
@@ -27,6 +26,7 @@ from mlflow.tracing.constant import (
     DATABRICKS_OUTPUT_KEY,
     RETURN_TRACE_OPTION_KEY,
 )
+from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@experimental
+@experimental(version="3.0.0")
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
@@ -68,6 +68,7 @@ def evaluate(
         from mlflow.genai.scorers import Correctness, Safety
         import pandas as pd
 
+        # model_id is a string starting with "m-", e.g. "m-074689226d3b40bfbbdf4c3ff35832cd"
         trace_df = mlflow.search_traces(model_id="<my-model-id>")
 
         mlflow.genai.evaluate(
@@ -207,8 +208,8 @@ def evaluate(
             The function must emit a single trace per call. If it doesn't, decorate
             the function with @mlflow.trace decorator to ensure a trace to be emitted.
 
-        model_id: Optional model identifier (e.g. "models:/my-model/1") to associate with
-            the evaluation results. Can be also set globally via the
+        model_id: Optional model identifier (e.g. "m-074689226d3b40bfbbdf4c3ff35832cd")
+            to associate with the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
 
     Returns:
@@ -294,8 +295,8 @@ def evaluate(
         return result
 
 
-@experimental
-def to_predict_fn(endpoint_uri: str) -> Callable:
+@experimental(version="3.0.0")
+def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     """
     Convert an endpoint URI to a predict function.
 
@@ -381,7 +382,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
         # If the endpoint returns a trace, copy it to the current experiment.
         if trace_dict := result.pop(DATABRICKS_OUTPUT_KEY, {}).get("trace"):
             try:
-                copy_model_serving_trace_to_eval_run(trace_dict)
+                copy_trace_to_experiment(trace_dict)
                 return result
             except Exception:
                 logger.debug(

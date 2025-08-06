@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bigeye-sdk"
-version = "0.6.5"
+version = "0.6.7"
 description = "Bigeye SDK offers developer tools and clients to interact with Bigeye programmatically."
 license = "Proprietary"
 authors = ["Bigeye <support@bigeye.com>"]
@@ -34,7 +34,7 @@ smart-open = '^6.1.0'
 types-PyYAML = "^6.0.11"
 boto3 = "^1.38.42"
 botocore = "^1.38.42"
-typer = "^0.12.3"
+typer = "^0.15.4"
 secretstorage = "^3.3.3"
 slack_sdk = "^3.2.7"
 deprecated = "^1.2.14"

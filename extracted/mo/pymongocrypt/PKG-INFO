@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymongocrypt
-Version: 1.14.1
+Version: 1.15.0
 Summary: Python bindings for libmongocrypt
 Project-URL: Homepage, https://github.com/mongodb/libmongocrypt/tree/master/bindings/python
 Author-email: Shane Harvey <mongodb-user@googlegroups.com>
@@ -215,17 +215,17 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
-Requires-Python: >=3.8
-Requires-Dist: cffi<2,>=1.12.0
+Requires-Python: >=3.9
+Requires-Dist: cffi<3,>=1.12.0
 Requires-Dist: cryptography>=40
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: packaging>=21.0

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: delvewheel
-Version: 1.11.0
+Version: 1.11.1
 Summary: Self-contained wheels for Windows
 Author-email: Aohan Dang <adang1345@gmail.com>
 Project-URL: Homepage, https://github.com/adang1345/delvewheel
@@ -97,7 +97,7 @@ The path separator to use in the following options is `';'` on Windows and `':'`
 - `--with-mangle`: see `--ignore-existing`
 - `--strip`: strip DLLs that contain an overlay when name-mangling. The GNU `strip` utility must be present in `PATH`.
 - `-L LIB_SDIR`,`--lib-sdir LIB_SDIR`: directory suffix to store vendored DLLs (default `.libs`). For example, if your wheel is named `mywheel-0.0.1-cp310-cp310-win_amd64.whl`, then the vendored DLLs are stored in the `mywheel.libs` directory at the root of the wheel by default. If your wheel contains a top-level extension module that is not in any package, then this setting is ignored, and vendored DLLs are instead placed directly into `site-packages` when the wheel is installed.
-- `--namespace-pkg PKGS`: namespace packages, specified in case-sensitive dot notation and delimited by the path separator. Normally, we patch or create `__init__.py` in each top-level package to add the vendored DLL location to the DLL search path at runtime. If you have a top-level namespace package that requires `__init__.py` to be absent or unmodified, then this technique can cause problems. This option tells `delvewheel` to use an alternate strategy that does not create or modify `__init__.py` at the root of the given namespace package(s). For example,
+- `--namespace-pkg PKGS`: namespace package(s), specified in case-sensitive dot notation and delimited by the path separator. Normally, we patch or create `__init__.py` in each top-level package to add the vendored DLL location to the DLL search path at runtime. If you have a top-level namespace package that requires `__init__.py` to be absent or unmodified, then this technique can cause problems. This option tells `delvewheel` to use an alternate strategy that does not create or modify `__init__.py` at the root of the given namespace package(s). For example,
   - `--namespace-pkg package1` declares `package1` as a namespace package.
   - On Windows, `--namespace-pkg package1.package2;package3` declares `package1`, `package1\package2`, and `package3` as namespace packages.
 - `--include-symbols`: include `.pdb` symbol files with the vendored DLLs. To be included, a symbol file must be in the same directory as the DLL and have the same filename before the extension, e.g. `example.dll` and `example.pdb`.
@@ -145,7 +145,7 @@ So far, we have described the simplest possible example where there exists one P
 
 ## Limitations
 
-- `delvewheel` reads DLL file headers to determine which libraries a wheel depends on. DLLs that are loaded at runtime using `ctypes`/`cffi` (from Python) or `LoadLibrary` (from C/C++) will be missed. Support for runtime-loaded DLLs is limited; however, the following options are available.
+- `delvewheel` reads DLL file headers to determine which libraries a wheel depends on. DLLs that are loaded at runtime using [`ctypes`](https://docs.python.org/3/library/ctypes.html)/[`cffi`](https://cffi.readthedocs.io/en/stable/) (from Python), [`LoadLibrary`](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-loadlibrarya) (from C/C++/Rust), or [`libloading`](https://docs.rs/libloading/latest/libloading/) (from Rust) will be missed. Support for runtime-loaded DLLs is limited; however, the following options are available.
   - Specify additional DLLs to vendor into the wheel using the `--include` option.
   - Include the runtime-loaded DLL into the wheel yourself, and use the `--analyze-existing` option.
 
