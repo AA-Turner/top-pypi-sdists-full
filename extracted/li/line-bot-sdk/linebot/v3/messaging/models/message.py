@@ -46,6 +46,7 @@ class Message(BaseModel):
     # discriminator mappings
     __discriminator_value_class_map = {
         'audio': 'AudioMessage',
+        'coupon': 'CouponMessage',
         'flex': 'FlexMessage',
         'image': 'ImageMessage',
         'imagemap': 'ImagemapMessage',
@@ -75,7 +76,7 @@ class Message(BaseModel):
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> Union(AudioMessage, FlexMessage, ImageMessage, ImagemapMessage, LocationMessage, StickerMessage, TemplateMessage, TextMessage, TextMessageV2, VideoMessage):
+    def from_json(cls, json_str: str) -> Union(AudioMessage, CouponMessage, FlexMessage, ImageMessage, ImagemapMessage, LocationMessage, StickerMessage, TemplateMessage, TextMessage, TextMessageV2, VideoMessage):
         """Create an instance of Message from a JSON string"""
         return cls.from_dict(json.loads(json_str))
 
@@ -94,7 +95,7 @@ class Message(BaseModel):
         return _dict
 
     @classmethod
-    def from_dict(cls, obj: dict) -> Union(AudioMessage, FlexMessage, ImageMessage, ImagemapMessage, LocationMessage, StickerMessage, TemplateMessage, TextMessage, TextMessageV2, VideoMessage):
+    def from_dict(cls, obj: dict) -> Union(AudioMessage, CouponMessage, FlexMessage, ImageMessage, ImagemapMessage, LocationMessage, StickerMessage, TemplateMessage, TextMessage, TextMessageV2, VideoMessage):
         """Create an instance of Message from a dict"""
         # look up the object type based on discriminator mapping
         object_type = cls.get_discriminator_value(obj)

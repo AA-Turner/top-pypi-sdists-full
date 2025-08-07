@@ -19,7 +19,7 @@ from tinybird.tb.modules.feedback_manager import FeedbackManager
 def create_datafile(
     ctx: RunContext[TinybirdAgentContext], name: str, type: str, description: str, content: str, pathname: str
 ) -> str:
-    """Given a resource representation, create or update a datafile in the project folder
+    """Given a resource representation, create or update a datafile (.datasource, .connection, .pipe) in the project folder
 
     Args:
         name (str): The name of the datafile. Required.

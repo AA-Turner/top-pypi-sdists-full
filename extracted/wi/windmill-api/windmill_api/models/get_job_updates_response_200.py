@@ -25,6 +25,8 @@ class GetJobUpdatesResponse200:
         log_offset (Union[Unset, int]):
         mem_peak (Union[Unset, int]):
         progress (Union[Unset, int]):
+        stream_offset (Union[Unset, int]):
+        new_result_stream (Union[Unset, str]):
         flow_status (Union[Unset, GetJobUpdatesResponse200FlowStatus]):
         workflow_as_code_status (Union[Unset, GetJobUpdatesResponse200WorkflowAsCodeStatus]):
     """
@@ -35,6 +37,8 @@ class GetJobUpdatesResponse200:
     log_offset: Union[Unset, int] = UNSET
     mem_peak: Union[Unset, int] = UNSET
     progress: Union[Unset, int] = UNSET
+    stream_offset: Union[Unset, int] = UNSET
+    new_result_stream: Union[Unset, str] = UNSET
     flow_status: Union[Unset, "GetJobUpdatesResponse200FlowStatus"] = UNSET
     workflow_as_code_status: Union[Unset, "GetJobUpdatesResponse200WorkflowAsCodeStatus"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -46,6 +50,8 @@ class GetJobUpdatesResponse200:
         log_offset = self.log_offset
         mem_peak = self.mem_peak
         progress = self.progress
+        stream_offset = self.stream_offset
+        new_result_stream = self.new_result_stream
         flow_status: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.flow_status, Unset):
             flow_status = self.flow_status.to_dict()
@@ -69,6 +75,10 @@ class GetJobUpdatesResponse200:
             field_dict["mem_peak"] = mem_peak
         if progress is not UNSET:
             field_dict["progress"] = progress
+        if stream_offset is not UNSET:
+            field_dict["stream_offset"] = stream_offset
+        if new_result_stream is not UNSET:
+            field_dict["new_result_stream"] = new_result_stream
         if flow_status is not UNSET:
             field_dict["flow_status"] = flow_status
         if workflow_as_code_status is not UNSET:
@@ -96,6 +106,10 @@ class GetJobUpdatesResponse200:
 
         progress = d.pop("progress", UNSET)
 
+        stream_offset = d.pop("stream_offset", UNSET)
+
+        new_result_stream = d.pop("new_result_stream", UNSET)
+
         _flow_status = d.pop("flow_status", UNSET)
         flow_status: Union[Unset, GetJobUpdatesResponse200FlowStatus]
         if isinstance(_flow_status, Unset):
@@ -117,6 +131,8 @@ class GetJobUpdatesResponse200:
             log_offset=log_offset,
             mem_peak=mem_peak,
             progress=progress,
+            stream_offset=stream_offset,
+            new_result_stream=new_result_stream,
             flow_status=flow_status,
             workflow_as_code_status=workflow_as_code_status,
         )

@@ -21,7 +21,7 @@ import sys
 import threading
 from test.asynchronous.utils import async_set_fail_point
 
-from pymongo.errors import AutoReconnect
+from pymongo.errors import OperationFailure
 
 sys.path[0:0] = [""]
 
@@ -80,7 +80,6 @@ class FindThread(threading.Thread):
 class TestPoolPausedError(AsyncIntegrationTest):
     # Pools don't get paused in load balanced mode.
     RUN_ON_LOAD_BALANCER = False
-    RUN_ON_SERVERLESS = False
 
     @async_client_context.require_sync
     @async_client_context.require_failCommand_blockConnection
@@ -88,7 +87,7 @@ class TestPoolPausedError(AsyncIntegrationTest):
     async def test_pool_paused_error_is_retryable(self):
         if "PyPy" in sys.version:
             # Tracked in PYTHON-3519
-            self.skipTest("Test is flakey on PyPy")
+            self.skipTest("Test is flaky on PyPy")
         cmap_listener = CMAPListener()
         cmd_listener = OvertCommandListener()
         client = await self.async_rs_or_single_client(
@@ -148,15 +147,11 @@ class TestPoolPausedError(AsyncIntegrationTest):
 class TestRetryableReads(AsyncIntegrationTest):
     @async_client_context.require_multiple_mongoses
     @async_client_context.require_failCommand_fail_point
-    async def test_retryable_reads_in_sharded_cluster_multiple_available(self):
+    async def test_retryable_reads_are_retried_on_a_different_mongos_when_one_is_available(self):
         fail_command = {
             "configureFailPoint": "failCommand",
             "mode": {"times": 1},
-            "data": {
-                "failCommands": ["find"],
-                "closeConnection": True,
-                "appName": "retryableReadTest",
-            },
+            "data": {"failCommands": ["find"], "errorCode": 6},
         }
 
         mongos_clients = []
@@ -169,12 +164,11 @@ class TestRetryableReads(AsyncIntegrationTest):
         listener = OvertCommandListener()
         client = await self.async_rs_or_single_client(
             async_client_context.mongos_seeds(),
-            appName="retryableReadTest",
             event_listeners=[listener],
             retryReads=True,
         )
 
-        with self.assertRaises(AutoReconnect):
+        with self.assertRaises(OperationFailure):
             await client.t.t.find_one({})
 
         # Disable failpoints on each mongos
@@ -184,6 +178,45 @@ class TestRetryableReads(AsyncIntegrationTest):
 
         self.assertEqual(len(listener.failed_events), 2)
         self.assertEqual(len(listener.succeeded_events), 0)
+
+        #  Assert that both events occurred on different mongos.
+        assert listener.failed_events[0].connection_id != listener.failed_events[1].connection_id
+
+    @async_client_context.require_multiple_mongoses
+    @async_client_context.require_failCommand_fail_point
+    async def test_retryable_reads_are_retried_on_the_same_mongos_when_no_others_are_available(
+        self
+    ):
+        fail_command = {
+            "configureFailPoint": "failCommand",
+            "mode": {"times": 1},
+            "data": {"failCommands": ["find"], "errorCode": 6},
+        }
+
+        host = async_client_context.mongos_seeds().split(",")[0]
+        mongos_client = await self.async_rs_or_single_client(host)
+        await async_set_fail_point(mongos_client, fail_command)
+
+        listener = OvertCommandListener()
+        client = await self.async_rs_or_single_client(
+            host,
+            directConnection=False,
+            event_listeners=[listener],
+            retryReads=True,
+        )
+
+        await client.t.t.find_one({})
+
+        # Disable failpoint.
+        fail_command["mode"] = "off"
+        await async_set_fail_point(mongos_client, fail_command)
+
+        # Assert that exactly one failed command event and one succeeded command event occurred.
+        self.assertEqual(len(listener.failed_events), 1)
+        self.assertEqual(len(listener.succeeded_events), 1)
+
+        #  Assert that both events occurred on the same mongos.
+        assert listener.succeeded_events[0].connection_id == listener.failed_events[0].connection_id
 
 
 if __name__ == "__main__":

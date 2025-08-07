@@ -1,15 +1,49 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyomo
-Version: 6.9.2
-Summary: Pyomo: Python Optimization Modeling Objects
-Home-page: http://pyomo.org
-Maintainer: Pyomo Developer Team
-Maintainer-email: pyomo-developers@googlegroups.com
-License: BSD
-Project-URL: Documentation, https://pyomo.readthedocs.io/
+Version: 6.9.3
+Summary: The Pyomo optimization modeling framework
+Author-email: Pyomo Development Team <pyomo-developers@googlegroups.com>
+License: LICENSE
+        =======
+        
+        Copyright (c) 2008-2025 National Technology and Engineering Solutions of
+        Sandia, LLC . Under the terms of Contract DE-NA0003525 with National
+        Technology and Engineering Solutions of Sandia, LLC , the U.S.
+        Government retains certain rights in this software.
+        
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions
+        are met:
+        
+        * Redistributions of source code must retain the above copyright notice,
+        this list of conditions and the following disclaimer.
+        
+        * Redistributions in binary form must reproduce the above copyright
+        notice, this list of conditions and the following disclaimer in the
+        documentation and/or other materials provided with the distribution.
+        
+        * Neither the name of the Sandia National Laboratories nor the names of
+        its contributors may be used to endorse or promote products derived from
+        this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+        "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+        LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+        A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+        OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+        SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+        TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+        PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+        LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+        NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: Homepage, https://www.pyomo.org
+Project-URL: Documentation, https://pyomo.readthedocs.io/en/stable/
 Project-URL: Source, https://github.com/Pyomo/pyomo
 Keywords: optimization
-Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Science/Research
@@ -31,10 +65,58 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Provides-Extra: tests
-Provides-Extra: docs
-Provides-Extra: optional
 License-File: LICENSE.md
+Requires-Dist: ply
+Provides-Extra: tests
+Requires-Dist: coverage; extra == "tests"
+Requires-Dist: parameterized; extra == "tests"
+Requires-Dist: pybind11; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-parallel; extra == "tests"
+Provides-Extra: docs
+Requires-Dist: Sphinx!=8.2.0,>4; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
+Requires-Dist: sphinx_rtd_theme>0.5; extra == "docs"
+Requires-Dist: sphinxcontrib-jsmath; extra == "docs"
+Requires-Dist: sphinxcontrib-napoleon; extra == "docs"
+Requires-Dist: numpy; extra == "docs"
+Requires-Dist: scipy; extra == "docs"
+Provides-Extra: optional
+Requires-Dist: dill; extra == "optional"
+Requires-Dist: ipython; extra == "optional"
+Requires-Dist: linear-tree; extra == "optional"
+Requires-Dist: scikit-learn<1.7.0; implementation_name != "pypy" and extra == "optional"
+Requires-Dist: matplotlib!=3.6.1,>=3.6.0; extra == "optional"
+Requires-Dist: networkx<3.2; python_version < "3.9" and extra == "optional"
+Requires-Dist: networkx; python_version >= "3.9" and extra == "optional"
+Requires-Dist: numpy; extra == "optional"
+Requires-Dist: openpyxl; extra == "optional"
+Requires-Dist: packaging; extra == "optional"
+Requires-Dist: pint; extra == "optional"
+Requires-Dist: plotly; extra == "optional"
+Requires-Dist: python-louvain; extra == "optional"
+Requires-Dist: pyyaml; extra == "optional"
+Requires-Dist: qtconsole; extra == "optional"
+Requires-Dist: scipy; extra == "optional"
+Requires-Dist: sympy; extra == "optional"
+Requires-Dist: xlrd; extra == "optional"
+Requires-Dist: z3-solver; extra == "optional"
+Requires-Dist: pywin32; platform_system == "Windows" and extra == "optional"
+Requires-Dist: casadi; implementation_name != "pypy" and extra == "optional"
+Requires-Dist: numdifftools; implementation_name != "pypy" and extra == "optional"
+Requires-Dist: pandas; implementation_name != "pypy" and extra == "optional"
+Requires-Dist: seaborn; implementation_name != "pypy" and extra == "optional"
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+
+[![GitHub Actions Status](https://github.com/Pyomo/pyomo/actions/workflows/test_pr_and_main.yml/badge.svg?branch=main&event=push)](https://github.com/Pyomo/pyomo/actions/workflows/test_pr_and_main.yml?query=branch%3Amain+event%3Apush)
+[![Jenkins Status](https://github.com/Pyomo/jenkins-status/blob/main/pyomo_main.svg)](https://pyomo-jenkins.sandia.gov/)
+[![codecov](https://codecov.io/gh/Pyomo/pyomo/branch/main/graph/badge.svg)](https://codecov.io/gh/Pyomo/pyomo)
+[![Documentation Status](https://readthedocs.org/projects/pyomo/badge/?version=latest)](http://pyomo.readthedocs.org/en/latest/)
+[![Build services](https://github.com/Pyomo/jenkins-status/blob/main/pyomo_services.svg)](https://pyomo-jenkins.sandia.gov/)
+[![GitHub contributors](https://img.shields.io/github/contributors/pyomo/pyomo.svg)](https://github.com/pyomo/pyomo/graphs/contributors)
+[![Merged PRs](https://img.shields.io/github/issues-pr-closed-raw/pyomo/pyomo.svg?label=merged+PRs)](https://github.com/pyomo/pyomo/pulls?q=is:pr+is:merged)
 
 [![a COIN-OR project](https://www.coin-or.org/GitHub/coin-or-badge.png)](https://www.coin-or.org)
 
@@ -138,5 +220,3 @@ following terms and conditions for your contributions:
 ### Related Packages
 
 See https://pyomo.readthedocs.io/en/latest/related_packages.html.
-
-

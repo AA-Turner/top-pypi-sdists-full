@@ -1,4 +1,4 @@
-""" fprime.util.commands: General-purpose command definitions
+"""fprime.util.commands: General-purpose command definitions
 
 Defines general-purpose command processing. Those are commands that do not belong in fbuild or fpp.
 Current commands include:
@@ -167,8 +167,9 @@ def run_code_format(
     options = {
         "quiet": parsed.quiet,
         "verbose": parsed.verbose,
-        "backup": not parsed.no_backup,
+        "backup": parsed.backup,
         "validate_extensions": not parsed.force,
+        "check": parsed.check,
     }
     clang_formatter = ClangFormatter(
         "clang-format",
@@ -191,6 +192,15 @@ def run_code_format(
     # Stage all files that are passed through --files
     for filename in parsed.files:
         clang_formatter.stage_file(Path(filename))
+    # Search for files within --dirs and stage them
+    for dirname in parsed.dirs:
+        dir_path = Path(dirname)
+        if not dir_path.is_dir():
+            print(f"[INFO] {dir_path} is not a directory. Skipping.")
+            continue
+        for allowed_ext in clang_formatter.allowed_extensions:
+            for file in dir_path.rglob(f"*{allowed_ext}"):
+                clang_formatter.stage_file(file)
     return clang_formatter.execute(build, parsed.path, ({}, parsed.pass_through))
 
 
@@ -218,23 +228,12 @@ def run_version_check(
     print(f"Pip version: {pip.__version__}")
 
     print("Pip packages:")
-    # Used to print fprime-fpp-* versions together if they are all the same to de-clutter the output
-    fpp_packages = {}
     for tool in FPRIME_PIP_PACKAGES:
         try:
             version = pkg_resources.get_distribution(tool).version
-            if tool.startswith("fprime-fpp-"):
-                fpp_packages[tool] = version
-            else:
-                print(f"    {tool}=={version}")
+            print(f"    {tool}=={version}")
         except (OSError, VersionException, pkg_resources.DistributionNotFound) as exc:
             print(f"[WARNING] {exc}")
-    if fpp_packages:
-        if len(set(fpp_packages.values())) == 1:
-            print(f"    fprime-fpp-*=={list(fpp_packages.values())[0]}")
-        else:
-            for tool, version in fpp_packages.items():
-                print(f"    {tool}=={version}")
 
     try:
         out = (

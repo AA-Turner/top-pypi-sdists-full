@@ -20,17 +20,17 @@ from typing_extensions import Self
 
 class RobotSystemMode(str, Enum):
     """
-    The system mode of the robot system.  ### ROBOT_SYSTEM_MODE_UNDEFINED  Indicates that the robot controller is currently performing a mode transition.  ### ROBOT_SYSTEM_MODE_DISCONNECT  There is no communication with the robot controller at all. All connections are closed. No command is sent to the robot controller while in this mode. No input/output interaction is possible in this mode! All move requests will be rejected in this mode!  ### ROBOT_SYSTEM_MODE_MONITOR  A connection to the robot controller is established to only read the robot controller state. No command is sent to the robot controller while in this mode. It is possible to receive input/output information. All move requests will be rejected in this mode!  ### ROBOT_SYSTEM_MODE_CONTROL  An active connection is established with the robot controller and the robot system is cyclic commanded to stay in its actual position. The robot controller state is received in the cycle time of the robot controller. Requests via the MotionService and JoggingService will be processed and executed in this mode. Input/Output interaction is possible in this mode! **In this mode the robot system can be commanded to move.**  ### ROBOT_SYSTEM_MODE_FREE_DRIVE  Like ROBOT_SYSTEM_MODE_MONITOR a connection to the robot controller is established to only read the robot controller state. The difference is that the motion groups can be moved by the user (Free Drive). Thus, the servo motors are turned on. All move requests will be rejected in this mode! **This mode is not supported by every robot!** Use [getSupportedModes](getSupportedModes) to evaluate if the device support free drive. 
+    Defines the current system mode of the robot system, including NOVA communicating with the robot controller.  ### MODE_CONTROLLER_NOT_CONFIGURED  No controller with the specified identifier is configured. Call [addRobotController](addRobotController) to register a controller.  ### MODE_INITIALIZING  Indicates that a connection to the robot controller is established or reestablished in case of a disconnect. On success, the controller is set to MODE_MONITOR. On failure, the initialization process is retried until successful or cancelled by the user.  ### MODE_MONITOR  Read-only mode with an active controller connection. - Receives robot state and I/O signals - Move requests are rejected - No commands are sent to the controller  ### MODE_CONTROL  Active control mode.  **Movement is possible in this mode**  The robot is cyclically commanded to hold its current position. The robot state is received in sync with the controller cycle. Motion and jogging requests are accepted and executed. Input/Output interaction is enabled.  ### MODE_FREE_DRIVE  Read-only mode with servo motors enabled for manual movement (Free Drive).  Move requests are rejected.  Not supported by all robots: Use [getSupportedModes](getSupportedModes) to check Free Drive availability. 
     """
 
     """
     allowed enum values
     """
-    ROBOT_SYSTEM_MODE_UNDEFINED = 'ROBOT_SYSTEM_MODE_UNDEFINED'
-    ROBOT_SYSTEM_MODE_DISCONNECT = 'ROBOT_SYSTEM_MODE_DISCONNECT'
-    ROBOT_SYSTEM_MODE_MONITOR = 'ROBOT_SYSTEM_MODE_MONITOR'
-    ROBOT_SYSTEM_MODE_CONTROL = 'ROBOT_SYSTEM_MODE_CONTROL'
-    ROBOT_SYSTEM_MODE_FREE_DRIVE = 'ROBOT_SYSTEM_MODE_FREE_DRIVE'
+    MODE_CONTROLLER_NOT_CONFIGURED = 'MODE_CONTROLLER_NOT_CONFIGURED'
+    MODE_INITIALIZING = 'MODE_INITIALIZING'
+    MODE_MONITOR = 'MODE_MONITOR'
+    MODE_CONTROL = 'MODE_CONTROL'
+    MODE_FREE_DRIVE = 'MODE_FREE_DRIVE'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

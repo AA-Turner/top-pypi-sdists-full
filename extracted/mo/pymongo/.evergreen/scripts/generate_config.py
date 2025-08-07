@@ -25,7 +25,6 @@ from generate_config_utils import (
     get_task_name,
     get_variant_name,
     get_versions_from,
-    get_versions_until,
     handle_c_ext,
     write_functions_to_file,
     write_tasks_to_file,
@@ -108,15 +107,12 @@ def create_standard_nonlinux_variants() -> list[BuildVariant]:
 def create_free_threaded_variants() -> list[BuildVariant]:
     variants = []
     for host_name in ("rhel8", "macos", "macos-arm64", "win64"):
-        if host_name == "win64":
-            # TODO: PYTHON-5027
-            continue
+        python = "3.14t"
         tasks = [".free-threading"]
         tags = []
         if host_name == "rhel8":
             tags.append("pr")
         host = HOSTS[host_name]
-        python = "3.13t"
         display_name = get_variant_name("Free-threaded", host, python=python)
         variant = create_variant(tasks, display_name, tags=tags, python=python, host=host)
         variants.append(variant)
@@ -196,7 +192,7 @@ def create_compression_variants():
     for compressor in "snappy", "zlib", "zstd":
         expansions = dict(COMPRESSOR=compressor)
         if compressor == "zstd":
-            tasks = [".test-standard !.server-4.0"]
+            tasks = [".test-standard !.server-4.2"]
         else:
             tasks = [".test-standard"]
         display_name = get_variant_name(f"Compression {compressor}", host)
@@ -249,16 +245,11 @@ def create_pyopenssl_variants():
 
 def create_storage_engine_variants():
     host = DEFAULT_HOST
-    engines = ["InMemory", "MMAPv1"]
+    engines = ["InMemory"]
     variants = []
     for engine in engines:
         expansions = dict(STORAGE_ENGINE=engine.lower())
-        if engine == engines[0]:
-            tasks = [".test-standard .standalone-noauth-nossl"]
-        else:
-            # MongoDB 4.2 drops support for MMAPv1
-            versions = get_versions_until("4.0")
-            tasks = [f".test-standard !.sharded_cluster-auth-ssl .server-{v}" for v in versions]
+        tasks = [".test-standard .standalone-noauth-nossl"]
         display_name = get_variant_name(f"Storage {engine}", host)
         variant = create_variant(tasks, display_name, host=host, expansions=expansions)
         variants.append(variant)
@@ -306,12 +297,12 @@ def create_green_framework_variants():
     variants = []
     host = DEFAULT_HOST
     for framework in ["eventlet", "gevent"]:
-        tasks = [".test-standard .standalone-noauth-nossl"]
+        tasks = [".test-standard .standalone-noauth-nossl .sync"]
         if framework == "eventlet":
             # Eventlet has issues with dnspython > 2.0 and newer versions of CPython
             # https://jira.mongodb.org/browse/PYTHON-5284
-            tasks = [".test-standard .standalone-noauth-nossl .python-3.9"]
-        expansions = dict(GREEN_FRAMEWORK=framework, AUTH="auth", SSL="ssl")
+            tasks = [".test-standard .standalone-noauth-nossl .python-3.9 .sync"]
+        expansions = dict(GREEN_FRAMEWORK=framework)
         display_name = get_variant_name(f"Green {framework.capitalize()}", host)
         variant = create_variant(tasks, display_name, host=host, expansions=expansions)
         variants.append(variant)
@@ -350,23 +341,6 @@ def create_disable_test_commands_variants():
     display_name = get_variant_name("Disable test commands", host, python=python)
     tasks = [".test-standard .server-latest"]
     return [create_variant(tasks, display_name, host=host, python=python, expansions=expansions)]
-
-
-def create_serverless_variants():
-    host = DEFAULT_HOST
-    batchtime = BATCHTIME_WEEK
-    tasks = [".serverless"]
-    base_name = "Serverless"
-    return [
-        create_variant(
-            tasks,
-            get_variant_name(base_name, host, python=python),
-            host=host,
-            python=python,
-            batchtime=batchtime,
-        )
-        for python in MIN_MAX_PYTHON
-    ]
 
 
 def create_oidc_auth_variants():
@@ -448,6 +422,7 @@ def create_atlas_connect_variants():
             get_variant_name("Atlas connect", host),
             tags=["pr"],
             host=DEFAULT_HOST,
+            expansions=dict(TEST_NAME="atlas_connect"),
         )
     ]
 
@@ -658,20 +633,15 @@ def create_test_non_standard_tasks():
 def create_standard_tasks():
     """For variants that do not set a TEST_NAME."""
     tasks = []
-    task_combos = []
-    # For each version and topology, rotate through the CPythons and sync/async.
-    for (version, topology), python, sync in zip_cycle(
-        list(product(ALL_VERSIONS, TOPOLOGIES)), CPYTHONS, SYNCS
+    task_combos = set()
+    # For each python and topology and sync/async, rotate through the the versions.
+    for (python, topology, sync), version in zip_cycle(
+        list(product(CPYTHONS + PYPYS, TOPOLOGIES, SYNCS)), ALL_VERSIONS
     ):
-        pr = version == "latest"
-        task_combos.append((version, topology, python, sync, pr))
-    # For each PyPy and topology, rotate through the the versions and sync/async.
-    for (python, topology), version, sync in zip_cycle(
-        list(product(PYPYS, TOPOLOGIES)), ALL_VERSIONS, SYNCS
-    ):
-        task_combos.append((version, topology, python, sync, False))
+        pr = version == "latest" and python not in PYPYS
+        task_combos.add((version, topology, python, sync, pr))
 
-    for version, topology, python, sync, pr in task_combos:
+    for version, topology, python, sync, pr in sorted(task_combos):
         auth, ssl = get_standard_auth_ssl(topology)
         tags = [
             "test-standard",
@@ -919,8 +889,10 @@ def create_backport_pr_tasks():
         "mongo-python-driver",
         "${github_commit}",
     ]
-    cmd = get_subprocess_exec(args=args)
-    return [EvgTask(name=name, commands=[cmd], allowed_requesters=["commit"])]
+    include_expansions = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"]
+    cmd = get_subprocess_exec(args=args, include_expansions_in_env=include_expansions)
+    assume_func = FunctionCall(func="assume ec2 role")
+    return [EvgTask(name=name, commands=[assume_func, cmd], allowed_requesters=["commit"])]
 
 
 def create_ocsp_tasks():
@@ -966,14 +938,6 @@ def create_free_threading_tasks():
     task_name = "test-free-threading"
     tags = ["free-threading"]
     return [EvgTask(name=task_name, tags=tags, commands=[server_func, test_func])]
-
-
-def create_serverless_tasks():
-    vars = dict(TEST_NAME="serverless", AUTH="auth", SSL="ssl")
-    test_func = FunctionCall(func="run tests", vars=vars)
-    tags = ["serverless"]
-    task_name = "test-serverless"
-    return [EvgTask(name=task_name, tags=tags, commands=[test_func])]
 
 
 ##############
@@ -1114,6 +1078,7 @@ def create_run_tests_func():
         "MONGODB_API_VERSION",
         "REQUIRE_API_VERSION",
         "DEBUG_LOG",
+        "DISABLE_FLAKY",
         "ORCHESTRATION_FILE",
         "OCSP_SERVER_TYPE",
         "VERSION",

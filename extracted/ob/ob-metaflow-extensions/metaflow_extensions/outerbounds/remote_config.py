@@ -11,6 +11,11 @@ from metaflow_extensions.outerbounds.plugins.perimeters import (
     get_perimeter_config_url_if_set_in_ob_config,
 )
 
+
+class OuterboundsConfigException(MetaflowException):
+    _OB_CONFIG_EXCEPTION = True
+
+
 OBP_REMOTE_CONFIG_KEY = "OBP_METAFLOW_CONFIG_URL"
 HOSTNAME_KEY = "OBP_API_SERVER"
 AUTH_KEY = "METAFLOW_SERVICE_AUTH_KEY"
@@ -31,7 +36,7 @@ def read_config_from_local() -> Optional[Path]:
 
     # we should error because the user wants a specific config
     if profile:
-        raise MetaflowException(
+        raise OuterboundsConfigException(
             f"Unable to locate METAFLOW_PROFILE {profile} in {config_path}"
         )
 
@@ -55,7 +60,7 @@ def resolve_config_from_remote(remote_url: str, auth_token: str) -> Dict[str, st
         data = response.json()
         return data["config"]
     except HTTPError:
-        raise MetaflowException(
+        raise OuterboundsConfigException(
             "Error fetching resolving configuration. Make sure you have run \
                                 `outerbounds configure` with the correct value"
         )
@@ -81,7 +86,7 @@ def init_config() -> Dict[str, str]:
     try:
         remote_config = json.loads(config_path.read_text())
     except ValueError:
-        raise MetaflowException(
+        raise OuterboundsConfigException(
             "Error decoding your metaflow config. Please run the `outerbounds configure` \
                                  command with the string provided in the Outerbounds dashboard"
         )

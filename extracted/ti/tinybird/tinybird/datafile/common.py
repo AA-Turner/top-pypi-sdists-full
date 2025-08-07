@@ -184,7 +184,7 @@ class CopyParameters(Parameters):
 
 class MaterializedParameters(Parameters):
     MANDATORY_ATTRIBUTES = PipeParameters.MANDATORY_ATTRIBUTES.union({"datasource"})
-    ACCEPTED_ATTRIBUTES = PipeParameters.ACCEPTED_ATTRIBUTES.union(MANDATORY_ATTRIBUTES)
+    ACCEPTED_ATTRIBUTES = PipeParameters.ACCEPTED_ATTRIBUTES.union(MANDATORY_ATTRIBUTES).union({"deployment_method"})
 
 
 class SinkParameters(Parameters):
@@ -293,6 +293,13 @@ class Datafile:
 
     def set_kind(self, kind: DatafileKind):
         self.kind = kind
+
+    def validate_standard_node(self, node: Dict[str, Any]):
+        for key in node.keys():
+            if key not in PipeParameters.valid_params():
+                raise DatafileValidationError(
+                    f"Standard node {repr(node['name'])} has an invalid attribute ({PipeParameters.canonical_name(key)})"
+                )
 
     def validate_copy_node(self, node: Dict[str, Any]):
         if missing := [param for param in CopyParameters.required_params() if param not in node]:
@@ -412,13 +419,6 @@ class Datafile:
 
     def validate(self):
         if self.kind == DatafileKind.pipe:
-            # TODO(eclbg):
-            #  [x] node names are unique
-            #  [x] SQL in all nodes
-            #  [x] Materialized nodes have target datasource
-            #  [x] Only one materialized node
-            #  [x] Only one node of any specific type
-            #  (rbarbadillo): there's a HUGE amount of validations in api_pipes.py, we should somehow merge them
             non_standard_nodes_count = 0
             for node in self.nodes:
                 node_type = node.get("type", "").lower()
@@ -432,10 +432,13 @@ class Datafile:
                     self.validate_copy_node(node)
                 if node_type == PipeNodeTypes.DATA_SINK:
                     self.validate_sink_node(node)
+                if node_type in {PipeNodeTypes.STANDARD, ""}:
+                    self.validate_standard_node(node)
                 if node_type not in VALID_PIPE_NODE_TYPES:
                     raise DatafileValidationError(
                         f"Invalid node '{repr(node['name'])}' of type ({node_type}). Allowed node types: {VISIBLE_PIPE_NODE_TYPES}"
                     )
+
             for token in self.tokens:
                 if token["permission"].upper() != "READ":
                     raise DatafileValidationError(
@@ -1983,6 +1986,7 @@ def parse(
             "include": include,
             "sql": sql("sql"),
             "version": version,
+            "deployment_method": assign_var("deployment_method", allowed_values={"alter"}),
             "export_connection_name": assign_var("export_connection_name"),
             "export_schedule": assign_var("export_schedule"),
             "export_bucket_uri": assign_var("export_bucket_uri"),

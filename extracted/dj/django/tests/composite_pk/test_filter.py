@@ -9,12 +9,12 @@ from django.db.models import (
     Q,
     Subquery,
     TextField,
+    Value,
     When,
 )
 from django.db.models.functions import Cast
 from django.db.models.lookups import Exact
 from django.test import TestCase, skipUnlessDBFeature
-from django.utils.version import PY311
 
 from .models import Comment, Tenant, User
 
@@ -550,6 +550,13 @@ class CompositePKFilterTests(TestCase):
                 [self.tenant_1],
             )
 
+    def test_filter_by_tuple_containing_expression(self):
+        pk_lookup = (self.comment_1.tenant.id, (Value(self.comment_1.id) + 1) - 1)
+        for lookup in ({"pk": pk_lookup}, {"pk__in": [pk_lookup]}):
+            with self.subTest(lookup=lookup):
+                qs = Comment.objects.filter(**lookup)
+                self.assertEqual(qs.get(), self.comment_1)
+
 
 @skipUnlessDBFeature("supports_tuple_lookups")
 class CompositePKFilterTupleLookupFallbackTests(CompositePKFilterTests):
@@ -557,10 +564,4 @@ class CompositePKFilterTupleLookupFallbackTests(CompositePKFilterTests):
         feature_patch = patch.object(
             connection.features, "supports_tuple_lookups", False
         )
-        if PY311:
-            self.enterContext(feature_patch)
-        else:
-            # unittest.TestCase.enterContext() was added in Python 3.11.
-            from django.test.testcases import _enter_context
-
-            _enter_context(feature_patch, self.addCleanup)
+        self.enterContext(feature_patch)

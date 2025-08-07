@@ -35,7 +35,7 @@ class Project:
         conversion_errors: list = [],
     ):
         self._models = models
-        self._views = self._handle_join_as_duplication(views)
+        self._views = self._handle_join_as_duplication(views, topics)
         self._dashboards = dashboards
         self._topics = topics
         self.looker_env = looker_env
@@ -166,9 +166,12 @@ class Project:
             self._join_graph = graph
         return self._join_graph
 
-    def _handle_join_as_duplication(self, views: list):
+    def _handle_join_as_duplication(self, views: list, topics: list = []):
         join_as_to_create = {}
+        from_views_to_create = {}
         copied_views = json.loads(json.dumps(views))
+
+        # Handle join_as syntax in views
         for v in copied_views:
             for identifier in v.get("identifiers", []):
                 if "join_as" in identifier and identifier["type"] == "primary":
@@ -210,7 +213,72 @@ class Project:
                                 "Please rename your join_as statement on one of your views."
                             )
 
+        # Handle 'from' syntax in topics
+        if topics:
+            for topic_dict in topics:
+                if "views" in topic_dict and isinstance(topic_dict["views"], dict):
+                    for alias_view_name, view_config in topic_dict["views"].items():
+                        if isinstance(view_config, dict) and "from" in view_config:
+                            from_view_name = view_config["from"]
+
+                            # Only create virtual view if alias is different from the original view name
+                            if alias_view_name != from_view_name:
+                                # Find the original view
+                                original_view = None
+                                for v in copied_views:
+                                    if v["name"] == from_view_name:
+                                        original_view = v
+                                        break
+
+                                if original_view and alias_view_name not in from_views_to_create:
+                                    # Create virtual view definition similar to join_as
+                                    virtual_view_definition = json.loads(json.dumps(original_view))
+                                    virtual_view_definition["name"] = alias_view_name
+
+                                    # Handle configuration options
+                                    if "label" in view_config:
+                                        virtual_view_definition["label"] = view_config["label"]
+
+                                    # Handle field prefix
+                                    if "field_prefix" in view_config:
+                                        virtual_view_definition["field_prefix"] = view_config["field_prefix"]
+                                    elif "label" in view_config:
+                                        virtual_view_definition["field_prefix"] = view_config["label"]
+                                    else:
+                                        virtual_view_definition["field_prefix"] = alias_view_name.replace(
+                                            "_", " "
+                                        ).title()
+
+                                    # Handle include_metrics (default True)
+                                    include_metrics = view_config.get("include_metrics", True)
+                                    if not include_metrics:
+                                        virtual_view_definition["fields"] = [
+                                            f
+                                            for f in virtual_view_definition.get("fields", [])
+                                            if f.get("field_type") != "measure"
+                                        ]
+
+                                    virtual_view_definition["fields"] = [
+                                        (
+                                            f
+                                            if "tags" not in f
+                                            else {
+                                                **f,
+                                                "tags": [
+                                                    t + " " + virtual_view_definition["field_prefix"]
+                                                    for t in f["tags"]
+                                                ],
+                                            }
+                                        )
+                                        for f in virtual_view_definition.get("fields", [])
+                                    ]
+                                    from_views_to_create[alias_view_name] = virtual_view_definition
+
+        # Add all created views to the list
         for view_name, view in join_as_to_create.items():
+            copied_views.append({**view, "name": view_name})
+
+        for view_name, view in from_views_to_create.items():
             copied_views.append({**view, "name": view_name})
 
         return copied_views
@@ -272,15 +340,20 @@ class Project:
             self._topics = current_topics
             self.refresh_cache()
 
-    def validate_with_replaced_objects(self, replaced_objects: list, views_must_be_in_topics: bool = False):
+    def validate_with_replaced_objects(
+        self,
+        replaced_objects: list,
+        views_must_be_in_topics: bool = False,
+        validate_topics: bool = True,
+    ):
         with self.replace_objects(replaced_objects):
-            return self.validate(views_must_be_in_topics)
+            return self.validate(views_must_be_in_topics, validate_topics)
 
     def _error(self, error: str, extra: dict = {}):
         # For project level errors we cannot attribute a line or column
         return {**extra, "message": error, "line": None, "column": None}
 
-    def validate(self, views_must_be_in_topics: bool = False):
+    def validate(self, views_must_be_in_topics: bool = False, validate_topics: bool = True):
         all_errors = [] + self._conversion_errors
 
         model_names = [model.name for model in self.models()]
@@ -297,21 +370,22 @@ class Project:
                 # If we have an error building the model, we cannot continue
                 return [self._error(str(e))]
 
-        topic_names = []
-        for topic in self.topics():
-            topic_names.append(topic.label)
-            try:
-                all_errors.extend(topic.collect_errors())
-            except QueryError as e:
-                # If we have an error building the topic, we cannot continue
-                return [self._error(str(e))]
+        if validate_topics:
+            topic_names = []
+            for topic in self.topics():
+                topic_names.append(topic.label)
+                try:
+                    all_errors.extend(topic.collect_errors())
+                except QueryError as e:
+                    # If we have an error building the topic, we cannot continue
+                    return [self._error(str(e))]
 
-        # Check for duplicate topic names
-        duplicate_topics = [name for name, count in Counter(topic_names).items() if count > 1]
-        for topic_name in duplicate_topics:
-            all_errors.append(
-                self._error(f"Duplicate topic label: {topic_name}. Topic labels must be unique.")
-            )
+            # Check for duplicate topic names
+            duplicate_topics = [name for name, count in Counter(topic_names).items() if count > 1]
+            for topic_name in duplicate_topics:
+                all_errors.append(
+                    self._error(f"Duplicate topic label: {topic_name}. Topic labels must be unique.")
+                )
 
         if views_must_be_in_topics:
             view_names = [v.name for v in self.views()]
@@ -577,6 +651,15 @@ class Project:
 
     def get_joinable_views(self, view_name: str) -> List[str]:
         return self.join_graph.get_joinable_view_names(view_name)
+
+    def get_joinable_views_including_topics(self, view_name: str) -> List[str]:
+        joinable_no_topics = self.join_graph.get_joinable_view_names(view_name)
+        joinable_from_topics = []
+        for topic in self.topics():
+            topic_view_names = [v.name for v in topic._views()]
+            if view_name in topic_view_names:
+                joinable_from_topics.extend(topic_view_names)
+        return list(set(joinable_no_topics + joinable_from_topics))
 
     def sets(self, view_name: Union[str, None] = None):
         if view_name:

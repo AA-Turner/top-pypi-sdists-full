@@ -25,6 +25,10 @@ class Absolute(ArraySymbol):
     ...
 
 
+class AccumulateZip(ArraySymbol):
+    ...
+
+
 class Add(ArraySymbol):
     ...
 
@@ -234,6 +238,10 @@ class QuadraticModel(ArraySymbol):
 
 
 class Reshape(ArraySymbol):
+    ...
+
+
+class Resize(ArraySymbol):
     ...
 
 

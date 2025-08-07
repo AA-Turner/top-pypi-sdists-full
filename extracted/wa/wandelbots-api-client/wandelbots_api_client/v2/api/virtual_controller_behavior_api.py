@@ -402,7 +402,7 @@ class VirtualControllerBehaviorApi:
 
 
     @validate_call
-    async def get_virtual_robot_behavior(
+    async def get_virtual_controller_behavior(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -421,7 +421,7 @@ class VirtualControllerBehaviorApi:
     ) -> Behavior:
         """Get Behavior
 
-        Get the current virtual controller behavior - please see the setter [setVirtualRobotBehavior](setVirtualRobotBehavior) and the enum for details. 
+        Get the current virtual controller behavior - please see the setter [setVirtualControllerBehavior](setVirtualControllerBehavior) and the enum for details. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -449,7 +449,7 @@ class VirtualControllerBehaviorApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_behavior_serialize(
+        _param = self._get_virtual_controller_behavior_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -475,7 +475,7 @@ class VirtualControllerBehaviorApi:
 
 
     @validate_call
-    async def get_virtual_robot_behavior_with_http_info(
+    async def get_virtual_controller_behavior_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -494,7 +494,7 @@ class VirtualControllerBehaviorApi:
     ) -> ApiResponse[Behavior]:
         """Get Behavior
 
-        Get the current virtual controller behavior - please see the setter [setVirtualRobotBehavior](setVirtualRobotBehavior) and the enum for details. 
+        Get the current virtual controller behavior - please see the setter [setVirtualControllerBehavior](setVirtualControllerBehavior) and the enum for details. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -522,7 +522,7 @@ class VirtualControllerBehaviorApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_behavior_serialize(
+        _param = self._get_virtual_controller_behavior_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -548,7 +548,7 @@ class VirtualControllerBehaviorApi:
 
 
     @validate_call
-    async def get_virtual_robot_behavior_without_preload_content(
+    async def get_virtual_controller_behavior_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -567,7 +567,7 @@ class VirtualControllerBehaviorApi:
     ) -> RESTResponseType:
         """Get Behavior
 
-        Get the current virtual controller behavior - please see the setter [setVirtualRobotBehavior](setVirtualRobotBehavior) and the enum for details. 
+        Get the current virtual controller behavior - please see the setter [setVirtualControllerBehavior](setVirtualControllerBehavior) and the enum for details. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -595,7 +595,7 @@ class VirtualControllerBehaviorApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_behavior_serialize(
+        _param = self._get_virtual_controller_behavior_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -616,7 +616,7 @@ class VirtualControllerBehaviorApi:
         return response_data.response
 
 
-    def _get_virtual_robot_behavior_serialize(
+    def _get_virtual_controller_behavior_serialize(
         self,
         cell,
         controller,
@@ -681,7 +681,7 @@ class VirtualControllerBehaviorApi:
 
 
     @validate_call
-    async def set_virtual_robot_behavior(
+    async def set_virtual_controller_behavior(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -731,7 +731,7 @@ class VirtualControllerBehaviorApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._set_virtual_robot_behavior_serialize(
+        _param = self._set_virtual_controller_behavior_serialize(
             cell=cell,
             controller=controller,
             behavior=behavior,
@@ -757,7 +757,7 @@ class VirtualControllerBehaviorApi:
 
 
     @validate_call
-    async def set_virtual_robot_behavior_with_http_info(
+    async def set_virtual_controller_behavior_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -807,7 +807,7 @@ class VirtualControllerBehaviorApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._set_virtual_robot_behavior_serialize(
+        _param = self._set_virtual_controller_behavior_serialize(
             cell=cell,
             controller=controller,
             behavior=behavior,
@@ -833,7 +833,7 @@ class VirtualControllerBehaviorApi:
 
 
     @validate_call
-    async def set_virtual_robot_behavior_without_preload_content(
+    async def set_virtual_controller_behavior_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -883,7 +883,7 @@ class VirtualControllerBehaviorApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._set_virtual_robot_behavior_serialize(
+        _param = self._set_virtual_controller_behavior_serialize(
             cell=cell,
             controller=controller,
             behavior=behavior,
@@ -904,7 +904,7 @@ class VirtualControllerBehaviorApi:
         return response_data.response
 
 
-    def _set_virtual_robot_behavior_serialize(
+    def _set_virtual_controller_behavior_serialize(
         self,
         cell,
         controller,

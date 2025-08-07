@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: reductoai
-Version: 0.10.0
+Version: 0.10.1
 Summary: The official Python library for the reducto API
 Project-URL: Homepage, https://github.com/reductoai/reducto-python-sdk
 Project-URL: Repository, https://github.com/reductoai/reducto-python-sdk

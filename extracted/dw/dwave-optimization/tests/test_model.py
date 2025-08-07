@@ -120,9 +120,11 @@ class TestArraySymbol(unittest.TestCase):
         operators = [
             (operator.add, "__add__", dwave.optimization.symbols.Add),
             (operator.eq, "__eq__", dwave.optimization.symbols.Equal),
+            (operator.ge, "__ge__", dwave.optimization.symbols.LessEqual),  # we invert
             (operator.iadd, "__iadd__", dwave.optimization.symbols.NaryAdd),
             (operator.imul, "__imul__", dwave.optimization.symbols.NaryMultiply),
             (operator.le, "__le__", dwave.optimization.symbols.LessEqual),
+            (operator.mod, "__mod__", dwave.optimization.symbols.Modulus),
             (operator.mul, "__mul__", dwave.optimization.symbols.Multiply),
             (operator.sub, "__sub__", dwave.optimization.symbols.Subtract),
         ]
@@ -131,6 +133,34 @@ class TestArraySymbol(unittest.TestCase):
             with self.subTest(method):
                 self.assertIsInstance(op(x, y), cls)
                 self.assertIs(getattr(x, method)(UnknownType()), NotImplemented)
+            with self.subTest(f"{method} with constant promotion"):
+                model_ = Model()
+                x_ = model_.binary()
+                self.assertIsInstance(op(x_, 5.7), cls)
+                self.assertEqual(model_.num_symbols(), 3)
+                op(5.7, x_)  # equivalent scalar should be cached
+                self.assertEqual(model_.num_symbols(), 4)
+                op(x_, 5.6)
+                self.assertEqual(model_.num_symbols(), 6)
+
+                with self.assertRaises(ValueError):
+                    op(x_, float("inf"))
+                with self.assertRaises(ValueError):
+                    op(x_, float("nan"))
+
+                model_ = Model()
+                y_ = model_.integer(3)
+                self.assertIsInstance(op(y_, [4, 5.6, 6.5]), cls)
+                self.assertEqual(model_.num_symbols(), 3)
+                op(y_, [4, 5.6, 6.5])  # equivalent array should be cached
+                self.assertEqual(model_.num_symbols(), 4)
+                op(y_, [3, 5.6, 6.5])
+                self.assertEqual(model_.num_symbols(), 6)
+
+                with self.assertRaises(ValueError):
+                    op(y_, [float("inf"), 5, 6])
+                with self.assertRaises(ValueError):
+                    op(y_, [float("nan"), 5, 6])
 
         # The operators that don't fit as neatly into the above
 
@@ -142,6 +172,19 @@ class TestArraySymbol(unittest.TestCase):
             self.assertIsInstance(x ** 4, dwave.optimization.symbols.NaryMultiply)
             self.assertIsInstance(x ** 5, dwave.optimization.symbols.NaryMultiply)
             self.assertIs(x.__pow__(UnknownType()), NotImplemented)
+
+        with self.subTest("__truediv__"):
+            model_ = Model()
+            x_ = model.integer(lower_bound=1, upper_bound=5)  # strictly positive
+            x_over_two = x_ / 2
+            self.assertIsInstance(x_over_two, dwave.optimization.symbols.Divide)
+            numerator, denominator = x_over_two.iter_predecessors()
+            self.assertEqual(numerator.id(), x_.id())
+
+            two_over_x = 2 / x_
+            self.assertIsInstance(two_over_x, dwave.optimization.symbols.Divide)
+            numerator, denominator = two_over_x.iter_predecessors()
+            self.assertEqual(denominator.id(), x_.id())
 
     class IndexTester:
         def __init__(self, array):
@@ -326,6 +369,8 @@ class TestModel(unittest.TestCase):
             # or adding to constraints/objective
             model.constant(0) + model.integer()
 
+            model.constant.clear_cache()
+
             num_removed = model.remove_unused_symbols()
 
             # only the decision is kept
@@ -361,6 +406,7 @@ class TestModel(unittest.TestCase):
 
             # now delete the namespace symbol
             del y
+            model.constant.clear_cache()
 
             num_removed = model.remove_unused_symbols()
 
@@ -657,7 +703,7 @@ class TestSymbol(unittest.TestCase):
         model = Model()
         c0 = model.constant(5)
         c1, = model.iter_symbols()
-        c2 = model.constant(5)
+        c2 = model.constant(6)
 
         self.assertIsInstance(c0.id(), int)
         self.assertEqual(c0.id(), c1.id())
@@ -667,7 +713,7 @@ class TestSymbol(unittest.TestCase):
         model = Model()
         c0 = model.constant(5)
         c1, = model.iter_symbols()
-        c2 = model.constant(5)
+        c2 = model.constant(6)
 
         # the specific form is an implementation detail, but different symbols
         # representing the same underlying node should have the same repr

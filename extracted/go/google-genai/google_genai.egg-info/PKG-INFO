@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 1.28.0
+Version: 1.29.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache-2.0
@@ -25,7 +25,7 @@ Requires-Dist: google-auth<3.0.0,>=2.14.1
 Requires-Dist: httpx<1.0.0,>=0.28.1
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: requests<3.0.0,>=2.28.1
-Requires-Dist: tenacity<9.0.0,>=8.2.3
+Requires-Dist: tenacity<9.2.0,>=8.2.3
 Requires-Dist: websockets<15.1.0,>=13.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.11.0
 Provides-Extra: aiohttp

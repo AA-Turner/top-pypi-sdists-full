@@ -19,7 +19,7 @@ def my_formatter(text):
 
 
 @runez.click.group()
-@runez.click.version(message="%(prog)s, version %(version)s")
+@runez.click.version(message="%(prog)s, version %(version)s", prog_name="my-group")
 @runez.click.color()
 @runez.click.config("-c", prefix="g.")
 @runez.click.debug()
@@ -219,7 +219,9 @@ def test_group(cli, monkeypatch):
     cli.main = my_group
     runez.click.prettify_epilogs(my_group, formatter=my_formatter)
     runez.click.prettify_epilogs(my_group, formatter=my_formatter)  # Calling this multiple times is a no-op
-    cli.expect_success("--version", "my-group, version ")
+    cli.run("--version")
+    assert cli.succeeded
+    assert ", version " in cli.logged
 
     cli.run("--help")
     assert cli.succeeded

@@ -50,6 +50,13 @@ ArrayValidationNode::ArrayValidationNode(ArrayNode* node_ptr) : array_ptr(node_p
         node_ptr->sizeinfo().substitute(5);
         return true;
     }());  // smoke check
+
+    // also smoke check the string methods. There is some node and/or compiler-specific
+    // stuff here so just check there isn't an obvious bug.
+    assert(node_ptr->classname().size());
+    assert(node_ptr->repr().size());
+    assert(node_ptr->str().size());
+
     add_predecessor(node_ptr);
 }
 
@@ -67,7 +74,7 @@ void ArrayValidationNode::initialize_state(State& state) const {
     emplace_data_ptr<ArrayValidationNodeData>(state, array_ptr->view(state));
     assert(array_ptr->diff(state).size() == 0);
     assert(array_ptr->size_diff(state) == 0);
-    assert(array_ptr->view(state).size() == static_cast<ssize_t>(array_ptr->size(state)));
+    assert(static_cast<ssize_t>(array_ptr->view(state).size()) == array_ptr->size(state));
 
     // check that the size/shape are consistent
     assert(array_ptr->size(state) == std::reduce(array_ptr->shape(state).begin(),

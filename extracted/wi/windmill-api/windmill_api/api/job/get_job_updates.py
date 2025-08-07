@@ -15,7 +15,9 @@ def _get_kwargs(
     *,
     running: Union[Unset, None, bool] = UNSET,
     log_offset: Union[Unset, None, int] = UNSET,
+    stream_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
+    no_logs: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -24,7 +26,11 @@ def _get_kwargs(
 
     params["log_offset"] = log_offset
 
+    params["stream_offset"] = stream_offset
+
     params["get_progress"] = get_progress
+
+    params["no_logs"] = no_logs
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -69,7 +75,9 @@ def sync_detailed(
     client: Union[AuthenticatedClient, Client],
     running: Union[Unset, None, bool] = UNSET,
     log_offset: Union[Unset, None, int] = UNSET,
+    stream_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
+    no_logs: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetJobUpdatesResponse200]:
     """get job updates
 
@@ -78,7 +86,9 @@ def sync_detailed(
         id (str):
         running (Union[Unset, None, bool]):
         log_offset (Union[Unset, None, int]):
+        stream_offset (Union[Unset, None, int]):
         get_progress (Union[Unset, None, bool]):
+        no_logs (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -93,7 +103,9 @@ def sync_detailed(
         id=id,
         running=running,
         log_offset=log_offset,
+        stream_offset=stream_offset,
         get_progress=get_progress,
+        no_logs=no_logs,
     )
 
     response = client.get_httpx_client().request(
@@ -110,7 +122,9 @@ def sync(
     client: Union[AuthenticatedClient, Client],
     running: Union[Unset, None, bool] = UNSET,
     log_offset: Union[Unset, None, int] = UNSET,
+    stream_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
+    no_logs: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetJobUpdatesResponse200]:
     """get job updates
 
@@ -119,7 +133,9 @@ def sync(
         id (str):
         running (Union[Unset, None, bool]):
         log_offset (Union[Unset, None, int]):
+        stream_offset (Union[Unset, None, int]):
         get_progress (Union[Unset, None, bool]):
+        no_logs (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,7 +151,9 @@ def sync(
         client=client,
         running=running,
         log_offset=log_offset,
+        stream_offset=stream_offset,
         get_progress=get_progress,
+        no_logs=no_logs,
     ).parsed
 
 
@@ -146,7 +164,9 @@ async def asyncio_detailed(
     client: Union[AuthenticatedClient, Client],
     running: Union[Unset, None, bool] = UNSET,
     log_offset: Union[Unset, None, int] = UNSET,
+    stream_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
+    no_logs: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetJobUpdatesResponse200]:
     """get job updates
 
@@ -155,7 +175,9 @@ async def asyncio_detailed(
         id (str):
         running (Union[Unset, None, bool]):
         log_offset (Union[Unset, None, int]):
+        stream_offset (Union[Unset, None, int]):
         get_progress (Union[Unset, None, bool]):
+        no_logs (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -170,7 +192,9 @@ async def asyncio_detailed(
         id=id,
         running=running,
         log_offset=log_offset,
+        stream_offset=stream_offset,
         get_progress=get_progress,
+        no_logs=no_logs,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -185,7 +209,9 @@ async def asyncio(
     client: Union[AuthenticatedClient, Client],
     running: Union[Unset, None, bool] = UNSET,
     log_offset: Union[Unset, None, int] = UNSET,
+    stream_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
+    no_logs: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetJobUpdatesResponse200]:
     """get job updates
 
@@ -194,7 +220,9 @@ async def asyncio(
         id (str):
         running (Union[Unset, None, bool]):
         log_offset (Union[Unset, None, int]):
+        stream_offset (Union[Unset, None, int]):
         get_progress (Union[Unset, None, bool]):
+        no_logs (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -211,6 +239,8 @@ async def asyncio(
             client=client,
             running=running,
             log_offset=log_offset,
+            stream_offset=stream_offset,
             get_progress=get_progress,
+            no_logs=no_logs,
         )
     ).parsed

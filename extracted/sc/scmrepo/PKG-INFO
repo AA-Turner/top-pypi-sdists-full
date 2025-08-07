@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scmrepo
-Version: 3.5.1
+Version: 3.5.2
 Summary: scmrepo
 Author-email: Iterative <support@dvc.org>
 License-Expression: Apache-2.0
@@ -28,7 +28,7 @@ Requires-Dist: aiohttp-retry>=2.5.0
 Requires-Dist: tqdm
 Provides-Extra: tests
 Requires-Dist: aioresponses<0.8,>=0.7; extra == "tests"
-Requires-Dist: paramiko<4,>=3.4.0; extra == "tests"
+Requires-Dist: paramiko<5,>=3.4.0; extra == "tests"
 Requires-Dist: pytest<9,>=7; extra == "tests"
 Requires-Dist: pytest-asyncio<2,>=0.23.2; extra == "tests"
 Requires-Dist: pytest-cov>=4.1.0; extra == "tests"
@@ -38,7 +38,7 @@ Requires-Dist: pytest-sugar; extra == "tests"
 Requires-Dist: pytest-test-utils<0.2,>=0.1.0; extra == "tests"
 Requires-Dist: proxy.py; extra == "tests"
 Provides-Extra: dev
-Requires-Dist: mypy==1.17.0; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
 Requires-Dist: scmrepo[tests]; extra == "dev"
 Requires-Dist: types-certifi; extra == "dev"
 Requires-Dist: types-mock; extra == "dev"

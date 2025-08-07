@@ -21,7 +21,7 @@ from pymilvus.exceptions import (
     ServerVersionIncompatibleException,
 )
 from pymilvus.orm import utility
-from pymilvus.orm.collection import CollectionSchema
+from pymilvus.orm.collection import CollectionSchema, FieldSchema, Function
 from pymilvus.orm.connections import connections
 from pymilvus.orm.constants import FIELDS, METRIC_TYPE, TYPE, UNLIMITED
 from pymilvus.orm.iterator import QueryIterator, SearchIterator
@@ -60,6 +60,7 @@ class MilvusClient:
                 "https://username:password@in01-12a.aws-us-west-2.vectordb.zillizcloud.com:19538
             timeout (float, optional): What timeout to use for function calls. Defaults
                 to None.
+                Unit: second
         """
         self._using = create_connection(
             uri, token, db_name, user=user, password=password, timeout=timeout, **kwargs
@@ -287,6 +288,9 @@ class MilvusClient:
             {
                 "upsert_count": res.upsert_count,
                 "cost": res.cost,
+                # milvus server supports upsert on autoid=ture from v2.4.15
+                # upsert on autoid=ture will return new ids for user
+                "primary_keys": res.primary_keys,
             }
         )
 
@@ -294,7 +298,7 @@ class MilvusClient:
         self,
         collection_name: str,
         reqs: List[AnnSearchRequest],
-        ranker: BaseRanker,
+        ranker: Union[BaseRanker, Function],
         limit: int = 10,
         output_fields: Optional[List[str]] = None,
         timeout: Optional[float] = None,
@@ -306,7 +310,7 @@ class MilvusClient:
         Args:
             collection_name(``string``): The name of collection.
             reqs (``List[AnnSearchRequest]``): The vector search requests.
-            ranker (``BaseRanker``): The ranker for rearrange nummer of limit results.
+            ranker (``Union[BaseRanker, Function]``): The ranker.
             limit (``int``): The max number of returned record, also known as `topk`.
 
             partition_names (``List[str]``, optional): The names of partitions to search on.
@@ -368,6 +372,7 @@ class MilvusClient:
         timeout: Optional[float] = None,
         partition_names: Optional[List[str]] = None,
         anns_field: Optional[str] = None,
+        ranker: Optional["Function"] = None,
         **kwargs,
     ) -> List[List[dict]]:
         """Search for a query vector/vectors.
@@ -382,6 +387,7 @@ class MilvusClient:
             output_fields (List[str], optional): List of which field values to return. If None
                 specified, only primary fields including distances will be returned.
             search_params (dict, optional): The search params to use for the search.
+            ranker (Function, optional): The ranker to use for the search.
             timeout (float, optional): Timeout to use, overides the client level assigned at init.
                 Defaults to None.
 
@@ -405,6 +411,7 @@ class MilvusClient:
                 partition_names=partition_names,
                 expr_params=kwargs.pop("filter_params", {}),
                 timeout=timeout,
+                ranker=ranker,
                 **kwargs,
             )
         except Exception as ex:
@@ -861,6 +868,23 @@ class MilvusClient:
         return CollectionSchema([], **kwargs)
 
     @classmethod
+    def create_field_schema(
+        cls, name: str, data_type: DataType, desc: str = "", **kwargs
+    ) -> FieldSchema:
+        """Create a field schema. Wrapping orm.FieldSchema.
+
+        Args:
+            name (str): The name of the field.
+            dtype (DataType): The data type of the field.
+            desc (str): The description of the field.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            FieldSchema: the FieldSchema created.
+        """
+        return FieldSchema(name, data_type, desc, **kwargs)
+
+    @classmethod
     def prepare_index_params(cls, field_name: str = "", **kwargs) -> IndexParams:
         index_params = IndexParams()
         if field_name:
@@ -1066,6 +1090,41 @@ class MilvusClient:
             collection_name,
             field_name=field_name,
             field_params=field_params,
+            timeout=timeout,
+            **kwargs,
+        )
+
+    def add_collection_field(
+        self,
+        collection_name: str,
+        field_name: str,
+        data_type: DataType,
+        desc: str = "",
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        """Add a new field to the collection.
+
+        Args:
+            collection_name(``string``): The name of collection.
+            name (str): The name of the field.
+            dtype (DataType): The data type of the field.
+            desc (str): The description of the field.
+            timeout (``float``, optional): A duration of time in seconds to allow for the RPC.
+                If timeout is set to None, the client keeps waiting until the server
+                responds or an error occurs.
+            **kwargs (``dict``): Optional field params
+                nullable: bool, indicates field is nullable or not, shall be ``True`` for now
+                default_value: default val for added field
+
+        Raises:
+            MilvusException: If anything goes wrong
+        """
+        field_schema = self.create_field_schema(field_name, data_type, desc, **kwargs)
+        conn = self._get_connection()
+        conn.add_collection_field(
+            collection_name,
+            field_schema,
             timeout=timeout,
             **kwargs,
         )

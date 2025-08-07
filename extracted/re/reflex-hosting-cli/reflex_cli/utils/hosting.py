@@ -76,9 +76,7 @@ class ScaleAppCliArgs:
             regions = dict.fromkeys(regions, 1)
 
         if vm_type is not None and regions:
-            raise ScaleAppError(
-                "Only one of --vm-type or --regions should be provided."
-            )
+            raise ScaleAppError("Only one of --vmtype or --regions should be provided.")
         return cls(ScaleType(scale_type) if scale_type else None, regions, vm_type)
 
     @property
@@ -190,7 +188,7 @@ class ScaleParams:
 
         if scale_type is not None and cli_args.is_valid:
             console.warn(
-                "using --scale-type with --regions or --vm-type will have no effect"
+                "using --scale-type with --regions or --vmtype will have no effect"
             )
 
         if not cli_args.is_valid:
@@ -297,7 +295,8 @@ def get_authenticated_client(
         Exit: If no token is provided in non-interactive mode.
 
     """
-    if not token and not interactive:
+    env_token = get_existing_access_token() if not token else ""
+    if not token and not env_token and not interactive:
         console.error("Token is required for non-interactive mode.")
         raise click.exceptions.Exit(1)
 
@@ -374,6 +373,24 @@ def get_existing_access_token() -> str:
     return access_token
 
 
+def is_reflex_enterprise_installed() -> bool:
+    """Check if reflex-enterprise is installed.
+
+    Returns:
+        True if reflex-enterprise is installed, False otherwise.
+    """
+    import importlib.metadata
+
+    try:
+        importlib.metadata.version("reflex-enterprise")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+    except Exception:
+        return False
+    else:
+        return True
+
+
 def validate_token(token: str) -> dict[str, Any]:
     """Validate the token with the control plane.
 
@@ -391,9 +408,17 @@ def validate_token(token: str) -> dict[str, Any]:
     import httpx
 
     try:
+        # Add reflex-enterprise detection flag as query parameter
+        params = {
+            "source": "reflex-enterprise"
+            if is_reflex_enterprise_installed()
+            else "reflex"
+        }
+
         response = httpx.post(
             urljoin(constants.Hosting.HOSTING_SERVICE, "/v1/authenticate/me"),
             headers=authorization_header(token),
+            params=params,
             timeout=constants.Hosting.TIMEOUT,
         )
         response.raise_for_status()
@@ -1013,6 +1038,11 @@ def create_project(name: str, client: AuthenticatedClient) -> dict:
     if response.status_code == HTTPStatus.BAD_REQUEST:
         console.debug(f"Server responded with 400: {response_json.get('detail')}")
         raise ValueError(f"{response_json.get('detail', 'bad request')}")
+    if response.status_code == HTTPStatus.CONFLICT:
+        console.debug(f"Duplicate project name: {response_json.get('detail')}")
+        raise ValueError(
+            f"A project named '{name}' already exists. Please use a different name."
+        )
     response.raise_for_status()
     return response_json
 
@@ -1512,7 +1542,11 @@ def get_app_logs(
 
     if not isinstance(client, AuthenticatedClient):
         raise NotAuthenticatedError("not authenticated")
-    app = get_app(app_id=app_id, client=client)
+    try:
+        app = get_app(app_id=app_id, client=client)
+    except GetAppError:
+        console.warn(f"No application found with ID '{app_id}'")
+        return
     if not app:
         console.warn("no app with given id found")
         return

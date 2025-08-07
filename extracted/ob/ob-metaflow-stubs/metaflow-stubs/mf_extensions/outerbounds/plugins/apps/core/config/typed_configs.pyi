@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-05T23:30:10.017102                                                            #
+# Generated on 2025-08-06T15:19:48.457910                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import typing
 from typing import TypedDict
 if typing.TYPE_CHECKING:
-    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import typing
 
 from .unified_config import CoreConfig as CoreConfig
 

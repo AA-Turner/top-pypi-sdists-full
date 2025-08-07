@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-azure-ai
-Version: 0.1.4
+Version: 0.1.5
 Summary: An integration package to support Azure AI Foundry capabilities for model inference in LangChain.
 License: MIT
 Requires-Python: >=3.9,<4.0
@@ -12,11 +12,14 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Provides-Extra: opentelemetry
 Requires-Dist: aiohttp (>=3.10.0,<4.0.0)
+Requires-Dist: azure-ai-agents (>=1.0.1,<2.0.0)
 Requires-Dist: azure-ai-inference[opentelemetry] (>=1.0.0b7,<2.0.0)
+Requires-Dist: azure-ai-projects (==1.0.0b12)
 Requires-Dist: azure-core (>=1.32.0,<2.0.0)
-Requires-Dist: azure-cosmos (>=4.9.0,<5.0.0)
+Requires-Dist: azure-cosmos (>=4.14.0b1,<5.0.0)
 Requires-Dist: azure-identity (>=1.15.0,<2.0.0)
 Requires-Dist: azure-monitor-opentelemetry (>=1.6.4,<2.0.0) ; extra == "opentelemetry"
+Requires-Dist: azure-search-documents (>=11.4.0,<12.0.0)
 Requires-Dist: langchain-core (>=0.3.0,<0.4.0)
 Requires-Dist: langchain-openai (>=0.3.0,<0.4.0)
 Requires-Dist: numpy (>=1.26.2) ; python_version < "3.13"

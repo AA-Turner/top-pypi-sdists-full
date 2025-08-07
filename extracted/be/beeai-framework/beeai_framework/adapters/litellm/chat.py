@@ -200,7 +200,7 @@ class LiteLLMChatModel(ChatModel, ABC):
 
         settings = exclude_keys(
             self._settings | input.model_dump(exclude_unset=True),
-            {*self.supported_params, "abort_signal", "model", "messages", "tools"},
+            {*self.supported_params, "abort_signal", "model", "messages", "tools", "supports_top_level_unions"},
         )
         params = include_keys(
             input.model_dump(exclude_none=True)  # get all parameters with default values
@@ -229,6 +229,7 @@ class LiteLLMChatModel(ChatModel, ABC):
                 if input.response_format
                 else None,
                 "tool_choice": tool_choice if tools else None,
+                "parallel_tool_calls": bool(input.parallel_tool_calls) if tools else None,
             }
         )
 
@@ -261,15 +262,16 @@ class LiteLLMChatModel(ChatModel, ABC):
                         AssistantMessage(
                             [
                                 MessageToolCallContent(
-                                    id=call.id or "dummy_id",
+                                    id=call.id or "",
                                     tool_name=call.function.name or "",
                                     args=call.function.arguments,
                                 )
                                 for call in update.tool_calls
-                            ]
+                            ],
+                            id=chunk.id,
                         )
                         if update.tool_calls
-                        else AssistantMessage(update.content)  # type: ignore
+                        else AssistantMessage(update.content, id=chunk.id)  # type: ignore
                     )
                 ]
                 if update.model_dump(exclude_none=True)

@@ -8,8 +8,8 @@ setup(**{
     'author': 'TobikoData Inc.',
     'author_email': 'engineering@tobikodata.com',
     'install_requires': (
-        'pydantic>=2.0.0',
-        'typing_extensions',
+        'pydantic[email]>=2.0.0',
+        'typing-extensions',
     ),
     'name': 'tobiko-cloud-pydantic',
     'namespace_packages': (
@@ -24,5 +24,5 @@ setup(**{
         'tobikodata.pydantic',
     ),
     'python_requires': '<3.13,>=3.9',
-    'version': '202532.7.0',
+    'version': '202532.15.0',
 })

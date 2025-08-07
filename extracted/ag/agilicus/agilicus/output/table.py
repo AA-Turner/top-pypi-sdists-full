@@ -21,9 +21,11 @@ def format_date_only(date_input):
     return date_input.strftime("%Y-%m-%d")
 
 
-def date_else_identity(input_obj):
+def date_else_identity(input_obj, ctx=None):
     if isinstance(input_obj, datetime):
         return format_date(input_obj)
+    if ctx and not context.output_console(ctx):
+        return input_obj
     if isinstance(input_obj, list):
         list_as_str = ""
         for obj in input_obj:
@@ -43,11 +45,11 @@ def date_else_identity(input_obj):
     return input_obj
 
 
-def format_timestamp(input_obj):
+def format_timestamp(input_obj, ctx=None):
     return datetime.fromtimestamp(input_obj)
 
 
-def format_currency_from_cents(cents, currency=None):
+def format_currency_from_cents(cents, currency=None, ctx=None):
     currency_symbol = ""
     if currency:
         currency_symbol = numbers.get_currency_symbol(currency.upper(), locale="en")
@@ -97,8 +99,12 @@ def subtable(
     if not out_name:
         out_name = in_name
 
-    def format_fn(records):
-        return format_table(ctx, records, columns, getter=table_getter)
+    outer_ctx = ctx
+
+    def format_fn(records, ctx=None):
+        return format_table(
+            outer_ctx, records, columns, getter=table_getter, nested=True
+        )
 
     def getter(record, base_getter):
         subobject = base_getter(subobject_name)(record)
@@ -184,9 +190,9 @@ def status_column(in_name, out_name=None, **kwargs):
 def constant_if_exists(column: OutputColumn, constant, default=None):
     orig = column.format_fn
 
-    def check(val):
+    def check(val, ctx=None):
         if orig:
-            val = orig(val)
+            val = orig(val, ctx=ctx)
 
         if val:
             return constant
@@ -199,11 +205,11 @@ def constant_if_exists(column: OutputColumn, constant, default=None):
 def list_count(column: OutputColumn):
     orig = column.format_fn
 
-    def formatter(val):
+    def formatter(val, ctx=None):
         if isinstance(val, list):
             return len(val)
         if orig:
-            val = orig(val)
+            val = orig(val, ctx=ctx)
         return val
 
     column.format_fn = formatter
@@ -247,10 +253,10 @@ def expand_dict(column: OutputColumn):
 def summarize(column: OutputColumn, max_length: int):
     orig = column.format_fn
 
-    def format_list(val):
+    def format_list(val, ctx=None):
         if len(val) <= max_length:
             if orig:
-                val = orig(val)
+                val = orig(val, ctx=ctx)
             return val
 
         val = val[:max_length]
@@ -258,9 +264,9 @@ def summarize(column: OutputColumn, max_length: int):
             val = orig(val)
         return val + "[truncated]"
 
-    def formatter(val):
+    def formatter(val, ctx=None):
         if isinstance(val, list):
-            return format_list(val)
+            return format_list(val, ctx=ctx)
 
         if orig:
             val = orig(val)
@@ -286,7 +292,7 @@ def short_circuit_attrgetter(item):
     return func
 
 
-def _dump_json(ctx, to_dump):
+def _dump_json(ctx, to_dump, indent=2):
     # Sometimes a compound table can be a dict at its root. When formatting as json
     # handle that case
     if not isinstance(to_dump, list):
@@ -299,13 +305,17 @@ def _dump_json(ctx, to_dump):
             for record in to_dump
         ]
 
-    return convert_to_json(ctx, to_dump_as_dict)
+    return convert_to_json(ctx, to_dump_as_dict, indent=indent)
+
+
+def output_is_formatted(ctx):
+    return context.get_value(ctx, "output_format") in ("console", "csv")
 
 
 def get_table_style(ctx):
     table_style_str = context.get_value(ctx, "output_format")
     table_style = None
-    if table_style_str and table_style_str != "console":
+    if table_style_str and not output_is_formatted(ctx):
         from prettytable import (
             DEFAULT,
             MARKDOWN,
@@ -327,7 +337,12 @@ def get_table_style(ctx):
 
 
 def format_table(
-    ctx, records, columns, getter=short_circuit_attrgetter, row_filter=None
+    ctx,
+    records,
+    columns,
+    getter=short_circuit_attrgetter,
+    row_filter=None,
+    nested=False,
 ):
     if context.output_json(ctx):
         return _dump_json(ctx, records)
@@ -338,7 +353,7 @@ def format_table(
         table.set_style(table_style)
 
     if not records:
-        return table
+        records = []
 
     if not isinstance(records, list):
         records = [records]
@@ -366,11 +381,20 @@ def format_table(
 
             out_value = "---"
             if in_value is not None:
-                out_value = column.format_fn(in_value)
+                out_value = column.format_fn(in_value, ctx=ctx)
             row.append(out_value)
 
         table.add_row(row)
     table.align = "l"
+
+    return _table_to_console(ctx, table, nested)
+
+
+def _table_to_console(ctx, table, nested):
+    if context.output_csv(ctx):
+        if nested:
+            return table.get_json_string(header=False, indent=None, default=str)
+        return table.get_csv_string()
     return table
 
 
@@ -440,7 +464,9 @@ def object_subtable(
 
     subtable_columns = [column("name"), column("value")]
 
-    def format_fn(records):
+    outer_ctx = ctx
+
+    def format_fn(records, ctx=None):
         subtable_records = []
         namer = scalar_name
         if isinstance(records, list):
@@ -459,7 +485,13 @@ def object_subtable(
                 ]
             )
 
-        return format_table(ctx, subtable_records, subtable_columns, getter=table_getter)
+        return format_table(
+            outer_ctx,
+            subtable_records,
+            subtable_columns,
+            getter=table_getter,
+            nested=True,
+        )
 
     def getter(record, base_getter):
         subobject = base_getter(subobject_name)(record)

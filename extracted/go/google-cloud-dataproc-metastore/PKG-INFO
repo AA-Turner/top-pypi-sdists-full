@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-dataproc-metastore
-Version: 1.18.3
+Version: 1.19.0
 Summary: Google Cloud Dataproc Metastore API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-dataproc-metastore
 Author: Google LLC

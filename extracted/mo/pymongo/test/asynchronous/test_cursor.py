@@ -31,6 +31,7 @@ import pymongo
 sys.path[0:0] = [""]
 
 from test.asynchronous import AsyncIntegrationTest, async_client_context, unittest
+from test.asynchronous.utils import flaky
 from test.utils_shared import (
     AllowListEventListener,
     EventListener,
@@ -174,8 +175,8 @@ class TestCursor(AsyncIntegrationTest):
         cursor = coll.find().max_time_ms(999)
         c2 = cursor.clone()
         self.assertEqual(999, c2._max_time_ms)
-        self.assertTrue("$maxTimeMS" in cursor._query_spec())
-        self.assertTrue("$maxTimeMS" in c2._query_spec())
+        self.assertIn("$maxTimeMS", cursor._query_spec())
+        self.assertIn("$maxTimeMS", c2._query_spec())
 
         self.assertTrue(await coll.find_one(max_time_ms=1000))
 
@@ -240,19 +241,19 @@ class TestCursor(AsyncIntegrationTest):
         # Tailable_await defaults.
         await coll.find(cursor_type=CursorType.TAILABLE_AWAIT).to_list()
         # find
-        self.assertFalse("maxTimeMS" in listener.started_events[0].command)
+        self.assertNotIn("maxTimeMS", listener.started_events[0].command)
         # getMore
-        self.assertFalse("maxTimeMS" in listener.started_events[1].command)
+        self.assertNotIn("maxTimeMS", listener.started_events[1].command)
         listener.reset()
 
         # Tailable_await with max_await_time_ms set.
         await coll.find(cursor_type=CursorType.TAILABLE_AWAIT).max_await_time_ms(99).to_list()
         # find
         self.assertEqual("find", listener.started_events[0].command_name)
-        self.assertFalse("maxTimeMS" in listener.started_events[0].command)
+        self.assertNotIn("maxTimeMS", listener.started_events[0].command)
         # getMore
         self.assertEqual("getMore", listener.started_events[1].command_name)
-        self.assertTrue("maxTimeMS" in listener.started_events[1].command)
+        self.assertIn("maxTimeMS", listener.started_events[1].command)
         self.assertEqual(99, listener.started_events[1].command["maxTimeMS"])
         listener.reset()
 
@@ -263,11 +264,11 @@ class TestCursor(AsyncIntegrationTest):
             await coll.find(cursor_type=CursorType.TAILABLE_AWAIT).max_time_ms(99).to_list()
         # find
         self.assertEqual("find", listener.started_events[0].command_name)
-        self.assertTrue("maxTimeMS" in listener.started_events[0].command)
+        self.assertIn("maxTimeMS", listener.started_events[0].command)
         self.assertEqual(99, listener.started_events[0].command["maxTimeMS"])
         # getMore
         self.assertEqual("getMore", listener.started_events[1].command_name)
-        self.assertFalse("maxTimeMS" in listener.started_events[1].command)
+        self.assertNotIn("maxTimeMS", listener.started_events[1].command)
         listener.reset()
 
         # Tailable_await with both max_time_ms and max_await_time_ms
@@ -279,11 +280,11 @@ class TestCursor(AsyncIntegrationTest):
         )
         # find
         self.assertEqual("find", listener.started_events[0].command_name)
-        self.assertTrue("maxTimeMS" in listener.started_events[0].command)
+        self.assertIn("maxTimeMS", listener.started_events[0].command)
         self.assertEqual(99, listener.started_events[0].command["maxTimeMS"])
         # getMore
         self.assertEqual("getMore", listener.started_events[1].command_name)
-        self.assertTrue("maxTimeMS" in listener.started_events[1].command)
+        self.assertIn("maxTimeMS", listener.started_events[1].command)
         self.assertEqual(99, listener.started_events[1].command["maxTimeMS"])
         listener.reset()
 
@@ -291,31 +292,31 @@ class TestCursor(AsyncIntegrationTest):
         await coll.find(batch_size=1).max_await_time_ms(99).to_list()
         # find
         self.assertEqual("find", listener.started_events[0].command_name)
-        self.assertFalse("maxTimeMS" in listener.started_events[0].command)
+        self.assertNotIn("maxTimeMS", listener.started_events[0].command)
         # getMore
         self.assertEqual("getMore", listener.started_events[1].command_name)
-        self.assertFalse("maxTimeMS" in listener.started_events[1].command)
+        self.assertNotIn("maxTimeMS", listener.started_events[1].command)
         listener.reset()
 
         # Non tailable_await with max_time_ms
         await coll.find(batch_size=1).max_time_ms(99).to_list()
         # find
         self.assertEqual("find", listener.started_events[0].command_name)
-        self.assertTrue("maxTimeMS" in listener.started_events[0].command)
+        self.assertIn("maxTimeMS", listener.started_events[0].command)
         self.assertEqual(99, listener.started_events[0].command["maxTimeMS"])
         # getMore
         self.assertEqual("getMore", listener.started_events[1].command_name)
-        self.assertFalse("maxTimeMS" in listener.started_events[1].command)
+        self.assertNotIn("maxTimeMS", listener.started_events[1].command)
 
         # Non tailable_await with both max_time_ms and max_await_time_ms
         await coll.find(batch_size=1).max_time_ms(99).max_await_time_ms(88).to_list()
         # find
         self.assertEqual("find", listener.started_events[0].command_name)
-        self.assertTrue("maxTimeMS" in listener.started_events[0].command)
+        self.assertIn("maxTimeMS", listener.started_events[0].command)
         self.assertEqual(99, listener.started_events[0].command["maxTimeMS"])
         # getMore
         self.assertEqual("getMore", listener.started_events[1].command_name)
-        self.assertFalse("maxTimeMS" in listener.started_events[1].command)
+        self.assertNotIn("maxTimeMS", listener.started_events[1].command)
 
     @async_client_context.require_test_commands
     @async_client_context.require_no_mongos
@@ -360,6 +361,29 @@ class TestCursor(AsyncIntegrationTest):
         started = listener.started_events
         self.assertEqual(len(started), 1)
         self.assertNotIn("readConcern", started[0].command)
+
+    # https://github.com/mongodb/specifications/blob/master/source/crud/tests/README.md#14-explain-helpers-allow-users-to-specify-maxtimems
+    async def test_explain_csot(self):
+        # Create a MongoClient with command monitoring enabled (referred to as client).
+        listener = AllowListEventListener("explain")
+        client = await self.async_rs_or_single_client(event_listeners=[listener])
+
+        # Create a collection, referred to as collection, with the namespace explain-test.collection.
+        # Workaround for SERVER-108463
+        names = await client["explain-test"].list_collection_names()
+        if "collection" not in names:
+            collection = await client["explain-test"].create_collection("collection")
+        else:
+            collection = client["explain-test"]["collection"]
+
+        # Run an explained find on collection. The find will have the query predicate { name: 'john doe' }. Specify a maxTimeMS value of 2000ms for the explain.
+        with pymongo.timeout(2.0):
+            self.assertTrue(await collection.find({"name": "john doe"}).explain())
+
+        # Obtain the command started event for the explain. Confirm that the top-level explain command should has a maxTimeMS value of 2000.
+        started = listener.started_events
+        self.assertEqual(len(started), 1)
+        assert 1500 < started[0].command["maxTimeMS"] <= 2000
 
     async def test_hint(self):
         db = self.db
@@ -933,16 +957,19 @@ class TestCursor(AsyncIntegrationTest):
         # Shallow copies can so can mutate
         cursor2 = copy.copy(cursor)
         cursor2._projection["cursor2"] = False
-        self.assertTrue(cursor._projection and "cursor2" in cursor._projection)
+        self.assertIsNotNone(cursor._projection)
+        self.assertIn("cursor2", cursor._projection.keys())
 
         # Deepcopies and shouldn't mutate
         cursor3 = copy.deepcopy(cursor)
         cursor3._projection["cursor3"] = False
-        self.assertFalse(cursor._projection and "cursor3" in cursor._projection)
+        self.assertIsNotNone(cursor._projection)
+        self.assertNotIn("cursor3", cursor._projection.keys())
 
         cursor4 = cursor.clone()
         cursor4._projection["cursor4"] = False
-        self.assertFalse(cursor._projection and "cursor4" in cursor._projection)
+        self.assertIsNotNone(cursor._projection)
+        self.assertNotIn("cursor4", cursor._projection.keys())
 
         # Test memo when deepcopying queries
         query = {"hello": "world"}
@@ -959,7 +986,7 @@ class TestCursor(AsyncIntegrationTest):
         cursor = self.db.test.find().hint([("z", 1), ("a", 1)])
         cursor2 = copy.deepcopy(cursor)
         # Internal types are now dict rather than SON by default
-        self.assertTrue(isinstance(cursor2._hint, dict))
+        self.assertIsInstance(cursor2._hint, dict)
         self.assertEqual(cursor._hint, cursor2._hint)
 
     @async_client_context.require_sync
@@ -1187,15 +1214,6 @@ class TestCursor(AsyncIntegrationTest):
 
         self.assertEqual(["b", "c"], distinct)
 
-    @async_client_context.require_version_max(4, 1, 0, -1)
-    async def test_max_scan(self):
-        await self.db.drop_collection("test")
-        await self.db.test.insert_many([{} for _ in range(100)])
-
-        self.assertEqual(100, len(await self.db.test.find().to_list()))
-        self.assertEqual(50, len(await self.db.test.find().max_scan(50).to_list()))
-        self.assertEqual(50, len(await self.db.test.find().max_scan(90).max_scan(50).to_list()))
-
     async def test_with_statement(self):
         await self.db.drop_collection("test")
         await self.db.test.insert_many([{} for _ in range(100)])
@@ -1412,12 +1430,11 @@ class TestCursor(AsyncIntegrationTest):
         docs = await c.to_list(3)
         self.assertEqual(len(docs), 2)
 
+    @flaky(reason="PYTHON-3522")
     async def test_to_list_csot_applied(self):
-        if os.environ.get("SKIP_CSOT_TESTS", ""):
-            raise unittest.SkipTest("SKIP_CSOT_TESTS is set, skipping...")
         client = await self.async_single_client(timeoutMS=500, w=1)
         coll = client.pymongo.test
-        # Initialize the client with a larger timeout to help make test less flakey
+        # Initialize the client with a larger timeout to help make test less flaky
         with pymongo.timeout(10):
             await coll.insert_many([{} for _ in range(5)])
         cursor = coll.find({"$where": delay(1)})
@@ -1455,12 +1472,11 @@ class TestCursor(AsyncIntegrationTest):
         self.assertEqual(len(await result.to_list(1)), 1)
 
     @async_client_context.require_failCommand_blockConnection
+    @flaky(reason="PYTHON-3522")
     async def test_command_cursor_to_list_csot_applied(self):
-        if os.environ.get("SKIP_CSOT_TESTS", ""):
-            raise unittest.SkipTest("SKIP_CSOT_TESTS is set, skipping...")
         client = await self.async_single_client(timeoutMS=500, w=1)
         coll = client.pymongo.test
-        # Initialize the client with a larger timeout to help make test less flakey
+        # Initialize the client with a larger timeout to help make test less flaky
         with pymongo.timeout(10):
             await coll.insert_many([{} for _ in range(5)])
         fail_command = {
@@ -1597,7 +1613,6 @@ class TestRawBatchCursor(AsyncIntegrationTest):
     async def test_collation(self):
         await anext(self.db.test.find_raw_batches(collation=Collation("en_US")))
 
-    @async_client_context.require_no_mmap  # MMAPv1 does not support read concern
     async def test_read_concern(self):
         await self.db.get_collection("test", write_concern=WriteConcern(w="majority")).insert_one(
             {}

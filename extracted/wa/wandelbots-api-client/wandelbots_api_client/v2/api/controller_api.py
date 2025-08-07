@@ -28,7 +28,6 @@ from typing import List, Optional
 from typing_extensions import Annotated
 from wandelbots_api_client.v2.models.controller_description import ControllerDescription
 from wandelbots_api_client.v2.models.coordinate_system import CoordinateSystem
-from wandelbots_api_client.v2.models.get_mode_response import GetModeResponse
 from wandelbots_api_client.v2.models.orientation_type import OrientationType
 from wandelbots_api_client.v2.models.robot_controller import RobotController
 from wandelbots_api_client.v2.models.robot_controller_state import RobotControllerState
@@ -1813,285 +1812,6 @@ class ControllerApi:
 
 
     @validate_call
-    async def get_mode(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> GetModeResponse:
-        """Current Mode
-
-        Get the current robot system mode of a registered robot controller. The robot system mode indicates if a robot controller can be used. See [setDefaultMode](setDefaultMode) for more information about the different modes. The mode is influenced by the operating mode of the robot controller. The operating mode can be changed via [setDefaultMode](setDefaultMode). Request the current operating mode of the robot controller via [getCurrentRobotControllerState](getCurrentRobotControllerState). 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param controller: Unique identifier to address a controller in the cell. (required)
-        :type controller: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_mode_serialize(
-            cell=cell,
-            controller=controller,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetModeResponse",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        ).data
-
-
-    @validate_call
-    async def get_mode_with_http_info(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[GetModeResponse]:
-        """Current Mode
-
-        Get the current robot system mode of a registered robot controller. The robot system mode indicates if a robot controller can be used. See [setDefaultMode](setDefaultMode) for more information about the different modes. The mode is influenced by the operating mode of the robot controller. The operating mode can be changed via [setDefaultMode](setDefaultMode). Request the current operating mode of the robot controller via [getCurrentRobotControllerState](getCurrentRobotControllerState). 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param controller: Unique identifier to address a controller in the cell. (required)
-        :type controller: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_mode_serialize(
-            cell=cell,
-            controller=controller,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetModeResponse",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        await response_data.read()
-        return self.api_client.response_deserialize(
-            response_data=response_data,
-            response_types_map=_response_types_map,
-        )
-
-
-    @validate_call
-    async def get_mode_without_preload_content(
-        self,
-        cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
-        controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
-        _request_timeout: Union[
-            None,
-            Annotated[StrictFloat, Field(gt=0)],
-            Tuple[
-                Annotated[StrictFloat, Field(gt=0)],
-                Annotated[StrictFloat, Field(gt=0)]
-            ]
-        ] = None,
-        _request_auth: Optional[Dict[StrictStr, Any]] = None,
-        _content_type: Optional[StrictStr] = None,
-        _headers: Optional[Dict[StrictStr, Any]] = None,
-        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> RESTResponseType:
-        """Current Mode
-
-        Get the current robot system mode of a registered robot controller. The robot system mode indicates if a robot controller can be used. See [setDefaultMode](setDefaultMode) for more information about the different modes. The mode is influenced by the operating mode of the robot controller. The operating mode can be changed via [setDefaultMode](setDefaultMode). Request the current operating mode of the robot controller via [getCurrentRobotControllerState](getCurrentRobotControllerState). 
-
-        :param cell: Unique identifier addressing a cell in all API calls.  (required)
-        :type cell: str
-        :param controller: Unique identifier to address a controller in the cell. (required)
-        :type controller: str
-        :param _request_timeout: timeout setting for this request. If one
-                                 number provided, it will be total request
-                                 timeout. It can also be a pair (tuple) of
-                                 (connection, read) timeouts.
-        :type _request_timeout: int, tuple(int, int), optional
-        :param _request_auth: set to override the auth_settings for an a single
-                              request; this effectively ignores the
-                              authentication in the spec for a single request.
-        :type _request_auth: dict, optional
-        :param _content_type: force content-type for the request.
-        :type _content_type: str, Optional
-        :param _headers: set to override the headers for a single
-                         request; this effectively ignores the headers
-                         in the spec for a single request.
-        :type _headers: dict, optional
-        :param _host_index: set to override the host_index for a single
-                            request; this effectively ignores the host_index
-                            in the spec for a single request.
-        :type _host_index: int, optional
-        :return: Returns the result object.
-        """ # noqa: E501
-
-        _param = self._get_mode_serialize(
-            cell=cell,
-            controller=controller,
-            _request_auth=_request_auth,
-            _content_type=_content_type,
-            _headers=_headers,
-            _host_index=_host_index
-        )
-
-        _response_types_map: Dict[str, Optional[str]] = {
-            '200': "GetModeResponse",
-            '400': "Error",
-            '404': "Error",
-        }
-        response_data = await self.api_client.call_api(
-            *_param,
-            _request_timeout=_request_timeout
-        )
-        return response_data.response
-
-
-    def _get_mode_serialize(
-        self,
-        cell,
-        controller,
-        _request_auth,
-        _content_type,
-        _headers,
-        _host_index,
-    ) -> RequestSerialized:
-
-        _host = None
-
-        _collection_formats: Dict[str, str] = {
-        }
-
-        _path_params: Dict[str, str] = {}
-        _query_params: List[Tuple[str, str]] = []
-        _header_params: Dict[str, Optional[str]] = _headers or {}
-        _form_params: List[Tuple[str, str]] = []
-        _files: Dict[str, Union[str, bytes]] = {}
-        _body_params: Optional[bytes] = None
-
-        # process the path parameters
-        if cell is not None:
-            _path_params['cell'] = cell
-        if controller is not None:
-            _path_params['controller'] = controller
-        # process the query parameters
-        # process the header parameters
-        # process the form parameters
-        # process the body parameter
-
-
-        # set the HTTP header `Accept`
-        _header_params['Accept'] = self.api_client.select_header_accept(
-            [
-                'application/json'
-            ]
-        )
-
-
-        # authentication setting
-        _auth_settings: List[str] = [
-            'BasicAuth', 
-            'BearerAuth'
-        ]
-
-        return self.api_client.param_serialize(
-            method='GET',
-            resource_path='/cells/{cell}/controllers/{controller}/mode',
-            path_params=_path_params,
-            query_params=_query_params,
-            header_params=_header_params,
-            body=_body_params,
-            post_params=_form_params,
-            files=_files,
-            auth_settings=_auth_settings,
-            collection_formats=_collection_formats,
-            _host=_host,
-            _request_auth=_request_auth
-        )
-
-
-
-    @validate_call
     async def get_robot_controller(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
@@ -2368,7 +2088,7 @@ class ControllerApi:
 
 
     @validate_call
-    async def get_virtual_robot_configuration(
+    async def get_virtual_controller_configuration(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2385,9 +2105,9 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> VirtualRobotConfiguration:
-        """Virtual Robot Configuration
+        """Virtual Controller Configuration
 
-        Receive the configuration for a virtual robot controller. Used to configure a virtual robot controller via [addRobotController](addRobotController).  > **NOTE** > > The output generated by this endpoint can be too large for the site to handle, and may produce an error or incorrect output. > Use `curl` in combination with `> output.json` to capture the output, or use an API client like Postman. 
+        Receive data to configure a virtual robot controller based on another controller. This can be used to create a virtual clone of a specific physical robot.  When adding a virtual controller, use the Virtual configuration variant of [addRobotController](addRobotController) and pass the content string from this endpoint as the `json` field. Omit the `type` field that selects a preset configuration which is not required when providing a complete configuration.  > **NOTE** > > The output generated by this endpoint can be too large for the site to handle, and may produce an error or incorrect output. > Use `curl` in combination with `> output.json` to capture the output, or use an API client like Postman. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2415,7 +2135,7 @@ class ControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_configuration_serialize(
+        _param = self._get_virtual_controller_configuration_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -2441,7 +2161,7 @@ class ControllerApi:
 
 
     @validate_call
-    async def get_virtual_robot_configuration_with_http_info(
+    async def get_virtual_controller_configuration_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2458,9 +2178,9 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> ApiResponse[VirtualRobotConfiguration]:
-        """Virtual Robot Configuration
+        """Virtual Controller Configuration
 
-        Receive the configuration for a virtual robot controller. Used to configure a virtual robot controller via [addRobotController](addRobotController).  > **NOTE** > > The output generated by this endpoint can be too large for the site to handle, and may produce an error or incorrect output. > Use `curl` in combination with `> output.json` to capture the output, or use an API client like Postman. 
+        Receive data to configure a virtual robot controller based on another controller. This can be used to create a virtual clone of a specific physical robot.  When adding a virtual controller, use the Virtual configuration variant of [addRobotController](addRobotController) and pass the content string from this endpoint as the `json` field. Omit the `type` field that selects a preset configuration which is not required when providing a complete configuration.  > **NOTE** > > The output generated by this endpoint can be too large for the site to handle, and may produce an error or incorrect output. > Use `curl` in combination with `> output.json` to capture the output, or use an API client like Postman. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2488,7 +2208,7 @@ class ControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_configuration_serialize(
+        _param = self._get_virtual_controller_configuration_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -2514,7 +2234,7 @@ class ControllerApi:
 
 
     @validate_call
-    async def get_virtual_robot_configuration_without_preload_content(
+    async def get_virtual_controller_configuration_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2531,9 +2251,9 @@ class ControllerApi:
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
     ) -> RESTResponseType:
-        """Virtual Robot Configuration
+        """Virtual Controller Configuration
 
-        Receive the configuration for a virtual robot controller. Used to configure a virtual robot controller via [addRobotController](addRobotController).  > **NOTE** > > The output generated by this endpoint can be too large for the site to handle, and may produce an error or incorrect output. > Use `curl` in combination with `> output.json` to capture the output, or use an API client like Postman. 
+        Receive data to configure a virtual robot controller based on another controller. This can be used to create a virtual clone of a specific physical robot.  When adding a virtual controller, use the Virtual configuration variant of [addRobotController](addRobotController) and pass the content string from this endpoint as the `json` field. Omit the `type` field that selects a preset configuration which is not required when providing a complete configuration.  > **NOTE** > > The output generated by this endpoint can be too large for the site to handle, and may produce an error or incorrect output. > Use `curl` in combination with `> output.json` to capture the output, or use an API client like Postman. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -2561,7 +2281,7 @@ class ControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_configuration_serialize(
+        _param = self._get_virtual_controller_configuration_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -2582,7 +2302,7 @@ class ControllerApi:
         return response_data.response
 
 
-    def _get_virtual_robot_configuration_serialize(
+    def _get_virtual_controller_configuration_serialize(
         self,
         cell,
         controller,
@@ -3218,7 +2938,7 @@ class ControllerApi:
     ) -> None:
         """Set Default Mode
 
-        Switch between monitor and control usage as default for a robot controller. Monitoring mode is used to read information from the robot controller and control mode is used to command the robot system. As long as the robot controller is connected via network monitoring mode is always possible. To switch to control mode the robot controller must be in `automatic` or `manual` operating mode and safety state 'normal' or 'reduced'. If the robot controller is in `manual` operating mode, you have manually confirm the control usage activation on the robot control panel. This manual confirmation can't be replaced with this API. Without manual confirmation the robot controller will stay in monitor mode.  The robot system will try to activate the required operation mode for the requested usage unless no active call requires a different mode.  > **NOTE** > > Some robot controllers prevent the external activation of automatic operating mode. In this case, changing the operating mode manually at the robot controller is mandatory.  > **NOTE** > > The current operation mode and safety state can be requested via [getCurrentRobotControllerState](getCurrentRobotControllerState).  If a mode change is not possible, the response lists reasons for the failed change. 
+        Switch between monitor and control usage as default for a robot controller. Monitoring mode is used to read information from the robot controller and control mode is used to command the robot system. As long as the robot controller is connected via network monitoring mode is always possible. To switch to control mode the robot controller must be in `automatic` or `manual` operating mode and safety state 'normal' or 'reduced'. If the robot controller is in `manual` operating mode, you have manually confirm the control usage activation on the robot control panel. This manual confirmation can't be replaced with this API. Without manual confirmation the robot controller will stay in monitor mode.  The robot system will try to activate the required operation mode for the requested usage unless no active call requires a different mode.  > **NOTE** > > `setDefaultMode` enables the robot controller to stay in control mode to keep the motors activated. > This allows for faster execution of sequential movements as no mode switches are required.  > **NOTE** > > Some robot controllers prevent the external activation of automatic operating mode. In this case, changing the operating mode manually at the robot controller is mandatory.  > **NOTE** > > The current operation mode and safety state can be requested via [getCurrentRobotControllerState](getCurrentRobotControllerState).  If a mode change is not possible, the response lists reasons for the failed change. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -3295,7 +3015,7 @@ class ControllerApi:
     ) -> ApiResponse[None]:
         """Set Default Mode
 
-        Switch between monitor and control usage as default for a robot controller. Monitoring mode is used to read information from the robot controller and control mode is used to command the robot system. As long as the robot controller is connected via network monitoring mode is always possible. To switch to control mode the robot controller must be in `automatic` or `manual` operating mode and safety state 'normal' or 'reduced'. If the robot controller is in `manual` operating mode, you have manually confirm the control usage activation on the robot control panel. This manual confirmation can't be replaced with this API. Without manual confirmation the robot controller will stay in monitor mode.  The robot system will try to activate the required operation mode for the requested usage unless no active call requires a different mode.  > **NOTE** > > Some robot controllers prevent the external activation of automatic operating mode. In this case, changing the operating mode manually at the robot controller is mandatory.  > **NOTE** > > The current operation mode and safety state can be requested via [getCurrentRobotControllerState](getCurrentRobotControllerState).  If a mode change is not possible, the response lists reasons for the failed change. 
+        Switch between monitor and control usage as default for a robot controller. Monitoring mode is used to read information from the robot controller and control mode is used to command the robot system. As long as the robot controller is connected via network monitoring mode is always possible. To switch to control mode the robot controller must be in `automatic` or `manual` operating mode and safety state 'normal' or 'reduced'. If the robot controller is in `manual` operating mode, you have manually confirm the control usage activation on the robot control panel. This manual confirmation can't be replaced with this API. Without manual confirmation the robot controller will stay in monitor mode.  The robot system will try to activate the required operation mode for the requested usage unless no active call requires a different mode.  > **NOTE** > > `setDefaultMode` enables the robot controller to stay in control mode to keep the motors activated. > This allows for faster execution of sequential movements as no mode switches are required.  > **NOTE** > > Some robot controllers prevent the external activation of automatic operating mode. In this case, changing the operating mode manually at the robot controller is mandatory.  > **NOTE** > > The current operation mode and safety state can be requested via [getCurrentRobotControllerState](getCurrentRobotControllerState).  If a mode change is not possible, the response lists reasons for the failed change. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -3372,7 +3092,7 @@ class ControllerApi:
     ) -> RESTResponseType:
         """Set Default Mode
 
-        Switch between monitor and control usage as default for a robot controller. Monitoring mode is used to read information from the robot controller and control mode is used to command the robot system. As long as the robot controller is connected via network monitoring mode is always possible. To switch to control mode the robot controller must be in `automatic` or `manual` operating mode and safety state 'normal' or 'reduced'. If the robot controller is in `manual` operating mode, you have manually confirm the control usage activation on the robot control panel. This manual confirmation can't be replaced with this API. Without manual confirmation the robot controller will stay in monitor mode.  The robot system will try to activate the required operation mode for the requested usage unless no active call requires a different mode.  > **NOTE** > > Some robot controllers prevent the external activation of automatic operating mode. In this case, changing the operating mode manually at the robot controller is mandatory.  > **NOTE** > > The current operation mode and safety state can be requested via [getCurrentRobotControllerState](getCurrentRobotControllerState).  If a mode change is not possible, the response lists reasons for the failed change. 
+        Switch between monitor and control usage as default for a robot controller. Monitoring mode is used to read information from the robot controller and control mode is used to command the robot system. As long as the robot controller is connected via network monitoring mode is always possible. To switch to control mode the robot controller must be in `automatic` or `manual` operating mode and safety state 'normal' or 'reduced'. If the robot controller is in `manual` operating mode, you have manually confirm the control usage activation on the robot control panel. This manual confirmation can't be replaced with this API. Without manual confirmation the robot controller will stay in monitor mode.  The robot system will try to activate the required operation mode for the requested usage unless no active call requires a different mode.  > **NOTE** > > `setDefaultMode` enables the robot controller to stay in control mode to keep the motors activated. > This allows for faster execution of sequential movements as no mode switches are required.  > **NOTE** > > Some robot controllers prevent the external activation of automatic operating mode. In this case, changing the operating mode manually at the robot controller is mandatory.  > **NOTE** > > The current operation mode and safety state can be requested via [getCurrentRobotControllerState](getCurrentRobotControllerState).  If a mode change is not possible, the response lists reasons for the failed change. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -3563,10 +3283,10 @@ class ControllerApi:
 
 
     @validate_call
-    async def stream_robot_controller_state(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")], response_rate: Optional[StrictInt] = None) -> AsyncGenerator[RobotControllerState, None]:  # noqa: E501
+    async def stream_robot_controller_state(self, cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")], controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")], response_rate: Optional[StrictInt] = None, add_controller_timeout: Optional[StrictInt] = None) -> AsyncGenerator[RobotControllerState, None]:  # noqa: E501
         """Stream State  # noqa: E501
 
-        <!-- theme: danger -->  > Websocket endpoint  Receive updates of the state of a robot controller.   # noqa: E501
+        <!-- theme: danger -->  > Websocket endpoint  Receive updates of the state of a robot controller.  The stream can be opened before the controller is registered. To register a controller, call [addRobotController](addRobotController).  While connecting, the stream sends initialization updates. Once the controller reaches `MODE_MONITOR`, it sends controller state updates.   # noqa: E501
         :param request: A StreamRobotControllerStateRequest
         :info All responses from the server will be yielded
         :type StreamRobotControllerStateRequest
@@ -3618,6 +3338,12 @@ class ControllerApi:
               url_schema += "&".join(["response_rate=" + s for s in response_rate])
             else:
               url_schema += "response_rate="+str(response_rate)
+        if locals().get("add_controller_timeout") is not None:
+            url_schema = append_parameter_connector(url_schema)
+            if isinstance(add_controller_timeout, list):
+              url_schema += "&".join(["add_controller_timeout=" + s for s in add_controller_timeout])
+            else:
+              url_schema += "add_controller_timeout="+str(add_controller_timeout)
         full_url = furl(url_schema)
 
         async with websockets.connect(full_url.url, open_timeout=10, additional_headers=headers) as websocket:

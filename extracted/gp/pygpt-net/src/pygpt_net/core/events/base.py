@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2024.12.14 08:00:00                  #
+# Updated Date: 2025.08.06 19:00:00                  #
 # ================================================== #
 
 import json
@@ -15,6 +15,7 @@ from typing import Optional, Dict, Any
 from pygpt_net.item.ctx import CtxItem
 
 class BaseEvent:
+
     def __init__(
             self,
             name: Optional[str] = None,

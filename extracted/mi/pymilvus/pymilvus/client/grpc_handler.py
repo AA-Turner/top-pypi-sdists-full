@@ -12,6 +12,7 @@ from grpc._cython import cygrpc
 from pymilvus.decorators import ignore_unimplemented, retry_on_rpc_failure, upgrade_reminder
 from pymilvus.exceptions import (
     AmbiguousIndexName,
+    DataNotMatchException,
     DescribeCollectionException,
     ErrorCode,
     ExceptionsMessage,
@@ -20,6 +21,7 @@ from pymilvus.exceptions import (
 )
 from pymilvus.grpc_gen import common_pb2, milvus_pb2_grpc
 from pymilvus.grpc_gen import milvus_pb2 as milvus_types
+from pymilvus.orm.schema import Function
 from pymilvus.settings import Config
 
 from . import entity_helper, interceptor, ts_utils, utils
@@ -27,6 +29,7 @@ from .abstract import (
     AnnSearchRequest,
     BaseRanker,
     CollectionSchema,
+    FieldSchema,
     MutationResult,
 )
 from .asynch import (
@@ -323,8 +326,23 @@ class GrpcHandler:
         check_status(status)
 
     @retry_on_rpc_failure()
+    def add_collection_field(
+        self,
+        collection_name: str,
+        field_schema: FieldSchema,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        check_pass_param(collection_name=collection_name, timeout=timeout)
+        request = Prepare.add_collection_field_request(collection_name, field_schema)
+        status = self._stub.AddCollectionField(
+            request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        )
+        check_status(status)
+
+    @retry_on_rpc_failure()
     def alter_collection_properties(
-        self, collection_name: str, properties: Dict, timeout: Optional[float] = None, **kwargs
+        self, collection_name: str, properties: List, timeout: Optional[float] = None, **kwargs
     ):
         check_pass_param(collection_name=collection_name, properties=properties, timeout=timeout)
         request = Prepare.alter_collection_request(collection_name, properties=properties)
@@ -540,17 +558,30 @@ class GrpcHandler:
         timeout: Optional[float] = None,
         **kwargs,
     ):
-        request = self._prepare_row_insert_request(
-            collection_name, entities, partition_name, schema, timeout, **kwargs
-        )
-        resp = self._stub.Insert(request=request, timeout=timeout, metadata=_api_level_md(**kwargs))
-        if resp.status.error_code == common_pb2.SchemaMismatch:
+        try:
+            request = self._prepare_row_insert_request(
+                collection_name, entities, partition_name, schema, timeout, **kwargs
+            )
+        except DataNotMatchException:
+            # try to update schema and retry
             schema = self.update_schema(collection_name, timeout, **kwargs)
             request = self._prepare_row_insert_request(
                 collection_name, entities, partition_name, schema, timeout, **kwargs
             )
-            resp = self._stub.Insert(
-                request=request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        except Exception as ex:
+            raise ex from ex
+
+        resp = self._stub.Insert(request=request, timeout=timeout, metadata=_api_level_md(**kwargs))
+        if resp.status.error_code == common_pb2.SchemaMismatch:
+            schema = self.update_schema(collection_name, timeout, **kwargs)
+            # recursively calling `insert_rows` handling another schema change happens during retry
+            return self.insert_rows(
+                collection_name=collection_name,
+                entities=entities,
+                partition_name=partition_name,
+                schema=schema,
+                timeout=timeout,
+                **kwargs,
             )
         check_status(resp.status)
         ts_utils.update_collection_ts(collection_name, resp.timestamp)
@@ -819,17 +850,30 @@ class GrpcHandler:
     ):
         if isinstance(entities, dict):
             entities = [entities]
-        request = self._prepare_row_upsert_request(
-            collection_name, entities, partition_name, timeout, **kwargs
-        )
-        response = self._stub.Upsert(request, timeout=timeout, metadata=_api_level_md(**kwargs))
-        if response.status.error_code == common_pb2.SchemaMismatch:
-            self.update_schema(collection_name, timeout)
+
+        try:
             request = self._prepare_row_upsert_request(
                 collection_name, entities, partition_name, timeout, **kwargs
             )
-            response = self._stub.Upsert(
-                request=request, timeout=timeout, metadata=_api_level_md(**kwargs)
+        except DataNotMatchException:
+            # try to update schema and retry
+            self.update_schema(collection_name, timeout, **kwargs)
+            request = self._prepare_row_upsert_request(
+                collection_name, entities, partition_name, timeout, **kwargs
+            )
+        except Exception as ex:
+            raise ex from ex
+
+        response = self._stub.Upsert(request, timeout=timeout, metadata=_api_level_md(**kwargs))
+        if response.status.error_code == common_pb2.SchemaMismatch:
+            self.update_schema(collection_name, timeout)
+            # recursively calling `upsert_rows` handling another schema change happens during retry
+            return self.upsert_rows(
+                collection_name=collection_name,
+                entities=entities,
+                partition_name=partition_name,
+                timeout=timeout,
+                **kwargs,
             )
         check_status(response.status)
         m = MutationResult(response)
@@ -897,6 +941,7 @@ class GrpcHandler:
         output_fields: Optional[List[str]] = None,
         round_decimal: int = -1,
         timeout: Optional[float] = None,
+        ranker: Optional[Function] = None,
         **kwargs,
     ):
         check_pass_param(
@@ -920,6 +965,7 @@ class GrpcHandler:
             partition_names,
             output_fields,
             round_decimal,
+            ranker=ranker,
             **kwargs,
         )
         return self._execute_search(request, timeout, round_decimal=round_decimal, **kwargs)
@@ -929,7 +975,7 @@ class GrpcHandler:
         self,
         collection_name: str,
         reqs: List[AnnSearchRequest],
-        rerank: BaseRanker,
+        rerank: Union[BaseRanker, Function],
         limit: int,
         partition_names: Optional[List[str]] = None,
         output_fields: Optional[List[str]] = None,
@@ -965,7 +1011,7 @@ class GrpcHandler:
         hybrid_search_request = Prepare.hybrid_search_request_with_ranker(
             collection_name,
             requests,
-            rerank.dict(),
+            rerank,
             limit,
             partition_names,
             output_fields,

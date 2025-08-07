@@ -42,6 +42,7 @@ class ContextQueue(asyncio.Queue):
 class StreamManager:
     def __init__(self):
         self.queues = defaultdict(list)  # Dict[UUID, List[asyncio.Queue]]
+        self.control_keys = defaultdict()
         self.control_queues = defaultdict(list)
 
         self.message_stores = defaultdict(list)  # Dict[UUID, List[Message]]
@@ -50,6 +51,14 @@ class StreamManager:
     def get_queues(self, run_id: UUID | str) -> list[asyncio.Queue]:
         run_id = _ensure_uuid(run_id)
         return self.queues[run_id]
+
+    def get_control_queues(self, run_id: UUID | str) -> list[asyncio.Queue]:
+        run_id = _ensure_uuid(run_id)
+        return self.control_queues[run_id]
+
+    def get_control_key(self, run_id: UUID | str) -> Message | None:
+        run_id = _ensure_uuid(run_id)
+        return self.control_keys.get(run_id)
 
     async def put(
         self, run_id: UUID | str, message: Message, resumable: bool = False
@@ -61,8 +70,10 @@ class StreamManager:
             self.message_stores[run_id].append(message)
         topic = message.topic.decode()
         if "control" in topic:
-            self.control_queues[run_id].append(message)
-        queues = self.queues.get(run_id, [])
+            self.control_keys[run_id] = message
+            queues = self.control_queues[run_id]
+        else:
+            queues = self.queues[run_id]
         coros = [queue.put(message) for queue in queues]
         results = await asyncio.gather(*coros, return_exceptions=True)
         for result in results:
@@ -73,14 +84,12 @@ class StreamManager:
         run_id = _ensure_uuid(run_id)
         queue = ContextQueue()
         self.queues[run_id].append(queue)
-        for control_msg in self.control_queues[run_id]:
-            try:
-                await queue.put(control_msg)
-            except Exception:
-                logger.exception(
-                    f"Failed to put control message in queue: {control_msg}"
-                )
+        return queue
 
+    async def add_control_queue(self, run_id: UUID | str) -> asyncio.Queue:
+        run_id = _ensure_uuid(run_id)
+        queue = ContextQueue()
+        self.control_queues[run_id].append(queue)
         return queue
 
     async def remove_queue(self, run_id: UUID | str, queue: asyncio.Queue):
@@ -89,8 +98,13 @@ class StreamManager:
             self.queues[run_id].remove(queue)
             if not self.queues[run_id]:
                 del self.queues[run_id]
-                if run_id in self.message_stores:
-                    del self.message_stores[run_id]
+
+    async def remove_control_queue(self, run_id: UUID | str, queue: asyncio.Queue):
+        run_id = _ensure_uuid(run_id)
+        if run_id in self.control_queues:
+            self.control_queues[run_id].remove(queue)
+            if not self.control_queues[run_id]:
+                del self.control_queues[run_id]
 
     def restore_messages(
         self, run_id: UUID | str, message_id: str | None

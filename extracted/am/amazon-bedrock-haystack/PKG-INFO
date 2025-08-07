@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amazon-bedrock-haystack
-Version: 3.9.1
+Version: 3.10.0
 Summary: An integration of Amazon Bedrock as an AmazonBedrockGenerator component.
 Project-URL: Documentation, https://github.com/deepset-ai/haystack-core-integrations/tree/main/integrations/amazon_bedrock#readme
 Project-URL: Issues, https://github.com/deepset-ai/haystack-core-integrations/issues

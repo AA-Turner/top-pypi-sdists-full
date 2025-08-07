@@ -922,6 +922,7 @@ def text_global_pool(
         x: torch.Tensor,
         text: Optional[torch.Tensor] = None,
         pool_type: str = 'argmax',
+        eos_token_id: Optional[int] = None,
 ) -> torch.Tensor:
     if pool_type == 'first':
         pooled = x[:, 0]
@@ -930,7 +931,13 @@ def text_global_pool(
     elif pool_type == 'argmax':
         # take features from the eot embedding (eot_token is the highest number in each sequence)
         assert text is not None
-        pooled = x[torch.arange(x.shape[0]), text.argmax(dim=-1)]
+        pooled = x[torch.arange(x.shape[0], device=x.device), text.argmax(dim=-1)]
+    elif pool_type == 'eos':
+        # take features from tokenizer specific eos
+        assert text is not None
+        assert eos_token_id is not None
+        idx = (text == eos_token_id).int().argmax(dim=-1)
+        pooled = x[torch.arange(x.shape[0], device=x.device), idx]
     else:
         pooled = x
 
@@ -955,6 +962,7 @@ class TextTransformer(nn.Module):
             use_pad_mask: bool = False,
             correct_cls_mask: bool = False,
             pad_id: int = 0,
+            eos_id: int = 2,
             pool_type: str = 'argmax',
             proj_type: str = 'linear',
             proj_bias: bool = False,
@@ -970,7 +978,7 @@ class TextTransformer(nn.Module):
             scale_fc: bool = False,
     ):
         super().__init__()
-        assert pool_type in ('first', 'last', 'argmax', 'none')
+        assert pool_type in ('first', 'last', 'argmax', 'eos', 'none')
         self.output_tokens = output_tokens
         self.num_pos = self.context_length = context_length
         self.vocab_size = vocab_size
@@ -978,6 +986,7 @@ class TextTransformer(nn.Module):
         self.output_dim = output_dim
         self.heads = heads
         self.pad_id = pad_id
+        self.eos_id = eos_id
         self.pool_type = pool_type
         self.use_pad_mask = use_pad_mask and no_causal_mask  # only use in bi‑dir mode
         self.correct_cls_mask = correct_cls_mask  # use the correct cls mask for CoCa (original is wrong)
@@ -1049,6 +1058,17 @@ class TextTransformer(nn.Module):
     def set_grad_checkpointing(self, enable=True):
         self.transformer.grad_checkpointing = enable
 
+    def lock(self, unlocked_layers: int = 0, freeze_layer_norm: bool = True):
+        """
+        Lock the text transformer layers, optionally leaving some layers unlocked.
+
+        Args:
+            unlocked_layers: Number of layers to leave unlocked (from the end).
+            freeze_layer_norm: LayerNorm freeze (only for API compatibility, not functional)
+        """
+        assert freeze_layer_norm, 'Unfreezing LayerNorm is not supported. LayerNorm treated like other weights.'
+        lock_text_tower(self, unlocked_layers)
+
     @torch.jit.ignore
     def no_weight_decay(self):
         # for timm optimizers, 1d params like logit_scale, logit_bias, ln/bn scale, biases are excluded by default
@@ -1105,7 +1125,11 @@ class TextTransformer(nn.Module):
         # Class + padding additive mask
         if self.use_pad_mask or self.cls_emb is not None:
             add_mask  = self._build_additive_mask(text, seq_len, x.dtype)
-            attn_mask = add_mask if attn_mask is None else attn_mask.unsqueeze(0) + add_mask
+            if attn_mask is not None:
+                # Slice the causal mask to match current sequence length
+                attn_mask = attn_mask[:seq_len, :seq_len].unsqueeze(0) + add_mask
+            else:
+                attn_mask = add_mask
 
         x = x + self.positional_embedding[:seq_len].to(cast_dtype)
         return x, attn_mask
@@ -1168,7 +1192,7 @@ class TextTransformer(nn.Module):
             pooled = self.ln_final(pooled)  # final LN applied after pooling in this case
         else:
             x = self.ln_final(x)
-            pooled = text_global_pool(x, text, pool_type=self.pool_type)
+            pooled = text_global_pool(x, text, pool_type=self.pool_type, eos_token_id=getattr(self, "eos_id", None))
 
         if self.text_projection is not None:
             if isinstance(self.text_projection, nn.Linear):
@@ -1208,7 +1232,7 @@ class TextTransformer(nn.Module):
             tokens = x[:, :-1]
         else:
             x = self.ln_final(x)
-            pooled = text_global_pool(x, text, pool_type=self.pool_type)
+            pooled = text_global_pool(x, text, pool_type=self.pool_type, eos_token_id=getattr(self, "eos_id", None))
             tokens = x
 
         if self.text_projection is not None:
@@ -1331,3 +1355,101 @@ class MultimodalTransformer(Transformer):
     @torch.jit.ignore
     def set_grad_checkpointing(self, enable=True):
         self.grad_checkpointing = enable
+
+
+def lock_text_tower(
+    model: nn.Module,
+    unlocked_layers: int = 0,
+):
+    """
+    Lock text tower layers for CLIP models.
+
+    Works with both model architectures:
+    - CustomTextCLIP where text components are in self.text
+    - Standard CLIP where text components are unpacked as attributes
+
+    Args:
+        model: The CLIP model or TextTransformer module
+        unlocked_layers: Number of layers to leave unlocked (from the end)
+    """
+    # Determine where to look for text components
+    if hasattr(model, 'text'):
+        # CustomTextCLIP or already a TextTransformer with nested structure
+        text_module = model.text
+    else:
+        # Standard CLIP or direct TextTransformer
+        text_module = model
+
+    # Collect text components
+    text_params = {}
+    text_params['token_embedding'] = getattr(text_module, 'token_embedding', None)
+    text_params['positional_embedding'] = getattr(text_module, 'positional_embedding', None)
+    text_params['cls_emb'] = getattr(text_module, 'cls_emb', None)
+    text_params['transformer'] = getattr(text_module, 'transformer', None)
+    text_params['ln_final'] = getattr(text_module, 'ln_final', None)
+    text_params['text_projection'] = getattr(text_module, 'text_projection', None)
+
+    # Filter out None values
+    text_params = {k: v for k, v in text_params.items() if v is not None}
+
+    # Freeze all text parameters first
+    for module in text_params.values():
+        if isinstance(module, nn.Parameter):
+            module.requires_grad = False
+        elif isinstance(module, nn.Module):
+            for param in module.parameters():
+                param.requires_grad = False
+
+    if unlocked_layers == 0:
+        return
+
+    # Check if we have transformer blocks to work with
+    transformer = text_params['transformer']
+    if not transformer or not hasattr(transformer, 'resblocks'):
+        return
+
+    total_layers = len(transformer.resblocks)
+    if total_layers == 0:
+        return
+
+    # Build groups for selective unlocking
+    groups = []
+
+    # Group 1: Embeddings
+    embedding_group = []
+    for key in ['token_embedding', 'positional_embedding', 'cls_emb']:
+        if key in text_params:
+            embedding_group.append(text_params[key])
+    if embedding_group:
+        groups.append(embedding_group)
+
+    # Group 2-N: Individual transformer blocks (except last)
+    if total_layers > 1:
+        for block in transformer.resblocks[:-1]:
+            groups.append([block])
+
+    # Combine last transformer block + final ln as the penultimate group
+    last_block = [transformer.resblocks[-1]]
+    if 'ln_final' in text_params:
+        last_block.append(text_params['ln_final'])
+    groups.append(last_block)
+
+    # The final group is the projection only
+    if 'text_projection' in text_params:
+        groups.append([text_params['text_projection']])
+
+    # Helper function to unlock parameters
+    def _unlock(module):
+        if isinstance(module, Sequence):
+            for m in module:
+                _unlock(m)
+        elif isinstance(module, nn.Parameter):
+            module.requires_grad = True
+        elif isinstance(module, nn.Module):
+            for name, param in module.named_parameters():
+                param.requires_grad = True
+
+    # Unlock the specified number of layer groups from the end
+    num_groups_to_unlock = min(unlocked_layers, len(groups))
+    for group in groups[-num_groups_to_unlock:]:
+        _unlock(group)

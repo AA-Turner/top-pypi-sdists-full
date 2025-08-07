@@ -6,16 +6,24 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.02 03:00:00                  #
+# Updated Date: 2025.08.07 03:00:00                  #
 # ================================================== #
 
 import os
 import builtins
 import io
+import platform
 
 # disable warnings
 os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
 os.environ["QT_LOGGING_RULES"] = "qt.multimedia.ffmpeg=false"
+
+if platform.system() == 'Windows':
+    # fix ffmpeg bug: [SWR] Output channel layout "" is invalid or unsupported.
+    os.environ['QT_MEDIA_BACKEND'] = 'windows'
+
+# enable debug logging
+# os.environ["QT_LOGGING_RULES"] = "*.debug=true"
 
 _original_open = builtins.open
 

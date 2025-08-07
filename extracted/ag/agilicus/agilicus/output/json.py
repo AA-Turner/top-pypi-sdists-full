@@ -21,14 +21,14 @@ def json_output_default(o):
     return None
 
 
-def convert_to_json(ctx, entry):
+def convert_to_json(ctx, entry, indent=2):
     return json.dumps(
-        jsonify(ctx, entry), sort_keys=True, indent=2, default=json_output_default
+        jsonify(ctx, entry), sort_keys=True, indent=indent, default=json_output_default
     )
 
 
-def output_json(ctx, entry):
-    print(convert_to_json(ctx, entry))
+def output_json(ctx, entry, indent=2):
+    print(convert_to_json(ctx, entry, indent=indent))
 
 
 def output_json_to_file(ctx, doc, outfile):

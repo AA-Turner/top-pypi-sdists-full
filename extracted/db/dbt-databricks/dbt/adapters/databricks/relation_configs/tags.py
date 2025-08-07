@@ -18,7 +18,7 @@ class TagsConfig(DatabricksComponentConfig):
 
     def get_diff(self, other: "TagsConfig") -> Optional["TagsConfig"]:
         # Tags are now "set only" - we never unset tags, only add or update them
-        if any(item not in other.set_tags.items() for item in self.set_tags.items()):
+        if self.set_tags != other.set_tags:
             return TagsConfig(set_tags=self.set_tags)
         return None
 

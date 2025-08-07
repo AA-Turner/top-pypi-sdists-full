@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: django-template-partials
-Version: 24.4
-Summary: django-template-partials
+Version: 25.1
+Summary: Reusable named inline-partials for the Django Template Language
 Author-email: Carlton Gibson <carlton.gibson@noumenal.es>
 Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: MIT License
@@ -73,7 +73,7 @@ TEST-PARTIAL-CONTENT
 {% endpartialdef %}
 ```
 
-For extra readability, you can optionally add the name to your `{% endblock %}` tag. For
+For extra readability, you can optionally add the name to your `{% endpartialdef %}` tag. For
 example:
 
 ```html
@@ -127,7 +127,7 @@ the content inside your partial, use the `inline` argument in that situation:
 
 ```html
 {% block main %}
-{% partialdef inline-partial inline=True %}
+{% partialdef inline-partial inline %}
 CONTENT
 {% endpartialdef %}
 {% endblock main %}

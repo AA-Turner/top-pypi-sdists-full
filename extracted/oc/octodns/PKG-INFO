@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: octodns
-Version: 1.12.0
+Version: 1.13.0
 Summary: OctoDNS: DNS as code - Tools for managing DNS across multiple providers
 Home-page: https://github.com/octodns/octodns
 Author: Ross McFarland
@@ -21,12 +21,18 @@ Requires-Dist: pytest-cov>=3.0.0; extra == "dev"
 Requires-Dist: pytest-network>=0.0.1; extra == "dev"
 Requires-Dist: black<25.0.0,>=24.3.0; extra == "dev"
 Requires-Dist: build>=0.7.0; extra == "dev"
+Requires-Dist: changelet; extra == "dev"
 Requires-Dist: isort>=5.11.5; extra == "dev"
 Requires-Dist: pycountry>=19.8.18; extra == "dev"
 Requires-Dist: pycountry-convert>=0.7.2; extra == "dev"
 Requires-Dist: pyflakes>=2.2.0; extra == "dev"
 Requires-Dist: readme_renderer[md]>=26.0; extra == "dev"
 Requires-Dist: twine>=3.4.2; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: Sphinx>=8.2.3; extra == "docs"
+Requires-Dist: furo>=2024.8.6; extra == "docs"
+Requires-Dist: myst-parser>=4.0.1; extra == "docs"
+Requires-Dist: sphinx-copybutton>=0.5.2; extra == "docs"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
@@ -305,6 +311,7 @@ The table below lists the providers octoDNS supports. They are maintained in the
 | [Akamai Edge DNS](https://www.akamai.com/products/edge-dns) | [octodns_edgedns](https://github.com/octodns/octodns-edgedns/) | |
 | [Amazon Route 53](https://aws.amazon.com/route53/) | [octodns_route53](https://github.com/octodns/octodns-route53) | |
 | [AutoDNS](https://www.internetx.com/autodns/) | [octodns_autodns](https://github.com/octodns/octodns-autodns) | |
+| [Azion DNS](https://www.azion.com/en/products/edge-dns/) | [octodns_azion](https://github.com/aziontech/octodns-azion/) | |
 | [Azure DNS](https://azure.microsoft.com/en-us/services/dns/) | [octodns_azure](https://github.com/octodns/octodns-azure/) | |
 | [BIND, AXFR, RFC-2136](https://www.isc.org/bind/) | [octodns_bind](https://github.com/octodns/octodns-bind/) | |
 | [Bunny DNS](https://bunny.net/dns/) | [octodns_bunny](https://github.com/Relkian/octodns-bunny) | |

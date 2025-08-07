@@ -722,7 +722,7 @@ class Threads(Authenticated):
         else:
             # Default sorting by created_at in descending order
             sorted_threads = sorted(
-                filtered_threads, key=lambda x: x["created_at"], reverse=True
+                filtered_threads, key=lambda x: x["updated_at"], reverse=True
             )
 
         # Apply limit and offset
@@ -1451,7 +1451,7 @@ class Threads(Authenticated):
             conn: InMemConnectionProto,
             *,
             config: Config,
-            limit: int = 10,
+            limit: int = 1,
             before: str | Checkpoint | None = None,
             metadata: MetadataInput = None,
             ctx: Auth.types.BaseAuthContext | None = None,
@@ -1626,7 +1626,7 @@ class Runs(Authenticated):
 
         stream_manager = get_stream_manager()
         # Get queue for this run
-        queue = await Runs.Stream.subscribe(run_id)
+        queue = await stream_manager.add_control_queue(run_id)
 
         async with SimpleTaskGroup(cancel=True, taskgroup_name="Runs.enter") as tg:
             done = ValueEvent()
@@ -1634,16 +1634,21 @@ class Runs(Authenticated):
 
             # Give done event to caller
             yield done
-            # Signal done to all subscribers
+            # Store the control message for late subscribers
             control_message = Message(
                 topic=f"run:{run_id}:control".encode(), data=b"done"
             )
-
-            # Store the control message for late subscribers
             await stream_manager.put(run_id, control_message)
-            stream_manager.control_queues[run_id].append(control_message)
-            # Clean up this queue
-            await stream_manager.remove_queue(run_id, queue)
+
+            # Signal done to all subscribers
+            stream_message = Message(
+                topic=f"run:{run_id}:stream".encode(),
+                data={"event": "control", "message": b"done"},
+            )
+            await stream_manager.put(run_id, stream_message)
+
+            # Remove the queue
+            await stream_manager.remove_control_queue(run_id, queue)
 
     @staticmethod
     async def sweep(conn: InMemConnectionProto) -> list[UUID]:
@@ -1979,6 +1984,16 @@ class Runs(Authenticated):
                     return Fragment(
                         orjson.dumps({"__error__": orjson.Fragment(thread["error"])})
                     )
+                if thread["status"] == "interrupted":
+                    # Get an interrupt for the thread. There is the case where there are multiple interrupts for the same run and we may not show the same
+                    # interrupt, but we'll always show one. Long term we should show all of them.
+                    try:
+                        interrupt_map = thread["interrupts"]
+                        interrupt = [next(iter(interrupt_map.values()))[0]]
+                        return Fragment(orjson.dumps({"__interrupt__": interrupt}))
+                    except Exception:
+                        # No interrupt, but status is interrupted from a before/after block. Default back to values.
+                        pass
                 return thread["values"]
 
     @staticmethod
@@ -2199,8 +2214,6 @@ class Runs(Authenticated):
         @staticmethod
         async def subscribe(
             run_id: UUID,
-            *,
-            stream_mode: StreamMode | None = None,
         ) -> asyncio.Queue:
             """Subscribe to the run stream, returning a queue."""
             stream_manager = get_stream_manager()
@@ -2220,20 +2233,18 @@ class Runs(Authenticated):
             ignore_404: bool = False,
             cancel_on_disconnect: bool = False,
             stream_channel: asyncio.Queue | None = None,
-            stream_mode: list[StreamMode] | StreamMode,
+            stream_mode: list[StreamMode] | StreamMode | None = None,
             last_event_id: str | None = None,
             ctx: Auth.types.BaseAuthContext | None = None,
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
             """Stream the run output."""
             from langgraph_api.asyncio import create_task
-
-            if stream_mode and not isinstance(stream_mode, list):
-                stream_mode = [stream_mode]
+            from langgraph_api.serde import json_loads
 
             queue = (
                 stream_channel
                 if stream_channel
-                else await Runs.Stream.subscribe(run_id, stream_mode=stream_mode)
+                else await Runs.Stream.subscribe(run_id)
             )
 
             try:
@@ -2254,53 +2265,71 @@ class Runs(Authenticated):
                                 )
                             )
                     run = await Runs.get(conn, run_id, thread_id=thread_id, ctx=ctx)
-                    channel_prefix = f"run:{run_id}:stream:"
-                    len_prefix = len(channel_prefix.encode())
 
                     for message in get_stream_manager().restore_messages(
                         run_id, last_event_id
                     ):
-                        topic, data, id = message.topic, message.data, message.id
-                        if topic.decode() == f"run:{run_id}:control":
-                            if data == b"done":
+                        data, id = message.data, message.id
+
+                        data = json_loads(data)
+                        mode = data["event"]
+                        message = data["message"]
+
+                        if mode == "control":
+                            if message == b"done":
                                 return
-                        else:
-                            mode = topic[len_prefix:]
-                            if mode == b"updates" and "updates" not in stream_mode:
-                                continue
-                            else:
-                                yield mode, data, id
-                                logger.debug(
-                                    "Replayed run event",
-                                    run_id=str(run_id),
-                                    message_id=id,
-                                    stream_mode=mode,
-                                    data=data,
+                        elif (
+                            not stream_mode
+                            or mode in stream_mode
+                            or (
+                                (
+                                    "messages" in stream_mode
+                                    or "messages-tuple" in stream_mode
                                 )
+                                and mode.startswith("messages")
+                            )
+                        ):
+                            yield mode.encode(), base64.b64decode(message), id
+                            logger.debug(
+                                "Replayed run event",
+                                run_id=str(run_id),
+                                message_id=id,
+                                stream_mode=mode,
+                                data=data,
+                            )
 
                     while True:
                         try:
                             # Wait for messages with a timeout
                             message = await asyncio.wait_for(queue.get(), timeout=0.5)
-                            topic, data, id = message.topic, message.data, message.id
+                            data, id = message.data, message.id
 
-                            if topic.decode() == f"run:{run_id}:control":
-                                if data == b"done":
+                            data = json_loads(data)
+                            mode = data["event"]
+                            message = data["message"]
+
+                            if mode == "control":
+                                if message == b"done":
                                     break
-                            else:
-                                # Extract mode from topic
-                                mode = topic[len_prefix:]
-                                if mode == b"updates" and "updates" not in stream_mode:
-                                    continue
-                                else:
-                                    yield mode, data, id
-                                    logger.debug(
-                                        "Streamed run event",
-                                        run_id=str(run_id),
-                                        stream_mode=mode,
-                                        message_id=id,
-                                        data=data,
+                            elif (
+                                not stream_mode
+                                or mode in stream_mode
+                                or (
+                                    (
+                                        "messages" in stream_mode
+                                        or "messages-tuple" in stream_mode
                                     )
+                                    and mode.startswith("messages")
+                                )
+                            ):
+                                yield mode.encode(), base64.b64decode(message), id
+                                logger.debug(
+                                    "Streamed run event",
+                                    run_id=str(run_id),
+                                    stream_mode=mode,
+                                    message_id=id,
+                                    data=message,
+                                )
                         except TimeoutError:
                             # Check if the run is still pending
                             run_iter = await Runs.get(
@@ -2340,12 +2369,20 @@ class Runs(Authenticated):
             resumable: bool = False,
         ) -> None:
             """Publish a message to all subscribers of the run stream."""
-            topic = f"run:{run_id}:stream:{event}".encode()
+            from langgraph_api.serde import json_dumpb
+
+            topic = f"run:{run_id}:stream".encode()
 
             stream_manager = get_stream_manager()
             # Send to all queues subscribed to this run_id
+            payload = json_dumpb(
+                {
+                    "event": event,
+                    "message": message,
+                }
+            )
             await stream_manager.put(
-                run_id, Message(topic=topic, data=message), resumable
+                run_id, Message(topic=topic, data=payload), resumable
             )
 
 
@@ -2354,20 +2391,18 @@ async def listen_for_cancellation(queue: asyncio.Queue, run_id: UUID, done: Valu
     from langgraph_api.errors import UserInterrupt, UserRollback
 
     stream_manager = get_stream_manager()
-    control_key = f"run:{run_id}:control"
 
-    if existing_queue := stream_manager.control_queues.get(run_id):
-        for message in existing_queue:
-            payload = message.data
-            if payload == b"rollback":
-                done.set(UserRollback())
-            elif payload == b"interrupt":
-                done.set(UserInterrupt())
+    if control_key := stream_manager.get_control_key(run_id):
+        payload = control_key.data
+        if payload == b"rollback":
+            done.set(UserRollback())
+        elif payload == b"interrupt":
+            done.set(UserInterrupt())
 
     while not done.is_set():
         try:
             # This task gets cancelled when Runs.enter exits anyway,
-            # so we can have a pretty length timeout here
+            # so we can have a pretty lengthy timeout here
             message = await asyncio.wait_for(queue.get(), timeout=240)
             payload = message.data
             if payload == b"rollback":
@@ -2377,10 +2412,6 @@ async def listen_for_cancellation(queue: asyncio.Queue, run_id: UUID, done: Valu
             elif payload == b"done":
                 done.set()
                 break
-
-            # Store control messages for late subscribers
-            if message.topic.decode() == control_key:
-                stream_manager.control_queues[run_id].append(message)
         except TimeoutError:
             break
 

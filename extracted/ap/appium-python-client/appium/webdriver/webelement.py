@@ -12,23 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Dict, Optional, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
 from selenium.webdriver.common.utils import keys_to_typing
 from selenium.webdriver.remote.command import Command as RemoteCommand
 from selenium.webdriver.remote.webelement import WebElement as SeleniumWebElement
 from typing_extensions import Self
 
-from appium.protocols.webdriver.can_find_elements import CanFindElements
-
 from .mobilecommand import MobileCommand as Command
 
 
-class WebElement(SeleniumWebElement, CanFindElements):
+class WebElement(SeleniumWebElement):
     _execute: Callable
     _id: str
 
-    def get_attribute(self, name: str) -> Optional[Union[str, Dict]]:
+    if TYPE_CHECKING:
+
+        def find_element(self, by: str, value: Union[str, Dict, None] = None) -> Self:  # type: ignore[override]
+            ...
+
+        def find_elements(self, by: str, value: Union[str, Dict, None] = None) -> List[Self]:  # type: ignore[override]
+            ...
+
+    def get_attribute(self, name: str) -> Optional[Union[str, Dict]]:  # type: ignore[override]
         """Gets the given attribute or property of the element.
 
         Override for Appium
@@ -80,7 +86,7 @@ class WebElement(SeleniumWebElement, CanFindElements):
         """
         return self._execute(Command.IS_ELEMENT_DISPLAYED)['value']
 
-    def clear(self) -> Self:
+    def clear(self) -> Self:  # type: ignore[override]
         """Clears text.
 
         Override for Appium
@@ -110,7 +116,7 @@ class WebElement(SeleniumWebElement, CanFindElements):
         return self._execute(Command.LOCATION_IN_VIEW)['value']
 
     # Override
-    def send_keys(self, *value: str) -> Self:
+    def send_keys(self, *value: str) -> Self:  # type: ignore[override]
         """Simulates typing into the element.
 
         Args:

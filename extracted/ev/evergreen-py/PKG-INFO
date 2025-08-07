@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
-Name: evergreen-py
-Version: 3.11.4
+Metadata-Version: 2.3
+Name: evergreen.py
+Version: 3.12.0
 Summary: Python client for the Evergreen API
-Home-page: https://github.com/evergreen-ci/evergreen.py
 License: Apache-2.0
 Author: DevProd Services & Integrations Team
 Author-email: devprod-si-team@mongodb.com
@@ -12,8 +11,11 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: Click (>=7)
 Requires-Dist: PyYAML (>=5)
+Requires-Dist: packaging (>=25.0,<26.0)
 Requires-Dist: pydantic (>=1)
 Requires-Dist: python-dateutil (>=2)
 Requires-Dist: requests (>=2)

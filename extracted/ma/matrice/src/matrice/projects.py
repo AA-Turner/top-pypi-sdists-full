@@ -1035,7 +1035,7 @@ class Projects:
                 "No applications specified",
             )
 
-        path = "/v1/deployment/inference_pipeline"
+        path = "/v1/inference/inference_pipeline"
         payload = {
             "name": name,
             "description": description,
@@ -1065,7 +1065,7 @@ class Projects:
         Returns:
             tuple: (result, error, message)
         """
-        path = f"/v1/deployment/list_inference_pipelines/{self.project_id}"
+        path = f"/v1/inference/list_inference_pipelines/{self.project_id}"
         params = {"page": page, "limit": min(limit, 100)}
 
         if status:
@@ -1375,7 +1375,7 @@ class Projects:
         >>>     print(f"Deployments: {deployments}")
         """
         print("project_id", self.project_id)
-        path = f"/v1/deployment/list_deployments/v2?projectId={self.project_id}&pageSize={page_size}&pageNumber={page_number}"
+        path = f"/v1/inference/list_deployments/v2?projectId={self.project_id}&pageSize={page_size}&pageNumber={page_number}"
         resp = self.rpc.get(path=path)
         print("path", path)
         data, error, message = handle_response(
@@ -1597,7 +1597,7 @@ class Projects:
         >>>     print(f"Drift Monitoring detail : {resp}")
         """
         print(self.project_id)
-        path = f"/v1/deployment/list_drift_monitorings?pageSize={page_size}&pageNumber={page_number}&projectId={self.project_id}"
+        path = f"/v1/inference/list_drift_monitorings?pageSize={page_size}&pageNumber={page_number}&projectId={self.project_id}"
         resp = self.rpc.get(path=path)
         data, error, message = handle_response(
             resp,
@@ -1926,7 +1926,7 @@ class Projects:
         >>> deployment_status = project.get_deployment_status_summary()
         >>> print(deployment_status)
         """
-        path = f"/v1/deployment/summary?projectId={self.project_id}"
+        path = f"/v1/inference/summary?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
         data, error, message = handle_response(
             resp,

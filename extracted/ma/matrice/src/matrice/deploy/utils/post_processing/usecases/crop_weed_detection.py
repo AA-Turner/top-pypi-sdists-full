@@ -41,28 +41,31 @@ class CropWeedDetectionConfig(BaseConfig):
     confidence_threshold: float = 0.6
 
     usecase_categories: List[str] = field(
-        default_factory=lambda: ['crop', 'weed']
+        default_factory=lambda: ['plants', 'BroWeed', 'Maize', 'NarWeed']
     )
 
     target_categories: List[str] = field(
-        default_factory=lambda: ['crop', 'weed']
+        default_factory=lambda: ['BroWeed', 'Maize', 'NarWeed']
     )
 
     alert_config: Optional[AlertConfig] = None
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-           0: "crop",
-           1: "weed"
+            0: 'plants', 
+            1: 'BroWeed', 
+            2: 'Maize', 
+            3: 'NarWeed'
         }
     )
-
 
 class CropWeedDetectionUseCase(BaseProcessor):
     # Human-friendly display names for categories
     CATEGORY_DISPLAY = {
-        "crop": "crop",
-        "weed": "weed"
+        "weed": "weed",
+        "BroWeed": "BroWeed",
+        "Maize": "Maize",
+        "NarWeed": "NarWeed"
     }
     def __init__(self):
         super().__init__("crop_weed_detection")

@@ -142,7 +142,7 @@ class TestBSON(unittest.TestCase):
 
         helper({})
         helper({"test": "hello"})
-        self.assertTrue(isinstance(decoder(encoder({"hello": "world"}))["hello"], str))
+        self.assertIsInstance(decoder(encoder({"hello": "world"}))["hello"], str)
         helper({"mike": -10120})
         helper({"long": Int64(10)})
         helper({"really big long": 2147483648})
@@ -557,7 +557,7 @@ class TestBSON(unittest.TestCase):
             try:
                 decode(bs)
             except Exception as exc:
-                self.assertTrue(isinstance(exc, InvalidBSON))
+                self.assertIsInstance(exc, InvalidBSON)
                 self.assertIn(part, str(exc))
             else:
                 self.fail("Failed to raise an exception.")
@@ -722,7 +722,7 @@ class TestBSON(unittest.TestCase):
 
         opts = CodecOptions(uuid_representation=UuidRepresentation.STANDARD)
         transformed_id = decode(encode({"id": id}, codec_options=opts), codec_options=opts)["id"]
-        self.assertTrue(isinstance(transformed_id, uuid.UUID))
+        self.assertIsInstance(transformed_id, uuid.UUID)
         self.assertEqual(id, transformed_id)
         self.assertNotEqual(uuid.uuid4(), transformed_id)
 
@@ -731,7 +731,7 @@ class TestBSON(unittest.TestCase):
         legacy = Binary.from_uuid(id, UuidRepresentation.PYTHON_LEGACY)
         self.assertEqual(3, legacy.subtype)
         bin = decode(encode({"uuid": legacy}))["uuid"]
-        self.assertTrue(isinstance(bin, Binary))
+        self.assertIsInstance(bin, Binary)
         transformed = bin.as_uuid(UuidRepresentation.PYTHON_LEGACY)
         self.assertEqual(id, transformed)
 
@@ -739,7 +739,7 @@ class TestBSON(unittest.TestCase):
         """Tests of subtype 9"""
         # We start with valid cases, across the 3 dtypes implemented.
         # Work with a simple vector that can be interpreted as int8, float32, or ubyte
-        list_vector = [127, 7]
+        list_vector = [127, 8]
         # As INT8, vector has length 2
         binary_vector = Binary.from_vector(list_vector, BinaryVectorDtype.INT8)
         vector = binary_vector.as_vector()
@@ -764,18 +764,18 @@ class TestBSON(unittest.TestCase):
         uncompressed = ""
         for val in list_vector:
             uncompressed += format(val, "08b")
-        assert uncompressed[:-padding] == "0111111100000"
+        assert uncompressed[:-padding] == "0111111100001"
 
         # It is worthwhile explicitly showing the values encoded to BSON
         padded_doc = {"padded_vec": padded_vec}
         assert (
             encode(padded_doc)
-            == b"\x1a\x00\x00\x00\x05padded_vec\x00\x04\x00\x00\x00\t\x10\x03\x7f\x07\x00"
+            == b"\x1a\x00\x00\x00\x05padded_vec\x00\x04\x00\x00\x00\t\x10\x03\x7f\x08\x00"
         )
         # and dumped to json
         assert (
             json_util.dumps(padded_doc)
-            == '{"padded_vec": {"$binary": {"base64": "EAN/Bw==", "subType": "09"}}}'
+            == '{"padded_vec": {"$binary": {"base64": "EAN/CA==", "subType": "09"}}}'
         )
 
         # FLOAT32 is also implemented
@@ -784,15 +784,19 @@ class TestBSON(unittest.TestCase):
 
         # Now some invalid cases
         for x in [-1, 257]:
-            try:
+            with self.assertRaises(struct.error):
                 Binary.from_vector([x], BinaryVectorDtype.PACKED_BIT)
-            except Exception as exc:
-                self.assertTrue(isinstance(exc, struct.error))
-            else:
-                self.fail("Failed to raise an exception.")
+
+        # Test one must pass zeros for all ignored bits
+        with self.assertRaises(ValueError):
+            Binary.from_vector([255], BinaryVectorDtype.PACKED_BIT, padding=7)
+
+        with self.assertWarns(DeprecationWarning):
+            meta = struct.pack("<sB", BinaryVectorDtype.PACKED_BIT.value, 7)
+            data = struct.pack("1B", 255)
+            Binary(meta + data, subtype=9).as_vector()
 
         # Test form of Binary.from_vector(BinaryVector)
-
         assert padded_vec == Binary.from_vector(
             BinaryVector(list_vector, BinaryVectorDtype.PACKED_BIT, padding)
         )
@@ -886,7 +890,7 @@ class TestBSON(unittest.TestCase):
         y = {"hello": iso8859_bytes}
         # Stored as BSON binary subtype 0.
         out = decode(encode(y))
-        self.assertTrue(isinstance(out["hello"], bytes))
+        self.assertIsInstance(out["hello"], bytes)
         self.assertEqual(out["hello"], iso8859_bytes)
 
     def test_null_character(self):
@@ -1045,6 +1049,8 @@ class TestBSON(unittest.TestCase):
 
     def test_minkey_maxkey_comparison(self):
         # MinKey's <, <=, >, >=, !=, and ==.
+        # These tests should be kept as assertTrue as opposed to using unittest's built-in comparison assertions because
+        # MinKey and MaxKey define their own __ge__, __le__, and other comparison attributes, and we want to explicitly test that.
         self.assertTrue(MinKey() < None)
         self.assertTrue(MinKey() < 1)
         self.assertTrue(MinKey() <= 1)

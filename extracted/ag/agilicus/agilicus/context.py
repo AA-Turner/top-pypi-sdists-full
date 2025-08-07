@@ -245,6 +245,10 @@ def output_json(ctx):
     return get_value(ctx, "output_format") == "json"
 
 
+def output_csv(ctx):
+    return get_value(ctx, "output_format") == "csv"
+
+
 def output_headers(ctx):
     return get_value(ctx, "output_headers")
 

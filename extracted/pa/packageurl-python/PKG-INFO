@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: packageurl-python
-Version: 0.17.3
+Version: 0.17.5
 Summary: A purl aka. Package URL parser and builder
 Home-page: https://github.com/package-url/packageurl-python
 Author: the purl authors

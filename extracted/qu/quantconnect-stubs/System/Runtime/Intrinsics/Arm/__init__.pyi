@@ -7703,16 +7703,16 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
     @staticmethod
     def shift_right_arithmetic_narrowing_saturate_even(value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
         """
-        svuint8_t svqshrnb[_n_u16](svuint16_t op1, uint64_t imm2)
-          UQSHRNB Zresult.B, Zop1.H, #imm2
+        svint16_t svqshrnb[_n_s32](svint32_t op1, uint64_t imm2)
+          SQSHRNB Zresult.H, Zop1.S, #imm2
         """
         ...
 
     @staticmethod
     def shift_right_arithmetic_narrowing_saturate_odd(even: System.Numerics.Vector[int], value: System.Numerics.Vector[int], count: int) -> System.Numerics.Vector[int]:
         """
-        svuint8_t svqshrnt[_n_u16](svuint8_t even, svuint16_t op1, uint64_t imm2)
-          UQSHRNT Ztied.B, Zop1.H, #imm2
+        svint16_t svqshrnt[_n_s32](svint16_t even, svint32_t op1, uint64_t imm2)
+          SQSHRNT Ztied.H, Zop1.S, #imm2
         """
         ...
 

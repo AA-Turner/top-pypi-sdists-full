@@ -520,7 +520,7 @@ class SentenceTransformer(nn.Sequential, FitMixin, PeftAdapterMixin):
                 print(embeddings.shape)
                 # (3, 768)
         """
-        if prompt_name is None and "query" in self.prompts:
+        if prompt_name is None and "query" in self.prompts and prompt is None:
             prompt_name = "query"
 
         return self.encode(
@@ -649,7 +649,7 @@ class SentenceTransformer(nn.Sequential, FitMixin, PeftAdapterMixin):
                 print(embeddings.shape)
                 # (3, 768)
         """
-        if prompt_name is None:
+        if prompt_name is None and prompt is None:
             for candidate_prompt_name in ["document", "passage", "corpus"]:
                 if candidate_prompt_name in self.prompts:
                     prompt_name = candidate_prompt_name
@@ -940,10 +940,9 @@ class SentenceTransformer(nn.Sequential, FitMixin, PeftAdapterMixin):
             convert_to_tensor = False
             convert_to_numpy = False
 
+        # Cast an individual input to a list with length 1
         input_was_string = False
-        if isinstance(sentences, str) or not hasattr(
-            sentences, "__len__"
-        ):  # Cast an individual sentence to a list with length 1
+        if isinstance(sentences, str) or not hasattr(sentences, "__len__"):
             sentences = [sentences]
             input_was_string = True
 
@@ -1013,7 +1012,7 @@ class SentenceTransformer(nn.Sequential, FitMixin, PeftAdapterMixin):
 
         all_embeddings = []
         length_sorted_idx = np.argsort([-self._text_length(sen) for sen in sentences])
-        sentences_sorted = [sentences[idx] for idx in length_sorted_idx]
+        sentences_sorted = [sentences[int(idx)] for idx in length_sorted_idx]
 
         for start_index in trange(0, len(sentences), batch_size, desc="Batches", disable=not show_progress_bar):
             sentences_batch = sentences_sorted[start_index : start_index + batch_size]
@@ -1091,7 +1090,7 @@ class SentenceTransformer(nn.Sequential, FitMixin, PeftAdapterMixin):
 
         all_embeddings = [all_embeddings[idx] for idx in np.argsort(length_sorted_idx)]
 
-        if precision and precision != "float32":
+        if all_embeddings and precision and precision != "float32":
             all_embeddings = quantize_embeddings(all_embeddings, precision=precision)
 
         if convert_to_tensor:
@@ -1101,7 +1100,7 @@ class SentenceTransformer(nn.Sequential, FitMixin, PeftAdapterMixin):
                 else:
                     all_embeddings = torch.stack(all_embeddings)
             else:
-                all_embeddings = torch.Tensor()
+                all_embeddings = torch.tensor([], device=self.device)
         elif convert_to_numpy:
             if not isinstance(all_embeddings, np.ndarray):
                 if all_embeddings and all_embeddings[0].dtype == torch.bfloat16:
@@ -2293,6 +2292,9 @@ print(similarities)
         """
         if (transformers_model := self.transformers_model) is not None and hasattr(transformers_model, "device"):
             return transformers_model.device
+
+        if len(self._modules) and hasattr(self[0], "auto_model") and hasattr(self[0].auto_model, "device"):
+            return self[0].auto_model.device
 
         try:
             return next(self.parameters()).device

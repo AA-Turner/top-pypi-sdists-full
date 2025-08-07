@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: zenml
-Version: 0.84.1
+Version: 0.84.2
 Summary: ZenML: Write production-ready ML code.
 License: Apache-2.0
 Keywords: machine learning,production,pipeline,mlops,devops
@@ -125,7 +125,7 @@ Requires-Dist: types-PyYAML (>=6.0.0,<7.0.0) ; extra == "dev"
 Requires-Dist: types-certifi (>=2021.10.8.0,<2022.0.0.0) ; extra == "dev"
 Requires-Dist: types-croniter (>=1.0.2,<2.0.0) ; extra == "dev"
 Requires-Dist: types-futures (>=3.3.1,<4.0.0) ; extra == "dev"
-Requires-Dist: types-paramiko (>=3.4.0) ; extra == "dev"
+Requires-Dist: types-paramiko (>=3.4.0,<4.0.0) ; extra == "dev"
 Requires-Dist: types-passlib (>=1.7.7,<2.0.0) ; extra == "dev"
 Requires-Dist: types-protobuf (>=3.18.0,<4.0.0) ; extra == "dev"
 Requires-Dist: types-psutil (>=5.8.13,<6.0.0) ; extra == "dev"

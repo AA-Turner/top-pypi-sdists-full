@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.01 03:00:00                  #
+# Updated Date: 2025.08.06 19:00:00                  #
 # ================================================== #
 
 import json
@@ -14,6 +14,8 @@ import uuid
 
 
 class PresetItem:
+
+
     def __init__(self):
         self.uuid = None
         self.name = "*"

@@ -1,5 +1,4 @@
-""" Cookie cutter wrapper used to template out components
-"""
+"""Cookie cutter wrapper used to template out components"""
 
 import glob
 import os
@@ -16,6 +15,7 @@ from fprime.common.utils import confirm, check_path_is_within_fprime_module
 from fprime.fbuild.builder import Build
 from fprime.fbuild.cmake import CMakeExecutionException
 from fprime.fpp.impl import fpp_generate_implementation
+from fprime.util.file_util import get_directory_path_relative_to_root
 
 if TYPE_CHECKING:
     import argparse
@@ -88,9 +88,12 @@ def find_nearest_cmake_file(component_dir: Path, cmake_root: Path, proj_root: Pa
 def new_component(build: Build, parsed_args: "argparse.Namespace"):
     """Uses cookiecutter for making new components"""
 
-    if check_path_is_within_fprime_module(Path.cwd()) and not parsed_args.force:
+    if (
+        check_path_is_within_fprime_module(path=Path.cwd(), is_component=True)
+        and not parsed_args.force
+    ):
         print(
-            "[ERROR] Wrong location. Cannot create component within an existing component or deployment."
+            "[ERROR] Wrong location. Cannot create component within an existing component."
             " Use --force to override."
         )
         return 1
@@ -176,9 +179,24 @@ def new_deployment(build: Build, parsed_args: "argparse.Namespace"):
             + "/../cookiecutter_templates/cookiecutter-fprime-deployment"
         )
         print("[INFO] Cookiecutter: using builtin template for new deployment")
+
+    # Determine the include path prefix based on the current directory
+    extra_context = {}
+    rel_path = get_directory_path_relative_to_root(build)
+
+    if rel_path:
+        extra_context["__include_path_prefix"] = f"{rel_path}/"
+        print(
+            f"[INFO] Creating a deployment in a subdirectory. Include paths will be prefixed with '{rel_path}/'"
+        )
+
     try:
         gen_path = Path(
-            cookiecutter(source, overwrite_if_exists=parsed_args.overwrite)
+            cookiecutter(
+                source,
+                extra_context=extra_context,
+                overwrite_if_exists=parsed_args.overwrite,
+            )
         ).resolve()
         # Attempt to register to CMakeLists.txt or project.cmake
         register_with_cmake(
@@ -314,6 +332,10 @@ def add_to_cmake(list_file: Path, comp_path: Path, project_root: Path = None):
 
     if not confirm(f"Add {comp_path} to {short_display_path} at end of file?"):
         return False
+
+    # Handle case where the last line does not end with a newline
+    if len(lines) > 0 and (not lines[-1].endswith("\n")):
+        lines[-1] += "\n"
 
     lines.append(addition)
     with open(list_file, "w") as f:

@@ -6,13 +6,13 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2024.11.26 04:00:00                  #
+# Updated Date: 2025.08.06 19:00:00                  #
 # ================================================== #
 
 from pygpt_net.utils import trans
 
 
-class PidData():
+class PidData:
 
     def __init__(self, pid, meta=None):
         """Pid Data"""

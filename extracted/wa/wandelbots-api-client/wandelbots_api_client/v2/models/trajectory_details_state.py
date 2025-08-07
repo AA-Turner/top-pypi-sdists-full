@@ -17,33 +17,33 @@ import json
 import pprint
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, List, Optional
-from wandelbots_api_client.v2.models.end_of_trajectory import EndOfTrajectory
-from wandelbots_api_client.v2.models.paused_by_request import PausedByRequest
-from wandelbots_api_client.v2.models.paused_on_io import PausedOnIO
-from wandelbots_api_client.v2.models.running1 import Running1
-from wandelbots_api_client.v2.models.wait_for_io import WaitForIO
+from wandelbots_api_client.v2.models.trajectory_ended import TrajectoryEnded
+from wandelbots_api_client.v2.models.trajectory_paused_by_user import TrajectoryPausedByUser
+from wandelbots_api_client.v2.models.trajectory_paused_on_io import TrajectoryPausedOnIO
+from wandelbots_api_client.v2.models.trajectory_running import TrajectoryRunning
+from wandelbots_api_client.v2.models.trajectory_wait_for_io import TrajectoryWaitForIO
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-TRAJECTORYDETAILSSTATE_ONE_OF_SCHEMAS = ["EndOfTrajectory", "PausedByRequest", "PausedOnIO", "Running1", "WaitForIO"]
+TRAJECTORYDETAILSSTATE_ONE_OF_SCHEMAS = ["TrajectoryEnded", "TrajectoryPausedByUser", "TrajectoryPausedOnIO", "TrajectoryRunning", "TrajectoryWaitForIO"]
 
 class TrajectoryDetailsState(BaseModel):
     """
     TrajectoryDetailsState
     """
-    # data type: Running1
-    oneof_schema_1_validator: Optional[Running1] = None
-    # data type: PausedByRequest
-    oneof_schema_2_validator: Optional[PausedByRequest] = None
-    # data type: EndOfTrajectory
-    oneof_schema_3_validator: Optional[EndOfTrajectory] = None
-    # data type: WaitForIO
-    oneof_schema_4_validator: Optional[WaitForIO] = None
-    # data type: PausedOnIO
-    oneof_schema_5_validator: Optional[PausedOnIO] = None
-    actual_instance: Optional[Union[EndOfTrajectory, PausedByRequest, PausedOnIO, Running1, WaitForIO]] = None
-    one_of_schemas: Set[str] = { "EndOfTrajectory", "PausedByRequest", "PausedOnIO", "Running1", "WaitForIO" }
+    # data type: TrajectoryRunning
+    oneof_schema_1_validator: Optional[TrajectoryRunning] = None
+    # data type: TrajectoryPausedByUser
+    oneof_schema_2_validator: Optional[TrajectoryPausedByUser] = None
+    # data type: TrajectoryEnded
+    oneof_schema_3_validator: Optional[TrajectoryEnded] = None
+    # data type: TrajectoryWaitForIO
+    oneof_schema_4_validator: Optional[TrajectoryWaitForIO] = None
+    # data type: TrajectoryPausedOnIO
+    oneof_schema_5_validator: Optional[TrajectoryPausedOnIO] = None
+    actual_instance: Optional[Union[TrajectoryEnded, TrajectoryPausedByUser, TrajectoryPausedOnIO, TrajectoryRunning, TrajectoryWaitForIO]] = None
+    one_of_schemas: Set[str] = { "TrajectoryEnded", "TrajectoryPausedByUser", "TrajectoryPausedOnIO", "TrajectoryRunning", "TrajectoryWaitForIO" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -69,37 +69,37 @@ class TrajectoryDetailsState(BaseModel):
         instance = TrajectoryDetailsState.model_construct()
         error_messages = []
         match = 0
-        # validate data type: Running1
-        if not isinstance(v, Running1):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Running1`")
+        # validate data type: TrajectoryRunning
+        if not isinstance(v, TrajectoryRunning):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `TrajectoryRunning`")
         else:
             match += 1
-        # validate data type: PausedByRequest
-        if not isinstance(v, PausedByRequest):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `PausedByRequest`")
+        # validate data type: TrajectoryPausedByUser
+        if not isinstance(v, TrajectoryPausedByUser):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `TrajectoryPausedByUser`")
         else:
             match += 1
-        # validate data type: EndOfTrajectory
-        if not isinstance(v, EndOfTrajectory):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `EndOfTrajectory`")
+        # validate data type: TrajectoryEnded
+        if not isinstance(v, TrajectoryEnded):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `TrajectoryEnded`")
         else:
             match += 1
-        # validate data type: WaitForIO
-        if not isinstance(v, WaitForIO):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `WaitForIO`")
+        # validate data type: TrajectoryWaitForIO
+        if not isinstance(v, TrajectoryWaitForIO):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `TrajectoryWaitForIO`")
         else:
             match += 1
-        # validate data type: PausedOnIO
-        if not isinstance(v, PausedOnIO):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `PausedOnIO`")
+        # validate data type: TrajectoryPausedOnIO
+        if not isinstance(v, TrajectoryPausedOnIO):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `TrajectoryPausedOnIO`")
         else:
             match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in TrajectoryDetailsState with oneOf schemas: EndOfTrajectory, PausedByRequest, PausedOnIO, Running1, WaitForIO. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in TrajectoryDetailsState with oneOf schemas: TrajectoryEnded, TrajectoryPausedByUser, TrajectoryPausedOnIO, TrajectoryRunning, TrajectoryWaitForIO. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in TrajectoryDetailsState with oneOf schemas: EndOfTrajectory, PausedByRequest, PausedOnIO, Running1, WaitForIO. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in TrajectoryDetailsState with oneOf schemas: TrajectoryEnded, TrajectoryPausedByUser, TrajectoryPausedOnIO, TrajectoryRunning, TrajectoryWaitForIO. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -119,68 +119,68 @@ class TrajectoryDetailsState(BaseModel):
         if not _data_type:
             raise ValueError("Failed to lookup data type from the field `kind` in the input.")
 
-        # check if data type is `EndOfTrajectory`
-        if _data_type == "EndOfTrajectory":
-            instance.actual_instance = EndOfTrajectory.from_json(json_str)
+        # check if data type is `TrajectoryEnded`
+        if _data_type == "TrajectoryEnded":
+            instance.actual_instance = TrajectoryEnded.from_json(json_str)
             return instance
 
-        # check if data type is `PausedByRequest`
-        if _data_type == "PausedByRequest":
-            instance.actual_instance = PausedByRequest.from_json(json_str)
+        # check if data type is `TrajectoryPausedByUser`
+        if _data_type == "TrajectoryPausedByUser":
+            instance.actual_instance = TrajectoryPausedByUser.from_json(json_str)
             return instance
 
-        # check if data type is `PausedOnIO`
-        if _data_type == "PausedOnIO":
-            instance.actual_instance = PausedOnIO.from_json(json_str)
+        # check if data type is `TrajectoryPausedOnIO`
+        if _data_type == "TrajectoryPausedOnIO":
+            instance.actual_instance = TrajectoryPausedOnIO.from_json(json_str)
             return instance
 
-        # check if data type is `Running1`
-        if _data_type == "Running_1":
-            instance.actual_instance = Running1.from_json(json_str)
+        # check if data type is `TrajectoryRunning`
+        if _data_type == "TrajectoryRunning":
+            instance.actual_instance = TrajectoryRunning.from_json(json_str)
             return instance
 
-        # check if data type is `WaitForIO`
-        if _data_type == "WaitForIO":
-            instance.actual_instance = WaitForIO.from_json(json_str)
+        # check if data type is `TrajectoryWaitForIO`
+        if _data_type == "TrajectoryWaitForIO":
+            instance.actual_instance = TrajectoryWaitForIO.from_json(json_str)
             return instance
 
-        # deserialize data into Running1
+        # deserialize data into TrajectoryRunning
         try:
-            instance.actual_instance = Running1.from_json(json_str)
+            instance.actual_instance = TrajectoryRunning.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into PausedByRequest
+        # deserialize data into TrajectoryPausedByUser
         try:
-            instance.actual_instance = PausedByRequest.from_json(json_str)
+            instance.actual_instance = TrajectoryPausedByUser.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into EndOfTrajectory
+        # deserialize data into TrajectoryEnded
         try:
-            instance.actual_instance = EndOfTrajectory.from_json(json_str)
+            instance.actual_instance = TrajectoryEnded.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into WaitForIO
+        # deserialize data into TrajectoryWaitForIO
         try:
-            instance.actual_instance = WaitForIO.from_json(json_str)
+            instance.actual_instance = TrajectoryWaitForIO.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into PausedOnIO
+        # deserialize data into TrajectoryPausedOnIO
         try:
-            instance.actual_instance = PausedOnIO.from_json(json_str)
+            instance.actual_instance = TrajectoryPausedOnIO.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into TrajectoryDetailsState with oneOf schemas: EndOfTrajectory, PausedByRequest, PausedOnIO, Running1, WaitForIO. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into TrajectoryDetailsState with oneOf schemas: TrajectoryEnded, TrajectoryPausedByUser, TrajectoryPausedOnIO, TrajectoryRunning, TrajectoryWaitForIO. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into TrajectoryDetailsState with oneOf schemas: EndOfTrajectory, PausedByRequest, PausedOnIO, Running1, WaitForIO. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into TrajectoryDetailsState with oneOf schemas: TrajectoryEnded, TrajectoryPausedByUser, TrajectoryPausedOnIO, TrajectoryRunning, TrajectoryWaitForIO. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -194,7 +194,7 @@ class TrajectoryDetailsState(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], EndOfTrajectory, PausedByRequest, PausedOnIO, Running1, WaitForIO]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], TrajectoryEnded, TrajectoryPausedByUser, TrajectoryPausedOnIO, TrajectoryRunning, TrajectoryWaitForIO]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

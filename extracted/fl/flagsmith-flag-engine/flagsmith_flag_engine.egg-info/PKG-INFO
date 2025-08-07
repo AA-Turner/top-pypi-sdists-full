@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flagsmith-flag-engine
-Version: 6.0.0
+Version: 6.0.2
 Summary: Flag engine for the Flagsmith API.
 Home-page: https://github.com/Flagsmith/flagsmith-engine
 Author: Flagsmith
@@ -13,6 +13,19 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Requires-Dist: pydantic<3,>=2.3.0
+Requires-Dist: pydantic-collections<1,>=0.5.1
+Requires-Dist: semver>=3.0.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 [![Feature Flag, Remote Config and A/B Testing platform, Flagsmith](https://github.com/Flagsmith/flagsmith/raw/main/static-files/hero.png)](https://www.flagsmith.com/)
 

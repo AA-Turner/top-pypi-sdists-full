@@ -65,7 +65,7 @@ class ApplicationApi:
     ) -> None:
         """Add Application
 
-        Install a basic, containerized web application to the cell to control robots with a customized frontend.  Prerequisites: A Docker hub account or similar container registry account, with valid credentials.  After adding the application to the cell, open the application on the Wandelbots NOVA home screen.  Read [build your application](/docs/docs/development/) for more information.  <!-- theme: none --> > #### Predefined Environment Variables > - `NOVA_API`: The endpoint where the API is reachable from the container serving the Application. > - `BASE_PATH`: The root path of the deployed Application. It will be reachable via: http://$host/$BASE_PATH > - `CELL_NAME`: The name of the cell where the application is deployed. 
+        Install a basic, containerized web application to the cell to control robots with a customized frontend.  Prerequisites: A Docker hub account or similar container registry account, with valid credentials.  After adding the application to the cell, open the application on the Wandelbots NOVA home screen.  Read [build your application](/docs/docs/development/) for more information.  <!-- theme: none --> > #### Predefined Environment Variables > - `NOVA_API`: The API endpoint accessible from within the application container. > - `NATS_BROKER`: The NATS broker endpoint accessible from within the application container. > - `BASE_PATH`: The application's root path, accessible at http://$host/$BASE_PATH > - `CELL_NAME`: The name of the cell hosting the deployed application. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -142,7 +142,7 @@ class ApplicationApi:
     ) -> ApiResponse[None]:
         """Add Application
 
-        Install a basic, containerized web application to the cell to control robots with a customized frontend.  Prerequisites: A Docker hub account or similar container registry account, with valid credentials.  After adding the application to the cell, open the application on the Wandelbots NOVA home screen.  Read [build your application](/docs/docs/development/) for more information.  <!-- theme: none --> > #### Predefined Environment Variables > - `NOVA_API`: The endpoint where the API is reachable from the container serving the Application. > - `BASE_PATH`: The root path of the deployed Application. It will be reachable via: http://$host/$BASE_PATH > - `CELL_NAME`: The name of the cell where the application is deployed. 
+        Install a basic, containerized web application to the cell to control robots with a customized frontend.  Prerequisites: A Docker hub account or similar container registry account, with valid credentials.  After adding the application to the cell, open the application on the Wandelbots NOVA home screen.  Read [build your application](/docs/docs/development/) for more information.  <!-- theme: none --> > #### Predefined Environment Variables > - `NOVA_API`: The API endpoint accessible from within the application container. > - `NATS_BROKER`: The NATS broker endpoint accessible from within the application container. > - `BASE_PATH`: The application's root path, accessible at http://$host/$BASE_PATH > - `CELL_NAME`: The name of the cell hosting the deployed application. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -219,7 +219,7 @@ class ApplicationApi:
     ) -> RESTResponseType:
         """Add Application
 
-        Install a basic, containerized web application to the cell to control robots with a customized frontend.  Prerequisites: A Docker hub account or similar container registry account, with valid credentials.  After adding the application to the cell, open the application on the Wandelbots NOVA home screen.  Read [build your application](/docs/docs/development/) for more information.  <!-- theme: none --> > #### Predefined Environment Variables > - `NOVA_API`: The endpoint where the API is reachable from the container serving the Application. > - `BASE_PATH`: The root path of the deployed Application. It will be reachable via: http://$host/$BASE_PATH > - `CELL_NAME`: The name of the cell where the application is deployed. 
+        Install a basic, containerized web application to the cell to control robots with a customized frontend.  Prerequisites: A Docker hub account or similar container registry account, with valid credentials.  After adding the application to the cell, open the application on the Wandelbots NOVA home screen.  Read [build your application](/docs/docs/development/) for more information.  <!-- theme: none --> > #### Predefined Environment Variables > - `NOVA_API`: The API endpoint accessible from within the application container. > - `NATS_BROKER`: The NATS broker endpoint accessible from within the application container. > - `BASE_PATH`: The application's root path, accessible at http://$host/$BASE_PATH > - `CELL_NAME`: The name of the cell hosting the deployed application. 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str

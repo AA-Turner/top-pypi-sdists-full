@@ -43,7 +43,7 @@ def get_org_by_dictionary(ctx, org_id):
     return (org_dict_by_id, org_dict_by_name)
 
 
-def query(ctx, org_id=None, created_since=None, page_size=None, **kwargs):
+def query(ctx, org_id=None, created_since=None, page_size=None, name=None, **kwargs):
     token = context.get_token(ctx)
 
     org_id = get_org_from_input_or_ctx(ctx, org_id)
@@ -53,6 +53,9 @@ def query(ctx, org_id=None, created_since=None, page_size=None, **kwargs):
 
     if org_id:
         params["org_id"] = org_id
+
+    if name is not None:
+        params["organisation"] = name
 
     apiclient = context.get_apiclient(ctx, token)
     if kwargs.get("page_at_id", None) is not None:

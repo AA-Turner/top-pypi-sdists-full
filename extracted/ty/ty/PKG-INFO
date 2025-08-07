@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ty
-Version: 0.0.1a16
+Version: 0.0.1a17
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -23,9 +23,7 @@ License-File: LICENSE
 Summary: An extremely fast Python type checker, written in Rust.
 Keywords: ty,typing,analysis,check
 Home-Page: https://github.com/astral-sh/ty/
-Author: Charlie Marsh <charlie.r.marsh@gmail.com>
 Author-email: "Astral Software Inc." <hey@astral.sh>
-License: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Repository, https://github.com/astral-sh/ty
@@ -35,6 +33,7 @@ Project-URL: Discord, https://discord.gg/astral-sh
 
 # ty
 
+[![ty](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ty/main/assets/badge/v0.json)](https://github.com/astral-sh/ty)
 [![PyPI](https://img.shields.io/pypi/v/ty.svg)](https://pypi.python.org/pypi/ty)
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.com/invite/astral-sh)
 
@@ -97,11 +96,11 @@ at this time. Please [open pull requests](https://github.com/astral-sh/ruff/pull
 to anything in the `ruff` submodule (which includes all of the Rust source code).
 
 See the
-[contributing guide](https://github.com/astral-sh/ty/blob/0.0.1-alpha.16/CONTRIBUTING.md) for more details.
+[contributing guide](https://github.com/astral-sh/ty/blob/0.0.1-alpha.17/CONTRIBUTING.md) for more details.
 
 ## License
 
-ty is licensed under the MIT license ([LICENSE](https://github.com/astral-sh/ty/blob/0.0.1-alpha.16/LICENSE) or
+ty is licensed under the MIT license ([LICENSE](https://github.com/astral-sh/ty/blob/0.0.1-alpha.17/LICENSE) or
 <https://opensource.org/licenses/MIT>).
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in ty

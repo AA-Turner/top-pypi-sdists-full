@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: open_clip_torch
-Version: 3.0.0
+Version: 3.1.0
 Summary: Open reproduction of consastive language-image pretraining (CLIP) and related.
 Keywords: pytorch,clip,image-text,language-image,multimodal
 Author: Gabriel Ilharco, Mitchell Wortsman, Romain Beaumont

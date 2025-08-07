@@ -156,17 +156,23 @@ async def integracao_contabil_generica(
         await worker_sleep(4)
         pyautogui.write(config.conConfiguracao.get("pass"))
         pyautogui.press("enter")
-        await worker_sleep(10)
+        await worker_sleep(16)
 
         main_window = None
         for attempt in range(max_attempts):
-            main_window = Application().connect(title="EMSys [Contabil]")
-            main_window = main_window.top_window()
-            if main_window.exists():
-                console.print("Janela encontrada!")
-                break
-            console.print("Janela ainda nao encontrada...")
-            await worker_sleep(1)
+            try:
+                main_window = Application().connect(title="EMSys [Contabil]")
+                main_window = main_window.top_window()
+                if main_window.exists():
+                    console.print("Janela encontrada!")
+                    break
+                console.print("Janela ainda nao encontrada...")
+                await worker_sleep(1)
+            except:
+                console.print(
+                    "Nao foi possivel conectar com a janela de titulo EMSys [Contabil]."
+                )
+                await worker_sleep(5)
 
         if not main_window:
             return RpaRetornoProcessoDTO(

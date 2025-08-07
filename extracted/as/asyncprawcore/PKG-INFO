@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: asyncprawcore
-Version: 3.0.1
+Version: 3.0.2
 Summary: Low-level asynchronous communication layer for Async PRAW 7+.
 Keywords: praw,reddit,api,async,asynchronous,asyncpraw
 Author-email: Joel Payne <lilspazjoekp@gmail.com>
 Maintainer-email: Joel Payne <lilspazjoekp@gmail.com>
-Requires-Python: ~=3.9
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -22,23 +22,8 @@ Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE.txt
 Requires-Dist: aiohttp <4
 Requires-Dist: yarl
-Requires-Dist: coveralls ; extra == "ci"
-Requires-Dist: packaging ; extra == "dev"
-Requires-Dist: asyncprawcore[lint] ; extra == "dev"
-Requires-Dist: asyncprawcore[test] ; extra == "dev"
-Requires-Dist: pre-commit ; extra == "lint"
-Requires-Dist: ruff ==0.9.* ; extra == "lint"
-Requires-Dist: pytest ==7.* ; extra == "test"
-Requires-Dist: pytest-asyncio ==0.18.* ; extra == "test"
-Requires-Dist: pytest-vcr ==1.* ; extra == "test"
-Requires-Dist: urllib3 ==1.* ; extra == "test"
-Requires-Dist: vcrpy ==4.2.1 ; extra == "test"
 Project-URL: Issue Tracker, https://github.com/praw-dev/asyncprawcore/issues
 Project-URL: Source Code, https://github.com/praw-dev/asyncprawcore
-Provides-Extra: ci
-Provides-Extra: dev
-Provides-Extra: lint
-Provides-Extra: test
 
 .. _main_page:
 
@@ -61,11 +46,7 @@ asyncprawcore
     :alt: GitHub Actions Status
     :target: https://github.com/praw-dev/asyncprawcore/actions/workflows/ci.yml
 
-.. image:: https://coveralls.io/repos/github/praw-dev/asyncprawcore/badge.svg
-    :alt: Coveralls Coverage
-    :target: https://coveralls.io/github/praw-dev/asyncprawcore
-
-.. image:: https://api.securityscorecards.dev/projects/github.com/praw-dev/asyncprawcore/badge
+.. image:: https://api.securityscorecards.dev/projects/github.com/praw-dev/prawcore/badge
     :alt: OpenSSF Scorecard
     :target: https://api.securityscorecards.dev/projects/github.com/praw-dev/asyncprawcore
 

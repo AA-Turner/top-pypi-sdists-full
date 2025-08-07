@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot-nightly
-Version: 1.0.0.dev20250804
+Version: 1.0.0.dev20250806
 Summary: SkyPilot: Run AI on Any Infra — Unified, Faster, Cheaper.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -57,6 +57,7 @@ Requires-Dist: pyjwt
 Requires-Dist: gitpython
 Requires-Dist: types-paramiko
 Requires-Dist: alembic
+Requires-Dist: aiohttp
 Provides-Extra: aws
 Requires-Dist: awscli>=1.27.10; extra == "aws"
 Requires-Dist: botocore>=1.29.10; extra == "aws"
@@ -132,6 +133,7 @@ Requires-Dist: casbin; extra == "server"
 Requires-Dist: sqlalchemy_adapter; extra == "server"
 Requires-Dist: passlib; extra == "server"
 Requires-Dist: pyjwt; extra == "server"
+Requires-Dist: aiohttp; extra == "server"
 Provides-Extra: all
 Requires-Dist: awscli>=1.27.10; extra == "all"
 Requires-Dist: botocore>=1.29.10; extra == "all"
@@ -186,6 +188,7 @@ Requires-Dist: casbin; extra == "all"
 Requires-Dist: sqlalchemy_adapter; extra == "all"
 Requires-Dist: passlib; extra == "all"
 Requires-Dist: pyjwt; extra == "all"
+Requires-Dist: aiohttp; extra == "all"
 Dynamic: author
 Dynamic: classifier
 Dynamic: description
@@ -235,6 +238,7 @@ Dynamic: summary
 ----
 
 :fire: *News* :fire:
+- [Aug 2025] Run and serve **OpenAI GPT-OSS models** (gpt-oss-120b, gpt-oss-20b) with one command on any infra: [**example**](./llm/gpt-oss/)
 - [Jul 2025] Run distributed **RL training for LLMs** with Verl (PPO, GRPO) on any cloud: [**example**](./llm/verl/)
 - [Jul 2025] 🎉 SkyPilot v0.10.0 released! [**blog post**](https://blog.skypilot.co/announcing-skypilot-0.10.0/), [**release notes**](https://github.com/skypilot-org/skypilot/releases/tag/v0.10.0)
 - [Jul 2025] Finetune **Llama4** on any distributed cluster/cloud: [**example**](./llm/llama-4-finetuning/)

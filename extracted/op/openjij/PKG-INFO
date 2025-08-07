@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: openjij
-Version: 0.11.2
+Version: 0.11.3
 Summary: Framework for the Ising model and QUBO.
 Author-Email: "Jij Inc." <info@openjij.org>
 License: Apache License 2.0

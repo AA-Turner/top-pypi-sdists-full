@@ -17,6 +17,7 @@ import logging.config
 import os
 import pathlib
 import signal
+from contextlib import asynccontextmanager
 
 import structlog
 import uvloop
@@ -94,11 +95,26 @@ async def health_and_metrics_server():
 
 async def entrypoint():
     from langgraph_api import logging as lg_logging
+    from langgraph_api.api import user_router
 
     lg_logging.set_logging_context({"entrypoint": "python-queue"})
     tasks: set[asyncio.Task] = set()
     tasks.add(asyncio.create_task(health_and_metrics_server()))
-    async with lifespan(None, with_cron_scheduler=False, taskset=tasks):
+
+    original_lifespan = user_router.router.lifespan_context if user_router else None
+
+    @asynccontextmanager
+    async def combined_lifespan(app, with_cron_scheduler=False, taskset=None):
+        async with lifespan(
+            app, with_cron_scheduler=with_cron_scheduler, taskset=taskset
+        ):
+            if original_lifespan:
+                async with original_lifespan(app):
+                    yield
+            else:
+                yield
+
+    async with combined_lifespan(None, with_cron_scheduler=False, taskset=tasks):
         await asyncio.gather(*tasks)
 
 

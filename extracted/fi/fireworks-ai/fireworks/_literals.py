@@ -1,5 +1,10 @@
 from typing import Literal
 
+ReinforcementAcceleratorTypeLiteral = Literal[
+    "NVIDIA_A100_80GB",
+    "NVIDIA_H100_80GB",
+    "NVIDIA_H200_141GB",
+]
 
 AcceleratorTypeLiteral = Literal[
     "ACCELERATOR_TYPE_UNSPECIFIED",

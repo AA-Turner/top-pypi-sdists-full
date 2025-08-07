@@ -65,8 +65,11 @@ class PartialTagsTestCase(TestCase):
             rendered = t.render()
 
             # Check for deprecation warning
-            self.assertTrue(
-                any(issubclass(warn.category, DeprecationWarning) for warn in w)
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[-1].category, DeprecationWarning))
+            self.assertIn(
+                "The 'startpartial' tag is deprecated; use 'partialdef' instead.",
+                str(w[-1]),
             )
 
         # Check the rendered content
@@ -75,7 +78,7 @@ class PartialTagsTestCase(TestCase):
     def test_partialdef_tag_with_inline(self):
         template = """
         {% load partials %}
-        {% partialdef testing-partial inline=True %}
+        {% partialdef testing-partial inline %}
         HERE IS THE TEST CONTENT
         {% endpartialdef %}
         """
@@ -92,7 +95,7 @@ class PartialTagsTestCase(TestCase):
         template = """
         {% load partials %}
         BEFORE
-        {% partialdef testing-partial inline=True %}
+        {% partialdef testing-partial inline %}
         HERE IS THE TEST CONTENT
         {% endpartialdef %}
         AFTER
@@ -104,7 +107,35 @@ class PartialTagsTestCase(TestCase):
         rendered = t.render()
 
         # Check the rendered content
-        self.assertEqual("BEFORE\n\nHERE IS THE TEST CONTENT\n\nAFTER", rendered.strip())
+        self.assertEqual(
+            "BEFORE\n\nHERE IS THE TEST CONTENT\n\nAFTER", rendered.strip()
+        )
+
+    def test_deprecated_inline_argument(self):
+        template = """
+        {% load partials %}
+        {% partialdef testing-partial inline=True %}TEST CONTENT{% endpartialdef %}
+        """
+
+        # Capture warnings
+        with warnings.catch_warnings(record=True) as w:
+            # Cause all warnings to always be triggered.
+            warnings.simplefilter("always")
+
+            # Compile and render the template
+            engine = engines["django"]
+            t = engine.from_string(template)
+            rendered = t.render()
+
+            # Check for deprecation warning
+            self.assertEqual(len(w), 1)
+            self.assertTrue(issubclass(w[-1].category, DeprecationWarning))
+            self.assertIn(
+                "The 'inline' argument does not have any parameters", str(w[-1])
+            )
+
+        # Check the rendered content
+        self.assertEqual("TEST CONTENT", rendered.strip())
 
     def test_endpartialdef_with_partial_name(self):
         template = """
@@ -174,11 +205,9 @@ class PartialTagsTestCase(TestCase):
         """Partials defer to their source template for source code."""
         engine = engines["django"]
         partial = engine.get_template("example.html#test-partial")
-        source_template = engine.get_template("example.html")
-        self.assertEqual(
-            partial.template.source,
-            source_template.template.source,
-        )
+        self.assertEqual(partial.template.source, '\nTEST-PARTIAL-CONTENT\n')
+        partial = engine.get_template("example.html#inline-partial")
+        self.assertEqual(partial.template.source, '\nINLINE-CONTENT\n')
 
     def test_chained_exception_forwarded(self):
         """TemplateDoesNotExist exceptions are chained with the tried attribute."""
@@ -189,6 +218,119 @@ class PartialTagsTestCase(TestCase):
         self.assertTrue(len(ex.exception.tried) > 0)
         origin, _ = ex.exception.tried[0]
         self.assertEqual(origin.template_name, "not_there.html")
+
+    def test_extends_with_partialdef(self):
+        """
+        Regression test for issue #26: When TemplateProxy lacks get_nodes_by_type,
+        using extends and partialdef together should work now
+        """
+
+        # Template with both extends and partialdef
+        template_string = """
+        {% extends 'base.html' %}
+        {% load partials %}
+        {% partialdef test-partial %}
+        Content inside partial
+        {% endpartialdef %}
+        {% block main %}
+        Main content with {% partial test-partial %}
+        {% endblock %}
+        """
+
+        engine = engines["django"]
+        template = engine.from_string(template_string)
+        rendered = template.render()
+
+        # Verify the template rendered correctly
+        self.assertIn("Main content with", rendered)
+        self.assertIn("Content inside partial", rendered)
+
+    def test_template_inclusion_with_partial(self):
+        """
+        Test that a template can include another template that defines and uses a partial.
+        """
+        engine = engines["django"]
+        parent_template = engine.get_template("parent.html")
+        rendered = parent_template.render()
+        self.assertIn("MAIN TEMPLATE START", rendered)
+        self.assertIn("INCLUDED TEMPLATE START", rendered)
+        self.assertIn("THIS IS CONTENT FROM THE INCLUDED PARTIAL", rendered)
+        self.assertIn("INCLUDED TEMPLATE END", rendered)
+        self.assertIn("MAIN TEMPLATE END", rendered)
+
+    def test_using_partial_before_definition(self):
+        """
+        Test using a partial before it's defined in the template.
+        """
+        template_content = """
+        {% load partials %}
+        TEMPLATE START
+        {% partial skeleton-partial %}
+        MIDDLE CONTENT
+        {% partialdef skeleton-partial %}
+        THIS IS THE SKELETON PARTIAL CONTENT
+        {% endpartialdef %}
+        TEMPLATE END
+        """
+        engine = engines["django"]
+        template = engine.from_string(template_content)
+        rendered = template.render()
+        self.assertIn("TEMPLATE START", rendered)
+        self.assertIn("THIS IS THE SKELETON PARTIAL CONTENT", rendered)
+        self.assertIn("MIDDLE CONTENT", rendered)
+        self.assertIn("TEMPLATE END", rendered)
+
+    def test_undefined_partial_error_message(self):
+        """
+        Test that an undefined partial raises a TemplateSyntaxError.
+        """
+        template = """
+        {% load partials %}
+        {% partialdef different-partial %}
+        THIS IS THE NOT DEFINED PARTIAL CONTENT
+        {% endpartialdef %}
+        {% partial not-defined-partial %}
+        """
+
+        # Compile and render the template
+        engine = engines["django"]
+        t = engine.from_string(template)
+        with self.assertRaisesMessage(
+            TemplateSyntaxError,
+            "You are trying to access an undefined partial 'not-defined-partial'",
+        ):
+            t.render()
+
+    def test_undefined_partial_error_message_when_no_partialdef(self):
+        """
+        Test that an undefined partial raises a TemplateSyntaxError.
+        """
+        template = """
+        {% load partials %}
+        {% partial not-defined-partial %}
+        """
+        engine = engines["django"]
+        t = engine.from_string(template)
+        with self.assertRaisesMessage(
+            TemplateSyntaxError,
+            "No partials are defined. You are trying to access 'not-defined-partial' partial",
+        ):
+            t.render()
+
+    def test_partial_with_no_partial_name(self):
+        """
+        Test that a partial with no partial name raises a TemplateSyntaxError.
+        """
+        template = """
+        {% load partials %}
+        {% partial %}
+        """
+        engine = engines["django"]
+        with self.assertRaisesMessage(
+            TemplateSyntaxError,
+            "'partial' tag requires a single argument 'partial_name'",
+        ):
+            engine.from_string(template)
 
 
 class ChildCachedLoaderTest(TestCase):

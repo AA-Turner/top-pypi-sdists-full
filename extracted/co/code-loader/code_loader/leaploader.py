@@ -2,6 +2,7 @@
 import importlib.util
 import inspect
 import io
+import os
 import sys
 from contextlib import redirect_stdout
 from functools import lru_cache
@@ -23,6 +24,7 @@ from code_loader.contract.responsedataclasses import DatasetIntegParseResult, Da
     VisualizerInstance, PredictionTypeInstance, ModelSetup, CustomLayerInstance, MetricInstance, CustomLossInstance, \
     EngineFileContract
 from code_loader.inner_leap_binder import global_leap_binder
+from code_loader.inner_leap_binder.leapbinder import mapping_runtime_mode_env_var_mame
 from code_loader.leaploaderbase import LeapLoaderBase
 from code_loader.utils import get_root_exception_file_and_line_number
 
@@ -36,6 +38,7 @@ class LeapLoader(LeapLoaderBase):
     @lru_cache()
     def exec_script(self) -> None:
         try:
+            os.environ[mapping_runtime_mode_env_var_mame] = 'TRUE'
             self.evaluate_module()
         except TypeError as e:
             import traceback
@@ -45,6 +48,10 @@ class LeapLoader(LeapLoaderBase):
             raise DatasetScriptException(getattr(e, 'message', repr(e))) from e
         except Exception as e:
             raise DatasetScriptException(getattr(e, 'message', repr(e))) from e
+        finally:
+            # ensure that the environment variable is removed after the script execution
+            if mapping_runtime_mode_env_var_mame in os.environ:
+                del os.environ[mapping_runtime_mode_env_var_mame]
 
     def evaluate_module(self) -> None:
         def append_path_recursively(full_path: str) -> None:
@@ -175,6 +182,7 @@ class LeapLoader(LeapLoaderBase):
         with redirect_stdout(stdout_steam):
             try:
                 self.exec_script()
+
                 preprocess_test_payload = self._check_preprocess()
                 test_payloads.append(preprocess_test_payload)
                 handlers_test_payloads = self._check_handlers()
@@ -189,6 +197,8 @@ class LeapLoader(LeapLoaderBase):
                 line_number, file_name, stacktrace = get_root_exception_file_and_line_number()
                 general_error = f"Something went wrong. {repr(e.__cause__)} in file {file_name}, line_number:  {line_number}\nStacktrace:\n{stacktrace}"
                 is_valid = False
+
+
 
         print_log = stdout_steam.getvalue()
         is_valid_for_model = bool(global_leap_binder.setup_container.custom_layers)

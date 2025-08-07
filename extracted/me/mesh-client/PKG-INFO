@@ -1,25 +1,36 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: Mesh-Client
-Version: 3.2.3
+Version: 4.0.1
 Summary: Client for NHS England's MESH messaging system
 Home-page: https://github.com/NHSDigital/mesh-client
 Author: spinecore
 License: MIT
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9,<3.14.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=2.26.0
 Requires-Dist: urllib3>=1.25.4
+Requires-Dist: requests<3.0.0,>=2.32.0
+Requires-Dist: werkzeug<4.0.0,>=3.0.3
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 MESH Client
 ===========
 
-A Python client for [NHS Digital's MESH API](https://digital.nhs.uk/developer/api-catalogue/message-exchange-for-social-care-and-health-api).
+A Python client for [NHS England's MESH API](https://digital.nhs.uk/developer/api-catalogue/message-exchange-for-social-care-and-health-api).
 
 Release Notes
 ------------

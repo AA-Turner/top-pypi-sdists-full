@@ -14,7 +14,6 @@ import asyncio
 import json
 import os
 import time
-from typing import Dict, Any
 
 from dotenv import load_dotenv
 
@@ -44,11 +43,11 @@ async def main():
                         "title": {"type": "string"},
                         "bio": {"type": "string"},
                         "linkedin": {"type": "string"},
-                        "twitter": {"type": "string"}
-                    }
-                }
+                        "twitter": {"type": "string"},
+                    },
+                },
             }
-        }
+        },
     }
 
     url = "https://scrapegraphai.com"
@@ -108,4 +107,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

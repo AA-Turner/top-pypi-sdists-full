@@ -64,6 +64,7 @@ def GetClient(
     auth_local_webserver=True,
     api_url=None,
     expiry=None,
+    admin=False,
 ):
 
     config = Configuration(host=api_url, ssl_ca_cert=cacert, discard_unknown_keys=True)
@@ -86,6 +87,7 @@ def GetClient(
             client_id=client_id,
             agilicus_scopes=agilicus_scopes,
             auth_local_webserver=auth_local_webserver,
+            admin=admin,
         )
         config.access_token = creds.access_token
 

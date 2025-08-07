@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ..models.get_settings_response_200_ai_config import GetSettingsResponse200AiConfig
     from ..models.get_settings_response_200_default_scripts import GetSettingsResponse200DefaultScripts
     from ..models.get_settings_response_200_deploy_ui import GetSettingsResponse200DeployUi
+    from ..models.get_settings_response_200_ducklake import GetSettingsResponse200Ducklake
     from ..models.get_settings_response_200_error_handler_extra_args import GetSettingsResponse200ErrorHandlerExtraArgs
     from ..models.get_settings_response_200_git_sync import GetSettingsResponse200GitSync
     from ..models.get_settings_response_200_large_file_storage import GetSettingsResponse200LargeFileStorage
@@ -41,6 +42,7 @@ class GetSettingsResponse200:
         error_handler (Union[Unset, str]):
         error_handler_extra_args (Union[Unset, GetSettingsResponse200ErrorHandlerExtraArgs]):
         large_file_storage (Union[Unset, GetSettingsResponse200LargeFileStorage]):
+        ducklake (Union[Unset, GetSettingsResponse200Ducklake]):
         git_sync (Union[Unset, GetSettingsResponse200GitSync]):
         deploy_ui (Union[Unset, GetSettingsResponse200DeployUi]):
         default_app (Union[Unset, str]):
@@ -69,6 +71,7 @@ class GetSettingsResponse200:
     error_handler: Union[Unset, str] = UNSET
     error_handler_extra_args: Union[Unset, "GetSettingsResponse200ErrorHandlerExtraArgs"] = UNSET
     large_file_storage: Union[Unset, "GetSettingsResponse200LargeFileStorage"] = UNSET
+    ducklake: Union[Unset, "GetSettingsResponse200Ducklake"] = UNSET
     git_sync: Union[Unset, "GetSettingsResponse200GitSync"] = UNSET
     deploy_ui: Union[Unset, "GetSettingsResponse200DeployUi"] = UNSET
     default_app: Union[Unset, str] = UNSET
@@ -106,6 +109,10 @@ class GetSettingsResponse200:
         large_file_storage: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.large_file_storage, Unset):
             large_file_storage = self.large_file_storage.to_dict()
+
+        ducklake: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.ducklake, Unset):
+            ducklake = self.ducklake.to_dict()
 
         git_sync: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.git_sync, Unset):
@@ -169,6 +176,8 @@ class GetSettingsResponse200:
             field_dict["error_handler_extra_args"] = error_handler_extra_args
         if large_file_storage is not UNSET:
             field_dict["large_file_storage"] = large_file_storage
+        if ducklake is not UNSET:
+            field_dict["ducklake"] = ducklake
         if git_sync is not UNSET:
             field_dict["git_sync"] = git_sync
         if deploy_ui is not UNSET:
@@ -191,6 +200,7 @@ class GetSettingsResponse200:
         from ..models.get_settings_response_200_ai_config import GetSettingsResponse200AiConfig
         from ..models.get_settings_response_200_default_scripts import GetSettingsResponse200DefaultScripts
         from ..models.get_settings_response_200_deploy_ui import GetSettingsResponse200DeployUi
+        from ..models.get_settings_response_200_ducklake import GetSettingsResponse200Ducklake
         from ..models.get_settings_response_200_error_handler_extra_args import (
             GetSettingsResponse200ErrorHandlerExtraArgs,
         )
@@ -252,6 +262,13 @@ class GetSettingsResponse200:
         else:
             large_file_storage = GetSettingsResponse200LargeFileStorage.from_dict(_large_file_storage)
 
+        _ducklake = d.pop("ducklake", UNSET)
+        ducklake: Union[Unset, GetSettingsResponse200Ducklake]
+        if isinstance(_ducklake, Unset):
+            ducklake = UNSET
+        else:
+            ducklake = GetSettingsResponse200Ducklake.from_dict(_ducklake)
+
         _git_sync = d.pop("git_sync", UNSET)
         git_sync: Union[Unset, GetSettingsResponse200GitSync]
         if isinstance(_git_sync, Unset):
@@ -308,6 +325,7 @@ class GetSettingsResponse200:
             error_handler=error_handler,
             error_handler_extra_args=error_handler_extra_args,
             large_file_storage=large_file_storage,
+            ducklake=ducklake,
             git_sync=git_sync,
             deploy_ui=deploy_ui,
             default_app=default_app,

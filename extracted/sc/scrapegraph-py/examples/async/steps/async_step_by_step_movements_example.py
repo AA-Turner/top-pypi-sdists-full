@@ -38,10 +38,10 @@ async def check_server_connectivity(base_url: str) -> bool:
 
 async def async_smart_scraper_movements():
     """Async example of making a movements request to the smartscraper API"""
-    
+
     # Load environment variables from .env file
     load_dotenv()
-    
+
     # Get API key from .env file
     api_key = os.getenv("TEST_API_KEY")
     if not api_key:
@@ -124,7 +124,9 @@ async def async_smart_scraper_movements():
 
                     # Pretty print the result with proper indentation
                     if "result" in result:
-                        print(json.dumps(result["result"], indent=2, ensure_ascii=False))
+                        print(
+                            json.dumps(result["result"], indent=2, ensure_ascii=False)
+                        )
                     else:
                         print("No result data found")
 
@@ -142,7 +144,7 @@ async def async_smart_scraper_movements():
         print(
             f"⚡ Execution time before timeout: {execution_time:.2f} seconds ({execution_minutes:.2f} minutes)"
         )
-        print(f"⏰ Request timed out after 300 seconds")
+        print("⏰ Request timed out after 300 seconds")
     except httpx.RequestError as e:
         end_time = time.time()
         execution_time = end_time - start_time
@@ -176,7 +178,7 @@ async def async_markdownify_movements():
     """
     # Load environment variables from .env file
     load_dotenv()
-    
+
     # Get API key from .env file
     api_key = os.getenv("TEST_API_KEY")
     if not api_key:
@@ -184,7 +186,7 @@ async def async_markdownify_movements():
             "API key must be provided or set in .env file as TEST_API_KEY. "
             "Create a .env file with: TEST_API_KEY=your_api_key_here"
         )
-    
+
     steps = [
         "click on search bar",
         "wait for 500ms",
@@ -193,7 +195,7 @@ async def async_markdownify_movements():
         "click on the first time of search result",
         "wait for 2 seconds to load the result of search",
     ]
-    
+
     # Target website configuration
     website_url = "https://scrapegraphai.com/"
 
@@ -223,7 +225,7 @@ async def async_markdownify_movements():
     print("🚀 Starting Async Markdownify with Enhanced Features...")
     print(f"🌐 Website URL: {website_url}")
     print(f"📋 Custom Headers: {len(custom_headers)} headers configured")
-    print(f"🎯 Goal: Convert website to clean markdown format")
+    print("🎯 Goal: Convert website to clean markdown format")
     print("\n" + "=" * 60)
 
     # Start timer
@@ -275,7 +277,7 @@ async def async_markdownify_movements():
                     lines = markdown_content.split("\n")
                     words = len(markdown_content.split())
 
-                    print(f"📊 Statistics:")
+                    print("📊 Statistics:")
                     print(f"   - Total Lines: {len(lines)}")
                     print(f"   - Total Words: {words}")
                     print(f"   - Total Characters: {len(markdown_content)}")
@@ -284,7 +286,7 @@ async def async_markdownify_movements():
                     )
 
                     # Display first 500 characters
-                    print(f"\n🔍 First 500 characters:")
+                    print("\n🔍 First 500 characters:")
                     print("-" * 50)
                     print(markdown_content[:500])
                     if len(markdown_content) > 500:
@@ -312,7 +314,7 @@ async def async_markdownify_movements():
         print(
             f"⚡ Execution time before timeout: {execution_time:.2f} seconds ({execution_minutes:.2f} minutes)"
         )
-        print(f"⏰ Request timed out after 120 seconds")
+        print("⏰ Request timed out after 120 seconds")
     except httpx.RequestError as e:
         end_time = time.time()
         execution_time = end_time - start_time
@@ -366,7 +368,7 @@ def analyze_markdown_content(markdown_content: str):
     Args:
         markdown_content: The markdown content to analyze
     """
-    print(f"\n🔍 CONTENT ANALYSIS:")
+    print("\n🔍 CONTENT ANALYSIS:")
     print("-" * 50)
 
     # Count different markdown elements
@@ -383,7 +385,7 @@ def analyze_markdown_content(markdown_content: str):
 
     # Show first few headers if they exist
     if headers:
-        print(f"\n📋 First few headers:")
+        print("\n📋 First few headers:")
         for i, header in enumerate(headers[:3]):
             print(f"   {i+1}. {header.strip()}")
         if len(headers) > 3:
@@ -392,10 +394,10 @@ def analyze_markdown_content(markdown_content: str):
 
 def show_curl_equivalent():
     """Show the equivalent curl command for reference"""
-    
+
     # Load environment variables from .env file
     load_dotenv()
-    
+
     api_key = os.getenv("TEST_API_KEY", "your-api-key-here")
     curl_command = f"""
 curl --location 'http://localhost:8001/v1/smartscraper' \\
@@ -415,7 +417,7 @@ curl --location 'http://localhost:8001/v1/smartscraper' \\
     ]
 }}'
     """
-    
+
     print("Equivalent curl command:")
     print(curl_command)
 
@@ -430,23 +432,25 @@ async def main():
         print("=" * 60)
         print("This example demonstrates async interactive movements with timing")
         print()
-        
+
         # Show the curl equivalent
         show_curl_equivalent()
-        
+
         print("\n" + "=" * 60)
-        
+
         # Make the actual API requests
         print("1️⃣ Running SmartScraper Movements Example...")
         await async_smart_scraper_movements()
-        
+
         print("\n" + "=" * 60)
         print("2️⃣ Running Markdownify Movements Example...")
         await async_markdownify_movements()
-        
+
         total_duration = time.time() - total_start_time
-        logger.info(f"Examples completed! Total execution time: {total_duration:.2f} seconds")
-        
+        logger.info(
+            f"Examples completed! Total execution time: {total_duration:.2f} seconds"
+        )
+
         print("\n" + "=" * 60)
         print("Examples completed!")
         print(f"⏱️ Total execution time: {total_duration:.2f} seconds")
@@ -472,4 +476,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

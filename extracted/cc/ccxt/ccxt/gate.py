@@ -684,8 +684,7 @@ class gate(Exchange, ImplicitAPI):
                     'BSC': 'BSC',
                     'BEP20': 'BSC',
                     'SOL': 'SOL',
-                    'POLYGON': 'POL',
-                    'MATIC': 'POL',
+                    'MATIC': 'MATIC',
                     'OPTIMISM': 'OPETH',
                     'ADA': 'ADA',  # CARDANO
                     'AVAXC': 'AVAX_C',

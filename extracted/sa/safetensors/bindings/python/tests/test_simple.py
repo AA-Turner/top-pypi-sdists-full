@@ -1,5 +1,6 @@
 import os
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 
@@ -117,9 +118,10 @@ class TestCase(unittest.TestCase):
             "a": torch.zeros((2, 2)),
             "b": torch.zeros((2, 3), dtype=torch.uint8),
         }
-        save_file_pt(tensors, Path("./out.safetensors"))
-        load_file_pt(Path("./out.safetensors"))
-        os.remove(Path("./out.safetensors"))
+        filename = f"./out_{threading.get_ident()}.safetensors"
+        save_file_pt(tensors, Path(filename))
+        load_file_pt(Path(filename))
+        os.remove(Path(filename))
 
     def test_pt_sf_save_model_overlapping_storage(self):
         m = torch.randn(10)
@@ -157,14 +159,14 @@ class WindowsTestCase(unittest.TestCase):
             "a": torch.zeros((2, 2)),
             "b": torch.zeros((2, 3), dtype=torch.uint8),
         }
-        save_file_pt(tensors, "./out.safetensors")
-        with safe_open("./out.safetensors", framework="pt") as f:
+        save_file_pt(tensors, "./out_windows.safetensors")
+        with safe_open("./out_windows.safetensors", framework="pt") as f:
             pass
 
         with self.assertRaises(SafetensorError):
             print(f.keys())
 
-        with open("./out.safetensors", "w") as g:
+        with open("./out_windows.safetensors", "w") as g:
             g.write("something")
 
 
@@ -173,7 +175,7 @@ class ErrorsTestCase(unittest.TestCase):
         with self.assertRaises(FileNotFoundError) as ctx:
             with safe_open("notafile", framework="pt"):
                 pass
-        self.assertEqual(str(ctx.exception), 'No such file or directory: "notafile"')
+        self.assertEqual(str(ctx.exception), "No such file or directory: notafile")
 
 
 class ReadmeTestCase(unittest.TestCase):
@@ -188,11 +190,11 @@ class ReadmeTestCase(unittest.TestCase):
     def test_numpy_example(self):
         tensors = {"a": np.zeros((2, 2)), "b": np.zeros((2, 3), dtype=np.uint8)}
 
-        save_file(tensors, "./out.safetensors")
+        save_file(tensors, "./out_np.safetensors")
         out = save(tensors)
 
         # Now loading
-        loaded = load_file("./out.safetensors")
+        loaded = load_file("./out_np.safetensors")
         self.assertTensorEqual(tensors, loaded, np.allclose)
 
         loaded = load(out)
@@ -220,10 +222,11 @@ class ReadmeTestCase(unittest.TestCase):
         # test to be correct.
         tensors2 = tensors.copy()
 
-        save_file_pt(tensors, "./out.safetensors")
+        filename = f"./out_pt_{threading.get_ident()}.safetensors"
+        save_file_pt(tensors, filename)
 
         # Now loading
-        loaded = load_file_pt("./out.safetensors")
+        loaded = load_file_pt(filename)
         self.assertTensorEqual(tensors2, loaded, torch.allclose)
 
     def test_exception(self):
@@ -237,10 +240,13 @@ class ReadmeTestCase(unittest.TestCase):
         tensors = {
             "a": A,
         }
-        save_file_pt(tensors, "./slice.safetensors")
+        ident = threading.get_ident()
+        save_file_pt(tensors, f"./slice_{ident}.safetensors")
 
         # Now loading
-        with safe_open("./slice.safetensors", framework="pt", device="cpu") as f:
+        with safe_open(
+            f"./slice_{ident}.safetensors", framework="pt", device="cpu"
+        ) as f:
             slice_ = f.get_slice("a")
             tensor = slice_[:]
             self.assertEqual(list(tensor.shape), [10, 5])
@@ -283,10 +289,11 @@ class ReadmeTestCase(unittest.TestCase):
         tensors = {
             "a": A,
         }
-        save_file(tensors, "./slice.safetensors")
+        filename = f"./slice_{threading.get_ident()}.safetensors"
+        save_file(tensors, filename)
 
         # Now loading
-        with safe_open("./slice.safetensors", framework="np", device="cpu") as f:
+        with safe_open(filename, framework="np", device="cpu") as f:
             slice_ = f.get_slice("a")
             tensor = slice_[:]
             self.assertEqual(list(tensor.shape), [10, 5])
@@ -330,7 +337,9 @@ class ReadmeTestCase(unittest.TestCase):
 
             with self.assertRaises(SafetensorError) as cm:
                 tensor = slice_[2:, -6]
-            self.assertEqual(str(cm.exception), "Invalid index -6 for dimension 1 of size 5")
+            self.assertEqual(
+                str(cm.exception), "Invalid index -6 for dimension 1 of size 5"
+            )
 
             with self.assertRaises(SafetensorError) as cm:
                 tensor = slice_[[0, 1]]
@@ -340,19 +349,19 @@ class ReadmeTestCase(unittest.TestCase):
                 tensor = slice_[2:, 20]
             self.assertEqual(
                 str(cm.exception),
-                "Error during slicing [2:, 20] with shape [10, 5]:  SliceOutOfRange { dim_index: 1, asked: 20, dim_size: 5 }",
+                "Error during slicing [2:, 20] with shape [10, 5]: index 20 out of bounds for tensor dimension #1 of size 5",
             )
 
             with self.assertRaises(SafetensorError) as cm:
                 tensor = slice_[:20]
             self.assertEqual(
                 str(cm.exception),
-                "Error during slicing [:20] with shape [10, 5]:  SliceOutOfRange { dim_index: 0, asked: 19, dim_size: 10 }",
+                "Error during slicing [:20] with shape [10, 5]: index 19 out of bounds for tensor dimension #0 of size 10",
             )
 
             with self.assertRaises(SafetensorError) as cm:
                 tensor = slice_[:, :20]
             self.assertEqual(
                 str(cm.exception),
-                "Error during slicing [:, :20] with shape [10, 5]:  SliceOutOfRange { dim_index: 1, asked: 19, dim_size: 5 }",
+                "Error during slicing [:, :20] with shape [10, 5]: index 19 out of bounds for tensor dimension #1 of size 5",
             )

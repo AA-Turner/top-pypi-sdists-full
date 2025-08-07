@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastai
-Version: 2.8.2
+Version: 2.8.3
 Summary: fastai simplifies training fast and accurate neural nets using modern best practices
 Home-page: https://github.com/fastai/fastai
 Author: Jeremy Howard, Sylvain Gugger, and contributors
@@ -36,7 +36,7 @@ Requires-Dist: spacy<4
 Requires-Dist: packaging
 Requires-Dist: plum-dispatch
 Requires-Dist: cloudpickle
-Requires-Dist: torch<2.8,>=1.10
+Requires-Dist: torch<2.9,>=1.10
 Provides-Extra: dev
 Requires-Dist: ipywidgets; extra == "dev"
 Requires-Dist: lightning; extra == "dev"

@@ -1,7 +1,7 @@
 r'''
 # `datadog_logs_custom_destination`
 
-Refer to the Terraform Registry for docs: [`datadog_logs_custom_destination`](https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination).
+Refer to the Terraform Registry for docs: [`datadog_logs_custom_destination`](https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LogsCustomDestination(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.logsCustomDestination.LogsCustomDestination",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination datadog_logs_custom_destination}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination datadog_logs_custom_destination}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class LogsCustomDestination(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination datadog_logs_custom_destination} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination datadog_logs_custom_destination} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The custom destination name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#name LogsCustomDestination#name}
-        :param elasticsearch_destination: elasticsearch_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#elasticsearch_destination LogsCustomDestination#elasticsearch_destination}
-        :param enabled: Whether logs matching this custom destination should be forwarded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#enabled LogsCustomDestination#enabled}
-        :param forward_tags: Whether tags from the forwarded logs should be forwarded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags LogsCustomDestination#forward_tags}
-        :param forward_tags_restriction_list: List of `tag keys <https://docs.datadoghq.com/getting_started/tagging/#define-tags>`_ to be filtered. An empty list represents no restriction is in place and either all or no tags will be forwarded depending on ``forward_tags_restriction_list_type`` parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags_restriction_list LogsCustomDestination#forward_tags_restriction_list}
-        :param forward_tags_restriction_list_type: How the ``forward_tags_restriction_list`` parameter should be interpreted. If ``ALLOW_LIST``, then only tags whose keys on the forwarded logs match the ones on the restriction list are forwarded. ``BLOCK_LIST`` works the opposite way. It does not forward the tags matching the ones on the list. Valid values are ``ALLOW_LIST``, ``BLOCK_LIST``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags_restriction_list_type LogsCustomDestination#forward_tags_restriction_list_type}
-        :param http_destination: http_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#http_destination LogsCustomDestination#http_destination}
-        :param microsoft_sentinel_destination: microsoft_sentinel_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#microsoft_sentinel_destination LogsCustomDestination#microsoft_sentinel_destination}
-        :param query: The custom destination query filter. Logs matching this query are forwarded to the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#query LogsCustomDestination#query}
-        :param splunk_destination: splunk_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#splunk_destination LogsCustomDestination#splunk_destination}
+        :param name: The custom destination name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#name LogsCustomDestination#name}
+        :param elasticsearch_destination: elasticsearch_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#elasticsearch_destination LogsCustomDestination#elasticsearch_destination}
+        :param enabled: Whether logs matching this custom destination should be forwarded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#enabled LogsCustomDestination#enabled}
+        :param forward_tags: Whether tags from the forwarded logs should be forwarded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags LogsCustomDestination#forward_tags}
+        :param forward_tags_restriction_list: List of `tag keys <https://docs.datadoghq.com/getting_started/tagging/#define-tags>`_ to be filtered. An empty list represents no restriction is in place and either all or no tags will be forwarded depending on ``forward_tags_restriction_list_type`` parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags_restriction_list LogsCustomDestination#forward_tags_restriction_list}
+        :param forward_tags_restriction_list_type: How the ``forward_tags_restriction_list`` parameter should be interpreted. If ``ALLOW_LIST``, then only tags whose keys on the forwarded logs match the ones on the restriction list are forwarded. ``BLOCK_LIST`` works the opposite way. It does not forward the tags matching the ones on the list. Valid values are ``ALLOW_LIST``, ``BLOCK_LIST``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags_restriction_list_type LogsCustomDestination#forward_tags_restriction_list_type}
+        :param http_destination: http_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#http_destination LogsCustomDestination#http_destination}
+        :param microsoft_sentinel_destination: microsoft_sentinel_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#microsoft_sentinel_destination LogsCustomDestination#microsoft_sentinel_destination}
+        :param query: The custom destination query filter. Logs matching this query are forwarded to the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#query LogsCustomDestination#query}
+        :param splunk_destination: splunk_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#splunk_destination LogsCustomDestination#splunk_destination}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class LogsCustomDestination(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LogsCustomDestination to import.
-        :param import_from_id: The id of the existing LogsCustomDestination that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LogsCustomDestination that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LogsCustomDestination to import is found.
         '''
         if __debug__:
@@ -467,16 +467,16 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The custom destination name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#name LogsCustomDestination#name}
-        :param elasticsearch_destination: elasticsearch_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#elasticsearch_destination LogsCustomDestination#elasticsearch_destination}
-        :param enabled: Whether logs matching this custom destination should be forwarded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#enabled LogsCustomDestination#enabled}
-        :param forward_tags: Whether tags from the forwarded logs should be forwarded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags LogsCustomDestination#forward_tags}
-        :param forward_tags_restriction_list: List of `tag keys <https://docs.datadoghq.com/getting_started/tagging/#define-tags>`_ to be filtered. An empty list represents no restriction is in place and either all or no tags will be forwarded depending on ``forward_tags_restriction_list_type`` parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags_restriction_list LogsCustomDestination#forward_tags_restriction_list}
-        :param forward_tags_restriction_list_type: How the ``forward_tags_restriction_list`` parameter should be interpreted. If ``ALLOW_LIST``, then only tags whose keys on the forwarded logs match the ones on the restriction list are forwarded. ``BLOCK_LIST`` works the opposite way. It does not forward the tags matching the ones on the list. Valid values are ``ALLOW_LIST``, ``BLOCK_LIST``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags_restriction_list_type LogsCustomDestination#forward_tags_restriction_list_type}
-        :param http_destination: http_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#http_destination LogsCustomDestination#http_destination}
-        :param microsoft_sentinel_destination: microsoft_sentinel_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#microsoft_sentinel_destination LogsCustomDestination#microsoft_sentinel_destination}
-        :param query: The custom destination query filter. Logs matching this query are forwarded to the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#query LogsCustomDestination#query}
-        :param splunk_destination: splunk_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#splunk_destination LogsCustomDestination#splunk_destination}
+        :param name: The custom destination name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#name LogsCustomDestination#name}
+        :param elasticsearch_destination: elasticsearch_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#elasticsearch_destination LogsCustomDestination#elasticsearch_destination}
+        :param enabled: Whether logs matching this custom destination should be forwarded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#enabled LogsCustomDestination#enabled}
+        :param forward_tags: Whether tags from the forwarded logs should be forwarded or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags LogsCustomDestination#forward_tags}
+        :param forward_tags_restriction_list: List of `tag keys <https://docs.datadoghq.com/getting_started/tagging/#define-tags>`_ to be filtered. An empty list represents no restriction is in place and either all or no tags will be forwarded depending on ``forward_tags_restriction_list_type`` parameter. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags_restriction_list LogsCustomDestination#forward_tags_restriction_list}
+        :param forward_tags_restriction_list_type: How the ``forward_tags_restriction_list`` parameter should be interpreted. If ``ALLOW_LIST``, then only tags whose keys on the forwarded logs match the ones on the restriction list are forwarded. ``BLOCK_LIST`` works the opposite way. It does not forward the tags matching the ones on the list. Valid values are ``ALLOW_LIST``, ``BLOCK_LIST``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags_restriction_list_type LogsCustomDestination#forward_tags_restriction_list_type}
+        :param http_destination: http_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#http_destination LogsCustomDestination#http_destination}
+        :param microsoft_sentinel_destination: microsoft_sentinel_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#microsoft_sentinel_destination LogsCustomDestination#microsoft_sentinel_destination}
+        :param query: The custom destination query filter. Logs matching this query are forwarded to the destination. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#query LogsCustomDestination#query}
+        :param splunk_destination: splunk_destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#splunk_destination LogsCustomDestination#splunk_destination}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -603,7 +603,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The custom destination name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#name LogsCustomDestination#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#name LogsCustomDestination#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -615,7 +615,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationElasticsearchDestination"]]]:
         '''elasticsearch_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#elasticsearch_destination LogsCustomDestination#elasticsearch_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#elasticsearch_destination LogsCustomDestination#elasticsearch_destination}
         '''
         result = self._values.get("elasticsearch_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationElasticsearchDestination"]]], result)
@@ -626,7 +626,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether logs matching this custom destination should be forwarded or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#enabled LogsCustomDestination#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#enabled LogsCustomDestination#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -637,7 +637,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether tags from the forwarded logs should be forwarded or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags LogsCustomDestination#forward_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags LogsCustomDestination#forward_tags}
         '''
         result = self._values.get("forward_tags")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -648,7 +648,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.List[builtins.str]]:
         '''List of `tag keys <https://docs.datadoghq.com/getting_started/tagging/#define-tags>`_ to be filtered. 				An empty list represents no restriction is in place and either all or no tags will be 				forwarded depending on ``forward_tags_restriction_list_type`` parameter.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags_restriction_list LogsCustomDestination#forward_tags_restriction_list}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags_restriction_list LogsCustomDestination#forward_tags_restriction_list}
         '''
         result = self._values.get("forward_tags_restriction_list")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -661,7 +661,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         are forwarded.
         ``BLOCK_LIST`` works the opposite way. It does not forward the tags matching the ones on the list. Valid values are ``ALLOW_LIST``, ``BLOCK_LIST``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#forward_tags_restriction_list_type LogsCustomDestination#forward_tags_restriction_list_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#forward_tags_restriction_list_type LogsCustomDestination#forward_tags_restriction_list_type}
         '''
         result = self._values.get("forward_tags_restriction_list_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -672,7 +672,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationHttpDestination"]]]:
         '''http_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#http_destination LogsCustomDestination#http_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#http_destination LogsCustomDestination#http_destination}
         '''
         result = self._values.get("http_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationHttpDestination"]]], result)
@@ -683,7 +683,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationMicrosoftSentinelDestination"]]]:
         '''microsoft_sentinel_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#microsoft_sentinel_destination LogsCustomDestination#microsoft_sentinel_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#microsoft_sentinel_destination LogsCustomDestination#microsoft_sentinel_destination}
         '''
         result = self._values.get("microsoft_sentinel_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationMicrosoftSentinelDestination"]]], result)
@@ -692,7 +692,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def query(self) -> typing.Optional[builtins.str]:
         '''The custom destination query filter. Logs matching this query are forwarded to the destination.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#query LogsCustomDestination#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#query LogsCustomDestination#query}
         '''
         result = self._values.get("query")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -703,7 +703,7 @@ class LogsCustomDestinationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationSplunkDestination"]]]:
         '''splunk_destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#splunk_destination LogsCustomDestination#splunk_destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#splunk_destination LogsCustomDestination#splunk_destination}
         '''
         result = self._values.get("splunk_destination")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationSplunkDestination"]]], result)
@@ -740,10 +740,10 @@ class LogsCustomDestinationElasticsearchDestination:
         index_rotation: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param endpoint: The destination for which logs will be forwarded to. Must have HTTPS scheme. Forwarding back to Datadog is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
-        :param index_name: Name of the Elasticsearch index (must follow `Elasticsearch's criteria <https://www.elastic.co/guide/en/elasticsearch/reference/8.11/indices-create-index.html#indices-create-api-path-params>`_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#index_name LogsCustomDestination#index_name}
-        :param basic_auth: basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#basic_auth LogsCustomDestination#basic_auth}
-        :param index_rotation: Date pattern with US locale and UTC timezone to be appended to the index name after adding '-' (that is, '${index_name}-${indexPattern}'). You can customize the index rotation naming pattern by choosing one of these options: - Hourly: 'yyyy-MM-dd-HH' (as an example, it would render: '2022-10-19-09') - Daily: 'yyyy-MM-dd' (as an example, it would render: '2022-10-19') - Weekly: 'yyyy-'W'ww' (as an example, it would render: '2022-W42') - Monthly: 'yyyy-MM' (as an example, it would render: '2022-10') If this field is missing or is blank, it means that the index name will always be the same (that is, no rotation). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#index_rotation LogsCustomDestination#index_rotation}
+        :param endpoint: The destination for which logs will be forwarded to. Must have HTTPS scheme. Forwarding back to Datadog is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
+        :param index_name: Name of the Elasticsearch index (must follow `Elasticsearch's criteria <https://www.elastic.co/guide/en/elasticsearch/reference/8.11/indices-create-index.html#indices-create-api-path-params>`_). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#index_name LogsCustomDestination#index_name}
+        :param basic_auth: basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#basic_auth LogsCustomDestination#basic_auth}
+        :param index_rotation: Date pattern with US locale and UTC timezone to be appended to the index name after adding '-' (that is, '${index_name}-${indexPattern}'). You can customize the index rotation naming pattern by choosing one of these options: - Hourly: 'yyyy-MM-dd-HH' (as an example, it would render: '2022-10-19-09') - Daily: 'yyyy-MM-dd' (as an example, it would render: '2022-10-19') - Weekly: 'yyyy-'W'ww' (as an example, it would render: '2022-W42') - Monthly: 'yyyy-MM' (as an example, it would render: '2022-10') If this field is missing or is blank, it means that the index name will always be the same (that is, no rotation). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#index_rotation LogsCustomDestination#index_rotation}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__741caa8cc4e64b980452f4609d5bb56126270344c66315a0e7b16767fd918f9d)
@@ -766,7 +766,7 @@ class LogsCustomDestinationElasticsearchDestination:
 
         Must have HTTPS scheme. Forwarding back to Datadog is not allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
         '''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
@@ -776,7 +776,7 @@ class LogsCustomDestinationElasticsearchDestination:
     def index_name(self) -> builtins.str:
         '''Name of the Elasticsearch index (must follow `Elasticsearch's criteria <https://www.elastic.co/guide/en/elasticsearch/reference/8.11/indices-create-index.html#indices-create-api-path-params>`_).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#index_name LogsCustomDestination#index_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#index_name LogsCustomDestination#index_name}
         '''
         result = self._values.get("index_name")
         assert result is not None, "Required property 'index_name' is missing"
@@ -788,7 +788,7 @@ class LogsCustomDestinationElasticsearchDestination:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationElasticsearchDestinationBasicAuth"]]]:
         '''basic_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#basic_auth LogsCustomDestination#basic_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#basic_auth LogsCustomDestination#basic_auth}
         '''
         result = self._values.get("basic_auth")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationElasticsearchDestinationBasicAuth"]]], result)
@@ -806,7 +806,7 @@ class LogsCustomDestinationElasticsearchDestination:
           If this field is missing or is blank, it means that the index name will always be the same
           (that is, no rotation).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#index_rotation LogsCustomDestination#index_rotation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#index_rotation LogsCustomDestination#index_rotation}
         '''
         result = self._values.get("index_rotation")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -831,8 +831,8 @@ class LogsCustomDestinationElasticsearchDestination:
 class LogsCustomDestinationElasticsearchDestinationBasicAuth:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: The password of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#password LogsCustomDestination#password}
-        :param username: The username of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#username LogsCustomDestination#username}
+        :param password: The password of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#password LogsCustomDestination#password}
+        :param username: The username of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#username LogsCustomDestination#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b6c0229537ddd998fbff6bc39495545ac22678651c7ba9596231bb4f72404b6)
@@ -847,7 +847,7 @@ class LogsCustomDestinationElasticsearchDestinationBasicAuth:
     def password(self) -> builtins.str:
         '''The password of the authentication. This field is not returned by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#password LogsCustomDestination#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#password LogsCustomDestination#password}
         '''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
@@ -857,7 +857,7 @@ class LogsCustomDestinationElasticsearchDestinationBasicAuth:
     def username(self) -> builtins.str:
         '''The username of the authentication. This field is not returned by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#username LogsCustomDestination#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#username LogsCustomDestination#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -1285,9 +1285,9 @@ class LogsCustomDestinationHttpDestination:
         custom_header_auth: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LogsCustomDestinationHttpDestinationCustomHeaderAuth", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param endpoint: The destination for which logs will be forwarded to. Must have HTTPS scheme. Forwarding back to Datadog is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
-        :param basic_auth: basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#basic_auth LogsCustomDestination#basic_auth}
-        :param custom_header_auth: custom_header_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#custom_header_auth LogsCustomDestination#custom_header_auth}
+        :param endpoint: The destination for which logs will be forwarded to. Must have HTTPS scheme. Forwarding back to Datadog is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
+        :param basic_auth: basic_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#basic_auth LogsCustomDestination#basic_auth}
+        :param custom_header_auth: custom_header_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#custom_header_auth LogsCustomDestination#custom_header_auth}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0608feff39ac62abf5ef4d6a8bd7984c25d77e8dbf4309a08389978bd437b2ef)
@@ -1308,7 +1308,7 @@ class LogsCustomDestinationHttpDestination:
 
         Must have HTTPS scheme. Forwarding back to Datadog is not allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
         '''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
@@ -1320,7 +1320,7 @@ class LogsCustomDestinationHttpDestination:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationHttpDestinationBasicAuth"]]]:
         '''basic_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#basic_auth LogsCustomDestination#basic_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#basic_auth LogsCustomDestination#basic_auth}
         '''
         result = self._values.get("basic_auth")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationHttpDestinationBasicAuth"]]], result)
@@ -1331,7 +1331,7 @@ class LogsCustomDestinationHttpDestination:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationHttpDestinationCustomHeaderAuth"]]]:
         '''custom_header_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#custom_header_auth LogsCustomDestination#custom_header_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#custom_header_auth LogsCustomDestination#custom_header_auth}
         '''
         result = self._values.get("custom_header_auth")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LogsCustomDestinationHttpDestinationCustomHeaderAuth"]]], result)
@@ -1356,8 +1356,8 @@ class LogsCustomDestinationHttpDestination:
 class LogsCustomDestinationHttpDestinationBasicAuth:
     def __init__(self, *, password: builtins.str, username: builtins.str) -> None:
         '''
-        :param password: The password of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#password LogsCustomDestination#password}
-        :param username: The username of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#username LogsCustomDestination#username}
+        :param password: The password of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#password LogsCustomDestination#password}
+        :param username: The username of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#username LogsCustomDestination#username}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a5c85b25194c200c2724c9c94bd8b8ffa2459f1b420a31601373adeb5d8262aa)
@@ -1372,7 +1372,7 @@ class LogsCustomDestinationHttpDestinationBasicAuth:
     def password(self) -> builtins.str:
         '''The password of the authentication. This field is not returned by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#password LogsCustomDestination#password}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#password LogsCustomDestination#password}
         '''
         result = self._values.get("password")
         assert result is not None, "Required property 'password' is missing"
@@ -1382,7 +1382,7 @@ class LogsCustomDestinationHttpDestinationBasicAuth:
     def username(self) -> builtins.str:
         '''The username of the authentication. This field is not returned by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#username LogsCustomDestination#username}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#username LogsCustomDestination#username}
         '''
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
@@ -1584,8 +1584,8 @@ class LogsCustomDestinationHttpDestinationCustomHeaderAuth:
         header_value: builtins.str,
     ) -> None:
         '''
-        :param header_name: The header name of the authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#header_name LogsCustomDestination#header_name}
-        :param header_value: The header value of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#header_value LogsCustomDestination#header_value}
+        :param header_name: The header name of the authentication. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#header_name LogsCustomDestination#header_name}
+        :param header_value: The header value of the authentication. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#header_value LogsCustomDestination#header_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9bea779e91bfcb4dd4cc14f5efe5d04bb10f75decb76a9e4b177c86e1375195)
@@ -1600,7 +1600,7 @@ class LogsCustomDestinationHttpDestinationCustomHeaderAuth:
     def header_name(self) -> builtins.str:
         '''The header name of the authentication.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#header_name LogsCustomDestination#header_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#header_name LogsCustomDestination#header_name}
         '''
         result = self._values.get("header_name")
         assert result is not None, "Required property 'header_name' is missing"
@@ -1610,7 +1610,7 @@ class LogsCustomDestinationHttpDestinationCustomHeaderAuth:
     def header_value(self) -> builtins.str:
         '''The header value of the authentication. This field is not returned by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#header_value LogsCustomDestination#header_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#header_value LogsCustomDestination#header_value}
         '''
         result = self._values.get("header_value")
         assert result is not None, "Required property 'header_value' is missing"
@@ -2035,11 +2035,11 @@ class LogsCustomDestinationMicrosoftSentinelDestination:
         tenant_id: builtins.str,
     ) -> None:
         '''
-        :param client_id: Client ID from the Datadog Azure Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#client_id LogsCustomDestination#client_id}
-        :param data_collection_endpoint: Azure Data Collection Endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#data_collection_endpoint LogsCustomDestination#data_collection_endpoint}
-        :param data_collection_rule_id: Azure Data Collection Rule ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#data_collection_rule_id LogsCustomDestination#data_collection_rule_id}
-        :param stream_name: Azure stream name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#stream_name LogsCustomDestination#stream_name}
-        :param tenant_id: Tenant ID from the Datadog Azure Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#tenant_id LogsCustomDestination#tenant_id}
+        :param client_id: Client ID from the Datadog Azure Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#client_id LogsCustomDestination#client_id}
+        :param data_collection_endpoint: Azure Data Collection Endpoint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#data_collection_endpoint LogsCustomDestination#data_collection_endpoint}
+        :param data_collection_rule_id: Azure Data Collection Rule ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#data_collection_rule_id LogsCustomDestination#data_collection_rule_id}
+        :param stream_name: Azure stream name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#stream_name LogsCustomDestination#stream_name}
+        :param tenant_id: Tenant ID from the Datadog Azure Integration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#tenant_id LogsCustomDestination#tenant_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__344a975e14458ab5fe62e71974d3c3ce504f5290a7269cd143e6090d1f152a39)
@@ -2060,7 +2060,7 @@ class LogsCustomDestinationMicrosoftSentinelDestination:
     def client_id(self) -> builtins.str:
         '''Client ID from the Datadog Azure Integration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#client_id LogsCustomDestination#client_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#client_id LogsCustomDestination#client_id}
         '''
         result = self._values.get("client_id")
         assert result is not None, "Required property 'client_id' is missing"
@@ -2070,7 +2070,7 @@ class LogsCustomDestinationMicrosoftSentinelDestination:
     def data_collection_endpoint(self) -> builtins.str:
         '''Azure Data Collection Endpoint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#data_collection_endpoint LogsCustomDestination#data_collection_endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#data_collection_endpoint LogsCustomDestination#data_collection_endpoint}
         '''
         result = self._values.get("data_collection_endpoint")
         assert result is not None, "Required property 'data_collection_endpoint' is missing"
@@ -2080,7 +2080,7 @@ class LogsCustomDestinationMicrosoftSentinelDestination:
     def data_collection_rule_id(self) -> builtins.str:
         '''Azure Data Collection Rule ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#data_collection_rule_id LogsCustomDestination#data_collection_rule_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#data_collection_rule_id LogsCustomDestination#data_collection_rule_id}
         '''
         result = self._values.get("data_collection_rule_id")
         assert result is not None, "Required property 'data_collection_rule_id' is missing"
@@ -2090,7 +2090,7 @@ class LogsCustomDestinationMicrosoftSentinelDestination:
     def stream_name(self) -> builtins.str:
         '''Azure stream name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#stream_name LogsCustomDestination#stream_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#stream_name LogsCustomDestination#stream_name}
         '''
         result = self._values.get("stream_name")
         assert result is not None, "Required property 'stream_name' is missing"
@@ -2100,7 +2100,7 @@ class LogsCustomDestinationMicrosoftSentinelDestination:
     def tenant_id(self) -> builtins.str:
         '''Tenant ID from the Datadog Azure Integration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#tenant_id LogsCustomDestination#tenant_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#tenant_id LogsCustomDestination#tenant_id}
         '''
         result = self._values.get("tenant_id")
         assert result is not None, "Required property 'tenant_id' is missing"
@@ -2348,8 +2348,8 @@ class LogsCustomDestinationMicrosoftSentinelDestinationOutputReference(
 class LogsCustomDestinationSplunkDestination:
     def __init__(self, *, access_token: builtins.str, endpoint: builtins.str) -> None:
         '''
-        :param access_token: Access token of the Splunk HTTP Event Collector. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#access_token LogsCustomDestination#access_token}
-        :param endpoint: The destination for which logs will be forwarded to. Must have HTTPS scheme. Forwarding back to Datadog is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
+        :param access_token: Access token of the Splunk HTTP Event Collector. This field is not returned by the API. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#access_token LogsCustomDestination#access_token}
+        :param endpoint: The destination for which logs will be forwarded to. Must have HTTPS scheme. Forwarding back to Datadog is not allowed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__938e17c35d376e6b087b9e692329662652c68e562443fbb6389cffb557e21b81)
@@ -2364,7 +2364,7 @@ class LogsCustomDestinationSplunkDestination:
     def access_token(self) -> builtins.str:
         '''Access token of the Splunk HTTP Event Collector. This field is not returned by the API.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#access_token LogsCustomDestination#access_token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#access_token LogsCustomDestination#access_token}
         '''
         result = self._values.get("access_token")
         assert result is not None, "Required property 'access_token' is missing"
@@ -2376,7 +2376,7 @@ class LogsCustomDestinationSplunkDestination:
 
         Must have HTTPS scheme. Forwarding back to Datadog is not allowed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/logs_custom_destination#endpoint LogsCustomDestination#endpoint}
         '''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"

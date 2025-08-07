@@ -42,6 +42,8 @@ __all__ = (
     "DimensionType",
     "EventTypeType",
     "ExecutionTypeType",
+    "HealthStatusReasonType",
+    "HealthStatusValueType",
     "MatchOptionType",
     "MetricType",
     "NotificationStateType",
@@ -131,6 +133,10 @@ EventTypeType = Literal[
 ExecutionTypeType = Literal[
     "APPROVE_BUDGET_ACTION", "RESET_BUDGET_ACTION", "RETRY_BUDGET_ACTION", "REVERSE_BUDGET_ACTION"
 ]
+HealthStatusReasonType = Literal[
+    "BILLING_VIEW_NO_ACCESS", "BILLING_VIEW_UNHEALTHY", "FILTER_INVALID"
+]
+HealthStatusValueType = Literal["HEALTHY", "UNHEALTHY"]
 MatchOptionType = Literal[
     "ABSENT",
     "CASE_INSENSITIVE",

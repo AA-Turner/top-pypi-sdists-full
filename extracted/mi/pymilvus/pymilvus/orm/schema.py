@@ -438,6 +438,7 @@ class FieldSchema:
             DataType.VARCHAR,
             DataType.ARRAY,
             DataType.SPARSE_FLOAT_VECTOR,
+            DataType.INT8_VECTOR,
         ):
             return
         if not self._kwargs:
@@ -560,15 +561,33 @@ class Function:
         name: str,
         function_type: FunctionType,
         input_field_names: Union[str, List[str]],
-        output_field_names: Union[str, List[str]],
+        output_field_names: Optional[Union[str, List[str]]] = None,
         description: str = "",
         params: Optional[Dict] = None,
     ):
+        if not isinstance(name, str):
+            raise ParamError(
+                message=f"The name of the function should be a string, but got {type(name)}"
+            )
+        if not isinstance(description, str):
+            raise ParamError(
+                message=f"The description of the function should be a string, but got {type(description)}"
+            )
+        if not isinstance(input_field_names, (str, list)):
+            raise ParamError(
+                message=f"The input field names of the function should be a string or a list of strings, but got {type(input_field_names)}"
+            )
         self._name = name
         self._description = description
         input_field_names = (
             [input_field_names] if isinstance(input_field_names, str) else input_field_names
         )
+        if output_field_names is None:
+            output_field_names = []
+        if not isinstance(output_field_names, (str, list)):
+            raise ParamError(
+                message=f"The output field names of the function should be a string or a list of strings, but got {type(output_field_names)}"
+            )
         output_field_names = (
             [output_field_names] if isinstance(output_field_names, str) else output_field_names
         )
@@ -591,6 +610,8 @@ class Function:
         self._input_field_names = input_field_names
         self._output_field_names = output_field_names
         self._params = params if params is not None else {}
+        if not isinstance(self._params, dict):
+            raise ParamError(message="The parameters of the function should be a dictionary.")
 
     @property
     def name(self):
@@ -640,7 +661,10 @@ class Function:
                 raise ParamError(
                     message=ExceptionsMessage.TextEmbeddingFunctionIncorrectInputFieldType
                 )
-            if field.name == self._output_field_names[0] and field.dtype != DataType.FLOAT_VECTOR:
+            if field.name == self._output_field_names[0] and field.dtype not in [
+                DataType.FLOAT_VECTOR,
+                DataType.INT8_VECTOR,
+            ]:
                 raise ParamError(
                     message=ExceptionsMessage.TextEmbeddingFunctionIncorrectOutputFieldType
                 )
@@ -650,6 +674,9 @@ class Function:
             self._check_bm25_function(schema)
         elif self._type == FunctionType.TEXTEMBEDDING:
             self._check_text_embedding_function(schema)
+        elif self._type == FunctionType.RANKER:
+            # We will not check the ranker function here.
+            pass
         elif self._type == FunctionType.UNKNOWN:
             raise ParamError(message=ExceptionsMessage.UnknownFunctionType)
 
@@ -658,8 +685,8 @@ class Function:
         return Function(
             raw["name"],
             raw["type"],
-            raw["input_field_names"],
-            raw["output_field_names"],
+            list(raw["input_field_names"]),
+            list(raw["output_field_names"]),
             raw["description"],
             raw["params"],
         )
@@ -816,12 +843,15 @@ def prepare_fields_from_dataframe(df: pd.DataFrame):
                     DataType.FLOAT_VECTOR,
                     DataType.FLOAT16_VECTOR,
                     DataType.BFLOAT16_VECTOR,
+                    DataType.INT8_VECTOR,
                 ):
                     vector_type_params = {}
                     if new_dtype == DataType.BINARY_VECTOR:
                         vector_type_params["dim"] = len(values[i]) * 8
                     elif new_dtype in (DataType.FLOAT16_VECTOR, DataType.BFLOAT16_VECTOR):
                         vector_type_params["dim"] = int(len(values[i]) // 2)
+                    elif new_dtype == DataType.INT8_VECTOR:
+                        vector_type_params["dim"] = len(values[i])
                     else:
                         vector_type_params["dim"] = len(values[i])
                     column_params_map[col_names[i]] = vector_type_params
@@ -846,6 +876,7 @@ def check_schema(schema: CollectionSchema):
             DataType.FLOAT16_VECTOR,
             DataType.BFLOAT16_VECTOR,
             DataType.SPARSE_FLOAT_VECTOR,
+            DataType.INT8_VECTOR,
         ):
             vector_fields.append(field.name)
     if len(vector_fields) < 1:

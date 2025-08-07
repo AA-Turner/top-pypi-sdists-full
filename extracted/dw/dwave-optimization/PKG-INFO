@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dwave-optimization
-Version: 0.6.3
+Version: 0.6.4
 Summary: Enables the formulation of nonlinear models for industrial optimization problems.
 Author-Email: "D-Wave Inc." <tools@dwavesys.com>
 License:                                  Apache License
@@ -219,6 +219,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Project-URL: Changelog, https://github.com/dwavesystems/dwave-optimization/releases

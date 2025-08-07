@@ -1,7 +1,7 @@
 r'''
 # `datadog_app_key_registration`
 
-Refer to the Terraform Registry for docs: [`datadog_app_key_registration`](https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/app_key_registration).
+Refer to the Terraform Registry for docs: [`datadog_app_key_registration`](https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/app_key_registration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AppKeyRegistration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.appKeyRegistration.AppKeyRegistration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/app_key_registration datadog_app_key_registration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/app_key_registration datadog_app_key_registration}.'''
 
     def __init__(
         self,
@@ -60,11 +60,11 @@ class AppKeyRegistration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/app_key_registration datadog_app_key_registration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/app_key_registration datadog_app_key_registration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: The Application Key ID to register. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/app_key_registration#id AppKeyRegistration#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: The Application Key ID to register. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/app_key_registration#id AppKeyRegistration#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -103,7 +103,7 @@ class AppKeyRegistration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AppKeyRegistration to import.
-        :param import_from_id: The id of the existing AppKeyRegistration that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/app_key_registration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AppKeyRegistration that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/app_key_registration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AppKeyRegistration to import is found.
         '''
         if __debug__:
@@ -180,7 +180,7 @@ class AppKeyRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: The Application Key ID to register. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/app_key_registration#id AppKeyRegistration#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param id: The Application Key ID to register. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/app_key_registration#id AppKeyRegistration#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -280,7 +280,7 @@ class AppKeyRegistrationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def id(self) -> builtins.str:
         '''The Application Key ID to register.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/app_key_registration#id AppKeyRegistration#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.70.0/docs/resources/app_key_registration#id AppKeyRegistration#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

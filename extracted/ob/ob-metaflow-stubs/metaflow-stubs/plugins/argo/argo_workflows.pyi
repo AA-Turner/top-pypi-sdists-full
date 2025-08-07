@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-05T23:30:10.166289                                                            #
+# Generated on 2025-08-06T15:19:48.598951                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.graph
     import metaflow.exception
+    import metaflow.graph
 
 from ...parameters import JSONType as JSONType
 from ...metaflow_current import current as current

@@ -241,6 +241,10 @@ class UrlRetrievalStatus(_common.CaseInSensitiveEnum):
   """Url retrieval is successful."""
   URL_RETRIEVAL_STATUS_ERROR = 'URL_RETRIEVAL_STATUS_ERROR'
   """Url retrieval is failed due to error."""
+  URL_RETRIEVAL_STATUS_PAYWALL = 'URL_RETRIEVAL_STATUS_PAYWALL'
+  """Url retrieval is failed because the content is behind paywall."""
+  URL_RETRIEVAL_STATUS_UNSAFE = 'URL_RETRIEVAL_STATUS_UNSAFE'
+  """Url retrieval is failed because the content is unsafe."""
 
 
 class FinishReason(_common.CaseInSensitiveEnum):
@@ -670,6 +674,22 @@ class Scale(_common.CaseInSensitiveEnum):
   """Bb major or G minor."""
   B_MAJOR_A_FLAT_MINOR = 'B_MAJOR_A_FLAT_MINOR'
   """B major or Ab minor."""
+
+
+class MusicGenerationMode(_common.CaseInSensitiveEnum):
+  """The mode of music generation."""
+
+  MUSIC_GENERATION_MODE_UNSPECIFIED = 'MUSIC_GENERATION_MODE_UNSPECIFIED'
+  """Rely on the server default generation mode."""
+  QUALITY = 'QUALITY'
+  """Steer text prompts to regions of latent space with higher quality
+      music."""
+  DIVERSITY = 'DIVERSITY'
+  """Steer text prompts to regions of latent space with a larger
+      diversity of music."""
+  VOCALIZATION = 'VOCALIZATION'
+  """Steer text prompts to regions of latent space more likely to
+      generate music with vocals."""
 
 
 class LiveMusicPlaybackControl(_common.CaseInSensitiveEnum):
@@ -2092,20 +2112,50 @@ class FunctionDeclaration(_common.BaseModel):
     from . import _automatic_function_calling_util
 
     parameters_properties = {}
+    parameters_json_schema = {}
     annotation_under_future = typing.get_type_hints(callable)
-    for name, param in inspect.signature(callable).parameters.items():
-      if param.kind in (
-          inspect.Parameter.POSITIONAL_OR_KEYWORD,
-          inspect.Parameter.KEYWORD_ONLY,
-          inspect.Parameter.POSITIONAL_ONLY,
-      ):
-        # This snippet catches the case when type hints are stored as strings
-        if isinstance(param.annotation, str):
-          param = param.replace(annotation=annotation_under_future[name])
-        schema = _automatic_function_calling_util._parse_schema_from_parameter(
-            api_option, param, callable.__name__
-        )
-        parameters_properties[name] = schema
+    try:
+      for name, param in inspect.signature(callable).parameters.items():
+        if param.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+            inspect.Parameter.POSITIONAL_ONLY,
+        ):
+          param = _automatic_function_calling_util._handle_params_as_deferred_annotations(
+              param, annotation_under_future, name
+          )
+          schema = (
+              _automatic_function_calling_util._parse_schema_from_parameter(
+                  api_option, param, callable.__name__
+              )
+          )
+          parameters_properties[name] = schema
+    except ValueError:
+      parameters_properties = {}
+      for name, param in inspect.signature(callable).parameters.items():
+        if param.kind in (
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+            inspect.Parameter.POSITIONAL_ONLY,
+        ):
+          try:
+            param = _automatic_function_calling_util._handle_params_as_deferred_annotations(
+                param, annotation_under_future, name
+            )
+            param_schema_adapter = pydantic.TypeAdapter(
+                param.annotation,
+                config=pydantic.ConfigDict(arbitrary_types_allowed=True),
+            )
+            json_schema_dict = param_schema_adapter.json_schema()
+            json_schema_dict = _automatic_function_calling_util._add_unevaluated_items_to_fixed_len_tuple_schema(
+                json_schema_dict
+            )
+            parameters_json_schema[name] = json_schema_dict
+          except Exception as e:
+            _automatic_function_calling_util._raise_for_unsupported_param(
+                param, callable.__name__, e
+            )
+
     declaration = FunctionDeclaration(
         name=callable.__name__,
         description=inspect.cleandoc(callable.__doc__)
@@ -2123,6 +2173,8 @@ class FunctionDeclaration(_common.BaseModel):
               declaration.parameters
           )
       )
+    elif parameters_json_schema:
+      declaration.parameters_json_schema = parameters_json_schema
     # TODO: b/421991354 - Remove this check once the bug is fixed.
     if api_option == 'GEMINI_API':
       return declaration
@@ -2142,13 +2194,39 @@ class FunctionDeclaration(_common.BaseModel):
       return_value = return_value.replace(
           annotation=annotation_under_future['return']
       )
-    declaration.response = (
-        _automatic_function_calling_util._parse_schema_from_parameter(
-            api_option,
-            return_value,
-            callable.__name__,
+    response_schema: Optional[Schema] = None
+    response_json_schema: Optional[Union[dict[str, Any], Schema]] = {}
+    try:
+      response_schema = (
+          _automatic_function_calling_util._parse_schema_from_parameter(
+              api_option,
+              return_value,
+              callable.__name__,
+          )
+      )
+      if response_schema.any_of is not None:
+        # To handle any_of, we need to use responseJsonSchema
+        response_json_schema = response_schema
+        response_schema = None
+    except ValueError:
+      try:
+        return_value_schema_adapter = pydantic.TypeAdapter(
+            return_value.annotation,
+            config=pydantic.ConfigDict(arbitrary_types_allowed=True),
         )
-    )
+        response_json_schema = return_value_schema_adapter.json_schema()
+        response_json_schema = _automatic_function_calling_util._add_unevaluated_items_to_fixed_len_tuple_schema(
+            response_json_schema
+        )
+      except Exception as e:
+        _automatic_function_calling_util._raise_for_unsupported_param(
+            return_value, callable.__name__, e
+        )
+
+    if response_schema:
+      declaration.response = response_schema
+    elif response_json_schema:
+      declaration.response_json_schema = response_json_schema
     return declaration
 
   @classmethod
@@ -3676,19 +3754,25 @@ class FileDict(TypedDict, total=False):
 
 FileOrDict = Union[File, FileDict]
 
+
 if _is_pillow_image_imported:
-  PartUnion = Union[File, Part, PIL_Image, str]
+  PartUnion = Union[str, PIL_Image, File, Part]
 else:
-  PartUnion = Union[File, Part, str]  # type: ignore[misc]
+  PartUnion = Union[str, File, Part]  # type: ignore[misc]
 
 
-PartUnionDict = Union[PartUnion, PartDict]
+if _is_pillow_image_imported:
+  PartUnionDict = Union[str, PIL_Image, File, FileDict, Part, PartDict]
+else:
+  PartUnionDict = Union[str, File, FileDict, Part, PartDict]  # type: ignore[misc]
 
 
-ContentUnion = Union[Content, list[PartUnion], PartUnion]
+ContentUnion = Union[Content, PartUnion, list[PartUnion]]
 
 
-ContentUnionDict = Union[ContentUnion, ContentDict]
+ContentUnionDict = Union[
+    Content, ContentDict, PartUnionDict, list[PartUnionDict]
+]
 
 
 class GenerationConfigRoutingConfigAutoRoutingMode(_common.BaseModel):
@@ -3764,10 +3848,10 @@ GenerationConfigRoutingConfigOrDict = Union[
 ]
 
 
-SpeechConfigUnion = Union[SpeechConfig, str]
+SpeechConfigUnion = Union[str, SpeechConfig]
 
 
-SpeechConfigUnionDict = Union[SpeechConfigUnion, SpeechConfigDict]
+SpeechConfigUnionDict = Union[str, SpeechConfig, SpeechConfigDict]
 
 
 class GenerateContentConfig(_common.BaseModel):
@@ -4160,10 +4244,10 @@ GenerateContentConfigOrDict = Union[
 ]
 
 
-ContentListUnion = Union[list[ContentUnion], ContentUnion]
+ContentListUnion = Union[ContentUnion, list[ContentUnion]]
 
 
-ContentListUnionDict = Union[list[ContentUnionDict], ContentUnionDict]
+ContentListUnionDict = Union[ContentUnionDict, list[ContentUnionDict]]
 
 
 class _GenerateContentParameters(_common.BaseModel):
@@ -5118,11 +5202,6 @@ class GenerateContentResponse(_common.BaseModel):
       description="""Timestamp when the request is made to the server.
       """,
   )
-  response_id: Optional[str] = Field(
-      default=None,
-      description="""Identifier for each response.
-      """,
-  )
   model_version: Optional[str] = Field(
       default=None,
       description="""Output only. The model version used to generate the response.""",
@@ -5130,6 +5209,10 @@ class GenerateContentResponse(_common.BaseModel):
   prompt_feedback: Optional[GenerateContentResponsePromptFeedback] = Field(
       default=None,
       description="""Output only. Content filter results for a prompt sent in the request. Note: Sent only in the first stream chunk. Only happens when no candidates were generated due to content violations.""",
+  )
+  response_id: Optional[str] = Field(
+      default=None,
+      description="""Output only. response_id is used to identify each response. It is the encoding of the event_id.""",
   )
   usage_metadata: Optional[GenerateContentResponseUsageMetadata] = Field(
       default=None, description="""Usage metadata about the response(s)."""
@@ -5377,15 +5460,14 @@ class GenerateContentResponseDict(TypedDict, total=False):
   """Timestamp when the request is made to the server.
       """
 
-  response_id: Optional[str]
-  """Identifier for each response.
-      """
-
   model_version: Optional[str]
   """Output only. The model version used to generate the response."""
 
   prompt_feedback: Optional[GenerateContentResponsePromptFeedbackDict]
   """Output only. Content filter results for a prompt sent in the request. Note: Sent only in the first stream chunk. Only happens when no candidates were generated due to content violations."""
+
+  response_id: Optional[str]
+  """Output only. response_id is used to identify each response. It is the encoding of the event_id."""
 
   usage_metadata: Optional[GenerateContentResponseUsageMetadataDict]
   """Usage metadata about the response(s)."""
@@ -6726,6 +6808,204 @@ class UpscaleImageResponseDict(TypedDict, total=False):
 
 UpscaleImageResponseOrDict = Union[
     UpscaleImageResponse, UpscaleImageResponseDict
+]
+
+
+class ProductImage(_common.BaseModel):
+  """An image of the product."""
+
+  product_image: Optional[Image] = Field(
+      default=None,
+      description="""An image of the product to be recontextualized.""",
+  )
+
+
+class ProductImageDict(TypedDict, total=False):
+  """An image of the product."""
+
+  product_image: Optional[ImageDict]
+  """An image of the product to be recontextualized."""
+
+
+ProductImageOrDict = Union[ProductImage, ProductImageDict]
+
+
+class RecontextImageSource(_common.BaseModel):
+  """A set of source input(s) for image recontextualization."""
+
+  prompt: Optional[str] = Field(
+      default=None,
+      description="""A text prompt for guiding the model during image
+      recontextualization. Not supported for Virtual Try-On.""",
+  )
+  person_image: Optional[Image] = Field(
+      default=None,
+      description="""Image of the person or subject who will be wearing the
+      product(s).""",
+  )
+  product_images: Optional[list[ProductImage]] = Field(
+      default=None, description="""A list of product images."""
+  )
+
+
+class RecontextImageSourceDict(TypedDict, total=False):
+  """A set of source input(s) for image recontextualization."""
+
+  prompt: Optional[str]
+  """A text prompt for guiding the model during image
+      recontextualization. Not supported for Virtual Try-On."""
+
+  person_image: Optional[ImageDict]
+  """Image of the person or subject who will be wearing the
+      product(s)."""
+
+  product_images: Optional[list[ProductImageDict]]
+  """A list of product images."""
+
+
+RecontextImageSourceOrDict = Union[
+    RecontextImageSource, RecontextImageSourceDict
+]
+
+
+class RecontextImageConfig(_common.BaseModel):
+  """Configuration for recontextualizing an image."""
+
+  http_options: Optional[HttpOptions] = Field(
+      default=None, description="""Used to override HTTP request options."""
+  )
+  number_of_images: Optional[int] = Field(
+      default=None, description="""Number of images to generate."""
+  )
+  base_steps: Optional[int] = Field(
+      default=None,
+      description="""The number of sampling steps. A higher value has better image
+      quality, while a lower value has better latency.""",
+  )
+  output_gcs_uri: Optional[str] = Field(
+      default=None,
+      description="""Cloud Storage URI used to store the generated images.""",
+  )
+  seed: Optional[int] = Field(
+      default=None, description="""Random seed for image generation."""
+  )
+  safety_filter_level: Optional[SafetyFilterLevel] = Field(
+      default=None, description="""Filter level for safety filtering."""
+  )
+  person_generation: Optional[PersonGeneration] = Field(
+      default=None,
+      description="""Whether allow to generate person images, and restrict to specific
+      ages.""",
+  )
+  output_mime_type: Optional[str] = Field(
+      default=None, description="""MIME type of the generated image."""
+  )
+  output_compression_quality: Optional[int] = Field(
+      default=None,
+      description="""Compression quality of the generated image (for ``image/jpeg``
+      only).""",
+  )
+  enhance_prompt: Optional[bool] = Field(
+      default=None, description="""Whether to use the prompt rewriting logic."""
+  )
+
+
+class RecontextImageConfigDict(TypedDict, total=False):
+  """Configuration for recontextualizing an image."""
+
+  http_options: Optional[HttpOptionsDict]
+  """Used to override HTTP request options."""
+
+  number_of_images: Optional[int]
+  """Number of images to generate."""
+
+  base_steps: Optional[int]
+  """The number of sampling steps. A higher value has better image
+      quality, while a lower value has better latency."""
+
+  output_gcs_uri: Optional[str]
+  """Cloud Storage URI used to store the generated images."""
+
+  seed: Optional[int]
+  """Random seed for image generation."""
+
+  safety_filter_level: Optional[SafetyFilterLevel]
+  """Filter level for safety filtering."""
+
+  person_generation: Optional[PersonGeneration]
+  """Whether allow to generate person images, and restrict to specific
+      ages."""
+
+  output_mime_type: Optional[str]
+  """MIME type of the generated image."""
+
+  output_compression_quality: Optional[int]
+  """Compression quality of the generated image (for ``image/jpeg``
+      only)."""
+
+  enhance_prompt: Optional[bool]
+  """Whether to use the prompt rewriting logic."""
+
+
+RecontextImageConfigOrDict = Union[
+    RecontextImageConfig, RecontextImageConfigDict
+]
+
+
+class _RecontextImageParameters(_common.BaseModel):
+  """The parameters for recontextualizing an image."""
+
+  model: Optional[str] = Field(
+      default=None,
+      description="""ID of the model to use. For a list of models, see `Google models
+    <https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models>`_.""",
+  )
+  source: Optional[RecontextImageSource] = Field(
+      default=None,
+      description="""A set of source input(s) for image recontextualization.""",
+  )
+  config: Optional[RecontextImageConfig] = Field(
+      default=None,
+      description="""Configuration for image recontextualization.""",
+  )
+
+
+class _RecontextImageParametersDict(TypedDict, total=False):
+  """The parameters for recontextualizing an image."""
+
+  model: Optional[str]
+  """ID of the model to use. For a list of models, see `Google models
+    <https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models>`_."""
+
+  source: Optional[RecontextImageSourceDict]
+  """A set of source input(s) for image recontextualization."""
+
+  config: Optional[RecontextImageConfigDict]
+  """Configuration for image recontextualization."""
+
+
+_RecontextImageParametersOrDict = Union[
+    _RecontextImageParameters, _RecontextImageParametersDict
+]
+
+
+class RecontextImageResponse(_common.BaseModel):
+  """The output images response."""
+
+  generated_images: Optional[list[GeneratedImage]] = Field(
+      default=None, description="""List of generated images."""
+  )
+
+
+class RecontextImageResponseDict(TypedDict, total=False):
+  """The output images response."""
+
+  generated_images: Optional[list[GeneratedImageDict]]
+  """List of generated images."""
+
+
+RecontextImageResponseOrDict = Union[
+    RecontextImageResponse, RecontextImageResponseDict
 ]
 
 
@@ -10765,6 +11045,9 @@ _DeleteBatchJobParametersOrDict = Union[
 class DeleteResourceJob(_common.BaseModel):
   """The return value of delete operation."""
 
+  sdk_http_response: Optional[HttpResponse] = Field(
+      default=None, description="""Used to retain the full HTTP response."""
+  )
   name: Optional[str] = Field(default=None, description="""""")
   done: Optional[bool] = Field(default=None, description="""""")
   error: Optional[JobError] = Field(default=None, description="""""")
@@ -10772,6 +11055,9 @@ class DeleteResourceJob(_common.BaseModel):
 
 class DeleteResourceJobDict(TypedDict, total=False):
   """The return value of delete operation."""
+
+  sdk_http_response: Optional[HttpResponseDict]
+  """Used to retain the full HTTP response."""
 
   name: Optional[str]
   """"""
@@ -12594,13 +12880,17 @@ LiveClientRealtimeInputOrDict = Union[
     LiveClientRealtimeInput, LiveClientRealtimeInputDict
 ]
 
+
 if _is_pillow_image_imported:
-  BlobImageUnion = Union[Blob, PIL_Image]
+  BlobImageUnion = Union[PIL_Image, Blob]
 else:
   BlobImageUnion = Blob  # type: ignore[misc]
 
 
-BlobImageUnionDict = Union[BlobImageUnion, BlobDict]
+if _is_pillow_image_imported:
+  BlobImageUnionDict = Union[PIL_Image, Blob, BlobDict]
+else:
+  BlobImageUnionDict = Union[Blob, BlobDict]  # type: ignore[misc]
 
 
 class LiveSendRealtimeInputParameters(_common.BaseModel):
@@ -13120,6 +13410,10 @@ class LiveMusicGenerationConfig(_common.BaseModel):
       default=None,
       description="""Whether the audio output should contain only bass and drums.""",
   )
+  music_generation_mode: Optional[MusicGenerationMode] = Field(
+      default=None,
+      description="""The mode of music generation. Default mode is QUALITY.""",
+  )
 
 
 class LiveMusicGenerationConfigDict(TypedDict, total=False):
@@ -13162,6 +13456,9 @@ class LiveMusicGenerationConfigDict(TypedDict, total=False):
 
   only_bass_and_drums: Optional[bool]
   """Whether the audio output should contain only bass and drums."""
+
+  music_generation_mode: Optional[MusicGenerationMode]
+  """The mode of music generation. Default mode is QUALITY."""
 
 
 LiveMusicGenerationConfigOrDict = Union[

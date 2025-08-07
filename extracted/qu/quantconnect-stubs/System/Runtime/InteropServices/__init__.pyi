@@ -2577,7 +2577,7 @@ class CULong(System.IEquatable[System_Runtime_InteropServices_CULong]):
     @overload
     def __init__(self, value: System.UIntPtr) -> None:
         """
-        Constructs an instance from a native sized unsigned integer.
+        Constructs an instance from a native-sized unsigned integer.
         
         :param value: The integer value.
         """
@@ -3842,7 +3842,7 @@ class CLong(System.IEquatable[System_Runtime_InteropServices_CLong]):
     @overload
     def __init__(self, value: System.IntPtr) -> None:
         """
-        Constructs an instance from a native sized integer.
+        Constructs an instance from a native-sized integer.
         
         :param value: The integer value.
         """

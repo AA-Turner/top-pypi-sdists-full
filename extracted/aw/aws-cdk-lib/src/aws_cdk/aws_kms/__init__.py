@@ -3060,6 +3060,21 @@ class KeySpec(enum.Enum):
 
     Valid usage: ENCRYPT_DECRYPT and SIGN_VERIFY
     '''
+    ML_DSA_44 = "ML_DSA_44"
+    '''ML-DSA-44 lattice-based digital signature algorithm.
+
+    Valid usage: SIGN_VERIFY
+    '''
+    ML_DSA_65 = "ML_DSA_65"
+    '''ML-DSA-65 lattice-based digital signature algorithm.
+
+    Valid usage: SIGN_VERIFY
+    '''
+    ML_DSA_87 = "ML_DSA_87"
+    '''ML-DSA-87 lattice-based digital signature algorithm.
+
+    Valid usage: SIGN_VERIFY
+    '''
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_kms.KeyUsage")

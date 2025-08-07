@@ -6428,6 +6428,38 @@ Empty fields in the UpdateEventRequest are left unchanged.
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), event_EventsHistogramResponse, self._return_none_for_unknown_union_types)
 
+    def list_properties_and_labels(self, auth_header: str, request: "event_ListPropertiesAndLabelsRequest") -> "scout_metadata_ListPropertiesAndLabelsResponse":
+        """Lists the properties and labels of all events in the provided workspaces.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/event/v1/list-properties-labels'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_metadata_ListPropertiesAndLabelsResponse, self._return_none_for_unknown_union_types)
+
 
 event_EventService.__name__ = "EventService"
 event_EventService.__qualname__ = "EventService"
@@ -7071,6 +7103,31 @@ class event_HistogramFilterQueryVisitor:
 event_HistogramFilterQueryVisitor.__name__ = "HistogramFilterQueryVisitor"
 event_HistogramFilterQueryVisitor.__qualname__ = "HistogramFilterQueryVisitor"
 event_HistogramFilterQueryVisitor.__module__ = "nominal_api.event"
+
+
+class event_ListPropertiesAndLabelsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'workspaces': ConjureFieldDefinition('workspaces', OptionalTypeWrapper[List[api_rids_WorkspaceRid]])
+        }
+
+    __slots__: List[str] = ['_workspaces']
+
+    def __init__(self, workspaces: Optional[List[str]] = None) -> None:
+        self._workspaces = workspaces
+
+    @builtins.property
+    def workspaces(self) -> Optional[List[str]]:
+        """If omitted, results will come from all workspaces the user belongs to.
+        """
+        return self._workspaces
+
+
+event_ListPropertiesAndLabelsRequest.__name__ = "ListPropertiesAndLabelsRequest"
+event_ListPropertiesAndLabelsRequest.__qualname__ = "ListPropertiesAndLabelsRequest"
+event_ListPropertiesAndLabelsRequest.__module__ = "nominal_api.event"
 
 
 class event_ProcedureEventOrigin(ConjureBeanType):

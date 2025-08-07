@@ -8,7 +8,7 @@ import click
 import humanfriendly
 from pydantic_ai import RunContext
 
-from tinybird.tb.modules.agent.utils import TinybirdAgentContext
+from tinybird.tb.modules.agent.utils import TinybirdAgentContext, show_env_options
 from tinybird.tb.modules.common import echo_safe_humanfriendly_tables_format_pretty_table
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 
@@ -35,23 +35,24 @@ def execute_query(
     ctx: RunContext[TinybirdAgentContext],
     query: str,
     task: str,
-    cloud: Optional[bool] = None,
+    cloud_or_local: Optional[str] = None,
     script: Optional[str] = None,
     export_format: Optional[str] = None,
+    explanation_why_not_know_about_last_environment: Optional[str] = None,
 ):
     """Execute a query and return the result as a table, chart or exported file.
 
     Args:
         query (str): The query to execute. Required.
         task (str): The purpose of the query. Required.
-        cloud (bool): Whether to execute the query on cloud or local. If None (user didn't specify), will ask user to clarify. Defaults to local (False) in dangerous skip permissions mode.
+        cloud_or_local (str): Whether to execute the query on cloud or local. Use the last environment used in previous queries or endpoint requests. If you don't have any information about the last environment, use None. Options: cloud, local.
         script (str): Python script using plotext to render the query results as a chart. The script will have access to 'data' (list of dicts), 'meta' (list of column info dicts), 'terminal_width' and 'terminal_height' variables. Always use plt.theme("clear") for transparent background and plt.plot_size(terminal_width, terminal_height) for proper sizing. For bar charts, use the simple versions: plt.simple_bar(), plt.simple_multiple_bar(), and plt.simple_stacked_bar(). Optional.
         export_format (str): The format to export the query results to. Options: csv, json, ndjson. Optional.
+        explanation_why_not_know_about_last_environment (str): Why you don't know about the last environment used in previous queries or endpoint requests. Required.
 
     Returns:
         str: The result of the query.
     """
-
     try:
         for forbidden_command in forbidden_commands:
             if forbidden_command in query.lower():
@@ -61,24 +62,21 @@ def execute_query(
             if query.lower().startswith(forbidden_command):
                 return f"Error executing query: {forbidden_command} is not allowed."
 
-        # Handle cloud parameter - ask user if uncertain and not in dangerous skip mode
-        if cloud is None:
+        # Handle cloud_or_local parameter - ask user if uncertain and not in dangerous skip mode
+        if cloud_or_local is None:
             if ctx.deps.dangerously_skip_permissions:
                 # Default to local when in dangerous skip mode
-                cloud = False
+                cloud_or_local = "local"
             else:
                 # Ask the user to choose execution mode
-                from tinybird.tb.modules.agent.utils import show_env_options
 
                 cloud = show_env_options(ctx)
                 if cloud is None:
                     return "Query execution cancelled by user."
+                cloud_or_local = "cloud" if cloud else "local"
 
-        cloud_or_local = "cloud" if cloud else "local"
         ctx.deps.thinking_animation.stop()
-
         click.echo(FeedbackManager.highlight(message=f"» Executing query to {cloud_or_local}:\n{query}\n"))
-
         is_templating = query.strip().startswith("%")
         query_format = "JSON"
         if export_format == "csv":
@@ -94,7 +92,7 @@ def execute_query(
         else:
             query = f"SELECT * FROM ({query}) FORMAT {query_format}"
 
-        execute_query = ctx.deps.execute_query_cloud if cloud else ctx.deps.execute_query_local
+        execute_query = ctx.deps.execute_query_cloud if cloud_or_local == "cloud" else ctx.deps.execute_query_local
         result = execute_query(query=query)
         if export_format:
             file_extension = f".{export_format}"

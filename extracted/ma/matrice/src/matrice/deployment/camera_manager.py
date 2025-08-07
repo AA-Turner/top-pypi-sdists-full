@@ -316,7 +316,7 @@ class Camera:
 
     def _load_from_id(self, camera_id: str):
         """Load camera configuration from backend by ID."""
-        path = f"/v1/deployment/get_camera/{camera_id}"
+        path = f"/v1/inference/get_camera/{camera_id}"
         resp = self.rpc.get(path=path)
 
         if resp and resp.get("success"):
@@ -356,7 +356,7 @@ class Camera:
         if not is_valid:
             return None, validation_error, "Validation failed"
 
-        path = f"/v1/deployment/add_cameras/{self.config.id_service}"
+        path = f"/v1/inference/add_cameras/{self.config.id_service}"
         payload = [self.config.to_dict()]  # Backend expects array
 
         resp = self.rpc.post(path=path, payload=payload)
@@ -383,7 +383,7 @@ class Camera:
         if not self.config or not self.config.id:
             return None, "Camera must be saved before updating", "Invalid state"
 
-        path = f"/v1/deployment/update_camera/{self.config.id}"
+        path = f"/v1/inference/update_camera/{self.config.id}"
         payload = self.config.to_dict()
 
         resp = self.rpc.put(path=path, payload=payload)
@@ -405,7 +405,7 @@ class Camera:
         if not self.config or not self.config.id:
             return None, "Camera must be saved before deleting", "Invalid state"
 
-        path = f"/v1/deployment/delete_camera/{self.config.id}"
+        path = f"/v1/inference/delete_camera/{self.config.id}"
 
         resp = self.rpc.delete(path=path)
 
@@ -423,7 +423,7 @@ class Camera:
         if self.config.is_stream_url:
             return self.config.stream_url
 
-        resp = self.rpc.get(f"/v1/deployment/get_stream_url/{self.config.id}")
+        resp = self.rpc.get(f"/v1/inference/get_stream_url/{self.config.id}")
         if resp and resp.get("success") and resp.get("data"):
             self.config.stream_url = resp.get("data", {}).get("streamUrl")
             self.config.is_stream_url = True
@@ -613,7 +613,7 @@ class CameraGroup:
 
     def _load_from_id(self, group_id: str):
         """Load camera group configuration from backend by ID."""
-        path = f"/v1/deployment/camera_group/{group_id}"
+        path = f"/v1/inference/camera_group/{group_id}"
         resp = self.rpc.get(path=path)
 
         if resp and resp.get("success"):
@@ -657,7 +657,7 @@ class CameraGroup:
         if not is_valid:
             return None, validation_error, "Validation failed"
 
-        path = "/v1/deployment/camera_group"
+        path = "/v1/inference/camera_group"
         payload = self.config.to_dict()
         payload["idService"] = self.config.id_service
 
@@ -682,7 +682,7 @@ class CameraGroup:
         if not self.config or not self.config.id:
             return None, "Camera group must be saved before updating", "Invalid state"
 
-        path = f"/v1/deployment/camera_group/{self.config.id}"
+        path = f"/v1/inference/camera_group/{self.config.id}"
         payload = self.config.to_dict()
 
         resp = self.rpc.put(path=path, payload=payload)
@@ -704,7 +704,7 @@ class CameraGroup:
         if not self.config or not self.config.id:
             return None, "Camera group must be saved before deleting", "Invalid state"
 
-        path = f"/v1/deployment/camera_group/{self.config.id}"
+        path = f"/v1/inference/camera_group/{self.config.id}"
 
         resp = self.rpc.delete(path=path)
 
@@ -779,7 +779,7 @@ class CameraGroup:
         if not self.config.id_service:
             return None, "Service ID is required", "Missing service ID"
 
-        path = f"/v1/deployment/get_cameras/{self.config.id_service}"
+        path = f"/v1/inference/get_cameras/{self.config.id_service}"
         params = {"page": page, "limit": limit, "groupId": self.config.id}
         if search:
             params["search"] = search
@@ -832,7 +832,7 @@ class CameraGroup:
         if not camera_id:
             return None, "Camera ID is required", "Invalid camera ID"
 
-        path = f"/v1/deployment/delete_camera/{camera_id}"
+        path = f"/v1/inference/delete_camera/{camera_id}"
         resp = self.rpc.delete(path=path)
 
         if resp and resp.get("success"):
@@ -1035,7 +1035,7 @@ class CameraManager:
         if not self.service_id:
             return None, "Service ID is required", "Invalid service ID"
 
-        path = f"/v1/deployment/camera_groups/{self.service_id}"
+        path = f"/v1/inference/camera_groups/{self.service_id}"
         params = {"page": page, "limit": limit}
         if search:
             params["search"] = search
@@ -1088,7 +1088,7 @@ class CameraManager:
         if not isinstance(group, CameraGroupConfig):
             return None, "Group must be a CameraGroup instance", "Invalid group type"
 
-        path = f"/v1/deployment/camera_group/{group_id}"
+        path = f"/v1/inference/camera_group/{group_id}"
         payload = group.to_dict()
 
         resp = self.rpc.put(path=path, payload=payload)
@@ -1111,7 +1111,7 @@ class CameraManager:
         if not group_id:
             return None, "Group ID is required", "Invalid group ID"
 
-        path = f"/v1/deployment/camera_group/{group_id}"
+        path = f"/v1/inference/camera_group/{group_id}"
         resp = self.rpc.delete(path=path)
 
         return self.handle_response(
@@ -1179,7 +1179,7 @@ class CameraManager:
         if not self.service_id:
             return None, "Service ID is required", "Invalid service ID"
 
-        path = f"/v1/deployment/get_cameras/{self.service_id}"
+        path = f"/v1/inference/get_cameras/{self.service_id}"
         params = {"page": page, "limit": limit}
         if search:
             params["search"] = search
@@ -1250,7 +1250,7 @@ class CameraManager:
         if not config_id:
             return None, "Config ID is required", "Invalid config ID"
 
-        path = f"/v1/deployment/get_stream_url/{config_id}"
+        path = f"/v1/inference/get_stream_url/{config_id}"
         resp = self.rpc.get(path=path)
         result, error, message = self.handle_response(
             resp, "Stream URL retrieved successfully", "Failed to retrieve stream URL"
@@ -1276,7 +1276,7 @@ class CameraManager:
         if not isinstance(camera_config, CameraConfig):
             return None, "Config must be a CameraConfig instance", "Invalid config type"
 
-        path = f"/v1/deployment/update_camera/{camera_id}"
+        path = f"/v1/inference/update_camera/{camera_id}"
         payload = camera_config.to_dict()
 
         resp = self.rpc.put(path=path, payload=payload)
@@ -1299,7 +1299,7 @@ class CameraManager:
         if not camera_id:
             return None, "Camera ID is required", "Invalid camera ID"
 
-        path = f"/v1/deployment/delete_camera/{camera_id}"
+        path = f"/v1/inference/delete_camera/{camera_id}"
         resp = self.rpc.delete(path=path)
 
         return self.handle_response(
@@ -1328,7 +1328,7 @@ class CameraManager:
                 "Confirmation required",
             )
 
-        path = f"/v1/deployment/delete_cameras/{self.service_id}"
+        path = f"/v1/inference/delete_cameras/{self.service_id}"
         params = {"confirm": "true"}
         resp = self.rpc.delete(path=path, params=params)
 
@@ -1375,7 +1375,7 @@ class CameraManager:
             if not is_valid:
                 return None, f"Config {i+1}: {validation_error}", "Validation failed"
 
-        path = f"/v1/deployment/add_cameras/{self.service_id}"
+        path = f"/v1/inference/add_cameras/{self.service_id}"
         payload = [config.to_dict() for config in camera_configs]
 
         resp = self.rpc.post(path=path, payload=payload)

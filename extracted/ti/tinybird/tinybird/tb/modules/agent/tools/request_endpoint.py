@@ -13,30 +13,32 @@ def request_endpoint(
     ctx: RunContext[TinybirdAgentContext],
     endpoint_name: str,
     params: Optional[dict[str, str]] = None,
-    cloud: Optional[bool] = None,
+    cloud_or_local: Optional[str] = None,
+    explanation_why_not_know_about_last_environment: Optional[str] = None,
 ):
     """Request an endpoint:
 
     Args:
         endpoint_name (str): The name of the endpoint to request. Required.
         params (dict): The parameters to pass to the endpoint. Optional.
-        cloud (bool): Whether to request the endpoint on cloud or local. If None (user didn't specify), will ask user to clarify. Defaults to local (False) in dangerous skip permissions mode.
+        cloud_or_local (str): Whether to request the endpoint on cloud or local. Use the last environment used in previous queries or endpoint requests. If you don't have any information about the last environment, use None. Options: cloud, local. Optional.
+        explanation_why_not_know_about_last_environment (str): Why you don't know about the last environment used in previous queries or endpoint requests. Required.
 
     Returns:
         str: The result of the query.
     """
     try:
         # Handle cloud parameter - ask user if uncertain and not in dangerous skip mode
-        if cloud is None:
+        if cloud_or_local is None:
             if ctx.deps.dangerously_skip_permissions:
                 # Default to local when in dangerous skip mode
-                cloud = False
+                cloud_or_local = "local"
             else:
                 # Ask the user to choose execution mode
                 cloud = show_env_options(ctx)
                 if cloud is None:
                     return "Endpoint request cancelled by user."
-        cloud_or_local = "cloud" if cloud else "local"
+                cloud_or_local = "cloud" if cloud else "local"
         ctx.deps.thinking_animation.stop()
         with_params = f" with params {params}" if params else ""
         click.echo(
@@ -45,7 +47,9 @@ def request_endpoint(
             )
         )
 
-        request_endpoint = ctx.deps.request_endpoint_cloud if cloud else ctx.deps.request_endpoint_local
+        request_endpoint = (
+            ctx.deps.request_endpoint_cloud if cloud_or_local == "cloud" else ctx.deps.request_endpoint_local
+        )
         result = request_endpoint(endpoint_name=endpoint_name, params=params)
 
         # Apply output limiting using the utility function

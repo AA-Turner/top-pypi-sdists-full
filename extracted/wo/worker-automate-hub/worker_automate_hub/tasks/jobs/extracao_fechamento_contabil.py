@@ -163,7 +163,7 @@ async def extracao_fechamento_contabil(
             await worker_sleep(4)
             pyautogui.write(config.conConfiguracao.get("pass"))
             pyautogui.press("enter")
-            await worker_sleep(10)
+            await worker_sleep(16)
 
             main_window = None
             for attempt in range(max_attempts):
@@ -343,12 +343,12 @@ async def extracao_fechamento_contabil(
             botao_salvar = main_window.child_window(class_name="Button", found_index=0)
             botao_salvar.click_input()
 
-            await worker_sleep(2)
+            await worker_sleep(5)
 
             ##### Janela Print #####
 
-            app = Application(backend="win32").connect(title="Print")
-            main_window = app.window(title="Print")
+            app = Application(backend="win32").connect(title="Imprimir")
+            main_window = app.window(title="Imprimir")
 
             # localizar o ComboBox da impressora
             printer_combo = main_window.child_window(
@@ -358,7 +358,7 @@ async def extracao_fechamento_contabil(
             # Selecionar o Microsoft Print to PDF
             printer_combo.select("Microsoft Print to PDF")
 
-            await worker_sleep(3)
+            await worker_sleep(5)
 
             # Seleciona diretamente o ComboBox correto
             select_xls = main_window.descendants(class_name="TComboBox")[2]  # índice 2
@@ -371,7 +371,7 @@ async def extracao_fechamento_contabil(
 
             username = getpass.getuser()
 
-            await worker_sleep(3)
+            await worker_sleep(5)
 
             console.print("Criar arquivo JSON")
 
@@ -442,8 +442,8 @@ async def extracao_fechamento_contabil(
             with open(full_path, "rb") as file:
                 file_bytes = io.BytesIO(file.read())
             try:
-                console.print("Enviando Json para data lake")
-                await send_file_to_datalake(directory, file_bytes, filename, "json")
+                # console.print("Enviando Json para data lake")
+                # await send_file_to_datalake(directory, file_bytes, filename, "json")
                 sended_to_datalake = True
             except Exception as e:
                 console.print(f"Erro ao enviar o arquivo: {e}", style="bold red")

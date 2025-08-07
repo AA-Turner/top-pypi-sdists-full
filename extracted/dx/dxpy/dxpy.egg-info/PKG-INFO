@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dxpy
-Version: 0.396.0
+Version: 0.397.0
 Summary: DNAnexus Platform API bindings for Python
 Home-page: https://github.com/dnanexus/dx-toolkit
 Author: Aleksandra Zalcman, Andrey Kislyuk, Anurag Biyani, Geet Duggal, Katherine Lai, Kurt Jensen, Marek Hrvol, Ohad Rodeh, Phil Sung

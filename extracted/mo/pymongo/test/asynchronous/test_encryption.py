@@ -32,6 +32,7 @@ import uuid
 import warnings
 from test.asynchronous import AsyncIntegrationTest, AsyncPyMongoTestCase, async_client_context
 from test.asynchronous.test_bulk import AsyncBulkTestBase
+from test.asynchronous.utils import flaky
 from test.asynchronous.utils_spec_runner import AsyncSpecRunner, AsyncSpecTestCreator
 from threading import Thread
 from typing import Any, Dict, Mapping, Optional
@@ -450,20 +451,6 @@ class TestClientMaxWireVersion(AsyncIntegrationTest):
     @unittest.skipUnless(_HAVE_PYMONGOCRYPT, "pymongocrypt is not installed")
     async def asyncSetUp(self):
         await super().asyncSetUp()
-
-    @async_client_context.require_version_max(4, 0, 99)
-    async def test_raise_max_wire_version_error(self):
-        opts = AutoEncryptionOpts(KMS_PROVIDERS, "keyvault.datakeys")
-        client = await self.async_rs_or_single_client(auto_encryption_opts=opts)
-        msg = "Auto-encryption requires a minimum MongoDB version of 4.2"
-        with self.assertRaisesRegex(ConfigurationError, msg):
-            await client.test.test.insert_one({})
-        with self.assertRaisesRegex(ConfigurationError, msg):
-            await client.admin.command("ping")
-        with self.assertRaisesRegex(ConfigurationError, msg):
-            await client.test.test.find_one({})
-        with self.assertRaisesRegex(ConfigurationError, msg):
-            await client.test.test.bulk_write([InsertOne({})])
 
     async def test_raise_unsupported_error(self):
         opts = AutoEncryptionOpts(KMS_PROVIDERS, "keyvault.datakeys")
@@ -1319,7 +1306,7 @@ class TestCustomEndpoint(AsyncEncryptionIntegrationTest):
         kms_providers_invalid = copy.deepcopy(kms_providers)
         kms_providers_invalid["azure"]["identityPlatformEndpoint"] = "doesnotexist.invalid:443"
         kms_providers_invalid["gcp"]["endpoint"] = "doesnotexist.invalid:443"
-        kms_providers_invalid["kmip"]["endpoint"] = "doesnotexist.local:5698"
+        kms_providers_invalid["kmip"]["endpoint"] = "doesnotexist.invalid:5698"
         self.client_encryption_invalid = self.create_client_encryption(
             kms_providers=kms_providers_invalid,
             key_vault_namespace="keyvault.datakeys",
@@ -1377,15 +1364,10 @@ class TestCustomEndpoint(AsyncEncryptionIntegrationTest):
             },
         )
 
-    @unittest.skipUnless(any(AWS_CREDS.values()), "AWS environment credentials are not set")
-    async def test_04_aws_endpoint_invalid_port(self):
-        master_key = {
-            "region": "us-east-1",
-            "key": ("arn:aws:kms:us-east-1:579766882180:key/89fcc2c4-08b0-4bd9-9f25-e30687b580d0"),
-            "endpoint": "kms.us-east-1.amazonaws.com:12345",
-        }
-        with self.assertRaisesRegex(EncryptionError, "kms.us-east-1.amazonaws.com:12345"):
-            await self.client_encryption.create_data_key("aws", master_key=master_key)
+    async def test_04_kmip_endpoint_invalid_port(self):
+        master_key = {"keyId": "1", "endpoint": "localhost:12345"}
+        with self.assertRaisesRegex(EncryptionError, "localhost:12345"):
+            await self.client_encryption.create_data_key("kmip", master_key=master_key)
 
     @unittest.skipUnless(any(AWS_CREDS.values()), "AWS environment credentials are not set")
     async def test_05_aws_endpoint_wrong_region(self):
@@ -1491,7 +1473,7 @@ class TestCustomEndpoint(AsyncEncryptionIntegrationTest):
         self.assertEqual("test", await self.client_encryption_invalid.decrypt(encrypted))
 
     async def test_12_kmip_master_key_invalid_endpoint(self):
-        key = {"keyId": "1", "endpoint": "doesnotexist.local:5698"}
+        key = {"keyId": "1", "endpoint": "doesnotexist.invalid:5698"}
         with self.assertRaisesRegex(EncryptionError, self.kmip_host_error):
             await self.client_encryption.create_data_key("kmip", key)
 
@@ -2179,7 +2161,7 @@ class TestKmsTLSOptions(AsyncEncryptionIntegrationTest):
             await self.client_encryption_invalid_hostname.create_data_key("aws", key)
 
     async def test_02_azure(self):
-        key = {"keyVaultEndpoint": "doesnotexist.local", "keyName": "foo"}
+        key = {"keyVaultEndpoint": "doesnotexist.invalid", "keyName": "foo"}
         # Missing client cert error.
         with self.assertRaisesRegex(EncryptionError, self.cert_error):
             await self.client_encryption_no_client_cert.create_data_key("azure", key)
@@ -2254,7 +2236,7 @@ class TestKmsTLSOptions(AsyncEncryptionIntegrationTest):
             await self.client_encryption_with_names.create_data_key("aws:with_tls", key)
 
     async def test_06_named_kms_providers_apply_tls_options_azure(self):
-        key = {"keyVaultEndpoint": "doesnotexist.local", "keyName": "foo"}
+        key = {"keyVaultEndpoint": "doesnotexist.invalid", "keyName": "foo"}
         # Missing client cert error.
         with self.assertRaisesRegex(EncryptionError, self.cert_error):
             await self.client_encryption_with_names.create_data_key("azure:no_client_cert", key)
@@ -2469,16 +2451,16 @@ class TestLookupProse(AsyncEncryptionIntegrationTest):
 
         await encrypted_client.db.csfle.insert_one({"csfle": "csfle"})
         doc = await unencrypted_client.db.csfle.find_one()
-        self.assertTrue(isinstance(doc["csfle"], Binary))
+        self.assertIsInstance(doc["csfle"], Binary)
         await encrypted_client.db.csfle2.insert_one({"csfle2": "csfle2"})
         doc = await unencrypted_client.db.csfle2.find_one()
-        self.assertTrue(isinstance(doc["csfle2"], Binary))
+        self.assertIsInstance(doc["csfle2"], Binary)
         await encrypted_client.db.qe.insert_one({"qe": "qe"})
         doc = await unencrypted_client.db.qe.find_one()
-        self.assertTrue(isinstance(doc["qe"], Binary))
+        self.assertIsInstance(doc["qe"], Binary)
         await encrypted_client.db.qe2.insert_one({"qe2": "qe2"})
         doc = await unencrypted_client.db.qe2.find_one()
-        self.assertTrue(isinstance(doc["qe2"], Binary))
+        self.assertIsInstance(doc["qe2"], Binary)
         await encrypted_client.db.no_schema.insert_one({"no_schema": "no_schema"})
         await encrypted_client.db.no_schema2.insert_one({"no_schema2": "no_schema2"})
 
@@ -3261,6 +3243,7 @@ class TestKmsRetryProse(AsyncEncryptionIntegrationTest):
 class TestAutomaticDecryptionKeys(AsyncEncryptionIntegrationTest):
     @async_client_context.require_no_standalone
     @async_client_context.require_version_min(7, 0, -1)
+    @flaky(reason="PYTHON-4982")
     async def asyncSetUp(self):
         await super().asyncSetUp()
         self.key1_document = json_data("etc", "data", "keys", "key1-document.json")
@@ -3503,6 +3486,8 @@ class TestNoSessionsSupport(AsyncEncryptionIntegrationTest):
 
         self.assertNotIn("lsid", self.listener.started_events[1].command)
 
+        await self.mongocryptd_client.close()
+
     async def test_explicit_session_errors_when_unsupported(self):
         self.listener.reset()
         async with self.mongocryptd_client.start_session() as s:
@@ -3514,6 +3499,8 @@ class TestNoSessionsSupport(AsyncEncryptionIntegrationTest):
                 ConfigurationError, r"Sessions are not supported by this MongoDB deployment"
             ):
                 await self.mongocryptd_client.db.test.insert_one({"x": 1}, session=s)
+
+        await self.mongocryptd_client.close()
 
 
 if __name__ == "__main__":

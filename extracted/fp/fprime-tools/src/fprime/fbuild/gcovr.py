@@ -1,12 +1,15 @@
-""" fprime.fbuild.gcovr: coverage target implementations """
+"""fprime.fbuild.gcovr: coverage target implementations"""
 
 import itertools
 import shutil
 import subprocess
 import sys
+import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
+from .enumerator import BuildTargetEnumerator
+from .check import CheckTarget
 from .target import CompositeTarget, ExecutableAction, Target, TargetScope
 
 
@@ -75,7 +78,14 @@ class Gcovr(ExecutableAction):
             return
         build_cache_resolved = Path(builder.build_dir).resolve()
 
-        _, pass_through_args, options = args
+        make_args, pass_through_args, options = args
+
+        # Handle jobs argument
+        jobs_args = []
+        jobs = make_args.get("--jobs", make_args.get("-j", None))
+        if jobs is not None:
+            jobs_args = ["-j", str(jobs)]
+
         include_all = options["--all-sources"]
         include_comp_ac = include_all or options["--comp-ac"]
         include_port_ac = include_all or options["--port-ac"]
@@ -88,14 +98,15 @@ class Gcovr(ExecutableAction):
             None if include_type_ac else ".*SerializableAc.[ch]pp",
             None if include_type_ac else ".*ArrayAc.[ch]pp",
             None if include_type_ac else ".*EnumAc.[ch]pp",
-            None if include_test_ac else ".*/GTestBase.[ch]pp",
-            None if include_test_ac else ".*/TesterBase.[ch]pp",
-            None if include_test_ac else ".*/TesterHelpers.[ch]pp",
+            None if include_test_ac else ".*/.*GTestBase.[ch]pp",
+            None if include_test_ac else ".*/.*TesterBase.[ch]pp",
+            None if include_test_ac else ".*/.*TesterHelpers.[ch]pp",
+            None if include_test_ac else ".*/.*StateMachineAc.[ch]pp",
         ]
         raw_source_exclusion_filter_bases = [
-            None if include_test else ".*/test/ut/.*",
+            None if include_test else ".*/test/.*",
             None if include_test else ".*/GTest/.*",
-            None if include_test else "test/ut/.*",
+            None if include_test else "test/.*",
         ]
 
         build_cache_exclusion_filter_bases = filter(
@@ -134,6 +145,8 @@ class Gcovr(ExecutableAction):
         framework_path = builder.get_settings(
             "framework_path", builder.build_dir.parent.parent
         )
+        combined_env = os.environ.copy()
+        combined_env.update(builder.settings.get("environment", {}))
         # gcovr is an unhappy beast
         cli_args = (
             [
@@ -142,6 +155,7 @@ class Gcovr(ExecutableAction):
                 str(project_root),
                 str(build_cache_path),  # For efficiency in searching on modules
             ]
+            + jobs_args
             + list(itertools.chain.from_iterable(exclusion_filter_bases))
             + [
                 "--exclude",
@@ -167,7 +181,7 @@ class Gcovr(ExecutableAction):
             joined_args = "' '".join(cli_args)
             print(f"[INFO] Running \"'{ joined_args }'\"")
         # gcovr must run in the ac_temporary_path or html details cannot find the Ac files
-        subprocess.call(cli_args)
+        subprocess.call(cli_args, env=combined_env)
 
     def option_args(self):
         """Option arguments"""
@@ -196,14 +210,24 @@ class GcovrTarget(CompositeTarget):
     it must support extra arguments as we pass these to the gcovr executable.
     """
 
-    def __init__(self, check_target: Target, scope: TargetScope, *args, **kwargs):
-        """Construct the gcovr target around an existing check target"""
-        assert check_target.scope in [
-            scope,
-            TargetScope.BOTH,
-        ], "Cannot create composite target from incompatible target"
+    def __init__(
+        self,
+        scope: TargetScope,
+        build_target_enumerators: List[BuildTargetEnumerator],
+        *args,
+        **kwargs,
+    ):
+        """Constructor setting child targets"""
+        check_target = CheckTarget(
+            scope=scope,
+            build_target_enumerators=build_target_enumerators,
+            *args,
+            **kwargs,
+        )
+        # Reuse the enumerator for tests
+        gcovr_target = Gcovr(scope)
         super().__init__(
-            [check_target, Gcovr(scope)],
+            [check_target, gcovr_target],
             scope=scope,
             *args,
             **kwargs,

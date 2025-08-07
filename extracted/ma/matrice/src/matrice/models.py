@@ -746,7 +746,7 @@ class Model:
         >>> else:
         >>>     print(f"Deployment server details : {resp}")
         """
-        path = f"/v1/deployment/get_deploy_server/{self.model_id}/{model_type}"
+        path = f"/v1/inference/get_deploy_server/{self.model_id}/{model_type}"
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,

@@ -2,20 +2,16 @@ import datetime
 import math
 import os
 import re
-import sys
 import uuid
 import warnings
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from enum import auto
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
+import django
 import pytest
-
-try:
-    import pytz
-except ImportError:
-    pytz = None
-
+import pytz
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import IntegerChoices, TextChoices
 from django.http import QueryDict
@@ -29,11 +25,6 @@ from rest_framework.fields import (
     is_simple_callable
 )
 from tests.models import UUIDForeignKeyTarget
-
-if sys.version_info >= (3, 9):
-    from zoneinfo import ZoneInfo
-else:
-    from backports.zoneinfo import ZoneInfo
 
 utc = datetime.timezone.utc
 
@@ -641,10 +632,6 @@ class Test5087Regression:
 
 
 class TestTyping(TestCase):
-    @pytest.mark.skipif(
-        sys.version_info < (3, 7),
-        reason="subscriptable classes requires Python 3.7 or higher",
-    )
     def test_field_is_subscriptable(self):
         assert serializers.Field is serializers.Field["foo"]
 
@@ -671,7 +658,7 @@ class FieldValues:
         """
         for input_value, expected_output in get_items(self.valid_inputs):
             assert self.field.run_validation(input_value) == expected_output, \
-                'input value: {}'.format(repr(input_value))
+                f'input value: {repr(input_value)}'
 
     def test_invalid_inputs(self, *args):
         """
@@ -681,12 +668,12 @@ class FieldValues:
             with pytest.raises(serializers.ValidationError) as exc_info:
                 self.field.run_validation(input_value)
             assert exc_info.value.detail == expected_failure, \
-                'input value: {}'.format(repr(input_value))
+                f'input value: {repr(input_value)}'
 
     def test_outputs(self, *args):
         for output_value, expected_output in get_items(self.outputs):
             assert self.field.to_representation(output_value) == expected_output, \
-                'output value: {}'.format(repr(output_value))
+                f'output value: {repr(output_value)}'
 
 
 # Boolean types...
@@ -1431,7 +1418,7 @@ class TestDateField(FieldValues):
     outputs = {
         datetime.date(2001, 1, 1): '2001-01-01',
         '2001-01-01': '2001-01-01',
-        str('2016-01-10'): '2016-01-10',
+        '2016-01-10': '2016-01-10',
         None: None,
         '': None,
     }
@@ -1498,7 +1485,7 @@ class TestDateTimeField(FieldValues):
         datetime.datetime(2001, 1, 1, 13, 00): '2001-01-01T13:00:00Z',
         datetime.datetime(2001, 1, 1, 13, 00, tzinfo=utc): '2001-01-01T13:00:00Z',
         '2001-01-01T00:00:00': '2001-01-01T00:00:00',
-        str('2016-01-10T00:00:00'): '2016-01-10T00:00:00',
+        '2016-01-10T00:00:00': '2016-01-10T00:00:00',
         None: None,
         '': None,
     }
@@ -1633,7 +1620,10 @@ class TestCustomTimezoneForDateTimeField(TestCase):
         assert rendered_date == rendered_date_in_timezone
 
 
-@pytest.mark.skipif(pytz is None, reason="Django 5.0 has removed pytz; this test should eventually be able to get removed.")
+@pytest.mark.skipif(
+    condition=django.VERSION >= (5,),
+    reason="Django 5.0 has removed pytz; this test should eventually be able to get removed.",
+)
 class TestPytzNaiveDayLightSavingTimeTimeZoneDateTimeField(FieldValues):
     """
     Invalid values for `DateTimeField` with datetime in DST shift (non-existing or ambiguous) and timezone with DST.
@@ -1647,16 +1637,15 @@ class TestPytzNaiveDayLightSavingTimeTimeZoneDateTimeField(FieldValues):
     }
     outputs = {}
 
-    if pytz:
-        class MockTimezone(pytz.BaseTzInfo):
-            @staticmethod
-            def localize(value, is_dst):
-                raise pytz.InvalidTimeError()
+    class MockTimezone(pytz.BaseTzInfo):
+        @staticmethod
+        def localize(value, is_dst):
+            raise pytz.InvalidTimeError()
 
-            def __str__(self):
-                return 'America/New_York'
+        def __str__(self):
+            return 'America/New_York'
 
-        field = serializers.DateTimeField(default_timezone=MockTimezone())
+    field = serializers.DateTimeField(default_timezone=MockTimezone())
 
 
 @patch('rest_framework.utils.timezone.datetime_ambiguous', return_value=True)

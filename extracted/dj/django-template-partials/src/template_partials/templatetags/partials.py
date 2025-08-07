@@ -1,8 +1,13 @@
+import re
 import warnings
 
 from django import template
 
 register = template.Library()
+
+_START_TAG = re.compile(r'\{%\s*(startpartial|partialdef)\s+([\w-]+)(\s+inline)?\s*%}')
+_END_TAG_OLD = re.compile(r'\{%\s*endpartial\s*%}')
+_END_TAG = re.compile(r'\{%\s*endpartialdef\s*%}')
 
 
 class TemplateProxy:
@@ -19,22 +24,43 @@ class TemplateProxy:
         template = self.origin.loader.get_template(self.origin.template_name)
         return template.get_exception_info(exception, token)
 
+    def find_partial_source(self, full_source, partial_name):
+        """
+        Loop through the full source of the template, looking for the sought partial
+        and returning it if found, else the empty string.
+        """
+        result = ''
+        pos = 0
+        for m in _START_TAG.finditer(full_source, pos):
+            sspos, sepos = m.span()
+            starter, name, inline = m.groups()
+            end_tag = _END_TAG_OLD if starter == 'startpartial' else _END_TAG
+            endm = end_tag.search(full_source, sepos + 1)
+            assert endm, 'End tag must be present'
+            espos, eepos = endm.span()
+            if name == partial_name:
+                result = full_source[sepos:espos]
+                break
+            pos = eepos + 1
+        return result
+
     @property
     def source(self):
-        template = self.origin.loader.get_template(self.origin.template_name)
-        return template.source
+        template = self.origin.loader.get_template(self.origin.name)
+        return self.find_partial_source(template.source, self.name)
+
+    def _render(self, context):
+        return self.nodelist.render(context)
 
     def render(self, context):
-        """
-        Display stage -- can be called many times
-        """
+        "Display stage -- can be called many times"
         with context.render_context.push_state(self):
             if context.template is None:
                 with context.bind_template(self):
                     context.template_name = self.name
-                    return self.nodelist.render(context)
+                    return self._render(context)
             else:
-                return self.nodelist.render(context)
+                return self._render(context)
 
 
 class DefinePartialNode(template.Node):
@@ -52,17 +78,13 @@ class DefinePartialNode(template.Node):
 
 
 class RenderPartialNode(template.Node):
-    def __init__(self, partial_name, origin):
+    def __init__(self, partial_name, partial_mapping):
+        # Defer lookup of nodelist to runtime.
         self.partial_name = partial_name
-        self.origin = origin
+        self.partial_mapping = partial_mapping
 
     def render(self, context):
-        """Render the partial content from the context"""
-        # Use the origin to get the partial content, because it's per Template,
-        # and available to the Parser.
-        # TODO: raise a better error here.
-        nodelist = self.origin.partial_contents[self.partial_name]
-        return nodelist.render(context)
+        return self.partial_mapping[self.partial_name].render(context)
 
 
 @register.tag(name="partialdef")
@@ -81,7 +103,7 @@ def partialdef_func(parser, token):
     Stores the nodelist in the context under the key "partial_contents" and can
     be retrieved using the {% partial %} tag.
 
-    The optional inline=True argument will render the contents of the partial
+    The optional ``inline`` argument will render the contents of the partial
     where it is defined.
     """
     return _define_partial(parser, token, "endpartialdef")
@@ -115,6 +137,12 @@ def _define_partial(parser, token, end_tag):
         # the inline argument is optional, so fallback to not using it
         inline = False
 
+    if inline and inline != "inline":
+        warnings.warn(
+            "The 'inline' argument does not have any parameters; either use 'inline' or remove it completely.",
+            DeprecationWarning,
+        )
+
     # Parse the content until the end tag (`endpartialdef` or deprecated `endpartial`)
     acceptable_endpartials = (end_tag, f"{end_tag} {partial_name}")
     nodelist = parser.parse(acceptable_endpartials)
@@ -122,13 +150,58 @@ def _define_partial(parser, token, end_tag):
     if endpartial.contents not in acceptable_endpartials:
         parser.invalid_block_tag(endpartial, "endpartial", acceptable_endpartials)
 
-    if not hasattr(parser.origin, "partial_contents"):
-        parser.origin.partial_contents = {}
-    parser.origin.partial_contents[partial_name] = TemplateProxy(
-        nodelist, parser.origin, partial_name
-    )
+    # Store the partial nodelist in the parser.extra_data attribute, if available. (Django 5.1+)
+    # Otherwise, store it on the origin.
+    if hasattr(parser, "extra_data"):
+        parser.extra_data.setdefault("template-partials", {})
+        parser.extra_data["template-partials"][partial_name] = TemplateProxy(
+            nodelist, parser.origin, partial_name
+        )
+    else:
+        if not hasattr(parser.origin, "partial_contents"):
+            parser.origin.partial_contents = {}
+        parser.origin.partial_contents[partial_name] = TemplateProxy(
+            nodelist, parser.origin, partial_name
+        )
 
     return DefinePartialNode(partial_name, inline, nodelist)
+
+
+class SubDictionaryWrapper:
+    """
+    Wrap a parent dictionary, allowing deferred access to a sub-dictionary by key.
+
+    The parser.extra_data storage may not yet be populated when a partial node
+    is defined, so we defer access until rendering.
+    """
+
+    def __init__(self, parent_dict, lookup_key):
+        self.parent_dict = parent_dict
+        self.lookup_key = lookup_key
+
+    def __getitem__(self, key):
+        try:
+            # Try Django 5.1+ dict-based storage first
+            partials_content = self.parent_dict[self.lookup_key]
+        except KeyError:
+            raise template.TemplateSyntaxError(
+                f"No partials are defined. You are trying to access '{key}' partial"
+            )
+        except TypeError:
+            # Fall back to pre-Django 5.1 object-based storage
+            try:
+                partials_content = getattr(self.parent_dict, self.lookup_key)
+            except AttributeError:
+                raise template.TemplateSyntaxError(
+                    f"No partials are defined. You are trying to access '{key}' partial"
+                )
+
+        try:
+            return partials_content[key]
+        except KeyError:
+            raise template.TemplateSyntaxError(
+                f"You are trying to access an undefined partial '{key}'"
+            )
 
 
 # Define the partial tag to render the partial content.
@@ -139,14 +212,19 @@ def partial_func(parser, token):
 
     Usage:
 
-        {% partial "partial_name" %}
+        {% partial partial_name %}
     """
-    # Parse the tag
-    try:
-        tag_name, partial_name = token.split_contents()
-    except ValueError:
+    bits = token.split_contents()
+    if len(bits) != 2:
         raise template.TemplateSyntaxError(
-            "%r tag requires a single argument" % token.contents.split()[0]
+            f"'{bits[0]}' tag requires a single argument 'partial_name'"
         )
+    tag_name, partial_name = bits
 
-    return RenderPartialNode(partial_name, origin=parser.origin)
+    try:
+        extra_data = getattr(parser, "extra_data")
+        partial_mapping = SubDictionaryWrapper(extra_data, "template-partials")
+    except AttributeError:
+        partial_mapping = SubDictionaryWrapper(parser.origin, "partial_contents")
+
+    return RenderPartialNode(partial_name, partial_mapping=partial_mapping)

@@ -68,7 +68,7 @@ class VirtualControllerInputsOutputsApi:
     ) -> List[IOValue]:
         """Get Input/Output Values
 
-        Retrieves the current values of inputs/outputs of the virtual controller.  The identifiers of inputs/outputs must be provided in the request. Request all available input/output identifiers via [listVirtualRobotIODescriptions](listVirtualRobotIODescriptions). 
+        Retrieves the current values of inputs/outputs of the virtual controller.  The identifiers of inputs/outputs must be provided in the request. Request all available input/output identifiers via [listVirtualControllerIODescriptions](listVirtualControllerIODescriptions). 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -145,7 +145,7 @@ class VirtualControllerInputsOutputsApi:
     ) -> ApiResponse[List[IOValue]]:
         """Get Input/Output Values
 
-        Retrieves the current values of inputs/outputs of the virtual controller.  The identifiers of inputs/outputs must be provided in the request. Request all available input/output identifiers via [listVirtualRobotIODescriptions](listVirtualRobotIODescriptions). 
+        Retrieves the current values of inputs/outputs of the virtual controller.  The identifiers of inputs/outputs must be provided in the request. Request all available input/output identifiers via [listVirtualControllerIODescriptions](listVirtualControllerIODescriptions). 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -222,7 +222,7 @@ class VirtualControllerInputsOutputsApi:
     ) -> RESTResponseType:
         """Get Input/Output Values
 
-        Retrieves the current values of inputs/outputs of the virtual controller.  The identifiers of inputs/outputs must be provided in the request. Request all available input/output identifiers via [listVirtualRobotIODescriptions](listVirtualRobotIODescriptions). 
+        Retrieves the current values of inputs/outputs of the virtual controller.  The identifiers of inputs/outputs must be provided in the request. Request all available input/output identifiers via [listVirtualControllerIODescriptions](listVirtualControllerIODescriptions). 
 
         :param cell: Unique identifier addressing a cell in all API calls.  (required)
         :type cell: str
@@ -345,7 +345,7 @@ class VirtualControllerInputsOutputsApi:
 
 
     @validate_call
-    async def list_virtual_robot_io_descriptions(
+    async def list_virtual_controller_io_descriptions(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -404,7 +404,7 @@ class VirtualControllerInputsOutputsApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_io_descriptions_serialize(
+        _param = self._list_virtual_controller_io_descriptions_serialize(
             cell=cell,
             controller=controller,
             ios=ios,
@@ -434,7 +434,7 @@ class VirtualControllerInputsOutputsApi:
 
 
     @validate_call
-    async def list_virtual_robot_io_descriptions_with_http_info(
+    async def list_virtual_controller_io_descriptions_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -493,7 +493,7 @@ class VirtualControllerInputsOutputsApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_io_descriptions_serialize(
+        _param = self._list_virtual_controller_io_descriptions_serialize(
             cell=cell,
             controller=controller,
             ios=ios,
@@ -523,7 +523,7 @@ class VirtualControllerInputsOutputsApi:
 
 
     @validate_call
-    async def list_virtual_robot_io_descriptions_without_preload_content(
+    async def list_virtual_controller_io_descriptions_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -582,7 +582,7 @@ class VirtualControllerInputsOutputsApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_io_descriptions_serialize(
+        _param = self._list_virtual_controller_io_descriptions_serialize(
             cell=cell,
             controller=controller,
             ios=ios,
@@ -607,7 +607,7 @@ class VirtualControllerInputsOutputsApi:
         return response_data.response
 
 
-    def _list_virtual_robot_io_descriptions_serialize(
+    def _list_virtual_controller_io_descriptions_serialize(
         self,
         cell,
         controller,

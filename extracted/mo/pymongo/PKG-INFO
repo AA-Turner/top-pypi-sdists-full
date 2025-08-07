@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymongo
-Version: 4.13.2
+Version: 4.14.0
 Summary: PyMongo - the Official MongoDB Python driver
 Project-URL: Homepage, https://www.mongodb.org
 Project-URL: Documentation, https://www.mongodb.com/docs/languages/python/pymongo-driver/current/
@@ -232,7 +232,7 @@ Requires-Dist: dnspython<3.0.0,>=1.16.0
 Provides-Extra: aws
 Requires-Dist: pymongo-auth-aws<2.0.0,>=1.1.0; extra == 'aws'
 Provides-Extra: docs
-Requires-Dist: furo==2024.8.6; extra == 'docs'
+Requires-Dist: furo==2025.7.19; extra == 'docs'
 Requires-Dist: readthedocs-sphinx-search~=0.3; extra == 'docs'
 Requires-Dist: sphinx-autobuild>=2020.9.1; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<4,>=2; extra == 'docs'
@@ -276,7 +276,7 @@ a native Python driver for MongoDB, offering both synchronous and asynchronous A
 [gridfs](https://github.com/mongodb/specifications/blob/master/source/gridfs/gridfs-spec.md/)
 implementation on top of `pymongo`.
 
-PyMongo supports MongoDB 4.0, 4.2, 4.4, 5.0, 6.0, 7.0, and 8.0.
+PyMongo supports MongoDB 4.0, 4.2, 4.4, 5.0, 6.0, 7.0, and 8.0. PyMongo follows [semantic versioning](https://semver.org/spec/v2.0.0.html) for its releases.
 
 ## Support / Feedback
 

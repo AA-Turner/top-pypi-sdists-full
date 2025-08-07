@@ -1047,6 +1047,7 @@ def list_useful_orgs_(ctx, **kwargs):
 @cli.command(name="list-orgs")
 @click.option("--org-id", default=None)
 @click.option("--issuer", default=None)
+@click.option("--name", default=None)
 @click.option("--billing_account_id", default=None)
 @click.option("--enabled", type=bool, default=None)
 @click.option("--shard", default=None)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djangorestframework
-Version: 3.16.0
+Version: 3.16.1
 Summary: Web APIs for Django, made easy.
 Home-page: https://www.django-rest-framework.org/
 Author: Tom Christie
@@ -32,7 +32,6 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: django>=4.2
-Requires-Dist: backports.zoneinfo; python_version < "3.9"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

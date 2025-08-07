@@ -94,7 +94,7 @@ class AsyncBulkTestBase(AsyncIntegrationTest):
         self.assertEqual(expected["index"], actual["index"])
         if expected["_id"] == "...":
             # Unspecified value.
-            self.assertTrue("_id" in actual)
+            self.assertIn("_id", actual)
         else:
             self.assertEqual(expected["_id"], actual["_id"])
 
@@ -107,7 +107,7 @@ class AsyncBulkTestBase(AsyncIntegrationTest):
         self.assertEqual(expected["code"], actual["code"])
         if expected["errmsg"] == "...":
             # Unspecified value.
-            self.assertTrue("errmsg" in actual)
+            self.assertIn("errmsg", actual)
         else:
             self.assertEqual(expected["errmsg"], actual["errmsg"])
 
@@ -115,7 +115,7 @@ class AsyncBulkTestBase(AsyncIntegrationTest):
         actual_op = actual["op"].copy()
         if expected_op.get("_id") == "...":
             # Unspecified _id.
-            self.assertTrue("_id" in actual_op)
+            self.assertIn("_id", actual_op)
             actual_op.pop("_id")
             expected_op.pop("_id")
 
@@ -160,12 +160,12 @@ class AsyncTestBulk(AsyncBulkTestBase):
         result = await self.coll.bulk_write([UpdateMany({}, update)])
         self.assertEqualResponse(expected, result.bulk_api_result)
         self.assertEqual(2, result.matched_count)
-        self.assertTrue(result.modified_count in (2, None))
+        self.assertIn(result.modified_count, (2, None))
 
     async def test_update_many(self):
         await self._test_update_many({"$set": {"foo": "bar"}})
 
-    @async_client_context.require_version_min(4, 1, 11)
+    @async_client_context.require_version_min(4, 2, 0)
     async def test_update_many_pipeline(self):
         await self._test_update_many([{"$set": {"foo": "bar"}}])
 
@@ -201,12 +201,12 @@ class AsyncTestBulk(AsyncBulkTestBase):
         result = await self.coll.bulk_write([UpdateOne({}, update)])
         self.assertEqualResponse(expected, result.bulk_api_result)
         self.assertEqual(1, result.matched_count)
-        self.assertTrue(result.modified_count in (1, None))
+        self.assertIn(result.modified_count, (1, None))
 
     async def test_update_one(self):
         await self._test_update_one({"$set": {"foo": "bar"}})
 
-    @async_client_context.require_version_min(4, 1, 11)
+    @async_client_context.require_version_min(4, 2, 0)
     async def test_update_one_pipeline(self):
         await self._test_update_one([{"$set": {"foo": "bar"}}])
 
@@ -227,7 +227,7 @@ class AsyncTestBulk(AsyncBulkTestBase):
         result = await self.coll.bulk_write([ReplaceOne({}, {"foo": "bar"})])
         self.assertEqualResponse(expected, result.bulk_api_result)
         self.assertEqual(1, result.matched_count)
-        self.assertTrue(result.modified_count in (1, None))
+        self.assertIn(result.modified_count, (1, None))
 
     async def test_remove(self):
         # Test removing all documents, ordered.
@@ -281,7 +281,7 @@ class AsyncTestBulk(AsyncBulkTestBase):
         self.assertEqual(1, result.upserted_count)
         assert result.upserted_ids is not None
         self.assertEqual(1, len(result.upserted_ids))
-        self.assertTrue(isinstance(result.upserted_ids.get(0), ObjectId))
+        self.assertIsInstance(result.upserted_ids.get(0), ObjectId)
 
         self.assertEqual(await self.coll.count_documents({"foo": "bar"}), 1)
 
@@ -994,11 +994,11 @@ class AsyncTestBulkWriteConcern(AsyncBulkTestBase):
 
         # When talking to legacy servers there will be a
         # write concern error for each operation.
-        self.assertTrue(len(details["writeConcernErrors"]) > 0)
+        self.assertGreater(len(details["writeConcernErrors"]), 0)
 
         failed = details["writeConcernErrors"][0]
         self.assertEqual(64, failed["code"])
-        self.assertTrue(isinstance(failed["errmsg"], str))
+        self.assertIsInstance(failed["errmsg"], str)
 
         await self.coll.delete_many({})
         await self.coll.create_index("a", unique=True)
@@ -1035,9 +1035,9 @@ class AsyncTestBulkWriteConcern(AsyncBulkTestBase):
             details,
         )
 
-        self.assertTrue(len(details["writeConcernErrors"]) > 1)
+        self.assertGreater(len(details["writeConcernErrors"]), 1)
         failed = details["writeErrors"][0]
-        self.assertTrue("duplicate" in failed["errmsg"])
+        self.assertIn("duplicate", failed["errmsg"])
 
     @async_client_context.require_version_max(7, 1)  # PYTHON-4560
     @async_client_context.require_replica_set
@@ -1073,7 +1073,7 @@ class AsyncTestBulkWriteConcern(AsyncBulkTestBase):
         self.assertEqual(0, len(details["writeErrors"]))
         # When talking to legacy servers there will be a
         # write concern error for each operation.
-        self.assertTrue(len(details["writeConcernErrors"]) > 1)
+        self.assertGreater(len(details["writeConcernErrors"]), 1)
 
         await self.coll.delete_many({})
         await self.coll.create_index("a", unique=True)
@@ -1100,17 +1100,17 @@ class AsyncTestBulkWriteConcern(AsyncBulkTestBase):
         self.assertEqual(1, len(details["writeErrors"]))
         # When talking to legacy servers there will be a
         # write concern error for each operation.
-        self.assertTrue(len(details["writeConcernErrors"]) > 1)
+        self.assertGreater(len(details["writeConcernErrors"]), 1)
 
         failed = details["writeErrors"][0]
         self.assertEqual(2, failed["index"])
         self.assertEqual(11000, failed["code"])
-        self.assertTrue(isinstance(failed["errmsg"], str))
+        self.assertIsInstance(failed["errmsg"], str)
         self.assertEqual(1, failed["op"]["a"])
 
         failed = details["writeConcernErrors"][0]
         self.assertEqual(64, failed["code"])
-        self.assertTrue(isinstance(failed["errmsg"], str))
+        self.assertIsInstance(failed["errmsg"], str)
 
         upserts = details["upserted"]
         self.assertEqual(1, len(upserts))

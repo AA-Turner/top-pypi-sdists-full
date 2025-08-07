@@ -162,10 +162,6 @@ def handle_test_env() -> None:
     write_env("PIP_PREFER_BINARY")  # Prefer binary dists by default.
     write_env("UV_FROZEN")  # Do not modify lock files.
 
-    # Skip CSOT tests on non-linux platforms.
-    if PLATFORM != "linux":
-        write_env("SKIP_CSOT_TESTS")
-
     # Set an environment variable for the test name and sub test name.
     write_env(f"TEST_{test_name.upper()}")
     write_env("TEST_NAME", test_name)
@@ -229,14 +225,6 @@ def handle_test_env() -> None:
             config = read_env(f"{DRIVERS_TOOLS}/.evergreen/atlas_data_lake/secrets-export.sh")
             DB_USER = config["ADL_USERNAME"]
             DB_PASSWORD = config["ADL_PASSWORD"]
-        elif test_name == "serverless":
-            run_command(f"bash {DRIVERS_TOOLS}/.evergreen/serverless/setup.sh")
-            config = read_env(f"{DRIVERS_TOOLS}/.evergreen/serverless/secrets-export.sh")
-            DB_USER = config["SERVERLESS_ATLAS_USER"]
-            DB_PASSWORD = config["SERVERLESS_ATLAS_PASSWORD"]
-            write_env("MONGODB_URI", config["SERVERLESS_URI"])
-            write_env("SINGLE_MONGOS_LB_URI", config["SERVERLESS_URI"])
-            write_env("MULTI_MONGOS_LB_URI", config["SERVERLESS_URI"])
         elif test_name == "auth_oidc":
             DB_USER = config["OIDC_ADMIN_USER"]
             DB_PASSWORD = config["OIDC_ADMIN_PWD"]
@@ -429,7 +417,18 @@ def handle_test_env() -> None:
             run_command(f"bash {auth_aws_dir}/setup-secrets.sh")
 
     if test_name == "atlas_connect":
-        get_secrets("drivers/atlas_connect")
+        secrets = get_secrets("drivers/atlas_connect")
+
+        # Write file with Atlas X509 client certificate:
+        decoded = base64.b64decode(secrets["ATLAS_X509_DEV_CERT_BASE64"]).decode("utf8")
+        cert_file = ROOT / ".evergreen/atlas_x509_dev_client_certificate.pem"
+        with cert_file.open("w") as file:
+            file.write(decoded)
+        write_env(
+            "ATLAS_X509_DEV_WITH_CERT",
+            secrets["ATLAS_X509_DEV"] + "&tlsCertificateKeyFile=" + str(cert_file),
+        )
+
         # We do not want the default client_context to be initialized.
         write_env("DISABLE_CONTEXT")
 

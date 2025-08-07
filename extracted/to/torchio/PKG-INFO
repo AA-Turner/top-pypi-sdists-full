@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: torchio
-Version: 0.20.19
+Version: 0.20.20
 Summary: Tools for medical image processing with PyTorch
 Keywords: medical,image processing,pytorch,augmentation,mri
 Author: TorchIO contributors

@@ -13,7 +13,6 @@ SGAI_API_KEY=your_api_key_here
 import json
 import os
 import time
-from typing import Dict, Any
 
 from dotenv import load_dotenv
 
@@ -21,6 +20,7 @@ from scrapegraph_py import Client
 
 # Load environment variables from .env file
 load_dotenv()
+
 
 def main():
     if not os.getenv("SGAI_API_KEY"):
@@ -42,11 +42,11 @@ def main():
                         "title": {"type": "string"},
                         "bio": {"type": "string"},
                         "linkedin": {"type": "string"},
-                        "twitter": {"type": "string"}
-                    }
-                }
+                        "twitter": {"type": "string"},
+                    },
+                },
             }
-        }
+        },
     }
 
     url = "https://scrapegraphai.com"
@@ -97,7 +97,9 @@ def main():
                     break
                 else:
                     elapsed_time = (i + 1) * 5
-                    print(f"Status: {result.get('status')}, waiting... ({elapsed_time}s elapsed)")
+                    print(
+                        f"Status: {result.get('status')}, waiting... ({elapsed_time}s elapsed)"
+                    )
             else:
                 print("Crawl did not complete within 5 minutes.")
         else:
@@ -109,4 +111,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

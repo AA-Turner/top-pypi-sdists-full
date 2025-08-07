@@ -21,8 +21,8 @@ from shrub.v3.shrub_service import ShrubService
 # Globals
 ##############
 
-ALL_VERSIONS = ["4.0", "4.2", "4.4", "5.0", "6.0", "7.0", "8.0", "rapid", "latest"]
-CPYTHONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+ALL_VERSIONS = ["4.2", "4.4", "5.0", "6.0", "7.0", "8.0", "rapid", "latest"]
+CPYTHONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 PYPYS = ["pypy3.10"]
 ALL_PYTHONS = CPYTHONS + PYPYS
 MIN_MAX_PYTHON = [CPYTHONS[0], CPYTHONS[-1]]
@@ -153,18 +153,17 @@ def get_python_binary(python: str, host: Host) -> str:
             base = "C:/python/32"
         else:
             base = "C:/python"
-        python = python.replace(".", "")
-        if python == "313t":
-            return f"{base}/Python313/python3.13t.exe"
-        return f"{base}/Python{python}/python.exe"
+        python_dir = python.replace(".", "").replace("t", "")
+        return f"{base}/Python{python_dir}/python{python}.exe"
 
     if name in ["rhel8", "ubuntu22", "ubuntu20", "rhel7"]:
         return f"/opt/python/{python}/bin/python3"
 
     if name in ["macos", "macos-arm64"]:
-        if python == "3.13t":
-            return "/Library/Frameworks/PythonT.Framework/Versions/3.13/bin/python3t"
-        return f"/Library/Frameworks/Python.Framework/Versions/{python}/bin/python3"
+        bin_name = "python3t" if "t" in python else "python3"
+        python_dir = python.replace("t", "")
+        framework_dir = "PythonT" if "t" in python else "Python"
+        return f"/Library/Frameworks/{framework_dir}.Framework/Versions/{python_dir}/bin/{bin_name}"
 
     raise ValueError(f"no match found for python {python} on {name}")
 

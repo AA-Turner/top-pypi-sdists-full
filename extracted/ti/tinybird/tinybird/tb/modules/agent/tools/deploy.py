@@ -35,7 +35,12 @@ def deploy(ctx: RunContext[TinybirdAgentContext], allow_destructive_operations: 
             ctx.deps.thinking_animation.start()
             return f"User did not confirm deployment and gave the following feedback: {feedback}"
 
-        click.echo(FeedbackManager.highlight(message="» Deploying project..."))
+        allow_destructive_operations_flag = " --allow-destructive-operations" if allow_destructive_operations else ""
+        click.echo(
+            FeedbackManager.highlight(
+                message=f"» Running command: tb --cloud deploy{allow_destructive_operations_flag}"
+            )
+        )
         ctx.deps.deploy_project(allow_destructive_operations=allow_destructive_operations)
         click.echo(FeedbackManager.success(message="✓ Project deployed successfully"))
         ctx.deps.thinking_animation.start()

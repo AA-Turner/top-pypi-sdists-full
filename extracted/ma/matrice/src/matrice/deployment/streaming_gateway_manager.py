@@ -180,7 +180,7 @@ class StreamingGateway:
     
     def _load_from_id(self, gateway_id: str):
         """Load gateway configuration from backend by ID."""
-        path = f"/v1/deployment/streaming_gateway/{gateway_id}"
+        path = f"/v1/inference/streaming_gateway/{gateway_id}"
         resp = self.rpc.get(path=path)
         
         if resp and resp.get("success"):
@@ -215,7 +215,7 @@ class StreamingGateway:
         if not self.config.id_service:
             return None, "Service ID is required", "Missing service ID"
         
-        path = "/v1/deployment/streaming_gateway"
+        path = "/v1/inference/streaming_gateway"
         payload = self.config.to_dict()
         # Ensure the service ID is included in the payload for the backend
         payload["idService"] = self.config.id_service
@@ -241,7 +241,7 @@ class StreamingGateway:
         if not self.config or not self.config.id:
             return None, "Gateway must be saved before updating", "Invalid state"
         
-        path = f"/v1/deployment/streaming_gateway/{self.config.id}"
+        path = f"/v1/inference/streaming_gateway/{self.config.id}"
         payload = {
             "name": self.config.name,
             "description": self.config.description,
@@ -270,7 +270,7 @@ class StreamingGateway:
         if not self.config or not self.config.id:
             return None, "Gateway must be saved before deleting", "Invalid state"
         
-        path = f"/v1/deployment/streaming_gateway/{self.config.id}"
+        path = f"/v1/inference/streaming_gateway/{self.config.id}"
         params = {}
         if force:
             params["force"] = "true"
@@ -300,7 +300,7 @@ class StreamingGateway:
         if not camera_group_ids:
             return None, "Camera group IDs are required", "Invalid camera group IDs"
         
-        path = f"/v1/deployment/streaming_gateway/{self.config.id}/add_camera_groups"
+        path = f"/v1/inference/streaming_gateway/{self.config.id}/add_camera_groups"
         payload = {"cameraGroupIds": camera_group_ids}
         
         resp = self.rpc.post(path=path, payload=payload)
@@ -333,7 +333,7 @@ class StreamingGateway:
         if not camera_group_ids:
             return None, "Camera group IDs are required", "Invalid camera group IDs"
         
-        path = f"/v1/deployment/streaming_gateway/{self.config.id}/remove_camera_groups"
+        path = f"/v1/inference/streaming_gateway/{self.config.id}/remove_camera_groups"
         payload = {"cameraGroupIds": camera_group_ids}
         
         resp = self.rpc.post(path=path, payload=payload)
@@ -484,7 +484,7 @@ class StreamingGatewayManager:
         if not self.service_id:
             return None, "Service ID is required", "Invalid service ID"
         
-        path = f"/v1/deployment/streaming_gateways/{self.service_id}"
+        path = f"/v1/inference/streaming_gateways/{self.service_id}"
         params = {"page": page, "limit": limit}
         if search:
             params["search"] = search

@@ -1,17 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.17.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-05T23:30:10.016426                                                            #
+# Generated on 2025-08-06T15:19:48.457191                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
     import pathlib
+    import metaflow.exception
 
 from ...exception import MetaflowException as MetaflowException
 from ...plugins.perimeters import get_perimeter_config_url_if_set_in_ob_config as get_perimeter_config_url_if_set_in_ob_config
+
+class OuterboundsConfigException(metaflow.exception.MetaflowException, metaclass=type):
+    ...
 
 OBP_REMOTE_CONFIG_KEY: str
 

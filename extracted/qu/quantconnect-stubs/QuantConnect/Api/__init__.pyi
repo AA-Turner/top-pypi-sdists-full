@@ -3109,13 +3109,11 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def list_live_algorithms(self, status: typing.Optional[QuantConnect.AlgorithmStatus] = None, start_time: typing.Optional[datetime.datetime] = None, end_time: typing.Optional[datetime.datetime] = None) -> QuantConnect.Api.LiveList:
+    def list_live_algorithms(self, status: typing.Optional[QuantConnect.AlgorithmStatus] = None) -> QuantConnect.Api.LiveList:
         """
         Get a list of live running algorithms for user
         
         :param status: Filter the statuses of the algorithms returned from the api
-        :param start_time: Earliest launched time of the algorithms returned by the Api
-        :param end_time: Latest launched time of the algorithms returned by the Api
         :returns: LiveList.
         """
         ...

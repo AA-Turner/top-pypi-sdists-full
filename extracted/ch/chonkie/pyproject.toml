@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chonkie"
-version = "1.1.1"
+version = "1.1.2"
 description = "🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -71,14 +71,15 @@ code = [
 neural = ["transformers>=4.0.0", "torch>=2.0.0, <3.0"]
 
 # Optional dependencies for the embeddings
-model2vec = ["model2vec>=0.3.0", "numpy>=2.0.0, <3.0"]
-st = ["sentence-transformers>=3.0.0", "numpy>=2.0.0, <3.0", "accelerate>=1.6.0"]
-openai = ["openai>=1.0.0", "numpy>=2.0.0, <3.0", "pydantic>=2.0.0"]
-voyageai = ["voyageai>=0.3.2", "numpy>=2.0.0, <3.0"]
-cohere = ["cohere>=5.13.0", "numpy>=2.0.0, <3.0"]
-jina = ["numpy>=2.0.0, <3.0"]
-semantic = ["model2vec>=0.3.0", "numpy>=2.0.0, <3.0"]
+model2vec = ["tokenizers>=0.16.0", "model2vec>=0.3.0", "numpy>=2.0.0, <3.0"]
+st = ["tokenizers>=0.16.0", "sentence-transformers>=3.0.0", "numpy>=2.0.0, <3.0", "accelerate>=1.6.0"]
+openai = ["tiktoken>=0.5.0", "openai>=1.0.0", "numpy>=2.0.0, <3.0", "pydantic>=2.0.0"]
+voyageai = ["tokenizers>=0.16.0", "voyageai>=0.3.2", "numpy>=2.0.0, <3.0"]
+cohere = ["tokenizers>=0.16.0", "cohere>=5.13.0", "numpy>=2.0.0, <3.0"]
+jina = ["tokenizers>=0.16.0", "numpy>=2.0.0, <3.0"]
+semantic = ["tokenizers>=0.16.0", "model2vec>=0.3.0", "numpy>=2.0.0, <3.0"]
 gemini = ["pydantic>=2.0.0", "google-genai>=1.0.0"]
+azure-openai = ["azure-identity>=1.23.0", "tiktoken>=0.5.0", "openai>=1.0.0", "numpy>=2.0.0, <3.0", "pydantic>=2.0.0"]
 
 # optional dependencies for the friends
 chroma = ["chromadb>=1.0.0"]
@@ -113,6 +114,7 @@ all = [
     "chromadb>=1.0.0",
     "qdrant-client>=1.0.0",
     "turbopuffer[fast]>=0.2.0",
+    "azure-identity>=1.23.0",
 ]
 dev = [
     "datasets>=1.14.0",
@@ -146,8 +148,12 @@ packages = [
     "chonkie.friends.porters",
     "chonkie.friends.handshakes",
     "chonkie.cloud",
+    "chonkie.cloud.auth",
     "chonkie.cloud.chunker",
+    "chonkie.cloud.refineries",
     "chonkie.experimental",
+    "chonkie.fetcher",
+    "chonkie.chef",
 ]
 
 [tool.setuptools.package-data]

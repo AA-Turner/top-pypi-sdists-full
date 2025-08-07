@@ -109,8 +109,15 @@ class PlaceholderType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     Float16Vector: _ClassVar[PlaceholderType]
     BFloat16Vector: _ClassVar[PlaceholderType]
     SparseFloatVector: _ClassVar[PlaceholderType]
+    Int8Vector: _ClassVar[PlaceholderType]
     Int64: _ClassVar[PlaceholderType]
     VarChar: _ClassVar[PlaceholderType]
+    EmbListBinaryVector: _ClassVar[PlaceholderType]
+    EmbListFloatVector: _ClassVar[PlaceholderType]
+    EmbListFloat16Vector: _ClassVar[PlaceholderType]
+    EmbListBFloat16Vector: _ClassVar[PlaceholderType]
+    EmbListSparseFloatVector: _ClassVar[PlaceholderType]
+    EmbListInt8Vector: _ClassVar[PlaceholderType]
 
 class MsgType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -230,6 +237,7 @@ class MsgType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ListDatabases: _ClassVar[MsgType]
     AlterDatabase: _ClassVar[MsgType]
     DescribeDatabase: _ClassVar[MsgType]
+    AddCollectionField: _ClassVar[MsgType]
 
 class DslType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -337,6 +345,9 @@ class ObjectPrivilege(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PrivilegeGroupCollectionReadOnly: _ClassVar[ObjectPrivilege]
     PrivilegeGroupCollectionReadWrite: _ClassVar[ObjectPrivilege]
     PrivilegeGroupCollectionAdmin: _ClassVar[ObjectPrivilege]
+    PrivilegeGetImportProgress: _ClassVar[ObjectPrivilege]
+    PrivilegeListImport: _ClassVar[ObjectPrivilege]
+    PrivilegeAddCollectionField: _ClassVar[ObjectPrivilege]
 
 class StateCode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -445,8 +456,15 @@ FloatVector: PlaceholderType
 Float16Vector: PlaceholderType
 BFloat16Vector: PlaceholderType
 SparseFloatVector: PlaceholderType
+Int8Vector: PlaceholderType
 Int64: PlaceholderType
 VarChar: PlaceholderType
+EmbListBinaryVector: PlaceholderType
+EmbListFloatVector: PlaceholderType
+EmbListFloat16Vector: PlaceholderType
+EmbListBFloat16Vector: PlaceholderType
+EmbListSparseFloatVector: PlaceholderType
+EmbListInt8Vector: PlaceholderType
 Undefined: MsgType
 CreateCollection: MsgType
 DropCollection: MsgType
@@ -563,6 +581,7 @@ DropDatabase: MsgType
 ListDatabases: MsgType
 AlterDatabase: MsgType
 DescribeDatabase: MsgType
+AddCollectionField: MsgType
 Dsl: DslType
 BoolExprV1: DslType
 UndefiedState: CompactionState
@@ -652,6 +671,9 @@ PrivilegeGroupDatabaseAdmin: ObjectPrivilege
 PrivilegeGroupCollectionReadOnly: ObjectPrivilege
 PrivilegeGroupCollectionReadWrite: ObjectPrivilege
 PrivilegeGroupCollectionAdmin: ObjectPrivilege
+PrivilegeGetImportProgress: ObjectPrivilege
+PrivilegeListImport: ObjectPrivilege
+PrivilegeAddCollectionField: ObjectPrivilege
 Initializing: StateCode
 Healthy: StateCode
 Abnormal: StateCode

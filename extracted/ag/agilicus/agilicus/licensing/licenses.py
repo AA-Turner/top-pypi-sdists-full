@@ -73,7 +73,7 @@ def _get_license(ctx, apiclient, license_id, **kwargs):
 
 def show_license(ctx, license_id, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
-    return _get_license(ctx, apiclient, license_id, **kwargs).to_dict()
+    return _get_license(ctx, apiclient, license_id, **kwargs)
 
 
 def delete_license(ctx, license_id, **kwargs):
@@ -198,16 +198,18 @@ def get_licensed_product(product_label, product_table):
 
     product_tokens = product_label.split("-")
 
-    if len(product_tokens) < 2:
-        return None
-    elif len(product_tokens) == 2:
-        normalized_product_name = product_tokens[0]
-    else:
-        normalized_product_name = "-".join(product_tokens[0:2])
+    if len(product_tokens) == 1:
+        normalized_product_name = "Standard"
+    elif len(product_tokens) >= 2:
+        # everything but the last, which is the currency
+        normalized_product_name = "-".join(product_tokens[:-1])
 
     for licensed_product in product_table["products"]:
-        if str(licensed_product["name"]) == normalized_product_name:
-            return licensed_product
+        if (
+            str(licensed_product["name"]).casefold()
+            == normalized_product_name.casefold()
+        ):
+            return licensed_product["name"]
     return None
 
 
@@ -223,6 +225,9 @@ def add_license_to_billing_sub(ctx, bsub, product_name=None, product_table_versi
 
     product_table = product_version["spec"].get("product_table")
     if not product_name:
+        if not bsub.status.product:
+            raise Exception(f"no product for subscription {bsub.metadata.id}")
+
         product_name = get_licensed_product(
             bsub.status.product.spec.label, product_table
         )

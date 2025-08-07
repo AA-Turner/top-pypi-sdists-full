@@ -7,7 +7,9 @@ import tensorflow as tf
 from safetensors import numpy, safe_open
 
 
-def save(tensors: Dict[str, tf.Tensor], metadata: Optional[Dict[str, str]] = None) -> bytes:
+def save(
+    tensors: Dict[str, tf.Tensor], metadata: Optional[Dict[str, str]] = None
+) -> bytes:
     """
     Saves a dictionary of tensors into raw bytes in safetensors format.
 
@@ -120,7 +122,7 @@ def load_file(filename: Union[str, os.PathLike]) -> Dict[str, tf.Tensor]:
     """
     result = {}
     with safe_open(filename, framework="tf") as f:
-        for k in f.keys():
+        for k in f.offset_keys():
             result[k] = f.get_tensor(k)
     return result
 

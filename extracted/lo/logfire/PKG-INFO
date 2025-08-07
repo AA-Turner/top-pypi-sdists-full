@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logfire
-Version: 4.1.0
+Version: 4.2.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://logfire.pydantic.dev/
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -90,7 +90,7 @@ Provides-Extra: wsgi
 Requires-Dist: opentelemetry-instrumentation-wsgi>=0.42b0; extra == 'wsgi'
 Description-Content-Type: text/markdown
 
-# Pydantic Logfire — Uncomplicated Observability
+# Pydantic Logfire — Know more. Build faster.
 
 <p align="center">
   <a href="https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI"><img src="https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push" alt="CI" /></a>

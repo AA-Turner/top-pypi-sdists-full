@@ -43,6 +43,8 @@ class IssueType(str, Enum):
     APISECURITY = 'ApiSecurity'
     PENTEST = 'Pentest'
     CLOUD = 'Cloud'
+    MATERIALCHANGE = 'MaterialChange'
+    BUGBOUNTY = 'BugBounty'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

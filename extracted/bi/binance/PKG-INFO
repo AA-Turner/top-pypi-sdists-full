@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binance
-Version: 0.3.60
+Version: 0.3.61
 Summary: binance crypto exchange api client
 Project-URL: Homepage, https://github.com/ccxt/ccxt
 Project-URL: Issues, https://github.com/ccxt/ccxt
@@ -1018,7 +1018,7 @@ You can also construct custom requests to available "implicit" endpoints
 - `describe_data(self)`
 - `stream(self, type: Str, subscriptionHash: Str, numSubscriptions=1)`
 - `watch_liquidations(self, symbol: str, since: Int = None, limit: Int = None, params={})`
-- `watch_liquidations_for_symbols(self, symbols: List[str] = None, since: Int = None, limit: Int = None, params={})`
+- `watch_liquidations_for_symbols(self, symbols: List[str], since: Int = None, limit: Int = None, params={})`
 - `watch_my_liquidations(self, symbol: str, since: Int = None, limit: Int = None, params={})`
 - `watch_my_liquidations_for_symbols(self, symbols: List[str], since: Int = None, limit: Int = None, params={})`
 - `watch_order_book(self, symbol: str, limit: Int = None, params={})`
@@ -1069,7 +1069,7 @@ You can also construct custom requests to available "implicit" endpoints
 - `set_positions_cache(self, client: Client, type, symbols: Strings = None, isPortfolioMargin=False)`
 - `load_positions_snapshot(self, client, messageHash, type, isPortfolioMargin)`
 - `fetch_my_trades_ws(self, symbol: Str = None, since: Int = None, limit: Int = None, params={})`
-- `fetch_trades_ws(self, symbol: Str = None, since: Int = None, limit: Int = None, params={})`
+- `fetch_trades_ws(self, symbol: str, since: Int = None, limit: Int = None, params={})`
 - `watch_my_trades(self, symbol: Str = None, since: Int = None, limit: Int = None, params={})`
 
 ## Contribution

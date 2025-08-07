@@ -718,7 +718,7 @@ class WebAgent(Agent):
         # If include_screenshot is True, capture and include the screenshot
         if include_screenshot:
             try:
-                screenshot_bytes = await self.page.screenshot()
+                screenshot_bytes = await self.page.screenshot(full_page=True)
                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
                 content = (
                     f"""Instruction: {prompt} DOM+accessibility tree: {snapshot}"""

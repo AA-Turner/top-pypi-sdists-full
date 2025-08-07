@@ -28,6 +28,7 @@ from tinybird.tb.modules.agent.memory import (
     get_last_messages_from_last_user_prompt,
     save_messages,
 )
+from tinybird.tb.modules.agent.mock_agent import MockAgent
 from tinybird.tb.modules.agent.models import create_model
 from tinybird.tb.modules.agent.prompts import (
     agent_system_prompt,
@@ -45,7 +46,6 @@ from tinybird.tb.modules.agent.tools.deploy_check import deploy_check
 from tinybird.tb.modules.agent.tools.diff_resource import diff_resource
 from tinybird.tb.modules.agent.tools.get_endpoint_stats import get_endpoint_stats
 from tinybird.tb.modules.agent.tools.get_openapi_definition import get_openapi_definition
-from tinybird.tb.modules.agent.tools.mock import mock
 from tinybird.tb.modules.agent.tools.plan import plan
 from tinybird.tb.modules.agent.tools.secret import create_or_update_secrets
 from tinybird.tb.modules.agent.utils import AgentRunCancelled, TinybirdAgentContext, show_confirmation, show_input
@@ -111,7 +111,6 @@ class TinybirdAgent:
                 Tool(build, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
                 Tool(deploy, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
                 Tool(deploy_check, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
-                Tool(mock, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
                 Tool(analyze_file, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
                 Tool(analyze_url, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
                 Tool(append_file, docstring_format="google", require_parameter_descriptions=True, takes_ctx=True),
@@ -166,6 +165,16 @@ class TinybirdAgent:
             workspace_id=workspace_id,
             project=self.project,
         )
+        self.mock_agent = MockAgent(
+            dangerously_skip_permissions=self.dangerously_skip_permissions,
+            prompt_mode=prompt_mode,
+            thinking_animation=self.thinking_animation,
+            token=self.token,
+            user_token=self.user_token,
+            host=self.host,
+            workspace_id=workspace_id,
+            project=self.project,
+        )
 
         @self.agent.tool
         def manage_tests(ctx: RunContext[TinybirdAgentContext], task: str) -> str:
@@ -208,6 +217,25 @@ class TinybirdAgent:
                 str: The summary of the result.
             """
             result = self.explore_agent.run(task, deps=ctx.deps, usage=ctx.usage)
+            return result.output or "No result returned"
+
+        @self.agent.tool
+        def mock(
+            ctx: RunContext[TinybirdAgentContext], datasource_name: str, rows: int, data_format: str, task: str
+        ) -> str:
+            """Generate mock data for a datasource.
+
+            Args:
+                datasource_name (str): The datasource name to generate mock data for. Required.
+                rows (int): Number of rows to create. If not provided, the default is 10. Required.
+                data_format (str): Format of the mock data to create. Options: ndjson, csv. Required.
+                task (str): Extra details about how to generate the mock data (nested json if any, sample row to help with the generation, etc). Required.
+
+            Returns:
+                str: The result of the mock data generation.
+            """
+            user_input = f"Datasource name: {datasource_name}\nRows: {rows}\nData format: {data_format}\nTask: {task}"
+            result = self.mock_agent.run(user_input, deps=ctx.deps, usage=ctx.usage)
             return result.output or "No result returned"
 
         @self.agent.instructions

@@ -16,6 +16,7 @@ def _get_kwargs(
     log_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
     only_result: Union[Unset, None, bool] = UNSET,
+    no_logs: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -27,6 +28,8 @@ def _get_kwargs(
     params["get_progress"] = get_progress
 
     params["only_result"] = only_result
+
+    params["no_logs"] = no_logs
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -65,6 +68,7 @@ def sync_detailed(
     log_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
     only_result: Union[Unset, None, bool] = UNSET,
+    no_logs: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """get job updates via server-sent events
 
@@ -75,6 +79,7 @@ def sync_detailed(
         log_offset (Union[Unset, None, int]):
         get_progress (Union[Unset, None, bool]):
         only_result (Union[Unset, None, bool]):
+        no_logs (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -91,6 +96,7 @@ def sync_detailed(
         log_offset=log_offset,
         get_progress=get_progress,
         only_result=only_result,
+        no_logs=no_logs,
     )
 
     response = client.get_httpx_client().request(
@@ -109,6 +115,7 @@ async def asyncio_detailed(
     log_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
     only_result: Union[Unset, None, bool] = UNSET,
+    no_logs: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """get job updates via server-sent events
 
@@ -119,6 +126,7 @@ async def asyncio_detailed(
         log_offset (Union[Unset, None, int]):
         get_progress (Union[Unset, None, bool]):
         only_result (Union[Unset, None, bool]):
+        no_logs (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,6 +143,7 @@ async def asyncio_detailed(
         log_offset=log_offset,
         get_progress=get_progress,
         only_result=only_result,
+        no_logs=no_logs,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

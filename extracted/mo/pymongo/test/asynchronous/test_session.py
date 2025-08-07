@@ -19,7 +19,7 @@ import asyncio
 import copy
 import sys
 import time
-from asyncio import iscoroutinefunction
+from inspect import iscoroutinefunction
 from io import BytesIO
 from test.asynchronous.helpers import ExceptionCatchingTask
 from typing import Any, Callable, List, Set, Tuple
@@ -134,8 +134,9 @@ class TestSession(AsyncIntegrationTest):
                 await f(*args, **kw)
                 self.assertGreaterEqual(len(listener.started_events), 1)
                 for event in listener.started_events:
-                    self.assertTrue(
-                        "lsid" in event.command,
+                    self.assertIn(
+                        "lsid",
+                        event.command,
                         f"{f.__name__} sent no lsid with {event.command_name}",
                     )
 
@@ -170,8 +171,9 @@ class TestSession(AsyncIntegrationTest):
             self.assertGreaterEqual(len(listener.started_events), 1)
             lsids = []
             for event in listener.started_events:
-                self.assertTrue(
-                    "lsid" in event.command,
+                self.assertIn(
+                    "lsid",
+                    event.command,
                     f"{f.__name__} sent no lsid with {event.command_name}",
                 )
 
@@ -192,10 +194,11 @@ class TestSession(AsyncIntegrationTest):
         # successful connection checkout" test from Driver Sessions Spec.
         succeeded = False
         lsid_set = set()
-        failures = 0
-        for _ in range(5):
-            listener = OvertCommandListener()
-            client = await self.async_rs_or_single_client(event_listeners=[listener], maxPoolSize=1)
+        listener = OvertCommandListener()
+        client = await self.async_rs_or_single_client(event_listeners=[listener], maxPoolSize=1)
+        # Retry up to 10 times because there is a known race condition that can cause multiple
+        # sessions to be used: connection check in happens before session check in
+        for _ in range(10):
             cursor = client.db.test.find({})
             ops: List[Tuple[Callable, List[Any]]] = [
                 (client.db.test.find_one, [{"_id": 1}]),
@@ -232,15 +235,14 @@ class TestSession(AsyncIntegrationTest):
             for t in tasks:
                 await t.join()
                 self.assertIsNone(t.exc)
-            await client.close()
             lsid_set.clear()
             for i in listener.started_events:
                 if i.command.get("lsid"):
                     lsid_set.add(i.command.get("lsid")["id"])
             if len(lsid_set) == 1:
+                # Break on first success.
                 succeeded = True
-            else:
-                failures += 1
+                break
         self.assertTrue(succeeded, lsid_set)
 
     async def test_pool_lifo(self):
@@ -422,8 +424,9 @@ class TestSession(AsyncIntegrationTest):
                 await f(session=s)
                 self.assertGreaterEqual(len(listener.started_events), 1)
                 for event in listener.started_events:
-                    self.assertTrue(
-                        "lsid" in event.command,
+                    self.assertIn(
+                        "lsid",
+                        event.command,
                         f"{name} sent no lsid with {event.command_name}",
                     )
 
@@ -441,15 +444,13 @@ class TestSession(AsyncIntegrationTest):
             listener.reset()
             await f(session=None)
             event0 = listener.first_command_started()
-            self.assertTrue(
-                "lsid" in event0.command, f"{name} sent no lsid with {event0.command_name}"
-            )
+            self.assertIn("lsid", event0.command, f"{name} sent no lsid with {event0.command_name}")
 
             lsid = event0.command["lsid"]
 
             for event in listener.started_events[1:]:
-                self.assertTrue(
-                    "lsid" in event.command, f"{name} sent no lsid with {event.command_name}"
+                self.assertIn(
+                    "lsid", event.command, f"{name} sent no lsid with {event.command_name}"
                 )
 
                 self.assertEqual(
@@ -1045,14 +1046,6 @@ class TestCausalConsistency(AsyncUnitTest):
         )
 
     @async_client_context.require_no_standalone
-    @async_client_context.require_version_max(4, 1, 0)
-    async def test_aggregate_out_does_not_include_read_concern(self):
-        async def alambda(coll, session):
-            await (await coll.aggregate([{"$out": "aggout"}], session=session)).to_list()
-
-        await self._test_no_read_concern(alambda)
-
-    @async_client_context.require_no_standalone
     async def test_get_more_does_not_include_read_concern(self):
         coll = self.client.pymongo_test.test
         async with self.client.start_session() as sess:
@@ -1094,7 +1087,6 @@ class TestCausalConsistency(AsyncUnitTest):
             self.assertIsNone(act)
 
     @async_client_context.require_no_standalone
-    @async_client_context.require_no_mmap
     async def test_read_concern(self):
         async with self.client.start_session(causal_consistency=True) as s:
             coll = self.client.pymongo_test.test
@@ -1201,15 +1193,17 @@ class TestClusterTime(AsyncIntegrationTest):
 
             self.assertGreaterEqual(len(listener.started_events), 1)
             for i, event in enumerate(listener.started_events):
-                self.assertTrue(
-                    "$clusterTime" in event.command,
+                self.assertIn(
+                    "$clusterTime",
+                    event.command,
                     f"{f.__name__} sent no $clusterTime with {event.command_name}",
                 )
 
                 if i > 0:
                     succeeded = listener.succeeded_events[i - 1]
-                    self.assertTrue(
-                        "$clusterTime" in succeeded.reply,
+                    self.assertIn(
+                        "$clusterTime",
+                        succeeded.reply,
                         f"{f.__name__} received no $clusterTime with {succeeded.command_name}",
                     )
 

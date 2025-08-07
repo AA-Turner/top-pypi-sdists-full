@@ -278,7 +278,7 @@ class MatriceDeployClient:
 
         try:
             resp = self.rpc.post(
-                path=f"/v1/deployment/add_auth_key/{self.deployment_id}",
+                path=f"/v1/inference/add_auth_key/{self.deployment_id}",
                 payload={"expiryDays": expiry_days, "authType": "external"},
             )
             if resp.get("success"):
@@ -301,7 +301,7 @@ class MatriceDeployClient:
         """
         try:
             response = self.rpc.get(
-                f"/v1/deployment/get_deployment_without_auth_key/{self.deployment_id}"
+                f"/v1/inference/get_deployment_without_auth_key/{self.deployment_id}"
             )
             if not response.get("success"):
                 raise RuntimeError(f"Failed to get deployment info: {response}")

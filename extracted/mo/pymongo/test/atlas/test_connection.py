@@ -37,13 +37,12 @@ URIS = {
     "ATLAS_FREE": os.environ.get("ATLAS_FREE"),
     "ATLAS_TLS11": os.environ.get("ATLAS_TLS11"),
     "ATLAS_TLS12": os.environ.get("ATLAS_TLS12"),
-    "ATLAS_SERVERLESS": os.environ.get("ATLAS_SERVERLESS"),
     "ATLAS_SRV_REPL": os.environ.get("ATLAS_SRV_REPL"),
     "ATLAS_SRV_SHRD": os.environ.get("ATLAS_SRV_SHRD"),
     "ATLAS_SRV_FREE": os.environ.get("ATLAS_SRV_FREE"),
     "ATLAS_SRV_TLS11": os.environ.get("ATLAS_SRV_TLS11"),
     "ATLAS_SRV_TLS12": os.environ.get("ATLAS_SRV_TLS12"),
-    "ATLAS_SRV_SERVERLESS": os.environ.get("ATLAS_SRV_SERVERLESS"),
+    "ATLAS_X509_DEV_WITH_CERT": os.environ.get("ATLAS_X509_DEV_WITH_CERT"),
 }
 
 
@@ -73,9 +72,6 @@ class TestAtlasConnect(PyMongoTestCase):
     def test_tls_12(self):
         self.connect(URIS["ATLAS_TLS12"])
 
-    def test_serverless(self):
-        self.connect(URIS["ATLAS_SERVERLESS"])
-
     def connect_srv(self, uri):
         self.connect(uri)
         self.assertIn("mongodb+srv://", uri)
@@ -96,8 +92,8 @@ class TestAtlasConnect(PyMongoTestCase):
     def test_srv_tls_12(self):
         self.connect_srv(URIS["ATLAS_SRV_TLS12"])
 
-    def test_srv_serverless(self):
-        self.connect_srv(URIS["ATLAS_SRV_SERVERLESS"])
+    def test_x509_with_cert(self):
+        self.connect(URIS["ATLAS_X509_DEV_WITH_CERT"])
 
     def test_uniqueness(self):
         """Ensure that we don't accidentally duplicate the test URIs."""

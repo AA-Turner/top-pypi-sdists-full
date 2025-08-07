@@ -220,7 +220,7 @@ class binance(binanceAsync):
         """
         return await self.watch_liquidations_for_symbols([symbol], since, limit, params)
 
-    async def watch_liquidations_for_symbols(self, symbols: List[str] = None, since: Int = None, limit: Int = None, params={}) -> List[Liquidation]:
+    async def watch_liquidations_for_symbols(self, symbols: List[str], since: Int = None, limit: Int = None, params={}) -> List[Liquidation]:
         """
         watch the public liquidations of a trading pair
 
@@ -3732,7 +3732,7 @@ class binance(binanceAsync):
         trades = await self.watch(url, messageHash, message, messageHash, subscription)
         return self.filter_by_symbol_since_limit(trades, symbol, since, limit)
 
-    async def fetch_trades_ws(self, symbol: Str = None, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
+    async def fetch_trades_ws(self, symbol: str, since: Int = None, limit: Int = None, params={}) -> List[Trade]:
         """
         fetch all trades made by the user
 
@@ -3748,8 +3748,6 @@ class binance(binanceAsync):
         :returns dict[]: a list of `trade structures <https://docs.ccxt.com/#/?id=trade-structure>`
         """
         await self.load_markets()
-        if symbol is None:
-            raise BadRequest(self.id + ' fetchTradesWs() requires a symbol argument')
         market = self.market(symbol)
         type = self.get_market_type('fetchTradesWs', market, params)
         if type != 'spot' and type != 'future':

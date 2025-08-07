@@ -53,7 +53,7 @@ class VirtualControllerApi:
         self.api_client = api_client
 
     @validate_call
-    async def add_virtual_robot_coordinate_system(
+    async def add_virtual_controller_coordinate_system(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -106,7 +106,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._add_virtual_robot_coordinate_system_serialize(
+        _param = self._add_virtual_controller_coordinate_system_serialize(
             cell=cell,
             controller=controller,
             coordinate_system=coordinate_system,
@@ -134,7 +134,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def add_virtual_robot_coordinate_system_with_http_info(
+    async def add_virtual_controller_coordinate_system_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -187,7 +187,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._add_virtual_robot_coordinate_system_serialize(
+        _param = self._add_virtual_controller_coordinate_system_serialize(
             cell=cell,
             controller=controller,
             coordinate_system=coordinate_system,
@@ -215,7 +215,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def add_virtual_robot_coordinate_system_without_preload_content(
+    async def add_virtual_controller_coordinate_system_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -268,7 +268,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._add_virtual_robot_coordinate_system_serialize(
+        _param = self._add_virtual_controller_coordinate_system_serialize(
             cell=cell,
             controller=controller,
             coordinate_system=coordinate_system,
@@ -291,7 +291,7 @@ class VirtualControllerApi:
         return response_data.response
 
 
-    def _add_virtual_robot_coordinate_system_serialize(
+    def _add_virtual_controller_coordinate_system_serialize(
         self,
         cell,
         controller,
@@ -375,7 +375,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def add_virtual_robot_tcp(
+    async def add_virtual_controller_tcp(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -431,7 +431,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._add_virtual_robot_tcp_serialize(
+        _param = self._add_virtual_controller_tcp_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -460,7 +460,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def add_virtual_robot_tcp_with_http_info(
+    async def add_virtual_controller_tcp_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -516,7 +516,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._add_virtual_robot_tcp_serialize(
+        _param = self._add_virtual_controller_tcp_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -545,7 +545,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def add_virtual_robot_tcp_without_preload_content(
+    async def add_virtual_controller_tcp_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -601,7 +601,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._add_virtual_robot_tcp_serialize(
+        _param = self._add_virtual_controller_tcp_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -625,7 +625,7 @@ class VirtualControllerApi:
         return response_data.response
 
 
-    def _add_virtual_robot_tcp_serialize(
+    def _add_virtual_controller_tcp_serialize(
         self,
         cell,
         controller,
@@ -712,7 +712,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def delete_virtual_robot_coordinate_system(
+    async def delete_virtual_controller_coordinate_system(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -765,7 +765,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._delete_virtual_robot_coordinate_system_serialize(
+        _param = self._delete_virtual_controller_coordinate_system_serialize(
             cell=cell,
             controller=controller,
             coordinate_system=coordinate_system,
@@ -793,7 +793,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def delete_virtual_robot_coordinate_system_with_http_info(
+    async def delete_virtual_controller_coordinate_system_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -846,7 +846,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._delete_virtual_robot_coordinate_system_serialize(
+        _param = self._delete_virtual_controller_coordinate_system_serialize(
             cell=cell,
             controller=controller,
             coordinate_system=coordinate_system,
@@ -874,7 +874,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def delete_virtual_robot_coordinate_system_without_preload_content(
+    async def delete_virtual_controller_coordinate_system_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -927,7 +927,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._delete_virtual_robot_coordinate_system_serialize(
+        _param = self._delete_virtual_controller_coordinate_system_serialize(
             cell=cell,
             controller=controller,
             coordinate_system=coordinate_system,
@@ -950,7 +950,7 @@ class VirtualControllerApi:
         return response_data.response
 
 
-    def _delete_virtual_robot_coordinate_system_serialize(
+    def _delete_virtual_controller_coordinate_system_serialize(
         self,
         cell,
         controller,
@@ -1023,7 +1023,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def delete_virtual_robot_tcp(
+    async def delete_virtual_controller_tcp(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -1076,7 +1076,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._delete_virtual_robot_tcp_serialize(
+        _param = self._delete_virtual_controller_tcp_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -1104,7 +1104,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def delete_virtual_robot_tcp_with_http_info(
+    async def delete_virtual_controller_tcp_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -1157,7 +1157,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._delete_virtual_robot_tcp_serialize(
+        _param = self._delete_virtual_controller_tcp_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -1185,7 +1185,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def delete_virtual_robot_tcp_without_preload_content(
+    async def delete_virtual_controller_tcp_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -1238,7 +1238,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._delete_virtual_robot_tcp_serialize(
+        _param = self._delete_virtual_controller_tcp_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -1261,7 +1261,7 @@ class VirtualControllerApi:
         return response_data.response
 
 
-    def _delete_virtual_robot_tcp_serialize(
+    def _delete_virtual_controller_tcp_serialize(
         self,
         cell,
         controller,
@@ -2457,7 +2457,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def get_virtual_robot_mounting(
+    async def get_virtual_controller_mounting(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2507,7 +2507,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_mounting_serialize(
+        _param = self._get_virtual_controller_mounting_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -2534,7 +2534,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def get_virtual_robot_mounting_with_http_info(
+    async def get_virtual_controller_mounting_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2584,7 +2584,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_mounting_serialize(
+        _param = self._get_virtual_controller_mounting_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -2611,7 +2611,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def get_virtual_robot_mounting_without_preload_content(
+    async def get_virtual_controller_mounting_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2661,7 +2661,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._get_virtual_robot_mounting_serialize(
+        _param = self._get_virtual_controller_mounting_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -2683,7 +2683,7 @@ class VirtualControllerApi:
         return response_data.response
 
 
-    def _get_virtual_robot_mounting_serialize(
+    def _get_virtual_controller_mounting_serialize(
         self,
         cell,
         controller,
@@ -2751,7 +2751,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def list_virtual_robot_coordinate_systems(
+    async def list_virtual_controller_coordinate_systems(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2798,7 +2798,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_coordinate_systems_serialize(
+        _param = self._list_virtual_controller_coordinate_systems_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -2823,7 +2823,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def list_virtual_robot_coordinate_systems_with_http_info(
+    async def list_virtual_controller_coordinate_systems_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2870,7 +2870,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_coordinate_systems_serialize(
+        _param = self._list_virtual_controller_coordinate_systems_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -2895,7 +2895,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def list_virtual_robot_coordinate_systems_without_preload_content(
+    async def list_virtual_controller_coordinate_systems_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -2942,7 +2942,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_coordinate_systems_serialize(
+        _param = self._list_virtual_controller_coordinate_systems_serialize(
             cell=cell,
             controller=controller,
             _request_auth=_request_auth,
@@ -2962,7 +2962,7 @@ class VirtualControllerApi:
         return response_data.response
 
 
-    def _list_virtual_robot_coordinate_systems_serialize(
+    def _list_virtual_controller_coordinate_systems_serialize(
         self,
         cell,
         controller,
@@ -3027,7 +3027,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def list_virtual_robot_tcps(
+    async def list_virtual_controller_tcps(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -3077,7 +3077,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_tcps_serialize(
+        _param = self._list_virtual_controller_tcps_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -3104,7 +3104,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def list_virtual_robot_tcps_with_http_info(
+    async def list_virtual_controller_tcps_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -3154,7 +3154,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_tcps_serialize(
+        _param = self._list_virtual_controller_tcps_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -3181,7 +3181,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def list_virtual_robot_tcps_without_preload_content(
+    async def list_virtual_controller_tcps_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -3231,7 +3231,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._list_virtual_robot_tcps_serialize(
+        _param = self._list_virtual_controller_tcps_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -3253,7 +3253,7 @@ class VirtualControllerApi:
         return response_data.response
 
 
-    def _list_virtual_robot_tcps_serialize(
+    def _list_virtual_controller_tcps_serialize(
         self,
         cell,
         controller,
@@ -4229,7 +4229,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def set_virtual_robot_mounting(
+    async def set_virtual_controller_mounting(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -4282,7 +4282,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._set_virtual_robot_mounting_serialize(
+        _param = self._set_virtual_controller_mounting_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -4310,7 +4310,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def set_virtual_robot_mounting_with_http_info(
+    async def set_virtual_controller_mounting_with_http_info(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -4363,7 +4363,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._set_virtual_robot_mounting_serialize(
+        _param = self._set_virtual_controller_mounting_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -4391,7 +4391,7 @@ class VirtualControllerApi:
 
 
     @validate_call
-    async def set_virtual_robot_mounting_without_preload_content(
+    async def set_virtual_controller_mounting_without_preload_content(
         self,
         cell: Annotated[StrictStr, Field(description="Unique identifier addressing a cell in all API calls. ")],
         controller: Annotated[StrictStr, Field(description="Unique identifier to address a controller in the cell.")],
@@ -4444,7 +4444,7 @@ class VirtualControllerApi:
         :return: Returns the result object.
         """ # noqa: E501
 
-        _param = self._set_virtual_robot_mounting_serialize(
+        _param = self._set_virtual_controller_mounting_serialize(
             cell=cell,
             controller=controller,
             motion_group=motion_group,
@@ -4467,7 +4467,7 @@ class VirtualControllerApi:
         return response_data.response
 
 
-    def _set_virtual_robot_mounting_serialize(
+    def _set_virtual_controller_mounting_serialize(
         self,
         cell,
         controller,

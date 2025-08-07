@@ -258,9 +258,9 @@ def test_push_to_hub(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureF
 
 
 @pytest.mark.parametrize("safe_serialization", [True, False, None])
-def test_safe_serialization(safe_serialization: bool) -> None:
+def test_safe_serialization(stsb_bert_tiny_model: SentenceTransformer, safe_serialization: bool) -> None:
+    model = stsb_bert_tiny_model
     with SafeTemporaryDirectory() as cache_folder:
-        model = SentenceTransformer("sentence-transformers-testing/stsb-bert-tiny-safetensors")
         if safe_serialization:
             model.save(cache_folder, safe_serialization=safe_serialization)
             model_files = list(Path(cache_folder).glob("**/model.safetensors"))
@@ -466,8 +466,8 @@ def test_prompt_length_calculation(
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA must be available to test float16 support.")
-def test_load_with_torch_dtype() -> None:
-    model = SentenceTransformer("sentence-transformers-testing/stsb-bert-tiny-safetensors")
+def test_load_with_torch_dtype(stsb_bert_tiny_model: SentenceTransformer) -> None:
+    model = stsb_bert_tiny_model
 
     assert model.encode(["Hello there!"], convert_to_tensor=True).dtype == torch.float32
 
@@ -508,7 +508,8 @@ def test_load_with_model_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.skipif(not is_peft_available(), reason="PEFT must be available to test PEFT support.")
-def test_load_checkpoint_with_peft_and_lora() -> None:
+def test_load_checkpoint_with_peft_and_lora(stsb_bert_tiny_model: SentenceTransformer) -> None:
+    model = stsb_bert_tiny_model
     from peft import LoraConfig, TaskType
 
     peft_config = LoraConfig(
@@ -521,7 +522,6 @@ def test_load_checkpoint_with_peft_and_lora() -> None:
     )
 
     with SafeTemporaryDirectory() as tmp_folder:
-        model = SentenceTransformer("sentence-transformers-testing/stsb-bert-tiny-safetensors")
         model.add_adapter(peft_config)
         model.save(tmp_folder)
         expecteds = model.encode(["Hello there!", "How are you?"], convert_to_tensor=True)
@@ -537,8 +537,8 @@ def test_load_checkpoint_with_peft_and_lora() -> None:
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA must be available to test float16 support.")
-def test_encode_fp16() -> None:
-    tiny_model = SentenceTransformer("sentence-transformers-testing/stsb-bert-tiny-safetensors")
+def test_encode_fp16(stsb_bert_tiny_model: SentenceTransformer) -> None:
+    tiny_model = stsb_bert_tiny_model
     tiny_model.half()
     embeddings = tiny_model.encode(["Hello there!"], convert_to_tensor=True)
     assert embeddings.dtype == torch.float16
@@ -763,36 +763,40 @@ def test_override_config_versions(stsb_bert_tiny_model: SentenceTransformer) -> 
 @pytest.mark.parametrize(
     "modules",
     [
-        lambda: [
-            Transformer("sentence-transformers-testing/stsb-bert-tiny-safetensors"),
+        lambda bert_model, word_model: [
+            bert_model[0],
             Pooling(128, "mean"),
             Dense(128, 128),
         ],
-        lambda: [
-            Transformer("sentence-transformers-testing/stsb-bert-tiny-safetensors"),
+        lambda bert_model, word_model: [
+            bert_model[0],
             CNN(128, 128),
             Pooling(128, "mean"),
         ],
-        lambda: [
-            Transformer("sentence-transformers-testing/stsb-bert-tiny-safetensors"),
+        lambda bert_model, word_model: [
+            bert_model[0],
             Pooling(128, "mean"),
             LayerNorm(128),
         ],
-        lambda: [
-            SentenceTransformer("sentence-transformers/average_word_embeddings_levy_dependency")[0],
+        lambda bert_model, word_model: [
+            word_model[0],
             LSTM(300, 128),
             Pooling(128, "mean"),
         ],
-        lambda: [
-            Transformer("sentence-transformers-testing/stsb-bert-tiny-safetensors"),
+        lambda bert_model, word_model: [
+            bert_model[0],
             WeightedLayerPooling(128, num_hidden_layers=2, layer_start=1),
             Pooling(128, "mean"),
         ],
-        lambda: SentenceTransformer("sentence-transformers/average_word_embeddings_levy_dependency"),
+        lambda bert_model, word_model: word_model,
     ],
 )
-def test_safetensors(modules: Callable[[], list[nn.Module] | SentenceTransformer]) -> None:
-    modules = modules()  # Call the lambda to get the actual modules
+def test_safetensors(
+    stsb_bert_tiny_model: SentenceTransformer,
+    avg_word_embeddings_levy: SentenceTransformer,
+    modules: Callable[[], list[nn.Module] | SentenceTransformer],
+) -> None:
+    modules = modules(stsb_bert_tiny_model, avg_word_embeddings_levy)  # Call the lambda to get the actual modules
     if isinstance(modules, SentenceTransformer):
         model = modules
     else:
@@ -814,19 +818,49 @@ def test_safetensors(modules: Callable[[], list[nn.Module] | SentenceTransformer
         assert np.allclose(original_embedding, loaded_embedding)
 
 
-def test_empty_encode(stsb_bert_tiny_model: SentenceTransformer) -> None:
+@pytest.mark.parametrize("convert_to_tensor", [True, False])
+@pytest.mark.parametrize("convert_to_numpy", [True, False])
+@pytest.mark.parametrize("normalize_embeddings", [True, False])
+@pytest.mark.parametrize("precision", [None, "float32", "int8", "uint8", "binary", "ubinary"])
+@pytest.mark.parametrize("truncate_dim", [None, 64, 128])
+def test_empty_encode(
+    stsb_bert_tiny_model: SentenceTransformer,
+    convert_to_tensor: bool,
+    convert_to_numpy: bool,
+    normalize_embeddings: bool,
+    precision: str | None,
+    truncate_dim: int | None,
+) -> None:
     model = stsb_bert_tiny_model
-    embeddings = model.encode([])
-    assert embeddings.shape == (0,)
+    embeddings = model.encode(
+        [],
+        convert_to_tensor=convert_to_tensor,
+        convert_to_numpy=convert_to_numpy,
+        normalize_embeddings=normalize_embeddings,
+        precision=precision,
+        truncate_dim=truncate_dim,
+    )
+
+    if convert_to_tensor:
+        assert isinstance(embeddings, torch.Tensor)
+        assert embeddings.numel() == 0
+        assert embeddings.device == model.device
+    elif convert_to_numpy:
+        assert isinstance(embeddings, np.ndarray)
+        assert embeddings.size == 0
+    else:
+        assert embeddings == []
 
 
 @pytest.mark.skipif(not is_peft_available(), reason="PEFT must be available to test adapter methods.")
 @pytest.mark.skipif(
     is_ci(), reason="huggingface_hub & PEFT incorrectly set the user agent in the CI, leading to failures."
 )
-def test_multiple_adapters() -> None:
+def test_multiple_adapters(
+    stsb_bert_tiny_model: SentenceTransformer, avg_word_embeddings_levy: SentenceTransformer
+) -> None:
     text = "Hello, World!"
-    model = SentenceTransformer("sentence-transformers-testing/stsb-bert-tiny-safetensors")
+    model = stsb_bert_tiny_model
     vec_initial = model.encode(text)
     from peft import LoraConfig, TaskType, get_model_status
 
@@ -883,7 +917,7 @@ def test_multiple_adapters() -> None:
     assert np.allclose(vec_initial, vec_no_adapter)
 
     # Check that for non Transformer-based models we have an error
-    model = SentenceTransformer("sentence-transformers/average_word_embeddings_levy_dependency")
+    model = avg_word_embeddings_levy
     with pytest.raises(ValueError, match="PEFT methods are only supported"):
         model.add_adapter(peft_config)
 
@@ -946,7 +980,12 @@ def test_encode_query(
         )
 
         # Verify that encode was called with the correct parameters
-        expected_prompt_name = prompt_name if prompt_name else "query"
+        if prompt_name:
+            expected_prompt_name = prompt_name
+        elif prompt is not None:
+            expected_prompt_name = None
+        else:
+            expected_prompt_name = "query"
 
         mock_encode.assert_called_once()
         args, kwargs = mock_encode.call_args
@@ -997,7 +1036,12 @@ def test_encode_document(
         mock_encode.assert_called_once()
         args, kwargs = mock_encode.call_args
 
-        expected_prompt_name = prompt_name if prompt_name else "document"
+        if prompt_name:
+            expected_prompt_name = prompt_name
+        elif prompt is not None:
+            expected_prompt_name = None
+        else:
+            expected_prompt_name = "document"
 
         # Check that sentences were passed correctly
         assert kwargs["sentences"] == sentences
@@ -1118,3 +1162,18 @@ def test_encode_query_document_vs_encode(stsb_bert_tiny_model: SentenceTransform
         np.testing.assert_allclose(query_embeddings_without_prompt, query_embeddings)
     with pytest.raises(AssertionError):
         np.testing.assert_allclose(document_embeddings_without_prompt, document_embeddings)
+
+
+def test_encode_with_dataset_column(stsb_bert_tiny_model: SentenceTransformer) -> None:
+    """Test that encode can handle a dataset column as input."""
+    model = stsb_bert_tiny_model
+    from datasets import Dataset
+
+    # Create a simple dataset with a text column
+    dataset = Dataset.from_dict({"text": ["This is a test.", "Another sentence."]})
+
+    # Encode the dataset column
+    embeddings = model.encode(dataset["text"], convert_to_tensor=True)
+
+    # Check the shape of the embeddings
+    assert embeddings.shape == (2, model.get_sentence_embedding_dimension())

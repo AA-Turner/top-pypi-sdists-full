@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: remarshal
-Version: 1.0.0
+Version: 1.0.1
 Summary: Convert between CBOR, JSON, MessagePack, TOML, and YAML
-Home-page: https://github.com/remarshal-project/remarshal
 License: MIT
 Keywords: converter,cbor,json,messagepack,msgpack,toml,yaml
 Author: D. Bohdan
 Author-email: dbohdan@dbohdan.com
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: MIT License
@@ -15,19 +14,24 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: File Formats
 Classifier: Topic :: File Formats :: JSON
 Classifier: Topic :: Utilities
+Provides-Extra: dev
 Requires-Dist: cbor2 (>=5.6,<6.0)
-Requires-Dist: colorama (>=0.4.6,<0.5.0)
-Requires-Dist: rich-argparse (>=1.4.0,<2.0.0)
-Requires-Dist: ruamel.yaml (>=0.18.0,<0.19.0)
-Requires-Dist: tomli (>=2.0.1,<3.0.0) ; python_version < "3.11"
-Requires-Dist: tomlkit (>=0.13.2,<0.14.0)
+Requires-Dist: codespell[toml] (>=2.2.5,<3.0) ; extra == "dev"
+Requires-Dist: colorama (>=0.4.6,<0.5)
+Requires-Dist: pyright (==1.1.399) ; extra == "dev"
+Requires-Dist: pytest (>=8.0,<9.0) ; extra == "dev"
+Requires-Dist: pytest-cov (>=4.1,<5.0) ; extra == "dev"
+Requires-Dist: rich-argparse (>=1.4,<2.0)
+Requires-Dist: ruamel.yaml (>=0.18.14,<0.19)
+Requires-Dist: ruff (==0.11.5) ; extra == "dev"
+Requires-Dist: snoop (>=0.6,<0.7) ; extra == "dev"
+Requires-Dist: tomli (>=2.0.1,<3.0) ; extra == "dev"
+Requires-Dist: tomli (>=2.0.1,<3.0) ; python_version < "3.11"
+Requires-Dist: tomlkit (>=0.13.2,<0.14)
+Requires-Dist: types-python-dateutil (>=2.8.19.13,<3.0) ; extra == "dev"
 Requires-Dist: u-msgpack-python (>=2.8,<3.0)
 Project-URL: Repository, https://github.com/remarshal-project/remarshal
 Description-Content-Type: text/markdown
@@ -112,8 +116,6 @@ between what formats.
   with the `-k`/`--stringify` option,
   which turns them into strings.
   Converting a document with a date-time type to JSON fails without `-k`/`--stringify`.
-- Remarshal converts YAML dates to TOML Local Dates.
-  It converts TOML Local Dates to YAML dates.
 
 ### Python output
 
@@ -124,6 +126,8 @@ The Python output is either from
 (the default) or formatted by
 [`pprint.pformat`](https://docs.python.org/3/library/pprint.html#pprint.pformat)
 (when you pass the option `--indent`).
+The default `repr` format ignores `-s`/`--sort-keys`.
+
 The style of `pprint`
 is probably not what you want your Python code to look like.
 Apply your preferred Python formatter to it.
@@ -268,6 +272,12 @@ $ remarshal test.toml --to json
 $ remarshal test.toml --of json --unwrap main
 [{"a":"b"},{"c":[1,2,3]}]
 ```
+
+## Shell completions
+
+Remarshal provides shell-completion files for Bash and fish in the directory [`completions/`](completions/).
+You can install fish completions automatically by running `install.fish`.
+You will need to install Bash completions manually.
 
 ## Examples
 

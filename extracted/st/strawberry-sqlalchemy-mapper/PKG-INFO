@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: strawberry-sqlalchemy-mapper
-Version: 0.6.4
+Version: 0.7.0
 Summary: A library for autogenerating Strawberry GraphQL types from SQLAlchemy models.
 License: MIT
 Keywords: graphql,sqlalchemy,strawberry

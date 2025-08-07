@@ -27,20 +27,19 @@ import re
 import sys
 import time
 import traceback
-from asyncio import iscoroutinefunction
 from collections import defaultdict
+from inspect import iscoroutinefunction
 from test.asynchronous import (
     AsyncIntegrationTest,
     async_client_context,
     client_knobs,
     unittest,
 )
-from test.asynchronous.utils import async_get_pool
+from test.asynchronous.utils import async_get_pool, flaky
 from test.asynchronous.utils_spec_runner import SpecRunnerTask
 from test.unified_format_shared import (
     KMS_TLS_OPTS,
     PLACEHOLDER_MAP,
-    SKIP_CSOT_TESTS,
     EventListenerUtil,
     MatchEvaluatorUtil,
     coerce_result,
@@ -67,6 +66,7 @@ from bson import SON, json_util
 from bson.codec_options import DEFAULT_CODEC_OPTIONS
 from bson.objectid import ObjectId
 from gridfs import AsyncGridFSBucket, GridOut, NoFile
+from gridfs.errors import CorruptGridFile
 from pymongo import ASCENDING, AsyncMongoClient, CursorType, _csot
 from pymongo.asynchronous.change_stream import AsyncChangeStream
 from pymongo.asynchronous.client_session import AsyncClientSession, TransactionOptions, _TxnState
@@ -75,6 +75,7 @@ from pymongo.asynchronous.command_cursor import AsyncCommandCursor
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.asynchronous.encryption import AsyncClientEncryption
 from pymongo.asynchronous.helpers import anext
+from pymongo.driver_info import DriverInfo
 from pymongo.encryption_options import _HAVE_PYMONGOCRYPT
 from pymongo.errors import (
     AutoReconnect,
@@ -131,14 +132,6 @@ async def is_run_on_requirement_satisfied(requirement):
     if req_max_server_version:
         max_version_satisfied = Version.from_string(req_max_server_version) >= server_version
 
-    serverless = requirement.get("serverless")
-    if serverless == "require":
-        serverless_satisfied = async_client_context.serverless
-    elif serverless == "forbid":
-        serverless_satisfied = not async_client_context.serverless
-    else:  # unset or "allow"
-        serverless_satisfied = True
-
     params_satisfied = True
     params = requirement.get("serverParameters")
     if params:
@@ -168,7 +161,6 @@ async def is_run_on_requirement_satisfied(requirement):
         topology_satisfied
         and min_version_satisfied
         and max_version_satisfied
-        and serverless_satisfied
         and params_satisfied
         and auth_satisfied
         and csfle_satisfied
@@ -284,7 +276,7 @@ class EntityMapUtil:
             self._listeners[spec["id"]] = listener
             kwargs["event_listeners"] = [listener]
             if spec.get("useMultipleMongoses"):
-                if async_client_context.load_balancer or async_client_context.serverless:
+                if async_client_context.load_balancer:
                     kwargs["h"] = async_client_context.MULTI_MONGOS_LB_URI
                 elif async_client_context.is_mongos:
                     kwargs["h"] = async_client_context.mongos_seeds()
@@ -440,7 +432,6 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
 
     SCHEMA_VERSION = Version.from_string("1.22")
     RUN_ON_LOAD_BALANCER = True
-    RUN_ON_SERVERLESS = True
     TEST_SPEC: Any
     TEST_PATH = ""  # This gets filled in by generate_test_classes
     mongos_clients: list[AsyncMongoClient] = []
@@ -503,19 +494,10 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
             raise unittest.SkipTest(f"{self.__class__.__name__} runOnRequirements not satisfied")
 
         # add any special-casing for skipping tests here
-        if async_client_context.storage_engine == "mmapv1":
-            if "retryable-writes" in self.TEST_SPEC["description"] or "retryable_writes" in str(
-                self.TEST_PATH
-            ):
-                raise unittest.SkipTest("MMAPv1 does not support retryWrites=True")
 
         # Handle mongos_clients for transactions tests.
         self.mongos_clients = []
-        if (
-            async_client_context.supports_transactions()
-            and not async_client_context.load_balancer
-            and not async_client_context.serverless
-        ):
+        if async_client_context.supports_transactions() and not async_client_context.load_balancer:
             for address in async_client_context.mongoses:
                 self.mongos_clients.append(await self.async_single_client("{}:{}".format(*address)))
 
@@ -533,41 +515,51 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
 
     def maybe_skip_test(self, spec):
         # add any special-casing for skipping tests here
-        if async_client_context.storage_engine == "mmapv1":
-            if (
-                "Dirty explicit session is discarded" in spec["description"]
-                or "Dirty implicit session is discarded" in spec["description"]
-                or "Cancel server check" in spec["description"]
-            ):
-                self.skipTest("MMAPv1 does not support retryWrites=True")
         if "Client side error in command starting transaction" in spec["description"]:
             self.skipTest("Implement PYTHON-1894")
         if "timeoutMS applied to entire download" in spec["description"]:
             self.skipTest("PyMongo's open_download_stream does not cap the stream's lifetime")
-        if (
-            "Error returned from connection pool clear with interruptInUseConnections=true is retryable"
-            in spec["description"]
-            and not _IS_SYNC
+        if any(
+            x in spec["description"]
+            for x in [
+                "First insertOne is never committed",
+                "Second updateOne is never committed",
+                "Third updateOne is never committed",
+            ]
         ):
-            self.skipTest("PYTHON-5170 tests are flakey")
-        if "Driver extends timeout while streaming" in spec["description"] and not _IS_SYNC:
-            self.skipTest("PYTHON-5174 tests are flakey")
-        if (
-            "inserting _id with type null via clientBulkWrite" in spec["description"]
-            or "commitTransaction fails after Interrupted" in spec["description"]
-            or "commit is not retried after MaxTimeMSExpired error" in spec["description"]
-        ) and async_client_context.serverless:
-            self.skipTest("PYTHON-5326 known serverless failures")
+            self.skipTest("Implement PYTHON-4597")
 
         class_name = self.__class__.__name__.lower()
         description = spec["description"].lower()
         if "csot" in class_name:
-            if "gridfs" in class_name and sys.platform == "win32":
-                self.skipTest("PYTHON-3522 CSOT GridFS tests are flaky on Windows")
-            if async_client_context.storage_engine == "mmapv1":
-                self.skipTest(
-                    "MMAPv1 does not support retryable writes which is required for CSOT tests"
-                )
+            # Skip tests that are too slow to run on a given platform.
+            slow_macos = [
+                "operation fails after two consecutive socket timeouts.*",
+                "operation succeeds after one socket timeout.*",
+                "Non-tailable cursor lifetime remaining timeoutMS applied to getMore if timeoutMode is unset",
+            ]
+            slow_win32 = [
+                *slow_macos,
+                "maxTimeMS value in the command is less than timeoutMS",
+                "timeoutMS applies to whole operation.*",
+            ]
+            slow_pypy = [
+                "timeoutMS applies to whole operation.*",
+            ]
+            if "CI" in os.environ and sys.platform == "win32" and "gridfs" in class_name:
+                self.skipTest("PYTHON-3522 CSOT GridFS test runs too slow on Windows")
+            if "CI" in os.environ and sys.platform == "win32":
+                for pat in slow_win32:
+                    if re.match(pat.lower(), description):
+                        self.skipTest("PYTHON-3522 CSOT test runs too slow on Windows")
+            if "CI" in os.environ and sys.platform == "darwin":
+                for pat in slow_macos:
+                    if re.match(pat.lower(), description):
+                        self.skipTest("PYTHON-3522 CSOT test runs too slow on MacOS")
+            if "CI" in os.environ and sys.implementation.name.lower() == "pypy":
+                for pat in slow_pypy:
+                    if re.match(pat.lower(), description):
+                        self.skipTest("PYTHON-3522 CSOT test runs too slow on PyPy")
             if "change" in description or "change" in class_name:
                 self.skipTest("CSOT not implemented for watch()")
             if "cursors" in class_name:
@@ -592,11 +584,6 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
                 self.skipTest("PyMongo does not support count()")
             if name == "listIndexNames":
                 self.skipTest("PyMongo does not support list_index_names()")
-            if async_client_context.storage_engine == "mmapv1":
-                if name == "createChangeStream":
-                    self.skipTest("MMAPv1 does not support change streams")
-                if name == "withTransaction" or name == "startTransaction":
-                    self.skipTest("MMAPv1 does not support document-level locking")
             if not async_client_context.test_commands_enabled:
                 if name == "failPoint" or name == "targetedFailPoint":
                     self.skipTest("Test commands must be enabled to use fail points")
@@ -636,6 +623,8 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
             # Connection errors are considered client errors.
             if isinstance(error, ConnectionFailure):
                 self.assertNotIsInstance(error, NotPrimaryError)
+            elif isinstance(error, CorruptGridFile):
+                pass
             elif isinstance(error, (InvalidOperation, ConfigurationError, EncryptionError, NoFile)):
                 pass
             else:
@@ -692,7 +681,7 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
                 self.match_evaluator.match_result(expect_result, result)
             else:
                 self.fail(
-                    f"expectResult can only be specified with {BulkWriteError} or {ClientBulkWriteException} exceptions"
+                    f"expectResult can only be specified with {BulkWriteError} or {ClientBulkWriteException} exceptions, got {exception}"
                 )
 
         return exception
@@ -702,8 +691,6 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
             self.fail(f"Operation {opname} not supported for entity of type {type(target)}")
 
     async def __entityOperation_createChangeStream(self, target, *args, **kwargs):
-        if async_client_context.storage_engine == "mmapv1":
-            self.skipTest("MMAPv1 does not support change streams")
         self.__raise_if_unsupported(
             "createChangeStream", target, AsyncMongoClient, AsyncDatabase, AsyncCollection
         )
@@ -830,14 +817,10 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
         return await (await target.list_search_indexes(name, **agg_kwargs)).to_list()
 
     async def _sessionOperation_withTransaction(self, target, *args, **kwargs):
-        if async_client_context.storage_engine == "mmapv1":
-            self.skipTest("MMAPv1 does not support document-level locking")
         self.__raise_if_unsupported("withTransaction", target, AsyncClientSession)
         return await target.with_transaction(*args, **kwargs)
 
     async def _sessionOperation_startTransaction(self, target, *args, **kwargs):
-        if async_client_context.storage_engine == "mmapv1":
-            self.skipTest("MMAPv1 does not support document-level locking")
         self.__raise_if_unsupported("startTransaction", target, AsyncClientSession)
         return await target.start_transaction(*args, **kwargs)
 
@@ -859,6 +842,11 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
     async def _cursor_close(self, target, *args, **kwargs):
         self.__raise_if_unsupported("close", target, NonLazyCursor, AsyncCommandCursor)
         return await target.close()
+
+    async def _clientOperation_appendMetadata(self, target, *args, **kwargs):
+        info_opts = kwargs["driver_info_options"]
+        driver_info = DriverInfo(info_opts["name"], info_opts["version"], info_opts["platform"])
+        target.append_metadata(driver_info)
 
     async def _clientEncryptionOperation_createDataKey(self, target, *args, **kwargs):
         if "opts" in kwargs:
@@ -1003,13 +991,9 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
             if ignore and isinstance(exc, (PyMongoError,)):
                 return exc
             if expect_error:
-                if method_name == "_collectionOperation_bulkWrite":
-                    self.skipTest("Skipping test pending PYTHON-4598")
                 return self.process_error(exc, expect_error)
             raise
         else:
-            if method_name == "_collectionOperation_bulkWrite":
-                self.skipTest("Skipping test pending PYTHON-4598")
             if expect_error:
                 self.fail(f'Excepted error {expect_error} but "{opname}" succeeded: {result}')
 
@@ -1394,38 +1378,31 @@ class UnifiedSpecTestMixinV1(AsyncIntegrationTest):
                 self.assertListEqual(sorted_expected_documents, actual_documents)
 
     async def run_scenario(self, spec, uri=None):
-        if "csot" in self.id().lower() and SKIP_CSOT_TESTS:
-            raise unittest.SkipTest("SKIP_CSOT_TESTS is set, skipping...")
-
         # Kill all sessions before and after each test to prevent an open
         # transaction (from a test failure) from blocking collection/database
         # operations during test set up and tear down.
         await self.kill_all_sessions()
 
-        if "csot" in self.id().lower():
-            # Retry CSOT tests up to 2 times to deal with flakey tests.
-            attempts = 3
-            for i in range(attempts):
-                try:
-                    return await self._run_scenario(spec, uri)
-                except (AssertionError, OperationFailure) as exc:
-                    if isinstance(exc, OperationFailure) and (
-                        _IS_SYNC or "failpoint" not in exc._message
-                    ):
-                        raise
-                    if i < attempts - 1:
-                        print(
-                            f"Retrying after attempt {i+1} of {self.id()} failed with:\n"
-                            f"{traceback.format_exc()}",
-                            file=sys.stderr,
-                        )
-                        await self.asyncSetUp()
-                        continue
-                    raise
-            return None
-        else:
-            await self._run_scenario(spec, uri)
-            return None
+        # Handle flaky tests.
+        flaky_tests = [
+            ("PYTHON-5170", ".*test_discovery_and_monitoring.*"),
+            ("PYTHON-5174", ".*Driver_extends_timeout_while_streaming"),
+            ("PYTHON-5315", ".*TestSrvPolling.test_recover_from_initially_.*"),
+            ("PYTHON-4987", ".*UnknownTransactionCommitResult_labels_to_connection_errors"),
+            ("PYTHON-3689", ".*TestProse.test_load_balancing"),
+            ("PYTHON-3522", ".*csot.*"),
+        ]
+        for reason, flaky_test in flaky_tests:
+            if re.match(flaky_test.lower(), self.id().lower()) is not None:
+                func_name = self.id()
+                options = dict(reason=reason, reset_func=self.asyncSetUp, func_name=func_name)
+                if "csot" in func_name.lower():
+                    options["max_runs"] = 3
+                    options["affects_cpython_linux"] = True
+                decorator = flaky(**options)
+                await decorator(self._run_scenario)(spec, uri)
+                return
+        await self._run_scenario(spec, uri)
 
     async def _run_scenario(self, spec, uri=None):
         # maybe skip test manually

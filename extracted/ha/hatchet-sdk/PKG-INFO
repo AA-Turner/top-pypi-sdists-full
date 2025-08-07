@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hatchet-sdk
-Version: 1.16.4
+Version: 1.16.5
 Summary: 
 License: MIT
 Author: Alexander Belanger
@@ -26,7 +26,7 @@ Requires-Dist: opentelemetry-exporter-otlp (>=1.28.0,<2.0.0) ; extra == "otel"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http (>=1.28.0,<2.0.0) ; extra == "otel"
 Requires-Dist: opentelemetry-instrumentation (>=0.49b0) ; extra == "otel"
 Requires-Dist: opentelemetry-sdk (>=1.28.0,<2.0.0) ; extra == "otel"
-Requires-Dist: prometheus-client (>=0.21.1,<0.22.0)
+Requires-Dist: prometheus-client (>=0.21.1)
 Requires-Dist: protobuf (>=5.29.5,<6.0.0)
 Requires-Dist: pydantic (>=2.6.3,<3.0.0)
 Requires-Dist: pydantic-settings (>=2.7.1,<3.0.0)

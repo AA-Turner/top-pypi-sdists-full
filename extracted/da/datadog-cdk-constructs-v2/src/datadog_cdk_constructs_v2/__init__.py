@@ -1847,6 +1847,7 @@ class DatadogECSFargateTaskDefinition(
         system_controls: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_aws_ecs_ceddda9d.SystemControl, typing.Dict[builtins.str, typing.Any]]]] = None,
         ulimits: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_aws_ecs_ceddda9d.Ulimit, typing.Dict[builtins.str, typing.Any]]]] = None,
         user: typing.Optional[builtins.str] = None,
+        version_consistency: typing.Optional[_aws_cdk_aws_ecs_ceddda9d.VersionConsistency] = None,
         working_directory: typing.Optional[builtins.str] = None,
     ) -> _aws_cdk_aws_ecs_ceddda9d.ContainerDefinition:
         '''Adds a new container to the task definition.
@@ -1891,6 +1892,7 @@ class DatadogECSFargateTaskDefinition(
         :param system_controls: A list of namespaced kernel parameters to set in the container. Default: - No system controls are set.
         :param ulimits: An array of ulimits to set in the container.
         :param user: The user to use inside the container. This parameter maps to User in the Create a container section of the Docker Remote API and the --user option to docker run. Default: root
+        :param version_consistency: Specifies whether Amazon ECS will resolve the container image tag provided in the container definition to an image digest. If you set the value for a container as disabled, Amazon ECS will not resolve the provided container image tag to a digest and will use the original image URI specified in the container definition for deployment. Default: VersionConsistency.DISABLED if ``image`` is a CDK asset, VersionConsistency.ENABLED otherwise
         :param working_directory: The working directory in which to run commands inside the container. Default: /
         '''
         if __debug__:
@@ -1934,6 +1936,7 @@ class DatadogECSFargateTaskDefinition(
             system_controls=system_controls,
             ulimits=ulimits,
             user=user,
+            version_consistency=version_consistency,
             working_directory=working_directory,
         )
 
@@ -4379,6 +4382,7 @@ def _typecheckingstub__c5ac675477a0d01b2aa2f7669d706a5924a6f78b8c8f44289133025fc
     system_controls: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_aws_ecs_ceddda9d.SystemControl, typing.Dict[builtins.str, typing.Any]]]] = None,
     ulimits: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_aws_ecs_ceddda9d.Ulimit, typing.Dict[builtins.str, typing.Any]]]] = None,
     user: typing.Optional[builtins.str] = None,
+    version_consistency: typing.Optional[_aws_cdk_aws_ecs_ceddda9d.VersionConsistency] = None,
     working_directory: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

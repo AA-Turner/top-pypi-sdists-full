@@ -9737,7 +9737,7 @@ class TransformInput(sgqlc.types.Input):
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
-    field = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="field")
+    field = sgqlc.types.Field(String, graphql_name="field")
 
     id = sgqlc.types.Field(String, graphql_name="id")
 
@@ -41982,6 +41982,7 @@ class Query(sgqlc.types.Type):
         "evaluate_sql_blocks",
         "generate_mc_sql",
         "get_sql_predicates",
+        "get_transform_functions",
         "run_custom_query",
         "get_table_monitor_validation_statuses",
         "get_table_monitor_configuration",
@@ -42889,6 +42890,11 @@ class Query(sgqlc.types.Type):
     get_sql_predicates = sgqlc.types.Field(
         sgqlc.types.list_of(Predicate), graphql_name="getSqlPredicates"
     )
+
+    get_transform_functions = sgqlc.types.Field(
+        sgqlc.types.list_of("TransformFunction"), graphql_name="getTransformFunctions"
+    )
+    """(experimental) gets all available transform functions"""
 
     run_custom_query = sgqlc.types.Field(
         "SQLResponse",
@@ -62717,9 +62723,49 @@ class Transform(sgqlc.types.Type):
 
     function = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="function")
 
-    field = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="field")
+    field = sgqlc.types.Field(String, graphql_name="field")
 
     id = sgqlc.types.Field(String, graphql_name="id")
+
+
+class TransformFunction(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "name",
+        "description",
+        "sql",
+        "supported_types",
+        "required_type",
+        "supported_connections",
+        "response_format",
+        "category",
+        "standard_prompt",
+    )
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+
+    sql = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sql")
+
+    supported_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(FieldType))),
+        graphql_name="supportedTypes",
+    )
+
+    required_type = sgqlc.types.Field(
+        sgqlc.types.non_null(PredicateRequiredType), graphql_name="requiredType"
+    )
+
+    supported_connections = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="supportedConnections",
+    )
+
+    response_format = sgqlc.types.Field(String, graphql_name="responseFormat")
+
+    category = sgqlc.types.Field(String, graphql_name="category")
+
+    standard_prompt = sgqlc.types.Field(String, graphql_name="standardPrompt")
 
 
 class TriggerCircuitBreakerRule(sgqlc.types.Type):
@@ -65450,7 +65496,7 @@ class AirflowTaskRun(sgqlc.types.Type, Node):
     """Task attempt number"""
 
     duration = sgqlc.types.Field(Float, graphql_name="duration")
-    """Task run duration"""
+    """Task run duration in seconds"""
 
     exception_message = sgqlc.types.Field(String, graphql_name="exceptionMessage")
     """Task failure error message"""
@@ -69115,11 +69161,14 @@ class DbtProject(sgqlc.types.Type, Node):
     """The date of the last test import we know about"""
 
     dbt_jobs = sgqlc.types.Field(
-        sgqlc.types.non_null(DbtJobConnection),
+        DbtJobConnection,
         graphql_name="dbtJobs",
         args=sgqlc.types.ArgDict(
             (
-                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "match_on_catalog",
+                    sgqlc.types.Arg(Boolean, graphql_name="matchOnCatalog", default=None),
+                ),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -69127,11 +69176,9 @@ class DbtProject(sgqlc.types.Type, Node):
             )
         ),
     )
-    """Associated dbt project
+    """Arguments:
 
-    Arguments:
-
-    * `offset` (`Int`)None
+    * `match_on_catalog` (`Boolean`)None
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None

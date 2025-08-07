@@ -1,3 +1,4 @@
+import logging
 import math
 import struct
 from typing import Any, Dict, Iterable, List, Optional
@@ -21,6 +22,8 @@ from .utils import (
     SparseRowOutputType,
     sparse_parse_single_row,
 )
+
+logger = logging.getLogger(__name__)
 
 CHECK_STR_ARRAY = True
 
@@ -179,13 +182,29 @@ def entity_to_str_arr(entity_values: Any, field_info: Any, check: bool = True):
 
 
 def convert_to_json(obj: object):
+    def preprocess_numpy_types(obj: Any):
+        if isinstance(obj, dict):
+            return {k: preprocess_numpy_types(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [preprocess_numpy_types(item) for item in obj]
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        return obj
+
     if isinstance(obj, dict):
-        for k, v in obj.items():
+        for k in obj:
             if not isinstance(k, str):
                 raise DataNotMatchException(message=ExceptionsMessage.JSONKeyMustBeStr)
-            if isinstance(v, np.ndarray):
-                obj[k] = v.tolist()
-    return ujson.dumps(obj, ensure_ascii=False).encode(Config.EncodeProtocol)
+
+    processed_obj = preprocess_numpy_types(obj)
+
+    return ujson.dumps(processed_obj, ensure_ascii=False).encode(Config.EncodeProtocol)
 
 
 def convert_to_json_arr(objs: List[object], field_info: Any):
@@ -250,6 +269,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "bool", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type in (DataType.INT8, DataType.INT16, DataType.INT32):
         try:
@@ -262,6 +282,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "int", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.INT64:
         try:
@@ -273,6 +294,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "int64", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.FLOAT:
         try:
@@ -284,6 +306,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "float", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.DOUBLE:
         try:
@@ -295,6 +318,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "double", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.FLOAT_VECTOR:
         try:
@@ -312,6 +336,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "float_vector", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.BINARY_VECTOR:
         try:
@@ -321,6 +346,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "binary_vector", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.FLOAT16_VECTOR:
         try:
@@ -343,6 +369,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "float16_vector", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.BFLOAT16_VECTOR:
         try:
@@ -365,6 +392,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "bfloat16_vector", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.SPARSE_FLOAT_VECTOR:
         try:
@@ -381,6 +409,28 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "sparse_float_vector", type(field_value))
+                + f" Detail: {e!s}"
+            ) from e
+    elif field_type == DataType.INT8_VECTOR:
+        try:
+            if isinstance(field_value, np.ndarray):
+                if field_value.dtype != "int8":
+                    raise ParamError(
+                        message="invalid input for int8 vector. Expected an np.ndarray with dtype=int8"
+                    )
+                i_bytes = field_value.view(np.int8).tobytes()
+            else:
+                raise ParamError(
+                    message="invalid input for int8 vector. Expected an np.ndarray with dtype=int8"
+                )
+
+            field_data.vectors.dim = len(i_bytes)
+            field_data.vectors.int8_vector += i_bytes
+        except (TypeError, ValueError) as e:
+            raise DataNotMatchException(
+                message=ExceptionsMessage.FieldDataInconsistent
+                % (field_name, "int8_vector", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.VARCHAR:
         try:
@@ -394,6 +444,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "varchar", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.JSON:
         try:
@@ -405,6 +456,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "json", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     elif field_type == DataType.ARRAY:
         try:
@@ -416,6 +468,7 @@ def pack_field_value_to_field_data(
             raise DataNotMatchException(
                 message=ExceptionsMessage.FieldDataInconsistent
                 % (field_name, "array", type(field_value))
+                + f" Detail: {e!s}"
             ) from e
     else:
         raise ParamError(message=f"Unsupported data type: {field_type}")
@@ -469,6 +522,9 @@ def entity_to_field_data(entity: Dict, field_info: Any, num_rows: int) -> schema
             field_data.vectors.bfloat16_vector = b"".join(entity_values)
         elif entity_type == DataType.SPARSE_FLOAT_VECTOR:
             field_data.vectors.sparse_float_vector.CopyFrom(sparse_rows_to_proto(entity_values))
+        elif entity_type == DataType.INT8_VECTOR:
+            field_data.vectors.dim = len(entity_values[0])
+            field_data.vectors.int8_vector = b"".join(entity_values)
 
         elif entity_type == DataType.VARCHAR:
             field_data.scalars.string_data.data.extend(
@@ -486,6 +542,7 @@ def entity_to_field_data(entity: Dict, field_info: Any, num_rows: int) -> schema
         raise DataNotMatchException(
             message=ExceptionsMessage.FieldDataInconsistent
             % (field_name, entity_type.name, type(entity_values[0]))
+            + f" Detail: {e!s}"
         ) from e
     return field_data
 
@@ -680,6 +737,7 @@ def extract_row_data_from_fields_data_v2(
         DataType.BFLOAT16_VECTOR,
         DataType.BINARY_VECTOR,
         DataType.SPARSE_FLOAT_VECTOR,
+        DataType.INT8_VECTOR,
     ):
         return True
     if field_data.type == DataType.STRING:
@@ -758,7 +816,13 @@ def extract_row_data_from_fields_data(
             if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
                 entity_row_data[field_data.field_name] = None
                 return
-            json_dict = ujson.loads(field_data.scalars.json_data.data[index])
+            try:
+                json_dict = ujson.loads(field_data.scalars.json_data.data[index])
+            except Exception as e:
+                logger.error(
+                    f"extract_row_data_from_fields_data::Failed to load JSON data: {e}, original data: {field_data.scalars.json_data.data[index]}"
+                )
+                raise
 
             if not field_data.is_dynamic:
                 entity_row_data[field_data.field_name] = json_dict
@@ -812,6 +876,13 @@ def extract_row_data_from_fields_data(
             entity_row_data[field_data.field_name] = sparse_parse_single_row(
                 field_data.vectors.sparse_float_vector.contents[index]
             )
+        elif field_data.type == DataType.INT8_VECTOR:
+            dim = field_data.vectors.dim
+            if len(field_data.vectors.int8_vector) >= index * dim:
+                start_pos, end_pos = index * dim, (index + 1) * dim
+                entity_row_data[field_data.field_name] = [
+                    field_data.vectors.int8_vector[start_pos:end_pos]
+                ]
 
     for field_data in fields_data:
         check_append(field_data)

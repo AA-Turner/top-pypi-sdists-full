@@ -108,6 +108,8 @@ from .type_defs import (
     GetDataAccessorResponseTypeDef,
     GetDataSourceRequestTypeDef,
     GetDataSourceResponseTypeDef,
+    GetDocumentContentRequestTypeDef,
+    GetDocumentContentResponseTypeDef,
     GetGroupRequestTypeDef,
     GetGroupResponseTypeDef,
     GetIndexRequestTypeDef,
@@ -612,6 +614,16 @@ class QBusinessClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/get_data_source.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_qbusiness/client/#get_data_source)
+        """
+
+    def get_document_content(
+        self, **kwargs: Unpack[GetDocumentContentRequestTypeDef]
+    ) -> GetDocumentContentResponseTypeDef:
+        """
+        Retrieves the content of a document that was ingested into Amazon Q Business.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/get_document_content.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_qbusiness/client/#get_document_content)
         """
 
     def get_group(self, **kwargs: Unpack[GetGroupRequestTypeDef]) -> GetGroupResponseTypeDef:

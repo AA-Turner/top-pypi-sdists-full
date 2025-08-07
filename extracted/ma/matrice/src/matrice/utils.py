@@ -433,7 +433,7 @@ def check_for_duplicate(session, service, name):
             "item_name": "Project",
         },
         "deployment": {
-            "path": f"/v1/deployment/check_for_duplicate?deploymentName={name}",
+            "path": f"/v1/inference/check_for_duplicate?deploymentName={name}",
             "item_name": "Deployment",
         },
     }
@@ -469,7 +469,7 @@ def get_summary(session, project_id, service_name):
         "annotations": "/v1/annotations/summary",
         "models": "/v1/model/summary",
         "exports": "/v1/model/summaryExported",
-        "deployments": "/v1/deployment/summary",
+        "deployments": "/v1/inference/summary",
     }
     success_messages = {
         "annotations": "Annotation summary fetched successfully",

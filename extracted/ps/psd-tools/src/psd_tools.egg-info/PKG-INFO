@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: psd-tools
-Version: 1.10.8
+Version: 1.10.9
 Summary: Python package for working with Adobe Photoshop PSD files
 Author-email: Mikhail Korobov <kmike84@gmail.com>, Kota Yamaguchi <KotaYamaguchi1984@gmail.com>
 License: MIT License

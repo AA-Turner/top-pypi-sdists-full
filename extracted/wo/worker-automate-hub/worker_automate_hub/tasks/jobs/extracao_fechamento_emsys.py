@@ -291,19 +291,25 @@ async def extracao_fechamento_emsys(
             await worker_sleep(3)
 
             # Clicar em gerar relatório
-            console.print("Clicar em gerar relatório")            
-            btn_gerar_relatorio = main_window.child_window(class_name="TBitBtn", found_index=0).click_input()
-            
+            console.print("Clicar em gerar relatório")
+            btn_gerar_relatorio = main_window.child_window(
+                class_name="TBitBtn", found_index=0
+            ).click_input()
+
             await worker_sleep(7)
             console.print("Verificar se existem dados")
 
             try:
-                nao_existe_dados = fr"{ASSETS_BASE_PATH}\extracao_fechamento_emsys\nao_existem_dados.png"
+                nao_existe_dados = rf"{ASSETS_BASE_PATH}\extracao_fechamento_emsys\nao_existem_dados.png"
 
                 for tentativa in range(3):
-                    console.print(f"Tentativa {tentativa + 1}: Clicar em 'Gerar Relatório'")
-                 
-                    btn_gerar_relatorio = main_window.child_window(class_name="TBitBtn", found_index=0)
+                    console.print(
+                        f"Tentativa {tentativa + 1}: Clicar em 'Gerar Relatório'"
+                    )
+
+                    btn_gerar_relatorio = main_window.child_window(
+                        class_name="TBitBtn", found_index=0
+                    )
                     if btn_gerar_relatorio.exists(timeout=5):
                         btn_gerar_relatorio.click_input()
                         await worker_sleep(5)
@@ -331,7 +337,7 @@ async def extracao_fechamento_emsys(
                                 )
 
                             await worker_sleep(5)
-                            break  
+                            break
 
                         # Verifica se apareceu a janela "Salvar para arquivo"
                         try:
@@ -352,8 +358,8 @@ async def extracao_fechamento_emsys(
                             "Botão 'Gerar Relatório' não encontrado.", style="bold red"
                         )
                         break
-            except:      
-                await worker_sleep(5)                   
+            except:
+                await worker_sleep(5)
                 ##### Janela Salvar para arquivo #####
                 console.print(f"Dados encontrados para {mnemonico}")
                 app = Application(backend="win32").connect(
@@ -522,9 +528,7 @@ async def extracao_fechamento_emsys(
         with open(full_path, "rb") as file:
             file_bytes = io.BytesIO(file.read())
         try:
-            send_file_request = await send_file_to_datalake(
-                directory, file_bytes, filename, "json"
-            )
+            # send_file_request = await send_file_to_datalake(directory, file_bytes, filename, "json")
             os.remove(full_path)
             return RpaRetornoProcessoDTO(
                 sucesso=True,

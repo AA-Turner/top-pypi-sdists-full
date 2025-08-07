@@ -39,7 +39,7 @@ __all__: List[str] = []
 __author__: str = "Dominic Davis-Foster"
 __copyright__: str = "2022 Dominic Davis-Foster"
 __license__: str = "MIT License"
-__version__: str = "0.4.0"
+__version__: str = "0.4.1"
 __email__: str = "dominic@davis-foster.co.uk"
 
 if "NO_SPHINX_JINJA2_COMPAT" not in os.environ:
@@ -77,8 +77,11 @@ if "NO_SPHINX_JINJA2_COMPAT" not in os.environ:
 	# or building from source or an eventual deliberate removal)
 
 	if sys.version_info >= (3, 12):
-		# Ensure distutils is patched first
-		__import__("_distutils_hack").add_shim()
+		# Ensure distutils is patched first, if setuptools is installed
+		try:
+			__import__("_distutils_hack").add_shim()
+		except ImportError:
+			pass
 
 	try:
 		# 3rd party

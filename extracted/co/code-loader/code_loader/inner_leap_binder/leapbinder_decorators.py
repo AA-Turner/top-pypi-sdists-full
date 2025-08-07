@@ -1,5 +1,5 @@
 # mypy: ignore-errors
-
+import os
 from typing import Optional, Union, Callable, List, Dict
 
 import numpy as np
@@ -8,22 +8,108 @@ import numpy.typing as npt
 from code_loader.contract.datasetclasses import CustomCallableInterfaceMultiArgs, \
     CustomMultipleReturnCallableInterfaceMultiArgs, ConfusionMatrixCallableInterfaceMultiArgs, CustomCallableInterface, \
     VisualizerCallableInterface, MetadataSectionCallableInterface, PreprocessResponse, SectionCallableInterface, \
-    ConfusionMatrixElement, SamplePreprocessResponse, InstanceCallableInterface, ElementInstance
+    ConfusionMatrixElement, SamplePreprocessResponse, PredictionTypeHandler, InstanceCallableInterface, ElementInstance
 from code_loader.contract.enums import MetricDirection, LeapDataType, DatasetMetadataType
 from code_loader import leap_binder
 from code_loader.contract.mapping import NodeMapping, NodeMappingType, NodeConnection
 from code_loader.contract.visualizer_classes import LeapImage, LeapImageMask, LeapTextMask, LeapText, LeapGraph, \
     LeapHorizontalBar, LeapImageWithBBox, LeapImageWithHeatmap
+from code_loader.inner_leap_binder.leapbinder import mapping_runtime_mode_env_var_mame
+
+
+
+_called_from_inside_tl_decorator = 0
+
+def _add_mapping_connection(user_unique_name, connection_destinations, arg_names, name, node_mapping_type):
+    main_node_mapping = NodeMapping(name, node_mapping_type, user_unique_name, arg_names=arg_names)
+    node_inputs = {}
+    for arg_name, destination in zip(arg_names, connection_destinations):
+        node_inputs[arg_name] = destination.node_mapping
+
+    leap_binder.mapping_connections.append(NodeConnection(main_node_mapping, node_inputs))
 
 
 def _add_mapping_connections(connects_to, arg_names, node_mapping_type, name):
     for user_unique_name, connection_destinations in connects_to.items():
-        main_node_mapping = NodeMapping(name, node_mapping_type, user_unique_name, arg_names=arg_names)
-        node_inputs = {}
-        for arg_name, destination in zip(arg_names, connection_destinations):
-            node_inputs[arg_name] = destination.node_mapping
+        _add_mapping_connection(user_unique_name, connection_destinations, arg_names, name, node_mapping_type)
 
-        leap_binder.mapping_connections.append(NodeConnection(main_node_mapping, node_inputs))
+
+
+
+def tensorleap_load_model(prediction_types: Optional[List[PredictionTypeHandler]] = None):
+    for i, prediction_type in enumerate(prediction_types):
+        leap_binder.add_prediction(prediction_type.name, prediction_type.labels, prediction_type.channel_dim, i)
+
+    def decorating_function(load_model_func):
+        class TempMapping:
+            pass
+
+        def inner():
+            class ModelPlaceholder:
+                def __init__(self):
+                    self.model = load_model_func()
+                #keras interface
+                def __call__(self, arg):
+                    ret = self.model(arg)
+                    return ret.numpy()
+
+                # onnx runtime interface
+                def run(self, output_names, input_dict):
+                    return self.model.run(output_names, input_dict)
+
+
+            return ModelPlaceholder()
+
+
+        def mapping_inner():
+            class ModelOutputPlaceholder:
+                def __init__(self):
+                    self.node_mapping = NodeMapping('', NodeMappingType.Prediction0)
+
+                def __getitem__(self, key):
+                    assert isinstance(key, int), \
+                        f'Expected key to be an int, got {type(key)} instead.'
+
+                    ret = TempMapping()
+                    ret.node_mapping = NodeMapping('', NodeMappingType(f'Prediction{str(key)}'))
+                    return ret
+
+            class ModelPlaceholder:
+                #keras interface
+                def __call__(self, arg):
+                    if isinstance(arg, list):
+                        for i, elem in enumerate(arg):
+                            elem.node_mapping.type = NodeMappingType[f'Input{str(i)}']
+                    else:
+                        arg.node_mapping.type = NodeMappingType.Input0
+
+                    return ModelOutputPlaceholder()
+
+                # onnx runtime interface
+                def run(self, output_names, input_dict):
+                    assert output_names is None
+                    assert isinstance(input_dict, dict), \
+                        f'Expected input_dict to be a dict, got {type(input_dict)} instead.'
+                    for i, elem in enumerate(input_dict.values()):
+                        elem.node_mapping.type = NodeMappingType[f'Input{str(i)}']
+
+                    return ModelOutputPlaceholder()
+
+            return ModelPlaceholder()
+
+
+
+
+        def final_inner():
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return mapping_inner()
+            else:
+                return inner()
+
+        return final_inner
+
+    return decorating_function
+
 
 
 def tensorleap_custom_metric(name: str,
@@ -31,8 +117,8 @@ def tensorleap_custom_metric(name: str,
                              compute_insights: Optional[Union[bool, Dict[str, bool]]] = None,
                              connects_to=None):
     def decorating_function(user_function: Union[CustomCallableInterfaceMultiArgs,
-    CustomMultipleReturnCallableInterfaceMultiArgs,
-    ConfusionMatrixCallableInterfaceMultiArgs]):
+            CustomMultipleReturnCallableInterfaceMultiArgs,
+            ConfusionMatrixCallableInterfaceMultiArgs]):
         for metric_handler in leap_binder.setup_container.metrics:
             if metric_handler.metric_handler_data.name == name:
                 raise Exception(f'Metric with name {name} already exists. '
@@ -119,14 +205,44 @@ def tensorleap_custom_metric(name: str,
                         (f'tensorleap_custom_metric validation failed: '
                          f'compute_insights should be boolean. Got {type(compute_insights)}.')
 
-
         def inner(*args, **kwargs):
             _validate_input_args(*args, **kwargs)
-            result = user_function(*args, **kwargs)
+
+            global _called_from_inside_tl_decorator
+            _called_from_inside_tl_decorator += 1
+
+            try:
+                result = user_function(*args, **kwargs)
+            finally:
+                _called_from_inside_tl_decorator -= 1
+
             _validate_result(result)
             return result
 
-        return inner
+        def mapping_inner(*args, **kwargs):
+            user_unique_name = mapping_inner.name
+            if 'user_unique_name' in kwargs:
+                user_unique_name = kwargs['user_unique_name']
+
+            ordered_connections = [kwargs[n] for n in mapping_inner.arg_names if n in kwargs]
+            ordered_connections = list(args) + ordered_connections
+            _add_mapping_connection(user_unique_name, ordered_connections, mapping_inner.arg_names,
+                                    mapping_inner.name,  NodeMappingType.Metric)
+
+            return None
+
+        mapping_inner.arg_names = leap_binder.setup_container.metrics[-1].metric_handler_data.arg_names
+        mapping_inner.name = name
+
+        def final_inner(*args, **kwargs):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return mapping_inner(*args, **kwargs)
+            else:
+                return inner(*args, **kwargs)
+
+
+
+        return final_inner
 
     return decorating_function
 
@@ -182,11 +298,40 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
 
         def inner(*args, **kwargs):
             _validate_input_args(*args, **kwargs)
-            result = user_function(*args, **kwargs)
+
+            global _called_from_inside_tl_decorator
+            _called_from_inside_tl_decorator += 1
+
+            try:
+                result = user_function(*args, **kwargs)
+            finally:
+                _called_from_inside_tl_decorator -= 1
+
             _validate_result(result)
             return result
 
-        return inner
+        def mapping_inner(*args, **kwargs):
+            user_unique_name = mapping_inner.name
+            if 'user_unique_name' in kwargs:
+                user_unique_name = kwargs['user_unique_name']
+
+            ordered_connections = [kwargs[n] for n in mapping_inner.arg_names if n in kwargs]
+            ordered_connections = list(args) + ordered_connections
+            _add_mapping_connection(user_unique_name, ordered_connections, mapping_inner.arg_names,
+                                    mapping_inner.name, NodeMappingType.Visualizer)
+
+            return None
+
+        mapping_inner.arg_names = leap_binder.setup_container.visualizers[-1].visualizer_handler_data.arg_names
+        mapping_inner.name = name
+
+        def final_inner(*args, **kwargs):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return mapping_inner(*args, **kwargs)
+            else:
+                return inner(*args, **kwargs)
+
+        return final_inner
 
     return decorating_function
 
@@ -229,8 +374,19 @@ def tensorleap_metadata(
                          f'Values in the return dict should be of type {str(supported_result_types)}. Got {type(value)}.')
 
         def inner(sample_id, preprocess_response):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return None
+
             _validate_input_args(sample_id, preprocess_response)
-            result = user_function(sample_id, preprocess_response)
+
+            global _called_from_inside_tl_decorator
+            _called_from_inside_tl_decorator += 1
+
+            try:
+                result = user_function(sample_id, preprocess_response)
+            finally:
+                _called_from_inside_tl_decorator -= 1
+
             _validate_result(result)
             return result
 
@@ -261,7 +417,11 @@ def tensorleap_preprocess():
                  f'The return list should not contain duplicate PreprocessResponse objects.')
 
         def inner(*args, **kwargs):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return [None, None, None, None]
+
             _validate_input_args(*args, **kwargs)
+
             result = user_function()
             _validate_result(result)
             return result
@@ -318,8 +478,13 @@ def tensorleap_element_instance_preprocess(instance_mask_encoder: Callable[[str,
                 (f'tensorleap_element_instance_preprocess validation failed: '
                  f'The return list should not contain duplicate PreprocessResponse objects.')
 
+
         def inner(*args, **kwargs):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return [None, None, None, None]
+
             _validate_input_args(*args, **kwargs)
+
             result = user_function_instance()
             _validate_result(result)
             return result
@@ -375,13 +540,26 @@ def tensorleap_instances_masks_encoder(name: str):
                 (f'tensorleap_instances_masks_encoder validation failed: '
                  f'Unsupported return type. Should be a numpy array. Got {type(result)}.')
 
+
         def inner(sample_id, preprocess_response):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return None
+
             _validate_input_args(sample_id, preprocess_response)
-            result = user_function(sample_id, preprocess_response)
+
+            global _called_from_inside_tl_decorator
+            _called_from_inside_tl_decorator += 1
+
+            try:
+                result = user_function(sample_id, preprocess_response)
+            finally:
+                _called_from_inside_tl_decorator -= 1
+
             _validate_result(result)
             return result
 
         return inner
+
 
     return decorating_function
 
@@ -423,6 +601,9 @@ def tensorleap_input_encoder(name: str, channel_dim=-1, model_input_index=None):
             _validate_input_args(sample_id, preprocess_response)
             result = user_function(sample_id, preprocess_response)
             _validate_result(result)
+
+            if _called_from_inside_tl_decorator == 0:
+                result = np.expand_dims(result, axis=0)
             return result
 
         node_mapping_type = NodeMappingType.Input
@@ -430,7 +611,26 @@ def tensorleap_input_encoder(name: str, channel_dim=-1, model_input_index=None):
             node_mapping_type = NodeMappingType(f'Input{str(model_input_index)}')
         inner.node_mapping = NodeMapping(name, node_mapping_type)
 
-        return inner
+
+        def mapping_inner(sample_id, preprocess_response):
+            class TempMapping:
+                pass
+            ret = TempMapping()
+            ret.node_mapping = mapping_inner.node_mapping
+
+            return ret
+
+        mapping_inner.node_mapping = NodeMapping(name, node_mapping_type)
+
+        def final_inner(sample_id, preprocess_response):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return mapping_inner(sample_id, preprocess_response)
+            else:
+                return inner(sample_id, preprocess_response)
+
+        final_inner.node_mapping = NodeMapping(name, node_mapping_type)
+
+        return final_inner
 
     return decorating_function
 
@@ -468,13 +668,32 @@ def tensorleap_gt_encoder(name: str):
             _validate_input_args(sample_id, preprocess_response)
             result = user_function(sample_id, preprocess_response)
             _validate_result(result)
+
+            if _called_from_inside_tl_decorator == 0:
+                result = np.expand_dims(result, axis=0)
             return result
 
         inner.node_mapping = NodeMapping(name, NodeMappingType.GroundTruth)
 
-        return inner
+        def mapping_inner(sample_id, preprocess_response):
+            class TempMapping:
+                pass
+            ret = TempMapping()
+            ret.node_mapping = mapping_inner.node_mapping
 
+            return ret
 
+        mapping_inner.node_mapping = NodeMapping(name, NodeMappingType.GroundTruth)
+
+        def final_inner(sample_id, preprocess_response):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return mapping_inner(sample_id, preprocess_response)
+            else:
+                return inner(sample_id, preprocess_response)
+
+        final_inner.node_mapping = NodeMapping(name, NodeMappingType.GroundTruth)
+
+        return final_inner
 
     return decorating_function
 
@@ -526,11 +745,44 @@ def tensorleap_custom_loss(name: str, connects_to=None):
 
         def inner(*args, **kwargs):
             _validate_input_args(*args, **kwargs)
-            result = user_function(*args, **kwargs)
+
+            global _called_from_inside_tl_decorator
+            _called_from_inside_tl_decorator += 1
+
+            try:
+                result = user_function(*args, **kwargs)
+            finally:
+                _called_from_inside_tl_decorator -= 1
+
             _validate_result(result)
             return result
 
-        return inner
+        def mapping_inner(*args, **kwargs):
+            user_unique_name = mapping_inner.name
+            if 'user_unique_name' in kwargs:
+                user_unique_name = kwargs['user_unique_name']
+
+            ordered_connections = [kwargs[n] for n in mapping_inner.arg_names if n in kwargs]
+            ordered_connections = list(args) + ordered_connections
+            _add_mapping_connection(user_unique_name, ordered_connections, mapping_inner.arg_names,
+                                    mapping_inner.name, NodeMappingType.CustomLoss)
+
+            return None
+
+        mapping_inner.arg_names = leap_binder.setup_container.custom_loss_handlers[-1].custom_loss_handler_data.arg_names
+        mapping_inner.name = name
+
+        def final_inner(*args, **kwargs):
+            if os.environ.get(mapping_runtime_mode_env_var_mame):
+                return mapping_inner(*args, **kwargs)
+            else:
+                return inner(*args, **kwargs)
+
+        final_inner.arg_names = leap_binder.setup_container.custom_loss_handlers[-1].custom_loss_handler_data.arg_names
+        final_inner.name = name
+
+
+        return final_inner
 
     return decorating_function
 

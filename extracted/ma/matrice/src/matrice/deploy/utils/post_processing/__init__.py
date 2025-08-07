@@ -102,6 +102,7 @@ from .usecases.concrete_crack_detection import ConcreteCrackConfig
 from .usecases.fashion_detection import FashionDetectionConfig, FashionDetectionUseCase
 from .usecases.shelf_inventory_detection import ShelfInventoryConfig
 from .usecases.road_lane_detection import LaneDetectionConfig
+from .usecases.human_activity_recognition import HumanActivityConfig, HumanActivityUseCase
 
 from .usecases.warehouse_object_segmentation import WarehouseObjectConfig
 from .usecases.shopping_cart_analysis import ShoppingCartConfig
@@ -114,6 +115,7 @@ from .usecases.car_part_segmentation import CarPartSegmentationUseCase, CarPartS
 from .usecases.windmill_maintenance import WindmillMaintenanceUseCase, WindmillMaintenanceConfig
 from .usecases.flower_segmentation import FlowerUseCase, FlowerConfig
 from .usecases.leaf import LeafConfig, LeafUseCase
+from .usecases.litter_monitoring import LitterDetectionUseCase,LitterDetectionConfig
 
 #Put all IMAGE based usecases here
 from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -173,6 +175,7 @@ from .usecases import (
     CarPartSegmentationUseCase,
     FlowerUseCase,
     SmokerDetectionUseCase,
+    LitterDetectionUseCase,
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
@@ -186,6 +189,7 @@ from .usecases import (
 _people_counting = PeopleCountingUseCase()
 _customer_service = CustomerServiceUseCase()
 _advanced_customer_service = AdvancedCustomerServiceUseCase()
+_human_activity = HumanActivityUseCase()
 _basic_counting_tracking = BasicCountingTrackingUseCase()
 _license_plate = LicensePlateUseCase()
 _color_detection = ColorDetectionUseCase()
@@ -239,6 +243,8 @@ _leaf_disease = LeafDiseaseDetectionUseCase()
 _flower_segmentation = FlowerUseCase()
 _leaf_det = LeafUseCase()
 _smoker_detection = SmokerDetectionUseCase()
+_litter_detection = LitterDetectionUseCase()
+
 
 #Put all IMAGE based usecases here
 _blood_cancer_detection = BloodCancerDetectionUseCase()
@@ -246,10 +252,11 @@ _skin_cancer_classification = SkinCancerClassificationUseCase()
 _plaque_segmentation = PlaqueSegmentationUseCase()
 _histopathological_cancer_detection = HistopathologicalCancerDetectionUseCase()
 
-
+registry.register_use_case(_litter_detection.category, _litter_detection.name, LitterDetectionUseCase)
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
 registry.register_use_case(_advanced_customer_service.category, _advanced_customer_service.name, AdvancedCustomerServiceUseCase)
+registry.register_use_case(_human_activity.category, _human_activity.name, HumanActivityUseCase)
 registry.register_use_case(_basic_counting_tracking.category, _basic_counting_tracking.name, BasicCountingTrackingUseCase)
 registry.register_use_case(_license_plate.category, _license_plate.name, LicensePlateUseCase)
 registry.register_use_case(_color_detection.category, _color_detection.name, ColorDetectionUseCase)
@@ -442,6 +449,7 @@ __all__ = [
     'BaseConfig',
     'PeopleCountingConfig', 
     'CustomerServiceConfig',
+    'HumanActivityConfig',
     'ColorDetectionConfig',
     'LicensePlateConfig',
     'MaskDetectionConfig',
@@ -493,6 +501,7 @@ __all__ = [
     'WindmillMaintenanceConfig',
     'FlowerConfig',
     'SmokerDetectionConfig',
+    'LitterDetectionConfig',
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
@@ -504,6 +513,7 @@ __all__ = [
     'PeopleCountingUseCase',
     'CustomerServiceUseCase',
     'AdvancedCustomerServiceUseCase',
+    'HumanActivityUseCase',
     'BasicCountingTrackingUseCase',
     'LicensePlateUseCase',
     'ColorDetectionUseCase',
@@ -552,6 +562,7 @@ __all__ = [
     'WindmillMaintenanceUseCase',
     'FlowerUseCase',
     'SmokerDetectionUseCase',
+    'LitterDetectionUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',

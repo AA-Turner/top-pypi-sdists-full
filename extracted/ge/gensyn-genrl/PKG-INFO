@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gensyn-genrl
-Version: 0.1.4
+Version: 0.1.5
 Summary: A General RL framerwork in a swarm environment
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -25,9 +25,23 @@ Requires-Dist: diffusers; extra == "examples"
 Requires-Dist: peft; extra == "examples"
 Requires-Dist: reasoning-gym>=0.1.20; extra == "examples"
 
-# GenRL-Swarm: Building Flexible, Decentralized Multi-Agent RL Environments
+# GenRL: Building Flexible, Decentralized Multi-Agent RL Environments
+<p align="center">
+  🌐 <a href="https://www.gensyn.ai/"><strong>Visit Website</strong></a> &nbsp;&nbsp;
+  🧠 <a href="https://github.com/gensyn-ai/rl-swarm/blob/main/README.md"><strong>RL Swarm</strong></a> &nbsp;&nbsp;
+  ✖️ <a href="https://x.com/gensynai"><strong>X</strong></a> &nbsp;&nbsp;
+  🤗 <a href="https://huggingface.co/Gensyn"><strong>Hugging Face</strong></a> &nbsp;&nbsp;
+  💬 <a href="https://discord.com/invite/bgyDTy39jZ"><strong>Discord</strong></a>
+</p>
 
-GenRL-Swarm is a framework that provides native support for horizontally scalable, multi-agent, multi-stage RL with decentralized coordination and communication.
+<p align="center">
+  🔬 <a href="https://www.gensyn.ai/research"><strong>Research</strong></a> &nbsp;&nbsp;
+  📰 <a href="https://www.gensyn.ai/resources"><strong>Latest News</strong></a> &nbsp;&nbsp;
+  💼 <a href="https://www.gensyn.ai/careers"><strong>Work for Gensyn</strong></a> &nbsp;&nbsp;
+  📊 <a href="https://dashboard.gensyn.ai/"><strong>Dashboard</strong></a>
+</p>
+
+GenRL is a framework that provides native support for horizontally scalable, multi-agent, multi-stage RL with decentralized coordination and communication.
 
 ## Customizable Components:
 - **DataManager**: Specifies and manages the particular data your RL environment will use. This could be a text dataset, an image dataset, a chessboard, or something else entirely.

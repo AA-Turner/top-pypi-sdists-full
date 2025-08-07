@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: braintrust-langchain
-Version: 0.0.2
+Version: 0.0.4
 Summary: Integration for LangChain and Braintrust Tracing
 Home-page: https://www.braintrust.dev
 Author: Braintrust
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
-Requires-Dist: braintrust
+Requires-Dist: braintrust>=0.2.1
 Requires-Dist: langchain
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
@@ -23,7 +23,6 @@ Requires-Dist: langchain-openai; extra == "dev"
 Requires-Dist: isort==5.12.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-watch; extra == "dev"
 Requires-Dist: responses; extra == "dev"
 Requires-Dist: respx; extra == "dev"
 Requires-Dist: tenacity; extra == "dev"
@@ -40,7 +39,6 @@ Requires-Dist: langchain-openai; extra == "all"
 Requires-Dist: langgraph<0.4.0,>=0.2.1; extra == "all"
 Requires-Dist: pre-commit; extra == "all"
 Requires-Dist: pytest; extra == "all"
-Requires-Dist: pytest-watch; extra == "all"
 Requires-Dist: responses; extra == "all"
 Requires-Dist: respx; extra == "all"
 Requires-Dist: tenacity; extra == "all"

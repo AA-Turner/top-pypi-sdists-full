@@ -3,6 +3,7 @@ Supplies high-level build functions to the greater fprime helper CLI. This maps 
 build system handler underneath.
 """
 
+import copy
 import os
 import re
 from pathlib import Path
@@ -69,6 +70,10 @@ class Build:
         self.cmake = CMakeHandler()
         self.cmake.set_verbose(verbose)
 
+    def is_verbose(self) -> bool:
+        """Returns the verbose setting of the build"""
+        return self.cmake.verbose
+
     def invent(self, platform: str = None, build_dir: Path = None, force=False):
         """Invents a build path from a given platform
 
@@ -110,27 +115,32 @@ class Build:
             InvalidBuildCacheException: the build cache does not exist as it must
         """
         self.__setup_default(platform, build_dir)
-        if not skip_validation and (
-            not self.build_dir.exists()
-            or not (self.build_dir / "CMakeCache.txt").exists()
+
+        if skip_validation:
+            return
+        if (
+            self.build_dir is not None
+            and (self.build_dir / ".fprime-build-dir").exists()
         ):
-            # Message for hard-supplied --build-cache message
-            if build_dir is not None:
-                gen_args = f" --build-cache {build_dir}"
-            else:
-                gen_args = " --ut" if self.build_type == BuildType.BUILD_TESTING else ""
-                gen_args += (
-                    " " + platform
-                    if platform is not None
-                    and platform != "native"
-                    and platform != "default"
-                    else ""
-                )
-            msg = f"'{self.build_dir}' is not a valid build cache. Generate this build cache with 'fprime-util generate{gen_args} ...'"
-            raise InvalidBuildCacheException(
-                msg,
-                self.build_dir,
+            return
+
+        # Message for hard-supplied --build-cache message
+        if build_dir is not None:
+            gen_args = f" --build-cache {build_dir}"
+        else:
+            gen_args = " --ut" if self.build_type == BuildType.BUILD_TESTING else ""
+            gen_args += (
+                " " + platform
+                if platform is not None
+                and platform != "native"
+                and platform != "default"
+                else ""
             )
+        msg = f"'{self.build_dir}' is not a valid build cache. Generate this build cache with 'fprime-util generate{gen_args} ...'"
+        raise InvalidBuildCacheException(
+            msg,
+            self.build_dir,
+        )
 
     def get_settings(
         self,
@@ -332,12 +342,15 @@ class Build:
         Args:
             context: contextual path to return
         """
+        if not isinstance(context, Path):
+            raise ValueError("Context must be a Path")
         project_relative_path = self.get_relative_path(context)
         for possible in [".", "F-Prime"]:
             possible_path = self.build_dir / possible / project_relative_path
             if possible_path.exists():
                 return possible_path
-        msg = f"{context} has no associated build cache path"
+        component_name = os.path.basename(context)
+        msg = f"The call to add_fprime_subdirectory could not be found for {component_name}\nPlease check the CMakeLists.txt files in the parent directories of {context}"
         raise MissingBuildCachePath(msg)
 
     def get_relative_path(self, path: Path) -> Path:
@@ -345,9 +358,7 @@ class Build:
         relative_path, _ = self.cmake.get_include_info(path, self.build_dir)
         return Path(relative_path)
 
-    def execute_build_target(
-        self, build_target: str, context: Path, top: bool, make_args: dict
-    ):
+    def execute_build_target(self, build_target: str, context: Path, make_args: dict):
         """Execute a build target
 
         Executes a target within the build system. This will execute the target by calling into the make system. Context
@@ -356,16 +367,16 @@ class Build:
         Args:
             build_target: build system target to run as string
             context: context path for local targets
-            top: True if it is a top-level (global) target, False if it is a local target
             make_args: args to supply to the build tool (make or ninja)
         """
+        make_args = copy.deepcopy(make_args)
         self.cmake.execute_known_target(
             build_target,
             self.build_dir,
             context.absolute(),
             cmake_args=self.get_cmake_args(),
             make_args=make_args,
-            top_target=top,
+            top_target=True,
             environment=self.settings.get("environment", None),
         )
 

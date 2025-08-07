@@ -8,6 +8,7 @@ post-processing scenarios.
 from .people_counting import PeopleCountingUseCase, PeopleCountingConfig
 from .customer_service import CustomerServiceUseCase, CustomerServiceConfig
 from .advanced_customer_service import AdvancedCustomerServiceUseCase
+from .human_activity_recognition import HumanActivityUseCase, HumanActivityConfig
 from .basic_counting_tracking import BasicCountingTrackingUseCase
 from .license_plate_detection import LicensePlateUseCase, LicensePlateConfig
 from .color_detection import ColorDetectionUseCase, ColorDetectionConfig
@@ -67,6 +68,7 @@ from .road_view_segmentation import RoadViewSegmentationConfig, RoadViewSegmenta
 from .face_recognition import FaceRecognitionConfig, FaceRecognitionUseCase
 from .drowsy_driver_detection import DrowsyDriverUseCase, DrowsyDriverUseCase
 from .waterbody_segmentation import WaterBodyConfig, WaterBodyUseCase
+from .litter_monitoring import LitterDetectionConfig,LitterDetectionUseCase
 
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
@@ -79,6 +81,7 @@ __all__ = [
     'PeopleCountingUseCase',
     'CustomerServiceUseCase',
     'AdvancedCustomerServiceUseCase',
+    'HumanActivityUseCase',
     'BasicCountingTrackingUseCase',
     'LicensePlateUseCase',
     'ColorDetectionUseCase',
@@ -131,6 +134,7 @@ __all__ = [
     'FaceRecognitionUseCase',
     'DrowsyDriverUseCase',
     'WaterBodyUseCase',
+    'LitterDetectionUseCase',
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
@@ -145,6 +149,7 @@ __all__ = [
     'ParkingSpaceConfig',
     'CustomerServiceConfig',
     'AdvancedCustomerServiceConfig',
+    'HumanActivityConfig',
     'PPEComplianceConfig',
     'LicensePlateConfig',
     'PotholeConfig',
@@ -195,6 +200,7 @@ __all__ = [
     'FaceRecognitionConfig',
     'DrowsyDriverUseCase',
     'WaterBodyConfig',
+    'LitterDetectionConfig',
 
 
 

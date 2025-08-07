@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymilvus
-Version: 2.5.14
+Version: 2.6.0
 Summary: Python Sdk for Milvus
 Author-email: Milvus Team <milvus-team@zilliz.com>
 Project-URL: repository, https://github.com/milvus-io/pymilvus
@@ -10,14 +10,15 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: setuptools>69
 Requires-Dist: setuptools<70.1; python_version <= "3.8"
-Requires-Dist: grpcio<=1.67.1,>=1.49.1
-Requires-Dist: protobuf>=3.20.0
+Requires-Dist: grpcio!=1.68.0,!=1.68.1,!=1.69.0,!=1.70.0,!=1.70.1,!=1.71.0,!=1.72.1,!=1.73.0,>=1.66.2
+Requires-Dist: protobuf>=5.27.2
 Requires-Dist: python-dotenv<2.0.0,>=1.0.1
 Requires-Dist: ujson>=2.0.0
 Requires-Dist: pandas>=1.2.4
@@ -35,9 +36,9 @@ Requires-Dist: urllib3; extra == "stage"
 Provides-Extra: model
 Requires-Dist: pymilvus.model>=0.3.0; extra == "model"
 Provides-Extra: dev
-Requires-Dist: grpcio==1.62.2; extra == "dev"
-Requires-Dist: grpcio-tools==1.62.2; extra == "dev"
-Requires-Dist: grpcio-testing==1.62.2; extra == "dev"
+Requires-Dist: grpcio==1.66.2; extra == "dev"
+Requires-Dist: grpcio-tools==1.66.2; extra == "dev"
+Requires-Dist: grpcio-testing==1.66.2; extra == "dev"
 Requires-Dist: pytest>=5.3.4; extra == "dev"
 Requires-Dist: pytest-cov>=2.8.1; extra == "dev"
 Requires-Dist: pytest-timeout>=1.3.4; extra == "dev"
@@ -54,11 +55,7 @@ Dynamic: license-file
 [![Downloads](https://static.pepy.tech/badge/pymilvus/week)](https://pepy.tech/project/pymilvus)
 
 [![license](https://img.shields.io/hexpm/l/plug.svg?color=green)](https://github.com/milvus-io/pymilvus/blob/master/LICENSE)
-[![Mergify Status][mergify-status]][mergify]
 ![Static Badge](https://img.shields.io/badge/slack-%23py--milvus-blue?style=social&logo=slack&link=https%3A%2F%2Fmilvusio.slack.com%2Farchives%2FC024XTWMT4L)
-
-[mergify]: https://mergify.com
-[mergify-status]: https://img.shields.io/endpoint.svg?url=https://api.mergify.com/v1/badges/milvus-io/pymilvus&style=flat
 
 Python SDK for [Milvus](https://github.com/milvus-io/milvus). To contribute code to this project, please read our [contribution guidelines](https://github.com/milvus-io/milvus/blob/master/CONTRIBUTING.md) first. If you have some ideas or encounter a problem, you can find us in the Slack channel [#py-milvus](https://milvusio.slack.com/archives/C024XTWMT4L).
 
@@ -74,8 +71,9 @@ The following collection shows Milvus versions and recommended PyMilvus versions
 | 2.1.\* | 2.1.3 |
 | 2.2.\* | 2.2.15 |
 | 2.3.\* | 2.3.7 |
-| 2.4.\* | 2.4.10 |
-| 2.5.\* | 2.5.0 |
+| 2.4.\* | 2.4.X |
+| 2.5.\* | 2.5.X |
+| 2.6.\* | 2.6.X |
 
 
 ## Installation

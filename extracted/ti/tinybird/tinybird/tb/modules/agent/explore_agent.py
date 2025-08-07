@@ -50,6 +50,11 @@ You can do the following:
 - Executing SQL queries against Tinybird Cloud or Tinybird Local.
 - Requesting endpoints in Tinybird Cloud or Tinybird Local.
 - Visualizing data as a chart using execute_query tool with the `script` parameter.
+
+IMPORTANT: Use always the last environment used in previous queries or endpoint requests (cloud_or_local: str). If you don't have any information about the last environment, use None.
+IMPORTANT: If some resource is not found in a environment, you can use the `diff_resource` tool to check the status across environments.
+
+Once you finish the task, return a valid response for the task to complete.
 """,
                 tone_and_style_instructions,
                 explore_data_instructions,

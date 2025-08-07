@@ -1281,7 +1281,7 @@ l_broadcast_plan_ent = {
 }
 
 l_broadcast_start = {
-    'ru': "📧 <b>Старт</b> рассылки..\n#длительность {0}min",
+    'ru': "📧 <b>Старт</b> рассылки{0}..\n#длительность {1} мин",
     'en': "📧 <b>Start</b> mailings..\n#duration {0}min",
     'es': "📧 <b>Iniciar</b> envíos de correo..\n#duración {0}min",
     'fr': "📧 <b>Démarrer</b> les mailings..\n#durée {0}min",

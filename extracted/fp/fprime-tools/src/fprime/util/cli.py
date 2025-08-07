@@ -1,4 +1,4 @@
-""" fprime.util.cli: CLI handling
+"""fprime.util.cli: CLI handling
 
 Defines main entrypoint for fprime-util and sets up parsers for general CLI targets.
 
@@ -203,7 +203,9 @@ def add_special_parsers(
         conflict_handler="resolve",
     ).add_argument_group("format utility arguments")
     format_parser.add_argument(
-        "-x", "--no-backup", action="store_true", help="Disable backups"
+        "--backup",
+        action="store_true",
+        help="Creates a .bak backup file for each formatted file",
     )
     format_parser.add_argument(
         "-q", "--quiet", action="store_true", help="Disable clang-format verbose mode"
@@ -228,7 +230,20 @@ def add_special_parsers(
         help="List of files to format",
     )
     format_parser.add_argument(
+        "-d",
+        "--dirs",
+        nargs="*",
+        default=[],
+        type=Path,
+        help="List of directories to format, recursively searching for files matching allowed extensions",
+    )
+    format_parser.add_argument(
         "--stdin", action="store_true", help="Read stdin for list of files to format"
+    )
+    format_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check if files are formatted correctly instead of formatting them",
     )
     format_parser.add_argument(
         "--pass-through",
@@ -309,7 +324,8 @@ def parse_args(args):
     common_parser.add_argument(
         "-p",
         "--path",
-        default=os.getcwd(),
+        default=Path.cwd(),
+        type=Path,
         help="F prime directory to operate on. Default: cwd, %(default)s.",
     )
     common_parser.add_argument(

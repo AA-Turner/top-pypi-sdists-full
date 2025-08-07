@@ -353,6 +353,36 @@ glue.RayJob(stack, "ImportedJob",
 )
 ```
 
+### Metrics Control
+
+By default, Glue jobs enable CloudWatch metrics (`--enable-metrics`) and observability metrics (`--enable-observability-metrics`) for monitoring and debugging. You can disable these metrics to reduce CloudWatch costs:
+
+```python
+import aws_cdk as cdk
+import aws_cdk.aws_iam as iam
+# stack: cdk.Stack
+# role: iam.IRole
+# script: glue.Code
+
+
+# Disable both metrics for cost optimization
+glue.PySparkEtlJob(stack, "CostOptimizedJob",
+    role=role,
+    script=script,
+    enable_metrics=False,
+    enable_observability_metrics=False
+)
+
+# Selective control - keep observability, disable profiling
+glue.PySparkEtlJob(stack, "SelectiveJob",
+    role=role,
+    script=script,
+    enable_metrics=False
+)
+```
+
+This feature is available for all Spark job types (ETL, Streaming, Flex) and Ray jobs.
+
 ### Enable Job Run Queuing
 
 AWS Glue job queuing monitors your account level quotas and limits. If quotas or limits are insufficient to start a Glue job run, AWS Glue will automatically queue the job and wait for limits to free up. Once limits become available, AWS Glue will retry the job run. Glue jobs will queue for limits like max concurrent job runs per account, max concurrent Data Processing Units (DPU), and resource unavailable due to IP address exhaustion in Amazon Virtual Private Cloud (Amazon VPC).
@@ -1304,11 +1334,20 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         # role: iam.IRole
         # script: glue.Code
         
-        glue.PySparkEtlJob(stack, "PySparkETLJob",
+        
+        # Disable both metrics for cost optimization
+        glue.PySparkEtlJob(stack, "CostOptimizedJob",
             role=role,
             script=script,
-            job_name="PySparkETLJob",
-            job_run_queuing_enabled=True
+            enable_metrics=False,
+            enable_observability_metrics=False
+        )
+        
+        # Selective control - keep observability, disable profiling
+        glue.PySparkEtlJob(stack, "SelectiveJob",
+            role=role,
+            script=script,
+            enable_metrics=False
         )
     '''
 
@@ -6841,6 +6880,8 @@ class PythonVersion(enum.Enum):
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "enable_metrics": "enableMetrics",
+        "enable_observability_metrics": "enableObservabilityMetrics",
         "job_run_queuing_enabled": "jobRunQueuingEnabled",
         "runtime": "runtime",
     },
@@ -6865,6 +6906,8 @@ class RayJobProps(JobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         worker_type: typing.Optional["WorkerType"] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional["Runtime"] = None,
     ) -> None:
@@ -6886,6 +6929,8 @@ class RayJobProps(JobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
         :param runtime: (experimental) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
 
@@ -6922,6 +6967,8 @@ class RayJobProps(JobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
+            check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument job_run_queuing_enabled", value=job_run_queuing_enabled, expected_type=type_hints["job_run_queuing_enabled"])
             check_type(argname="argument runtime", value=runtime, expected_type=type_hints["runtime"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -6956,6 +7003,10 @@ class RayJobProps(JobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if enable_metrics is not None:
+            self._values["enable_metrics"] = enable_metrics
+        if enable_observability_metrics is not None:
+            self._values["enable_observability_metrics"] = enable_observability_metrics
         if job_run_queuing_enabled is not None:
             self._values["job_run_queuing_enabled"] = job_run_queuing_enabled
         if runtime is not None:
@@ -7154,6 +7205,32 @@ class RayJobProps(JobProps):
         '''
         result = self._values.get("worker_type")
         return typing.cast(typing.Optional["WorkerType"], result)
+
+    @builtins.property
+    def enable_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable profiling metrics for the Glue job.
+
+        When enabled, adds '--enable-metrics' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable observability metrics for the Glue job.
+
+        When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_observability_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
@@ -8188,6 +8265,8 @@ class SparkExtraCodeProps:
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "enable_metrics": "enableMetrics",
+        "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
     },
 )
@@ -8211,6 +8290,8 @@ class SparkJobProps(JobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         worker_type: typing.Optional["WorkerType"] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Common properties for different types of Spark jobs.
@@ -8231,6 +8312,8 @@ class SparkJobProps(JobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
 
         :stability: experimental
@@ -8272,6 +8355,8 @@ class SparkJobProps(JobProps):
                     "default_arguments_key": "defaultArguments"
                 },
                 description="description",
+                enable_metrics=False,
+                enable_observability_metrics=False,
                 enable_profiling_metrics=False,
                 glue_version=glue_alpha.GlueVersion.V0_9,
                 job_name="jobName",
@@ -8312,6 +8397,8 @@ class SparkJobProps(JobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
+            check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
@@ -8345,6 +8432,10 @@ class SparkJobProps(JobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if enable_metrics is not None:
+            self._values["enable_metrics"] = enable_metrics
+        if enable_observability_metrics is not None:
+            self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
 
@@ -8541,6 +8632,32 @@ class SparkJobProps(JobProps):
         '''
         result = self._values.get("worker_type")
         return typing.cast(typing.Optional["WorkerType"], result)
+
+    @builtins.property
+    def enable_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable profiling metrics for the Glue job.
+
+        When enabled, adds '--enable-metrics' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable observability metrics for the Glue job.
+
+        When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_observability_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional["SparkUIProps"]:
@@ -12724,6 +12841,8 @@ class OnDemandTriggerOptions(TriggerOptions):
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "enable_metrics": "enableMetrics",
+        "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
@@ -12752,6 +12871,8 @@ class PySparkEtlJobProps(SparkJobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         worker_type: typing.Optional[WorkerType] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         extra_files: typing.Optional[typing.Sequence[Code]] = None,
         extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -12777,6 +12898,8 @@ class PySparkEtlJobProps(SparkJobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
@@ -12795,11 +12918,20 @@ class PySparkEtlJobProps(SparkJobProps):
             # role: iam.IRole
             # script: glue.Code
             
-            glue.PySparkEtlJob(stack, "PySparkETLJob",
+            
+            # Disable both metrics for cost optimization
+            glue.PySparkEtlJob(stack, "CostOptimizedJob",
                 role=role,
                 script=script,
-                job_name="PySparkETLJob",
-                job_run_queuing_enabled=True
+                enable_metrics=False,
+                enable_observability_metrics=False
+            )
+            
+            # Selective control - keep observability, disable profiling
+            glue.PySparkEtlJob(stack, "SelectiveJob",
+                role=role,
+                script=script,
+                enable_metrics=False
             )
         '''
         if isinstance(continuous_logging, dict):
@@ -12824,6 +12956,8 @@ class PySparkEtlJobProps(SparkJobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
+            check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
@@ -12862,6 +12996,10 @@ class PySparkEtlJobProps(SparkJobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if enable_metrics is not None:
+            self._values["enable_metrics"] = enable_metrics
+        if enable_observability_metrics is not None:
+            self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
         if extra_files is not None:
@@ -13070,6 +13208,32 @@ class PySparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[WorkerType], result)
 
     @builtins.property
+    def enable_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable profiling metrics for the Glue job.
+
+        When enabled, adds '--enable-metrics' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable observability metrics for the Glue job.
+
+        When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_observability_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def spark_ui(self) -> typing.Optional[SparkUIProps]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
@@ -13176,6 +13340,8 @@ class PySparkEtlJobProps(SparkJobProps):
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "enable_metrics": "enableMetrics",
+        "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
@@ -13204,6 +13370,8 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         worker_type: typing.Optional[WorkerType] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         extra_files: typing.Optional[typing.Sequence[Code]] = None,
         extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -13229,6 +13397,8 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
@@ -13271,6 +13441,8 @@ class PySparkFlexEtlJobProps(SparkJobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
+            check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
@@ -13309,6 +13481,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if enable_metrics is not None:
+            self._values["enable_metrics"] = enable_metrics
+        if enable_observability_metrics is not None:
+            self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
         if extra_files is not None:
@@ -13517,6 +13693,32 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[WorkerType], result)
 
     @builtins.property
+    def enable_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable profiling metrics for the Glue job.
+
+        When enabled, adds '--enable-metrics' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable observability metrics for the Glue job.
+
+        When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_observability_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def spark_ui(self) -> typing.Optional[SparkUIProps]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
@@ -13619,6 +13821,8 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "enable_metrics": "enableMetrics",
+        "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
         "extra_files": "extraFiles",
         "extra_jars": "extraJars",
@@ -13647,6 +13851,8 @@ class PySparkStreamingJobProps(SparkJobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         worker_type: typing.Optional[WorkerType] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         extra_files: typing.Optional[typing.Sequence[Code]] = None,
         extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -13672,6 +13878,8 @@ class PySparkStreamingJobProps(SparkJobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
@@ -13714,6 +13922,8 @@ class PySparkStreamingJobProps(SparkJobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
+            check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
             check_type(argname="argument extra_jars", value=extra_jars, expected_type=type_hints["extra_jars"])
@@ -13752,6 +13962,10 @@ class PySparkStreamingJobProps(SparkJobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if enable_metrics is not None:
+            self._values["enable_metrics"] = enable_metrics
+        if enable_observability_metrics is not None:
+            self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
         if extra_files is not None:
@@ -13958,6 +14172,32 @@ class PySparkStreamingJobProps(SparkJobProps):
         '''
         result = self._values.get("worker_type")
         return typing.cast(typing.Optional[WorkerType], result)
+
+    @builtins.property
+    def enable_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable profiling metrics for the Glue job.
+
+        When enabled, adds '--enable-metrics' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable observability metrics for the Glue job.
+
+        When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_observability_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional[SparkUIProps]:
@@ -14223,6 +14463,8 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional[Runtime] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
@@ -14246,6 +14488,8 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
 
         :param scope: -
         :param id: -
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
         :param runtime: (experimental) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
@@ -14272,6 +14516,8 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = RayJobProps(
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             job_run_queuing_enabled=job_run_queuing_enabled,
             runtime=runtime,
             role=role,
@@ -14963,6 +15209,8 @@ class S3TableProps(TableBaseProps):
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "enable_metrics": "enableMetrics",
+        "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
         "class_name": "className",
         "extra_files": "extraFiles",
@@ -14991,6 +15239,8 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         worker_type: typing.Optional[WorkerType] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
         extra_files: typing.Optional[typing.Sequence[Code]] = None,
@@ -15016,6 +15266,8 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param class_name: (experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
@@ -15063,6 +15315,8 @@ class ScalaSparkEtlJobProps(SparkJobProps):
                     "default_arguments_key": "defaultArguments"
                 },
                 description="description",
+                enable_metrics=False,
+                enable_observability_metrics=False,
                 enable_profiling_metrics=False,
                 extra_files=[code],
                 extra_jars=[code],
@@ -15107,6 +15361,8 @@ class ScalaSparkEtlJobProps(SparkJobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
+            check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
@@ -15146,6 +15402,10 @@ class ScalaSparkEtlJobProps(SparkJobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if enable_metrics is not None:
+            self._values["enable_metrics"] = enable_metrics
+        if enable_observability_metrics is not None:
+            self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
         if extra_files is not None:
@@ -15352,6 +15612,32 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[WorkerType], result)
 
     @builtins.property
+    def enable_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable profiling metrics for the Glue job.
+
+        When enabled, adds '--enable-metrics' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable observability metrics for the Glue job.
+
+        When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_observability_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def spark_ui(self) -> typing.Optional[SparkUIProps]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
@@ -15457,6 +15743,8 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "enable_metrics": "enableMetrics",
+        "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
         "class_name": "className",
         "extra_files": "extraFiles",
@@ -15485,6 +15773,8 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         worker_type: typing.Optional[WorkerType] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
         extra_files: typing.Optional[typing.Sequence[Code]] = None,
@@ -15519,6 +15809,8 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param class_name: (experimental) The fully qualified Scala class name that serves as the entry point for the job.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
@@ -15566,6 +15858,8 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
                     "default_arguments_key": "defaultArguments"
                 },
                 description="description",
+                enable_metrics=False,
+                enable_observability_metrics=False,
                 enable_profiling_metrics=False,
                 extra_files=[code],
                 extra_jars=[code],
@@ -15610,6 +15904,8 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
+            check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
@@ -15649,6 +15945,10 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if enable_metrics is not None:
+            self._values["enable_metrics"] = enable_metrics
+        if enable_observability_metrics is not None:
+            self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
         if extra_files is not None:
@@ -15855,6 +16155,32 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         return typing.cast(typing.Optional[WorkerType], result)
 
     @builtins.property
+    def enable_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable profiling metrics for the Glue job.
+
+        When enabled, adds '--enable-metrics' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable observability metrics for the Glue job.
+
+        When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_observability_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def spark_ui(self) -> typing.Optional[SparkUIProps]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
@@ -15957,6 +16283,8 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         "tags": "tags",
         "timeout": "timeout",
         "worker_type": "workerType",
+        "enable_metrics": "enableMetrics",
+        "enable_observability_metrics": "enableObservabilityMetrics",
         "spark_ui": "sparkUI",
         "class_name": "className",
         "extra_files": "extraFiles",
@@ -15985,6 +16313,8 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         worker_type: typing.Optional[WorkerType] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         class_name: builtins.str,
         extra_files: typing.Optional[typing.Sequence[Code]] = None,
@@ -16010,6 +16340,8 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
         :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param worker_type: (experimental) Worker Type (optional) Type of Worker for Glue to use during job execution Enum options: Standard, G_1X, G_2X, G_025X. G_4X, G_8X, Z_2X Default: WorkerType.G_1X
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param class_name: (experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
         :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
@@ -16057,6 +16389,8 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
                     "default_arguments_key": "defaultArguments"
                 },
                 description="description",
+                enable_metrics=False,
+                enable_observability_metrics=False,
                 enable_profiling_metrics=False,
                 extra_files=[code],
                 extra_jars=[code],
@@ -16101,6 +16435,8 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument timeout", value=timeout, expected_type=type_hints["timeout"])
             check_type(argname="argument worker_type", value=worker_type, expected_type=type_hints["worker_type"])
+            check_type(argname="argument enable_metrics", value=enable_metrics, expected_type=type_hints["enable_metrics"])
+            check_type(argname="argument enable_observability_metrics", value=enable_observability_metrics, expected_type=type_hints["enable_observability_metrics"])
             check_type(argname="argument spark_ui", value=spark_ui, expected_type=type_hints["spark_ui"])
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
             check_type(argname="argument extra_files", value=extra_files, expected_type=type_hints["extra_files"])
@@ -16140,6 +16476,10 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
             self._values["timeout"] = timeout
         if worker_type is not None:
             self._values["worker_type"] = worker_type
+        if enable_metrics is not None:
+            self._values["enable_metrics"] = enable_metrics
+        if enable_observability_metrics is not None:
+            self._values["enable_observability_metrics"] = enable_observability_metrics
         if spark_ui is not None:
             self._values["spark_ui"] = spark_ui
         if extra_files is not None:
@@ -16346,6 +16686,32 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         return typing.cast(typing.Optional[WorkerType], result)
 
     @builtins.property
+    def enable_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable profiling metrics for the Glue job.
+
+        When enabled, adds '--enable-metrics' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enable observability metrics for the Glue job.
+
+        When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("enable_observability_metrics")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def spark_ui(self) -> typing.Optional[SparkUIProps]:
         '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
 
@@ -16463,6 +16829,8 @@ class SparkJob(
         scope: _constructs_77d1e7e8.Construct,
         id: builtins.str,
         *,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
         script: Code,
@@ -16484,6 +16852,8 @@ class SparkJob(
         '''
         :param scope: -
         :param id: -
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -16509,6 +16879,8 @@ class SparkJob(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SparkJobProps(
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
             role=role,
             script=script,
@@ -16534,6 +16906,8 @@ class SparkJob(
     def _non_executable_common_arguments(
         self,
         *,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
         script: Code,
@@ -16553,6 +16927,8 @@ class SparkJob(
         worker_type: typing.Optional[WorkerType] = None,
     ) -> typing.Mapping[builtins.str, builtins.str]:
         '''
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -16574,6 +16950,8 @@ class SparkJob(
         :stability: experimental
         '''
         props = SparkJobProps(
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
             role=role,
             script=script,
@@ -17829,11 +18207,20 @@ class PySparkEtlJob(
         # role: iam.IRole
         # script: glue.Code
         
-        glue.PySparkEtlJob(stack, "PySparkETLJob",
+        
+        # Disable both metrics for cost optimization
+        glue.PySparkEtlJob(stack, "CostOptimizedJob",
             role=role,
             script=script,
-            job_name="PySparkETLJob",
-            job_run_queuing_enabled=True
+            enable_metrics=False,
+            enable_observability_metrics=False
+        )
+        
+        # Selective control - keep observability, disable profiling
+        glue.PySparkEtlJob(stack, "SelectiveJob",
+            role=role,
+            script=script,
+            enable_metrics=False
         )
     '''
 
@@ -17847,6 +18234,8 @@ class PySparkEtlJob(
         extra_jars_first: typing.Optional[builtins.bool] = None,
         extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
         script: Code,
@@ -17874,6 +18263,8 @@ class PySparkEtlJob(
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -17904,6 +18295,8 @@ class PySparkEtlJob(
             extra_jars_first=extra_jars_first,
             extra_python_files=extra_python_files,
             job_run_queuing_enabled=job_run_queuing_enabled,
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
             role=role,
             script=script,
@@ -17993,6 +18386,8 @@ class PySparkFlexEtlJob(
         extra_jars_first: typing.Optional[builtins.bool] = None,
         extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
         notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
         script: Code,
@@ -18020,6 +18415,8 @@ class PySparkFlexEtlJob(
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
         :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -18050,6 +18447,8 @@ class PySparkFlexEtlJob(
             extra_jars_first=extra_jars_first,
             extra_python_files=extra_python_files,
             notify_delay_after=notify_delay_after,
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
             role=role,
             script=script,
@@ -18139,6 +18538,8 @@ class PySparkStreamingJob(
         extra_jars_first: typing.Optional[builtins.bool] = None,
         extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
         script: Code,
@@ -18166,6 +18567,8 @@ class PySparkStreamingJob(
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -18196,6 +18599,8 @@ class PySparkStreamingJob(
             extra_jars_first=extra_jars_first,
             extra_python_files=extra_python_files,
             job_run_queuing_enabled=job_run_queuing_enabled,
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
             role=role,
             script=script,
@@ -18301,6 +18706,8 @@ class ScalaSparkEtlJob(
                 "default_arguments_key": "defaultArguments"
             },
             description="description",
+            enable_metrics=False,
+            enable_observability_metrics=False,
             enable_profiling_metrics=False,
             extra_files=[code],
             extra_jars=[code],
@@ -18334,6 +18741,8 @@ class ScalaSparkEtlJob(
         extra_jars: typing.Optional[typing.Sequence[Code]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
         script: Code,
@@ -18361,6 +18770,8 @@ class ScalaSparkEtlJob(
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -18391,6 +18802,8 @@ class ScalaSparkEtlJob(
             extra_jars=extra_jars,
             extra_jars_first=extra_jars_first,
             job_run_queuing_enabled=job_run_queuing_enabled,
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
             role=role,
             script=script,
@@ -18496,6 +18909,8 @@ class ScalaSparkFlexEtlJob(
                 "default_arguments_key": "defaultArguments"
             },
             description="description",
+            enable_metrics=False,
+            enable_observability_metrics=False,
             enable_profiling_metrics=False,
             extra_files=[code],
             extra_jars=[code],
@@ -18529,6 +18944,8 @@ class ScalaSparkFlexEtlJob(
         extra_jars: typing.Optional[typing.Sequence[Code]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
         script: Code,
@@ -18556,6 +18973,8 @@ class ScalaSparkFlexEtlJob(
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -18586,6 +19005,8 @@ class ScalaSparkFlexEtlJob(
             extra_jars=extra_jars,
             extra_jars_first=extra_jars_first,
             notify_delay_after=notify_delay_after,
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
             role=role,
             script=script,
@@ -18691,6 +19112,8 @@ class ScalaSparkStreamingJob(
                 "default_arguments_key": "defaultArguments"
             },
             description="description",
+            enable_metrics=False,
+            enable_observability_metrics=False,
             enable_profiling_metrics=False,
             extra_files=[code],
             extra_jars=[code],
@@ -18724,6 +19147,8 @@ class ScalaSparkStreamingJob(
         extra_jars: typing.Optional[typing.Sequence[Code]] = None,
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+        enable_metrics: typing.Optional[builtins.bool] = None,
+        enable_observability_metrics: typing.Optional[builtins.bool] = None,
         spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
         role: _aws_cdk_aws_iam_ceddda9d.IRole,
         script: Code,
@@ -18751,6 +19176,8 @@ class ScalaSparkStreamingJob(
         :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
         :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
         :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
         :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
         :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
@@ -18781,6 +19208,8 @@ class ScalaSparkStreamingJob(
             extra_jars=extra_jars,
             extra_jars_first=extra_jars_first,
             job_run_queuing_enabled=job_run_queuing_enabled,
+            enable_metrics=enable_metrics,
+            enable_observability_metrics=enable_observability_metrics,
             spark_ui=spark_ui,
             role=role,
             script=script,
@@ -19440,6 +19869,8 @@ def _typecheckingstub__0688d93fe3342e908d24430e0cf83d44b81116d86a5789bf7fabe7d05
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     runtime: typing.Optional[Runtime] = None,
 ) -> None:
@@ -19566,6 +19997,8 @@ def _typecheckingstub__2ffa813def4de32811719999bd6b7dba325e92cf2f2ca903cddce9461
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20185,6 +20618,8 @@ def _typecheckingstub__7d1f0248e91f0e304122bfc575cd46be082ce53b491ae4ac58657dde6
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -20213,6 +20648,8 @@ def _typecheckingstub__1ef29eff48bb24670d76df296a115400d888e6edb0be2d4d7fe4f8594
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -20241,6 +20678,8 @@ def _typecheckingstub__d84214ee15ab52fd8652e96b7efef9a28fd9d1e00434523677b07bd72
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
@@ -20282,6 +20721,8 @@ def _typecheckingstub__f7beec401782b29b227bf0ea4c127741d2963c96d556c701232fc9b8d
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     runtime: typing.Optional[Runtime] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
@@ -20386,6 +20827,8 @@ def _typecheckingstub__7dc0f0fa237cf7965aab0946ff23b7cd81480bfae21863d601973dccf
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     class_name: builtins.str,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
@@ -20414,6 +20857,8 @@ def _typecheckingstub__c8ceab9d0640505293413a9e030a887b86040fff73ca1bc6ccb202579
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     class_name: builtins.str,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
@@ -20442,6 +20887,8 @@ def _typecheckingstub__178abebbd3eb26dd5a8490688d5ab2b0ca85ce375356790e6e875c466
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     worker_type: typing.Optional[WorkerType] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     class_name: builtins.str,
     extra_files: typing.Optional[typing.Sequence[Code]] = None,
@@ -20456,6 +20903,8 @@ def _typecheckingstub__8fbd2cbc25f1bca6ef290d592a0caaacb6be8da071335ebfe9f73523d
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
@@ -20613,6 +21062,8 @@ def _typecheckingstub__327d74fee281b2b0d3a8881dfc5d5dc7ee1df1b54cc0e95df5cc6b254
     extra_jars_first: typing.Optional[builtins.bool] = None,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
@@ -20643,6 +21094,8 @@ def _typecheckingstub__df8099e58d980930cb131b7b6143370cec5ab0c0d687c1577ad0f5bc9
     extra_jars_first: typing.Optional[builtins.bool] = None,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
@@ -20673,6 +21126,8 @@ def _typecheckingstub__db0d9c08e93dc8ac4aa26bd9cbdc4f728b7fed72e75da00734b4bea75
     extra_jars_first: typing.Optional[builtins.bool] = None,
     extra_python_files: typing.Optional[typing.Sequence[Code]] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
@@ -20703,6 +21158,8 @@ def _typecheckingstub__3531464a00fcaee4dedc194dffa8743ca4d59d92cc35e1ec406f90fe4
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
@@ -20733,6 +21190,8 @@ def _typecheckingstub__c45fb25248ac17e75b6beafe427e181daa7b993fc5b05859e6d9c0733
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
     notify_delay_after: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,
@@ -20763,6 +21222,8 @@ def _typecheckingstub__1ea5c033f6ebef3ce7a903821d4289a54ea02a63c6adc3dc1b36a567c
     extra_jars: typing.Optional[typing.Sequence[Code]] = None,
     extra_jars_first: typing.Optional[builtins.bool] = None,
     job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
+    enable_metrics: typing.Optional[builtins.bool] = None,
+    enable_observability_metrics: typing.Optional[builtins.bool] = None,
     spark_ui: typing.Optional[typing.Union[SparkUIProps, typing.Dict[builtins.str, typing.Any]]] = None,
     role: _aws_cdk_aws_iam_ceddda9d.IRole,
     script: Code,

@@ -1,3 +1,4 @@
+import logging
 import time
 from enum import IntEnum
 from typing import Any, ClassVar, Dict, List, Optional, TypeVar, Union
@@ -17,6 +18,8 @@ from . import utils
 
 Status = TypeVar("Status")
 ConsistencyLevel = common_pb2.ConsistencyLevel
+
+logger = logging.getLogger(__name__)
 
 
 # OmitZeroDict: ignore the key-value pairs with value as 0 when printing
@@ -114,6 +117,7 @@ class DataType(IntEnum):
     FLOAT16_VECTOR = schema_pb2.Float16Vector
     BFLOAT16_VECTOR = schema_pb2.BFloat16Vector
     SPARSE_FLOAT_VECTOR = schema_pb2.SparseFloatVector
+    INT8_VECTOR = schema_pb2.Int8Vector
 
     UNKNOWN = 999
 
@@ -125,6 +129,7 @@ class FunctionType(IntEnum):
     UNKNOWN = 0
     BM25 = 1
     TEXTEMBEDDING = 2
+    RERANK = 3
 
 
 class RangeType(IntEnum):
@@ -192,6 +197,7 @@ class PlaceholderType(IntEnum):
     FLOAT16_VECTOR = 102
     BFLOAT16_VECTOR = 103
     SparseFloatVector = 104
+    Int8Vector = 105
     VARCHAR = 21
 
 
@@ -1057,7 +1063,13 @@ class HybridExtraList(list):
             if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
                 row_data[field_data.field_name] = None
                 return
-            json_dict = ujson.loads(field_data.scalars.json_data.data[index])
+            try:
+                json_dict = ujson.loads(field_data.scalars.json_data.data[index])
+            except Exception as e:
+                logger.error(
+                    f"HybridExtraList::_extract_lazy_fields::Failed to load JSON data: {e}, original data: {field_data.scalars.json_data.data[index]}"
+                )
+                raise
             if not field_data.is_dynamic:
                 row_data[field_data.field_name] = json_dict
                 return
@@ -1120,6 +1132,14 @@ class HybridExtraList(list):
             row_data[field_data.field_name] = utils.sparse_parse_single_row(
                 field_data.vectors.sparse_float_vector.contents[index]
             )
+        elif field_data.type == DataType.INT8_VECTOR:
+            dim = field_data.vectors.dim
+            start_pos = index * dim
+            end_pos = start_pos + dim
+            if len(field_data.vectors.int8_vector) >= start_pos:
+                row_data[field_data.field_name] = [
+                    field_data.vectors.int8_vector[start_pos:end_pos]
+                ]
 
     def __getitem__(self, index: Union[int, slice]):
         if isinstance(index, slice):

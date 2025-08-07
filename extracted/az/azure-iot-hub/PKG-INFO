@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-iot-hub
-Version: 2.6.1
+Version: 2.7.0
 Summary: Microsoft Azure IoTHub Service Library
 Home-page: https://github.com/Azure/azure-iot-hub-python/
 Author: Microsoft Corporation
@@ -23,6 +23,20 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: msrest<1.0.0,>=0.6.21
+Requires-Dist: uamqp<2.0.0,>=1.2.14
+Requires-Dist: azure-core<2.0.0,>=1.10.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Azure IoTHub Service  SDK
 

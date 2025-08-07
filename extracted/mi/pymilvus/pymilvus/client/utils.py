@@ -202,6 +202,9 @@ def len_of(field_data: Any) -> int:
             return int(total_len / (dim * data_wide_in_bytes))
         if field_data.vectors.HasField("sparse_float_vector"):
             return len(field_data.vectors.sparse_float_vector.contents)
+        if field_data.vectors.HasField("int8_vector"):
+            total_len = len(field_data.vectors.int8_vector)
+            return int(total_len / dim)
 
         total_len = len(field_data.vectors.binary_vector)
         return int(total_len / (dim / 8))
@@ -405,23 +408,41 @@ def is_sparse_vector_type(data_type: DataType) -> bool:
     return data_type == data_type.SPARSE_FLOAT_VECTOR
 
 
-dense_vector_type_set = {DataType.FLOAT_VECTOR, DataType.FLOAT16_VECTOR, DataType.BFLOAT16_VECTOR}
+dense_float_vector_type_set = {
+    DataType.FLOAT_VECTOR,
+    DataType.FLOAT16_VECTOR,
+    DataType.BFLOAT16_VECTOR,
+}
+dense_vector_type_set = {
+    DataType.FLOAT_VECTOR,
+    DataType.FLOAT16_VECTOR,
+    DataType.BFLOAT16_VECTOR,
+    DataType.INT8_VECTOR,
+}
 
 
-def is_dense_vector_type(data_type: DataType) -> bool:
-    return data_type in dense_vector_type_set
+def is_dense_float_vector_type(data_type: DataType) -> bool:
+    return data_type in dense_float_vector_type_set
 
 
 def is_float_vector_type(data_type: DataType):
-    return is_sparse_vector_type(data_type) or is_dense_vector_type(data_type)
+    return is_sparse_vector_type(data_type) or is_dense_float_vector_type(data_type)
 
 
 def is_binary_vector_type(data_type: DataType):
     return data_type == DataType.BINARY_VECTOR
 
 
+def is_int_vector_type(data_type: DataType):
+    return data_type == DataType.INT8_VECTOR
+
+
 def is_vector_type(data_type: DataType):
-    return is_float_vector_type(data_type) or is_binary_vector_type(data_type)
+    return (
+        is_float_vector_type(data_type)
+        or is_binary_vector_type(data_type)
+        or is_int_vector_type(data_type)
+    )
 
 
 # parses plain bytes to a sparse float vector(SparseRowOutputType)

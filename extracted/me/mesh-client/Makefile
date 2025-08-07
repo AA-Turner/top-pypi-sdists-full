@@ -32,6 +32,7 @@ clean_dist:
 	rm -r dist/ || true
 
 dist: clean_dist
+	pip install build
 	python -m build
 
 
@@ -48,10 +49,10 @@ delete-hooks:
 refresh-hooks: delete-hooks .git/hooks/pre-commit .git/hooks/commit-msg
 
 install:
-	poetry install --sync
+	poetry sync
 
 install-ci:
-	poetry install --without local --sync
+	poetry sync --without local
 
 update:
 	poetry update
@@ -64,24 +65,28 @@ shellcheck:
 	docker run --rm -i -v ${PWD}:/mnt:ro koalaman/shellcheck -f gcc -e SC1090,SC1091 `find . \( -path "*/.venv/*" -prune -o -path "*/build/*" -prune -o -path "*/.tox/*" -prune -o -path "*/java_client/*" -prune  \) -o -type f -name '*.sh' -print` || test $$? -eq 1
 
 ruff: black
-	poetry run ruff --fix --show-fixes .
+	poetry run ruff check --fix --show-fixes .
 
 ruff-check:
-	poetry run ruff .
+	poetry run ruff check .
 
 ruff-ci:
-	poetry run ruff --output-format=github .
+	poetry run ruff check --output-format=github .
 
 lint: ruff mypy shellcheck
 
-clean:
+clean: down
 	rm -rf ./dist || true
+	rm -rf ./tox || true
+	rm -rf ./Mesh_Client.egg-info || true
+	rm -rf ./.venv || true
 	rm -rf ./reports || true
 	rm -f .docker.env || true
 	find . -type d -name '.mypy_cache' | xargs rm -rf || true
 	find . -type d -name '.pytest_cache' | xargs rm -rf || true
 	find . -type d -name '__pycache__' | xargs rm -rf || true
 	find . -type f -name '.coverage' | xargs rm -rf || true
+	find tests -type f -name '*.pem' | xargs rm -rf || true
 
 purge: clean
 	rm -rf .venv || true
@@ -91,7 +96,6 @@ black-check:
 
 black:
 	poetry run black .
-
 
 coverage-cleanup:
 	rm -f .coverage* || true
@@ -120,7 +124,7 @@ tox:
 down:
 	docker compose down --remove-orphans || true
 
-up:
+up: create-test-certs-keys
 	docker compose up -d --remove-orphans --build
 
 coverage-ci: coverage-cleanup coverage-ci-test coverage-report
@@ -133,3 +137,6 @@ check-secrets-all:
 
 export-requirements:
 	poetry export --only main -f requirements.txt --output ./requirements.txt
+
+create-test-certs-keys:
+	./scripts/create-test-certs-keys.sh

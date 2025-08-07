@@ -2,26 +2,29 @@
 
 from __future__ import annotations
 
-from contextlib import AbstractAsyncContextManager, asynccontextmanager
-from typing import TYPE_CHECKING, Any, Callable
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 import aiohttp
-from aiohttp import ClientSession
+from aiohttp import ClientTimeout
 
 from .const import TIMEOUT
 from .exceptions import InvalidInvocation, RequestException, ResponseException
 
 if TYPE_CHECKING:
     from asyncio import AbstractEventLoop
+    from collections.abc import AsyncGenerator
 
-    from aiohttp import ClientResponse
+    from aiohttp import ClientResponse, ClientSession
 
 
 class Requestor:
     """Requestor provides an interface to HTTP requests."""
 
-    def __getattr__(self, attribute: str) -> Any:  # pragma: no cover
+    MIN_USER_AGENT_LENGTH = 7
+
+    def __getattr__(self, attribute: str) -> object:  # pragma: no cover
         """Pass all undefined attributes to the ``_http`` attribute."""
         if attribute.startswith("__"):
             raise AttributeError(attribute)
@@ -35,7 +38,7 @@ class Requestor:
         session: ClientSession | None = None,
         loop: AbstractEventLoop | None = None,
         timeout: float = TIMEOUT,
-    ):
+    ) -> None:
         """Create an instance of the Requestor class.
 
         :param user_agent: The user-agent for your application. Please follow Reddit's
@@ -57,13 +60,13 @@ class Requestor:
 
         """
         # Imported locally to avoid an import cycle, with __init__
-        from . import __version__
+        from . import __version__  # noqa: PLC0415
 
         if loop is not None:
             msg = "The loop argument is deprecated and will be ignored."
             warn(msg, DeprecationWarning, stacklevel=2)
 
-        if user_agent is None or len(user_agent) < 7:
+        if user_agent is None or len(user_agent) < self.MIN_USER_AGENT_LENGTH:
             msg = "user_agent is not descriptive"
             raise InvalidInvocation(msg)
 
@@ -85,15 +88,13 @@ class Requestor:
                 timeout=aiohttp.ClientTimeout(total=None),
             )
 
-    async def close(self):
+    async def close(self) -> None:
         """Call close on the underlying session."""
         if self._http is not None and not self._http.closed:
             await self._http.close()
 
     @asynccontextmanager
-    async def request(
-        self, *args: Any, timeout: float | None = None, **kwargs: Any
-    ) -> Callable[..., AbstractAsyncContextManager[ClientResponse]]:
+    async def request(self, *args: Any, timeout: float | None = None, **kwargs: Any) -> AsyncGenerator[ClientResponse]:
         """Issue the HTTP request capturing any errors that may occur.
 
         :param args: Positional arguments to pass to ``aiohttp.ClientSession.request``.
@@ -109,13 +110,14 @@ class Requestor:
         try:
             await self._ensure_session()
             kwargs_copy = kwargs.copy()
-            async with self._http.request(
-                *args,
-                headers={**self.headers, **kwargs_copy.pop("headers", {})},
-                timeout=timeout or self.timeout,
-                **kwargs_copy,
-            ) as request:
-                yield request
+            if self._http is not None:
+                async with self._http.request(
+                    *args,
+                    headers={**self.headers, **kwargs_copy.pop("headers", {})},
+                    timeout=ClientTimeout(timeout or self.timeout),
+                    **kwargs_copy,
+                ) as request:
+                    yield request
         except ResponseException as exc:
             raise exc
         except Exception as exc:  # noqa: BLE001

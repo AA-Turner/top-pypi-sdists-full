@@ -1,5 +1,6 @@
 import base64
 import datetime
+import json
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Union
 
 import numpy as np
@@ -9,10 +10,11 @@ from pymilvus.exceptions import DataNotMatchException, ExceptionsMessage, ParamE
 from pymilvus.grpc_gen import common_pb2 as common_types
 from pymilvus.grpc_gen import milvus_pb2 as milvus_types
 from pymilvus.grpc_gen import schema_pb2 as schema_types
-from pymilvus.orm.schema import CollectionSchema
+from pymilvus.orm.schema import CollectionSchema, FieldSchema, Function
 from pymilvus.orm.types import infer_dtype_by_scalar_data
 
 from . import __version__, blob, check, entity_helper, ts_utils, utils
+from .abstract import BaseRanker
 from .check import check_pass_param, is_legal_collection_properties
 from .constants import (
     COLLECTION_ID,
@@ -171,9 +173,9 @@ class Prepare:
     @staticmethod
     def get_field_schema(
         field: Dict,
-        primary_field: Any,
-        auto_id_field: Any,
-    ) -> (schema_types.FieldSchema, Any, Any):
+        primary_field: Optional[str] = None,
+        auto_id_field: Optional[str] = None,
+    ) -> (schema_types.FieldSchema, Optional[str], Optional[str]):
         field_name = field.get("name")
         if field_name is None:
             raise ParamError(message="You should specify the name of field!")
@@ -218,6 +220,9 @@ class Prepare:
             autoID=auto_id,
             is_partition_key=field.get("is_partition_key", False),
             is_clustering_key=field.get("is_clustering_key", False),
+            nullable=nullable,
+            default_value=field.get("default_value"),
+            element_type=field.get("element_type"),
         )
 
         type_params = field.get("params", {})
@@ -272,6 +277,18 @@ class Prepare:
     @classmethod
     def drop_collection_request(cls, collection_name: str) -> milvus_types.DropCollectionRequest:
         return milvus_types.DropCollectionRequest(collection_name=collection_name)
+
+    @classmethod
+    def add_collection_field_request(
+        cls,
+        collection_name: str,
+        field_schema: FieldSchema,
+    ) -> milvus_types.AddCollectionFieldRequest:
+        (field_schema_proto, _, _) = cls.get_field_schema(field=field_schema.to_dict())
+        return milvus_types.AddCollectionFieldRequest(
+            collection_name=collection_name,
+            schema=bytes(field_schema_proto.SerializeToString()),
+        )
 
     @classmethod
     def describe_collection_request(
@@ -817,6 +834,9 @@ class Prepare:
             elif dtype in ("float32", "float64"):
                 pl_type = PlaceholderType.FloatVector
                 pl_values = (blob.vector_float_to_bytes(entity) for entity in data)
+            elif dtype == "int8":
+                pl_type = PlaceholderType.Int8Vector
+                pl_values = (array.tobytes() for array in data)
 
             elif dtype == "byte":
                 pl_type = PlaceholderType.BinaryVector
@@ -924,6 +944,7 @@ class Prepare:
         partition_names: Optional[List[str]] = None,
         output_fields: Optional[List[str]] = None,
         round_decimal: int = -1,
+        ranker: Optional[Function] = None,
         **kwargs,
     ) -> milvus_types.SearchRequest:
         use_default_consistency = ts_utils.construct_guarantee_ts(collection_name, kwargs)
@@ -1038,6 +1059,11 @@ class Prepare:
         if expr is not None:
             request.dsl = expr
 
+        if ranker is not None and not isinstance(ranker, Function):
+            raise ParamError(message="The search ranker must be a Function.")
+        if isinstance(ranker, Function):
+            request.function_score.CopyFrom(Prepare.ranker_to_function_score(ranker))
+
         return request
 
     @classmethod
@@ -1045,7 +1071,7 @@ class Prepare:
         cls,
         collection_name: str,
         reqs: List,
-        rerank_param: Dict,
+        rerank: Union[BaseRanker, Function],
         limit: int,
         partition_names: Optional[List[str]] = None,
         output_fields: Optional[List[str]] = None,
@@ -1053,6 +1079,11 @@ class Prepare:
         **kwargs,
     ) -> milvus_types.HybridSearchRequest:
         use_default_consistency = ts_utils.construct_guarantee_ts(collection_name, kwargs)
+        if rerank is not None and not isinstance(rerank, (Function, BaseRanker)):
+            raise ParamError(message="The hybrid search rerank must be a Function or a Ranker.")
+        rerank_param = {}
+        if isinstance(rerank, BaseRanker):
+            rerank_param = rerank.dict()
         rerank_param["limit"] = limit
         rerank_param["round_decimal"] = round_decimal
         rerank_param["offset"] = kwargs.get("offset", 0)
@@ -1110,7 +1141,29 @@ class Prepare:
                 ]
             )
 
+        if isinstance(rerank, Function):
+            request.function_score.CopyFrom(Prepare.ranker_to_function_score(rerank))
         return request
+
+    @staticmethod
+    def ranker_to_function_score(ranker: Function) -> schema_types.FunctionScore:
+        function_score = schema_types.FunctionScore(
+            functions=[
+                schema_types.FunctionSchema(
+                    name=ranker.name,
+                    type=ranker.type,
+                    description=ranker.description,
+                    input_field_names=ranker.input_field_names,
+                )
+            ],
+        )
+        for k, v in ranker.params.items():
+            if isinstance(v, (dict, list)):
+                kv_pair = common_types.KeyValuePair(key=str(k), value=json.dumps(v))
+            else:
+                kv_pair = common_types.KeyValuePair(key=str(k), value=str(v))
+            function_score.functions[0].params.append(kv_pair)
+        return function_score
 
     @classmethod
     def create_alias_request(cls, collection_name: str, alias: str):
@@ -1224,6 +1277,10 @@ class Prepare:
             )
             req.skip_load_dynamic_field = skip_load_dynamic_field
 
+        if "priority" in kwargs:
+            priority = kwargs.get("priority")
+            req.load_params["load_priority"] = priority
+
         return req
 
     @classmethod
@@ -1271,6 +1328,10 @@ class Prepare:
                 "skip_load_dynamic_field", kwargs.get("_skip_load_dynamic_field", False)
             )
             req.skip_load_dynamic_field = skip_load_dynamic_field
+
+        if "priority" in kwargs:
+            priority = kwargs.get("priority")
+            req.load_params["load_priority"] = priority
         return req
 
     @classmethod

@@ -1,10 +1,9 @@
+from ._labels import (
+    list_item_labels,
+)
 from ._sql_endpoints import (
     list_sql_endpoints,
     refresh_sql_endpoint_metadata,
-)
-from ._variable_libraries import (
-    list_variable_libraries,
-    delete_variable_library,
 )
 from ._kusto import (
     query_kusto,
@@ -15,9 +14,6 @@ from ._vpax import (
 )
 from ._delta_analyzer_history import (
     delta_analyzer_history,
-)
-from ._dax_query_view import (
-    generate_dax_query_view_url,
 )
 from ._mounted_data_factories import (
     list_mounted_data_factories,
@@ -91,11 +87,7 @@ from ._external_data_shares import (
     list_external_data_shares_in_item,
     create_external_data_share,
     revoke_external_data_share,
-)
-from ._ml_models import (
-    list_ml_models,
-    create_ml_model,
-    delete_ml_model,
+    delete_external_data_share,
 )
 from ._ml_experiments import (
     list_ml_experiments,
@@ -202,6 +194,8 @@ from ._notebooks import (
     import_notebook_from_web,
     update_notebook_definition,
     create_notebook,
+    search_notebooks,
+    list_notebooks,
 )
 from ._sql import (
     ConnectWarehouse,
@@ -288,6 +282,7 @@ from ._list_functions import (
     list_synonyms,
 )
 from ._helper_functions import (
+    copy_item,
     convert_to_friendly_case,
     resolve_environment_id,
     resolve_capacity_id,
@@ -486,9 +481,6 @@ __all__ = [
     "list_kql_querysets",
     "create_kql_queryset",
     "delete_kql_queryset",
-    "list_ml_models",
-    "create_ml_model",
-    "delete_ml_model",
     "list_ml_experiments",
     "create_ml_experiment",
     "delete_ml_experiment",
@@ -498,6 +490,7 @@ __all__ = [
     "list_external_data_shares_in_item",
     "create_external_data_share",
     "revoke_external_data_share",
+    "delete_external_data_share",
     "migrate_fabric_trial_capacity",
     "create_resource_group",
     "list_workloads",
@@ -577,7 +570,6 @@ __all__ = [
     "list_mounted_data_factories",
     "get_mounted_data_factory_definition",
     "delete_mounted_data_factory",
-    "generate_dax_query_view_url",
     "delete_semantic_model",
     "delete_workspace",
     "create_sql_database",
@@ -588,8 +580,6 @@ __all__ = [
     "query_workspace_monitoring",
     "list_environments",
     "list_tags",
-    "list_variable_libraries",
-    "delete_variable_library",
     "create_vpax",
     "update_semantic_model_refresh_schedule",
     "apply_tags",
@@ -599,4 +589,8 @@ __all__ = [
     "list_semantic_model_datasources",
     "upgrade_dataflow",
     "get_dataflow_definition",
+    "list_item_labels",
+    "copy_item",
+    "search_notebooks",
+    "list_notebooks",
 ]

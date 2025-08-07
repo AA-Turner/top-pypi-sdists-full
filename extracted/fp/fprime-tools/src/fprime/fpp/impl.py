@@ -1,4 +1,4 @@
-""" fprime.fpp.impl: Command line targets for `fprime-util impl`
+"""fprime.fpp.impl: Command line targets for `fprime-util impl`
 
 Processing and CLI entry points for `fprime-util impl` command line tool.
 
@@ -12,15 +12,19 @@ from pathlib import Path
 
 from typing import TYPE_CHECKING, Callable, Dict, List, Tuple
 
-if TYPE_CHECKING:
-    from fprime.fbuild.builder import Build
+from fprime.fbuild.builder import Build
 
 from fprime.fpp.common import FppUtility
 from fprime.util.code_formatter import ClangFormatter
 from fprime.constants import UT_FILES_TARGET_PATH, UT_TEMPLATE_FILE_SUFFIX
 
 
-def _apply_clang_formatting(framework_path, files_dir, generated_file_names):
+def _apply_clang_formatting(
+    build: Build,
+    framework_path: Path,
+    files_dir: Path,
+    generated_file_names: list[Path],
+):
     """
     Format files if clang-format is available.
 
@@ -36,7 +40,7 @@ def _apply_clang_formatting(framework_path, files_dir, generated_file_names):
         if clang_formatter.is_supported():
             for file_name in generated_file_names:
                 clang_formatter.stage_file(files_dir / file_name)
-            clang_formatter.execute(None, None, ({}, []))
+            clang_formatter.execute(build, None, ({}, []))
     else:
         print(
             f"[INFO] .clang-format file not found at {format_file.resolve()}. Skipping formatting."
@@ -69,7 +73,7 @@ def _move_ut_templates(files_dir, generated_file_names):
 
 
 def fpp_generate_implementation(
-    build: "Build",
+    build: Build,
     output_dir: Path,
     context: Path,
     apply_formatting: bool,
@@ -128,7 +132,7 @@ def fpp_generate_implementation(
     ]
 
     if apply_formatting:
-        _apply_clang_formatting(framework_path, output_dir, generated_file_names)
+        _apply_clang_formatting(build, framework_path, output_dir, generated_file_names)
 
     if generate_ut:
         _move_ut_templates(output_dir, generated_file_names)
@@ -137,7 +141,7 @@ def fpp_generate_implementation(
 
 
 def run_fpp_impl(
-    build: "Build",
+    build: Build,
     parsed: argparse.Namespace,
     _: Dict[str, str],
     __: Dict[str, str],

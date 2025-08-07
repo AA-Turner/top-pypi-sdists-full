@@ -51,7 +51,7 @@ class SystemApi:
     @validate_call
     async def backup_configuration(
         self,
-        resources: Annotated[List[StrictStr], Field(description="List of resource identifiers to included in the backup and restore operations.")],
+        resources: Annotated[Optional[List[StrictStr]], Field(description="List of resource identifiers to include in the retrieval.")] = None,
         metadata: Annotated[Optional[Dict[str, StrictStr]], Field(description="Additional metadata to add to the backup")] = None,
         _request_timeout: Union[
             None,
@@ -68,9 +68,9 @@ class SystemApi:
     ) -> bytearray:
         """Retrieve Configuration Backup
 
-        Retrieves a configuration backup based on provided resource identifiers. 
+        Retrieves a configuration backup based on provided resource identifiers. If an empty array of resources is provided, a backup for all resources will be retrieved. 
 
-        :param resources: List of resource identifiers to included in the backup and restore operations. (required)
+        :param resources: List of resource identifiers to include in the retrieval.
         :type resources: List[str]
         :param metadata: Additional metadata to add to the backup
         :type metadata: Dict[str, str]
@@ -107,7 +107,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "bytearray",
-            '400': "Error2",
+            '400': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -123,7 +123,7 @@ class SystemApi:
     @validate_call
     async def backup_configuration_with_http_info(
         self,
-        resources: Annotated[List[StrictStr], Field(description="List of resource identifiers to included in the backup and restore operations.")],
+        resources: Annotated[Optional[List[StrictStr]], Field(description="List of resource identifiers to include in the retrieval.")] = None,
         metadata: Annotated[Optional[Dict[str, StrictStr]], Field(description="Additional metadata to add to the backup")] = None,
         _request_timeout: Union[
             None,
@@ -140,9 +140,9 @@ class SystemApi:
     ) -> ApiResponse[bytearray]:
         """Retrieve Configuration Backup
 
-        Retrieves a configuration backup based on provided resource identifiers. 
+        Retrieves a configuration backup based on provided resource identifiers. If an empty array of resources is provided, a backup for all resources will be retrieved. 
 
-        :param resources: List of resource identifiers to included in the backup and restore operations. (required)
+        :param resources: List of resource identifiers to include in the retrieval.
         :type resources: List[str]
         :param metadata: Additional metadata to add to the backup
         :type metadata: Dict[str, str]
@@ -179,7 +179,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "bytearray",
-            '400': "Error2",
+            '400': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -195,7 +195,7 @@ class SystemApi:
     @validate_call
     async def backup_configuration_without_preload_content(
         self,
-        resources: Annotated[List[StrictStr], Field(description="List of resource identifiers to included in the backup and restore operations.")],
+        resources: Annotated[Optional[List[StrictStr]], Field(description="List of resource identifiers to include in the retrieval.")] = None,
         metadata: Annotated[Optional[Dict[str, StrictStr]], Field(description="Additional metadata to add to the backup")] = None,
         _request_timeout: Union[
             None,
@@ -212,9 +212,9 @@ class SystemApi:
     ) -> RESTResponseType:
         """Retrieve Configuration Backup
 
-        Retrieves a configuration backup based on provided resource identifiers. 
+        Retrieves a configuration backup based on provided resource identifiers. If an empty array of resources is provided, a backup for all resources will be retrieved. 
 
-        :param resources: List of resource identifiers to included in the backup and restore operations. (required)
+        :param resources: List of resource identifiers to include in the retrieval.
         :type resources: List[str]
         :param metadata: Additional metadata to add to the backup
         :type metadata: Dict[str, str]
@@ -251,7 +251,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "bytearray",
-            '400': "Error2",
+            '400': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -648,7 +648,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ConfigurationArchiveStatus",
-            '404': "Error2",
+            '404': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -716,7 +716,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ConfigurationArchiveStatus",
-            '404': "Error2",
+            '404': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -784,7 +784,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': "ConfigurationArchiveStatus",
-            '404': "Error2",
+            '404': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1887,7 +1887,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
-            '400': "Error2",
+            '400': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -1959,7 +1959,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
-            '400': "Error2",
+            '400': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,
@@ -2031,7 +2031,7 @@ class SystemApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '200': None,
-            '400': "Error2",
+            '400': "Error",
         }
         response_data = await self.api_client.call_api(
             *_param,

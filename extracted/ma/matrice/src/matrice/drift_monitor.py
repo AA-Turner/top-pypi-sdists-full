@@ -93,7 +93,7 @@ class DriftMonitoring:
         >>> else:
         ...     pprint(add_params)
         """
-        path = "/v1/deployment/drift_monitoring"
+        path = "/v1/inference/drift_monitoring"
         headers = {"Content-Type": "application/json"}
         monitoring_params = {
             "_idDeployment": _idDeployment,
@@ -158,7 +158,7 @@ class DriftMonitoring:
         >>> else:
         ...     pprint(update)
         """
-        path = "/v1/deployment/update_drift_monitoring"
+        path = "/v1/inference/update_drift_monitoring"
         headers = {"Content-Type": "application/json"}
         monitoring_params = {
             "_idDeployment": _idDeployment,

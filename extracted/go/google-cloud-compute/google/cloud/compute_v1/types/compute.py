@@ -109,6 +109,7 @@ __protobuf__ = proto.module(
         "AllocationAggregateReservationReservedResourceInfoAccelerator",
         "AllocationReservationSharingPolicy",
         "AllocationResourceStatus",
+        "AllocationResourceStatusHealthInfo",
         "AllocationResourceStatusSpecificSKUAllocation",
         "AllocationSpecificSKUAllocationAllocatedInstancePropertiesReservedDisk",
         "AllocationSpecificSKUAllocationReservedInstanceProperties",
@@ -1204,6 +1205,7 @@ __protobuf__ = proto.module(
         "ReservationAffinity",
         "ReservationAggregatedList",
         "ReservationBlock",
+        "ReservationBlockHealthInfo",
         "ReservationBlockPhysicalTopology",
         "ReservationBlockPhysicalTopologyInstance",
         "ReservationBlockPhysicalTopologyInstancePhysicalHostTopology",
@@ -1211,6 +1213,7 @@ __protobuf__ = proto.module(
         "ReservationBlocksListResponse",
         "ReservationList",
         "ReservationSubBlock",
+        "ReservationSubBlockHealthInfo",
         "ReservationSubBlockPhysicalTopology",
         "ReservationSubBlocksGetResponse",
         "ReservationSubBlocksListResponse",
@@ -11576,6 +11579,10 @@ class AllocationResourceStatus(proto.Message):
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
+        health_info (google.cloud.compute_v1.types.AllocationResourceStatusHealthInfo):
+            [Output only] Health information for the reservation.
+
+            This field is a member of `oneof`_ ``_health_info``.
         reservation_block_count (int):
             The number of reservation blocks associated
             with this reservation.
@@ -11591,6 +11598,12 @@ class AllocationResourceStatus(proto.Message):
             This field is a member of `oneof`_ ``_specific_sku_allocation``.
     """
 
+    health_info: "AllocationResourceStatusHealthInfo" = proto.Field(
+        proto.MESSAGE,
+        number=235287729,
+        optional=True,
+        message="AllocationResourceStatusHealthInfo",
+    )
     reservation_block_count: int = proto.Field(
         proto.INT32,
         number=161835754,
@@ -11609,6 +11622,67 @@ class AllocationResourceStatus(proto.Message):
             optional=True,
             message="AllocationResourceStatusSpecificSKUAllocation",
         )
+    )
+
+
+class AllocationResourceStatusHealthInfo(proto.Message):
+    r"""Health information for the reservation.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        degraded_block_count (int):
+            The number of reservation blocks that are
+            degraded.
+
+            This field is a member of `oneof`_ ``_degraded_block_count``.
+        health_status (str):
+            The health status of the reservation.
+            Check the HealthStatus enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_health_status``.
+        healthy_block_count (int):
+            The number of reservation blocks that are
+            healthy.
+
+            This field is a member of `oneof`_ ``_healthy_block_count``.
+    """
+
+    class HealthStatus(proto.Enum):
+        r"""The health status of the reservation.
+
+        Values:
+            UNDEFINED_HEALTH_STATUS (0):
+                A value indicating that the enum field is not
+                set.
+            DEGRADED (396890926):
+                The reservation is degraded.
+            HEALTHY (439801213):
+                The reservation is healthy.
+            HEALTH_STATUS_UNSPECIFIED (482246925):
+                The health status of the reservation is
+                unspecified.
+        """
+        UNDEFINED_HEALTH_STATUS = 0
+        DEGRADED = 396890926
+        HEALTHY = 439801213
+        HEALTH_STATUS_UNSPECIFIED = 482246925
+
+    degraded_block_count: int = proto.Field(
+        proto.INT32,
+        number=514082636,
+        optional=True,
+    )
+    health_status: str = proto.Field(
+        proto.STRING,
+        number=380545845,
+        optional=True,
+    )
+    healthy_block_count: int = proto.Field(
+        proto.INT32,
+        number=223625019,
+        optional=True,
     )
 
 
@@ -91524,6 +91598,12 @@ class Reservation(proto.Message):
             [Output Only] Reserved for future use.
 
             This field is a member of `oneof`_ ``_satisfies_pzs``.
+        scheduling_type (str):
+            The type of maintenance for the reservation.
+            Check the SchedulingType enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_scheduling_type``.
         self_link (str):
             [Output Only] Server-defined fully-qualified URL for this
             resource.
@@ -91584,6 +91664,28 @@ class Reservation(proto.Message):
         UNDEFINED_DEPLOYMENT_TYPE = 0
         DENSE = 64932607
         DEPLOYMENT_TYPE_UNSPECIFIED = 234847180
+
+    class SchedulingType(proto.Enum):
+        r"""The type of maintenance for the reservation.
+
+        Values:
+            UNDEFINED_SCHEDULING_TYPE (0):
+                A value indicating that the enum field is not
+                set.
+            GROUPED (474540862):
+                Maintenance on all reserved instances in the
+                reservation is synchronized.
+            GROUP_MAINTENANCE_TYPE_UNSPECIFIED (447183678):
+                Unknown maintenance type.
+            INDEPENDENT (127011674):
+                Maintenance is not synchronized for this
+                reservation. Instead, each instance has its own
+                maintenance window.
+        """
+        UNDEFINED_SCHEDULING_TYPE = 0
+        GROUPED = 474540862
+        GROUP_MAINTENANCE_TYPE_UNSPECIFIED = 447183678
+        INDEPENDENT = 127011674
 
     class Status(proto.Enum):
         r"""[Output Only] The status of the reservation. - CREATING: Reservation
@@ -91696,6 +91798,11 @@ class Reservation(proto.Message):
     satisfies_pzs: bool = proto.Field(
         proto.BOOL,
         number=480964267,
+        optional=True,
+    )
+    scheduling_type: str = proto.Field(
+        proto.STRING,
+        number=199835397,
         optional=True,
     )
     self_link: str = proto.Field(
@@ -91901,6 +92008,10 @@ class ReservationBlock(proto.Message):
             [Output Only] Creation timestamp in RFC3339 text format.
 
             This field is a member of `oneof`_ ``_creation_timestamp``.
+        health_info (google.cloud.compute_v1.types.ReservationBlockHealthInfo):
+            [Output Only] Health information for the reservation block.
+
+            This field is a member of `oneof`_ ``_health_info``.
         id (int):
             [Output Only] The unique identifier for the resource. This
             identifier is defined by the server.
@@ -91999,6 +92110,12 @@ class ReservationBlock(proto.Message):
         number=30525366,
         optional=True,
     )
+    health_info: "ReservationBlockHealthInfo" = proto.Field(
+        proto.MESSAGE,
+        number=235287729,
+        optional=True,
+        message="ReservationBlockHealthInfo",
+    )
     id: int = proto.Field(
         proto.UINT64,
         number=3355,
@@ -92059,6 +92176,65 @@ class ReservationBlock(proto.Message):
     zone: str = proto.Field(
         proto.STRING,
         number=3744684,
+        optional=True,
+    )
+
+
+class ReservationBlockHealthInfo(proto.Message):
+    r"""Health information for the reservation block.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        degraded_sub_block_count (int):
+            The number of subBlocks that are degraded.
+
+            This field is a member of `oneof`_ ``_degraded_sub_block_count``.
+        health_status (str):
+            The health status of the reservation block.
+            Check the HealthStatus enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_health_status``.
+        healthy_sub_block_count (int):
+            The number of subBlocks that are healthy.
+
+            This field is a member of `oneof`_ ``_healthy_sub_block_count``.
+    """
+
+    class HealthStatus(proto.Enum):
+        r"""The health status of the reservation block.
+
+        Values:
+            UNDEFINED_HEALTH_STATUS (0):
+                A value indicating that the enum field is not
+                set.
+            DEGRADED (396890926):
+                The reservation block is degraded.
+            HEALTHY (439801213):
+                The reservation block is healthy.
+            HEALTH_STATUS_UNSPECIFIED (482246925):
+                The health status of the reservation block is
+                unspecified.
+        """
+        UNDEFINED_HEALTH_STATUS = 0
+        DEGRADED = 396890926
+        HEALTHY = 439801213
+        HEALTH_STATUS_UNSPECIFIED = 482246925
+
+    degraded_sub_block_count: int = proto.Field(
+        proto.INT32,
+        number=458044493,
+        optional=True,
+    )
+    health_status: str = proto.Field(
+        proto.STRING,
+        number=380545845,
+        optional=True,
+    )
+    healthy_sub_block_count: int = proto.Field(
+        proto.INT32,
+        number=5348540,
         optional=True,
     )
 
@@ -92355,6 +92531,11 @@ class ReservationSubBlock(proto.Message):
             [Output Only] Creation timestamp in RFC3339 text format.
 
             This field is a member of `oneof`_ ``_creation_timestamp``.
+        health_info (google.cloud.compute_v1.types.ReservationSubBlockHealthInfo):
+            [Output Only] Health information for the reservation
+            subBlock.
+
+            This field is a member of `oneof`_ ``_health_info``.
         id (int):
             [Output Only] The unique identifier for the resource. This
             identifier is defined by the server.
@@ -92444,6 +92625,12 @@ class ReservationSubBlock(proto.Message):
         number=30525366,
         optional=True,
     )
+    health_info: "ReservationSubBlockHealthInfo" = proto.Field(
+        proto.MESSAGE,
+        number=235287729,
+        optional=True,
+        message="ReservationSubBlockHealthInfo",
+    )
     id: int = proto.Field(
         proto.UINT64,
         number=3355,
@@ -92494,6 +92681,87 @@ class ReservationSubBlock(proto.Message):
     zone: str = proto.Field(
         proto.STRING,
         number=3744684,
+        optional=True,
+    )
+
+
+class ReservationSubBlockHealthInfo(proto.Message):
+    r"""Health information for the reservation subBlock.
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        degraded_host_count (int):
+            The number of degraded hosts in the
+            reservation subBlock.
+
+            This field is a member of `oneof`_ ``_degraded_host_count``.
+        degraded_infra_count (int):
+            The number of degraded infrastructure (e.g NV
+            link domain) in the reservation subblock.
+
+            This field is a member of `oneof`_ ``_degraded_infra_count``.
+        health_status (str):
+            The health status of the reservation
+            subBlock. Check the HealthStatus enum for the
+            list of possible values.
+
+            This field is a member of `oneof`_ ``_health_status``.
+        healthy_host_count (int):
+            The number of healthy hosts in the
+            reservation subBlock.
+
+            This field is a member of `oneof`_ ``_healthy_host_count``.
+        healthy_infra_count (int):
+            The number of healthy infrastructure (e.g NV
+            link domain) in the reservation subblock.
+
+            This field is a member of `oneof`_ ``_healthy_infra_count``.
+    """
+
+    class HealthStatus(proto.Enum):
+        r"""The health status of the reservation subBlock.
+
+        Values:
+            UNDEFINED_HEALTH_STATUS (0):
+                A value indicating that the enum field is not
+                set.
+            DEGRADED (396890926):
+                The reservation subBlock is degraded.
+            HEALTHY (439801213):
+                The reservation subBlock is healthy.
+            HEALTH_STATUS_UNSPECIFIED (482246925):
+                The health status of the reservation subBlock
+                is unspecified.
+        """
+        UNDEFINED_HEALTH_STATUS = 0
+        DEGRADED = 396890926
+        HEALTHY = 439801213
+        HEALTH_STATUS_UNSPECIFIED = 482246925
+
+    degraded_host_count: int = proto.Field(
+        proto.INT32,
+        number=535025001,
+        optional=True,
+    )
+    degraded_infra_count: int = proto.Field(
+        proto.INT32,
+        number=138638927,
+        optional=True,
+    )
+    health_status: str = proto.Field(
+        proto.STRING,
+        number=380545845,
+        optional=True,
+    )
+    healthy_host_count: int = proto.Field(
+        proto.INT32,
+        number=40739738,
+        optional=True,
+    )
+    healthy_infra_count: int = proto.Field(
+        proto.INT32,
+        number=385052222,
         optional=True,
     )
 
@@ -116830,6 +117098,15 @@ class UpcomingMaintenance(proto.Message):
             RFC3339 text format.
 
             This field is a member of `oneof`_ ``_latest_window_start_time``.
+        maintenance_on_shutdown (bool):
+            Indicates whether the UpcomingMaintenance
+            will be triggered on VM shutdown.
+
+            This field is a member of `oneof`_ ``_maintenance_on_shutdown``.
+        maintenance_reasons (MutableSequence[str]):
+            The reasons for the maintenance. Only valid
+            for vms. Check the MaintenanceReasons enum for
+            the list of possible values.
         maintenance_status (str):
             Check the MaintenanceStatus enum for the list
             of possible values.
@@ -116854,6 +117131,50 @@ class UpcomingMaintenance(proto.Message):
 
             This field is a member of `oneof`_ ``_window_start_time``.
     """
+
+    class MaintenanceReasons(proto.Enum):
+        r"""
+
+        Values:
+            UNDEFINED_MAINTENANCE_REASONS (0):
+                A value indicating that the enum field is not
+                set.
+            FAILURE_DISK (8573778):
+                Maintenance due to disk errors.
+            FAILURE_GPU (467876919):
+                Maintenance due to GPU errors.
+            FAILURE_GPU_TEMPERATURE (24926540):
+                Maintenance due to high GPU temperature.
+            FAILURE_GPU_XID (51956587):
+                Maintenance due to GPU xid failure.
+            FAILURE_INFRA (270541467):
+                Maintenance due to infrastructure errors.
+            FAILURE_INTERFACE (390068356):
+                Maintenance due to interface errors.
+            FAILURE_MEMORY (440132982):
+                Maintenance due to memory errors.
+            FAILURE_NETWORK (42811449):
+                Maintenance due to network errors.
+            FAILURE_NVLINK (484426295):
+                Maintenance due to NVLink failure.
+            INFRASTRUCTURE_RELOCATION (359845636):
+                Maintenance due to infrastructure relocation.
+            MAINTENANCE_REASON_UNKNOWN (50570235):
+                Unknown maintenance reason. Do not use this
+                value.
+        """
+        UNDEFINED_MAINTENANCE_REASONS = 0
+        FAILURE_DISK = 8573778
+        FAILURE_GPU = 467876919
+        FAILURE_GPU_TEMPERATURE = 24926540
+        FAILURE_GPU_XID = 51956587
+        FAILURE_INFRA = 270541467
+        FAILURE_INTERFACE = 390068356
+        FAILURE_MEMORY = 440132982
+        FAILURE_NETWORK = 42811449
+        FAILURE_NVLINK = 484426295
+        INFRASTRUCTURE_RELOCATION = 359845636
+        MAINTENANCE_REASON_UNKNOWN = 50570235
 
     class MaintenanceStatus(proto.Enum):
         r"""
@@ -116905,6 +117226,15 @@ class UpcomingMaintenance(proto.Message):
         proto.STRING,
         number=128032129,
         optional=True,
+    )
+    maintenance_on_shutdown: bool = proto.Field(
+        proto.BOOL,
+        number=231055754,
+        optional=True,
+    )
+    maintenance_reasons: MutableSequence[str] = proto.RepeatedField(
+        proto.STRING,
+        number=140283267,
     )
     maintenance_status: str = proto.Field(
         proto.STRING,

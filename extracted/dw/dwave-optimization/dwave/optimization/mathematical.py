@@ -21,6 +21,7 @@ from dwave.optimization.symbols import (
     Add,
     And,
     ARange,
+    ArgSort,
     BSpline,
     Concatenate,
     Divide,
@@ -34,6 +35,7 @@ from dwave.optimization.symbols import (
     Log,
     Logical,
     Maximum,
+    Mean,
     Minimum,
     Modulus,
     Multiply,
@@ -44,6 +46,7 @@ from dwave.optimization.symbols import (
     Not,
     Or,
     Put,
+    Resize,
     Rint,
     SafeDivide,
     SquareRoot,
@@ -73,10 +76,12 @@ __all__ = [
     "logical_or",
     "logical_xor",
     "maximum",
+    "mean",
     "minimum",
     "mod",
     "multiply",
     "put",
+    "resize",
     "rint",
     "safe_divide",
     "sqrt",
@@ -195,6 +200,49 @@ def arange(start: typing.Union[int, ArraySymbol, None] = None,
         step = 1
 
     return ARange(start, stop, step)
+
+
+def argsort(array: ArraySymbol) -> ArgSort:
+    """Return an ordering of the indices that would sort (flattened) values
+    of the given symbol. Note that while it will return an array with
+    identical shape to the given symbol, the returned indices will always be
+    indices on flattened array, similar to ``numpy.argsort(a, axis=None)``.
+
+    Always performs a index-wise stable sort such that the relative order of
+    values is maintained in the returned order.
+
+    Args:
+        array: Input array to perform the argsort on.
+
+    Examples:
+        >>> from dwave.optimization import Model
+        >>> from dwave.optimization.mathematical import argsort
+        ...
+        >>> model = Model()
+        >>> a = model.constant([5, 2, 7, 4, 9, 1])
+        >>> indices = argsort(a)
+        >>> indices.shape()
+        (5,)
+        >>> with model.lock():
+        ...    model.states.resize(1)
+        ...    print(indices.state())
+        [5. 1. 3. 0. 2. 4.]
+        >>> a = model.constant([[5, 2, 7], [4, 9, 1]])
+        >>> indices = argsort(a)
+        >>> indices.shape()
+        (5,)
+        >>> with model.lock():
+        ...    model.states.resize(1)
+        ...    print(indices.state())
+        [[5. 1. 3.]
+         [0. 2. 4.]]
+
+    See Also:
+        :class:`~dwave.optimization.ArgSort`: equivalent symbol.
+
+    .. versionadded:: 0.6.4
+    """
+    return ArgSort(array)
 
 
 @typing.overload
@@ -891,6 +939,39 @@ def maximum(x1: ArraySymbol, x2: ArraySymbol, *xi: ArraySymbol,
     raise RuntimeError("implemented by the op() decorator")
 
 
+def mean(array: ArraySymbol) -> Mean:
+    r"""Return mean of given symbol.
+
+    Args:
+        array: Input array symbol.
+
+    Returns:
+        A symbol that is the mean of given symbol. If given symbol is empty, 
+        mean defaults to 0.0.
+
+    Examples:
+        This example takes the mean of one symbol.
+
+        >>> from dwave.optimization import Model
+        >>> from dwave.optimization.mathematical import mean
+        ...
+        >>> model = Model()
+        >>> i = model.integer(3)
+        >>> m = mean(i)
+        >>> with model.lock():
+        ...     model.states.resize(1)
+        ...     i.set_state(0, [8, 4, 3])
+        ...     print(m.state(0))
+        5.0
+
+    See Also:
+        :class:`~dwave.optimization.symbols.Mean`: equivalent symbol.
+
+    .. versionadded:: 0.6.4
+    """
+    return Mean(array)
+
+
 @_op(Minimum, NaryMinimum, "min")
 def minimum(x1: ArraySymbol, x2: ArraySymbol, *xi: ArraySymbol,
             ) -> typing.Union[Minimum, NaryMinimum]:
@@ -1079,6 +1160,47 @@ def put(array: ArraySymbol, indices: ArraySymbol, values: ArraySymbol) -> Put:
     .. versionadded:: 0.4.4
     """
     return Put(array, indices, values)
+
+
+def resize(
+        array: ArraySymbol,
+        shape: typing.Union[int, collections.abc.Sequence[int]],
+        fill_value: typing.Optional[float] = None,
+) -> Resize:
+    """Return a new :class:`~dwave.optimization.symbols.Resize` symbol with the given shape.
+
+    Args:
+        array: An array symbol.
+        shape: Shape of the new array. All dimension sizes must be non-negative.
+        fill_value: The value to be used if the resulting array is larger than
+            the given one. Defaults to 0.
+
+    Examples:
+        >>> from dwave.optimization import Model
+        >>> from dwave.optimization.mathematical import resize
+        ...
+        >>> model = Model()
+        >>> s = model.set(10)  # subsets of range(10)
+        >>> s_2x2 = resize(s, (2, 2), fill_value=-1)
+        ...
+        >>> model.states.resize(1)
+        >>> with model.lock():
+        ...     s.set_state(0, [0, 1, 2])
+        ...     print(s_2x2.state(0))
+        [[ 0.  1.]
+         [ 2. -1.]]
+
+    Returns:
+        A :class:`~dwave.optimization.symbols.Resize` symbol.
+
+    See also:
+        :class:`~dwave.optimization.symbols.Resize`: equivalent symbol.
+
+        :meth:`ArraySymbol.resize() <dwave.optimization.model.ArraySymbol.resize>`: equivalent method.
+
+    .. versionadded:: 0.6.4
+    """
+    return Resize(array, shape, fill_value=fill_value)
 
 
 def rint(x: ArraySymbol) -> Rint:

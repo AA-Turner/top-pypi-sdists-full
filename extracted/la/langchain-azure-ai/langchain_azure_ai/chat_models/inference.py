@@ -667,6 +667,9 @@ class AzureAIChatCompletionsModel(BaseChatModel):
             kwargs: Any additional parameters are passed directly to
                 ``self.bind(**kwargs)``.
         """
+        if kwargs.get("tool_choice") == "any":
+            kwargs["tool_choice"] = "required"
+
         formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
         return super().bind(tools=formatted_tools, **kwargs)
 
@@ -749,3 +752,12 @@ class AzureAIChatCompletionsModel(BaseChatModel):
     def get_lc_namespace(cls) -> List[str]:
         """Get the namespace of the langchain object."""
         return ["langchain", "chat_models", "azure_inference"]
+
+    async def aclose(self) -> None:
+        """Close the async client to prevent unclosed session warnings.
+
+        This method should be called to properly clean up HTTP connections
+        when using async operations.
+        """
+        if hasattr(self, "_async_client") and self._async_client:
+            await self._async_client.close()

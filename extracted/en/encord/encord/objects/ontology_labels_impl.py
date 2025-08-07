@@ -34,6 +34,7 @@ from encord.objects.attributes import Attribute
 from encord.objects.bundled_operations import (
     BundledCreateRowsPayload,
     BundledGetRowsPayload,
+    BundledGetStorageItemPayload,
     BundledSaveRowsPayload,
     BundledSetPriorityPayload,
     BundledWorkflowCompletePayload,
@@ -69,12 +70,14 @@ from encord.objects.ontology_object_instance import ObjectInstance
 from encord.objects.ontology_structure import OntologyStructure
 from encord.objects.utils import _lower_snake_case
 from encord.ontology import Ontology
+from encord.orm import storage as orm_storage
 from encord.orm.label_row import (
     AnnotationTaskStatus,
     LabelRowMetadata,
     LabelStatus,
     WorkflowGraphNode,
 )
+from encord.storage import STORAGE_BUNDLE_CREATE_LIMIT, StorageItem, StorageItemInaccessible
 from encord.utilities.type_utilities import exhaustive_guard
 
 log = logging.getLogger(__name__)
@@ -120,6 +123,8 @@ class LabelRowV2:
         # ^ conveniently a dict is ordered in Python. Use this to our advantage to keep the labels in order
         # at least at the final objects_index/classifications_index level.
 
+        self._storage_item: Optional[StorageItem] = None
+
     @property
     def label_hash(self) -> Optional[str]:
         """Returns the hash of the label row.
@@ -146,6 +151,17 @@ class LabelRowV2:
             str: The data row hash.
         """
         return self._label_row_read_only_data.data_hash
+
+    @property
+    def group_hash(self) -> Optional[str]:
+        """Returns the group hash of the data row.
+
+        Only present if this label row is a child of a data group
+
+        Returns:
+            Optional[str]: The data group hash.
+        """
+        return self._label_row_read_only_data.group_hash
 
     @property
     def dataset_hash(self) -> str:
@@ -494,6 +510,56 @@ class LabelRowV2:
             str | None: The email of the user who last actioned the data.
         """
         return self._label_row_read_only_data.last_actioned_by_user_email
+
+    def get_storage_item(self, get_signed_urls: bool = False) -> StorageItem:
+        """Returns the storage item associated with the label row.
+        This function can be used to get storage item details like storage folder, signed url, created at, item type, client metadata, etc.
+        """
+        if self._label_row_read_only_data.backing_item_uuid is None:
+            raise LabelRowError("Storage item is not found for the label row")
+
+        if not self._storage_item:
+            self._storage_item = StorageItem._get_item(
+                self._project_client._api_client,
+                self._label_row_read_only_data.backing_item_uuid,
+                get_signed_url=get_signed_urls,
+            )
+
+        return self._storage_item
+
+    def initialise_storage_item(self, get_signed_url: bool = False, bundle: Optional[Bundle] = None) -> None:
+        """Initialise the storage item associated with the label row.
+
+        This function will download the storage item details from the Encord server.
+        if you want to get the signed url, you can set the get_signed_url to True.
+
+        Args:
+            get_signed_url: If `True`,is set true, you can get the signed url from LabelRowV2.get_storage_item().get_signed_url()
+            bundle: If not provided, initialization is performed independently. If provided,
+                initialization is delayed and performed along with other objects in the same bundle.
+        """
+
+        if self._label_row_read_only_data.backing_item_uuid is None:
+            raise LabelRowError("Storage item is not found for the label row")
+
+        bundled_operation(
+            bundle,
+            operation=self._project_client._api_client.get_bound_operation(StorageItem._get_items_bulk),
+            payload=BundledGetStorageItemPayload(
+                item_uuids=[str(self._label_row_read_only_data.backing_item_uuid)],
+                get_signed_url=get_signed_url,
+            ),
+            result_mapper=BundleResultMapper[orm_storage.StorageItem](
+                result_mapping_predicate=lambda r: str(r.uuid),
+                result_handler=BundleResultHandler(
+                    predicate=str(self._label_row_read_only_data.backing_item_uuid), handler=self._set_orm_item
+                ),
+            ),
+            limit=STORAGE_BUNDLE_CREATE_LIMIT,
+        )
+
+    def _set_orm_item(self, orm_storage_item: orm_storage.StorageItem) -> None:
+        self._storage_item = StorageItem(self._project_client._api_client, orm_storage_item)
 
     def initialise_labels(
         self,
@@ -1578,6 +1644,7 @@ class LabelRowV2:
         created_at: Optional[datetime]
         last_edited_at: Optional[datetime]
         data_hash: str
+        group_hash: Optional[str]
         data_type: DataType
         backing_item_uuid: Optional[UUID]
         label_status: LabelStatus
@@ -1989,6 +2056,7 @@ class LabelRowV2:
             label_hash=label_row_metadata.label_hash,
             branch_name=label_row_metadata.branch_name,
             data_hash=label_row_metadata.data_hash,
+            group_hash=label_row_metadata.group_hash,
             data_title=label_row_metadata.data_title,
             dataset_hash=label_row_metadata.dataset_hash,
             dataset_title=label_row_metadata.dataset_title,
@@ -2105,6 +2173,7 @@ class LabelRowV2:
             dataset_title=label_row_dict["dataset_title"],
             data_title=label_row_dict["data_title"],
             data_hash=label_row_dict["data_hash"],
+            group_hash=label_row_dict.get("group_hash", self._label_row_read_only_data.group_hash),
             data_type=data_type,
             label_status=LabelStatus(label_row_dict["label_status"]),
             annotation_task_status=label_row_dict.get("annotation_task_status"),

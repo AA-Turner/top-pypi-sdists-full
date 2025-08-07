@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import ujson
@@ -8,6 +9,8 @@ from pymilvus.grpc_gen import common_pb2, schema_pb2
 from pymilvus.grpc_gen.schema_pb2 import FieldData
 
 from . import entity_helper
+
+logger = logging.getLogger(__name__)
 
 
 class HybridHits(list):
@@ -77,6 +80,7 @@ class HybridHits(list):
                 DataType.BINARY_VECTOR,
                 DataType.BFLOAT16_VECTOR,
                 DataType.FLOAT16_VECTOR,
+                DataType.INT8_VECTOR,
                 DataType.SPARSE_FLOAT_VECTOR,
                 DataType.JSON,
             ]:
@@ -113,6 +117,7 @@ class HybridHits(list):
                     DataType.BINARY_VECTOR,
                     DataType.BFLOAT16_VECTOR,
                     DataType.FLOAT16_VECTOR,
+                    DataType.INT8_VECTOR,
                 ]:
                     data = get_field_data(field_data)
                     dim = field_data.vectors.dim
@@ -141,9 +146,15 @@ class HybridHits(list):
                             item["entity"][field_name] = None
                         else:
                             json_data = field_data.scalars.json_data.data[idx]
-                            json_dict_list = (
-                                ujson.loads(json_data) if json_data is not None else None
-                            )
+                            try:
+                                json_dict_list = (
+                                    ujson.loads(json_data) if json_data is not None else None
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"HybridHits::materialize::Failed to load JSON data: {e}, original data: {json_data}"
+                                )
+                                raise
                             if not field_data.is_dynamic:
                                 item["entity"][field_data.field_name] = json_dict_list
                             elif not self.dynamic_fields:
@@ -211,7 +222,6 @@ class SearchResult(list):
         self.extra = {}
         if status and status.extra_info and "report_value" in status.extra_info:
             self.extra = {"cost": int(status.extra_info["report_value"])}
-
         # iterator related
         self._session_ts = session_ts
         self._search_iterator_v2_results = res.search_iterator_v2_results
@@ -342,7 +352,18 @@ class SearchResult(list):
                 res = apply_valid_data(
                     scalars.json_data.data[start:end], field.valid_data, start, end
                 )
-                json_dict_list = [ujson.loads(item) if item is not None else item for item in res]
+                json_dict_list = []
+                for item in res:
+                    if item is not None:
+                        try:
+                            json_dict_list.append(ujson.loads(item))
+                        except Exception as e:
+                            logger.error(
+                                f"SearchResult::_get_fields_by_range::Failed to load JSON item: {e}, original item: {item}"
+                            )
+                            raise
+                    else:
+                        json_dict_list.append(item)
                 field2data[name] = json_dict_list, field_meta
                 continue
 
@@ -400,6 +421,12 @@ class SearchResult(list):
                 )
                 continue
 
+            if dtype == DataType.INT8_VECTOR:
+                field2data[name] = (
+                    vectors.int8_vector[start * dim : end * dim],
+                    field_meta,
+                )
+                continue
         return field2data
 
     def get_session_ts(self):
@@ -438,6 +465,8 @@ def get_field_data(field_data: FieldData):
         return field_data.vectors.bfloat16_vector
     if field_data.type == DataType.FLOAT16_VECTOR:
         return field_data.vectors.float16_vector
+    if field_data.type == DataType.INT8_VECTOR:
+        return field_data.vectors.int8_vector
     if field_data.type == DataType.SPARSE_FLOAT_VECTOR:
         return field_data.vectors.sparse_float_vector
     msg = f"Unsupported field type: {field_data.type}"
@@ -502,6 +531,7 @@ class Hits(list):
                     DataType.BINARY_VECTOR,
                     DataType.BFLOAT16_VECTOR,
                     DataType.FLOAT16_VECTOR,
+                    DataType.INT8_VECTOR,
                 ):
                     dim = field_meta.vectors.dim
                     if field_meta.type in [DataType.BINARY_VECTOR]:

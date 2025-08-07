@@ -328,7 +328,7 @@ impl WindowExpr {
             },
             (WindowMapping::Join, AggState::NotAggregated(_)) => Ok(MapStrategy::Join),
             // literals, do nothing and let broadcast
-            (_, AggState::Literal(_)) => Ok(MapStrategy::Nothing),
+            (_, AggState::LiteralScalar(_)) => Ok(MapStrategy::Nothing),
         }
     }
 }
@@ -600,7 +600,7 @@ impl PhysicalExpr for WindowExpr {
     }
 
     fn to_field(&self, input_schema: &Schema) -> PolarsResult<Field> {
-        self.function.to_field(input_schema, Context::Default)
+        self.function.to_field(input_schema)
     }
 
     fn is_scalar(&self) -> bool {

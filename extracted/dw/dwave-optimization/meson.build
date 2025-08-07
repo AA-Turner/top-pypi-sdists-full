@@ -9,7 +9,7 @@ project(
         'pkgconfig.relocatable=true',
         'warning_level=1',  # equivalent to -Wall. We should consider cranking it up to 3
     ],
-
+    meson_version: '>= 1.2.0',
     # As of August 2024, there is no nicer way that I know of to dynamically get the version
     version: run_command(
         ['dwave/optimization/_build/_version.py'],
@@ -32,11 +32,14 @@ dwave_optimization_src = [
     'dwave/optimization/src/nodes/indexing.cpp',
     'dwave/optimization/src/nodes/inputs.cpp',
     'dwave/optimization/src/nodes/interpolation.cpp',
+    'dwave/optimization/src/nodes/lambda.cpp',
     'dwave/optimization/src/nodes/lp.cpp',
     'dwave/optimization/src/nodes/manipulation.cpp',
     'dwave/optimization/src/nodes/mathematical.cpp',
     'dwave/optimization/src/nodes/numbers.cpp',
     'dwave/optimization/src/nodes/quadratic_model.cpp',
+    'dwave/optimization/src/nodes/sorting.cpp',
+    'dwave/optimization/src/nodes/statistics.cpp',
     'dwave/optimization/src/nodes/testing.cpp',
     'dwave/optimization/src/array.cpp',
     'dwave/optimization/src/graph.cpp',
@@ -69,19 +72,6 @@ else
     )
 endif
 
-# Cython allows the creation of a "shared" file for some of their datastructures
-# See https://cython.readthedocs.io/en/latest/src/userguide/source_files_and_compilation.html#shared-module
-py.extension_module(
-    '_cyutility',
-    custom_target(
-        output: '_cyutility.c',
-        command: [meson.get_compiler('cython').cmd_array()[0], '--generate-shared', '@OUTPUT0@'],
-    ),
-    install: true,
-    install_rpath: '$ORIGIN',
-    subdir: 'dwave/optimization/',
-)
-
 py.extension_module(
     '_model',
     'dwave/optimization/_model.pyx',
@@ -90,7 +80,7 @@ py.extension_module(
     install: true,
     install_rpath: '$ORIGIN',
     override_options : ['cython_language=cpp'],
-    cython_args : ['--shared=dwave.optimization._cyutility'],
+    cython_args : ['-Xfreethreading_compatible=True'],
     subdir: 'dwave/optimization/',
 )
 
@@ -102,7 +92,7 @@ py.extension_module(
     install: true,
     install_rpath: '$ORIGIN',
     override_options : ['cython_language=cpp'],
-    cython_args : ['--shared=dwave.optimization._cyutility'],
+    cython_args : ['-Xfreethreading_compatible=True'],
     subdir: 'dwave/optimization/',
 )
 
@@ -114,7 +104,7 @@ py.extension_module(
     install: true,
     install_rpath: '$ORIGIN',
     override_options : ['cython_language=cpp'],
-    cython_args : ['--shared=dwave.optimization._cyutility'],
+    cython_args : ['-Xfreethreading_compatible=True'],
     subdir: 'dwave/optimization/',
 )
 
@@ -125,7 +115,7 @@ py.extension_module(
     install: true,
     install_rpath: '$ORIGIN',
     override_options : ['cython_language=cpp'],
-#    cython_args : ['--shared=dwave.optimization._cyutility'],  # throws compiler warnings as of May 2025
+    cython_args : ['-Xfreethreading_compatible=True'],
     subdir: 'dwave/optimization/',
 )
 

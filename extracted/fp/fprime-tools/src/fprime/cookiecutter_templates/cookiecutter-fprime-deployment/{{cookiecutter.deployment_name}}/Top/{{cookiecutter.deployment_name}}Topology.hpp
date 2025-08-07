@@ -7,7 +7,7 @@
 #define {{cookiecutter.__deployment_name_upper}}_{{cookiecutter.__deployment_name_upper}}TOPOLOGY_HPP
 // Included for access to {{cookiecutter.deployment_name}}::TopologyState and {{cookiecutter.deployment_name}}::ConfigObjects::pingEntries. These definitions are required by the
 // autocoder, but are also used in this hand-coded topology.
-#include <{{cookiecutter.deployment_name}}/Top/{{cookiecutter.deployment_name}}TopologyDefs.hpp>
+#include <{{cookiecutter.__include_path_prefix}}{{cookiecutter.deployment_name}}/Top/{{cookiecutter.deployment_name}}TopologyDefs.hpp>
 
 // Remove unnecessary {{cookiecutter.deployment_name}}:: qualifications
 using namespace {{cookiecutter.deployment_name}};
@@ -67,20 +67,18 @@ void teardownTopology(const TopologyState& state);
  * achieved. This function mimics the cycling via a Task::delay(milliseconds) loop that manually invokes the ISR call
  * to the example block driver.
  *
- * This loop is stopped via a startSimulatedCycle call.
  *
- * Note: projects should replace this with a component that produces an output port call at the appropriate frequency.
+ * This loop is stopped via a stopRateGroups call.
  *
- * \param milliseconds: milliseconds to delay for each cycle. Default: 1000 or 1Hz.
  */
-void startSimulatedCycle(Fw::TimeInterval interval = Fw::TimeInterval(1,0));
+void startRateGroups(Fw::TimeInterval interval = Fw::TimeInterval(1,0));
 
 /**
- * \brief stop the simulated cycle started by startSimulatedCycle
+ * \brief stop the rate groups 
  *
- * This stops the cycle started by startSimulatedCycle.
+ * This stops the cycle started by startRateGroups.
  */
-void stopSimulatedCycle();
+void stopRateGroups();
 
 } // namespace {{cookiecutter.deployment_name}}
 #endif

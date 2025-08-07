@@ -2,6 +2,7 @@
 
 # import apis into api package
 from .application_api import ApplicationApi
+from .bus_inputs_outputs_api import BUSInputsOutputsApi
 from .cell_api import CellApi
 from .controller_api import ControllerApi
 from .controller_inputs_outputs_api import ControllerInputsOutputsApi
@@ -11,7 +12,7 @@ from .license_api import LicenseApi
 from .motion_group_api import MotionGroupApi
 from .motion_group_models_api import MotionGroupModelsApi
 from .store_collision_components_api import StoreCollisionComponentsApi
-from .store_collision_scenes_api import StoreCollisionScenesApi
+from .store_collision_setups_api import StoreCollisionSetupsApi
 from .store_object_api import StoreObjectApi
 from .system_api import SystemApi
 from .trajectory_caching_api import TrajectoryCachingApi
@@ -24,6 +25,7 @@ from .virtual_controller_inputs_outputs_api import VirtualControllerInputsOutput
 
 __all__ = [
     "ApplicationApi", 
+    "BUSInputsOutputsApi", 
     "CellApi", 
     "ControllerApi", 
     "ControllerInputsOutputsApi", 
@@ -33,7 +35,7 @@ __all__ = [
     "MotionGroupApi", 
     "MotionGroupModelsApi", 
     "StoreCollisionComponentsApi", 
-    "StoreCollisionScenesApi", 
+    "StoreCollisionSetupsApi", 
     "StoreObjectApi", 
     "SystemApi", 
     "TrajectoryCachingApi", 

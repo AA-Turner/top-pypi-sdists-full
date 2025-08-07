@@ -12,14 +12,18 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+from libcpp.memory cimport shared_ptr
+from libcpp.optional cimport optional
 from libcpp.span cimport span
 from libcpp.string cimport string
 from libcpp.unordered_map cimport unordered_map
 from libcpp.vector cimport vector
 
+from libcpp cimport bool
+
 from dwave.optimization.libcpp cimport  variant
 from dwave.optimization.libcpp.array cimport Array, Slice
-from dwave.optimization.libcpp.graph cimport ArrayNode, Node
+from dwave.optimization.libcpp.graph cimport ArrayNode, Graph, Node
 from dwave.optimization.libcpp.state cimport State
 
 # Cython gets confused when templating pointers
@@ -122,6 +126,13 @@ cdef extern from "dwave-optimization/nodes/lp.hpp" namespace "dwave::optimizatio
         pass
 
 
+cdef extern from "dwave-optimization/nodes/lambda.hpp" namespace "dwave::optimization" nogil:
+    cdef cppclass AccumulateZipNode(ArrayNode):
+        ctypedef variant[ArrayNodePtr, double] array_or_double
+        shared_ptr[Graph] expression_ptr()
+        const array_or_double initial
+
+
 cdef extern from "dwave-optimization/nodes/manipulation.hpp" namespace "dwave::optimization" nogil:
     cdef cppclass ConcatenateNode(ArrayNode):
         Py_ssize_t axis()
@@ -134,6 +145,9 @@ cdef extern from "dwave-optimization/nodes/manipulation.hpp" namespace "dwave::o
 
     cdef cppclass ReshapeNode(ArrayNode):
         pass
+
+    cdef cppclass ResizeNode(ArrayNode):
+        double fill_value() const
 
     cdef cppclass SizeNode(ArrayNode):
         pass
@@ -180,13 +194,13 @@ cdef extern from "dwave-optimization/nodes/mathematical.hpp" namespace "dwave::o
         pass
 
     cdef cppclass MaxNode(ArrayNode):
-        pass
+        optional[double] init
 
     cdef cppclass MinimumNode(ArrayNode):
         pass
 
     cdef cppclass MinNode(ArrayNode):
-        pass
+        optional[double] init
 
     cdef cppclass ModulusNode(ArrayNode):
         pass
@@ -217,12 +231,14 @@ cdef extern from "dwave-optimization/nodes/mathematical.hpp" namespace "dwave::o
 
     cdef cppclass PartialProdNode(ArrayNode):
         span[const Py_ssize_t] axes() const
+        optional[double] init
 
     cdef cppclass PartialSumNode(ArrayNode):
         span[const Py_ssize_t] axes() const
+        optional[double] init
 
     cdef cppclass ProdNode(ArrayNode):
-        pass
+        optional[double] init
 
     cdef cppclass RintNode(ArrayNode):
         pass
@@ -240,7 +256,7 @@ cdef extern from "dwave-optimization/nodes/mathematical.hpp" namespace "dwave::o
         pass
 
     cdef cppclass SumNode(ArrayNode):
-        pass
+        optional[double] init
 
     cdef cppclass XorNode(ArrayNode):
         pass
@@ -270,6 +286,16 @@ cdef extern from "dwave-optimization/nodes/quadratic_model.hpp" namespace "dwave
 
     cdef cppclass QuadraticModelNode(ArrayNode):
         QuadraticModel* get_quadratic_model()
+
+
+cdef extern from "dwave-optimization/nodes/sorting.hpp" namespace "dwave::optimization" nogil:
+    cdef cppclass ArgSortNode(ArrayNode):
+        pass
+
+
+cdef extern from "dwave-optimization/nodes/statistics.hpp" namespace "dwave::optimization" nogil:
+    cdef cppclass MeanNode(ArrayNode):
+        pass
 
 
 cdef extern from "dwave-optimization/nodes/testing.hpp" namespace "dwave::optimization" nogil:

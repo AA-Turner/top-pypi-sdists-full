@@ -221,7 +221,7 @@ class MetadataHandler:
 class PredictionTypeHandler:
     name: str
     labels: List[str]
-    channel_dim: int
+    channel_dim: int = -1
 
 
 @dataclass

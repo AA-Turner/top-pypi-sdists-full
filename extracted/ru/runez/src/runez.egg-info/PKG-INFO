@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: runez
-Version: 5.3.0
+Version: 5.3.1
 Summary: Friendly misc/utils/convenience library
 Home-page: https://github.com/codrsquad/runez
 Author: Zoran Simic
@@ -17,10 +17,6 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,7 +24,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
-Requires-Python: >=3.6
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: author
@@ -38,6 +34,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: requires-python
 Dynamic: summary

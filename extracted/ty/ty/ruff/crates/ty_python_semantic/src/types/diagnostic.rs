@@ -15,7 +15,6 @@ use crate::types::string_annotation::{
     IMPLICIT_CONCATENATED_STRING_TYPE_ANNOTATION, INVALID_SYNTAX_IN_FORWARD_ANNOTATION,
     RAW_STRING_TYPE_ANNOTATION,
 };
-use crate::types::tuple::TupleType;
 use crate::types::{SpecialFormType, Type, protocol_class::ProtocolClassLiteral};
 use crate::util::diagnostics::format_enumeration;
 use crate::{Db, FxIndexMap, Module, ModuleName, Program, declare_lint};
@@ -41,6 +40,7 @@ pub(crate) fn register_lints(registry: &mut LintRegistryBuilder) {
     registry.register_lint(&INSTANCE_LAYOUT_CONFLICT);
     registry.register_lint(&INCONSISTENT_MRO);
     registry.register_lint(&INDEX_OUT_OF_BOUNDS);
+    registry.register_lint(&INVALID_KEY);
     registry.register_lint(&INVALID_ARGUMENT_TYPE);
     registry.register_lint(&INVALID_RETURN_TYPE);
     registry.register_lint(&INVALID_ASSIGNMENT);
@@ -485,6 +485,31 @@ declare_lint! {
     /// ```
     pub(crate) static INDEX_OUT_OF_BOUNDS = {
         summary: "detects index out of bounds errors",
+        status: LintStatus::preview("1.0.0"),
+        default_level: Level::Error,
+    }
+}
+
+declare_lint! {
+    /// ## What it does
+    /// Checks for subscript accesses with invalid keys.
+    ///
+    /// ## Why is this bad?
+    /// Using an invalid key will raise a `KeyError` at runtime.
+    ///
+    /// ## Examples
+    /// ```python
+    /// from typing import TypedDict
+    ///
+    /// class Person(TypedDict):
+    ///     name: str
+    ///     age: int
+    ///
+    /// alice = Person(name="Alice", age=30)
+    /// alice["height"]  # KeyError: 'height'
+    /// ```
+    pub(crate) static INVALID_KEY = {
+        summary: "detects invalid subscript accesses",
         status: LintStatus::preview("1.0.0"),
         default_level: Level::Error,
     }
@@ -2251,6 +2276,41 @@ pub(crate) fn report_bad_argument_to_get_protocol_members(
     diagnostic.info("See https://typing.python.org/en/latest/spec/protocol.html#");
 }
 
+pub(crate) fn report_bad_argument_to_protocol_interface(
+    context: &InferContext,
+    call: &ast::ExprCall,
+    param_type: Type,
+) {
+    let Some(builder) = context.report_lint(&INVALID_ARGUMENT_TYPE, call) else {
+        return;
+    };
+    let db = context.db();
+    let mut diagnostic = builder.into_diagnostic("Invalid argument to `reveal_protocol_interface`");
+    diagnostic
+        .set_primary_message("Only protocol classes can be passed to `reveal_protocol_interface`");
+
+    if let Some(class) = param_type.to_class_type(context.db()) {
+        let mut class_def_diagnostic = SubDiagnostic::new(
+            SubDiagnosticSeverity::Info,
+            format_args!(
+                "`{}` is declared here, but it is not a protocol class:",
+                class.name(db)
+            ),
+        );
+        class_def_diagnostic.annotate(Annotation::primary(
+            class.class_literal(db).0.header_span(db),
+        ));
+        diagnostic.sub(class_def_diagnostic);
+    }
+
+    diagnostic.info(
+        "A class is only a protocol class if it directly inherits \
+            from `typing.Protocol` or `typing_extensions.Protocol`",
+    );
+    // See TODO in `report_bad_argument_to_get_protocol_members` above
+    diagnostic.info("See https://typing.python.org/en/latest/spec/protocol.html");
+}
+
 pub(crate) fn report_invalid_arguments_to_callable(
     context: &InferContext,
     subscript: &ast::ExprSubscript,
@@ -2395,7 +2455,7 @@ pub(crate) fn report_invalid_or_unsupported_base(
         return;
     }
 
-    let tuple_of_types = TupleType::homogeneous(db, instance_of_type);
+    let tuple_of_types = Type::homogeneous_tuple(db, instance_of_type);
 
     let explain_mro_entries = |diagnostic: &mut LintDiagnosticGuard| {
         diagnostic.info(
@@ -2556,4 +2616,30 @@ pub(super) fn hint_if_stdlib_submodule_exists_on_other_versions(
     ));
 
     add_inferred_python_version_hint_to_diagnostic(db, &mut diagnostic, "resolving modules");
+}
+
+/// Suggest a name from `existing_names` that is similar to `wrong_name`.
+pub(super) fn did_you_mean<S: AsRef<str>, T: AsRef<str>>(
+    existing_names: impl Iterator<Item = S>,
+    wrong_name: T,
+) -> Option<String> {
+    if wrong_name.as_ref().len() < 3 {
+        return None;
+    }
+
+    existing_names
+        .filter(|ref id| id.as_ref().len() >= 2)
+        .map(|ref id| {
+            (
+                id.as_ref().to_string(),
+                strsim::damerau_levenshtein(
+                    &id.as_ref().to_lowercase(),
+                    &wrong_name.as_ref().to_lowercase(),
+                ),
+            )
+        })
+        .min_by_key(|(_, dist)| *dist)
+        // Heuristic to filter out bad matches
+        .filter(|(_, dist)| *dist <= 3)
+        .map(|(id, _)| id)
 }

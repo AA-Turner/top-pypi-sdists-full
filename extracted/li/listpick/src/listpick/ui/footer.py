@@ -50,6 +50,9 @@ class StandardFooter(Footer):
     def draw(self, h, w):
         state = self.get_state()
         # Fill background
+        if "footer_string" in state and state["footer_string"]: self.height = 3
+        else: self.height = 2
+
         for i in range(self.height):
             self.stdscr.addstr(h-self.height+i, 0, ' '*(w-1), curses.color_pair(self.colours_start+20))
 
@@ -63,19 +66,14 @@ class StandardFooter(Footer):
         
             picker_info_y = h-3
             sort_info_y = h-2
-            self.height = 3
-
         else:
             picker_info_y = h-2
             sort_info_y = h-1
-            ""
             select_mode = "C"
             if state["is_selecting"]: select_mode = "VS"
             elif state["is_deselecting"]: select_mode = "VDS"
             if state["pin_cursor"]: select_mode = f"{select_mode} "
             self.stdscr.addstr(h - 1, w-35, f"{select_mode:>33} ", curses.color_pair(self.colours_start+20))
-            self.height = 2
-
 
         if state["filter_query"]:
             self.stdscr.addstr(h - 2, 2, f" Filter: {state['filter_query']} "[:w-40], curses.color_pair(self.colours_start+20) | curses.A_BOLD)

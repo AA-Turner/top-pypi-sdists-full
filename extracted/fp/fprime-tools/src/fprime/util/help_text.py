@@ -1,4 +1,4 @@
-""" fprime.util.help_text:
+"""fprime.util.help_text:
 
 Contains the strings and minor constructs used to specify help text in fprime utility. Any new help strings for new
 commands should be written here. Implementers should use HelpText.long(key) and HelpText.short(key) to get appropriate
@@ -312,6 +312,9 @@ Examples:
   {EXECUTABLE} format -f Main.cpp Main.hpp
   {EXECUTABLE} format -f Imu/*
   {EXECUTABLE} format -f *.hpp --pass-through --dry-run
+
+  -- Format all files in a given directory -- 
+  {EXECUTABLE} format --dirs Svc Fw Drv
   
   -- From stdin using Git | format all changed files --
   git diff --name-only --relative | {EXECUTABLE} format --stdin

@@ -38,7 +38,7 @@ classifiers = [
 dependencies = [
     "griffe>=1.6.3",
 ]
-version = "1.1.5"
+version = "1.1.6"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/griffe-pydantic"
@@ -95,6 +95,7 @@ maintain = [
 ]
 ci = [
     "duty>=1.6",
+    "griffe>=1.10",
     "ruff>=0.4",
     "pytest>=8.2",
     "pytest-cov>=5.0",

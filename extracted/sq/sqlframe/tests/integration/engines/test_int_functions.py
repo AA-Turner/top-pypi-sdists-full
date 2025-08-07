@@ -879,7 +879,11 @@ def test_count_distinct(get_session_and_func):
     df1 = session.createDataFrame([1, 1, 3], "int")
     df2 = session.createDataFrame([1, 2], "int")
     df_joined = df1.join(df2)
-    assert df_joined.select(count_distinct(df1.value, df2.value)).collect() == [Row(value=4)]
+    if isinstance(session, BigQuerySession):
+        # BigQuery does not support count_distinct with multiple columns
+        assert df_joined.select(count_distinct(df1.value)).collect() == [Row(value=2)]
+    else:
+        assert df_joined.select(count_distinct(df1.value, df2.value)).collect() == [Row(value=4)]
 
 
 def test_first(get_session_and_func):
@@ -2286,16 +2290,21 @@ def test_array_remove(get_session_and_func, get_func):
 def test_array_distinct(get_session_and_func, get_func):
     session, array_distinct = get_session_and_func("array_distinct")
     lit = get_func("lit", session)
+    # BigQuery doesn't support null values in arrays
+    value3 = lit([1]) if isinstance(session, BigQuerySession) else lit([1, None])
     results = (
         session.range(1)
         .select(
             array_distinct(lit([1, 2, 3, 2])).alias("value"),
             array_distinct(lit([4, 5, 5, 4])).alias("value2"),
+            array_distinct(lit(value3)).alias("value3"),
         )
         .collect()
     )
     assert results[0][0] in ([1, 2, 3], [3, 2, 1])
     assert results[0][1] in ([4, 5], [5, 4])
+    if not isinstance(session, BigQuerySession):
+        assert results[0][2] in ([1, None], [None, 1])
 
 
 def test_array_intersect(get_session_and_func, get_func):

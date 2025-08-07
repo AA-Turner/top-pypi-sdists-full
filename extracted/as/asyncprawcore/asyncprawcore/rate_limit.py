@@ -9,7 +9,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Mapping
+    from collections.abc import AsyncGenerator, Awaitable, Mapping
 
     from aiohttp import ClientResponse
 
@@ -25,7 +25,7 @@ class RateLimiter:
 
     """
 
-    def __init__(self, *, window_size: int):
+    def __init__(self, *, window_size: int) -> None:
         """Create an instance of the RateLimit class."""
         self.remaining: int | None = None
         self.next_request_timestamp_ns: int | None = None
@@ -40,7 +40,7 @@ class RateLimiter:
         set_header_callback: Callable[[], Awaitable[dict[str, str]]],
         *args: Any,
         **kwargs: Any,
-    ) -> Callable[..., AbstractAsyncContextManager[ClientResponse]]:
+    ) -> AsyncGenerator[ClientResponse]:
         """Rate limit the call to ``request_function``.
 
         :param request_function: A function call that returns an HTTP response object.
@@ -56,20 +56,18 @@ class RateLimiter:
             self.update(response.headers)
             yield response
 
-    async def delay(self):
+    async def delay(self) -> None:
         """Sleep for an amount of time to remain under the rate limit."""
         if self.next_request_timestamp_ns is None:
             return
-        sleep_seconds = (
-            float(self.next_request_timestamp_ns - time.monotonic_ns()) / NANOSECONDS
-        )
+        sleep_seconds = float(self.next_request_timestamp_ns - time.monotonic_ns()) / NANOSECONDS
         if sleep_seconds <= 0:
             return
         message = f"Sleeping: {sleep_seconds:0.2f} seconds prior to call"
         log.debug(message)
         await asyncio.sleep(sleep_seconds)
 
-    def update(self, response_headers: Mapping[str, str]):
+    def update(self, response_headers: Mapping[str, str]) -> None:
         """Update the state of the rate limiter based on the response headers.
 
         This method should only be called following an HTTP request to Reddit.
@@ -80,7 +78,7 @@ class RateLimiter:
 
         """
         if "x-ratelimit-remaining" not in response_headers:
-            if self.remaining is not None:
+            if self.remaining is not None and self.used is not None:
                 self.remaining -= 1
                 self.used += 1
             return
@@ -92,23 +90,16 @@ class RateLimiter:
         seconds_to_reset = int(response_headers["x-ratelimit-reset"])
 
         if self.remaining <= 0:
-            self.next_request_timestamp_ns = now_ns + max(
-                NANOSECONDS, seconds_to_reset * NANOSECONDS
-            )
+            self.next_request_timestamp_ns = now_ns + max(NANOSECONDS, seconds_to_reset * NANOSECONDS)
             return
 
-        self.next_request_timestamp_ns = (
+        self.next_request_timestamp_ns = int(
             now_ns
             + min(
                 seconds_to_reset,
                 max(
                     seconds_to_reset
-                    - (
-                        self.window_size
-                        - self.window_size
-                        / (float(self.remaining) + self.used)
-                        * self.used
-                    ),
+                    - (self.window_size - self.window_size / (float(self.remaining) + self.used) * self.used),
                     0,
                 ),
                 10,

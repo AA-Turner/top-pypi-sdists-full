@@ -27,6 +27,14 @@ from .blending_auto import BlendingAuto
 from .blending_position import BlendingPosition
 from .boolean_value import BooleanValue
 from .box import Box
+from .bus_io_profinet import BusIOProfinet
+from .bus_io_profinet_default_route import BusIOProfinetDefaultRoute
+from .bus_io_profinet_ip_config import BusIOProfinetIpConfig
+from .bus_io_profinet_network import BusIOProfinetNetwork
+from .bus_io_profinet_virtual import BusIOProfinetVirtual
+from .bus_io_type import BusIOType
+from .bus_ios_state import BusIOsState
+from .bus_ios_state_enum import BusIOsStateEnum
 from .capsule import Capsule
 from .cartesian_limits import CartesianLimits
 from .cell import Cell
@@ -35,10 +43,8 @@ from .collider_shape import ColliderShape
 from .collision import Collision
 from .collision_contact import CollisionContact
 from .collision_error import CollisionError
-from .collision_motion_group import CollisionMotionGroup
-from .collision_motion_group_assembly import CollisionMotionGroupAssembly
-from .collision_scene import CollisionScene
-from .collision_scene_assembly import CollisionSceneAssembly
+from .collision_free_algorithm import CollisionFreeAlgorithm
+from .collision_setup import CollisionSetup
 from .comparator import Comparator
 from .configuration_archive_status import ConfigurationArchiveStatus
 from .configuration_archive_status_creating import ConfigurationArchiveStatusCreating
@@ -48,6 +54,7 @@ from .configuration_resource import ConfigurationResource
 from .container_environment_inner import ContainerEnvironmentInner
 from .container_image import ContainerImage
 from .container_image_secrets_inner import ContainerImageSecretsInner
+from .container_resources import ContainerResources
 from .container_storage import ContainerStorage
 from .controller_description import ControllerDescription
 from .convex_hull import ConvexHull
@@ -58,9 +65,11 @@ from .cycle_time import CycleTime
 from .cylinder import Cylinder
 from .dh_parameter import DHParameter
 from .direction import Direction
-from .end_of_trajectory import EndOfTrajectory
 from .error import Error
-from .error2 import Error2
+from .error_invalid_joint_count import ErrorInvalidJointCount
+from .error_joint_limit_exceeded import ErrorJointLimitExceeded
+from .error_joint_position_collision import ErrorJointPositionCollision
+from .error_max_iterations_exceeded import ErrorMaxIterationsExceeded
 from .execute import Execute
 from .execute_details import ExecuteDetails
 from .execute_jogging_request import ExecuteJoggingRequest
@@ -76,11 +85,15 @@ from .feedback_out_of_workspace import FeedbackOutOfWorkspace
 from .feedback_singularity import FeedbackSingularity
 from .flag import Flag
 from .float_value import FloatValue
-from .get_mode_response import GetModeResponse
+from .forward_kinematics422_response import ForwardKinematics422Response
+from .forward_kinematics_request import ForwardKinematicsRequest
+from .forward_kinematics_response import ForwardKinematicsResponse
+from .forward_kinematics_validation_error import ForwardKinematicsValidationError
 from .get_trajectory_response import GetTrajectoryResponse
 from .http_validation_error import HTTPValidationError
 from .io_boolean_value import IOBooleanValue
 from .io_description import IODescription
+from .io_description2 import IODescription2
 from .io_description_min import IODescriptionMin
 from .io_direction import IODirection
 from .io_float_value import IOFloatValue
@@ -98,10 +111,18 @@ from .initialize_movement_response import InitializeMovementResponse
 from .integer_value import IntegerValue
 from .invalid_dof import InvalidDof
 from .invalid_dof_invalid_dof import InvalidDofInvalidDof
+from .inverse_kinematics422_response import InverseKinematics422Response
 from .inverse_kinematics_request import InverseKinematicsRequest
 from .inverse_kinematics_response import InverseKinematicsResponse
+from .inverse_kinematics_validation_error import InverseKinematicsValidationError
+from .inverse_kinematics_validation_error_all_of_data import InverseKinematicsValidationErrorAllOfData
 from .jogging_details import JoggingDetails
 from .jogging_details_state import JoggingDetailsState
+from .jogging_paused_by_user import JoggingPausedByUser
+from .jogging_paused_near_collision import JoggingPausedNearCollision
+from .jogging_paused_near_joint_limit import JoggingPausedNearJointLimit
+from .jogging_paused_on_io import JoggingPausedOnIO
+from .jogging_running import JoggingRunning
 from .joint_limit_exceeded import JointLimitExceeded
 from .joint_limits import JointLimits
 from .joint_trajectory import JointTrajectory
@@ -119,12 +140,14 @@ from .limit_set import LimitSet
 from .limits_override import LimitsOverride
 from .list_trajectories_response import ListTrajectoriesResponse
 from .manufacturer import Manufacturer
+from .midpoint_insertion_algorithm import MidpointInsertionAlgorithm
 from .motion_command import MotionCommand
 from .motion_command_blending import MotionCommandBlending
 from .motion_command_path import MotionCommandPath
 from .motion_group_description import MotionGroupDescription
 from .motion_group_info import MotionGroupInfo
 from .motion_group_joints import MotionGroupJoints
+from .motion_group_setup import MotionGroupSetup
 from .motion_group_state import MotionGroupState
 from .motion_group_state_joint_limit_reached import MotionGroupStateJointLimitReached
 from .movement_error_response import MovementErrorResponse
@@ -145,33 +168,41 @@ from .pause_jogging_response import PauseJoggingResponse
 from .pause_movement_request import PauseMovementRequest
 from .pause_movement_response import PauseMovementResponse
 from .pause_on_io import PauseOnIO
-from .paused_by_request import PausedByRequest
-from .paused_by_user import PausedByUser
-from .paused_near_collision import PausedNearCollision
-from .paused_near_joint_limit import PausedNearJointLimit
-from .paused_on_io import PausedOnIO
 from .payload import Payload
+from .plan422_response import Plan422Response
+from .plan_collision_free_failed_response import PlanCollisionFreeFailedResponse
+from .plan_collision_free_request import PlanCollisionFreeRequest
+from .plan_collision_free_response import PlanCollisionFreeResponse
+from .plan_collision_free_response_response import PlanCollisionFreeResponseResponse
 from .plan_trajectory_failed_response import PlanTrajectoryFailedResponse
 from .plan_trajectory_failed_response_error_feedback import PlanTrajectoryFailedResponseErrorFeedback
 from .plan_trajectory_request import PlanTrajectoryRequest
 from .plan_trajectory_response import PlanTrajectoryResponse
 from .plan_trajectory_response_response import PlanTrajectoryResponseResponse
+from .plan_validation_error import PlanValidationError
+from .plan_validation_error_all_of_data import PlanValidationErrorAllOfData
 from .plane import Plane
 from .playback_speed_request import PlaybackSpeedRequest
 from .playback_speed_response import PlaybackSpeedResponse
 from .pose import Pose
+from .profinet_description import ProfinetDescription
+from .profinet_io import ProfinetIO
+from .profinet_io_data import ProfinetIOData
+from .profinet_io_direction import ProfinetIODirection
+from .profinet_io_type_enum import ProfinetIOTypeEnum
+from .profinet_input_output_config import ProfinetInputOutputConfig
+from .profinet_slot_description import ProfinetSlotDescription
+from .profinet_sub_slot_description import ProfinetSubSlotDescription
+from .rrt_connect_algorithm import RRTConnectAlgorithm
 from .rectangle import Rectangle
 from .rectangular_capsule import RectangularCapsule
 from .release_channel import ReleaseChannel
 from .robot_controller import RobotController
 from .robot_controller_configuration import RobotControllerConfiguration
 from .robot_controller_state import RobotControllerState
-from .robot_setup import RobotSetup
 from .robot_system_mode import RobotSystemMode
 from .robot_tcp import RobotTcp
 from .robot_tcp_data import RobotTcpData
-from .running import Running
-from .running1 import Running1
 from .safety_state_type import SafetyStateType
 from .service_group import ServiceGroup
 from .service_status import ServiceStatus
@@ -180,7 +211,6 @@ from .service_status_response import ServiceStatusResponse
 from .service_status_severity import ServiceStatusSeverity
 from .service_status_status import ServiceStatusStatus
 from .settable_robot_system_mode import SettableRobotSystemMode
-from .single_motion_group_collision_scene import SingleMotionGroupCollisionScene
 from .singularity_type_enum import SingularityTypeEnum
 from .sphere import Sphere
 from .start_movement_request import StartMovementRequest
@@ -196,7 +226,12 @@ from .torque_exceeded_torque_exceeded import TorqueExceededTorqueExceeded
 from .trajectory_data import TrajectoryData
 from .trajectory_details import TrajectoryDetails
 from .trajectory_details_state import TrajectoryDetailsState
+from .trajectory_ended import TrajectoryEnded
 from .trajectory_id import TrajectoryId
+from .trajectory_paused_by_user import TrajectoryPausedByUser
+from .trajectory_paused_on_io import TrajectoryPausedOnIO
+from .trajectory_running import TrajectoryRunning
+from .trajectory_wait_for_io import TrajectoryWaitForIO
 from .unit_type import UnitType
 from .universalrobots_controller import UniversalrobotsController
 from .update_nova_version_request import UpdateNovaVersionRequest
@@ -205,7 +240,6 @@ from .validation_error_loc_inner import ValidationErrorLocInner
 from .virtual_controller import VirtualController
 from .virtual_controller_types import VirtualControllerTypes
 from .virtual_robot_configuration import VirtualRobotConfiguration
-from .wait_for_io import WaitForIO
 from .wait_for_io_event_request import WaitForIOEventRequest
 from .yaskawa_controller import YaskawaController
 
@@ -223,6 +257,14 @@ __all__ = [
     "BlendingPosition", 
     "BooleanValue", 
     "Box", 
+    "BusIOProfinet", 
+    "BusIOProfinetDefaultRoute", 
+    "BusIOProfinetIpConfig", 
+    "BusIOProfinetNetwork", 
+    "BusIOProfinetVirtual", 
+    "BusIOType", 
+    "BusIOsState", 
+    "BusIOsStateEnum", 
     "Capsule", 
     "CartesianLimits", 
     "Cell", 
@@ -231,10 +273,8 @@ __all__ = [
     "Collision", 
     "CollisionContact", 
     "CollisionError", 
-    "CollisionMotionGroup", 
-    "CollisionMotionGroupAssembly", 
-    "CollisionScene", 
-    "CollisionSceneAssembly", 
+    "CollisionFreeAlgorithm", 
+    "CollisionSetup", 
     "Comparator", 
     "ConfigurationArchiveStatus", 
     "ConfigurationArchiveStatusCreating", 
@@ -244,6 +284,7 @@ __all__ = [
     "ContainerEnvironmentInner", 
     "ContainerImage", 
     "ContainerImageSecretsInner", 
+    "ContainerResources", 
     "ContainerStorage", 
     "ControllerDescription", 
     "ConvexHull", 
@@ -254,9 +295,11 @@ __all__ = [
     "Cylinder", 
     "DHParameter", 
     "Direction", 
-    "EndOfTrajectory", 
     "Error", 
-    "Error2", 
+    "ErrorInvalidJointCount", 
+    "ErrorJointLimitExceeded", 
+    "ErrorJointPositionCollision", 
+    "ErrorMaxIterationsExceeded", 
     "Execute", 
     "ExecuteDetails", 
     "ExecuteJoggingRequest", 
@@ -272,11 +315,15 @@ __all__ = [
     "FeedbackSingularity", 
     "Flag", 
     "FloatValue", 
-    "GetModeResponse", 
+    "ForwardKinematics422Response", 
+    "ForwardKinematicsRequest", 
+    "ForwardKinematicsResponse", 
+    "ForwardKinematicsValidationError", 
     "GetTrajectoryResponse", 
     "HTTPValidationError", 
     "IOBooleanValue", 
     "IODescription", 
+    "IODescription2", 
     "IODescriptionMin", 
     "IODirection", 
     "IOFloatValue", 
@@ -294,10 +341,18 @@ __all__ = [
     "IntegerValue", 
     "InvalidDof", 
     "InvalidDofInvalidDof", 
+    "InverseKinematics422Response", 
     "InverseKinematicsRequest", 
     "InverseKinematicsResponse", 
+    "InverseKinematicsValidationError", 
+    "InverseKinematicsValidationErrorAllOfData", 
     "JoggingDetails", 
     "JoggingDetailsState", 
+    "JoggingPausedByUser", 
+    "JoggingPausedNearCollision", 
+    "JoggingPausedNearJointLimit", 
+    "JoggingPausedOnIO", 
+    "JoggingRunning", 
     "JointLimitExceeded", 
     "JointLimits", 
     "JointTrajectory", 
@@ -315,12 +370,14 @@ __all__ = [
     "LimitsOverride", 
     "ListTrajectoriesResponse", 
     "Manufacturer", 
+    "MidpointInsertionAlgorithm", 
     "MotionCommand", 
     "MotionCommandBlending", 
     "MotionCommandPath", 
     "MotionGroupDescription", 
     "MotionGroupInfo", 
     "MotionGroupJoints", 
+    "MotionGroupSetup", 
     "MotionGroupState", 
     "MotionGroupStateJointLimitReached", 
     "MovementErrorResponse", 
@@ -341,33 +398,41 @@ __all__ = [
     "PauseMovementRequest", 
     "PauseMovementResponse", 
     "PauseOnIO", 
-    "PausedByRequest", 
-    "PausedByUser", 
-    "PausedNearCollision", 
-    "PausedNearJointLimit", 
-    "PausedOnIO", 
     "Payload", 
+    "Plan422Response", 
+    "PlanCollisionFreeFailedResponse", 
+    "PlanCollisionFreeRequest", 
+    "PlanCollisionFreeResponse", 
+    "PlanCollisionFreeResponseResponse", 
     "PlanTrajectoryFailedResponse", 
     "PlanTrajectoryFailedResponseErrorFeedback", 
     "PlanTrajectoryRequest", 
     "PlanTrajectoryResponse", 
     "PlanTrajectoryResponseResponse", 
+    "PlanValidationError", 
+    "PlanValidationErrorAllOfData", 
     "Plane", 
     "PlaybackSpeedRequest", 
     "PlaybackSpeedResponse", 
     "Pose", 
+    "ProfinetDescription", 
+    "ProfinetIO", 
+    "ProfinetIOData", 
+    "ProfinetIODirection", 
+    "ProfinetIOTypeEnum", 
+    "ProfinetInputOutputConfig", 
+    "ProfinetSlotDescription", 
+    "ProfinetSubSlotDescription", 
+    "RRTConnectAlgorithm", 
     "Rectangle", 
     "RectangularCapsule", 
     "ReleaseChannel", 
     "RobotController", 
     "RobotControllerConfiguration", 
     "RobotControllerState", 
-    "RobotSetup", 
     "RobotSystemMode", 
     "RobotTcp", 
     "RobotTcpData", 
-    "Running", 
-    "Running1", 
     "SafetyStateType", 
     "ServiceGroup", 
     "ServiceStatus", 
@@ -376,7 +441,6 @@ __all__ = [
     "ServiceStatusSeverity", 
     "ServiceStatusStatus", 
     "SettableRobotSystemMode", 
-    "SingleMotionGroupCollisionScene", 
     "SingularityTypeEnum", 
     "Sphere", 
     "StartMovementRequest", 
@@ -392,7 +456,12 @@ __all__ = [
     "TrajectoryData", 
     "TrajectoryDetails", 
     "TrajectoryDetailsState", 
+    "TrajectoryEnded", 
     "TrajectoryId", 
+    "TrajectoryPausedByUser", 
+    "TrajectoryPausedOnIO", 
+    "TrajectoryRunning", 
+    "TrajectoryWaitForIO", 
     "UnitType", 
     "UniversalrobotsController", 
     "UpdateNovaVersionRequest", 
@@ -401,7 +470,6 @@ __all__ = [
     "VirtualController", 
     "VirtualControllerTypes", 
     "VirtualRobotConfiguration", 
-    "WaitForIO", 
     "WaitForIOEventRequest", 
     "YaskawaController"
 ]

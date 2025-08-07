@@ -1,5 +1,4 @@
 import asyncio
-import contextvars
 from typing import Any, Dict, Optional, Callable, Union, Awaitable, Type
 from os import environ
 from dataclasses import dataclass
@@ -22,6 +21,11 @@ from playwright.async_api import Page as PlaywrightPage
 from playwright.sync_api import Route
 
 from .checkpoint import default_checkpoint_callback
+from .login import (
+    _in_login_handler,
+    _wait_for_login_wrapper,
+    wait_for_login,
+)
 from .locator import PromptBasedLocator
 from .step import AsyncStepContextManager
 from .web_agent import WebAgent
@@ -36,11 +40,6 @@ from .dom_utils import (
 from .warc_utils import parse_warc_file
 
 log = logging.getLogger("va.playwright")
-
-# Context variable to track if we're currently inside a login handler
-_in_login_handler: contextvars.ContextVar[bool] = contextvars.ContextVar(
-    "in_login_handler", default=False
-)
 
 
 @dataclass
@@ -191,6 +190,7 @@ class Page:
         else:
             log.info("Checkpoint review is not enabled for the page")
 
+    @wait_for_login
     def get_by_prompt(
         self,
         prompt: str,
@@ -220,13 +220,7 @@ class Page:
             _in_login_handler.set(True)
             # Use extract() to get a text response
             result = await self.extract(
-                "Check if this page requires login by looking for these indicators: "
-                "1) Login/signin forms with username/password fields, "
-                "2) 'Login required' or 'Authentication required' messages, "
-                "3) 'Sign in' or 'Log in' buttons/links, "
-                "4) Messages about accessing 'secure area' or 'protected content', "
-                "5) Login prompts or authentication dialogs. "
-                "Answer with exactly 'yes' if ANY of these login indicators are present, 'no' if none are found."
+                "Is login required to access all the content on this page? Make sure to look for secure areas where login might be required or login pages. Answer with exactly 'yes' or 'no' (lowercase, no additional text)."
             )
             if result.extraction is None:
                 log.info(
@@ -336,32 +330,7 @@ class Page:
         if _in_login_handler.get(False):
             return attr
 
-        # Wait for login task to complete before executing methods to prevent actions
-        # from running while login is in progress. The context var prevents deadlocks from
-        # happening if a login handler directly calls page methods.
-        if asyncio.iscoroutinefunction(attr):
-            # create async wrapper that waits for login task
-            async def async_wrapper(*args, **kwargs):
-                await self._wait_for_login_task()
-                return await attr(*args, **kwargs)
-
-            return async_wrapper
-        else:
-            # create sync wrapper that waits for login task
-            def sync_wrapper(*args, **kwargs):
-                if self._current_login_task:
-                    try:
-                        asyncio.get_running_loop()
-                        # In async context, proceed without waiting
-                        log.warning(
-                            "Sync method called while in async context with pending login task - proceeding without waiting"
-                        )
-                    except RuntimeError:
-                        # No event loop running, we can create one
-                        asyncio.run(self._wait_for_login_task())
-                return attr(*args, **kwargs)
-
-            return sync_wrapper
+        return _wait_for_login_wrapper(self, attr, name)
 
     def on(
         self,
@@ -446,6 +415,7 @@ class Page:
         if r.status != ReviewStatus.READY:
             raise Exception("Login review not completed")
 
+    @wait_for_login
     async def act(
         self, prompt: str, context: Optional[Dict[str, Any]] = None
     ) -> ActResult:
@@ -481,6 +451,7 @@ class Page:
                 success=False, message=f"Error executing command: {str(e)}"
             )
 
+    @wait_for_login
     async def extract(
         self,
         prompt: str,
@@ -510,6 +481,7 @@ class Page:
                 extraction=None, success=False, message=f"Error in extract: {e}"
             )
 
+    @wait_for_login
     async def inspect_element(self, x: int, y: int, num_ancestors: int = 3) -> str:
         """
         Inspect an element by coordinates.
@@ -536,6 +508,7 @@ class Page:
             self._playwright_page, x, y, num_ancestors, mode="element"
         )
 
+    @wait_for_login
     async def inspect_html(
         self, x: int, y: int, num_ancestors: int = 3, max_characters: int = 1024
     ) -> str:
@@ -570,6 +543,7 @@ class Page:
             max_characters=max_characters,
         )
 
+    @wait_for_login
     async def serve_from_warc(
         self, warc_file_path: Path, fallback_to_live: bool = False
     ):
@@ -608,6 +582,7 @@ class Page:
         # Register the route handler
         await self.route("**/*", warc_route_handler)
 
+    @wait_for_login
     async def clear_warc_serving(self):
         """Clear WARC serving configuration and remove route handler."""
         if self._warc_route_handler:
@@ -615,5 +590,6 @@ class Page:
             self._warc_route_handler = None
             self._warc_responses = None
 
+    @wait_for_login
     async def get_page_snapshot(self):
         return await self.snapshot_for_ai()

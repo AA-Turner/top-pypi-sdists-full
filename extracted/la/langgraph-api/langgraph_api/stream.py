@@ -153,11 +153,14 @@ async def astream_state(
         await stack.enter_async_context(
             async_tracing_context(
                 replicas=[
-                    (
-                        ls_project,
-                        updates,
-                    ),
-                    (get_tracer_project(), None),
+                    {
+                        "project_name": ls_project,
+                        "updates": updates,
+                    },
+                    {
+                        "project_name": get_tracer_project(),
+                        "updates": None,
+                    },
                 ]
             )
         )

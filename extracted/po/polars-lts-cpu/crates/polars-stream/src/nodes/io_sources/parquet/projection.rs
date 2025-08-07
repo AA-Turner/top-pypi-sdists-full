@@ -8,10 +8,10 @@ use polars_error::PolarsResult;
 use polars_plan::dsl::CastColumnsPolicy;
 use polars_utils::pl_str::PlSmallStr;
 
-use crate::nodes::io_sources::multi_file_reader::extra_ops::column_selector::ColumnSelector;
-use crate::nodes::io_sources::multi_file_reader::initialization::projection::ProjectionBuilder;
-use crate::nodes::io_sources::multi_file_reader::reader_interface::Projection;
-use crate::nodes::io_sources::multi_file_reader::reader_interface::projection::MappedProjectionRef;
+use crate::nodes::io_sources::multi_scan::components::column_selector::ColumnSelector;
+use crate::nodes::io_sources::multi_scan::components::projection::MappedProjectionRef;
+use crate::nodes::io_sources::multi_scan::components::projection::builder::ProjectionBuilder;
+use crate::nodes::io_sources::multi_scan::reader_interface::Projection;
 
 pub fn resolve_arrow_field_projections(
     file_arrow_schema: &ArrowSchema,
@@ -20,8 +20,8 @@ pub fn resolve_arrow_field_projections(
     cast_columns_policy: CastColumnsPolicy,
 ) -> PolarsResult<Arc<[ArrowFieldProjection]>> {
     let projection: Projection = match projection {
-        Projection::Plain(projected_schema) => ProjectionBuilder::new(projected_schema, None)
-            .build_projection(Some(file_schema), None, cast_columns_policy)?,
+        Projection::Plain(projected_schema) => ProjectionBuilder::new(projected_schema, None, None)
+            .build_projection(Some(file_schema), None, cast_columns_policy, usize::MAX)?,
         Projection::Mapped { .. } => projection,
     };
 

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: struqture-py
-Version: 2.2.1
+Version: 2.2.3
 Requires-Dist: numpy
-Requires-Dist: qoqo-calculator-pyo3>=1.5
+Requires-Dist: qoqo-calculator-pyo3>=1.7
 Requires-Dist: sphinx>=2.1 ; extra == 'docs'
 Requires-Dist: nbsphinx ; extra == 'docs'
 Requires-Dist: pygments ; extra == 'docs'

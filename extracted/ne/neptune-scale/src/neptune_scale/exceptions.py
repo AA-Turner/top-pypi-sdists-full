@@ -218,7 +218,7 @@ NeptuneUnexpectedError: An unexpected error occurred in the Neptune client.
 {end}
 Reason: `{reason}`
 
-This is most likely a bug in the client. Please report it to Neptune support: support@neptune.ai.
+This is most likely a bug in the client. You can report it from our [Support Center](https://support.neptune.ai/).
 """
 
     def __init__(self, reason: str) -> None:
@@ -243,7 +243,7 @@ class NeptuneUnexpectedResponseError(NeptuneRetryableError):
 {h1}
 NeptuneUnexpectedResponseError: The Neptune server returned an unexpected response.
 {end}
-This is a temporary problem. If the problem persists, please contact us at support@neptune.ai.
+This is a temporary problem. If the problem persists, please report it from our [Support Center](https://support.neptune.ai/).
 """
 
 
@@ -252,7 +252,7 @@ class NeptuneTooManyRequestsResponseError(NeptuneRetryableError):
 {h1}
 NeptuneTooManyRequestsResponseError: The Neptune server reported receiving too many requests.
 {end}
-This is a temporary problem. If the problem persists, please contact us at support@neptune.ai.
+This is a temporary problem. If the problem persists, please report it from our [Support Center](https://support.neptune.ai/).
 """
 
 
@@ -261,7 +261,7 @@ class NeptuneInternalServerError(NeptuneRetryableError):
 {h1}
 NeptuneInternalServerError: We have encountered an internal server error.
 {end}
-This is a temporary problem. If the problem persists, please contact us at support@neptune.ai.
+This is a temporary problem. If the problem persists, please report it from our [Support Center](https://support.neptune.ai/).
 """
 
 
@@ -328,17 +328,15 @@ class NeptuneRunNotFound(NeptuneRunError):
 {h1}
 ----NeptuneRunNotFound: Run not found.
 {end}
-This may happen if you try to resume a run (for example, by custom ID) that is not yet created.
 """
 
 
+# This warning is less eye-popping by design as it may happen in perfectly valid scenarios.
 class NeptuneRunDuplicate(NeptuneScaleWarning):
-    message = """
-{h1}
-----NeptuneRunDuplicate: A run with the provided ID already exists.
-{end}
-If you wanted to resume an existing run, include the argument `resume=True`.
-"""
+    message = (
+        "NeptuneRunDuplicate: A run with the provided ID already exists. "
+        "This is expected if you are resuming a run or using a distributed workflow."
+    )
 
 
 class NeptuneRunConflicting(NeptuneRunError):
@@ -435,12 +433,8 @@ For help, see https://docs.neptune.ai/log_metrics
 class NeptuneSeriesStepNonIncreasing(NeptuneScaleError):
     message = """
 {h1}
-NeptuneSeriesStepNonIncreasing: Subsequent steps of a series must be increasing.
+NeptuneSeriesStepNonIncreasing: Subsequent steps of a series must be strictly increasing.
 {end}
-This can be caused by either:
-- The step of a series value is smaller than the most recently logged step for this series
-- the step is exactly the same but the value is different
-
 For help, see https://docs.neptune.ai/log_metrics
 """
 

@@ -555,7 +555,7 @@ class MatriceDeployServerUtils:
         """
         try:
             resp = self.rpc.get(
-                f"/v1/deployment/get_deployment_without_auth_key/{self.deployment_id}",
+                f"/v1/inference/get_deployment_without_auth_key/{self.deployment_id}",
                 raise_exception=False,
             )
             if not resp:
@@ -665,7 +665,7 @@ class MatriceDeployServerUtils:
             # Notify backend of shutdown
             try:
                 resp = self.rpc.delete(
-                    f"/v1/deployment/delete_deploy_instance/{self.deployment_instance_id}",
+                    f"/v1/inference/delete_deploy_instance/{self.deployment_instance_id}",
                     raise_exception=False,
                 )
                 if resp and resp.get("success"):
@@ -790,7 +790,7 @@ class MatriceDeployServerUtils:
         while True:
             try:
                 resp = self.rpc.post(
-                    f"/v1/deployment/add_instance_heartbeat/{self.deployment_instance_id}",
+                    f"/v1/inference/add_instance_heartbeat/{self.deployment_instance_id}",
                     raise_exception=False,
                 )
 
@@ -906,7 +906,7 @@ class MatriceDeployServerUtils:
             logging.info(f"Updating deployment address with payload: {payload}")
 
             resp = self.rpc.put(
-                path="/v1/deployment/update_deploy_instance_address",
+                path="/v1/inference/update_deploy_instance_address",
                 payload=payload,
             )
             logging.info(

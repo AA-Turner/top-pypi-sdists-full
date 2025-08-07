@@ -1,6 +1,6 @@
 [package]
 name = "rtest"
-version = "0.0.34"
+version = "0.0.36"
 edition = "2021"
 
 [[bin]]
@@ -26,5 +26,5 @@ serde_json = "1.0"
 indoc = "2.0"
 
 [dev-dependencies]
-tempfile = "3.0"
 indoc = "2.0"
+tempfile = "3.0"

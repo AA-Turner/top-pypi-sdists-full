@@ -287,7 +287,7 @@ class Deployment:
         >>> else:
         >>>     pprint(details)
         """
-        path = f"/v1/deployment/{self.deployment_id}"
+        path = f"/v1/inference/{self.deployment_id}"
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
@@ -328,7 +328,7 @@ class Deployment:
                 "Deployment name not set for this Deployment. Cannot perform the operation for Deployment without deployment name"
             )
             sys.exit(0)
-        path = f"/v1/deployment/get_deployment_by_name?deploymentName={self.deployment_name}"
+        path = f"/v1/inference/get_deployment_by_name?deploymentName={self.deployment_name}"
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
@@ -373,7 +373,7 @@ class Deployment:
             sys.exit(0)
         body = {"deploymentName": updated_name}
         headers = {"Content-Type": "application/json"}
-        path = f"/v1/deployment/update_deployment_name/{self.deployment_id}"
+        path = f"/v1/inference/update_deployment_name/{self.deployment_id}"
         resp = self.rpc.put(
             path=path,
             headers=headers,
@@ -412,7 +412,7 @@ class Deployment:
         >>> else:
         >>>     pprint(delete)
         """
-        path = f"/v1/deployment/delete_deployment/{self.deployment_id}"
+        path = f"/v1/inference/delete_deployment/{self.deployment_id}"
         resp = self.rpc.delete(path=path)
         return handle_response(
             resp,
@@ -447,7 +447,7 @@ class Deployment:
         >>> else:
         >>>     pprint(deployment_server)
         """
-        path = f"/v1/deployment/get_deploy_server/{model_train_id}/{model_type}"
+        path = f"/v1/inference/get_deploy_server/{model_train_id}/{model_type}"
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
@@ -481,7 +481,7 @@ class Deployment:
         >>> else:
         >>>     pprint(wakeup)
         """
-        path = f"/v1/deployment/wake_up_deploy_server/{self.deployment_id}"
+        path = f"/v1/inference/wake_up_deploy_server/{self.deployment_id}"
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
@@ -510,7 +510,7 @@ class Deployment:
         >>> else:
         >>>     pprint(status)
         """
-        path = f"/v1/deployment/status_cards?projectId={self.project_id}"
+        path = f"/v1/inference/status_cards?projectId={self.project_id}"
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,
@@ -552,7 +552,7 @@ class Deployment:
             "authType": "external",
         }
         headers = {"Content-Type": "application/json"}
-        path = f"/v1/deployment/add_auth_key/{self.deployment_id}?projectId={self.project_id}"
+        path = f"/v1/inference/add_auth_key/{self.deployment_id}?projectId={self.project_id}"
         resp = self.rpc.post(
             path=path,
             headers=headers,
@@ -598,7 +598,7 @@ class Deployment:
         if self.deployment_id is None:
             print("Deployment id not set for this deployment.")
             sys.exit(0)
-        path = f"/v1/deployment/delete_auth_key/{self.deployment_id}/{auth_key}"
+        path = f"/v1/inference/delete_auth_key/{self.deployment_id}/{auth_key}"
         resp = self.rpc.delete(path=path)
         return handle_response(
             resp,
@@ -959,7 +959,7 @@ class Deployment:
             data["extraParams"] = json.dumps(extra_params)
         
         if self.deployment_id:
-            url = f"/v1/model_prediction/deployment/{self.deployment_id}/predict"
+            url = f"/v1/model_prediction/inference/{self.deployment_id}/predict"
         elif self.deployment_name:
             url = f"/v1/model_prediction/deployment_name/{self.deployment_name}/predict"
         else:

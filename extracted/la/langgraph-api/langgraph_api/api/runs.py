@@ -93,7 +93,6 @@ async def stream_run(
     payload = await request.json(RunCreateStateful)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
-    stream_mode = payload.get("stream_mode", [])
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
     try:
@@ -118,7 +117,6 @@ async def stream_run(
             thread_id=thread_id,
             cancel_on_disconnect=on_disconnect == "cancel",
             stream_channel=await sub,
-            stream_mode=stream_mode,
             last_event_id=None,
         ),
         headers={
@@ -135,7 +133,6 @@ async def stream_run_stateless(
     payload = await request.json(RunCreateStateless)
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
-    stream_mode = payload.get("stream_mode", [])
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
 
     try:
@@ -161,7 +158,6 @@ async def stream_run_stateless(
             ignore_404=True,
             cancel_on_disconnect=on_disconnect == "cancel",
             stream_channel=await sub,
-            stream_mode=stream_mode,
             last_event_id=None,
         ),
         headers={
@@ -205,7 +201,6 @@ async def wait_run(request: ApiRequest):
                 run["run_id"],
                 thread_id=run["thread_id"],
                 stream_channel=await sub,
-                stream_mode=["updates", "values", "error"],
                 cancel_on_disconnect=on_disconnect == "cancel",
             )
         ) as stream:
@@ -288,7 +283,6 @@ async def wait_run_stateless(request: ApiRequest):
                 run["run_id"],
                 thread_id=run["thread_id"],
                 stream_channel=await sub,
-                stream_mode=["updates", "values", "error"],
                 ignore_404=True,
                 cancel_on_disconnect=on_disconnect == "cancel",
             )

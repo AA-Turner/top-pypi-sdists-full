@@ -390,9 +390,9 @@ impl<'db> Bindings<'db> {
                                         );
                                     }
                                     Some("__constraints__") => {
-                                        overload.set_return_type(TupleType::from_elements(
+                                        overload.set_return_type(Type::heterogeneous_tuple(
                                             db,
-                                            typevar.constraints(db).into_iter().flatten().copied(),
+                                            typevar.constraints(db).into_iter().flatten(),
                                         ));
                                     }
                                     Some("__default__") => {
@@ -623,19 +623,38 @@ impl<'db> Bindings<'db> {
 
                         Some(KnownFunction::GenericContext) => {
                             if let [Some(ty)] = overload.parameter_types() {
+                                let function_generic_context = |function: FunctionType<'db>| {
+                                    let union = UnionType::from_elements(
+                                        db,
+                                        function
+                                            .signature(db)
+                                            .overloads
+                                            .iter()
+                                            .filter_map(|signature| signature.generic_context)
+                                            .map(|generic_context| generic_context.as_tuple(db)),
+                                    );
+                                    if union.is_never() {
+                                        Type::none(db)
+                                    } else {
+                                        union
+                                    }
+                                };
+
                                 // TODO: Handle generic functions, and unions/intersections of
                                 // generic types
                                 overload.set_return_type(match ty {
-                                    Type::ClassLiteral(class) => match class.generic_context(db) {
-                                        Some(generic_context) => TupleType::from_elements(
-                                            db,
-                                            generic_context
-                                                .variables(db)
-                                                .iter()
-                                                .map(|typevar| Type::TypeVar(*typevar)),
-                                        ),
-                                        None => Type::none(db),
-                                    },
+                                    Type::ClassLiteral(class) => class
+                                        .generic_context(db)
+                                        .map(|generic_context| generic_context.as_tuple(db))
+                                        .unwrap_or_else(|| Type::none(db)),
+
+                                    Type::FunctionLiteral(function) => {
+                                        function_generic_context(*function)
+                                    }
+
+                                    Type::BoundMethod(bound_method) => {
+                                        function_generic_context(bound_method.function(db))
+                                    }
 
                                     _ => Type::none(db),
                                 });
@@ -655,7 +674,7 @@ impl<'db> Bindings<'db> {
                                             Some(names) => {
                                                 let mut names = names.iter().collect::<Vec<_>>();
                                                 names.sort();
-                                                TupleType::from_elements(
+                                                Type::heterogeneous_tuple(
                                                     db,
                                                     names.iter().map(|name| {
                                                         Type::string_literal(db, name.as_str())
@@ -675,7 +694,7 @@ impl<'db> Bindings<'db> {
                                 let return_ty = match ty {
                                     Type::ClassLiteral(class) => {
                                         if let Some(metadata) = enums::enum_metadata(db, *class) {
-                                            TupleType::from_elements(
+                                            Type::heterogeneous_tuple(
                                                 db,
                                                 metadata
                                                     .members
@@ -695,7 +714,7 @@ impl<'db> Bindings<'db> {
 
                         Some(KnownFunction::AllMembers) => {
                             if let [Some(ty)] = overload.parameter_types() {
-                                overload.set_return_type(TupleType::from_elements(
+                                overload.set_return_type(Type::heterogeneous_tuple(
                                     db,
                                     ide_support::all_members(db, *ty)
                                         .into_iter()
@@ -991,7 +1010,7 @@ impl<'db> Bindings<'db> {
 
                         Some(KnownClass::Type) if overload_index == 0 => {
                             if let [Some(arg)] = overload.parameter_types() {
-                                overload.set_return_type(arg.to_meta_type(db));
+                                overload.set_return_type(arg.dunder_class(db));
                             }
                         }
 
@@ -1007,10 +1026,14 @@ impl<'db> Bindings<'db> {
                             // `tuple(range(42))` => `tuple[int, ...]`
                             // BUT `tuple((1, 2))` => `tuple[Literal[1], Literal[2]]` rather than `tuple[Literal[1, 2], ...]`
                             if let [Some(argument)] = overload.parameter_types() {
-                                let tuple_spec = argument.try_iterate(db).expect(
-                                    "try_iterate() should not fail on a type \
-                                        assignable to `Iterable`",
-                                );
+                                let Ok(tuple_spec) = argument.try_iterate(db) else {
+                                    tracing::debug!(
+                                        "type" = %argument.display(db),
+                                        "try_iterate() should not fail on a type \
+                                            assignable to `Iterable`",
+                                    );
+                                    continue;
+                                };
                                 overload.set_return_type(Type::tuple(TupleType::new(
                                     db,
                                     tuple_spec.as_ref(),
@@ -1435,7 +1458,7 @@ impl<'db> CallableBinding<'db> {
         }
 
         let top_materialized_argument_type =
-            TupleType::from_elements(db, top_materialized_argument_types);
+            Type::heterogeneous_tuple(db, top_materialized_argument_types);
 
         // A flag to indicate whether we've found the overload that makes the remaining overloads
         // unmatched for the given argument types.
@@ -1471,7 +1494,7 @@ impl<'db> CallableBinding<'db> {
                 parameter_types.push(UnionType::from_elements(db, current_parameter_types));
             }
             if top_materialized_argument_type
-                .is_assignable_to(db, TupleType::from_elements(db, parameter_types))
+                .is_assignable_to(db, Type::heterogeneous_tuple(db, parameter_types))
             {
                 filter_remaining_overloads = true;
             }

@@ -32,6 +32,7 @@ import uuid
 import warnings
 from test import IntegrationTest, PyMongoTestCase, client_context
 from test.test_bulk import BulkTestBase
+from test.utils import flaky
 from test.utils_spec_runner import SpecRunner, SpecTestCreator
 from threading import Thread
 from typing import Any, Dict, Mapping, Optional
@@ -450,20 +451,6 @@ class TestClientMaxWireVersion(IntegrationTest):
     @unittest.skipUnless(_HAVE_PYMONGOCRYPT, "pymongocrypt is not installed")
     def setUp(self):
         super().setUp()
-
-    @client_context.require_version_max(4, 0, 99)
-    def test_raise_max_wire_version_error(self):
-        opts = AutoEncryptionOpts(KMS_PROVIDERS, "keyvault.datakeys")
-        client = self.rs_or_single_client(auto_encryption_opts=opts)
-        msg = "Auto-encryption requires a minimum MongoDB version of 4.2"
-        with self.assertRaisesRegex(ConfigurationError, msg):
-            client.test.test.insert_one({})
-        with self.assertRaisesRegex(ConfigurationError, msg):
-            client.admin.command("ping")
-        with self.assertRaisesRegex(ConfigurationError, msg):
-            client.test.test.find_one({})
-        with self.assertRaisesRegex(ConfigurationError, msg):
-            client.test.test.bulk_write([InsertOne({})])
 
     def test_raise_unsupported_error(self):
         opts = AutoEncryptionOpts(KMS_PROVIDERS, "keyvault.datakeys")
@@ -1315,7 +1302,7 @@ class TestCustomEndpoint(EncryptionIntegrationTest):
         kms_providers_invalid = copy.deepcopy(kms_providers)
         kms_providers_invalid["azure"]["identityPlatformEndpoint"] = "doesnotexist.invalid:443"
         kms_providers_invalid["gcp"]["endpoint"] = "doesnotexist.invalid:443"
-        kms_providers_invalid["kmip"]["endpoint"] = "doesnotexist.local:5698"
+        kms_providers_invalid["kmip"]["endpoint"] = "doesnotexist.invalid:5698"
         self.client_encryption_invalid = self.create_client_encryption(
             kms_providers=kms_providers_invalid,
             key_vault_namespace="keyvault.datakeys",
@@ -1371,15 +1358,10 @@ class TestCustomEndpoint(EncryptionIntegrationTest):
             },
         )
 
-    @unittest.skipUnless(any(AWS_CREDS.values()), "AWS environment credentials are not set")
-    def test_04_aws_endpoint_invalid_port(self):
-        master_key = {
-            "region": "us-east-1",
-            "key": ("arn:aws:kms:us-east-1:579766882180:key/89fcc2c4-08b0-4bd9-9f25-e30687b580d0"),
-            "endpoint": "kms.us-east-1.amazonaws.com:12345",
-        }
-        with self.assertRaisesRegex(EncryptionError, "kms.us-east-1.amazonaws.com:12345"):
-            self.client_encryption.create_data_key("aws", master_key=master_key)
+    def test_04_kmip_endpoint_invalid_port(self):
+        master_key = {"keyId": "1", "endpoint": "localhost:12345"}
+        with self.assertRaisesRegex(EncryptionError, "localhost:12345"):
+            self.client_encryption.create_data_key("kmip", master_key=master_key)
 
     @unittest.skipUnless(any(AWS_CREDS.values()), "AWS environment credentials are not set")
     def test_05_aws_endpoint_wrong_region(self):
@@ -1485,7 +1467,7 @@ class TestCustomEndpoint(EncryptionIntegrationTest):
         self.assertEqual("test", self.client_encryption_invalid.decrypt(encrypted))
 
     def test_12_kmip_master_key_invalid_endpoint(self):
-        key = {"keyId": "1", "endpoint": "doesnotexist.local:5698"}
+        key = {"keyId": "1", "endpoint": "doesnotexist.invalid:5698"}
         with self.assertRaisesRegex(EncryptionError, self.kmip_host_error):
             self.client_encryption.create_data_key("kmip", key)
 
@@ -2171,7 +2153,7 @@ class TestKmsTLSOptions(EncryptionIntegrationTest):
             self.client_encryption_invalid_hostname.create_data_key("aws", key)
 
     def test_02_azure(self):
-        key = {"keyVaultEndpoint": "doesnotexist.local", "keyName": "foo"}
+        key = {"keyVaultEndpoint": "doesnotexist.invalid", "keyName": "foo"}
         # Missing client cert error.
         with self.assertRaisesRegex(EncryptionError, self.cert_error):
             self.client_encryption_no_client_cert.create_data_key("azure", key)
@@ -2246,7 +2228,7 @@ class TestKmsTLSOptions(EncryptionIntegrationTest):
             self.client_encryption_with_names.create_data_key("aws:with_tls", key)
 
     def test_06_named_kms_providers_apply_tls_options_azure(self):
-        key = {"keyVaultEndpoint": "doesnotexist.local", "keyName": "foo"}
+        key = {"keyVaultEndpoint": "doesnotexist.invalid", "keyName": "foo"}
         # Missing client cert error.
         with self.assertRaisesRegex(EncryptionError, self.cert_error):
             self.client_encryption_with_names.create_data_key("azure:no_client_cert", key)
@@ -2453,16 +2435,16 @@ class TestLookupProse(EncryptionIntegrationTest):
 
         encrypted_client.db.csfle.insert_one({"csfle": "csfle"})
         doc = unencrypted_client.db.csfle.find_one()
-        self.assertTrue(isinstance(doc["csfle"], Binary))
+        self.assertIsInstance(doc["csfle"], Binary)
         encrypted_client.db.csfle2.insert_one({"csfle2": "csfle2"})
         doc = unencrypted_client.db.csfle2.find_one()
-        self.assertTrue(isinstance(doc["csfle2"], Binary))
+        self.assertIsInstance(doc["csfle2"], Binary)
         encrypted_client.db.qe.insert_one({"qe": "qe"})
         doc = unencrypted_client.db.qe.find_one()
-        self.assertTrue(isinstance(doc["qe"], Binary))
+        self.assertIsInstance(doc["qe"], Binary)
         encrypted_client.db.qe2.insert_one({"qe2": "qe2"})
         doc = unencrypted_client.db.qe2.find_one()
-        self.assertTrue(isinstance(doc["qe2"], Binary))
+        self.assertIsInstance(doc["qe2"], Binary)
         encrypted_client.db.no_schema.insert_one({"no_schema": "no_schema"})
         encrypted_client.db.no_schema2.insert_one({"no_schema2": "no_schema2"})
 
@@ -3243,6 +3225,7 @@ class TestKmsRetryProse(EncryptionIntegrationTest):
 class TestAutomaticDecryptionKeys(EncryptionIntegrationTest):
     @client_context.require_no_standalone
     @client_context.require_version_min(7, 0, -1)
+    @flaky(reason="PYTHON-4982")
     def setUp(self):
         super().setUp()
         self.key1_document = json_data("etc", "data", "keys", "key1-document.json")
@@ -3485,6 +3468,8 @@ class TestNoSessionsSupport(EncryptionIntegrationTest):
 
         self.assertNotIn("lsid", self.listener.started_events[1].command)
 
+        self.mongocryptd_client.close()
+
     def test_explicit_session_errors_when_unsupported(self):
         self.listener.reset()
         with self.mongocryptd_client.start_session() as s:
@@ -3496,6 +3481,8 @@ class TestNoSessionsSupport(EncryptionIntegrationTest):
                 ConfigurationError, r"Sessions are not supported by this MongoDB deployment"
             ):
                 self.mongocryptd_client.db.test.insert_one({"x": 1}, session=s)
+
+        self.mongocryptd_client.close()
 
 
 if __name__ == "__main__":

@@ -8,15 +8,14 @@ use polars_core::schema::Schema;
 use polars_error::{PolarsResult, polars_bail};
 use polars_expr::state::ExecutionState;
 use polars_mem_engine::create_physical_plan;
+use polars_plan::dsl::default_values::DefaultFieldValues;
 use polars_plan::dsl::deletion::DeletionFilesList;
 use polars_plan::dsl::{
     ExtraColumnsPolicy, FileScanIR, FileSinkType, PartitionSinkTypeIR, PartitionVariantIR,
     SinkTypeIR,
 };
 use polars_plan::plans::expr_ir::{ExprIR, OutputName};
-use polars_plan::plans::{
-    AExpr, Context, FunctionIR, IR, IRAggExpr, LiteralValue, write_ir_non_recursive,
-};
+use polars_plan::plans::{AExpr, FunctionIR, IR, IRAggExpr, LiteralValue, write_ir_non_recursive};
 use polars_plan::prelude::GroupbyOptions;
 use polars_utils::arena::{Arena, Node};
 use polars_utils::itertools::Itertools;
@@ -26,9 +25,10 @@ use polars_utils::{IdxSize, unique_column_name};
 use slotmap::SlotMap;
 
 use super::{PhysNode, PhysNodeKey, PhysNodeKind, PhysStream};
-use crate::nodes::io_sources::multi_file_reader;
-use crate::nodes::io_sources::multi_file_reader::extra_ops::ForbidExtraColumns;
-use crate::nodes::io_sources::multi_file_reader::reader_interface::builder::FileReaderBuilder;
+use crate::nodes::io_sources::multi_scan;
+use crate::nodes::io_sources::multi_scan::components::forbid_extra_columns::ForbidExtraColumns;
+use crate::nodes::io_sources::multi_scan::components::projection::builder::ProjectionBuilder;
+use crate::nodes::io_sources::multi_scan::reader_interface::builder::FileReaderBuilder;
 use crate::physical_plan::lower_expr::{
     ExprCache, build_length_preserving_select_stream, build_select_stream,
     is_elementwise_rec_cached, lower_exprs,
@@ -312,9 +312,7 @@ pub fn lower_ir(
                         for key_expr in key_exprs.iter() {
                             select_output_schema.insert(
                                 key_expr.output_name().clone(),
-                                key_expr
-                                    .dtype(input_schema.as_ref(), Context::Default, expr_arena)?
-                                    .clone(),
+                                key_expr.dtype(input_schema.as_ref(), expr_arena)?.clone(),
                             );
                         }
 
@@ -565,8 +563,8 @@ pub fn lower_ir(
                     let cloud_options = cloud_options.clone().map(Arc::new);
                     let file_schema = file_info.schema;
 
-                    let (file_projection_builder, file_schema) =
-                        multi_file_reader::initialization::projection::resolve_projections(
+                    let (projected_schema, file_schema) =
+                        multi_scan::functions::resolve_projections::resolve_projections(
                             &output_schema,
                             &file_schema,
                             &mut hive_parts,
@@ -578,8 +576,16 @@ pub fn lower_ir(
                                 .include_file_paths
                                 .as_ref()
                                 .map(|x| x.as_str()),
-                            unified_scan_args.column_mapping.as_ref(),
                         );
+
+                    let file_projection_builder = ProjectionBuilder::new(
+                        projected_schema,
+                        unified_scan_args.column_mapping.as_ref(),
+                        unified_scan_args
+                            .default_values
+                            .filter(|DefaultFieldValues::Iceberg(v)| !v.is_empty())
+                            .map(|DefaultFieldValues::Iceberg(v)| v),
+                    );
 
                     // TODO: We ignore the parameter for some scan types to maintain old behavior,
                     // as they currently don't expose an API for it to be configured.

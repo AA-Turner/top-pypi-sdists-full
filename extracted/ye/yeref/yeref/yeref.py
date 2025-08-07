@@ -3839,7 +3839,10 @@ async def db_select_pg(sql, param=None, db_pool=None, db_config=None):
             if db_pool:
                 async with db_pool.acquire() as conn:
                     result = await conn.fetch(sql, *(param or ()))
-                    logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
+                    if "WHERE TRG_CONTENT LIKE '%\"isTriggered\": true%'" in sql:
+                        pass
+                    else:
+                        logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
             else:
                 conn = await asyncpg.connect(**db_config)
                 try:
@@ -4156,7 +4159,7 @@ async def get_time_time(is_bid=False):
     return result
 
 
-async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_D, lz, prompt='', BOT_TOKEN_=None):
+async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_P, lz, prompt='', BOT_TOKEN_=None):
     result_txt = [{'role': 'system', 'content': f'You are a helpful assistant for Telegram {ENT_TYPE}.'},
                   {'role': 'assistant', 'content': 'ok'}, ]
     result_img = ''
@@ -4187,11 +4190,11 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
             result_img = f"{get_chat_.description}, {get_chat_.title}"
         # endregion
 
-        print(f"0 {BASE_D=}")
+        print(f"0 {BASE_P=}")
         if ENT_TYPE == 'bot':
             # region MSG
             sql = f"SELECT MSG_TEXT, MSG_BUTTONS FROM BOT_{ENT_TID}.MSG"
-            data = await db_select_pg(sql, (), BASE_D)
+            data = await db_select_pg(sql, (), BASE_P)
 
             for item in data[:5]:
                 try:
@@ -4209,9 +4212,9 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
                     logger.info(log_ % str(e))
                     await asyncio.sleep(round(random.uniform(0, 1), 2))  # endregion
         elif ENT_TYPE in ['channel']:
-            print(1, BASE_D, ENT_TID)
+            print(1, BASE_P, ENT_TID)
             sql = "SELECT CHANNEL_LASTMSG FROM \"CHANNEL\" WHERE CHANNEL_TID=$1"
-            data_chn = await db_select_pg(sql, (ENT_TID,), BASE_D)
+            data_chn = await db_select_pg(sql, (ENT_TID,), BASE_P)
             CHANNEL_LASTMSG = data_chn[0][0]
 
             if CHANNEL_LASTMSG:
@@ -4219,7 +4222,7 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
                                    'content': f'There is a message of this telegram {ENT_TYPE}: {CHANNEL_LASTMSG}'})  # result_img = f"{result_img}. {CHANNEL_LASTMSG[:32]}\n"
         elif ENT_TYPE in ['group']:
             sql = "SELECT GROUPP_LASTMSG FROM \"GROUPP\" WHERE GROUPP_TID=$1"
-            data_chn = await db_select_pg(sql, (ENT_TID,), BASE_D)
+            data_chn = await db_select_pg(sql, (ENT_TID,), BASE_P)
             GROUPP_LASTMSG = data_chn[0][0]
 
             if GROUPP_LASTMSG:
@@ -4236,7 +4239,7 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
             schema_name = 'GROUPP'
 
         sql = f"SELECT POST_TEXT, POST_BUTTONS FROM {schema_name}_{str(ENT_TID).replace('-', '')}.POST"
-        data = await db_select_pg(sql, (), BASE_D)
+        data = await db_select_pg(sql, (), BASE_P)
 
         for item in data[:5]:
             try:
@@ -4280,14 +4283,14 @@ async def train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, ENT_TYPE, EXTRA_D, BASE_
 
 
 async def pst_gen_ent2(bot, chat_id, lc, lz, page, POST_TID, POST_TYPE, POST_MEDIA, ENT_TID, PROJECT_TYPE, ENT_USERNAME,
-                       ENT_TITLE, MEDIA_D, EXTRA_D, BASE_D, prompt='', ENT_TOKEN_=None, request_app=None):
+                       ENT_TITLE, MEDIA_D, EXTRA_D, BASE_P, prompt='', ENT_TOKEN_=None, request_app=None):
     result = dst = None
     try:
         POST_MEDIA = json.loads(POST_MEDIA) if isinstance(POST_MEDIA, str) else POST_MEDIA
         print(f"pst_gen_ent2 start", POST_MEDIA)
         print(f"{ENT_TOKEN_=}, {bot.id=}")
         KEYS_JSON = os.path.join(EXTRA_D, 'keys.json')
-        prompt_txt, prompt_img = await train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, PROJECT_TYPE, EXTRA_D, BASE_D, lz,
+        prompt_txt, prompt_img = await train_ent_chatgpt(bot, ENT_TID, ENT_USERNAME, PROJECT_TYPE, EXTRA_D, BASE_P, lz,
                                                          prompt, ENT_TOKEN_)
 
         os.makedirs(os.path.join(MEDIA_D, str(ENT_TID)), exist_ok=True, mode=0o777)
@@ -9018,7 +9021,7 @@ async def check_webapp_hash(init_data, TOKEN_BOT, BOT_TOKEN_MAIN=None, extra=Non
     return result
 
 
-async def get_vars_web_main(chat_id, username, full_name, lc, is_premium, utm_web, BASE_D, BOT_TOKEN_E18B):
+async def get_vars_web_main(chat_id, username, full_name, lc, is_premium, utm_web, BASE_P, BOT_TOKEN_E18B):
     is_paid = False
     till_paid = ''
     lz = 'en'
@@ -9027,7 +9030,7 @@ async def get_vars_web_main(chat_id, username, full_name, lc, is_premium, utm_we
         pays = []
 
         sql = "SELECT USER_TID, USER_LZ, USER_DT, USER_UTM, USER_PAY FROM \"USER\" WHERE USER_TID=$1"
-        data_user = await db_select_pg(sql, (chat_id,), BASE_D)
+        data_user = await db_select_pg(sql, (chat_id,), BASE_P)
         if len(data_user): USER_TID, lz, dt, utm, pays = data_user[0]
 
         if not dt:
@@ -9066,7 +9069,7 @@ async def get_vars_web_main(chat_id, username, full_name, lc, is_premium, utm_we
                         USER_ISPREMIUM = EXCLUDED.USER_ISPREMIUM,
                         USER_DT = EXCLUDED.USER_DT
                 """
-            await db_change_pg(sql, (chat_id, username, full_name, lz, lc, utm, is_premium, dt,), BASE_D)
+            await db_change_pg(sql, (chat_id, username, full_name, lz, lc, utm, is_premium, dt,), BASE_P)
 
         try:
             print(f"{pays=}")
@@ -9374,13 +9377,13 @@ async def upd_user_data(ENT_TID, data, web_app_init_data, PROJECT_USERNAME, BASE
 
 
 # region pay
-async def update_subscribe(bot, BASE_D, BOT_TOKEN_E18B):
+async def update_subscribe(bot, BASE_P, BOT_TOKEN_E18B):
     result = []
     try:
         dt_ = datetime.now(timezone.utc)
         if not (dt_.hour % 2 == 0 and dt_.minute % 2 == 0 and dt_.second % 2 == 0): return result
         sql = "SELECT USER_TID, USER_LZ, USER_DTPAID, USER_ISPAID FROM USER"
-        data = await db_select_pg(sql, (), BASE_D)
+        data = await db_select_pg(sql, (), BASE_P)
 
         for item in data:
             try:
@@ -9399,13 +9402,13 @@ async def update_subscribe(bot, BASE_D, BOT_TOKEN_E18B):
                         USER_DTPAID = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S')
                         sql = "UPDATE USER SET USER_ISPAID=1, USER_USERNAME=$1, USER_FULLNAME=$2, USER_DTPAID=$3 " \
                               "WHERE USER_TID=$4"
-                        await db_change_pg(sql, (get_.username, get_.full_name, USER_DTPAID, USER_TID,), BASE_D)
+                        await db_change_pg(sql, (get_.username, get_.full_name, USER_DTPAID, USER_TID,), BASE_P)
                     else:
                         sql = "UPDATE USER SET USER_ISPAID=0, USER_USERNAME=$1, USER_FULLNAME=$2 WHERE USER_TID=$3"
-                        await db_change_pg(sql, (get_.username, get_.full_name, USER_TID,), BASE_D)
+                        await db_change_pg(sql, (get_.username, get_.full_name, USER_TID,), BASE_P)
                 elif USER_ISPAID == -1 and USER_DTPAID and (dt_ - dtpt_).days > 31:
                     result.append(
-                        item)  # else:  #     sql = "UPDATE USER SET USER_USERNAME=$1, USER_FULLNAME=$2 WHERE USER_TID=$3"  #     await db_change_pg(sql, (get_.username, get_.full_name, USER_TID,), BASE_D)
+                        item)  # else:  #     sql = "UPDATE USER SET USER_USERNAME=$1, USER_FULLNAME=$2 WHERE USER_TID=$3"  #     await db_change_pg(sql, (get_.username, get_.full_name, USER_TID,), BASE_P)
             except TelegramRetryAfter as e:
                 logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
                 await asyncio.sleep(e.retry_after + 1)
@@ -9598,11 +9601,11 @@ async def convert_domain_to_currency(domain):
     return result
 
 
-async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, BASE_D):
+async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, BASE_P):
     result = None
     try:
         sql = "SELECT BOT_TOKEN, BOT_TOKENPAY FROM \"BOT\" WHERE BOT_TID=$1"
-        data = await db_select_pg(sql, (BOT_TID,), BASE_D)
+        data = await db_select_pg(sql, (BOT_TID,), BASE_P)
         if not len(data): return result
         BOT_TOKEN, BOT_TOKENPAY = data[0]
 
@@ -9656,7 +9659,7 @@ async def create_invoice_link_my(BOT_TID, BOT_LC, msg_text, msg_btns, POST_LNK, 
     return result
 
 
-async def check_sub_pay(chat_id, lz, BOT_TOKEN_E18B, BASE_D):
+async def check_sub_pay(chat_id, lz, BOT_TOKEN_E18B, BASE_P):
     is_paid = False
     till_paid = ''
     try:
@@ -9677,31 +9680,31 @@ async def check_sub_pay(chat_id, lz, BOT_TOKEN_E18B, BASE_D):
             if extra_bot: await extra_bot.session.close()
 
         sql = "SELECT USER_ISPAID, USER_DTPAID, USER_TYPAID, USER_DT, USER_LZ FROM USER WHERE USER_TID=$1"
-        data_usr = await db_select_pg(sql, (chat_id,), BASE_D)
+        data_usr = await db_select_pg(sql, (chat_id,), BASE_P)
 
         if not len(data_usr):
             sql = "INSERT INTO USER (USER_TID, USER_DT) VALUES ($1, $2) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (chat_id, USER_DT,), BASE_D)
+            await db_change_pg(sql, (chat_id, USER_DT,), BASE_P)
         else:
             USER_ISPAID, USER_DTPAID, USER_TYPAID, USER_DT, lz = data_usr[0]
 
         if is_paid:
             sql = "UPDATE USER SET USER_ISPAID=1, USER_DTPAID='', USER_TYPAID='all' WHERE USER_TID=$1"
-            await db_change_pg(sql, (chat_id,), BASE_D)
+            await db_change_pg(sql, (chat_id,), BASE_P)
         elif USER_ISPAID and USER_DTPAID:
             till_paid = dt_now.strptime(USER_DTPAID, "%d-%m-%Y_%H-%M-%S").replace(tzinfo=timezone.utc)
             print(f"{till_paid=}")
 
             if dt_now > till_paid:
                 sql = "UPDATE USER SET USER_ISPAID=0, USER_DTPAID='', USER_TYPAID='' WHERE USER_TID=$1"
-                await db_change_pg(sql, (chat_id,), BASE_D)
+                await db_change_pg(sql, (chat_id,), BASE_P)
                 till_paid = ''
             else:
                 is_paid = True
                 till_paid = till_paid.strftime('%d.%m.%Y')
         else:
             sql = "UPDATE USER SET USER_ISPAID=0, USER_DTPAID='', USER_TYPAID='' WHERE USER_TID=$1"
-            await db_change_pg(sql, (chat_id,), BASE_D)
+            await db_change_pg(sql, (chat_id,), BASE_P)
         print(f"check_sub_pay {is_paid=}, {till_paid=}")
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -11080,7 +11083,7 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
     return result
 
 
-async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PROJECT_USERNAME, is_private=True,
+async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_P, PROJECT_USERNAME, is_private=True,
                    is_paid=False):
     result = False
     try:
@@ -11132,7 +11135,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
         POST_TEXT = await correct_txt_tags_for_tg(POST_TEXT)
         if POST_ISTAG and POST_TEXT and len(POST_TEXT) < 900:
             sql = f"SELECT USER_TID FROM {schema_name}_{tid}.USER"
-            data_rnd = await db_select_pg(sql, (), BASE_D)
+            data_rnd = await db_select_pg(sql, (), BASE_P)
             if len(data_rnd):
                 data_rnd = [it[0] for it in data_rnd]
                 random.shuffle(data_rnd)
@@ -11159,7 +11162,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
 
             if PROJECT_USERNAME in ['FereyChannelBot', 'FereyGroupBot'] and not is_private:
                 sql = f"UPDATE {schema_name}_{tid}.POST SET POST_MSGID=$1 WHERE POST_TID=$2"
-                await db_change_pg(sql, (result.message_id, POST_TID,), BASE_D)
+                await db_change_pg(sql, (result.message_id, POST_TID,), BASE_P)
             return result
         # endregion
 
@@ -11181,7 +11184,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
                 types.InlineKeyboardButton(text="ᴿᵁᴺ", callback_data=f'pst_{ENT_TID}_{POST_TID}_0_1_1_run'))
         else:
             reply_markup = await get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POST_BUTTONS,
-                                            BASE_D, PROJECT_USERNAME)
+                                            BASE_P, PROJECT_USERNAME)
         # endregion
 
         # region send
@@ -11189,17 +11192,17 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
         if not is_paid and POST_ISPAY and POST_TYPE in ['photo', 'video']:
             if PROJECT_USERNAME in ['FereyChannelBot']:
                 sql = f"SELECT CHANNEL_CPAYTOKEN FROM \"CHANNEL\" WHERE CHANNEL_TID=$1"
-                data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_D)
+                data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_P)
                 if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
             elif PROJECT_USERNAME == 'FereyGroupBot':
                 sql = f"SELECT GROUPP_CPAYTOKEN FROM \"GROUPP\" WHERE GROUPP_TID=$1"
-                data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_D)
+                data_ent = await db_select_pg(sql, (str(ENT_TID),), BASE_P)
                 if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
             else:
                 sql = f"SELECT BOT_TOKEN FROM \"BOT\" WHERE BOT_TID=$1"
-                data_ent = await db_select_pg(sql, (int(ENT_TID),), BASE_D)
+                data_ent = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
                 if not len(data_ent): return result
                 ENT_TOKEN = data_ent[0][0]
 
@@ -11288,7 +11291,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
                     BOT_TOKEN = None
                     if PROJECT_USERNAME == 'FereyBotBot':
                         sql = f"SELECT BOT_TOKEN FROM \"BOT\" WHERE BOT_TID=$1"
-                        data_ent = await db_select_pg(sql, (ENT_TID,), BASE_D)
+                        data_ent = await db_select_pg(sql, (ENT_TID,), BASE_P)
                         if len(data_ent): BOT_TOKEN = data_ent[0][0]
 
                     if BOT_TOKEN:
@@ -11317,7 +11320,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
                             await db_change_pg(sql, (
                                 json.dumps(POST_MEDIA_COPY, ensure_ascii=False),
                                 POST_TID,
-                            ), BASE_D)
+                            ), BASE_P)
                         finally:
                             if os.path.exists(POST_FNAME): os.remove(POST_FNAME)
                             if os.path.exists(POST_FNAME_COPY): os.remove(POST_FNAME_COPY)
@@ -11489,7 +11492,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
                 POST_MSGID = str(result.message_id)
             print(f'res: POST_MSGID = {POST_MSGID}')
             sql = f"UPDATE {schema_name}_{tid}.POST SET POST_MSGID=$1 WHERE POST_TID=$2"
-            await db_change_pg(sql, (POST_MSGID, POST_TID,), BASE_D)
+            await db_change_pg(sql, (POST_MSGID, POST_TID,), BASE_P)
         # endregion
 
         # region story
@@ -11502,7 +11505,7 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
                 if member_.can_post_stories and member_.can_promote_members:
                     asyncio.create_task(
                         story_start(bot, lz, POST_USERTID, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA[0]['file_id'],
-                                    POST_MEDIA[0]['file_name'], POST_CHKBOX, MEDIA_D, BASE_D, BASE_S))
+                                    POST_MEDIA[0]['file_name'], POST_CHKBOX, MEDIA_D, BASE_P, BASE_S))
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -11517,12 +11520,12 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
 
                 if member_.can_manage_video_chats and member_.can_promote_members:
                     print(f"member_ can and promote")
-                    is_paid, till_paid, lz = await get_vars_web_main(chat_id, '', '', lz, '', '', BASE_D, '')
+                    is_paid, till_paid, lz = await get_vars_web_main(chat_id, '', '', lz, '', '', BASE_P, '')
 
                     asyncio.create_task(
                         podcast_start(bot, POST_USERTID, lz, ENT_TID, POST_TID, POST_TYPE, POST_TEXT,
                                       POST_MEDIA[0]['file_id'], POST_MEDIA[0]['file_name'], is_paid, BASE_S,
-                                      MEDIA_D, BASE_D, PROJECT_USERNAME))
+                                      MEDIA_D, BASE_P, PROJECT_USERNAME))
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -11557,12 +11560,15 @@ async def post_pub(bot, lz, chat_id, ENT_TID, post, MEDIA_D, BASE_S, BASE_D, PRO
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
     except Exception as e:
+        if PROJECT_USERNAME == 'FereyBotBot' and 'blocked by the user' in str(e) and is_private:
+            sql = f"DELETE FROM BOT_{ENT_TID}.USER WHERE USER_TID=$1"
+            # await db_change_pg(sql, (chat_id,), BASE_P)
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
 
 
-async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_D, PROJECT_TYPE='bot'):
+async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_P, PROJECT_TYPE='bot'):
     result = None
     try:
         # if PROJECT_TYPE in ['post']: return
@@ -11594,7 +11600,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_D, P
                 if PROJECT_TYPE == 'bot':
                     print(f"1")
                     sql = "SELECT BOT_USERNAME, BOT_FIRSTNAME FROM \"BOT\" WHERE BOT_TID=$1"
-                    data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_D)
+                    data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
                     if not len(data_bot): return result
                     BOT_USERNAME, BOT_FIRSTNAME = data_bot[0]
 
@@ -11605,7 +11611,7 @@ async def region_blog2(bot, ENT_TID, POST_TYPE, POST_TEXT, POST_MEDIA, BASE_D, P
                     print(f"2 15997")
                 elif PROJECT_TYPE == 'user':
                     sql = "SELECT UB_USERNAME, UB_FIRSTNAME, UB_BOTUSERNAME, UB_CHANNELLINK FROM UB WHERE UB_TID=$1"
-                    data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_D)
+                    data_bot = await db_select_pg(sql, (int(ENT_TID),), BASE_P)
                     UB_USERNAME, UB_FIRSTNAME, UB_BOTUSERNAME, UB_CHANNELLINK = data_bot[0]
 
                     if UB_USERNAME:
@@ -11769,7 +11775,7 @@ async def update_media(bot, chat_id, lz, ENT_TID, BOT_TOKEN, POST_MEDIA, MEDIA_D
     return result
 
 
-async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POST_BUTTONS, BASE_D, PROJECT_USERNAME,
+async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POST_BUTTONS, BASE_P, PROJECT_USERNAME,
                      cur_='1'):
     try:
         schema_name = 'USER'
@@ -11782,7 +11788,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
 
         if POST_BUTTONS and len(POST_BUTTONS):
             sql = f"SELECT BTN_BID FROM {schema_name}_{str(ENT_TID).replace('-', '')}.PUSH WHERE ENT_VID=$1"
-            data = await db_select_pg(sql, (POST_TID,), BASE_D)
+            data = await db_select_pg(sql, (POST_TID,), BASE_P)
             counters = {str(it[0]): sum(1 for x in data if x[0] == it[0]) for it in data}
         else:
             counters = {}
@@ -11853,7 +11859,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     if button['lnk'].strip() == '':
                         NEXT_POST_TID = POST_TID
                         # sql = f"SELECT POST_TID FROM {schema_name}_{str(ENT_TID).replace('-', '')}.POST"
-                        # data_post = await db_select_pg(sql, (), BASE_D)
+                        # data_post = await db_select_pg(sql, (), BASE_P)
                         # if len(data_post) and data_post[0][0]:
                         #     NEXT_POST_TID = data_post[0][0]
                         # else:
@@ -11864,7 +11870,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
                     HASH_VAL = hashlib.blake2b(HASH_STR.encode('utf-8'), digest_size=8).hexdigest()
                     # if PROJECT_USERNAME == 'FereyPostBot':
                     #     sql = "INSERT INTO \"HASH\" (HASH_STR, HASH_VAL) VALUES ($1, $2) ON CONFLICT DO NOTHING"
-                    #     await db_change_pg(sql, (HASH_STR, HASH_VAL,), BASE_D)
+                    #     await db_change_pg(sql, (HASH_STR, HASH_VAL,), BASE_P)
 
                     post_fix = '' if PROJECT_USERNAME == 'FereyPostBot' else f"-{str(ENT_TID).replace('-', '')}"
                     url = f'https://t.me/{PROJECT_USERNAME}/web?startapp=pst-{HASH_VAL}{post_fix}&mode=fullscreen'
@@ -11897,7 +11903,7 @@ async def get_ent_rm(chat_id, reply_markup, ENT_TID, POST_USERTUN, POST_TID, POS
 
 
 async def podcast_start(bot, chat_id, lz, ENT_TID, POST_ID, POST_TYPE, POST_TEXT, POST_FID, POST_FILENAME, USER_ISPAID,
-                        BASE_S, MEDIA_D, BASE_D, PROJECT_USERNAME):
+                        BASE_S, MEDIA_D, BASE_P, PROJECT_USERNAME):
     file_name = os.path.join(MEDIA_D, str(ENT_TID), POST_FILENAME)
     SESSION_D = os.path.dirname(BASE_S)
     r = None
@@ -11987,7 +11993,7 @@ async def podcast_start(bot, chat_id, lz, ENT_TID, POST_ID, POST_TYPE, POST_TEXT
                         if not promote_: raise Exception
 
                         result = await py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, duration,
-                                                       BASE_D, PROJECT_USERNAME)
+                                                       BASE_P, PROJECT_USERNAME)
                         print(f"{result=}")
                         await bot.promote_chat_member(chat_id=int(ENT_TID), user_id=SESSION_TID, is_anonymous=False,
                                                       can_manage_chat=False, can_delete_messages=False,
@@ -12017,7 +12023,7 @@ async def podcast_start(bot, chat_id, lz, ENT_TID, POST_ID, POST_TYPE, POST_TEXT
                 logger.info(log_ % f"{SESSION_TID}: {str(e)}")
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
                 sql = "UPDATE CHANNEL SET CHANNEL_ISPROMOTED=0 WHERE CHANNEL_TID=$1"
-                await db_change_pg(sql, (ENT_TID,), BASE_D)
+                await db_change_pg(sql, (ENT_TID,), BASE_P)
             finally:
                 sql = "UPDATE SESSION SET SESSION_STATUS=$1 WHERE SESSION_TID=$2"
                 await db_change_pg(sql, (SESSION_STATUS, SESSION_TID,), BASE_S)
@@ -12032,7 +12038,7 @@ async def podcast_start(bot, chat_id, lz, ENT_TID, POST_ID, POST_TYPE, POST_TEXT
         await delete_msg_media_file(file_name)
 
 
-async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, duration, BASE_D, PROJECT_USERNAME):
+async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, duration, BASE_P, PROJECT_USERNAME):
     result = peer_chan = None
     username_chan = title = ''
     try:
@@ -12076,7 +12082,7 @@ async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, du
                 if update.participant.action != GroupCallParticipant.Action.JOINED: return
 
                 if not str(update.participant.user_id).startswith('-100'):
-                    await add_to_push_podcast(bot, app, update.participant.user_id, ENT_TID, POST_ID, BASE_D,
+                    await add_to_push_podcast(bot, app, update.participant.user_id, ENT_TID, POST_ID, BASE_P,
                                               PROJECT_USERNAME)
             except Exception as exc:
                 logger.info(log_ % str(exc))
@@ -12091,7 +12097,7 @@ async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, du
         participants = await call_py.get_participants(chat_id=ENT_TID)
         for participant in participants:
             if str(participant.user_id).startswith('-100'): continue
-            await add_to_push_podcast(bot, app, participant.user_id, ENT_TID, POST_ID, BASE_D, PROJECT_USERNAME)
+            await add_to_push_podcast(bot, app, participant.user_id, ENT_TID, POST_ID, BASE_P, PROJECT_USERNAME)
         # await call_py.leave_group_call(chat_id=ENT_TID)
         await call_py.leave_call(chat_id=ENT_TID)
         print(f"@{username_chan}: {title} finish....")
@@ -12101,7 +12107,7 @@ async def py_tg_calls_fun(bot, app, chat_id, lz, r, POST_ID, ENT_TID, stream, du
     return result
 
 
-async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_D, PROJECT_USERNAME):
+async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_P, PROJECT_USERNAME):
     result = None
     try:
         schema_name = 'USER'
@@ -12118,7 +12124,7 @@ async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_D, PROJE
             full_name = result.full_name
             username = result.username
             sql = f"INSERT INTO {schema_name}_{str(ENT_TID).replace('-', '')}.PUSH (CHAT_TID, CHAT_FULLNAME, CHAT_USERNAME, POST_ID, BTN_BID) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (user_id, full_name, username, POST_ID, -1,), BASE_D)
+            await db_change_pg(sql, (user_id, full_name, username, POST_ID, -1,), BASE_P)
             print('user_id get_chat ', user_id)
         except TelegramRetryAfter as e:
             logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -12140,7 +12146,7 @@ async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_D, PROJE
             is_premium = get_users_[0].is_premium
             lc = get_users_[0].language_code
             sql = f"INSERT INTO {schema_name}_{str(ENT_TID).replace('-', '')}.PUSH (CHAT_TID, CHAT_FULLNAME, CHAT_USERNAME, CHAT_ISPREMIUM, CHAT_LC, POST_ID, BTN_BID) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (user_id, full_name, username, is_premium, lc, POST_ID, -1,), BASE_D)
+            await db_change_pg(sql, (user_id, full_name, username, is_premium, lc, POST_ID, -1,), BASE_P)
             print('user_id get_users_ ', user_id)
         except (FloodWait, SlowmodeWait) as e:
             logger.info(log_ % str(e))
@@ -12154,7 +12160,7 @@ async def add_to_push_podcast(bot, app, user_id, ENT_TID, POST_ID, BASE_D, PROJE
 
 
 async def story_start(bot, lz, chat_id, ENT_TID, POST_TYPE, POST_TEXT, POST_FID, POST_FILENAME, POST_CHKBOX,
-                      MEDIA_D, BASE_D, BASE_S):
+                      MEDIA_D, BASE_P, BASE_S):
     file_name = os.path.join(MEDIA_D, str(ENT_TID), POST_FILENAME)
     SESSION_D = os.path.dirname(BASE_S)
     r = None
@@ -12258,7 +12264,7 @@ async def story_start(bot, lz, chat_id, ENT_TID, POST_TYPE, POST_TEXT, POST_FID,
                 logger.info(log_ % f"{SESSION_TID}: {str(e)}")
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
                 sql = "UPDATE CHANNEL SET CHANNEL_ISPROMOTED=0 WHERE CHANNEL_TID=$1"
-                await db_change_pg(sql, (ENT_TID,), BASE_D)
+                await db_change_pg(sql, (ENT_TID,), BASE_P)
             finally:
                 sql = "UPDATE SESSION SET SESSION_STATUS=$1 WHERE SESSION_TID=$2"
                 await db_change_pg(sql, (SESSION_STATUS, SESSION_TID,), BASE_S)
@@ -12552,7 +12558,7 @@ async def delete_from_ipfs(MSG_VID, KEYS_JSON):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_D, BOT_TOKEN_APP, PROJECT_USERNAME):
+async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_P, BOT_TOKEN_APP, PROJECT_USERNAME):
     call_py = PyTgCalls(app)
     peer_chan = None
     result = {'answer': False, 'param': ''}
@@ -12604,7 +12610,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_D, BOT_TOKEN
             max_cnt -= 1
             # region begins of POCAST_TID
             sql = "SELECT UB_CPODCAST, UB_CPODCASTSRC, UB_CPODCASTDST FROM UB WHERE UB_TID=$1"
-            data_ub = await db_select_pg(sql, (UB_TID,), BASE_D)
+            data_ub = await db_select_pg(sql, (UB_TID,), BASE_P)
             print(f"{UB_TID=}, {data_ub=}")
             if not len(data_ub): return result
             UB_CPODCAST, UB_CPODCASTSRC, UB_CPODCASTDST = data_ub[0]
@@ -12621,7 +12627,7 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_D, BOT_TOKEN
             for POCAST_TID in POCAST_TIDs:
                 print(f"{POCAST_TIDs=}, {UB_CPODCAST=}")
                 sql = f"SELECT POST_TID, POST_TYPE, POST_TEXT, POST_MEDIA FROM {schema_name}_{str(ENT_TID).replace('-', '')}.POST WHERE POST_TID=$1"
-                data_post = await db_select_pg(sql, (int(POCAST_TID),), BASE_D)
+                data_post = await db_select_pg(sql, (int(POCAST_TID),), BASE_P)
                 print(f"{data_post=}")
                 if not len(data_post) and not len(POCAST_TIDs): return result
                 if not len(data_post): continue
@@ -12706,13 +12712,13 @@ async def podcast_start_app(app, UB_TID, lz, ENT_TID, MEDIA_D, BASE_D, BOT_TOKEN
             status_, loop_, order_ = UB_CPODCAST
             if loop_ != '☑':
                 sql = "SELECT UB_CPODCAST FROM UB WHERE UB_TID=$1"
-                data_config = await db_select_pg(sql, (UB_TID,), BASE_D)
+                data_config = await db_select_pg(sql, (UB_TID,), BASE_P)
                 UB_CPODCAST = data_config[0][0]
 
                 if len(UB_CPODCAST) > 0: UB_CPODCAST = f"☐{UB_CPODCAST[1:]}"
                 print(f"loop: {UB_CPODCAST=}")
                 sql = "UPDATE UB SET UB_CPODCAST=$1 WHERE UB_TID=$2"
-                await db_change_pg(sql, (UB_CPODCAST, UB_TID), BASE_D)
+                await db_change_pg(sql, (UB_CPODCAST, UB_TID), BASE_P)
                 result = {'answer': 'loop', 'param': UB_CPODCAST}
                 return result
             # endregion
@@ -12885,11 +12891,11 @@ async def ch_games(USER_GAMES, game, condition, balls=-1):
 
 
 # region admin
-async def pre_upload(bot, chat_id, media_name, media_type, EXTRA_D, BASE_D):
+async def pre_upload(bot, chat_id, media_name, media_type, EXTRA_D, BASE_P):
     result = None
     try:
         sql = "SELECT FILE_FILEID FROM \"FILE\" WHERE FILE_FILENAME=$1"
-        data = await db_select_pg(sql, (media_name,), BASE_D)
+        data = await db_select_pg(sql, (media_name,), BASE_P)
 
         if not len(data):
             media = types.FSInputFile(str(os.path.join(EXTRA_D, media_name)))
@@ -12939,7 +12945,7 @@ async def pre_upload(bot, chat_id, media_name, media_type, EXTRA_D, BASE_D):
             if res:
                 await bot.delete_message(chat_id, res.message_id)
             sql = "INSERT INTO \"FILE\" (FILE_FILEID, FILE_FILENAME) VALUES ($1, $2) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (result, media_name,), BASE_D)
+            await db_change_pg(sql, (result, media_name,), BASE_P)
             logger.info(log_ % str(f'FILE_FILEID: {result}'))
         else:
             result = data[0][0]
@@ -12966,11 +12972,11 @@ async def pre_upload(bot, chat_id, media_name, media_type, EXTRA_D, BASE_D):
     return result
 
 
-async def show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id=1, call=None):
+async def show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id=1, call=None):
     try:
         sql = "SELECT OFFER_ID, OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_BUTTON, OFFER_ISBUTTON, " \
               "OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, OFFER_DT FROM OFFER"
-        data_offers = await db_select_pg(sql, (), BASE_D)
+        data_offers = await db_select_pg(sql, (), BASE_P)
         if not data_offers:
             if call: await call.message.delete()
             await bot.send_message(chat_id, l_post_text[lz], reply_markup=markupAdmin)
@@ -13173,17 +13179,17 @@ async def get_current_page_number(call):
     return result
 
 
-async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_D, ids):
+async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_P, ids):
     try:
         if ids == 'me':
             user_ids = [chat_id]
         elif not ids or ids == 'all':
             sql = "SELECT USER_TID FROM USER"
-            data = await db_select_pg(sql, (), BASE_D)
+            data = await db_select_pg(sql, (), BASE_P)
             user_ids = [item[0] for item in data]
         else:
             sql = "SELECT USER_TID FROM USER"
-            data = await db_select_pg(sql, (), BASE_D)
+            data = await db_select_pg(sql, (), BASE_P)
             user_ids = [item[0] for item in data]
             user_ids = [item for item in user_ids if str(item) in ids]
 
@@ -13199,7 +13205,7 @@ async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_D, ids):
         sql = "SELECT OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, " \
               "OFFER_TGPHLINK, OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, " \
               "OFFER_DT FROM OFFER WHERE OFFER_ID=$1"
-        data = await db_select_pg(sql, (offer_id,), BASE_D)
+        data = await db_select_pg(sql, (offer_id,), BASE_P)
         if not len(data): return
 
         while True:
@@ -13226,7 +13232,7 @@ async def broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_D, ids):
 
         if str(chat_id) not in my_tids:
             sql = "DELETE FROM OFFER WHERE OFFER_ID=$1"
-            await db_change_pg(sql, (offer_id,), BASE_D)
+            await db_change_pg(sql, (offer_id,), BASE_P)
 
         text = l_broadcast_finish[lz].format(fact_len)
         await bot.send_message(chat_id, text, parse_mode=ParseMode.HTML)
@@ -13413,13 +13419,13 @@ async def generate_calendar_admin(bot, state, lz, chat_id, message_id=None, is_n
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_D, bot_un):
+async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_P, bot_un):
     try:
         chat_id = call.from_user.id
         cmd = str(call.data.split("_")[1])
         post_id = int(call.data.split("_")[-1])
         offer_id = int(call.data.split("_")[-2])
-        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_P)
         has_restricted = (await bot.get_chat(chat_id)).has_restricted_voice_and_video_messages
 
         if cmd == 'new':
@@ -13432,9 +13438,9 @@ async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_D, bot_un):
             await state.clear()
 
             sql = "DELETE FROM OFFER WHERE OFFER_ID=$1"
-            await db_change_pg(sql, (offer_id,), BASE_D)
+            await db_change_pg(sql, (offer_id,), BASE_P)
 
-            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id - 1,
+            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id - 1,
                                     call)
         elif cmd == 'edit':
             await state.clear()
@@ -13445,49 +13451,49 @@ async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_D, bot_un):
             await bot.send_message(call.from_user.id, l_post_text[lz], reply_markup=markupAdmin)
         elif cmd == 'isbtn':
             sql = "SELECT OFFER_BUTTON, OFFER_ISBUTTON FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_D)
+            data = await db_select_pg(sql, (offer_id,), BASE_P)
             OFFER_BUTTON, OFFER_ISBUTTON = data[0]
 
             if OFFER_BUTTON:
                 OFFER_ISBUTTON = 0 if OFFER_ISBUTTON else 1
                 sql = "UPDATE OFFER SET OFFER_ISBUTTON=$1 WHERE OFFER_ID=$2"
-                await db_change_pg(sql, (OFFER_ISBUTTON, offer_id,), BASE_D)
-                await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id,
+                await db_change_pg(sql, (OFFER_ISBUTTON, offer_id,), BASE_P)
+                await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id,
                                         call)
             else:
                 text = l_buttons_text[lz]
                 await call.answer(text=text, show_alert=True)
         elif cmd == 'ispin':
             sql = "SELECT OFFER_ISPIN FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_D)
+            data = await db_select_pg(sql, (offer_id,), BASE_P)
             OFFER_ISPIN = 0 if data[0][0] else 1
             sql = "UPDATE OFFER SET OFFER_ISPIN=$1 WHERE OFFER_ID=$2"
-            await db_change_pg(sql, (OFFER_ISPIN, offer_id,), BASE_D)
-            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id, call)
+            await db_change_pg(sql, (OFFER_ISPIN, offer_id,), BASE_P)
+            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id, call)
         elif cmd == 'issilence':
             sql = "SELECT OFFER_ISSILENCE FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_D)
+            data = await db_select_pg(sql, (offer_id,), BASE_P)
             OFFER_ISSILENCE = 0 if data[0][0] else 1
             sql = "UPDATE OFFER SET OFFER_ISSILENCE=$1 WHERE OFFER_ID=$2"
-            await db_change_pg(sql, (OFFER_ISSILENCE, offer_id,), BASE_D)
-            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id, call)
+            await db_change_pg(sql, (OFFER_ISSILENCE, offer_id,), BASE_P)
+            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id, call)
         elif cmd == 'isgallery':
             sql = "SELECT OFFER_ISGALLERY, OFFER_FILEID FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_D)
+            data = await db_select_pg(sql, (offer_id,), BASE_P)
             OFFER_ISGALLERY, OFFER_FILEID = data[0]
 
             if OFFER_FILEID and '[' in OFFER_FILEID:
                 OFFER_ISGALLERY = 0 if data[0][0] else 1
                 sql = "UPDATE OFFER SET OFFER_ISGALLERY=$1 WHERE OFFER_ID=$2"
-                await db_change_pg(sql, (OFFER_ISGALLERY, offer_id,), BASE_D)
-                await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id,
+                await db_change_pg(sql, (OFFER_ISGALLERY, offer_id,), BASE_P)
+                await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id,
                                         call)
             else:
                 text = l_gallery_text[lz]
                 await call.answer(text=text, show_alert=True)
         elif cmd == 'ispreview':
             sql = "SELECT OFFER_ISTGPH, OFFER_TGPHLINK FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_D)
+            data = await db_select_pg(sql, (offer_id,), BASE_P)
             OFFER_ISTGPH, OFFER_TGPHLINK = data[0]
 
             if not OFFER_TGPHLINK:
@@ -13496,18 +13502,18 @@ async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_D, bot_un):
 
             OFFER_ISTGPH = 0 if OFFER_ISTGPH else 1
             sql = "UPDATE OFFER SET OFFER_ISTGPH=$1 WHERE OFFER_ID=$2"
-            await db_change_pg(sql, (OFFER_ISTGPH, offer_id,), BASE_D)
-            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id, call)
+            await db_change_pg(sql, (OFFER_ISTGPH, offer_id,), BASE_P)
+            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id, call)
         elif cmd == 'isspoiler':
             sql = "SELECT OFFER_ISSPOILER, OFFER_MEDIATYPE FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_D)
+            data = await db_select_pg(sql, (offer_id,), BASE_P)
             OFFER_ISSPOILER, OFFER_MEDIATYPE = data[0]
 
             if OFFER_MEDIATYPE and OFFER_MEDIATYPE in ['photo', 'animation', 'video'] or '[' in OFFER_MEDIATYPE:
                 OFFER_ISSPOILER = 0 if data[0][0] else 1
                 sql = "UPDATE OFFER SET OFFER_ISSPOILER=$1 WHERE OFFER_ID=$2"
-                await db_change_pg(sql, (OFFER_ISSPOILER, offer_id,), BASE_D)
-                await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id,
+                await db_change_pg(sql, (OFFER_ISSPOILER, offer_id,), BASE_P)
+                await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id,
                                         call)
             else:
                 text = l_spoiler_text[lz]
@@ -13532,16 +13538,16 @@ async def callbacks_ofr_admin(bot, FsmOffer, call, state, BASE_D, bot_un):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def callbacks_publication_admin(bot, FsmIds, call, state, BASE_D):
+async def callbacks_publication_admin(bot, FsmIds, call, state, BASE_P):
     try:
         chat_id = call.from_user.id
-        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_P)
         data, option, offer_id = call.data.split('_')
 
         if option == 'me':
-            asyncio.create_task(broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_D, 'me'))
+            asyncio.create_task(broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_P, 'me'))
         elif option == 'all':
-            asyncio.create_task(broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_D, 'all'))
+            asyncio.create_task(broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_P, 'all'))
         elif option == 'ids':
             await state.set_state(FsmIds.start)
             await state.update_data(offer_id=offer_id)
@@ -13556,16 +13562,16 @@ async def callbacks_publication_admin(bot, FsmIds, call, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_ids_start_admin(bot, message, state, BASE_D):
+async def fsm_ids_start_admin(bot, message, state, BASE_P):
     try:
         chat_id = message.from_user.id
-        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
         arr = re.split(r'[`\-=~!@#$%^&*()_+\[\]{};\'\\:"|<,./?]', message.text)
         ids = [it for it in arr if it != '']
         data = await state.get_data()
         offer_id = data.get('offer_id')
 
-        asyncio.create_task(broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_D, ids))
+        asyncio.create_task(broadcast_send_admin(bot, chat_id, lz, offer_id, BASE_P, ids))
         await state.clear()
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -13575,10 +13581,10 @@ async def fsm_ids_start_admin(bot, message, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_text_admin(bot, FsmOffer, message, state, BASE_D):
+async def fsm_text_admin(bot, FsmOffer, message, state, BASE_P):
     try:
         chat_id = message.from_user.id
-        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
 
         if message.text == '⬅️ Prev':
             await bot.send_message(chat_id, l_post_text[lz])
@@ -13603,10 +13609,10 @@ async def fsm_text_admin(bot, FsmOffer, message, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_album_admin(bot, FsmOffer, message, album, state, KEYS_JSON, MEDIA_D, BASE_D):
+async def fsm_album_admin(bot, FsmOffer, message, album, state, KEYS_JSON, MEDIA_D, BASE_P):
     try:
         chat_id = message.from_user.id
-        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
 
         offer_text = None
         offer_file_id = None
@@ -13681,9 +13687,9 @@ async def fsm_album_admin(bot, FsmOffer, message, album, state, KEYS_JSON, MEDIA
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_media_admin(bot, FsmOffer, message, state, KEYS_JSON, MEDIA_D, BASE_D, EXTRA_D):
+async def fsm_media_admin(bot, FsmOffer, message, state, KEYS_JSON, MEDIA_D, BASE_P, EXTRA_D):
     chat_id = message.from_user.id
-    lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+    lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
 
     try:
         data = await state.get_data()
@@ -13842,10 +13848,10 @@ async def fsm_media_admin(bot, FsmOffer, message, state, KEYS_JSON, MEDIA_D, BAS
             await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_button_admin(bot, FsmOffer, message, state, BASE_D):
+async def fsm_button_admin(bot, FsmOffer, message, state, BASE_P):
     try:
         chat_id = message.from_user.id
-        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
 
         if message.text == '⬅️ Prev':
             await bot.send_message(message.from_user.id, l_post_media[lz])
@@ -13873,12 +13879,12 @@ async def fsm_button_admin(bot, FsmOffer, message, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_date_cb_admin(bot, FsmOffer, call, state, BASE_D):
+async def fsm_date_cb_admin(bot, FsmOffer, call, state, BASE_P):
     try:
         chat_id = call.from_user.id
         offer_date = call.data.split('_')[-1]
         if offer_date == '99': return
-        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_P)
 
         day_, month_, year_ = offer_date.split('..')
         dt_user = datetime(year=int(year_), month=int(month_), day=int(day_))
@@ -13886,7 +13892,7 @@ async def fsm_date_cb_admin(bot, FsmOffer, call, state, BASE_D):
         await state.update_data(offer_date=offer_date)
 
         sql = "SELECT USER_TZ FROM USER WHERE USER_TID=$1"
-        data = await db_select_pg(sql, (chat_id,), BASE_D)
+        data = await db_select_pg(sql, (chat_id,), BASE_P)
         USER_TZ = data[0][0] if data[0][0] else "+00:00"
         offer_tz = USER_TZ
         await state.update_data(offer_tz=offer_tz)
@@ -13912,10 +13918,10 @@ async def fsm_date_cb_admin(bot, FsmOffer, call, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def calendar_handler_admin(bot, call, state, BASE_D):
+async def calendar_handler_admin(bot, call, state, BASE_P):
     try:
         chat_id = call.from_user.id
-        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_P)
         message_id = call.message.message_id
         shift = call.data.split('_')[-1]
 
@@ -13937,10 +13943,10 @@ async def calendar_handler_admin(bot, call, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_date_admin(bot, FsmOffer, message, state, BASE_D):
+async def fsm_date_admin(bot, FsmOffer, message, state, BASE_P):
     try:
         chat_id = message.from_user.id
-        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
 
         if message.text == '⬅️ Prev':
             text = l_post_button[lz].replace('XXXXX', message.chat.username) if message.chat.username else \
@@ -13958,10 +13964,10 @@ async def fsm_date_admin(bot, FsmOffer, message, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_time_admin(bot, FsmOffer, message, state, BASE_D):
+async def fsm_time_admin(bot, FsmOffer, message, state, BASE_P):
     try:
         chat_id = message.from_user.id
-        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
         text = message.text.strip()
 
         data = await state.get_data()
@@ -13977,7 +13983,7 @@ async def fsm_time_admin(bot, FsmOffer, message, state, BASE_D):
             await state.set_state(FsmOffer.finish)
         else:
             sql = "SELECT USER_TZ FROM USER WHERE USER_TID=$1"
-            data = await db_select_pg(sql, (chat_id,), BASE_D)
+            data = await db_select_pg(sql, (chat_id,), BASE_P)
             USER_TZ = data[0][0] if data[0][0] else "+00:00"
             offer_tz = USER_TZ
             await state.update_data(offer_tz=offer_tz)
@@ -14018,10 +14024,10 @@ async def fsm_time_admin(bot, FsmOffer, message, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def fsm_finish_admin(bot, FsmOffer, message, state, EXTRA_D, BASE_D, bot_un):
+async def fsm_finish_admin(bot, FsmOffer, message, state, EXTRA_D, BASE_P, bot_un):
     try:
         chat_id = message.from_user.id
-        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
         has_restricted = (await bot.get_chat(chat_id)).has_restricted_voice_and_video_messages
 
         if message.text == '⬅️ Prev':
@@ -14032,7 +14038,7 @@ async def fsm_finish_admin(bot, FsmOffer, message, state, EXTRA_D, BASE_D, bot_u
             offer_id = data.get('offer_id', None)
             offer_text = data.get('offer_text', None)
             offer_file_type = data.get('offer_file_type', 'text')
-            default_photo = await pre_upload(bot, chat_id, 'text.jpg', 'photo', EXTRA_D, BASE_D)
+            default_photo = await pre_upload(bot, chat_id, 'text.jpg', 'photo', EXTRA_D, BASE_P)
             file_name_part = data.get('file_name_part', None)
             offer_file_id = data.get('offer_file_id', default_photo)
             offer_file_id_note = data.get('offer_file_id_note')
@@ -14055,20 +14061,20 @@ async def fsm_finish_admin(bot, FsmOffer, message, state, EXTRA_D, BASE_D, bot_u
                 await db_change_pg(sql, (
                     chat_id, offer_text, offer_file_type, file_name_part, offer_file_id, offer_file_id_note,
                     offer_button, offer_isbutton, offer_tgph_link, offer_istgph, offer_dt, offer_tz, 1, offer_id,),
-                                   BASE_D)
+                                   BASE_P)
             else:
                 sql = "INSERT INTO OFFER (OFFER_USERTID, OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILENAME, " \
                       "OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, OFFER_TGPHLINK, OFFER_ISTGPH, " \
                       "OFFER_DT, OFFER_TZ, OFFER_STATUS) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) ON CONFLICT DO NOTHING"
                 await db_change_pg(sql, (
                     chat_id, offer_text, offer_file_type, file_name_part, offer_file_id, offer_file_id_note,
-                    offer_button, offer_isbutton, offer_tgph_link, offer_istgph, offer_dt, offer_tz, 1,), BASE_D)
+                    offer_button, offer_isbutton, offer_tgph_link, offer_istgph, offer_dt, offer_tz, 1,), BASE_P)
 
             sql = "SELECT * FROM OFFER"
-            data = await db_select_pg(sql, (), BASE_D)
+            data = await db_select_pg(sql, (), BASE_P)
             items = [item[0] for item in data]
             view_post_id = items.index(offer_id) + 1 if offer_id else len(data)
-            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, view_post_id)
+            await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, view_post_id)
             await state.clear()
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -14094,14 +14100,14 @@ def get_keyboard_admin(data, src, post_id=1):
     return reply_markup
 
 
-async def callbacks_offers_admin(bot, FsmOffer, call, state, BASE_D, bot_un):
+async def callbacks_offers_admin(bot, FsmOffer, call, state, BASE_P, bot_un):
     try:
         chat_id = call.from_user.id
         post_id = int(call.data.split("_")[-1])
-        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, call.from_user.language_code, BASE_P)
         has_restricted = (await bot.get_chat(chat_id)).has_restricted_voice_and_video_messages
 
-        await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_D, bot_un, post_id, call)
+        await show_offers_admin(bot, FsmOffer, chat_id, lz, state, has_restricted, BASE_P, bot_un, post_id, call)
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
         await asyncio.sleep(e.retry_after + 1)
@@ -14110,7 +14116,7 @@ async def callbacks_offers_admin(bot, FsmOffer, call, state, BASE_D, bot_un):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def gallery_handler_admin(bot, call, state, BASE_D):
+async def gallery_handler_admin(bot, call, state, BASE_P):
     try:
         await state.clear()
         chat_id = call.from_user.id
@@ -14124,7 +14130,7 @@ async def gallery_handler_admin(bot, call, state, BASE_D):
             sql = "SELECT OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, " \
                   "OFFER_TGPHLINK, OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, " \
                   "OFFER_DT FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_D)
+            data = await db_select_pg(sql, (offer_id,), BASE_P)
             if not len(data): return
 
             cur_ = len_ if cur_ == 1 and option == 'prev' else cur_ - 1
@@ -14133,7 +14139,7 @@ async def gallery_handler_admin(bot, call, state, BASE_D):
             sql = "SELECT OFFER_TEXT, OFFER_MEDIATYPE, OFFER_FILEID, OFFER_FILEIDNOTE, OFFER_BUTTON, OFFER_ISBUTTON, " \
                   "OFFER_TGPHLINK, OFFER_ISTGPH, OFFER_ISSPOILER, OFFER_ISPIN, OFFER_ISSILENCE, OFFER_ISGALLERY, " \
                   "OFFER_DT FROM OFFER WHERE OFFER_ID=$1"
-            data = await db_select_pg(sql, (offer_id,), BASE_D)
+            data = await db_select_pg(sql, (offer_id,), BASE_P)
             if not len(data): return
 
             cur_ = 1 if cur_ == len_ and option == 'next' else cur_ + 1
@@ -14148,12 +14154,12 @@ async def gallery_handler_admin(bot, call, state, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def edit_simple(bot, chat_id, post_id, message_id, cur_, BASE_D):
+async def edit_simple(bot, chat_id, post_id, message_id, cur_, BASE_P):
     result = None
     try:
         sql = "SELECT POST_TEXT, POST_MEDIATYPE, POST_FILEID, POST_FILEIDNOTE, POST_BUTTONS, POST_ISBUTTON, " \
               "POST_TGPHLINK, POST_ISTGPH, POST_ISGALLERY, POST_ISSPOILER FROM POST WHERE POST_ID=$1"
-        data_posts = await db_select_pg(sql, (post_id,), BASE_D)
+        data_posts = await db_select_pg(sql, (post_id,), BASE_P)
         if not len(data_posts): return result
         item = data_posts[0]
         POST_TEXT, POST_MEDIATYPE, POST_FILEID, POST_FILEIDNOTE, POST_BUTTONS, POST_ISBUTTON, POST_TGPHLINK, POST_ISTGPH, POST_ISGALLERY, POST_ISSPOILER = item
@@ -14374,7 +14380,7 @@ async def edit_simple2(bot, chat_id, user_id, entity_id, post_id, message_id, cu
 
 
 # region fun
-async def post_offer(bot, data, BASE_D):
+async def post_offer(bot, data, BASE_P):
     try:
         for item in data:
             try:
@@ -14391,10 +14397,10 @@ async def post_offer(bot, data, BASE_D):
 
                 if timedelta_.days >= 0 and timedelta_.seconds >= 0:
                     sql = "UPDATE OFFER SET OFFER_DT=NULL, OFFER_STATUS=0 WHERE OFFER_ID=$1"
-                    await db_change_pg(sql, (OFFER_ID,), BASE_D)
+                    await db_change_pg(sql, (OFFER_ID,), BASE_P)
 
                     asyncio.create_task(
-                        broadcast_send_admin(bot, OFFER_USERTID, 'en', OFFER_ID, BASE_D, []))
+                        broadcast_send_admin(bot, OFFER_USERTID, 'en', OFFER_ID, BASE_P, []))
             except Exception as e:
                 logger.info(log_ % str(e))
                 await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -14406,10 +14412,10 @@ async def post_offer(bot, data, BASE_D):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def bots_by_inline(chat_id, message, BASE_D):
+async def bots_by_inline(chat_id, message, BASE_P):
     result = []
     try:
-        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_D)
+        lz = await lz_code_pg(chat_id, message.from_user.language_code, BASE_P)
 
         data = [['👩🏽‍💻 Demo App', l_inline_demo[lz],
                  "<a href='https://t.me/FereyDemoBot?start=inline'>@FereyDemoBot</a>", demo_app_jpg],
@@ -14455,13 +14461,13 @@ async def bots_by_inline(chat_id, message, BASE_D):
     return result
 
 
-async def get_buttons_main(lz, bot_un, BASE_D):
+async def get_buttons_main(lz, bot_un, BASE_P):
     result = []
     try:
         result = [types.InlineKeyboardButton(text="👩🏽‍💼", url=f"tg://user?id={my_tid}"),
                   types.InlineKeyboardButton(text="🔗",
                                              url=f'https://t.me/share/url?url=https%3A%2F%2Ft.me%2F{bot_un}&text=%40{bot_un}'),
-                  types.InlineKeyboardButton(text=f"♥️{(await read_likes(BASE_D))}", callback_data=f"like"),
+                  types.InlineKeyboardButton(text=f"♥️{(await read_likes(BASE_P))}", callback_data=f"like"),
                   types.InlineKeyboardButton(text="ᵗᶢᴿᴬᴾᴴ",  # "ᵗᶢᴿᴬᴾᴴ"  "ᶜᵸᴬᴺᴺᴱᴸ"
                                              web_app=types.WebAppInfo(url='https://telegra.ph/Links-07-05-462')),
                   types.InlineKeyboardButton(text="ᶜᵸᴬᴺᴺᴱᴸ", url=f"https://t.me/{get_tg_channel(lz)}"),
@@ -14752,16 +14758,16 @@ async def is_member_in_channel(bot, chat_id, lz):
     return result
 
 
-async def get_lz_by_entity_id(ENTITY_TID, BASE_D):
+async def get_lz_by_entity_id(ENTITY_TID, BASE_P):
     result = 'en'
     try:
         sql = "SELECT OWNER_TID FROM CHANNEL WHERE CHANNEL_TID=$1"
-        data = await db_select_pg(sql, (ENTITY_TID,), BASE_D)
+        data = await db_select_pg(sql, (ENTITY_TID,), BASE_P)
         if not len(data): return result
         OWNER_TID = data[0][0]
 
         sql = "SELECT USER_LZ FROM USER WHERE USER_TID=$1"
-        data = await db_select_pg(sql, (OWNER_TID,), BASE_D)
+        data = await db_select_pg(sql, (OWNER_TID,), BASE_P)
         if not len(data): return result
         result = data[0][0]
     except TelegramRetryAfter as e:
@@ -14930,11 +14936,11 @@ async def get_lz_code(lc):
     return result
 
 
-async def lz_code(chat_id, lan, BASE_D):
+async def lz_code(chat_id, lan, BASE_P):
     result = 'en'
     try:
         sql = "SELECT USER_LZ FROM USER WHERE USER_TID=$1"
-        data = await db_select_pg(sql, (chat_id,), BASE_D)
+        data = await db_select_pg(sql, (chat_id,), BASE_P)
 
         # first enter before DB
         if not len(data) or not data[0][0]:
@@ -14955,7 +14961,7 @@ async def lz_code(chat_id, lan, BASE_D):
                 result = 'ru'
 
             sql = "UPDATE USER SET USER_LZ=$1 WHERE USER_TID=$2"
-            await db_change_pg(sql, (result, chat_id,), BASE_D)
+            await db_change_pg(sql, (result, chat_id,), BASE_P)
         else:
             result = data[0][0]
     except Exception as e:
@@ -14964,11 +14970,11 @@ async def lz_code(chat_id, lan, BASE_D):
     return result
 
 
-async def lz_code_pg(chat_id, lan, BASE_D):
+async def lz_code_pg(chat_id, lan, BASE_P):
     result = 'en'
     try:
         sql = "SELECT USER_LZ FROM \"USER\" WHERE USER_TID=$1"
-        data = await db_select_pg(sql, (chat_id,), BASE_D)
+        data = await db_select_pg(sql, (chat_id,), BASE_P)
 
         # first enter before DB
         if not len(data) or not data[0][0]:
@@ -14989,7 +14995,7 @@ async def lz_code_pg(chat_id, lan, BASE_D):
                 result = 'ru'
 
             sql = "UPDATE \"USER\" SET USER_LZ=$1 WHERE USER_TID=$2"
-            await db_change_pg(sql, (result, chat_id,), BASE_D)
+            await db_change_pg(sql, (result, chat_id,), BASE_P)
         else:
             result = data[0][0]
     except Exception as e:
@@ -14998,7 +15004,7 @@ async def lz_code_pg(chat_id, lan, BASE_D):
     return result
 
 
-async def check_sub_pay_pg(chat_id, lz, BOT_TOKEN_E18B, BASE_D):
+async def check_sub_pay_pg(chat_id, lz, BOT_TOKEN_E18B, BASE_P):
     is_paid = False
     till_paid = ''
     try:
@@ -15019,31 +15025,31 @@ async def check_sub_pay_pg(chat_id, lz, BOT_TOKEN_E18B, BASE_D):
             if extra_bot: await extra_bot.session.close()
 
         sql = "SELECT USER_ISPAID, USER_DTPAID, USER_TYPAID, USER_DT, USER_LZ FROM \"USER\" WHERE USER_TID=$1"
-        data_usr = await db_select_pg(sql, (chat_id,), BASE_D)
+        data_usr = await db_select_pg(sql, (chat_id,), BASE_P)
 
         if not len(data_usr):
             sql = "INSERT INTO \"USER\" (USER_TID, USER_DT) VALUES ($1, $2) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (chat_id, USER_DT,), BASE_D)
+            await db_change_pg(sql, (chat_id, USER_DT,), BASE_P)
         else:
             USER_ISPAID, USER_DTPAID, USER_TYPAID, USER_DT, lz = data_usr[0]
 
         if is_paid:
             sql = "UPDATE \"USER\" SET USER_ISPAID=1, USER_DTPAID='', USER_TYPAID='all' WHERE USER_TID=$1"
-            await db_change_pg(sql, (chat_id,), BASE_D)
+            await db_change_pg(sql, (chat_id,), BASE_P)
         elif USER_ISPAID and USER_DTPAID:
             till_paid = dt_now.strptime(USER_DTPAID, "%d-%m-%Y_%H-%M-%S").replace(tzinfo=timezone.utc)
             print(f"{till_paid=}")
 
             if dt_now > till_paid:
                 sql = "UPDATE \"USER\" SET USER_ISPAID=0, USER_DTPAID='', USER_TYPAID='' WHERE USER_TID=$1"
-                await db_change_pg(sql, (chat_id,), BASE_D)
+                await db_change_pg(sql, (chat_id,), BASE_P)
                 till_paid = ''
             else:
                 is_paid = True
                 till_paid = till_paid.strftime('%d.%m.%Y')
         else:
             sql = "UPDATE \"USER\" SET USER_ISPAID=0, USER_DTPAID='', USER_TYPAID='' WHERE USER_TID=$1"
-            await db_change_pg(sql, (chat_id,), BASE_D)
+            await db_change_pg(sql, (chat_id,), BASE_P)
         print(f"check_sub_pay {is_paid=}, {till_paid=}")
     except TelegramRetryAfter as e:
         logger.info(log_ % f"TelegramRetryAfter {e.retry_after}")
@@ -15063,11 +15069,11 @@ async def no_war_text(txt):
     return result
 
 
-async def get_from_media(CONF_P, EXTRA_D, MEDIA_D, BASE_D, src, re_write=False, basewidth=1024):
+async def get_from_media(CONF_P, EXTRA_D, MEDIA_D, BASE_P, src, re_write=False, basewidth=1024):
     result = None
     try:
         is_link = await is_url(src)
-        file_id = await get_fileid_from_src(src, is_link, BASE_D)
+        file_id = await get_fileid_from_src(src, is_link, BASE_P)
         if is_link and 'drive.google.com' not in src:
             result = src
         elif src is None:
@@ -15119,14 +15125,14 @@ async def is_url(url):
     return status
 
 
-async def get_fileid_from_src(src, is_link, BASE_D):
+async def get_fileid_from_src(src, is_link, BASE_P):
     data = None
     try:
         if is_link:
             sql = "SELECT FILE_FILEID FROM \"FILE\" WHERE FILE_FILELINK=$1"
         else:
             sql = "SELECT FILE_FILEID FROM \"FILE\" WHERE FILE_FILENAME=$1"
-        data = await db_select_pg(sql, (src,), BASE_D)
+        data = await db_select_pg(sql, (src,), BASE_P)
         if not data:
             return None
         data = data[0][0]
@@ -15253,7 +15259,7 @@ def get_keyboard(data, src, post_id=1, chat_id=''):
     return result
 
 
-async def save_fileid(message, src, BASE_D):
+async def save_fileid(message, src, BASE_P):
     file_id = usr_id = ''
     if message is None: return usr_id
     if message.photo:
@@ -15277,14 +15283,14 @@ async def save_fileid(message, src, BASE_D):
         sql = f"INSERT INTO \"FILE\" (FILE_FILEID, FILE_FILELINK) VALUES ($1, $2) ON CONFLICT DO NOTHING"
     else:
         sql = "INSERT INTO \"FILE\" (FILE_FILEID, FILE_FILENAME) VALUES ($1, $2)  ON CONFLICT DO NOTHING"
-    if not await is_exists_filename_or_filelink(src, BASE_D):
-        usr_id = await db_change_pg(sql, (file_id, src,), BASE_D)
+    if not await is_exists_filename_or_filelink(src, BASE_P):
+        usr_id = await db_change_pg(sql, (file_id, src,), BASE_P)
     return usr_id
 
 
-async def is_exists_filename_or_filelink(src, BASE_D):
+async def is_exists_filename_or_filelink(src, BASE_P):
     sql = "SELECT * FROM \"FILE\""
-    data = await db_select_pg(sql, (), BASE_D)
+    data = await db_select_pg(sql, (), BASE_P)
     for item in data:
         if src in item:
             return True
@@ -15320,16 +15326,16 @@ async def check_phone(content):
     return result
 
 
-async def get_photo_file_id(bot, chat_id, file_id_text, BASE_D):
+async def get_photo_file_id(bot, chat_id, file_id_text, BASE_P):
     result = None
     try:
         sql = "SELECT FILE_FILEID FROM \"FILE\" WHERE FILE_FILENAME='text.jpg'"
-        data2 = await db_select_pg(sql, (), BASE_D)
+        data2 = await db_select_pg(sql, (), BASE_P)
         if not len(data2):
             res = await bot.send_photo(chat_id, text_jpeg)
             result = res.photo[-1].file_id
             sql = "INSERT INTO \"FILE\" (FILE_FILEID, FILE_FILENAME) VALUES ($1, $2) ON CONFLICT DO NOTHING"
-            await db_change_pg(sql, (file_id_text, 'text.jpg',), BASE_D)
+            await db_change_pg(sql, (file_id_text, 'text.jpg',), BASE_P)
         else:
             result = data2[0][0]
     except Exception as e:
@@ -15515,11 +15521,11 @@ async def scheduled_hour(part_of_hour, CONF_P, EXTRA_D, INI_D):
         await asyncio.sleep(one_hour - (datetime.now()).minute * 60 + 200)
 
 
-async def read_likes(BASE_D, POST_ID=1):
+async def read_likes(BASE_P, POST_ID=1):
     cnt = '⁰'
     try:
         sql = "SELECT USER_ID FROM \"LIKE\" WHERE POST_ID=$1"
-        data_likes = await db_select_pg(sql, (POST_ID,), BASE_D)
+        data_likes = await db_select_pg(sql, (POST_ID,), BASE_P)
         # print(f"{data_likes=}")
         cnt = str(0 + len(data_likes))
         cnt = cnt.replace('0', '⁰').replace('1', '¹').replace('2', '²').replace('3', '³').replace('4', '⁴').replace('5',
@@ -15531,11 +15537,11 @@ async def read_likes(BASE_D, POST_ID=1):
     return cnt
 
 
-async def db_has_like(user_id, post_id, BASE_D):
+async def db_has_like(user_id, post_id, BASE_P):
     data = True
     try:
         sql = "SELECT LIKE_ID FROM \"LIKE\" WHERE USER_ID=$1 AND POST_ID=$2"
-        data = await db_select_pg(sql, (user_id, post_id,), BASE_D)
+        data = await db_select_pg(sql, (user_id, post_id,), BASE_P)
         data = True if data else False
     except Exception as e:
         logger.info(log_ % str(e))
@@ -15553,7 +15559,7 @@ def is_tid(item):
     return result
 
 
-async def create_replymarkup(bot, owner_id, chat_id, offer_id, OFFER_BUTTON, BASE_D, COLUMN_OWNER="OFFER_CHATTID"):
+async def create_replymarkup(bot, owner_id, chat_id, offer_id, OFFER_BUTTON, BASE_P, COLUMN_OWNER="OFFER_CHATTID"):
     result = InlineKeyboardBuilder()
     try:
         if OFFER_BUTTON is None or OFFER_BUTTON == '': return result.as_markup()
@@ -15565,7 +15571,7 @@ async def create_replymarkup(bot, owner_id, chat_id, offer_id, OFFER_BUTTON, BAS
             try:
                 if v[0]:
                     sql = f"SELECT * FROM OFFER WHERE {COLUMN_OWNER}=$1"
-                    data = await db_select_pg(sql, (owner_id,), BASE_D)
+                    data = await db_select_pg(sql, (owner_id,), BASE_P)
                     items = [item[0] for item in data]
                     view_post_id = items.index(offer_id) + 1 if offer_id else len(data)
 
@@ -16301,7 +16307,7 @@ async def correct_txt_tags_for_tg(txt):
     return result
 
 
-async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXTRA_D, MEDIA_D):
+async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_P, EXTRA_D, MEDIA_D):
     file_id = file_id_note = file_type = BOT_TOKEN = None
     OWNER_TID = 0
     BOT_LZ = 'en'
@@ -16311,7 +16317,7 @@ async def return_file_id(bot, BOT_TID, FILE_NAME, MSG_TYPE, IS_LINK, BASE_D, EXT
         while cnt > 0:
             try:
                 sql = "SELECT OWNER_TID, BOT_USERNAME, BOT_FIRSTNAME, BOT_STATUS, BOT_TOKEN, BOT_VARS FROM \"BOT\" WHERE BOT_TID=$1"
-                data = await db_select_pg(sql, (int(BOT_TID),), BASE_D)
+                data = await db_select_pg(sql, (int(BOT_TID),), BASE_P)
                 print(f"return_file_id {MSG_TYPE=} {data=}")
                 if not len(data): return file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN
                 OWNER_TID, BOT_USERNAME, BOT_FIRSTNAME, BOT_STATUS, BOT_TOKEN, BOT_VARS = data[0]
@@ -16949,7 +16955,7 @@ async def download_file_my(MEDIA, BOT_TID, ext, MEDIA_D):
     return result
 
 
-async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_type, IS_LINK, BASE_D, EXTRA_D, MEDIA_D):
+async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_type, IS_LINK, BASE_P, EXTRA_D, MEDIA_D):
     tmp_json = {}
     FILE_NAME = None
     try:
@@ -16957,7 +16963,7 @@ async def facade_get_fid(bot, chat_id, KEYS_JSON, BOT_TID, dst, MSG_VID, msg_typ
         # print(f"------------0----------")
         file_id, file_id_note, file_type, FILE_NAME, IS_LINK, BOT_TOKEN = await return_file_id(bot, BOT_TID, dst,
                                                                                                msg_type, IS_LINK,
-                                                                                               BASE_D, EXTRA_D, MEDIA_D)
+                                                                                               BASE_P, EXTRA_D, MEDIA_D)
         print(f"{dst=}, {FILE_NAME=}")
         print(f"{dst=}, {os.path.exists(FILE_NAME)=}")
         if os.path.exists(FILE_NAME) and FILE_NAME.lower().endswith(('.json', '.tgs')):
@@ -20165,7 +20171,7 @@ async def unban_handler_menu(bot, chat_id, args):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
 
 
-async def check_tgph_posts(bot_username, BASE_D):
+async def check_tgph_posts(bot_username, BASE_P):
     try:
         arr = [k for k, v in TGPH_TOKENS.items() if bot_username in k]
         access_key = arr[0] if len(arr) else None
@@ -20194,7 +20200,7 @@ async def check_tgph_posts(bot_username, BASE_D):
                     await db_change_pg(sql, (
                         int(OFFER_USERTID), v[OFFER_TEXT], v[OFFER_MEDIATYPE], v[OFFER_FILEID], v[OFFER_BUTTON],
                         v[OFFER_ISBUTTON], v[OFFER_TGPHLINK], v[OFFER_ISTGPH], v[OFFER_ISSPOILER], v[OFFER_ISPIN],
-                        v[OFFER_ISSILENCE], v[OFFER_ISGALLERY], v[OFFER_DT], v[OFFER_TZ],), BASE_D)
+                        v[OFFER_ISSILENCE], v[OFFER_ISGALLERY], v[OFFER_DT], v[OFFER_TZ],), BASE_P)
 
                     del content_json[str(OFFER_USERTID)]
                     post_dumps = json.dumps(content_json, ensure_ascii=False)
@@ -20263,15 +20269,15 @@ async def create_tgph_json_and_token(title_hash):
     return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
 
 
-async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, ENT_FN, MEDIA_D, BASE_D, ent_type='bot'):
+async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, ENT_FN, MEDIA_D, BASE_P, ent_type='bot'):
     ENT_TOKENTGPH = ENT_PAGETGPH = ENT_JSONTGPH = tgph_ph = None
     try:
         if ent_type == 'bot':
             sql = "SELECT BOT_TOKENTGPH, BOT_PAGETGPH, BOT_JSONTGPH FROM \"BOT\" WHERE BOT_TID=$1"
-            data = await db_select_pg(sql, (ENT_TID,), BASE_D)
+            data = await db_select_pg(sql, (ENT_TID,), BASE_P)
         else:
             sql = "SELECT UB_TOKENTGPH, UB_PAGETGPH, UB_JSONTGPH FROM UB WHERE UB_TID=$1"
-            data = await db_select_pg(sql, (ENT_TID,), BASE_D)
+            data = await db_select_pg(sql, (ENT_TID,), BASE_P)
 
         if len(data):
             ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH = data[0]
@@ -20296,14 +20302,14 @@ async def generate_tgph_page(bot, title_hash, USER_ID, ENT_TID, ENT_USERNAME, EN
 
         tgph_ph = logo_photo
         ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH = await create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME,
-                                                                           ENT_FN, BASE_D, ent_type)
+                                                                           ENT_FN, BASE_P, ent_type)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
 
 
-async def create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME, ENT_FN, BASE_D, entity_type='bot'):
+async def create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME, ENT_FN, BASE_P, entity_type='bot'):
     ENT_TOKENTGPH = ENT_PAGETGPH = ENT_JSONTGPH = None
     try:
         cnt = 2
@@ -20330,10 +20336,10 @@ async def create_tgph_page(tgph_ph, title_hash, ENT_TID, ENT_USERNAME, ENT_FN, B
 
                 if entity_type == 'bot':
                     sql = "UPDATE BOT SET BOT_TOKENTGPH=$1, BOT_PAGETGPH=$2, BOT_JSONTGPH=$3 WHERE BOT_TID=$4"
-                    await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, ENT_TID,), BASE_D)
+                    await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, ENT_TID,), BASE_P)
                 else:
                     sql = "UPDATE UB SET UB_TOKENTGPH=$1, UB_PAGETGPH=$2, UB_JSONTGPH=$3 WHERE UB_TID=$4"
-                    await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, ENT_TID,), BASE_D)
+                    await db_change_pg(sql, (ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH, ENT_TID,), BASE_P)
                 return ENT_TOKENTGPH, ENT_PAGETGPH, ENT_JSONTGPH
             except Exception as e:
                 logger.info(log_ % str(e))

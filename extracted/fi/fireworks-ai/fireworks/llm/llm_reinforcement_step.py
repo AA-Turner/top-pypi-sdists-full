@@ -1,10 +1,14 @@
-from typing import Optional
+from typing import Literal, Optional
 
+from fireworks._literals import AcceleratorTypeLiteral, ReinforcementAcceleratorTypeLiteral
 from fireworks._util import generate_model_resource_name
 from fireworks.control_plane.generated.protos_grpcio.gateway.status_pb2 import JobState
 from fireworks.dataset.dataset import Dataset
 from fireworks.gateway import Gateway
 from fireworks.llm.llm import LLM
+from fireworks.control_plane.generated.protos_grpcio.gateway.deployment_pb2 import (
+    AcceleratorType as SyncAcceleratorType,
+)
 from fireworks.control_plane.generated.protos_grpcio.gateway.rlor_trainer_job_pb2 import (
     RlorTrainerJob as RlorTrainerJobProto,
     CreateRlorTrainerJobRequest as CreateRlorTrainerJobRequestProto,
@@ -38,6 +42,8 @@ class LLMReinforcementStep:
         max_context_length: int = 8192,
         epochs: int = 1,
         batch_size: int = 32768,
+        accelerator_count: int = 1,
+        accelerator_type: ReinforcementAcceleratorTypeLiteral = "NVIDIA_A100_80GB",
     ) -> "ReinforcementStep":
         """
         Perform a reinforcement learning step with the given dataset.
@@ -65,6 +71,8 @@ class LLMReinforcementStep:
         training_config.max_context_length = max_context_length
         training_config.epochs = epochs
         training_config.batch_size = batch_size
+        training_config.accelerator_type = getattr(SyncAcceleratorType, accelerator_type)
+        training_config.accelerator_count = accelerator_count
         rlor_trainer_job = RlorTrainerJobProto(
             training_config=training_config,
             dataset=dataset.name,

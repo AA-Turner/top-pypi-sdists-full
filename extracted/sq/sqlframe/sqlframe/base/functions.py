@@ -14,6 +14,7 @@ from sqlglot.helper import flatten as _flatten
 
 from sqlframe.base.column import Column
 from sqlframe.base.decorators import func_metadata as meta
+from sqlframe.base.exceptions import UnsupportedOperationError
 from sqlframe.base.util import (
     get_func_from_session,
 )
@@ -81,9 +82,13 @@ def least(*cols: ColumnOrName) -> Column:
     return Column.invoke_expression_over_column(cols[0], expression.Least)
 
 
-@meta(unsupported_engines="bigquery")
+@meta()
 def count_distinct(col: ColumnOrName, *cols: ColumnOrName) -> Column:
     columns = [Column.ensure_col(x) for x in [col] + list(cols)]
+    if len(columns) > 1 and _get_session()._is_bigquery:
+        raise UnsupportedOperationError(
+            "BigQuery does not support multiple columns in countDistinct"
+        )
     return Column(
         expression.Count(
             this=expression.Distinct(expressions=[x.column_expression for x in columns])
@@ -2312,6 +2317,14 @@ def array_distinct(col: ColumnOrName) -> Column:
 
     if session._is_bigquery:
         return array_distinct_bgutil(col)
+
+    if session._is_duckdb:
+        # DuckDB's array_distinct removes nulls, but we need to preserve them
+        # Check if original array contains null and append it back if needed
+        original_col = Column.ensure_col(col)
+        distinct_result = Column.invoke_anonymous_function(col, "ARRAY_DISTINCT")
+        has_null = array_position(original_col, lit(None)) > lit(0)
+        return when(has_null, array_append(distinct_result, lit(None))).otherwise(distinct_result)
 
     return Column.invoke_anonymous_function(col, "ARRAY_DISTINCT")
 

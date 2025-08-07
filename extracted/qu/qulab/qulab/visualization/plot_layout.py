@@ -1,5 +1,6 @@
 import functools
 import operator
+from typing import cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -245,6 +246,10 @@ def _draw_coupler(ax, coupler, layout, q1, q2, pos1, pos2):
 
     text_rotation = 180 * np.arctan2(pos2[1] - pos1[1],
                                      pos2[0] - pos1[0]) / np.pi
+    if text_rotation > 90:
+        text_rotation -= 180
+    elif text_rotation < -90:
+        text_rotation += 180
 
     path = circle_link_path(pos1, pos2, r1, r2, width)
     plot_range(ax,
@@ -452,15 +457,19 @@ def fill_layout(layout,
     coupler_cmap = plt.get_cmap(coupler_cmap)
 
     if qubit_norm is None:
-        qubit_norm = get_norm(params,
-                              layout['qubits'].keys(),
-                              vmin=qubit_vmin,
-                              vmax=qubit_vmax)
+        qubit_norm = cast(
+            Normalize,
+            get_norm(params,
+                     layout['qubits'].keys(),
+                     vmin=qubit_vmin,
+                     vmax=qubit_vmax))
     if coupler_norm is None:
-        coupler_norm = get_norm(params,
-                                layout['couplers'].keys(),
-                                vmin=coupler_vmin,
-                                vmax=coupler_vmax)
+        coupler_norm = cast(
+            Normalize,
+            get_norm(params,
+                     layout['couplers'].keys(),
+                     vmin=coupler_vmin,
+                     vmax=coupler_vmax))
     layout['__colorbar__'] = {
         'coupler': {
             'cmap': coupler_cmap,

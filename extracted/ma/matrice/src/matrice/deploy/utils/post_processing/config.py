@@ -43,6 +43,8 @@ APP_NAME_TO_USECASE = {
     "face_recognition": "face_recognition",
     "drowsy_driver_detection": "drowsy_driver_detection",
     "waterbody_segmentation": "waterbody_segmentation",
+    "litter_detection" : "litter_detection",
+    "human_activity_recognition": "human_activity_recognition",
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -90,6 +92,8 @@ APP_NAME_TO_CATEGORY = {
     "face_recognition": "security",
     "drowsy_driver_detection": "automobile",
     "waterbody_segmentation": "agriculture",
+    "litter_detection" : "litter_detection",
+    "human_activity_recognition": "general",
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

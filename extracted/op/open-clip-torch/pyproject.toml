@@ -48,7 +48,7 @@ dependencies = [
     "timm>=1.0.17",
 ]
 dynamic = []
-version = "3.0.0"
+version = "3.1.0"
 
 [project.license]
 text = "MIT"

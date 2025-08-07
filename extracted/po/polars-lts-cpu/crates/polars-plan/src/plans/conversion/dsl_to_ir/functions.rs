@@ -23,10 +23,7 @@ pub(super) fn convert_functions(
     ) {
         let mut input = input.into_iter();
         let struct_input = to_expr_ir(input.next().unwrap(), ctx)?;
-        let dtype = struct_input
-            .to_expr(ctx.arena)
-            .to_field(ctx.schema, Context::Default)?
-            .dtype;
+        let dtype = struct_input.to_expr(ctx.arena).to_field(ctx.schema)?.dtype;
         let DataType::Struct(fields) = &dtype else {
             polars_bail!(op = "struct.with_fields", dtype);
         };
@@ -114,8 +111,19 @@ pub(super) fn convert_functions(
                 B::Base64Encode => IB::Base64Encode,
                 B::Size => IB::Size,
                 #[cfg(feature = "binary_encoding")]
-                B::Reinterpret(data_type, v) => {
-                    IB::Reinterpret(data_type.into_datatype(ctx.schema)?, v)
+                B::Reinterpret(dtype_expr, v) => {
+                    let dtype = dtype_expr.into_datatype(ctx.schema)?;
+                    let can_reinterpret_to =
+                        |dt: &DataType| dt.is_primitive_numeric() || dt.is_temporal();
+                    polars_ensure!(
+                        can_reinterpret_to(&dtype) || (
+                            dtype.is_array() && dtype.inner_dtype().map(can_reinterpret_to) == Some(true)
+                        ),
+                        InvalidOperation:
+                        "cannot reinterpret binary to dtype {:?}. Only numeric or temporal dtype, or Arrays of these, are supported. Hint: To reinterpret to a nested Array, first reinterpret to a linear Array, and then use reshape",
+                        dtype
+                    );
+                    IB::Reinterpret(dtype, v)
                 },
             })
         },
@@ -355,6 +363,7 @@ pub(super) fn convert_functions(
                 T::IsoYear => IT::IsoYear,
                 T::Quarter => IT::Quarter,
                 T::Month => IT::Month,
+                T::DaysInMonth => IT::DaysInMonth,
                 T::Week => IT::Week,
                 T::WeekDay => IT::WeekDay,
                 T::Day => IT::Day,
@@ -706,6 +715,7 @@ pub(super) fn convert_functions(
                         corr_cov_options,
                         is_corr,
                     },
+                    R::Map(f) => IR::Map(f),
                 },
                 options,
             }

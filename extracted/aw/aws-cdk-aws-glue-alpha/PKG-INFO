@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-glue-alpha
-Version: 2.209.0a0
+Version: 2.210.0a0
 Summary: The CDK Construct Library for AWS::Glue
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,7 +22,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.209.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.210.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
 Requires-Dist: jsii<2.0.0,>=1.112.0
 Requires-Dist: publication>=0.0.3
@@ -381,6 +381,36 @@ glue.RayJob(stack, "ImportedJob",
     }
 )
 ```
+
+### Metrics Control
+
+By default, Glue jobs enable CloudWatch metrics (`--enable-metrics`) and observability metrics (`--enable-observability-metrics`) for monitoring and debugging. You can disable these metrics to reduce CloudWatch costs:
+
+```python
+import aws_cdk as cdk
+import aws_cdk.aws_iam as iam
+# stack: cdk.Stack
+# role: iam.IRole
+# script: glue.Code
+
+
+# Disable both metrics for cost optimization
+glue.PySparkEtlJob(stack, "CostOptimizedJob",
+    role=role,
+    script=script,
+    enable_metrics=False,
+    enable_observability_metrics=False
+)
+
+# Selective control - keep observability, disable profiling
+glue.PySparkEtlJob(stack, "SelectiveJob",
+    role=role,
+    script=script,
+    enable_metrics=False
+)
+```
+
+This feature is available for all Spark job types (ETL, Streaming, Flex) and Ray jobs.
 
 ### Enable Job Run Queuing
 

@@ -31,6 +31,7 @@ from .usecases import (
     PeopleCountingUseCase,
     CustomerServiceUseCase,
     AdvancedCustomerServiceUseCase,
+    HumanActivityUseCase,
     LicensePlateUseCase,
     ColorDetectionUseCase,
     PotholeSegmentationUseCase,
@@ -59,6 +60,7 @@ from .usecases import (
     AntiSpoofingDetectionUseCase,
     ShelfInventoryUseCase,
     LaneDetectionUseCase,
+    LitterDetectionUseCase,
 
 
 
@@ -219,6 +221,8 @@ class PostProcessor:
         registry.register_use_case("security", "face_recognition", FaceRecognitionUseCase)
         registry.register_use_case("automobile", "drowsy_driver_detection", DrowsyDriverUseCase)
         registry.register_use_case("agriculture", "waterbody_segmentation", WaterBodyUseCase)
+        registry.register_use_case("litter_detection", "litter_detection", LitterDetectionUseCase)
+        registry.register_use_case("general", "human_activity_recognition", HumanActivityUseCase)
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
@@ -388,6 +392,8 @@ class PostProcessor:
             elif isinstance(use_case, DrowsyDriverUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, WaterBodyUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, LitterDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
 
             

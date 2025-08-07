@@ -1,7 +1,9 @@
+import click
 from pydantic_ai import RunContext
 
 from tinybird.tb.modules.agent.utils import TinybirdAgentContext, show_confirmation, show_input
 from tinybird.tb.modules.exceptions import CLIDeploymentException
+from tinybird.tb.modules.feedback_manager import FeedbackManager
 
 
 def deploy_check(ctx: RunContext[TinybirdAgentContext]) -> str:
@@ -18,6 +20,7 @@ def deploy_check(ctx: RunContext[TinybirdAgentContext]) -> str:
             ctx.deps.thinking_animation.start()
             return f"User did not confirm deployment check and gave the following feedback: {feedback}"
 
+        click.echo(FeedbackManager.highlight(message="» Running command: tb --cloud deploy --check"))
         ctx.deps.deploy_check_project()
         ctx.deps.thinking_animation.start()
         return "Project can be deployed"

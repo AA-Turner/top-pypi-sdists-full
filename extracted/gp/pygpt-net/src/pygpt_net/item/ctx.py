@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.07.26 18:00:00                  #
+# Updated Date: 2025.08.06 19:00:00                  #
 # ================================================== #
 
 import copy
@@ -16,6 +16,7 @@ import time
 
 
 class CtxItem:
+
     def __init__(self, mode=None):
         """
         Context item
@@ -373,6 +374,7 @@ class CtxItem:
 
 
 class CtxMeta:
+
     def __init__(self, id=None):
         """
         Context meta data
@@ -564,6 +566,7 @@ class CtxMeta:
         return self.dump()
 
 class CtxGroup:
+
     def __init__(self, id=None, name=None):
         """
         Context group

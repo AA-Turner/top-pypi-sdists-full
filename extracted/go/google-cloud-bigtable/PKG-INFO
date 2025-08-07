@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: google-cloud-bigtable
-Version: 2.31.0
+Version: 2.32.0
 Summary: Google Cloud Bigtable API client library
 Home-page: https://github.com/googleapis/python-bigtable
 Author: Google LLC
@@ -21,7 +21,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
 Requires-Python: >=3.7
 License-File: LICENSE
-Requires-Dist: google-api-core[grpc]<3.0.0,>=2.16.0
+Requires-Dist: google-api-core[grpc]<3.0.0,>=2.17.0
 Requires-Dist: google-cloud-core<3.0.0,>=1.4.4
 Requires-Dist: google-auth!=2.24.0,!=2.25.0,<3.0.0,>=2.14.1
 Requires-Dist: grpc-google-iam-v1<1.0.0,>=0.12.4
@@ -31,6 +31,18 @@ Requires-Dist: protobuf!=4.21.0,!=4.21.1,!=4.21.2,!=4.21.3,!=4.21.4,!=4.21.5,<7.
 Requires-Dist: google-crc32c<2.0.0dev,>=1.5.0
 Provides-Extra: libcst
 Requires-Dist: libcst>=0.2.5; extra == "libcst"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Python Client for Google Cloud Bigtable
 =======================================

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langsmith
-Version: 0.4.12
+Version: 0.4.13
 Summary: Client library to connect to the LangSmith LLM Tracing and Evaluation Platform.
 Project-URL: Homepage, https://smith.langchain.com/
 Project-URL: Documentation, https://docs.smith.langchain.com/

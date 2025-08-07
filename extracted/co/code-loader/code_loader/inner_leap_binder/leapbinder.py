@@ -25,6 +25,9 @@ from code_loader.visualizers.default_visualizers import DefaultVisualizer, \
     default_image_mask_visualizer, default_text_mask_visualizer, default_raw_data_visualizer, default_video_visualizer
 
 
+mapping_runtime_mode_env_var_mame = '__MAPPING_RUNTIME_MODE__'
+
+
 class LeapBinder:
     """
     Interface to the Tensorleap platform. Provides methods to set up preprocessing,

@@ -327,6 +327,63 @@ class PeopleCountingConfig(BaseConfig):
         
         return errors
     
+@dataclass
+class HumanActivityConfig(BaseConfig):
+    """Configuration for Human Activity use case."""
+    
+    # Smoothing configuration
+    enable_smoothing: bool = True
+    smoothing_algorithm: str = "observability"  # "window" or "observability"
+    smoothing_window_size: int = 20
+    smoothing_cooldown_frames: int = 5
+    smoothing_confidence_range_factor: float = 0.5
+    
+    # Zone configuration
+    zone_config: Optional[ZoneConfig] = None
+    
+    # Counting parameters
+    enable_unique_counting: bool = True
+    time_window_minutes: int = 60
+    
+    # Category mapping
+    activity_categories: List[str] = field(
+        default_factory=lambda: ["barbequing", "bartending", "breading or flooring", "celebrating",
+                                "clapping", "cleaning floor", "cleaning gutters", "cleaning toilet",
+                                "cleaning windows", "climbing ladder", "cooking chicken", "cooking egg",
+                                "cooking sausages", "counting money", "cutting pineapple", "cutting watermelon",
+                                "dining", "drinking", "drinking beer", "drinking shots", "eating burger", "eating cake",
+                                "eating carrots", "eating chips", "eating doughnuts", "eating hotdog", "eating ice cream",
+                                "eating spaghetti", "eating watermelon", "flipping pancake", "frying vegetables", "garbage collecting",
+                                "making a cake", "making a sandwich", "making pizza making sushi", "making tea",
+                                "mopping floor", "moving furniture", "peeling apples", "peeling potatos", "picking fruit",
+                                "reading book", "reading newspaper", "setting table", "shaking hands", "smoking", "smoking hookah",
+                                "sweeping floor", "tasting beer", "tasting food", "tossing salad", "washing hands",
+                                "washing dishes", "texting", "using computer"]
+        )
+    index_to_category: Optional[Dict[int, str]] = None
+    
+    # Alert configuration
+    alert_config: Optional[AlertConfig] = None
+    
+    def validate(self) -> List[str]:
+        """Validate human activity configuration."""
+        errors = super().validate()
+        
+        if self.time_window_minutes <= 0:
+            errors.append("time_window_minutes must be positive")
+        
+        if not self.activity_categories:
+            errors.append("activity_categories cannot be empty")
+        
+        # Validate nested configurations
+        if self.zone_config:
+            errors.extend(self.zone_config.validate())
+        
+        if self.alert_config:
+            errors.extend(self.alert_config.validate())
+        
+        return errors
+    
 
 
 @dataclass  
@@ -406,6 +463,7 @@ class ConfigManager:
             "people_counting": PeopleCountingConfig,
             "customer_service": CustomerServiceConfig,
             "advanced_customer_service": CustomerServiceConfig,
+            "human_activity_recognition": HumanActivityConfig,
             "basic_counting_tracking": None,  # Will be set later to avoid circular import
             "license_plate_detection": None,  # Will be set later to avoid circular import
             "ppe_compliance_detection": None,
@@ -454,6 +512,7 @@ class ConfigManager:
             'face_recognition': None,
             'drowsy_driver_detection': None,
             'waterbody_segmentation': None,
+            'litter_detection' :None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -849,6 +908,14 @@ class ConfigManager:
             return WaterBodyConfig
         except ImportError:
             return None
+        
+    def litter_detection_config_class(self):
+        """Get Litter monitoring class to avoid circular imports."""
+        try:
+            from ..usecases.litter_monitoring import LitterDetectionConfig
+            return LitterDetectionConfig
+        except ImportError:
+            return None
     
     #put all image based usecases here::
     def blood_cancer_detection_config_class(self):
@@ -937,6 +1004,23 @@ class ConfigManager:
                 category=category or "sales",
                 usecase=usecase,
                 tracking_config=tracking_config,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "human_activity_recognition":
+            # Handle nested configurations
+            zone_config = kwargs.pop("zone_config", None)
+            if zone_config and isinstance(zone_config, dict):
+                zone_config = ZoneConfig(**zone_config)
+
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = HumanActivityConfig(
+                category=category or "general",
+                usecase=usecase,
+                zone_config=zone_config,
                 alert_config=alert_config,
                 **kwargs
             )
@@ -1786,6 +1870,22 @@ class ConfigManager:
                 **kwargs
             )
 
+        elif usecase == "litter_detection":
+            # Import here to avoid circular import
+            from ..usecases.litter_monitoring import LitterDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = LitterDetectionConfig(
+                category=category or "litter_detection",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
         
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
@@ -2229,6 +2329,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.waterbody_segmentation import WaterBodyConfig
             default_config = WaterBodyConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "litter_detection":
+            # Import here to avoid circular import
+            from ..usecases.litter_monitoring import LitterDetectionConfig
+            default_config = LitterDetectionConfig()
             return default_config.to_dict()
 
         #Add all image based usecases here

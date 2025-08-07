@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class CreateScriptJsonBodyAssetsItemKind(str, Enum):
+    DUCKLAKE = "ducklake"
     RESOURCE = "resource"
     S3OBJECT = "s3object"
 

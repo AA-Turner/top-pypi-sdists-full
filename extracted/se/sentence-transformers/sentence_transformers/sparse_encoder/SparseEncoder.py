@@ -272,7 +272,7 @@ class SparseEncoder(SentenceTransformer):
                 print(embeddings.shape)
                 # (3, 30522)
         """
-        if prompt_name is None and "query" in self.prompts:
+        if prompt_name is None and "query" in self.prompts and prompt is None:
             prompt_name = "query"
 
         return self.encode(
@@ -386,7 +386,7 @@ class SparseEncoder(SentenceTransformer):
                 print(embeddings.shape)
                 # (3, 30522)
         """
-        if prompt_name is None:
+        if prompt_name is None and prompt is None:
             for candidate_prompt_name in ["document", "passage", "corpus"]:
                 if candidate_prompt_name in self.prompts:
                     prompt_name = candidate_prompt_name
@@ -503,10 +503,9 @@ class SparseEncoder(SentenceTransformer):
                 logging.DEBUG,
             )
 
+        # Cast an individual input to a list with length 1
         input_was_string = False
-        if isinstance(sentences, str) or not hasattr(
-            sentences, "__len__"
-        ):  # Cast an individual sentence to a list with length 1
+        if isinstance(sentences, str) or not hasattr(sentences, "__len__"):
             sentences = [sentences]
             input_was_string = True
 
@@ -572,7 +571,7 @@ class SparseEncoder(SentenceTransformer):
 
         all_embeddings = []
         length_sorted_idx = np.argsort([-self._text_length(sen) for sen in sentences])
-        sentences_sorted = [sentences[idx] for idx in length_sorted_idx]
+        sentences_sorted = [sentences[int(idx)] for idx in length_sorted_idx]
 
         for start_index in trange(0, len(sentences), batch_size, desc="Batches", disable=not show_progress_bar):
             sentences_batch = sentences_sorted[start_index : start_index + batch_size]
@@ -597,7 +596,11 @@ class SparseEncoder(SentenceTransformer):
 
         if convert_to_tensor:
             if len(all_embeddings) == 0:
-                all_embeddings = torch.Tensor()
+                all_embeddings = torch.tensor([], device=self.device)
+                if convert_to_sparse_tensor:
+                    all_embeddings = all_embeddings.to_sparse()
+                if save_to_cpu:
+                    all_embeddings = all_embeddings.cpu()
             else:
                 all_embeddings = torch.stack(all_embeddings)
 

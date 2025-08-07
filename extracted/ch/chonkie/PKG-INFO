@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chonkie
-Version: 1.1.1
+Version: 1.1.2
 Summary: 🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library
 Author-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
 Maintainer-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
@@ -64,30 +64,43 @@ Provides-Extra: neural
 Requires-Dist: transformers>=4.0.0; extra == "neural"
 Requires-Dist: torch<3.0,>=2.0.0; extra == "neural"
 Provides-Extra: model2vec
+Requires-Dist: tokenizers>=0.16.0; extra == "model2vec"
 Requires-Dist: model2vec>=0.3.0; extra == "model2vec"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "model2vec"
 Provides-Extra: st
+Requires-Dist: tokenizers>=0.16.0; extra == "st"
 Requires-Dist: sentence-transformers>=3.0.0; extra == "st"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "st"
 Requires-Dist: accelerate>=1.6.0; extra == "st"
 Provides-Extra: openai
+Requires-Dist: tiktoken>=0.5.0; extra == "openai"
 Requires-Dist: openai>=1.0.0; extra == "openai"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "openai"
 Requires-Dist: pydantic>=2.0.0; extra == "openai"
 Provides-Extra: voyageai
+Requires-Dist: tokenizers>=0.16.0; extra == "voyageai"
 Requires-Dist: voyageai>=0.3.2; extra == "voyageai"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "voyageai"
 Provides-Extra: cohere
+Requires-Dist: tokenizers>=0.16.0; extra == "cohere"
 Requires-Dist: cohere>=5.13.0; extra == "cohere"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "cohere"
 Provides-Extra: jina
+Requires-Dist: tokenizers>=0.16.0; extra == "jina"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "jina"
 Provides-Extra: semantic
+Requires-Dist: tokenizers>=0.16.0; extra == "semantic"
 Requires-Dist: model2vec>=0.3.0; extra == "semantic"
 Requires-Dist: numpy<3.0,>=2.0.0; extra == "semantic"
 Provides-Extra: gemini
 Requires-Dist: pydantic>=2.0.0; extra == "gemini"
 Requires-Dist: google-genai>=1.0.0; extra == "gemini"
+Provides-Extra: azure-openai
+Requires-Dist: azure-identity>=1.23.0; extra == "azure-openai"
+Requires-Dist: tiktoken>=0.5.0; extra == "azure-openai"
+Requires-Dist: openai>=1.0.0; extra == "azure-openai"
+Requires-Dist: numpy<3.0,>=2.0.0; extra == "azure-openai"
+Requires-Dist: pydantic>=2.0.0; extra == "azure-openai"
 Provides-Extra: chroma
 Requires-Dist: chromadb>=1.0.0; extra == "chroma"
 Provides-Extra: qdrant
@@ -123,6 +136,7 @@ Requires-Dist: torch<3.0,>=2.0.0; extra == "all"
 Requires-Dist: chromadb>=1.0.0; extra == "all"
 Requires-Dist: qdrant-client>=1.0.0; extra == "all"
 Requires-Dist: turbopuffer[fast]>=0.2.0; extra == "all"
+Requires-Dist: azure-identity>=1.23.0; extra == "all"
 Provides-Extra: dev
 Requires-Dist: datasets>=1.14.0; extra == "dev"
 Requires-Dist: transformers>=4.0.0; extra == "dev"

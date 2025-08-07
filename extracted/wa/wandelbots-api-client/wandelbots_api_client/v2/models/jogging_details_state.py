@@ -17,33 +17,33 @@ import json
 import pprint
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, List, Optional
-from wandelbots_api_client.v2.models.paused_by_user import PausedByUser
-from wandelbots_api_client.v2.models.paused_near_collision import PausedNearCollision
-from wandelbots_api_client.v2.models.paused_near_joint_limit import PausedNearJointLimit
-from wandelbots_api_client.v2.models.paused_on_io import PausedOnIO
-from wandelbots_api_client.v2.models.running import Running
+from wandelbots_api_client.v2.models.jogging_paused_by_user import JoggingPausedByUser
+from wandelbots_api_client.v2.models.jogging_paused_near_collision import JoggingPausedNearCollision
+from wandelbots_api_client.v2.models.jogging_paused_near_joint_limit import JoggingPausedNearJointLimit
+from wandelbots_api_client.v2.models.jogging_paused_on_io import JoggingPausedOnIO
+from wandelbots_api_client.v2.models.jogging_running import JoggingRunning
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-JOGGINGDETAILSSTATE_ONE_OF_SCHEMAS = ["PausedByUser", "PausedNearCollision", "PausedNearJointLimit", "PausedOnIO", "Running"]
+JOGGINGDETAILSSTATE_ONE_OF_SCHEMAS = ["JoggingPausedByUser", "JoggingPausedNearCollision", "JoggingPausedNearJointLimit", "JoggingPausedOnIO", "JoggingRunning"]
 
 class JoggingDetailsState(BaseModel):
     """
     JoggingDetailsState
     """
-    # data type: Running
-    oneof_schema_1_validator: Optional[Running] = None
-    # data type: PausedByUser
-    oneof_schema_2_validator: Optional[PausedByUser] = None
-    # data type: PausedOnIO
-    oneof_schema_3_validator: Optional[PausedOnIO] = None
-    # data type: PausedNearJointLimit
-    oneof_schema_4_validator: Optional[PausedNearJointLimit] = None
-    # data type: PausedNearCollision
-    oneof_schema_5_validator: Optional[PausedNearCollision] = None
-    actual_instance: Optional[Union[PausedByUser, PausedNearCollision, PausedNearJointLimit, PausedOnIO, Running]] = None
-    one_of_schemas: Set[str] = { "PausedByUser", "PausedNearCollision", "PausedNearJointLimit", "PausedOnIO", "Running" }
+    # data type: JoggingRunning
+    oneof_schema_1_validator: Optional[JoggingRunning] = None
+    # data type: JoggingPausedByUser
+    oneof_schema_2_validator: Optional[JoggingPausedByUser] = None
+    # data type: JoggingPausedOnIO
+    oneof_schema_3_validator: Optional[JoggingPausedOnIO] = None
+    # data type: JoggingPausedNearJointLimit
+    oneof_schema_4_validator: Optional[JoggingPausedNearJointLimit] = None
+    # data type: JoggingPausedNearCollision
+    oneof_schema_5_validator: Optional[JoggingPausedNearCollision] = None
+    actual_instance: Optional[Union[JoggingPausedByUser, JoggingPausedNearCollision, JoggingPausedNearJointLimit, JoggingPausedOnIO, JoggingRunning]] = None
+    one_of_schemas: Set[str] = { "JoggingPausedByUser", "JoggingPausedNearCollision", "JoggingPausedNearJointLimit", "JoggingPausedOnIO", "JoggingRunning" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -69,37 +69,37 @@ class JoggingDetailsState(BaseModel):
         instance = JoggingDetailsState.model_construct()
         error_messages = []
         match = 0
-        # validate data type: Running
-        if not isinstance(v, Running):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `Running`")
+        # validate data type: JoggingRunning
+        if not isinstance(v, JoggingRunning):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `JoggingRunning`")
         else:
             match += 1
-        # validate data type: PausedByUser
-        if not isinstance(v, PausedByUser):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `PausedByUser`")
+        # validate data type: JoggingPausedByUser
+        if not isinstance(v, JoggingPausedByUser):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `JoggingPausedByUser`")
         else:
             match += 1
-        # validate data type: PausedOnIO
-        if not isinstance(v, PausedOnIO):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `PausedOnIO`")
+        # validate data type: JoggingPausedOnIO
+        if not isinstance(v, JoggingPausedOnIO):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `JoggingPausedOnIO`")
         else:
             match += 1
-        # validate data type: PausedNearJointLimit
-        if not isinstance(v, PausedNearJointLimit):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `PausedNearJointLimit`")
+        # validate data type: JoggingPausedNearJointLimit
+        if not isinstance(v, JoggingPausedNearJointLimit):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `JoggingPausedNearJointLimit`")
         else:
             match += 1
-        # validate data type: PausedNearCollision
-        if not isinstance(v, PausedNearCollision):
-            error_messages.append(f"Error! Input type `{type(v)}` is not `PausedNearCollision`")
+        # validate data type: JoggingPausedNearCollision
+        if not isinstance(v, JoggingPausedNearCollision):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `JoggingPausedNearCollision`")
         else:
             match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in JoggingDetailsState with oneOf schemas: PausedByUser, PausedNearCollision, PausedNearJointLimit, PausedOnIO, Running. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in JoggingDetailsState with oneOf schemas: JoggingPausedByUser, JoggingPausedNearCollision, JoggingPausedNearJointLimit, JoggingPausedOnIO, JoggingRunning. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in JoggingDetailsState with oneOf schemas: PausedByUser, PausedNearCollision, PausedNearJointLimit, PausedOnIO, Running. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in JoggingDetailsState with oneOf schemas: JoggingPausedByUser, JoggingPausedNearCollision, JoggingPausedNearJointLimit, JoggingPausedOnIO, JoggingRunning. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -119,68 +119,68 @@ class JoggingDetailsState(BaseModel):
         if not _data_type:
             raise ValueError("Failed to lookup data type from the field `kind` in the input.")
 
-        # check if data type is `PausedByUser`
-        if _data_type == "PausedByUser":
-            instance.actual_instance = PausedByUser.from_json(json_str)
+        # check if data type is `JoggingPausedByUser`
+        if _data_type == "JoggingPausedByUser":
+            instance.actual_instance = JoggingPausedByUser.from_json(json_str)
             return instance
 
-        # check if data type is `PausedNearCollision`
-        if _data_type == "PausedNearCollision":
-            instance.actual_instance = PausedNearCollision.from_json(json_str)
+        # check if data type is `JoggingPausedNearCollision`
+        if _data_type == "JoggingPausedNearCollision":
+            instance.actual_instance = JoggingPausedNearCollision.from_json(json_str)
             return instance
 
-        # check if data type is `PausedNearJointLimit`
-        if _data_type == "PausedNearJointLimit":
-            instance.actual_instance = PausedNearJointLimit.from_json(json_str)
+        # check if data type is `JoggingPausedNearJointLimit`
+        if _data_type == "JoggingPausedNearJointLimit":
+            instance.actual_instance = JoggingPausedNearJointLimit.from_json(json_str)
             return instance
 
-        # check if data type is `PausedOnIO`
-        if _data_type == "PausedOnIO":
-            instance.actual_instance = PausedOnIO.from_json(json_str)
+        # check if data type is `JoggingPausedOnIO`
+        if _data_type == "JoggingPausedOnIO":
+            instance.actual_instance = JoggingPausedOnIO.from_json(json_str)
             return instance
 
-        # check if data type is `Running`
-        if _data_type == "Running":
-            instance.actual_instance = Running.from_json(json_str)
+        # check if data type is `JoggingRunning`
+        if _data_type == "JoggingRunning":
+            instance.actual_instance = JoggingRunning.from_json(json_str)
             return instance
 
-        # deserialize data into Running
+        # deserialize data into JoggingRunning
         try:
-            instance.actual_instance = Running.from_json(json_str)
+            instance.actual_instance = JoggingRunning.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into PausedByUser
+        # deserialize data into JoggingPausedByUser
         try:
-            instance.actual_instance = PausedByUser.from_json(json_str)
+            instance.actual_instance = JoggingPausedByUser.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into PausedOnIO
+        # deserialize data into JoggingPausedOnIO
         try:
-            instance.actual_instance = PausedOnIO.from_json(json_str)
+            instance.actual_instance = JoggingPausedOnIO.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into PausedNearJointLimit
+        # deserialize data into JoggingPausedNearJointLimit
         try:
-            instance.actual_instance = PausedNearJointLimit.from_json(json_str)
+            instance.actual_instance = JoggingPausedNearJointLimit.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
-        # deserialize data into PausedNearCollision
+        # deserialize data into JoggingPausedNearCollision
         try:
-            instance.actual_instance = PausedNearCollision.from_json(json_str)
+            instance.actual_instance = JoggingPausedNearCollision.from_json(json_str)
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into JoggingDetailsState with oneOf schemas: PausedByUser, PausedNearCollision, PausedNearJointLimit, PausedOnIO, Running. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into JoggingDetailsState with oneOf schemas: JoggingPausedByUser, JoggingPausedNearCollision, JoggingPausedNearJointLimit, JoggingPausedOnIO, JoggingRunning. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into JoggingDetailsState with oneOf schemas: PausedByUser, PausedNearCollision, PausedNearJointLimit, PausedOnIO, Running. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into JoggingDetailsState with oneOf schemas: JoggingPausedByUser, JoggingPausedNearCollision, JoggingPausedNearJointLimit, JoggingPausedOnIO, JoggingRunning. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -194,7 +194,7 @@ class JoggingDetailsState(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], PausedByUser, PausedNearCollision, PausedNearJointLimit, PausedOnIO, Running]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], JoggingPausedByUser, JoggingPausedNearCollision, JoggingPausedNearJointLimit, JoggingPausedOnIO, JoggingRunning]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

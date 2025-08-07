@@ -368,7 +368,7 @@ class InferencePipeline:
     def _load_from_id(self, pipeline_id: str):
         """Load pipeline configuration from API using pipeline ID."""
         try:
-            path = f"/v1/deployment/get_inference_pipeline/{pipeline_id}"
+            path = f"/v1/inference/get_inference_pipeline/{pipeline_id}"
             resp = self.rpc.get(path=path)
             result, error, message = handle_response(
                 resp,
@@ -424,7 +424,7 @@ class InferencePipeline:
         self._config.project_id = target_project_id
 
         try:
-            path = "/v1/deployment/inference_pipeline"
+            path = "/v1/inference/inference_pipeline"
             payload = self._config.to_dict()
 
             resp = self.rpc.post(
@@ -464,7 +464,7 @@ class InferencePipeline:
         if not self.id:
             return None, "Pipeline ID is required", "Invalid pipeline ID"
 
-        path = f"/v1/deployment/start_inference_pipeline/{self.id}"
+        path = f"/v1/inference/start_inference_pipeline/{self.id}"
         resp = self.rpc.put(path=path)
 
         result, error, message = handle_response(
@@ -492,7 +492,7 @@ class InferencePipeline:
         if not self.id:
             return None, "Pipeline ID is required", "Invalid pipeline ID"
 
-        path = f"/v1/deployment/stop_inference_pipeline/{self.id}"
+        path = f"/v1/inference/stop_inference_pipeline/{self.id}"
         params = {}
         if force:
             params["force"] = "true"
@@ -521,7 +521,7 @@ class InferencePipeline:
         if not self.id:
             return None, "Pipeline ID is required", "Invalid pipeline ID"
 
-        path = f"/v1/deployment/get_inference_pipeline/{self.id}"
+        path = f"/v1/inference/get_inference_pipeline/{self.id}"
         resp = self.rpc.get(path=path)
 
         result, error, message = handle_response(
@@ -546,7 +546,7 @@ class InferencePipeline:
         if not self.id:
             return None, "Pipeline ID is required", "Invalid pipeline ID"
 
-        path = f"/v1/deployment/get_inference_pipeline/{self.id}"
+        path = f"/v1/inference/get_inference_pipeline/{self.id}"
         resp = self.rpc.get(path=path)
 
         result, error, message = handle_response(
@@ -1053,7 +1053,7 @@ class InferencePipelineManager:
 
         try:
             # Build path with pagination parameters
-            path = f"/v1/deployment/list_inference_pipelines/{target_project_id}"
+            path = f"/v1/inference/list_inference_pipelines/{target_project_id}"
             params = {"page": page, "limit": limit}
             if search:
                 params["search"] = search
