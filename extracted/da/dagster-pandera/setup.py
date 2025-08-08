@@ -35,14 +35,14 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.14",
     install_requires=[
-        "dagster==1.11.4",
+        "dagster==1.11.5",
         "pandas",
         "pandera>=0.24.0",
     ],
     extras_require={
-        "polars": ["polars>=1"],
+        "polars": ["polars>=1,<=1.32.0"],
         "test": [
-            "polars>=1",
+            "polars>=1,<=1.32.0",
             "pytest",
         ],
     },

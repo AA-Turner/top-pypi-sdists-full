@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: orq-ai-sdk
-Version: 3.10.1
+Version: 3.10.10
 Summary: Python Client SDK for the Orq API.
 Author: Orq
 Requires-Python: >=3.9.2
@@ -166,7 +166,7 @@ with Orq(
 
 </br>
 
-The same SDK client can also be used to make asychronous requests by importing asyncio.
+The same SDK client can also be used to make asynchronous requests by importing asyncio.
 ```python
 # Asynchronous Example
 import asyncio

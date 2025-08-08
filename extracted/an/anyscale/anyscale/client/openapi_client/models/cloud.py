@@ -58,7 +58,8 @@ class Cloud(object):
         'is_default': 'bool',
         'customer_aggregated_logs_config_id': 'str',
         'additional_instance_types': 'list[UXInstance]',
-        'is_aggregated_logs_enabled': 'bool'
+        'is_aggregated_logs_enabled': 'bool',
+        'system_cluster_config_id': 'str'
     }
 
     attribute_map = {
@@ -87,10 +88,11 @@ class Cloud(object):
         'is_default': 'is_default',
         'customer_aggregated_logs_config_id': 'customer_aggregated_logs_config_id',
         'additional_instance_types': 'additional_instance_types',
-        'is_aggregated_logs_enabled': 'is_aggregated_logs_enabled'
+        'is_aggregated_logs_enabled': 'is_aggregated_logs_enabled',
+        'system_cluster_config_id': 'system_cluster_config_id'
     }
 
-    def __init__(self, name=None, provider=None, compute_stack=None, region=None, credentials=None, config=None, is_k8s=False, is_aioa=False, availability_zones=None, is_bring_your_own_resource=None, is_private_cloud=False, cluster_management_stack_version=None, is_private_service_cloud=None, auto_add_user=False, external_id=None, id=None, type=None, creator_id=None, created_at=None, status=None, state=None, version=None, is_default=None, customer_aggregated_logs_config_id=None, additional_instance_types=None, is_aggregated_logs_enabled=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, provider=None, compute_stack=None, region=None, credentials=None, config=None, is_k8s=False, is_aioa=False, availability_zones=None, is_bring_your_own_resource=None, is_private_cloud=False, cluster_management_stack_version=None, is_private_service_cloud=None, auto_add_user=False, external_id=None, id=None, type=None, creator_id=None, created_at=None, status=None, state=None, version=None, is_default=None, customer_aggregated_logs_config_id=None, additional_instance_types=None, is_aggregated_logs_enabled=None, system_cluster_config_id=None, local_vars_configuration=None):  # noqa: E501
         """Cloud - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -122,6 +124,7 @@ class Cloud(object):
         self._customer_aggregated_logs_config_id = None
         self._additional_instance_types = None
         self._is_aggregated_logs_enabled = None
+        self._system_cluster_config_id = None
         self.discriminator = None
 
         self.name = name
@@ -166,6 +169,8 @@ class Cloud(object):
             self.additional_instance_types = additional_instance_types
         if is_aggregated_logs_enabled is not None:
             self.is_aggregated_logs_enabled = is_aggregated_logs_enabled
+        if system_cluster_config_id is not None:
+            self.system_cluster_config_id = system_cluster_config_id
 
     @property
     def name(self):
@@ -782,6 +787,29 @@ class Cloud(object):
         """
 
         self._is_aggregated_logs_enabled = is_aggregated_logs_enabled
+
+    @property
+    def system_cluster_config_id(self):
+        """Gets the system_cluster_config_id of this Cloud.  # noqa: E501
+
+        the id of the system cluster config associated with this cloud.  # noqa: E501
+
+        :return: The system_cluster_config_id of this Cloud.  # noqa: E501
+        :rtype: str
+        """
+        return self._system_cluster_config_id
+
+    @system_cluster_config_id.setter
+    def system_cluster_config_id(self, system_cluster_config_id):
+        """Sets the system_cluster_config_id of this Cloud.
+
+        the id of the system cluster config associated with this cloud.  # noqa: E501
+
+        :param system_cluster_config_id: The system_cluster_config_id of this Cloud.  # noqa: E501
+        :type: str
+        """
+
+        self._system_cluster_config_id = system_cluster_config_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

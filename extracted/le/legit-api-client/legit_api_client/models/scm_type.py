@@ -127,6 +127,7 @@ class ScmType(str, Enum):
     UNKNOWNSCM = 'UnknownScm'
     ACUNETIX = 'Acunetix'
     MEND = 'Mend'
+    HACKERONE = 'HackerOne'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

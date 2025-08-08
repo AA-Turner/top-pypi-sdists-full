@@ -180,7 +180,7 @@ class Environment:
         """
 
         self.output_white = util.xyz_to_absxyz(util.xy_to_xyz(white), yw=100)
-        self.ref_white = list(reference_white)
+        self.ref_white = [*reference_white]
         self.surround = surround
         self.discounting = discounting
         xyz_w = self.ref_white
@@ -252,9 +252,10 @@ def zcam_to_xyz(
     if env is None:
         raise ValueError("No viewing conditions/environment provided")
 
-    # Black
+    # Shortcut out if black?
     if Jz == 0.0 or Qz == 0.0:
-        return [0.0, 0.0, 0.0]
+        if not any((Cz, Mz, Sz, Vz, Kz, Wz)):
+            return [0.0, 0.0, 0.0]
 
     # Break hue into Cartesian components
     h_rad = 0.0
@@ -283,11 +284,11 @@ def zcam_to_xyz(
     if Sz is not None:
         Cz = Qz * Sz ** 2 / (100 * env.qzw * env.fl ** 1.2)
     elif Vz is not None:
-        Cz = math.sqrt((Vz ** 2 - (Jz - 58) ** 2) / 3.4)
+        Cz = alg.nth_root((Vz ** 2 - (Jz - 58) ** 2) / 3.4, 2)
     elif Kz is not None:
-        Cz = math.sqrt((((Kz - 100) / - 0.8) ** 2 - (Jz ** 2)) / 8)
+        Cz = alg.nth_root((((Kz - 100) / - 0.8) ** 2 - (Jz ** 2)) / 8, 2)
     elif Wz is not None:
-        Cz = math.sqrt((Wz - 100) ** 2 - (100 - Jz) ** 2)
+        Cz = alg.nth_root((Wz - 100) ** 2 - (100 - Jz) ** 2, 2)
 
     if Cz is not None:
         Mz = (Cz / 100) * env.qzw
@@ -425,12 +426,6 @@ class ZCAMJMh(LCh):
         coords[2] %= 360.0
         return coords
 
-    def is_achromatic(self, coords: Vector) -> bool | None:
-        """Check if color is achromatic."""
-
-        # Account for both positive and negative chroma
-        return coords[0] == 0 or abs(coords[1]) < self.achromatic_threshold
-
     def hue_name(self) -> str:
         """Hue name."""
 
@@ -440,6 +435,11 @@ class ZCAMJMh(LCh):
         """Radial name."""
 
         return "mz"
+
+    def lightness_name(self) -> str:
+        """Get lightness name."""
+
+        return "jz"
 
     def to_base(self, coords: Vector) -> Vector:
         """From ZCAM JMh to XYZ."""

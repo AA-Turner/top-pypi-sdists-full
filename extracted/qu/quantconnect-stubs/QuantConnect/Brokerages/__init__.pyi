@@ -94,42 +94,42 @@ class IWebSocket(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def message(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketMessage], None], None]:
+    def message(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketMessage], typing.Any], typing.Any]:
         """on message event"""
         ...
 
     @message.setter
-    def message(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketMessage], None], None]) -> None:
+    def message(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketMessage], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketError], None], None]:
+    def error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketError], typing.Any], typing.Any]:
         """On error event"""
         ...
 
     @error.setter
-    def error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketError], None], None]) -> None:
+    def error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketError], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def open(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def open(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """On Open event"""
         ...
 
     @open.setter
-    def open(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def open(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def closed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketCloseData], None], None]:
+    def closed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketCloseData], typing.Any], typing.Any]:
         """On Close event"""
         ...
 
     @closed.setter
-    def closed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketCloseData], None], None]) -> None:
+    def closed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketCloseData], typing.Any], typing.Any]) -> None:
         ...
 
     def close(self) -> None:
@@ -216,39 +216,39 @@ class WebSocketClientWrapper(System.Object, QuantConnect.Brokerages.IWebSocket):
         ...
 
     @property
-    def message(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketMessage], None], None]:
+    def message(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketMessage], typing.Any], typing.Any]:
         """Wraps message event"""
         ...
 
     @message.setter
-    def message(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketMessage], None], None]) -> None:
+    def message(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketMessage], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketError], None], None]:
+    def error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketError], typing.Any], typing.Any]:
         """Wraps error event"""
         ...
 
     @error.setter
-    def error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketError], None], None]) -> None:
+    def error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketError], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def open(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def open(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Wraps open method"""
         ...
 
     @open.setter
-    def open(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def open(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def closed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketCloseData], None], None]:
+    def closed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketCloseData], typing.Any], typing.Any]:
         """Wraps close method"""
         ...
 
     @closed.setter
-    def closed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketCloseData], None], None]) -> None:
+    def closed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.WebSocketCloseData], typing.Any], typing.Any]) -> None:
         ...
 
     def close(self) -> None:
@@ -526,32 +526,32 @@ class IConnectionHandler(System.IDisposable, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def connection_lost(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def connection_lost(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event that fires when a connection loss is detected"""
         ...
 
     @connection_lost.setter
-    def connection_lost(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def connection_lost(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def connection_restored(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def connection_restored(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event that fires when a lost connection is restored"""
         ...
 
     @connection_restored.setter
-    def connection_restored(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def connection_restored(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def reconnect_requested(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def reconnect_requested(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event that fires when a reconnection attempt is required"""
         ...
 
     @reconnect_requested.setter
-    def reconnect_requested(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def reconnect_requested(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -593,30 +593,30 @@ class DefaultConnectionHandler(System.Object, QuantConnect.Brokerages.IConnectio
     """
 
     @property
-    def connection_lost(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def connection_lost(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event that fires when a connection loss is detected"""
         ...
 
     @connection_lost.setter
-    def connection_lost(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def connection_lost(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def connection_restored(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def connection_restored(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event that fires when a lost connection is restored"""
         ...
 
     @connection_restored.setter
-    def connection_restored(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def connection_restored(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def reconnect_requested(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def reconnect_requested(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event that fires when a reconnection attempt is required"""
         ...
 
     @reconnect_requested.setter
-    def reconnect_requested(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def reconnect_requested(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -882,84 +882,84 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
     """Represents the base Brokerage implementation. This provides logging on brokerage events."""
 
     @property
-    def order_id_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.BrokerageOrderIdChangedEvent], None], None]:
+    def order_id_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.BrokerageOrderIdChangedEvent], typing.Any], typing.Any]:
         """Event that fires each time the brokerage order id changes"""
         ...
 
     @order_id_changed.setter
-    def order_id_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.BrokerageOrderIdChangedEvent], None], None]) -> None:
+    def order_id_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.BrokerageOrderIdChangedEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def orders_status_changed(self) -> _EventContainer[typing.Callable[[System.Object, typing.List[QuantConnect.Orders.OrderEvent]], None], None]:
+    def orders_status_changed(self) -> _EventContainer[typing.Callable[[System.Object, typing.List[QuantConnect.Orders.OrderEvent]], typing.Any], typing.Any]:
         """Event that fires each time the status for a list of orders change"""
         ...
 
     @orders_status_changed.setter
-    def orders_status_changed(self, value: _EventContainer[typing.Callable[[System.Object, typing.List[QuantConnect.Orders.OrderEvent]], None], None]) -> None:
+    def orders_status_changed(self, value: _EventContainer[typing.Callable[[System.Object, typing.List[QuantConnect.Orders.OrderEvent]], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def order_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderUpdateEvent], None], None]:
+    def order_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderUpdateEvent], typing.Any], typing.Any]:
         """Event that fires each time an order is updated in the brokerage side"""
         ...
 
     @order_updated.setter
-    def order_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderUpdateEvent], None], None]) -> None:
+    def order_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderUpdateEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def option_position_assigned(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], None], None]:
+    def option_position_assigned(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]:
         """Event that fires each time a short option position is assigned"""
         ...
 
     @option_position_assigned.setter
-    def option_position_assigned(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], None], None]) -> None:
+    def option_position_assigned(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def option_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.OptionNotificationEventArgs], None], None]:
+    def option_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.OptionNotificationEventArgs], typing.Any], typing.Any]:
         """Event that fires each time an option position has changed"""
         ...
 
     @option_notification.setter
-    def option_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.OptionNotificationEventArgs], None], None]) -> None:
+    def option_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.OptionNotificationEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def new_brokerage_order_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.NewBrokerageOrderNotificationEventArgs], None], None]:
+    def new_brokerage_order_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.NewBrokerageOrderNotificationEventArgs], typing.Any], typing.Any]:
         """Event that fires each time there's a brokerage side generated order"""
         ...
 
     @new_brokerage_order_notification.setter
-    def new_brokerage_order_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.NewBrokerageOrderNotificationEventArgs], None], None]) -> None:
+    def new_brokerage_order_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.NewBrokerageOrderNotificationEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def delisting_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.DelistingNotificationEventArgs], None], None]:
+    def delisting_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.DelistingNotificationEventArgs], typing.Any], typing.Any]:
         """Event that fires each time a delisting occurs"""
         ...
 
     @delisting_notification.setter
-    def delisting_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.DelistingNotificationEventArgs], None], None]) -> None:
+    def delisting_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.DelistingNotificationEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def account_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.AccountEvent], None], None]:
+    def account_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.AccountEvent], typing.Any], typing.Any]:
         """Event that fires each time a user's brokerage account is changed"""
         ...
 
     @account_changed.setter
-    def account_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.AccountEvent], None], None]) -> None:
+    def account_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.AccountEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def message(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BrokerageMessageEvent], None], None]:
+    def message(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BrokerageMessageEvent], typing.Any], typing.Any]:
         """Event that fires when an error is encountered in the brokerage"""
         ...
 
     @message.setter
-    def message(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BrokerageMessageEvent], None], None]) -> None:
+    def message(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BrokerageMessageEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -1324,7 +1324,7 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
 class BrokerageMultiWebSocketSubscriptionManager(QuantConnect.Data.EventBasedDataQueueHandlerSubscriptionManager, System.IDisposable):
     """Handles brokerage data subscriptions with multiple websocket connections, with optional symbol weighting"""
 
-    def __init__(self, web_socket_url: str, maximum_symbols_per_web_socket: int, maximum_web_socket_connections: int, symbol_weights: System.Collections.Generic.Dictionary[QuantConnect.Symbol, int], web_socket_factory: typing.Callable[[], QuantConnect.Brokerages.WebSocketClientWrapper], subscribe_func: typing.Callable[[QuantConnect.Brokerages.IWebSocket, QuantConnect.Symbol], bool], unsubscribe_func: typing.Callable[[QuantConnect.Brokerages.IWebSocket, QuantConnect.Symbol], bool], message_handler: typing.Callable[[QuantConnect.Brokerages.WebSocketMessage], None], web_socket_connection_duration: datetime.timedelta, connection_rate_limiter: QuantConnect.Util.RateGate = None) -> None:
+    def __init__(self, web_socket_url: str, maximum_symbols_per_web_socket: int, maximum_web_socket_connections: int, symbol_weights: System.Collections.Generic.Dictionary[QuantConnect.Symbol, int], web_socket_factory: typing.Callable[[], QuantConnect.Brokerages.WebSocketClientWrapper], subscribe_func: typing.Callable[[QuantConnect.Brokerages.IWebSocket, QuantConnect.Symbol], bool], unsubscribe_func: typing.Callable[[QuantConnect.Brokerages.IWebSocket, QuantConnect.Symbol], bool], message_handler: typing.Callable[[QuantConnect.Brokerages.WebSocketMessage], typing.Any], web_socket_connection_duration: datetime.timedelta, connection_rate_limiter: QuantConnect.Util.RateGate = None) -> None:
         """
         Initializes a new instance of the BrokerageMultiWebSocketSubscriptionManager class
         
@@ -1536,7 +1536,7 @@ class BrokerageConcurrentMessageHandler(typing.Generic[QuantConnect_Brokerages_B
     """Brokerage helper class to lock message stream while executing an action, for example placing an order"""
 
     @overload
-    def __init__(self, process_messages: typing.Callable[[QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T], None]) -> None:
+    def __init__(self, process_messages: typing.Callable[[QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T], typing.Any]) -> None:
         """
         Creates a new instance
         
@@ -1545,7 +1545,7 @@ class BrokerageConcurrentMessageHandler(typing.Generic[QuantConnect_Brokerages_B
         ...
 
     @overload
-    def __init__(self, process_messages: typing.Callable[[QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T], None], concurrency_enabled: bool) -> None:
+    def __init__(self, process_messages: typing.Callable[[QuantConnect_Brokerages_BrokerageConcurrentMessageHandler_T], typing.Any], concurrency_enabled: bool) -> None:
         """
         Creates a new instance
         
@@ -1566,7 +1566,7 @@ class BrokerageConcurrentMessageHandler(typing.Generic[QuantConnect_Brokerages_B
         """
         ...
 
-    def with_locked_stream(self, code: typing.Callable[[], None]) -> None:
+    def with_locked_stream(self, code: typing.Callable[[], typing.Any]) -> None:
         """Lock the streaming processing while we're sending orders as sometimes they fill before the call returns."""
         ...
 
@@ -1880,12 +1880,12 @@ class DefaultOrderBook(System.Object, QuantConnect.Brokerages.IOrderBookUpdater[
         ...
 
     @property
-    def best_bid_ask_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BestBidAskUpdatedEventArgs], None], None]:
+    def best_bid_ask_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BestBidAskUpdatedEventArgs], typing.Any], typing.Any]:
         """Event fired each time BestBidPrice or BestAskPrice are changed"""
         ...
 
     @best_bid_ask_updated.setter
-    def best_bid_ask_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BestBidAskUpdatedEventArgs], None], None]) -> None:
+    def best_bid_ask_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BestBidAskUpdatedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -1967,12 +1967,12 @@ class IOrderBookUpdater(typing.Generic[QuantConnect_Brokerages_IOrderBookUpdater
 
     @property
     @abc.abstractmethod
-    def best_bid_ask_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BestBidAskUpdatedEventArgs], None], None]:
+    def best_bid_ask_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BestBidAskUpdatedEventArgs], typing.Any], typing.Any]:
         """Event fired each time BestBidPrice or BestAskPrice are changed"""
         ...
 
     @best_bid_ask_updated.setter
-    def best_bid_ask_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BestBidAskUpdatedEventArgs], None], None]) -> None:
+    def best_bid_ask_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BestBidAskUpdatedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def remove_ask_row(self, price: QuantConnect_Brokerages_IOrderBookUpdater_K) -> None:

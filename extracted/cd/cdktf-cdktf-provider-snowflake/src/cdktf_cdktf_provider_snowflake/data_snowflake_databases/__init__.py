@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_databases`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_databases`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases).
+Refer to the Terraform Registry for docs: [`data_snowflake_databases`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeDatabases(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeDatabases.DataSnowflakeDatabases",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases snowflake_databases}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases snowflake_databases}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class DataSnowflakeDatabases(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases snowflake_databases} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases snowflake_databases} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#id DataSnowflakeDatabases#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#like DataSnowflakeDatabases#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#limit DataSnowflakeDatabases#limit}
-        :param starts_with: Filters the output with **case-sensitive** characters indicating the beginning of the object name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#starts_with DataSnowflakeDatabases#starts_with}
-        :param with_describe: (Default: ``true``) Runs DESC DATABASE for each database returned by SHOW DATABASES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#with_describe DataSnowflakeDatabases#with_describe}
-        :param with_parameters: (Default: ``true``) Runs SHOW PARAMETERS FOR DATABASE for each database returned by SHOW DATABASES. The output of describe is saved to the parameters field as a map. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#with_parameters DataSnowflakeDatabases#with_parameters}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#id DataSnowflakeDatabases#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#like DataSnowflakeDatabases#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#limit DataSnowflakeDatabases#limit}
+        :param starts_with: Filters the output with **case-sensitive** characters indicating the beginning of the object name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#starts_with DataSnowflakeDatabases#starts_with}
+        :param with_describe: (Default: ``true``) Runs DESC DATABASE for each database returned by SHOW DATABASES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#with_describe DataSnowflakeDatabases#with_describe}
+        :param with_parameters: (Default: ``true``) Runs SHOW PARAMETERS FOR DATABASE for each database returned by SHOW DATABASES. The output of describe is saved to the parameters field as a map. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#with_parameters DataSnowflakeDatabases#with_parameters}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class DataSnowflakeDatabases(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeDatabases to import.
-        :param import_from_id: The id of the existing DataSnowflakeDatabases that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeDatabases that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeDatabases to import is found.
         '''
         if __debug__:
@@ -137,8 +137,8 @@ class DataSnowflakeDatabases(
         from_: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#rows DataSnowflakeDatabases#rows}
-        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#from DataSnowflakeDatabases#from}
+        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#rows DataSnowflakeDatabases#rows}
+        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#from DataSnowflakeDatabases#from}
         '''
         value = DataSnowflakeDatabasesLimit(rows=rows, from_=from_)
 
@@ -339,12 +339,12 @@ class DataSnowflakeDatabasesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#id DataSnowflakeDatabases#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#like DataSnowflakeDatabases#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#limit DataSnowflakeDatabases#limit}
-        :param starts_with: Filters the output with **case-sensitive** characters indicating the beginning of the object name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#starts_with DataSnowflakeDatabases#starts_with}
-        :param with_describe: (Default: ``true``) Runs DESC DATABASE for each database returned by SHOW DATABASES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#with_describe DataSnowflakeDatabases#with_describe}
-        :param with_parameters: (Default: ``true``) Runs SHOW PARAMETERS FOR DATABASE for each database returned by SHOW DATABASES. The output of describe is saved to the parameters field as a map. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#with_parameters DataSnowflakeDatabases#with_parameters}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#id DataSnowflakeDatabases#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#like DataSnowflakeDatabases#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#limit DataSnowflakeDatabases#limit}
+        :param starts_with: Filters the output with **case-sensitive** characters indicating the beginning of the object name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#starts_with DataSnowflakeDatabases#starts_with}
+        :param with_describe: (Default: ``true``) Runs DESC DATABASE for each database returned by SHOW DATABASES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#with_describe DataSnowflakeDatabases#with_describe}
+        :param with_parameters: (Default: ``true``) Runs SHOW PARAMETERS FOR DATABASE for each database returned by SHOW DATABASES. The output of describe is saved to the parameters field as a map. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#with_parameters DataSnowflakeDatabases#with_parameters}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -459,7 +459,7 @@ class DataSnowflakeDatabasesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#id DataSnowflakeDatabases#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#id DataSnowflakeDatabases#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -471,7 +471,7 @@ class DataSnowflakeDatabasesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def like(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#like DataSnowflakeDatabases#like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#like DataSnowflakeDatabases#like}
         '''
         result = self._values.get("like")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -480,7 +480,7 @@ class DataSnowflakeDatabasesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def limit(self) -> typing.Optional["DataSnowflakeDatabasesLimit"]:
         '''limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#limit DataSnowflakeDatabases#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#limit DataSnowflakeDatabases#limit}
         '''
         result = self._values.get("limit")
         return typing.cast(typing.Optional["DataSnowflakeDatabasesLimit"], result)
@@ -489,7 +489,7 @@ class DataSnowflakeDatabasesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def starts_with(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-sensitive** characters indicating the beginning of the object name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#starts_with DataSnowflakeDatabases#starts_with}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#starts_with DataSnowflakeDatabases#starts_with}
         '''
         result = self._values.get("starts_with")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -502,7 +502,7 @@ class DataSnowflakeDatabasesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The output of describe is saved to the description field. By default this value is set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#with_describe DataSnowflakeDatabases#with_describe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#with_describe DataSnowflakeDatabases#with_describe}
         '''
         result = self._values.get("with_describe")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -515,7 +515,7 @@ class DataSnowflakeDatabasesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The output of describe is saved to the parameters field as a map. By default this value is set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#with_parameters DataSnowflakeDatabases#with_parameters}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#with_parameters DataSnowflakeDatabases#with_parameters}
         '''
         result = self._values.get("with_parameters")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3969,8 +3969,8 @@ class DataSnowflakeDatabasesLimit:
         from_: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#rows DataSnowflakeDatabases#rows}
-        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#from DataSnowflakeDatabases#from}
+        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#rows DataSnowflakeDatabases#rows}
+        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#from DataSnowflakeDatabases#from}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ef89d786df204899d40ac92cff520eb92631373ab62ce790c590887927aa3b01)
@@ -3986,7 +3986,7 @@ class DataSnowflakeDatabasesLimit:
     def rows(self) -> jsii.Number:
         '''The maximum number of rows to return.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#rows DataSnowflakeDatabases#rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#rows DataSnowflakeDatabases#rows}
         '''
         result = self._values.get("rows")
         assert result is not None, "Required property 'rows' is missing"
@@ -3998,7 +3998,7 @@ class DataSnowflakeDatabasesLimit:
 
         After the first match, the limit on the number of rows will be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/databases#from DataSnowflakeDatabases#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/databases#from DataSnowflakeDatabases#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[builtins.str], result)

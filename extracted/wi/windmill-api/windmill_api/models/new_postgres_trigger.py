@@ -27,7 +27,8 @@ class NewPostgresTrigger:
         publication_name (Union[Unset, str]):
         publication (Union[Unset, NewPostgresTriggerPublication]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, NewPostgresTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, NewPostgresTriggerErrorHandlerArgs]): The arguments to pass to the script or
+            flow
         retry (Union[Unset, NewPostgresTriggerRetry]):
     """
 

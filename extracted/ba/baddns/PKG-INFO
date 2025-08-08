@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: baddns
-Version: 1.9.132
+Version: 1.10.185
 Summary: Check subdomains for subdomain takeovers and other DNS tomfoolery
 License: GPL-3.0
 Author: liquidsec

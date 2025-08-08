@@ -36,7 +36,7 @@ class EditHttpTrigger:
         wrap_body (Union[Unset, bool]):
         raw_string (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, EditHttpTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, EditHttpTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, EditHttpTriggerRetry]):
     """
 

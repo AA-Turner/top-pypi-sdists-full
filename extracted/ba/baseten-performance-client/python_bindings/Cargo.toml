@@ -1,7 +1,8 @@
 [package]
 name = "baseten_performance_client"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2021"
+readme = "README.md"
 
 [dependencies]
 baseten_performance_client_core = { path = "../core", features = ["native-tls"] }

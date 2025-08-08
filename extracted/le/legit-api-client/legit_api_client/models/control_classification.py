@@ -102,6 +102,7 @@ class ControlClassification(str, Enum):
     ACUNETIX = 'Acunetix'
     MEND = 'Mend'
     REDHATADVANCEDCLUSTERSECURITY = 'RedHatAdvancedClusterSecurity'
+    HACKERONE = 'HackerOne'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

@@ -4,27 +4,40 @@ from abc import ABCMeta, abstractmethod
 from ..channels import Channel
 from ..css import serialize
 from ..types import VectorLike, Vector, Plugin
+from .. import deprecate
 from typing import Any, TYPE_CHECKING, Callable, Sequence
 import math
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..color import Color
 
+__deprecated__ = {
+    "Regular": "Prism"
+}
 
-class Regular:
-    """Regular 3D color space usually with a range between 0 - 1."""
 
-    channels: tuple[Channel, ...]
-    get_channel_index: Callable[[str], int]
+def __getattr__(name: str) -> Any:  # pragma: no cover
+    """Warn for deprecated attributes."""
+
+    deprecated = __deprecated__.get(name)
+    if deprecated:
+        deprecate.warn_deprecated(f"'{name}' is deprecated. Use '{deprecated}' instead.", stacklevel=3)
+        return globals()[deprecated]
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+class Prism:
+    """Prism is a 3D rectangular prism."""
+
+
+class RGBish(Prism):
+    """RGB-ish space."""
 
 
 class Cylindrical:
     """Cylindrical space."""
 
-    channels: tuple[Channel, ...]
     get_channel_index: Callable[[str], int]
-    get_hue_name: Callable[[], str]
-    get_radial_name: Callable[[], str]
 
     def radial_name(self) -> str:
         """Radial name."""
@@ -47,51 +60,28 @@ class Cylindrical:
         return self.get_channel_index(self.radial_name())
 
 
-class RGBish(Regular):
-    """RGB-ish space."""
+class Luminant:
+    """A space that contains luminance or luminance-like component."""
 
-    def names(self) -> tuple[Channel, ...]:
-        """Return RGB-ish names in order R G B."""
+    get_channel_index: Callable[[str], int]
 
-        return self.channels[:-1]
+    def lightness_name(self) -> str:
+        """Lightness name."""
 
-    def indexes(self) -> list[int]:
-        """Return the index of RGB-ish channels."""
+        return "l"
 
-        return [self.get_channel_index(name) for name in self.names()]
+    def lightness_index(self) -> int:
+        """Get lightness index."""
 
-    def linear(self) -> str:
-        """Will return the name of the space which is the linear version of itself (if available)."""
-
-        return ''
+        return self.get_channel_index(self.lightness_name())
 
 
-class HSLish(Cylindrical):
+class HSLish(Luminant, Cylindrical):
     """HSL-ish space."""
 
-    def names(self) -> tuple[Channel, ...]:
-        """Return HSL-ish names in order H S L."""
 
-        return self.channels[:-1]
-
-    def indexes(self) -> list[int]:
-        """Return the index of HSL-ish channels."""
-
-        return [self.get_channel_index(name) for name in self.names()]
-
-
-class HSVish(Cylindrical):
+class HSVish(Luminant, Cylindrical):
     """HSV-ish space."""
-
-    def names(self) -> tuple[Channel, ...]:
-        """Return HSV-ish names in order H S V."""
-
-        return self.channels[:-1]
-
-    def indexes(self) -> list[int]:
-        """Return the index of HSV-ish channels."""
-
-        return [self.get_channel_index(name) for name in self.names()]
 
 
 class HWBish(Cylindrical):
@@ -102,51 +92,18 @@ class HWBish(Cylindrical):
 
         return "w"
 
-    def names(self) -> tuple[Channel, ...]:
-        """Return HWB-ish names in order H W B."""
 
-        return self.channels[:-1]
-
-    def indexes(self) -> list[int]:
-        """Return the index of HWB-ish channels."""
-
-        return [self.get_channel_index(name) for name in self.names()]
-
-
-class Labish:
+class Labish(Luminant, Prism):
     """Lab-ish color spaces."""
 
-    channels: tuple[Channel, ...]
-    get_channel_index: Callable[[str], int]
 
-    def names(self) -> tuple[Channel, ...]:
-        """Return Lab-ish names in the order L a b."""
-
-        return self.channels[:-1]
-
-    def indexes(self) -> list[int]:
-        """Return the index of the Lab-ish channels."""
-
-        return [self.get_channel_index(name) for name in self.names()]
-
-
-class LChish(Cylindrical):
+class LChish(Luminant, Cylindrical):
     """LCh-ish color spaces."""
 
     def radial_name(self) -> str:
         """Radial name."""
 
         return "c"
-
-    def names(self) -> tuple[Channel, ...]:
-        """Return LCh-ish names in the order L c h."""
-
-        return self.channels[:-1]
-
-    def indexes(self) -> list[int]:
-        """Return the index of the Lab-ish channels."""
-
-        return [self.get_channel_index(name) for name in self.names()]
 
 
 alpha_channel = Channel('alpha', 0.0, 1.0, bound=True, limit=(0.0, 1.0))
@@ -191,30 +148,41 @@ class Space(Plugin, metaclass=SpaceMeta):
     # This is used in cases like HSL where the `GAMUT_CHECK` space is sRGB, but we want to clip in HSL as it
     # is still reasonable and faster.
     CLIP_SPACE = None  # type: str | None
-    # When set to `True`, this denotes that the color space has the ability to represent out of gamut in colors in an
-    # extended range. When interpolation is done, if colors are interpolated in a smaller gamut than the colors being
-    # interpolated, the colors will usually be gamut mapped, but if the interpolation space happens to support extended
-    # ranges, then the colors will not be gamut mapped even if their gamut is larger than the target interpolation
-    # space.
-    EXTENDED_RANGE = False
     # White point
     WHITE = (0.0, 0.0)
     # What is the color space's dynamic range
     DYNAMIC_RANGE = 'sdr'
+    # Is the space subtractive
+    SUBTRACTIVE = False
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize."""
 
-        self.channels = self.CHANNELS + (alpha_channel,)
+        self.channels = (*self.CHANNELS, alpha_channel)
         self._chan_index = {c: e for e, c in enumerate(self.channels)}  # type: dict[str, int]
         self._color_ids = (self.NAME,) if not self.SERIALIZE else self.SERIALIZE
         self._percents = ([True] * (len(self.channels) - 1)) + [False]
         self._polar = isinstance(self, Cylindrical)
 
+    def names(self) -> tuple[Channel, ...]:
+        """Returns component names in a logical order specific to their color space type."""
+
+        return self.channels[:-1]
+
+    def indexes(self) -> list[int]:
+        """Returns component indexes in a logical order specific to their color space type."""
+
+        return [self.get_channel_index(name) for name in self.names()]
+
     def is_polar(self) -> bool:
         """Return if the space is polar."""
 
         return self._polar
+
+    def linear(self) -> str:
+        """Will return the name of the space which is the linear version of itself (if available)."""
+
+        return ''
 
     def get_channel_index(self, name: str) -> int:
         """Get channel index."""

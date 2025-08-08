@@ -1496,8 +1496,8 @@ impl<'a> Transaction<'a> {
         let mut named_bindings = Vec::new();
         for idx in bindings.keys::<Key>() {
             let key = bindings.idx_to_key(idx);
-            if let Key::Phi(..) = key {
-                // Phi keys are always synthetic and never serves as a name definition.
+            if matches!(key, Key::Phi(..) | Key::Narrow(..)) {
+                // These keys are always synthetic and never serves as a name definition.
                 continue;
             }
             if let Some((definition_handle, definition_export)) =
@@ -1643,29 +1643,31 @@ impl<'a> Transaction<'a> {
         {
             for idx in bindings.available_definitions(position) {
                 let key = bindings.idx_to_key(idx);
-                if let Key::Definition(id) = key {
-                    let label = module_info.code_at(id.range());
-                    if let Some(identifier) = identifier
-                        && SkimMatcherV2::default()
-                            .fuzzy_match(label, identifier.as_str())
-                            .is_none()
-                    {
-                        continue;
-                    }
-                    let binding = bindings.get(idx);
-                    let detail = self.get_type(handle, key).map(|t| t.to_string());
-                    has_added_any = true;
-                    completions.push(CompletionItem {
-                        label: label.to_owned(),
-                        detail,
-                        kind: binding
-                            .symbol_kind()
-                            .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                Some(k.to_lsp_completion_item_kind())
-                            }),
-                        ..Default::default()
-                    })
+                let label = match key {
+                    Key::Definition(id) => module_info.code_at(id.range()),
+                    Key::Anywhere(id, _) => id,
+                    _ => continue,
+                };
+                if let Some(identifier) = identifier
+                    && SkimMatcherV2::default()
+                        .fuzzy_match(label, identifier.as_str())
+                        .is_none()
+                {
+                    continue;
                 }
+                let binding = bindings.get(idx);
+                let detail = self.get_type(handle, key).map(|t| t.to_string());
+                has_added_any = true;
+                completions.push(CompletionItem {
+                    label: label.to_owned(),
+                    detail,
+                    kind: binding
+                        .symbol_kind()
+                        .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                            Some(k.to_lsp_completion_item_kind())
+                        }),
+                    ..Default::default()
+                })
             }
         }
         has_added_any
@@ -1970,7 +1972,12 @@ impl<'a> Transaction<'a> {
         }
     }
 
-    pub fn inferred_types(&self, handle: &Handle) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
+    pub fn inferred_types(
+        &self,
+        handle: &Handle,
+        return_types: bool,
+        containers: bool,
+    ) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
         let is_interesting_type = |x: &Type| !x.is_error();
         let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
         let bindings = self.get_bindings(handle)?;
@@ -1978,7 +1985,7 @@ impl<'a> Transaction<'a> {
         for idx in bindings.keys::<Key>() {
             match bindings.idx_to_key(idx) {
                 // Return Annotation
-                key @ Key::ReturnType(id) => {
+                key @ Key::ReturnType(id) if return_types => {
                     match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
                         Binding::Function(x, _pred, _class_meta) => {
                             if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
@@ -1997,32 +2004,34 @@ impl<'a> Transaction<'a> {
                     }
                 }
                 // Only annotate empty containers for now
-                key @ Key::Definition(_) if let Some(ty) = self.get_type(handle, key) => {
-                    let e = match bindings.get(idx) {
-                        Binding::NameAssign(_, None, e) => match &**e {
-                            Expr::List(ExprList { elts, .. }) => {
-                                if elts.is_empty() {
-                                    Some(&**e)
-                                } else {
-                                    None
+                key @ Key::Definition(_) if containers => {
+                    if let Some(ty) = self.get_type(handle, key) {
+                        let e = match bindings.get(idx) {
+                            Binding::NameAssign(_, None, e) => match &**e {
+                                Expr::List(ExprList { elts, .. }) => {
+                                    if elts.is_empty() {
+                                        Some(&**e)
+                                    } else {
+                                        None
+                                    }
                                 }
-                            }
-                            Expr::Dict(ExprDict { items, .. }) => {
-                                if items.is_empty() {
-                                    Some(&**e)
-                                } else {
-                                    None
+                                Expr::Dict(ExprDict { items, .. }) => {
+                                    if items.is_empty() {
+                                        Some(&**e)
+                                    } else {
+                                        None
+                                    }
                                 }
-                            }
+                                _ => None,
+                            },
                             _ => None,
-                        },
-                        _ => None,
-                    };
-                    if let Some(e) = e
-                        && is_interesting_expr(e)
-                        && is_interesting_type(&ty)
-                    {
-                        res.push((key.range().end(), ty, AnnotationKind::Variable));
+                        };
+                        if let Some(e) = e
+                            && is_interesting_expr(e)
+                            && is_interesting_type(&ty)
+                        {
+                            res.push((key.range().end(), ty, AnnotationKind::Variable));
+                        }
                     }
                 }
                 _ => {}

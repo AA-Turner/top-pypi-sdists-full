@@ -518,6 +518,7 @@ DnsRequestActionTypeDef = TypedDict(
         "Protocol": NotRequired[str],
         "Blocked": NotRequired[bool],
         "DomainWithSuffix": NotRequired[str],
+        "VpcOwnerAccountId": NotRequired[str],
     },
 )
 

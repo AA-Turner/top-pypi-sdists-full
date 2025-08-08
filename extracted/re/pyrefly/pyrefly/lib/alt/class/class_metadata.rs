@@ -11,6 +11,8 @@ use dupe::Dupe;
 use itertools::Either;
 use itertools::Itertools;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_util::display::DisplayWithCtx;
 use ruff_python_ast::Expr;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -29,11 +31,14 @@ use crate::alt::types::class_metadata::NamedTupleMetadata;
 use crate::alt::types::class_metadata::ProtocolMetadata;
 use crate::alt::types::class_metadata::TotalOrderingMetadata;
 use crate::alt::types::class_metadata::TypedDictMetadata;
+use crate::alt::types::pydantic::PydanticMetadata;
 use crate::binding::base_class::BaseClass;
 use crate::binding::binding::Key;
+use crate::binding::pydantic::PydanticMetadataBinding;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
+use crate::error::style::ErrorStyle;
 use crate::graph::index::Idx;
 use crate::types::callable::FunctionKind;
 use crate::types::class::Class;
@@ -45,6 +50,43 @@ use crate::types::keywords::TypeMap;
 use crate::types::literal::Lit;
 use crate::types::types::CalleeKind;
 use crate::types::types::Type;
+
+#[derive(Debug, Clone)]
+struct ParsedBaseClass {
+    class_object: Class,
+    range: TextRange,
+    metadata: Arc<ClassMetadata>,
+}
+
+#[derive(Debug, Clone)]
+enum BaseClassParseResult {
+    /// We can successfully extract the class object and metadata from the base class
+    Parsed(ParsedBaseClass),
+    /// We can't parse the base class because its correpsponding `BaseClass` is not valid (e.g. base is a `TypedDict`
+    /// when is_new_type is true)
+    InvalidBase(TextRange),
+    /// We can't parse the base class because its expression is not recognized to be a valid base class expression
+    InvalidExpr(Expr),
+    /// We can't parse the base class because its type is not valid to be put in the base class list
+    InvalidType(Type, TextRange),
+    /// We can't parse the base class but we also don't want to error on it for some reason (e.g. the error
+    /// will be reported elsewhere, or the base class literally just has the `Any` type)
+    AnyType,
+    /// This base class does not participate in inheritance related computation (e.g. `Generic`, `Protocol`, etc.)
+    Ignored,
+}
+
+impl BaseClassParseResult {
+    fn is_any(&self) -> bool {
+        match self {
+            BaseClassParseResult::InvalidBase(..)
+            | BaseClassParseResult::InvalidExpr(..)
+            | BaseClassParseResult::InvalidType(..)
+            | BaseClassParseResult::AnyType => true,
+            _ => false,
+        }
+    }
+}
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn protocol_metadata(cls: &Class, bases: &[BaseClass]) -> Option<ProtocolMetadata> {
@@ -58,18 +100,95 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    fn find_has_generic_base_class(bases: &[BaseClass]) -> bool {
-        bases.iter().any(|x| match x {
-            BaseClass::Generic(ts, ..) | BaseClass::Protocol(ts, ..) if !ts.is_empty() => true,
-            _ => false,
-        })
+    // To avoid circular computation on targs, we have a special version of `expr_infer` that only recognize a small
+    // subset of syntactical forms, and does not look into any subscript of any expr
+    fn base_class_expr_infer(&self, expr: &Expr, errors: &ErrorCollector) -> Option<Type> {
+        match expr {
+            Expr::Name(x) => Some(
+                self.get(&Key::BoundName(ShortIdentifier::expr_name(x)))
+                    .arc_clone_ty(),
+            ),
+            Expr::Attribute(x) => {
+                let base = self.base_class_expr_infer(&x.value, errors)?;
+                Some(self.attr_infer_for_type(&base, &x.attr.id, x.range, errors, None))
+            }
+            Expr::Subscript(x) => self.base_class_expr_infer(&x.value, errors),
+            _ => None,
+        }
     }
 
-    fn find_has_typed_dict_base_class(bases: &[BaseClass]) -> bool {
-        bases.iter().any(|x| match x {
-            BaseClass::TypedDict(..) => true,
-            _ => false,
-        })
+    fn parse_base_class(&self, base: BaseClass, is_new_type: bool) -> BaseClassParseResult {
+        let range = base.range();
+        let parse_base_class_type = |ty| match ty {
+            Type::ClassType(c) => {
+                let base_cls = c.class_object();
+                let base_class_metadata = self.get_metadata_for_class(base_cls);
+                BaseClassParseResult::Parsed({
+                    ParsedBaseClass {
+                        class_object: base_cls.dupe(),
+                        range,
+                        metadata: base_class_metadata,
+                    }
+                })
+            }
+            Type::Tuple(_) => {
+                let tuple_obj = self.stdlib.tuple_object();
+                let metadata = self.get_metadata_for_class(tuple_obj);
+                BaseClassParseResult::Parsed({
+                    ParsedBaseClass {
+                        class_object: tuple_obj.dupe(),
+                        range,
+                        metadata,
+                    }
+                })
+            }
+            Type::TypedDict(typed_dict) => {
+                if is_new_type {
+                    BaseClassParseResult::InvalidType(typed_dict.to_type(), range)
+                } else {
+                    let class_object = typed_dict.class_object();
+                    let class_metadata = self.get_metadata_for_class(class_object);
+                    BaseClassParseResult::Parsed({
+                        ParsedBaseClass {
+                            class_object: class_object.dupe(),
+                            range,
+                            metadata: class_metadata,
+                        }
+                    })
+                }
+            }
+            _ => {
+                if is_new_type || !ty.is_any() {
+                    BaseClassParseResult::InvalidType(ty, range)
+                } else {
+                    BaseClassParseResult::AnyType
+                }
+            }
+        };
+
+        match base {
+            BaseClass::Expr(x) => {
+                // Ignore all type errors here since they'll be reported in `class_bases_of` anyway
+                let errors = ErrorCollector::new(self.module().dupe(), ErrorStyle::Never);
+                match self.base_class_expr_infer(&x, &errors) {
+                    None => BaseClassParseResult::InvalidExpr(x),
+                    Some(ty) => match self.untype_opt(ty.clone(), x.range()) {
+                        None => BaseClassParseResult::InvalidType(ty, x.range()),
+                        Some(ty) => parse_base_class_type(ty),
+                    },
+                }
+            }
+            BaseClass::NamedTuple(..) => {
+                parse_base_class_type(self.stdlib.named_tuple_fallback().clone().to_type())
+            }
+            BaseClass::TypedDict(..) | BaseClass::Generic(..) | BaseClass::Protocol(..) => {
+                if is_new_type {
+                    BaseClassParseResult::InvalidBase(base.range())
+                } else {
+                    BaseClassParseResult::Ignored
+                }
+            }
+        }
     }
 
     pub fn class_metadata_of(
@@ -80,6 +199,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         decorators: &[(Idx<Key>, TextRange)],
         is_new_type: bool,
         special_base: &Option<Box<BaseClass>>,
+        pydantic_metadata_binding: &Option<PydanticMetadataBinding>,
         errors: &ErrorCollector,
     ) -> ClassMetadata {
         let mut enum_metadata = None;
@@ -88,153 +208,72 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             bases.push((**special_base).clone());
         }
         let mut protocol_metadata = Self::protocol_metadata(cls, bases.as_slice());
-        let has_generic_base_class = Self::find_has_generic_base_class(bases.as_slice());
-        let has_typed_dict_base_class = Self::find_has_typed_dict_base_class(bases.as_slice());
+        let has_typed_dict_base_class = bases.iter().any(|x| x.is_typed_dict());
 
-        let bases_with_range = bases
+        let parsed_results = bases
             .into_iter()
-            .filter_map(|x| {
-                let range = x.range();
-                match x {
-                    BaseClass::Expr(x) => Some((
-                        self.expr_untype(&x, TypeFormContext::BaseClassList, errors),
-                        range,
-                    )),
-                    BaseClass::NamedTuple(..) => {
-                        Some((self.stdlib.named_tuple_fallback().clone().to_type(), range))
-                    }
-                    BaseClass::TypedDict(..) => {
-                        if is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Second argument to NewType is invalid".to_owned(),
-                            );
-                        }
-                        None
-                    }
-                    BaseClass::Generic(args, _) | BaseClass::Protocol(args, _) => {
-                        if is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Second argument to NewType is invalid".to_owned(),
-                            );
-                        } else {
-                            let mut type_var_tuple_count = 0;
-                            args.iter().for_each(|x| {
-                                let ty = self.expr_untype(x, TypeFormContext::GenericBase, errors);
-                                if let Type::Unpack(unpacked) = &ty
-                                    && unpacked.is_kind_type_var_tuple()
-                                {
-                                    if type_var_tuple_count == 1 {
-                                        self.error(
-                                            errors,
-                                            x.range(),
-                                            ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                            "There cannot be more than one TypeVarTuple type parameter".to_owned(),
-                                        );
-                                    }
-                                    type_var_tuple_count += 1;
-                                }
-                            });
-                        }
-                        None
-                    }
-                }
-            })
+            .map(|x| self.parse_base_class(x, is_new_type))
             .collect::<Vec<_>>();
-
-        let mut tuple_base = if is_new_type {
-            None
-        } else {
-            bases_with_range.iter().find_map(|(ty, _)| {
-                if let Type::Tuple(tuple) = ty {
-                    Some(tuple.clone())
+        let contains_base_class_any = parsed_results.iter().any(|x| x.is_any());
+        let bases_with_metadata = parsed_results.into_iter().filter_map(|x| match x {
+            BaseClassParseResult::Ignored | BaseClassParseResult::AnyType => None,
+            BaseClassParseResult::InvalidBase(range) => {
+                if is_new_type {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                        "Second argument to NewType is invalid".to_owned(),
+                    );
+                }
+                None
+            }
+            BaseClassParseResult::InvalidExpr(expr) => {
+                if is_new_type {
+                    self.error(
+                        errors,
+                        expr.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                        "Second argument to NewType is invalid".to_owned(),
+                    );
                 } else {
-                    None
+                    self.error(
+                        errors,
+                        expr.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                        format!(
+                            "Invalid expression form for base class: `{}`",
+                            expr.display_with(self.module())
+                        ),
+                    );
                 }
-            })
-        };
-
-        let (bases_with_range_and_metadata, invalid_bases): (
-            Vec<(ClassType, TextRange, Arc<ClassMetadata>)>,
-            Vec<()>,
-        ) = bases_with_range
-            .into_iter()
-            .map(|base_type_and_range| {
-                // Return Ok() if the base class is valid, or Err() if it is not.
-                match base_type_and_range {
-                    (Type::ClassType(c), range) => {
-                        let base_cls = c.class_object();
-                        let base_class_metadata = self.get_metadata_for_class(base_cls);
-                        Ok((c, range, base_class_metadata))
-                    }
-                    (Type::Tuple(tuple), range) => {
-                        let class_ty = self.erase_tuple_type(tuple);
-                        let metadata = self.get_metadata_for_class(class_ty.class_object());
-                        Ok((class_ty, range, metadata))
-                    }
-                    (Type::TypedDict(typed_dict), range) => {
-                        if is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Second argument to NewType is invalid".to_owned(),
-                            );
-                            Err(())
-                        } else {
-                            let class_object = typed_dict.class_object();
-                            let class_metadata = self.get_metadata_for_class(class_object);
-                            // HACK HACK HACK - TypedDict instances behave very differently from instances of other
-                            // classes, so we don't represent them as ClassType in normal typechecking logic. However,
-                            // class ancestors are represented as ClassType all over the code base, and changing this
-                            // would be quite painful. So we convert TypedDict to ClassType in this one spot. Please do
-                            // not do this anywhere else.
-                            Ok((
-                                ClassType::new(
-                                    typed_dict.class_object().dupe(),
-                                    typed_dict.targs().clone(),
-                                ),
-                                range,
-                                class_metadata,
-                            ))
-                        }
-                    }
-                    (t, range) => {
-                        if is_new_type {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                                "Second argument to NewType is invalid".to_owned(),
-                            );
-                        } else if !t.is_any() {
-                            self.error(
-                                errors,
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                format!("Invalid base class: `{}`", self.for_display(t)),
-                            );
-                        }
-                        Err(())
-                    }
+                None
+            }
+            BaseClassParseResult::InvalidType(ty, range) => {
+                if is_new_type {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidArgument),
+                        "Second argument to NewType is invalid".to_owned(),
+                    );
+                } else {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                        format!("Invalid base class: `{}`", self.for_display(ty)),
+                    );
                 }
-            })
-            .partition_result();
-
-        let bases_with_metadata = bases_with_range_and_metadata
-            .into_iter()
-            .map(|(cls, range, metadata)| {
+                None
+            }
+            BaseClassParseResult::Parsed(ParsedBaseClass { class_object, range, metadata }) => {
                 if metadata.is_final() {
                     self.error(
                         errors,
                         range,
                         ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                        format!("Cannot extend final class `{}`", cls.name()),
+                        format!("Cannot extend final class `{}`", class_object.name()),
                     );
                 }
                 if is_new_type {
@@ -247,24 +286,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             "Second argument to NewType cannot be a protocol".to_owned(),
                         );
                     }
-                    if cls.targs().as_slice().iter().any(|ty| {
-                        ty.any(|ty| {
-                            matches!(
-                                ty,
-                                Type::TypeVar(_)
-                                    | Type::TypeVarTuple(_)
-                                    | Type::ParamSpec(_)
-                            )
-                        })
-                    }) {
-                        self.error(
-                            errors,
-                            range,
-                            ErrorInfo::Kind(ErrorKind::InvalidArgument),
-                            "Second argument to NewType cannot be an unbound generic"
-                                .to_owned(),
-                        );
-                    }
                 } else if metadata.is_new_type() {
                     self.error(
                         errors,
@@ -272,25 +293,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         ErrorInfo::Kind(ErrorKind::InvalidInheritance),
                         "Subclassing a NewType not allowed".to_owned(),
                     );
-                }
-                if let Some(base_class_tuple_base) = metadata.tuple_base() {
-                    if let Some(existing_tuple_base) = &tuple_base {
-                        if existing_tuple_base.is_any_tuple() {
-                            tuple_base = Some(base_class_tuple_base.clone());
-                        } else if !base_class_tuple_base.is_any_tuple()
-                            && base_class_tuple_base != existing_tuple_base {
-                                self.error(errors,
-                                    range,
-                                    ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                                    format!("Cannot extend multiple incompatible tuples: `{}` and `{}`",
-                                        self.for_display(Type::Tuple(existing_tuple_base.clone())),
-                                        self.for_display(Type::Tuple(base_class_tuple_base.clone())),
-                                ),
-                                );
-                            }
-                    } else {
-                        tuple_base = Some(base_class_tuple_base.clone());
-                    }
                 }
                 if let Some(proto) = &mut protocol_metadata {
                     if let Some(base_proto) = metadata.protocol_metadata() {
@@ -306,28 +308,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         );
                     }
                 }
-                (cls, metadata)
-            })
-            .collect::<Vec<_>>();
+                Some((class_object, metadata))
+            }
+        }).collect::<Vec<_>>();
 
-        let has_base_any = !invalid_bases.is_empty()
+        let has_base_any = contains_base_class_any
             || bases_with_metadata
                 .iter()
                 .any(|(_, metadata)| metadata.has_base_any());
 
-        let named_tuple_metadata = bases_with_metadata.iter().find_map(|(base_cls, metadata)| {
-            let base_class_object = base_cls.class_object();
-            if base_class_object.has_qname(
-                ModuleName::type_checker_internals().as_str(),
-                "NamedTupleFallback",
-            ) {
-                Some(NamedTupleMetadata {
-                    elements: self.get_named_tuple_elements(cls, errors),
-                })
-            } else {
-                metadata.named_tuple_metadata().cloned()
-            }
-        });
+        let named_tuple_metadata =
+            bases_with_metadata
+                .iter()
+                .find_map(|(base_class_object, metadata)| {
+                    if base_class_object.has_qname(
+                        ModuleName::type_checker_internals().as_str(),
+                        "NamedTupleFallback",
+                    ) {
+                        Some(NamedTupleMetadata {
+                            elements: self.get_named_tuple_elements(cls, errors),
+                        })
+                    } else {
+                        metadata.named_tuple_metadata().cloned()
+                    }
+                });
         if named_tuple_metadata.is_some() && bases_with_metadata.len() > 1 {
             self.error(
                 errors,
@@ -378,6 +382,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             || bases_with_metadata
                 .iter()
                 .any(|(_, metadata)| metadata.is_typed_dict());
+        if is_typed_dict
+            && let Some(bad) = bases_with_metadata.iter().find(|x| !x.1.is_typed_dict())
+        {
+            self.error(errors,
+                cls.range(),
+                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                format!("`{}` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.", bad.0.name()),
+            );
+        }
         let typed_dict_metadata = if is_typed_dict {
             // Validate that only 'total' keyword is allowed for TypedDict and determine is_total
             let mut is_total = true;
@@ -419,14 +432,15 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             dataclass_transform_metadata = Some(m.clone());
         }
-        let empty_tparams = self.get_class_tparams(cls).is_empty();
         if let Some(metaclass) = &metaclass {
             self.check_base_class_metaclasses(cls, metaclass, &base_metaclasses, errors);
             if self
                 .as_superclass(metaclass, self.stdlib.enum_meta().class_object())
                 .is_some()
             {
-                if !empty_tparams {
+                // NOTE(grievejia): This may create potential cycle if metaclass is generic. Need to look into
+                // whether it can be removed or not.
+                if !self.get_class_tparams(cls).is_empty() {
                     self.error(
                         errors,
                         cls.range(),
@@ -437,12 +451,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 enum_metadata = Some(EnumMetadata {
                     // A generic enum is an error, but we create Any type args anyway to handle it gracefully.
                     cls: self.promote_nontypeddict_silently_to_classtype(cls),
-                    has_value: bases_with_metadata.iter().any(|(base, _)| {
-                        base.class_object().contains(&Name::new_static("_value_"))
-                    }),
+                    has_value: bases_with_metadata
+                        .iter()
+                        .any(|(base, _)| base.contains(&Name::new_static("_value_"))),
                     is_flag: bases_with_metadata.iter().any(|(base, _)| {
                         self.is_subset_eq(
-                            &Type::ClassType(base.clone()),
+                            &Type::ClassType(self.promote_nontypeddict_silently_to_classtype(base)),
                             &Type::ClassType(self.stdlib.enum_flag().clone()),
                         )
                     }),
@@ -561,41 +575,32 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 field_specifiers,
             });
         }
-        if is_typed_dict
-            && let Some(bad) = bases_with_metadata.iter().find(|x| !x.1.is_typed_dict())
-        {
-            self.error(errors,
-                cls.range(),
-                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
-                format!("`{}` is not a typed dictionary. Typed dictionary definitions may only extend other typed dictionaries.", bad.0),
-            );
+        if let Some(dm) = dataclass_metadata.as_ref() {
+            self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
         }
-        let bases_with_metadata = if is_typed_dict && bases_with_metadata.is_empty() {
+        let bases = if is_typed_dict && bases_with_metadata.is_empty() {
             // This is a "fallback" class that contains attributes that are available on all TypedDict subclasses.
             // Note that this also makes those attributes available on *instances* of said subclasses; this is
             // desirable for methods but problematic for fields like `__total__` that should be available on the class
             // but not the instance. For now, we make all fields available on both classes and instances.
             let td_fallback = self.stdlib.typed_dict_fallback();
-            vec![(
-                td_fallback.clone(),
-                self.get_metadata_for_class(td_fallback.class_object()),
-            )]
+            vec![td_fallback.class_object().clone()]
         } else {
-            bases_with_metadata
-        };
-        // We didn't find any type parameters for this class, but it may have ones we don't know about if:
-        // - the class inherits from Any, or
-        // - the class inherits from Generic[...] or Protocol [...]. We probably dropped the type
-        //   arguments because we found an error in them.
-        let has_unknown_tparams = empty_tparams && (has_base_any || has_generic_base_class);
-        if let Some(dm) = dataclass_metadata.as_ref() {
-            self.validate_frozen_dataclass_inheritance(cls, dm, &bases_with_metadata, errors);
-        }
-        ClassMetadata::new(
             bases_with_metadata
                 .into_iter()
                 .map(|(base, _)| base)
-                .collect(),
+                .collect::<Vec<_>>()
+        };
+
+        let pydantic_metadata =
+            if let Some(PydanticMetadataBinding { frozen }) = pydantic_metadata_binding {
+                Some(PydanticMetadata { frozen: *frozen })
+            } else {
+                None
+            };
+
+        ClassMetadata::new(
+            bases,
             metaclass,
             keywords,
             typed_dict_metadata,
@@ -603,20 +608,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             enum_metadata,
             protocol_metadata,
             dataclass_metadata,
-            tuple_base,
             has_base_any,
             is_new_type,
             is_final,
-            has_unknown_tparams,
             total_ordering_metadata,
             dataclass_transform_metadata,
+            pydantic_metadata,
         )
     }
 
     fn calculate_typed_dict_metadata_fields(
         &self,
         cls: &Class,
-        bases_with_metadata: &[(ClassType, Arc<ClassMetadata>)],
+        bases_with_metadata: &[(Class, Arc<ClassMetadata>)],
         is_total: bool,
     ) -> SmallMap<Name, bool> {
         let mut all_fields = SmallMap::new();
@@ -739,9 +743,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     pub fn calculate_class_mro(&self, cls: &Class, errors: &ErrorCollector) -> ClassMro {
-        let metadata = self.get_metadata_for_class(cls);
-        let bases_with_mros = metadata
-            .base_class_types()
+        let bases = self.get_base_types_for_class(cls);
+        let bases_with_mros = bases
             .iter()
             .map(|base| {
                 let mro = self.get_mro_for_class(base.class_object());

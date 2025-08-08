@@ -216,7 +216,7 @@ class OptionStrategy(System.Object):
     class LegData(QuantConnect.Orders.Leg, metaclass=abc.ABCMeta):
         """Defines common properties between OptionLegData and UnderlyingLegData"""
 
-        def invoke(self, underlying_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData], None], option_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.OptionLegData], None]) -> None:
+        def invoke(self, underlying_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData], typing.Any], option_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.OptionLegData], typing.Any]) -> None:
             """Invokes the correct handler based on the runtime type."""
             ...
 
@@ -255,7 +255,7 @@ class OptionStrategy(System.Object):
             """Creates a new instance of OptionLegData from the specified parameters"""
             ...
 
-        def invoke(self, underlying_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData], None], option_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.OptionLegData], None]) -> None:
+        def invoke(self, underlying_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData], typing.Any], option_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.OptionLegData], typing.Any]) -> None:
             """Invokes the"""
             ...
 
@@ -274,7 +274,7 @@ class OptionStrategy(System.Object):
             """Creates a new instance of UnderlyingLegData for the specified  of underlying shares."""
             ...
 
-        def invoke(self, underlying_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData], None], option_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.OptionLegData], None]) -> None:
+        def invoke(self, underlying_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.UnderlyingLegData], typing.Any], option_handler: typing.Callable[[QuantConnect.Securities.Option.OptionStrategy.OptionLegData], typing.Any]) -> None:
             """Invokes the"""
             ...
 

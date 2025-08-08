@@ -97,7 +97,9 @@ class FireSmokeUseCase(BaseProcessor):
 
         self._ascending_alert_list: List[str] = []
         self.current_incident_end_timestamp: str = "N/A"
-        #self.fire_smoke_stack:List[int] = []
+        self.id_hit_list = ["low","medium","significant","critical","low"]
+        self.id_hit_counter = 0
+        self.latest_stack:str = None
 
     def process(
             self,
@@ -254,7 +256,7 @@ class FireSmokeUseCase(BaseProcessor):
             if len(data) < lookback:
                 return True
             post=lookback-prior-1
-            levels_list = ["low","medium","significant","critical"]
+            levels_list = ["low","medium","significant","critical","low"]
 
             current_dominant_incident = Counter(data[-lookback:][:-prior]).most_common(1)[0][0] #from LAST 23 elements fetch FIRST 15 elements
             potential_dominant_incident = Counter(data[-post:]).most_common(1)[0][0] #fetch LAST 8 elements
@@ -276,16 +278,16 @@ class FireSmokeUseCase(BaseProcessor):
             return []
         if not config.alert_config:
             return alerts
-        
 
         if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
+            alert_id = self._get_alert_incident_ids(self._ascending_alert_list[-1:])
 
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total > threshold:  
                     
                     alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                        "alert_id": "alert_"+category+'_'+frame_key,
+                        "alert_id": "alert_"+category+'_'+str(alert_id),
                         "incident_category": self.CASE_TYPE,
                         "threshold_level": threshold,
                         "ascending": get_trend(self._ascending_alert_list, lookback=23, prior=14),
@@ -299,7 +301,7 @@ class FireSmokeUseCase(BaseProcessor):
                     if count > threshold:  # Fixed logic: alert when EXCEEDING threshold
                         alerts.append({
                             "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                            "alert_id": "alert_"+category+'_'+frame_key,
+                            "alert_id": "alert_"+category+'_'+str(alert_id),
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
                             "ascending": get_trend(self._ascending_alert_list, lookback=23, prior=14),
@@ -358,7 +360,7 @@ class FireSmokeUseCase(BaseProcessor):
         if total > 0:
            # Calculate total bbox area
             total_area = 0.0
-
+        
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category in summary.get("per_category_count", {}):
                     
@@ -428,6 +430,8 @@ class FireSmokeUseCase(BaseProcessor):
                     human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE,level)}")
                     human_text = "\n".join(human_text_lines)
 
+                    incident_id = self._get_alert_incident_ids(self._ascending_alert_list[-1:])
+
                     alert_settings=[]
                     if config.alert_config and hasattr(config.alert_config, 'alert_type'):
                         alert_settings.append({
@@ -440,7 +444,7 @@ class FireSmokeUseCase(BaseProcessor):
                                         }
                         })
                 
-                    event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(frame_number), incident_type=self.CASE_TYPE,
+                    event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(incident_id), incident_type=self.CASE_TYPE,
                             severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
                             start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
                             level_settings= {"low": 3, "medium": 5, "significant":15, "critical": 30})
@@ -922,6 +926,42 @@ class FireSmokeUseCase(BaseProcessor):
             return None
 
         return delta.total_seconds()
+
+    def _get_alert_incident_ids(self, sev_level):
+
+        if sev_level!="":
+            if sev_level==self.id_hit_list[0] and len(self.id_hit_list)>=2:
+                self.id_hit_counter+=1
+                if self.id_hit_counter>7:
+                    self.latest_stack = self.id_hit_list[0]
+                    self.id_hit_list.pop(0)
+                    self.id_hit_counter=0
+                    return int(5-len(self.id_hit_list))
+                
+            elif self.id_hit_counter>0:
+                self.id_hit_counter-=1
+            elif self.id_hit_counter<0:
+                self.id_hit_counter=0
+
+            if len(self.id_hit_list) > 1:
+                if sev_level==self.latest_stack:
+                    return int(5-len(self.id_hit_list))
+                else:
+                    return 0
+        else:
+            if len(self.id_hit_list)==1:
+                self.id_hit_counter+=1
+                if self.id_hit_counter>120:
+                    return int(5)
+                if sev_level==self.latest_stack:
+                    return int(5-len(self.id_hit_list))
+                else:
+                    return 0
+            elif self.id_hit_counter>0:
+                self.id_hit_counter-=1
+            elif self.id_hit_counter<0:
+                self.id_hit_counter=0
+        return ""
 
 
 

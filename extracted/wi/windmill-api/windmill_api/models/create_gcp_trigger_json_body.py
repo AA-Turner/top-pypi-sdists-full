@@ -33,7 +33,8 @@ class CreateGcpTriggerJsonBody:
         delivery_config (Union[Unset, CreateGcpTriggerJsonBodyDeliveryConfig]):
         enabled (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, CreateGcpTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, CreateGcpTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the script
+            or flow
         retry (Union[Unset, CreateGcpTriggerJsonBodyRetry]):
     """
 

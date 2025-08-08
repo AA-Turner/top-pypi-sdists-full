@@ -153,6 +153,10 @@ func (s *logServer) UpdateCollectionLogOffset(ctx context.Context, req *logservi
 	return
 }
 
+func (s *logServer) RollbackCollectionLogOffset(ctx context.Context, req *logservicepb.UpdateCollectionLogOffsetRequest) (res *logservicepb.UpdateCollectionLogOffsetResponse, err error) {
+	return
+}
+
 func (s *logServer) PurgeDirtyForCollection(ctx context.Context, req *logservicepb.PurgeDirtyForCollectionRequest) (res *logservicepb.PurgeDirtyForCollectionResponse, err error) {
 	return
 }
@@ -184,6 +188,10 @@ func (s *logServer) ScrubLog(ctx context.Context, req *logservicepb.ScrubLogRequ
 }
 
 func (s *logServer) GarbageCollectPhase2(ctx context.Context, req *logservicepb.GarbageCollectPhase2Request) (res *logservicepb.GarbageCollectPhase2Response, err error) {
+	return
+}
+
+func (s *logServer) PurgeFromCache(ctx context.Context, req *logservicepb.PurgeFromCacheRequest) (res *logservicepb.PurgeFromCacheResponse, err error) {
 	return
 }
 

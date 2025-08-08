@@ -20,8 +20,6 @@ from anyscale.client.openapi_client.models import (
     DecoratedjobqueueListResponse,
     DecoratedlistserviceapimodelListResponse,
     DecoratedProductionServiceV2APIModel,
-    DeletedPlatformFineTunedModel,
-    FineTunedModel,
     InternalProductionJob,
     JobQueueSortDirective,
     OrganizationCollaborator,
@@ -576,41 +574,6 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_dataset(self, name: str, version: Optional[int], project: Optional[str]):
-        """See docstring for `anyscale.llm.dataset.get()`."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def upload_dataset(
-        self,
-        dataset_file: str,
-        name: Optional[str],
-        description: Optional[str],
-        cloud: Optional[str],
-        project: Optional[str],
-    ):
-        """See docstring for `anyscale.llm.dataset.upload()`."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def download_dataset(
-        self, name: str, version: Optional[int], project: Optional[str]
-    ) -> bytes:
-        """See docstring for `anyscale.llm.dataset.download()`."""
-
-    @abstractmethod
-    def list_datasets(
-        self,
-        limit: Optional[int] = None,
-        after: Optional[str] = None,  # Unique ID to start listing after
-        name_contains: Optional[str] = None,
-        cloud: Optional[str] = None,
-        project: Optional[str] = None,
-    ):
-        """See docstring for `anyscale.llm.dataset.list()`."""
-        raise NotImplementedError
-
-    @abstractmethod
     def create_workspace(self, model: CreateExperimentalWorkspace) -> str:
         """Creates a workspace
 
@@ -658,13 +621,6 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_finetuned_model(
-        self, model_id: Optional[str], job_id: Optional[str]
-    ) -> FineTunedModel:  # noqa: A002
-        """Returns LLM model information for the given model ID"""
-        raise NotImplementedError
-
-    @abstractmethod
     def get_workspace_cluster(
         self, workspace_id: Optional[str]
     ) -> Optional[DecoratedSession]:
@@ -691,17 +647,6 @@ class AnyscaleClientInterface(ABC):
     @abstractmethod
     def get_workspace_default_dir_name(self, workspace_id) -> str:
         """Get the default directory name for a workspace."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def delete_finetuned_model(self, model_id: str) -> DeletedPlatformFineTunedModel:
-        """Deletes a finetuned model from the model registry given the model ID"""
-        raise NotImplementedError
-
-    @abstractmethod
-    def list_finetuned_models(
-        self, cloud_id: Optional[str], project_id: Optional[str], max_items: int,
-    ) -> List[FineTunedModel]:
         raise NotImplementedError
 
     @abstractmethod

@@ -51,6 +51,7 @@ struct c_array_t<std::string> : std::vector<std::string> {
     using base_t::base_t;
     using base_t::operator=;
 
+    // NOLINTNEXTLINE(google-explicit-constructor)
     c_array_t(base_t&& x)
         : base_t(std::move(x)) {}
 
@@ -180,7 +181,7 @@ void fill_impl(bh::detail::accumulator_traits_holder<true>,
     finalize_args(kwargs);
 
     // releasing gil here is safe, we don't manipulate refcounts
-    py::gil_scoped_release lock;
+    py::gil_scoped_release const lock;
     variant::visit(
         overload([&h, &vargs](const variant::monostate&) { h.fill(vargs); },
                  [&h, &vargs](const auto& w) { h.fill(vargs, bh::weight(w)); }),
@@ -202,7 +203,7 @@ void fill_impl(bh::detail::accumulator_traits_holder<true, const double&>,
         throw std::invalid_argument("Sample array must be 1D");
 
     // releasing gil here is safe, we don't manipulate refcounts
-    py::gil_scoped_release lock;
+    py::gil_scoped_release const lock;
     variant::visit(
         overload([&h, &vargs, &sarray](
                      const variant::monostate&) { h.fill(vargs, bh::sample(sarray)); },
@@ -215,7 +216,7 @@ void fill_impl(bh::detail::accumulator_traits_holder<true, const double&>,
 } // namespace detail
 
 template <class Histogram>
-Histogram& fill(Histogram& self, py::args args, py::kwargs kwargs) {
+Histogram& fill(Histogram& self, const py::args& args, py::kwargs kwargs) {
     using value_type = typename Histogram::value_type;
     detail::fill_impl(bh::detail::accumulator_traits<value_type>{},
                       self,

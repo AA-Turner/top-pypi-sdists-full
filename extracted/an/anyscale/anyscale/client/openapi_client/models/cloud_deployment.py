@@ -43,7 +43,8 @@ class CloudDeployment(object):
         'file_storage': 'FileStorage',
         'aws_config': 'AWSConfig',
         'gcp_config': 'GCPConfig',
-        'kubernetes_config': 'KubernetesConfig'
+        'kubernetes_config': 'KubernetesConfig',
+        'operator_status': 'OperatorStatus'
     }
 
     attribute_map = {
@@ -57,10 +58,11 @@ class CloudDeployment(object):
         'file_storage': 'file_storage',
         'aws_config': 'aws_config',
         'gcp_config': 'gcp_config',
-        'kubernetes_config': 'kubernetes_config'
+        'kubernetes_config': 'kubernetes_config',
+        'operator_status': 'operator_status'
     }
 
-    def __init__(self, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cloud_deployment_id=None, name=None, provider=None, compute_stack=None, region=None, networking_mode=None, object_storage=None, file_storage=None, aws_config=None, gcp_config=None, kubernetes_config=None, operator_status=None, local_vars_configuration=None):  # noqa: E501
         """CloudDeployment - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -77,6 +79,7 @@ class CloudDeployment(object):
         self._aws_config = None
         self._gcp_config = None
         self._kubernetes_config = None
+        self._operator_status = None
         self.discriminator = None
 
         if cloud_deployment_id is not None:
@@ -95,6 +98,7 @@ class CloudDeployment(object):
         self.aws_config = aws_config
         self.gcp_config = gcp_config
         self.kubernetes_config = kubernetes_config
+        self.operator_status = operator_status
 
     @property
     def cloud_deployment_id(self):
@@ -350,6 +354,29 @@ class CloudDeployment(object):
         """
 
         self._kubernetes_config = kubernetes_config
+
+    @property
+    def operator_status(self):
+        """Gets the operator_status of this CloudDeployment.  # noqa: E501
+
+        Status of the Anyscale operator (only for K8s deployments).  # noqa: E501
+
+        :return: The operator_status of this CloudDeployment.  # noqa: E501
+        :rtype: OperatorStatus
+        """
+        return self._operator_status
+
+    @operator_status.setter
+    def operator_status(self, operator_status):
+        """Sets the operator_status of this CloudDeployment.
+
+        Status of the Anyscale operator (only for K8s deployments).  # noqa: E501
+
+        :param operator_status: The operator_status of this CloudDeployment.  # noqa: E501
+        :type: OperatorStatus
+        """
+
+        self._operator_status = operator_status
 
     def to_dict(self):
         """Returns the model properties as a dict"""

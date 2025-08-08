@@ -353,6 +353,11 @@ lazy_static::lazy_static! {
     };
 }
 
+#[derive(Debug)]
+pub struct QuotaOverrides {
+    pub limit: u32,
+}
+
 #[derive(Debug, Validate)]
 pub struct QuotaExceededError {
     pub usage_type: UsageType,
@@ -398,7 +403,9 @@ impl ChromaError for QuotaEnforcerError {
             QuotaEnforcerError::ApiKeyMissing => chroma_error::ErrorCodes::InvalidArgument,
             QuotaEnforcerError::Unauthorized => chroma_error::ErrorCodes::PermissionDenied,
             QuotaEnforcerError::InitializationFailed => chroma_error::ErrorCodes::Internal,
-            QuotaEnforcerError::GenericQuotaError(_) => chroma_error::ErrorCodes::ResourceExhausted,
+            QuotaEnforcerError::GenericQuotaError(_) => {
+                chroma_error::ErrorCodes::UnprocessableEntity
+            }
         }
     }
 }
@@ -407,15 +414,20 @@ pub trait QuotaEnforcer: Send + Sync {
     fn enforce<'other>(
         &'other self,
         payload: &'other QuotaPayload<'other>,
-    ) -> Pin<Box<dyn Future<Output = Result<(), QuotaEnforcerError>> + Send + 'other>>;
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Result<Option<QuotaOverrides>, QuotaEnforcerError>> + Send + 'other,
+        >,
+    >;
 }
 
 impl QuotaEnforcer for () {
-    fn enforce(
-        &self,
-        _: &QuotaPayload<'_>,
-    ) -> Pin<Box<dyn Future<Output = Result<(), QuotaEnforcerError>> + Send>> {
-        Box::pin(ready(Ok(())))
+    fn enforce<'a>(
+        &'a self,
+        _payload: &'a QuotaPayload<'a>,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<QuotaOverrides>, QuotaEnforcerError>> + Send + 'a>>
+    {
+        Box::pin(ready(Ok(None)))
     }
 }
 

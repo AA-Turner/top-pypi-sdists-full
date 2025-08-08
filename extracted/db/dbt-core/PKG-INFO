@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-core
-Version: 1.10.6
+Version: 1.10.7
 Summary: With dbt, data analysts and engineers can build analytics the way engineers build applications.
 Home-page: https://github.com/dbt-labs/dbt-core
 Author: dbt Labs

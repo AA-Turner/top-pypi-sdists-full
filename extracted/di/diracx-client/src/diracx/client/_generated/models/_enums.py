@@ -38,6 +38,7 @@ class SandboxFormat(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """SandboxFormat."""
 
     TAR_BZ2 = "tar.bz2"
+    TAR_ZST = "tar.zst"
 
 
 class SandboxType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -55,6 +56,8 @@ class ScalarSearchOperator(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     GT = "gt"
     LT = "lt"
     LIKE = "like"
+    NOT_LIKE = "not like"
+    REGEX = "regex"
 
 
 class SortDirection(str, Enum, metaclass=CaseInsensitiveEnumMeta):

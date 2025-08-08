@@ -26,7 +26,7 @@ class EditNatsTrigger:
         stream_name (Union[Unset, str]):
         consumer_name (Union[Unset, str]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, EditNatsTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, EditNatsTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, EditNatsTriggerRetry]):
     """
 

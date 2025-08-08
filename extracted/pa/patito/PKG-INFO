@@ -1,35 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: patito
-Version: 0.8.3
+Version: 0.8.4
 Summary: A dataframe modelling library built on top of polars and pydantic.
-Home-page: https://github.com/JakobGM/patito
-License: MIT
-Keywords: validation,dataframe
-Author: Jakob Gerhard Martinussen
-Author-email: jakobgm@gmail.com
-Requires-Python: >=3.9
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Provides-Extra: caching
-Provides-Extra: docs
-Provides-Extra: pandas
-Requires-Dist: Sphinx (<7) ; extra == "docs"
-Requires-Dist: pandas ; extra == "pandas"
-Requires-Dist: polars (>=1.10.0)
-Requires-Dist: pyarrow (>=5.0.0) ; extra == "caching"
-Requires-Dist: pydantic (>=2.7.0)
-Requires-Dist: sphinx-autobuild ; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
-Requires-Dist: sphinx-rtd-theme ; extra == "docs"
-Requires-Dist: sphinx-toolbox ; extra == "docs"
-Requires-Dist: sphinxcontrib-mermaid ; extra == "docs"
-Requires-Dist: typing-extensions
-Project-URL: Documentation, https://patito.readthedocs.io
+Project-URL: Homepage, https://github.com/JakobGM/patito
 Project-URL: Repository, https://github.com/JakobGM/patito
+Project-URL: Documentation, https://patito.readthedocs.io
+Author-email: Jakob Gerhard Martinussen <jakobgm@gmail.com>, Thomas Aarholt <thomasaarholt@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: dataframe,validation
+Requires-Python: >=3.9
+Requires-Dist: polars>=1.10.0
+Requires-Dist: pydantic>=2.7.0
+Requires-Dist: typing-extensions
+Provides-Extra: caching
+Requires-Dist: pyarrow>=5.0.0; extra == 'caching'
+Provides-Extra: pandas
+Requires-Dist: pandas; extra == 'pandas'
 Description-Content-Type: text/markdown
 
 # <center><img height="30px" src="https://em-content.zobj.net/thumbs/120/samsung/78/duck_1f986.png"> Patito<center>
@@ -307,4 +294,3 @@ milk = products.get(pl.col("product_id") == 1)
 print(milk.url)
 # https://example.com/no/products/1-skimmed-milk
 ```
-

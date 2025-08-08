@@ -48,6 +48,8 @@ from .literals import (
     PlatformTypeType,
     ProjectSortByTypeType,
     ProjectVisibilityTypeType,
+    PullRequestBuildApproverRoleType,
+    PullRequestBuildCommentApprovalType,
     ReportCodeCoverageSortByTypeType,
     ReportExportConfigTypeType,
     ReportGroupSortByTypeType,
@@ -230,6 +232,7 @@ __all__ = (
     "ProxyConfigurationOutputTypeDef",
     "ProxyConfigurationTypeDef",
     "ProxyConfigurationUnionTypeDef",
+    "PullRequestBuildPolicyTypeDef",
     "PutResourcePolicyInputTypeDef",
     "PutResourcePolicyOutputTypeDef",
     "RegistryCredentialTypeDef",
@@ -509,6 +512,11 @@ ProjectArtifactsTypeDef = TypedDict(
         "bucketOwnerAccess": NotRequired[BucketOwnerAccessType],
     },
 )
+
+
+class PullRequestBuildPolicyTypeDef(TypedDict):
+    requiresCommentApproval: PullRequestBuildCommentApprovalType
+    approverRoles: NotRequired[Sequence[PullRequestBuildApproverRoleType]]
 
 
 class ScopeConfigurationTypeDef(TypedDict):
@@ -1098,6 +1106,7 @@ class CreateWebhookInputTypeDef(TypedDict):
     buildType: NotRequired[WebhookBuildTypeType]
     manualCreation: NotRequired[bool]
     scopeConfiguration: NotRequired[ScopeConfigurationTypeDef]
+    pullRequestBuildPolicy: NotRequired[PullRequestBuildPolicyTypeDef]
 
 
 class UpdateWebhookInputTypeDef(TypedDict):
@@ -1106,6 +1115,7 @@ class UpdateWebhookInputTypeDef(TypedDict):
     rotateSecret: NotRequired[bool]
     filterGroups: NotRequired[Sequence[Sequence[WebhookFilterTypeDef]]]
     buildType: NotRequired[WebhookBuildTypeType]
+    pullRequestBuildPolicy: NotRequired[PullRequestBuildPolicyTypeDef]
 
 
 class WebhookTypeDef(TypedDict):

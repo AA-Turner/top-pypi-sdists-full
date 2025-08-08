@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from abc import ABCMeta, abstractmethod
 from . import algebra as alg
-from .spaces import Labish, Regular, Space  # noqa: F401
+from .spaces import Labish, Luminant, Prism, Space  # noqa: F401
 from .spaces.hsl import hsl_to_srgb, srgb_to_hsl
 from .cat import WHITES
 from . import util
@@ -40,9 +40,22 @@ def get_cylinder(color: Color) -> tuple[Vector, int]:
         c, h = alg.rect_to_polar(values[idx[1]], values[idx[2]])
         return [values[idx[0]], c, h if not achromatic else alg.NaN], 2
 
-    if isinstance(cs, Regular):
-        values = color[:-1]
-        hsl = srgb_to_hsl(color[:-1])
+    if isinstance(cs, Prism) and not isinstance(cs, Luminant):
+        coords = color[:-1]
+        idx = cs.indexes()
+        offset_1 = cs.channels[idx[0]].low
+        offset_2 = cs.channels[idx[1]].low
+        offset_3 = cs.channels[idx[2]].low
+
+        scale_1 = cs.channels[idx[0]].high
+        scale_2 = cs.channels[idx[1]].high
+        scale_3 = cs.channels[idx[2]].high
+        coords = [coords[i] for i in idx]
+        # Scale and offset the values such that channels are between 0 - 1
+        coords[0] = (coords[0] - offset_1) / (scale_1 - offset_1)
+        coords[1] = (coords[1] - offset_2) / (scale_2 - offset_2)
+        coords[2] = (coords[2] - offset_3) / (scale_3 - offset_3)
+        hsl = srgb_to_hsl(coords)
         if achromatic:
             hsl[0] = alg.NaN
         return hsl, 0
@@ -68,11 +81,27 @@ def from_cylinder(color: AnyColor, coords: Vector) -> AnyColor:
         lab[idx[2]] = b
         return color.new(space, lab, color[-1])
 
-    if isinstance(cs, Regular):
+    if isinstance(cs, Prism):
         if math.isnan(coords[0]):
             coords[0] = 0
-        rgb = hsl_to_srgb(coords)
-        return color.new(space, rgb, color[-1])
+        coords = hsl_to_srgb(coords)
+        idx = cs.indexes()
+        offset_1 = cs.channels[idx[0]].low
+        offset_2 = cs.channels[idx[1]].low
+        offset_3 = cs.channels[idx[2]].low
+
+        scale_1 = cs.channels[idx[0]].high
+        scale_2 = cs.channels[idx[1]].high
+        scale_3 = cs.channels[idx[2]].high
+        # Scale and offset the values back to the origin space's configuration
+        coords[0] = coords[0] * (scale_1 - offset_1) + offset_1
+        coords[1] = coords[1] * (scale_2 - offset_2) + offset_2
+        coords[2] = coords[2] * (scale_3 - offset_3) + offset_3
+        ordered = [0.0, 0.0, 0.0]
+        # Consistently order a given color spaces points based on its type
+        for e, c in enumerate(coords):
+            ordered[idx[e]] = c
+        return color.new(space, ordered, color[-1])
 
     raise ValueError(f'Unsupported color space type {space}')  # pragma: no cover
 
@@ -111,7 +140,8 @@ class Monochromatic(Harmony):
 
         is_cyl = color1._space.is_polar()
 
-        if not is_cyl and not isinstance(color1._space, (Labish, Regular)):
+        cs = color1._space
+        if not is_cyl and not isinstance(cs, Labish) and not (isinstance(cs, Prism) and not isinstance(cs, Luminant)):
             raise ValueError(f'Unsupported color space type {color.space()}')
 
         # If only one color is requested, just return the current color.
@@ -268,10 +298,10 @@ class SplitComplementary(Harmony):
         # Adjusts hue and convert to the final color
         colors = [from_cylinder(color, coords)]
         clone = coords[:]
-        clone[h_idx] = adjust_hue(clone[h_idx], 210)
+        clone[h_idx] = adjust_hue(clone[h_idx], -210)
         colors.append(from_cylinder(color, clone))
-        coords[h_idx] = adjust_hue(coords[h_idx], -210)
-        colors.append(from_cylinder(color, coords))
+        coords[h_idx] = adjust_hue(coords[h_idx], 210)
+        colors.insert(0, from_cylinder(color, coords))
         return colors
 
 
@@ -291,7 +321,7 @@ class Analogous(Harmony):
         clone[h_idx] = adjust_hue(clone[h_idx], 30)
         colors.append(from_cylinder(color, clone))
         coords[h_idx] = adjust_hue(coords[h_idx], -30)
-        colors.append(from_cylinder(color, coords))
+        colors.insert(0, from_cylinder(color, coords))
         return colors
 
 

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import copy
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from functools import partial
 from typing import (
     Any,
     Callable,
     ClassVar,
-    Iterable,
-    Iterator,
     Literal,
     TypedDict,
     TypeVar,
@@ -19,6 +18,7 @@ import numpy as np  # pylint: disable=unused-import
 
 import boost_histogram
 
+from .._compat.typing import Self
 from .._core import axis as ca
 from .._utils import cast, register, zip_strict
 from . import transform
@@ -91,7 +91,7 @@ class Axis:
 
     def __setattr__(self, attr: str, value: Any) -> None:
         if attr == "__dict__":
-            self._ax.metadata = value
+            self._ax.raw_metadata = value
         object.__setattr__(self, attr, value)
 
     def __getattr__(self, attr: str) -> Any:
@@ -120,23 +120,23 @@ class Axis:
                 "Cannot provide metadata by keyword and __dict__, use __dict__ only"
             )
         if __dict__ is not None:
-            self._ax.metadata = __dict__
+            self._ax.raw_metadata = __dict__
         elif metadata is not None:
-            self._ax.metadata["metadata"] = metadata
+            self._ax.raw_metadata["metadata"] = metadata
 
-        self.__dict__ = self._ax.metadata
+        self.__dict__ = self._ax.raw_metadata
 
     def __setstate__(self, state: dict[str, Any]) -> None:
         self._ax = state["_ax"]
-        self.__dict__ = self._ax.metadata
+        self.__dict__ = self._ax.raw_metadata
 
     def __getstate__(self) -> dict[str, Any]:
         return {"_ax": self._ax}
 
-    def __copy__(self: T) -> T:
-        other: T = self.__class__.__new__(self.__class__)
+    def __copy__(self) -> Self:
+        other: Self = self.__class__.__new__(self.__class__)
         other._ax = copy.copy(self._ax)
-        other.__dict__ = other._ax.metadata
+        other.__dict__ = other._ax.raw_metadata
         return other
 
     def index(self, value: float | str) -> int:
@@ -166,6 +166,8 @@ class Axis:
 
         return self._ax.bin(index)  # type: ignore[no-any-return]
 
+    __hash__ = None  # type: ignore[assignment]
+
     def __eq__(self, other: object) -> bool:
         return hasattr(other, "_ax") and self._ax == other._ax
 
@@ -173,10 +175,10 @@ class Axis:
         return (not hasattr(other, "_ax")) or self._ax != other._ax
 
     @classmethod
-    def _convert_cpp(cls: type[T], cpp_object: Any) -> T:
-        nice_ax: T = cls.__new__(cls)
+    def _convert_cpp(cls, cpp_object: Any) -> Self:
+        nice_ax: Self = cls.__new__(cls)
         nice_ax._ax = cpp_object
-        nice_ax.__dict__ = cpp_object.metadata
+        nice_ax.__dict__ = cpp_object.raw_metadata
         return nice_ax
 
     def __len__(self) -> int:
@@ -186,6 +188,16 @@ class Axis:
         self,
     ) -> Iterator[float] | Iterator[str] | Iterator[tuple[float, float]]:
         return self._ax.__iter__()  # type: ignore[no-any-return]
+
+    def _process_callable(self, value: AxCallOrInt | None, *, default: int) -> int:
+        """
+        This processes a callable in start or stop. None gets replaced by default.
+        """
+        if value is None:
+            return default
+        if callable(value):
+            return value(self)
+        return value
 
     def _process_loc(
         self, start: AxCallOrInt | None, stop: AxCallOrInt | None
@@ -199,9 +211,6 @@ class Axis:
         is turned off if underflow is not None.
         """
 
-        def _process_internal(item: AxCallOrInt | None, default: int) -> int:
-            return default if item is None else item(self) if callable(item) else item
-
         underflow = -1 if self._ax.traits_underflow else 0
         overflow = 1 if self._ax.traits_overflow else 0
 
@@ -209,8 +218,8 @@ class Axis:
         if not self._ax.traits_ordered and not (start is None and stop is None):
             overflow = 0
 
-        begin = _process_internal(start, underflow)
-        end = _process_internal(stop, len(self) + overflow)
+        begin = self._process_callable(start, default=underflow)
+        end = self._process_callable(stop, default=len(self) + overflow)
 
         return begin, end
 
@@ -350,7 +359,7 @@ class Regular(Axis, family=boost_histogram):
             Filling wraps around.
         transform : Optional[AxisTransform] = None
             Transform the regular bins (Log, Sqrt, and Pow(v))
-        __dict__: Optional[Dict[str, Any]] = None
+        __dict__: Optional[dict[str, Any]] = None
             The full metadata dictionary
         """
 
@@ -466,7 +475,7 @@ class Variable(Axis, family=boost_histogram):
         growth : bool = False
             Allow the axis to grow if a value is encountered out of range.
             Be careful, the axis will grow as large as needed.
-        __dict__: Optional[Dict[str, Any]] = None
+        __dict__: Optional[dict[str, Any]] = None
             The full metadata dictionary
         """
 
@@ -565,7 +574,7 @@ class Integer(Axis, family=boost_histogram):
         growth : bool = False
             Allow the axis to grow if a value is encountered out of range.
             Be careful, the axis will grow as large as needed.
-        __dict__: Optional[Dict[str, Any]] = None
+        __dict__: Optional[dict[str, Any]] = None
             The full metadata dictionary
         """
 
@@ -661,7 +670,7 @@ class StrCategory(BaseCategory, family=boost_histogram):
             Be careful, the axis will grow as large as needed.
         overflow : bool = True
             Include an overflow bin for "missed" hits. Ignored if growth=True.
-        __dict__: Optional[Dict[str, Any]] = None
+        __dict__: Optional[dict[str, Any]] = None
             The full metadata dictionary
         """
 
@@ -733,7 +742,7 @@ class IntCategory(BaseCategory, family=boost_histogram):
             Be careful, the axis will grow as large as needed.
         overflow : bool = True
             Include an overflow bin for "missed" hits. Ignored if growth=True.
-        __dict__: Optional[Dict[str, Any]] = None
+        __dict__: Optional[dict[str, Any]] = None
             The full metadata dictionary
         """
 
@@ -773,7 +782,7 @@ class Boolean(Axis, family=boost_histogram):
         ----------
         metadata : object
             Any Python object to attach to the axis, like a label.
-        __dict__: Optional[Dict[str, Any]] = None
+        __dict__: Optional[dict[str, Any]] = None
             The full metadata dictionary
         """
 
@@ -822,7 +831,7 @@ class ArrayTuple(tuple):  # type: ignore[type-arg]
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self.__class__(a(*args, **kwargs) for a in self)
 
-    def broadcast(self: A) -> A:
+    def broadcast(self) -> Self:
         """
         The arrays in this tuple will be compressed if possible to save memory.
         Use this method to broadcast them out into their full memory

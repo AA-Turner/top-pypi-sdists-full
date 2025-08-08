@@ -244,21 +244,25 @@ def list_cloud(name: Optional[str], cloud_id: Optional[str], max_items: int,) ->
     )
 
 
+@cloud_cli.group("deployment", help="Manage the configuration for a cloud deployment.")
+def cloud_deployment_group() -> None:
+    pass
+
+
 @cloud_cli.group("config", help="Manage the configuration for a cloud.")
 def cloud_config_group() -> None:
     pass
 
 
-@cloud_cli.command(
-    name="add-deployment",
-    help="Add a new cloud deployment to an existing cloud.",
+@cloud_deployment_group.command(
+    name="create",
+    help="Create a new cloud deployment in an existing cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_ADD_DEPLOYMENT_EXAMPLE,
+    example=command_examples.CLOUD_DEPLOYMENT_CREATE_EXAMPLE,
 )
 @click.option(
-    "--cloud-name",
-    "-n",
-    help="The name of the cloud to add the new deployment to.",
+    "--cloud",
+    help="The name of the cloud to create the new deployment in.",
     type=str,
     required=True,
 )
@@ -274,20 +278,82 @@ def cloud_config_group() -> None:
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
 )
-def cloud_add_deployment(
-    cloud_name: str, file: str, skip_verification: bool, yes: bool,
+def cloud_deployment_create(
+    cloud: str, file: str, skip_verification: bool, yes: bool,
 ) -> None:
     try:
-        CloudController().add_cloud_deployment(cloud_name, file, skip_verification, yes)
+        CloudController().create_cloud_deployment(cloud, file, skip_verification, yes)
     except click.ClickException as e:
         print(e)
 
 
-@cloud_cli.command(
-    name="remove-deployment",
+@cloud_deployment_group.command(
+    name="get",
+    help="Get a cloud deployment for a cloud.",
+    cls=AnyscaleCommand,
+    example=command_examples.CLOUD_DEPLOYMENT_GET_EXAMPLE,
+)
+@click.option(
+    "--cloud",
+    help="The name of the cloud that the cloud deployment belongs to.",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--deployment",
+    help="The name of the cloud deployment. If not provided, the primary cloud deployment will be returned.",
+    type=str,
+    required=False,
+)
+def cloud_deployment_get(cloud: str, deployment: Optional[str]) -> None:
+    try:
+        result = CloudController().get_cloud_deployment_dict_by_name(cloud, deployment)
+        print(yaml.dump(result, sort_keys=False))
+    except click.ClickException as e:
+        print(e)
+
+
+@cloud_deployment_group.command(
+    name="update",
+    help="Update a cloud deployment in an existing cloud.",
+    cls=AnyscaleCommand,
+    example=command_examples.CLOUD_DEPLOYMENT_UPDATE_EXAMPLE,
+)
+@click.option(
+    "--cloud",
+    help="The name of the cloud that the cloud deployment belongs to.",
+    type=str,
+    required=True,
+)
+@click.option(
+    "--file",
+    "-f",
+    help="Path to a YAML file defining the cloud deployment. Schema: https://docs.anyscale.com/reference/cloud-api#clouddeployment.",  # TODO(janet): check link
+    required=True,
+)
+@click.option(
+    "--skip-verification",
+    is_flag=True,
+    default=False,
+    help="Skip cloud deployment verification.",
+)
+@click.option(
+    "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
+)
+def cloud_deployment_update(
+    cloud: str, file: str, skip_verification: bool, yes: bool
+) -> None:
+    try:
+        CloudController().update_cloud_deployment(cloud, file, skip_verification, yes)
+    except click.ClickException as e:
+        print(e)
+
+
+@cloud_deployment_group.command(
+    name="delete",
     help="Remove a cloud deployment from an existing cloud.",
     cls=AnyscaleCommand,
-    example=command_examples.CLOUD_REMOVE_DEPLOYMENT_EXAMPLE,
+    example=command_examples.CLOUD_DEPLOYMENT_DELETE_EXAMPLE,
 )
 @click.option(
     "--cloud",
@@ -304,7 +370,7 @@ def cloud_add_deployment(
 @click.option(
     "--yes", "-y", is_flag=True, default=False, help="Skip asking for confirmation."
 )
-def cloud_remove_deployment(cloud: str, deployment: str, yes: bool,) -> None:
+def cloud_deployment_delete(cloud: str, deployment: str, yes: bool,) -> None:
     try:
         CloudController().remove_cloud_deployment(cloud, deployment, yes)
     except click.ClickException as e:
@@ -353,19 +419,6 @@ def cloud_remove_deployment(cloud: str, deployment: str, yes: bool,) -> None:
         "are manually granted permissions to access the cloud. No existing cloud permissions are altered by specifying this flag."
     ),
 )
-@click.option(
-    "--file",
-    "-f",
-    help="YAML file containing the updated cloud spec.",
-    required=False,
-    hidden=True,
-)
-@click.option(
-    "--skip-verification",
-    is_flag=True,
-    default=False,
-    help="Skip cloud deployment verification.",
-)
 def cloud_update(  # noqa: PLR0913
     cloud_name: Optional[str],
     name: Optional[str],
@@ -374,16 +427,7 @@ def cloud_update(  # noqa: PLR0913
     enable_head_node_fault_tolerance: bool,
     yes: bool,
     enable_auto_add_user: Optional[bool],
-    file: Optional[str],
-    skip_verification: bool,
 ) -> None:
-    if file:
-        try:
-            CloudController().update_cloud_deployments(file, skip_verification)
-        except click.ClickException as e:
-            print(e)
-        return
-
     if cloud_name and name and cloud_name != name:
         raise click.ClickException(
             "The positional argument CLOUD_NAME and the keyword argument --name "
@@ -432,14 +476,17 @@ def cloud_config_get(
 
 
 @cloud_config_group.command(
-    "update", help="Update the current configuration for a cloud."
+    "update",
+    help="Update the current configuration for a cloud.",
+    cls=AnyscaleCommand,
+    example=command_examples.CLOUD_CONFIG_UPDATE_EXAMPLE,
 )
 @click.argument("cloud-name", required=False)
 @click.option("--name", "-n", help="Update configuration of cloud by name.", type=str)
 @click.option(
     "--cloud-id",
     "--id",
-    help="Cloud id to get details about. Alternative to cloud name.",
+    help="Cloud id to update. Alternative to cloud name.",
     required=False,
 )
 @click.option(
@@ -458,6 +505,12 @@ def cloud_config_get(
     ),
 )
 @click.option(
+    "--enable-system-cluster/--disable-system-cluster",
+    default=None,
+    help="Enable or disable system cluster functionality.",
+    required=False,
+)
+@click.option(
     "--spec-file",
     type=str,
     required=False,
@@ -468,14 +521,25 @@ def cloud_config_update(
     name: Optional[str],
     cloud_id: Optional[str],
     enable_log_ingestion: Optional[bool],
+    enable_system_cluster: Optional[bool],
     spec_file: Optional[str],
 ) -> None:
-    if any([enable_log_ingestion is not None]) and spec_file:
+    if cloud_name and name and cloud_name != name:
         raise click.ClickException(
-            "Please provide only one of the following arguments: --enable-log-ingestion, --disable-log-ingestion, --spec-file."
+            "The positional argument CLOUD_NAME and the keyword argument --name "
+            "were both provided. Please only provide one of these two arguments."
         )
 
-    if any([enable_log_ingestion is not None]):
+    passed_enable_disable_flags = any(
+        [enable_log_ingestion is not None, enable_system_cluster is not None]
+    )
+    if passed_enable_disable_flags and spec_file:
+        raise click.ClickException(
+            "Invalid combination of arguments: --spec-file should not be provided with any other enable/disable flags."
+        )
+
+    if passed_enable_disable_flags:
+        # Handle log ingestion configuration
         # TODO: enable_log_ingestion should be unified into cloud deployment config.
         if enable_log_ingestion is True:
             consent_message = click.prompt(
@@ -490,7 +554,7 @@ def cloud_config_update(
                 raise click.ClickException(
                     'You must type "consent" to enable log ingestion.'
                 )
-        if enable_log_ingestion is False:
+        elif enable_log_ingestion is False:
             confirm_response = click.confirm(
                 "--disable-log-ingestion is specified. Please note the logs that's "
                 "already ingested will not be deleted. Existing clusters will not stop"
@@ -506,13 +570,38 @@ def cloud_config_update(
             cloud_id=cloud_id,
             enable_log_ingestion=enable_log_ingestion,
         )
+
+        # Handle system cluster configuration
+        if enable_system_cluster is True:
+            confirm_response = click.confirm(
+                "--enable-system-cluster is specified. Please note that this will enable "
+                "system cluster functionality for the cloud and will incur extra cost. "
+                "Are you sure you want to enable system cluster?"
+            )
+        elif enable_system_cluster is False:
+            confirm_response = click.confirm(
+                "--disable-system-cluster is specified. This will disable system cluster "
+                "functionality for the cloud. Please note that this will not terminate "
+                "the system cluster if it is currently running. "
+                "Are you sure you want to disable system cluster?"
+            )
+        if enable_system_cluster is not None and not confirm_response:
+            raise click.ClickException(
+                f"You must confirm to {'enable' if enable_system_cluster else 'disable'} system cluster."
+            )
+
+        CloudController().update_system_cluster_config(
+            cloud_name=cloud_name or name,
+            cloud_id=cloud_id,
+            system_cluster_enabled=enable_system_cluster,
+        )
     elif spec_file:
         CloudController().update_cloud_config(
             cloud_name=cloud_name or name, cloud_id=cloud_id, spec_file=spec_file,
         )
     else:
         raise click.ClickException(
-            "Please provide at least one of the following arguments: --enable-log-ingestion, --disable-log-ingestion."
+            "Please provide at least one of the following arguments: --enable-log-ingestion, --disable-log-ingestion, --enable-system-cluster, --disable-system-cluster, --spec-file."
         )
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zyte-api
-Version: 0.7.1
+Version: 0.8.0
 Summary: Python interface to Zyte API
 Home-page: https://github.com/zytedata/python-zyte-api
 Author: Zyte Group Ltd
@@ -19,12 +19,15 @@ Classifier: Programming Language :: Python :: 3.13
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.8.0
-Requires-Dist: attrs
-Requires-Dist: brotli
-Requires-Dist: runstats
-Requires-Dist: tenacity
-Requires-Dist: tqdm
+Requires-Dist: attrs>=20.1.0
+Requires-Dist: brotli>=0.5.2
+Requires-Dist: runstats>=0.0.1
+Requires-Dist: tenacity>=8.2.0
+Requires-Dist: tqdm>=4.16.0
 Requires-Dist: w3lib>=2.1.1
+Provides-Extra: x402
+Requires-Dist: eth-account>=0.13.7; extra == "x402"
+Requires-Dist: x402>=0.1.1; extra == "x402"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -32,6 +35,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: summary
 
@@ -72,14 +76,22 @@ Installation
 
     pip install zyte-api
 
-.. note:: Python 3.9+ is required.
+Or, to use x402_:
+
+.. _x402: https://www.x402.org/
+
+.. code-block:: shell
+
+    pip install zyte-api[x402]
+
+.. note:: Python 3.9+ is required; Python 3.10+ if using x402.
 
 .. install-end
 
 Basic usage
 ===========
 
-.. basic-start
+.. basic-key-start
 
 Set your API key
 ----------------
@@ -91,6 +103,9 @@ After you `sign up for a Zyte API account
 <https://app.zyte.com/o/zyte-api/api-access>`_.
 
 .. key-get-end
+.. basic-key-end
+
+.. basic-start
 
 
 Use the command-line client

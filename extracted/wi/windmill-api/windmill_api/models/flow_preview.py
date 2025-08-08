@@ -19,7 +19,7 @@ class FlowPreview:
     """
     Attributes:
         value (FlowPreviewValue):
-        args (FlowPreviewArgs):
+        args (FlowPreviewArgs): The arguments to pass to the script or flow
         path (Union[Unset, str]):
         tag (Union[Unset, str]):
         restarted_from (Union[Unset, FlowPreviewRestartedFrom]):

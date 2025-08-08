@@ -80,6 +80,7 @@ from anyscale.controllers.cloud_functional_verification_controller import (
     CloudFunctionalVerificationController,
     CloudFunctionalVerificationType,
 )
+from anyscale.controllers.kubernetes_verifier import KubernetesCloudDeploymentVerifier
 from anyscale.formatters import clouds_formatter
 from anyscale.job._private.job_sdk import (
     HA_JOB_STATE_TO_JOB_STATE,
@@ -197,10 +198,11 @@ class CloudController(BaseController):
                 ).result
             ]
         else:
-            clouds = self.api_client.list_clouds_api_v2_clouds_get().results
-        clouds_output = clouds[:max_items]
+            clouds = self.api_client.list_clouds_api_v2_clouds_get(
+                count=max_items
+            ).results
         output = clouds_formatter.format_clouds_output(
-            clouds=clouds_output, json_format=False
+            clouds=clouds[:max_items], json_format=False
         )
         return str(output)
 
@@ -1422,6 +1424,30 @@ class CloudController(BaseController):
                 cloud_id, CloudProviders.AWS, functions_to_verify, yes,
             )
 
+    def get_cloud_deployment(
+        self, cloud_id: str, cloud_deployment_id: str
+    ) -> CloudDeployment:
+        try:
+            return self.api_client.get_cloud_deployment_api_v2_clouds_cloud_id_deployment_get(
+                cloud_id=cloud_id, cloud_deployment_id=cloud_deployment_id,
+            ).result
+        except Exception as e:  # noqa: BLE001
+            raise ClickException(
+                f"Failed to get cloud deployment {cloud_deployment_id} for cloud {cloud_id}. Error: {e}"
+            )
+
+    # Avoid displaying fields with empty values (since the values for optional fields default to None).
+    def _remove_empty_values(self, d):
+        if isinstance(d, dict):
+            return {
+                k: self._remove_empty_values(v)
+                for k, v in d.items()
+                if self._remove_empty_values(v)
+            }
+        if isinstance(d, list):
+            return [self._remove_empty_values(v) for v in d]
+        return d
+
     def get_cloud_deployments(self, cloud_id: str) -> Dict[str, Any]:
         cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(
             cloud_id=cloud_id,
@@ -1441,23 +1467,37 @@ class CloudController(BaseController):
                 f"Failed to get cloud deployments for cloud {cloud.name} ({cloud_id}). Error: {e}"
             )
 
-        # Avoid displaying fields with empty values (since the values for optional fields default to None).
-        def remove_empty_values(d):
-            if isinstance(d, dict):
-                return {
-                    k: remove_empty_values(v)
-                    for k, v in d.items()
-                    if remove_empty_values(v)
-                }
-            return d
-
         return {
             "id": cloud_id,
             "name": cloud.name,
             "deployments": [
-                remove_empty_values(deployment.to_dict()) for deployment in deployments
+                self._remove_empty_values(deployment.to_dict())
+                for deployment in deployments
             ],
         }
+
+    def get_cloud_deployment_dict_by_name(
+        self, cloud_name: str, cloud_deployment_name: Optional[str]
+    ) -> Dict[str, Any]:
+        cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud_name)
+
+        result = self.get_cloud_deployments(cloud_id)
+        deployments = result.get("deployments", [])
+        if len(deployments) == 0:
+            raise ClickException(f"Cloud {cloud_name} has no cloud deployments.")
+
+        if cloud_deployment_name is None:
+            if len(deployments) > 1:
+                self.log.warning(
+                    f"Cloud {cloud_name} has {len(deployments)} deployments, only the primary deployment will be returned."
+                )
+            return deployments[0]
+
+        for deployment in deployments:
+            if deployment.get("name") == cloud_deployment_name:
+                return deployment
+
+        raise ClickException(f"Cloud deployment {cloud_deployment_name} not found.")
 
     def update_aws_anyscale_iam_role(
         self,
@@ -1559,9 +1599,11 @@ class CloudController(BaseController):
             )
 
         # Get EFS mount target IP.
-        if deployment.file_storage:
+        if (
+            deployment.file_storage
+            and FileStorage(**deployment.file_storage).file_storage_id
+        ):
             file_storage = FileStorage(**deployment.file_storage)
-            assert file_storage.file_storage_id
 
             try:
                 boto3_session = boto3.Session(region_name=deployment.region)
@@ -1668,7 +1710,7 @@ class CloudController(BaseController):
 
             deployment.gcp_config = gcp_config
 
-    def add_cloud_deployment(
+    def create_cloud_deployment(
         self,
         cloud_name: str,
         spec_file: str,
@@ -1730,11 +1772,15 @@ class CloudController(BaseController):
             raise ClickException(f"Failed to add cloud deployment: {e}")
 
         self.log.info(
-            f"Successfully added deployment{' ' + new_deployment.name if new_deployment.name else ''} to cloud {existing_spec['name']}!"
+            f"Successfully created cloud deployment{' ' + new_deployment.name if new_deployment.name else ''} in cloud {existing_spec['name']}!"
         )
 
-    def update_cloud_deployments(  # noqa: PLR0912, C901
-        self, spec_file: str, skip_verification: bool = False, yes: bool = False,
+    def update_cloud_deployment(  # noqa: PLR0912
+        self,
+        cloud: str,
+        spec_file: str,
+        skip_verification: bool = False,
+        yes: bool = False,
     ):
         # Read the spec file.
         path = pathlib.Path(spec_file)
@@ -1744,76 +1790,70 @@ class CloudController(BaseController):
             raise ClickException(f"{spec_file} is not a file.")
 
         spec = yaml.safe_load(path.read_text())
-        if not all(k in spec for k in ["id", "name", "deployments"]):
+        try:
+            updated_deployment = CloudDeployment(**spec)
+        except Exception as e:  # noqa: BLE001
+            raise ClickException(f"Failed to parse cloud deployment: {e}")
+
+        if not updated_deployment.cloud_deployment_id:
             raise ClickException(
-                "Cloud ID, name, and deployments must be specified in the spec file."
+                "The cloud deployment must include a cloud_deployment_id."
             )
 
-        # Get the existing spec.
-        existing_spec = self.get_cloud_deployments(cloud_id=spec["id"],)
-        if existing_spec["name"] != spec["name"]:
-            raise ClickException("Changing the name of a cloud is not supported.")
+        # Get the existing cloud deployment.
+        cloud_id, _ = get_cloud_id_and_name(self.api_client, cloud_name=cloud)
+        existing_deployment = self.get_cloud_deployment(
+            cloud_id=cloud_id,
+            cloud_deployment_id=updated_deployment.cloud_deployment_id,
+        )
+        if (
+            updated_deployment.provider == CloudProviders.PCP
+            or existing_deployment.provider == CloudProviders.PCP
+        ):
+            raise ClickException(
+                "Please use the `anyscale machine-pool` CLI to update machine pools."
+            )
 
-        # Diff the existing and new specs
-        diff = self._generate_diff(existing_spec["deployments"], spec["deployments"])
+        # Diff the existing and new cloud deployments.
+        diff = self._generate_diff(
+            self._remove_empty_values(existing_deployment.to_dict()),
+            self._remove_empty_values(updated_deployment.to_dict()),
+        )
         if not diff:
             self.log.info("No changes detected.")
             return
 
-        existing_deployments = {
-            deployment["cloud_deployment_id"]: CloudDeployment(**deployment)
-            for deployment in existing_spec["deployments"]
-        }
-
-        updated_deployments: List[CloudDeployment] = []
-        for d in spec["deployments"]:
-            try:
-                deployment = CloudDeployment(**d)
-            except Exception as e:  # noqa: BLE001
-                raise ClickException(f"Failed to parse deployment: {e}")
-
-            if not deployment.cloud_deployment_id:
-                raise ClickException(
-                    "All cloud deployments must include a cloud_deployment_id."
-                )
-            if deployment.cloud_deployment_id not in existing_deployments:
-                raise ClickException(
-                    f"Cloud deployment {deployment.cloud_deployment_id} not found."
-                )
-            if deployment.provider == CloudProviders.PCP:
-                raise ClickException(
-                    "Please use the `anyscale machine-pool` CLI to update machine pools."
-                )
-            if deployment != existing_deployments[deployment.cloud_deployment_id]:
-                updated_deployments.append(deployment)
-
-        # Preprocess the deployments if necessary.
-        for deployment in updated_deployments:
-            if deployment.provider == CloudProviders.AWS:
-                self._preprocess_aws(cloud_id=spec["id"], deployment=deployment)
-            elif deployment.provider == CloudProviders.GCP:
-                self._preprocess_gcp(deployment=deployment)
-            if not skip_verification and not self.verify_cloud_deployment(
-                cloud_id=spec["id"], cloud_deployment=deployment
-            ):
-                raise ClickException(
-                    f"Verification failed for cloud deployment {deployment.name}."
-                )
+        # Preprocess the deployment if necessary.
+        if updated_deployment.provider == CloudProviders.AWS:
+            self._preprocess_aws(cloud_id=cloud_id, deployment=updated_deployment)
+        elif updated_deployment.provider == CloudProviders.GCP:
+            self._preprocess_gcp(deployment=updated_deployment)
+        # Skip verification for Kubernetes stacks or if explicitly requested
+        if updated_deployment.compute_stack == ComputeStack.K8S:
+            self.log.info("Skipping verification for Kubernetes compute stack.")
+        elif not skip_verification and not self.verify_cloud_deployment(
+            cloud_id=cloud_id, cloud_deployment=updated_deployment
+        ):
+            raise ClickException(
+                f"Verification failed for cloud deployment {updated_deployment.name}."
+            )
 
         # Log the diff and confirm.
         self.log.info(f"Detected the following changes:\n{diff}")
 
-        confirm("Would you like to proceed with updating this cloud?", yes)
+        confirm("Would you like to proceed with updating this cloud deployment?", yes)
 
-        # Update the deployments.
+        # Update the deployment.
         try:
-            self.api_client.update_cloud_deployments_api_v2_clouds_cloud_id_deployments_put(
-                cloud_id=spec["id"], cloud_deployment=updated_deployments,
+            self.api_client.update_cloud_deployment_api_v2_clouds_cloud_id_update_deployment_put(
+                cloud_id=cloud_id, cloud_deployment=updated_deployment,
             )
         except Exception as e:  # noqa: BLE001
-            raise ClickException(f"Failed to update cloud deployments: {e}")
+            raise ClickException(f"Failed to update cloud deployment: {e}")
 
-        self.log.info(f"Successfully updated cloud {spec['name']}!")
+        self.log.info(
+            f"Successfully updated cloud deployment {updated_deployment.name or updated_deployment.cloud_deployment_id} in cloud {cloud}."
+        )
 
     def remove_cloud_deployment(
         self, cloud_name: str, deployment_name: str, yes: bool,
@@ -1864,6 +1904,9 @@ class CloudController(BaseController):
         spec_file: Optional[str] = None,
     ):
         """Update a cloud's configuration."""
+        if enable_log_ingestion is None and spec_file is None:
+            return
+
         cloud_id, cloud_name = get_cloud_id_and_name(
             self.api_client, cloud_id, cloud_name
         )
@@ -1913,6 +1956,33 @@ class CloudController(BaseController):
 
         self.log.info(f"Updated default cloud to {cloud_name}")
 
+    def update_system_cluster_config(
+        self,
+        cloud_name: Optional[str],
+        cloud_id: Optional[str],
+        system_cluster_enabled: Optional[bool],
+    ) -> None:
+        """Update system cluster configuration for a cloud."""
+        if system_cluster_enabled is None:
+            return
+
+        cloud_id, cloud_name = get_cloud_id_and_name(
+            self.api_client, cloud_id, cloud_name
+        )
+
+        self.api_client.update_system_cluster_config_api_v2_clouds_cloud_id_update_system_cluster_config_put(
+            cloud_id=cloud_id, is_enabled=system_cluster_enabled,
+        )
+        if system_cluster_enabled:
+            self.log.info(f"Successfully enabled system cluster for cloud {cloud_id}")
+        else:
+            self.log.info(
+                f"Successfully disabled system cluster for cloud {cloud_id}\n"
+                "Note: if the system cluster is currently running, it will continue to run until it is terminated.\n"
+                "To terminate the system cluster, use the CLI command: "
+                f"anyscale cloud terminate-system-cluster --cloud-id {cloud_id} --wait"
+            )
+
     def _passed_or_failed_str_from_bool(self, is_passing: bool) -> str:
         return "PASSED" if is_passing else "FAILED"
 
@@ -1956,7 +2026,7 @@ class CloudController(BaseController):
         yes: bool = False,
     ) -> bool:
         """
-        Verifies a cloud by name or id.
+        Verifies a cloud by name or id, including all cloud deployments.
 
         Note: If your changes involve operations that may require additional permissions
         (for example, `boto3_session.client("efs").describe_backup_policy`), it's important
@@ -1971,13 +2041,9 @@ class CloudController(BaseController):
             self.api_client, cloud_id, cloud_name
         )
 
-        cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id).result
+        assert cloud_id is not None
 
-        if cloud.compute_stack == ComputeStack.K8S:
-            self.log.error(
-                "The cloud verify command is not supported for Kubernetes clouds."
-            )
-            return False
+        cloud = self.api_client.get_cloud_api_v2_clouds_cloud_id_get(cloud_id).result
 
         if cloud.state in (CloudState.DELETING, CloudState.DELETED):
             self.log.info(
@@ -1985,13 +2051,16 @@ class CloudController(BaseController):
             )
             return False
 
-        cloud_resource = get_cloud_resource_by_cloud_id(
-            cloud_id, cloud.provider, self.api_client
-        )
-        if cloud_resource is None:
-            self.log.error(
-                f"This cloud {cloud_name}({cloud_id}) does not contain resource records. Please delete this cloud and create a new one."
-            )
+        try:
+            deployments = self.api_client.get_cloud_deployments_api_v2_clouds_cloud_id_deployments_get(
+                cloud_id=cloud_id,
+            ).results
+        except Exception as e:  # noqa: BLE001
+            self.log.error(f"Failed to retrieve cloud deployments: {e}")
+            return False
+
+        if not deployments:
+            self.log.error("No cloud deployments found for this cloud")
             return False
 
         self.cloud_event_producer.init_trace_context(
@@ -2003,99 +2072,100 @@ class CloudController(BaseController):
             CloudAnalyticsEventName.COMMAND_START, succeeded=True
         )
 
-        if cloud.provider == "AWS":
-            if boto3_session is None:
-                boto3_session = boto3.Session(region_name=cloud.region)
-            if not self.verify_aws_cloud_resources_for_create_cloud_resource(
-                cloud_resource=cloud_resource,
-                boto3_session=boto3_session,
-                region=cloud.region,
-                cloud_id=cloud_id,  # type: ignore
-                is_bring_your_own_resource=cloud.is_bring_your_own_resource,
-                is_private_network=cloud.is_private_cloud
-                if cloud.is_private_cloud
-                else False,
-                strict=strict,
-                _use_strict_iam_permissions=_use_strict_iam_permissions,
-            ):
-                self.cloud_event_producer.produce(
-                    CloudAnalyticsEventName.RESOURCES_VERIFIED,
-                    succeeded=False,
-                    logger=self.log,
+        deployment_results = []
+        for deployment in deployments:
+            try:
+                deployment_name = deployment.name or deployment.cloud_deployment_id
+
+                self.log.info(f"Verifying deployment: {deployment_name}")
+                result = self.verify_cloud_deployment(
+                    cloud_id,
+                    deployment,
+                    strict=strict,
+                    _use_strict_iam_permissions=_use_strict_iam_permissions,
+                    boto3_session=boto3_session,
                 )
-                return False
-        elif cloud.provider == "GCP":
-            credentials_dict = json.loads(cloud.credentials)
-            project_id = credentials_dict["project_id"]
-            host_project_id = credentials_dict.get("host_project_id")
-            if not self.verify_gcp_cloud_resources_from_create_cloud_resource(
-                cloud_resource=cloud_resource,
-                project_id=project_id,
-                host_project_id=host_project_id,
-                region=cloud.region,
-                cloud_id=cloud_id,  # type: ignore
-                yes=False,
-                strict=strict,
-                is_private_service_cloud=cloud.is_private_service_cloud,
-            ):
-                self.cloud_event_producer.produce(
-                    CloudAnalyticsEventName.RESOURCES_VERIFIED,
-                    succeeded=False,
-                    logger=self.log,
+                deployment_results.append((deployment_name, result))
+
+            except (ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
+                deployment_name = getattr(deployment, "name", None) or getattr(
+                    deployment, "cloud_deployment_id", "unknown"
                 )
-                return False
-        else:
-            self.log.error(
-                f"This cloud {cloud_name}({cloud_id}) does not have a valid cloud provider."
-            )
-            self.cloud_event_producer.produce(
-                CloudAnalyticsEventName.RESOURCES_VERIFIED,
-                succeeded=False,
-                internal_error="invalid cloud provider",
-            )
-            return False
+                self.log.error(f"Failed to verify deployment {deployment_name}: {e}")
+                deployment_results.append((deployment_name, False))
+
+        self._print_deployment_verification_results(deployment_results)
+
+        overall_success = all(result for _, result in deployment_results)
 
         self.cloud_event_producer.produce(
-            CloudAnalyticsEventName.RESOURCES_VERIFIED, succeeded=True
+            CloudAnalyticsEventName.RESOURCES_VERIFIED, succeeded=overall_success,
         )
 
-        if len(functions_to_verify) == 0:
-            return True
+        if not overall_success:
+            return False
 
-        return CloudFunctionalVerificationController(
-            self.cloud_event_producer, self.log
-        ).start_verification(cloud_id, cloud.provider, functions_to_verify, yes=yes)
+        if len(functions_to_verify) > 0:
+            return CloudFunctionalVerificationController(
+                self.cloud_event_producer, self.log
+            ).start_verification(cloud_id, cloud.provider, functions_to_verify, yes=yes)
+
+        return True
 
     def verify_cloud_deployment(
-        self, cloud_id: str, cloud_deployment: CloudDeployment
+        self,
+        cloud_id: str,
+        cloud_deployment: CloudDeployment,
+        strict: bool = False,
+        _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
+        boto3_session: Optional[boto3.Session] = None,
     ) -> bool:
-        if cloud_deployment.compute_stack != ComputeStack.VM:
-            # Verification is only supported for VM stack.
-            return True
-
-        if cloud_deployment.provider == CloudProviders.AWS:
-            return self.verify_aws_cloud_resources_for_cloud_deployment(
-                cloud_id=cloud_id, cloud_deployment=cloud_deployment,
-            )
-        elif cloud_deployment.provider == CloudProviders.GCP:
-            return self.verify_gcp_cloud_resources_from_cloud_deployment(
-                cloud_id=cloud_id, cloud_deployment=cloud_deployment,
+        if cloud_deployment.compute_stack == ComputeStack.VM:
+            if cloud_deployment.provider == CloudProviders.AWS:
+                return self.verify_aws_cloud_resources_for_cloud_deployment(
+                    cloud_id=cloud_id,
+                    cloud_deployment=cloud_deployment,
+                    strict=strict,
+                    _use_strict_iam_permissions=_use_strict_iam_permissions,
+                    boto3_session=boto3_session,
+                )
+            elif cloud_deployment.provider == CloudProviders.GCP:
+                return self.verify_gcp_cloud_resources_from_cloud_deployment(
+                    cloud_id=cloud_id, cloud_deployment=cloud_deployment, strict=strict,
+                )
+            else:
+                raise ValueError(
+                    f"Unsupported cloud provider: {cloud_deployment.provider}"
+                )
+        elif cloud_deployment.compute_stack == ComputeStack.K8S:
+            return KubernetesCloudDeploymentVerifier(self.log, self.api_client).verify(
+                cloud_deployment
             )
         else:
-            raise ValueError(f"Unsupported cloud provider: {cloud_deployment.provider}")
+            raise ValueError(
+                f"Unsupported compute stack: {cloud_deployment.compute_stack}"
+            )
 
     def verify_aws_cloud_resources_for_cloud_deployment(
-        self, cloud_id: str, cloud_deployment: CloudDeployment,
+        self,
+        cloud_id: str,
+        cloud_deployment: CloudDeployment,
+        strict: bool = False,
+        _use_strict_iam_permissions: bool = False,  # This should only be used in testing.
+        boto3_session: Optional[boto3.Session] = None,
     ) -> bool:
         assert cloud_deployment.region
         assert cloud_deployment.aws_config
         aws_config = cloud_deployment.aws_config
         file_storage = cloud_deployment.file_storage
-        object_storage = (
-            ObjectStorage(**cloud_deployment.object_storage)
-            if cloud_deployment.object_storage
-            else None
-        )
+        object_storage = cloud_deployment.object_storage
+
+        # Convert dict to ObjectStorage object if needed
+        if object_storage is not None and isinstance(object_storage, dict):
+            object_storage = ObjectStorage(**object_storage)
+
+        if boto3_session is None:
+            boto3_session = boto3.Session(region_name=cloud_deployment.region)
 
         return self.verify_aws_cloud_resources(
             aws_vpc_id=aws_config.vpc_id,
@@ -2111,17 +2181,43 @@ class CloudController(BaseController):
             if file_storage and file_storage.mount_targets
             else None,
             aws_cloudformation_stack_id=None,
-            memorydb_cluster_config=AWSMemoryDBClusterConfig(
-                id=aws_config.memorydb_cluster_name,
-                endpoint=aws_config.memorydb_cluster_endpoint,
+            memorydb_cluster_config=self._get_memorydb_config_for_verification(
+                aws_config, cloud_deployment.region
             ),
-            boto3_session=boto3.Session(region_name=cloud_deployment.region),
+            boto3_session=boto3_session,
             region=cloud_deployment.region,
             cloud_id=cloud_id,
             is_bring_your_own_resource=True,
             is_private_network=cloud_deployment.networking_mode
             == NetworkingMode.PRIVATE,
+            strict=strict,
+            _use_strict_iam_permissions=_use_strict_iam_permissions,
         )
+
+    def _get_memorydb_config_for_verification(
+        self, aws_config, region: str
+    ) -> Optional[AWSMemoryDBClusterConfig]:
+        """Get MemoryDB cluster config for verification, fetching endpoint from AWS if needed."""
+        if not aws_config.memorydb_cluster_name:
+            return None
+
+        # If we already have the endpoint, use it
+        if aws_config.memorydb_cluster_endpoint:
+            return AWSMemoryDBClusterConfig(
+                id=aws_config.memorydb_cluster_name,
+                endpoint=aws_config.memorydb_cluster_endpoint,
+            )
+
+        # Otherwise, fetch it from AWS
+        try:
+            return _get_memorydb_cluster_config(
+                aws_config.memorydb_cluster_name, region, self.log,
+            )
+        except Exception as e:  # noqa: BLE001
+            self.log.warning(
+                f"Could not fetch MemoryDB cluster config for {aws_config.memorydb_cluster_name}: {e}"
+            )
+            return None
 
     def verify_aws_cloud_resources_for_create_cloud_resource(  # noqa: PLR0913
         self,
@@ -2383,6 +2479,28 @@ class CloudController(BaseController):
                 "Your AWS account does not have enough quota to support LLM workloads. "
                 "Please request quota increases for the following quotas:\n"
                 f"{quota_error_str}\n\nFor instructions on how to increase quotas, visit this link: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-resource-limits.html#request-increase"
+            )
+
+    def _print_deployment_verification_results(
+        self, deployment_results: List[Tuple[str, bool]]
+    ) -> None:
+        """Print verification results for multiple deployments"""
+        self.log.info("=" * 60)
+        self.log.info("DEPLOYMENT VERIFICATION RESULTS:")
+        self.log.info("=" * 60)
+
+        for deployment_name, success in deployment_results:
+            status = "PASSED" if success else "FAILED"
+            self.log.info(f"{deployment_name}: {status}")
+
+        self.log.info("=" * 60)
+
+        passed_count = sum(1 for _, success in deployment_results if success)
+        total_count = len(deployment_results)
+
+        if passed_count == total_count:
+            self.log.info(
+                f"Overall Result: ALL {total_count} deployments verified successfully"
             )
 
     def register_azure_or_generic_cloud(  # noqa: PLR0913
@@ -2828,17 +2946,16 @@ class CloudController(BaseController):
             ).start_verification(cloud_id, CloudProviders.AWS, functions_to_verify, yes)
 
     def verify_gcp_cloud_resources_from_cloud_deployment(
-        self, cloud_id: str, cloud_deployment: CloudDeployment,
+        self, cloud_id: str, cloud_deployment: CloudDeployment, strict: bool = False
     ) -> bool:
         assert cloud_deployment.region
         assert cloud_deployment.gcp_config
         gcp_config = cloud_deployment.gcp_config
         file_storage = cloud_deployment.file_storage
-        object_storage = (
-            ObjectStorage(**cloud_deployment.object_storage)
-            if cloud_deployment.object_storage
-            else None
-        )
+        object_storage = cloud_deployment.object_storage
+
+        if object_storage is not None and isinstance(object_storage, dict):
+            object_storage = ObjectStorage(**object_storage)
         return self.verify_gcp_cloud_resources(
             project_id=gcp_config.project_id,
             vpc_id=gcp_config.vpc_name,
@@ -2860,6 +2977,7 @@ class CloudController(BaseController):
             region=cloud_deployment.region,
             cloud_id=cloud_id,
             host_project_id=gcp_config.host_project_id,
+            strict=strict,
         )
 
     def verify_gcp_cloud_resources_from_create_cloud_resource(

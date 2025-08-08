@@ -17,7 +17,8 @@ class ListWebsocketTriggersResponse200ItemInitialMessagesItemType1RunnableResult
     """
     Attributes:
         path (str):
-        args (ListWebsocketTriggersResponse200ItemInitialMessagesItemType1RunnableResultArgs):
+        args (ListWebsocketTriggersResponse200ItemInitialMessagesItemType1RunnableResultArgs): The arguments to pass to
+            the script or flow
         is_flow (bool):
     """
 

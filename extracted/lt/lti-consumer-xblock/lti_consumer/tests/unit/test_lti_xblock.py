@@ -1783,10 +1783,15 @@ class TestLtiConsumer1p3XBlock(TestCase):
 
         self.mock_filter_enabled_patcher = patch("lti_consumer.lti_xblock.external_config_filter_enabled")
         self.mock_database_config_enabled_patcher = patch("lti_consumer.lti_xblock.database_config_enabled")
+        self.mock_external_multiple_launch_urls_enabled = patch(
+            "lti_consumer.lti_xblock.external_multiple_launch_urls_enabled"
+        )
         self.mock_filter_enabled = self.mock_filter_enabled_patcher.start()
         self.mock_database_config_enabled = self.mock_database_config_enabled_patcher.start()
+        self.mock_external_multiple_launch_urls_enabled.start()
         self.addCleanup(self.mock_filter_enabled_patcher.stop)
         self.addCleanup(self.mock_database_config_enabled_patcher.stop)
+        self.addCleanup(self.mock_external_multiple_launch_urls_enabled.stop)
 
     @patch.object(LtiConsumerXBlock, 'get_parameter_processors')
     @patch('lti_consumer.lti_xblock.resolve_custom_parameter_template')
@@ -2308,7 +2313,7 @@ class TestLti1p3AccessTokenJWK(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertJSONEqual(response.content, {"error": "invalid_client"})
 
-    @patch("jwkest.jwk.request")
+    @patch("requests.get")
     def test_access_token_using_keyset_url_that_fails(self, request):
         """
         Test request where the provider's keyset URL request fails.
@@ -2318,7 +2323,7 @@ class TestLti1p3AccessTokenJWK(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertJSONEqual(response.content, {'error': 'invalid_client'})
 
-    @patch("jwkest.jwk.request")
+    @patch("requests.get")
     def test_access_token_using_keyset_url_with_invalid_contents(self, request):
         """
         Test request where the provider's keyset URL doesn't return valid JSON.

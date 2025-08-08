@@ -51,6 +51,7 @@ from ..github.workflows import (
     jsii_struct_bases=[],
     name_mapping={
         "major_version": "majorVersion",
+        "environment": "environment",
         "min_major_version": "minMajorVersion",
         "minor_version": "minorVersion",
         "npm_dist_tag": "npmDistTag",
@@ -64,6 +65,7 @@ class BranchOptions:
         self,
         *,
         major_version: jsii.Number,
+        environment: typing.Optional[builtins.str] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         minor_version: typing.Optional[jsii.Number] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
@@ -74,6 +76,7 @@ class BranchOptions:
         '''(experimental) Options for a release branch.
 
         :param major_version: (experimental) The major versions released from this branch.
+        :param environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param min_major_version: (experimental) The minimum major version to release.
         :param minor_version: (experimental) The minor versions released from this branch.
         :param npm_dist_tag: (experimental) The npm distribution tag to use for this branch. Default: "latest"
@@ -86,6 +89,7 @@ class BranchOptions:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f62eb98000deee3820f046309b2262c5063c0cb9581232fd1a44731f86986d7)
             check_type(argname="argument major_version", value=major_version, expected_type=type_hints["major_version"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument min_major_version", value=min_major_version, expected_type=type_hints["min_major_version"])
             check_type(argname="argument minor_version", value=minor_version, expected_type=type_hints["minor_version"])
             check_type(argname="argument npm_dist_tag", value=npm_dist_tag, expected_type=type_hints["npm_dist_tag"])
@@ -95,6 +99,8 @@ class BranchOptions:
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "major_version": major_version,
         }
+        if environment is not None:
+            self._values["environment"] = environment
         if min_major_version is not None:
             self._values["min_major_version"] = min_major_version
         if minor_version is not None:
@@ -117,6 +123,23 @@ class BranchOptions:
         result = self._values.get("major_version")
         assert result is not None, "Required property 'major_version' is missing"
         return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the release.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        When multiple artifacts are released, the environment can be overwritten
+        on a per artifact basis.
+
+        :default: - no environment used, unless set at the artifact level
+
+        :stability: experimental
+        '''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def min_major_version(self) -> typing.Optional[jsii.Number]:
@@ -340,6 +363,7 @@ class CodeArtifactOptions:
     jsii_type="projen.release.CommonPublishOptions",
     jsii_struct_bases=[],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -349,12 +373,14 @@ class CommonPublishOptions:
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Common publishing options.
 
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -365,16 +391,35 @@ class CommonPublishOptions:
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9603f09b67279d5ef3dc921367168d873983210161b1d6382c369d0b9ec13b0a)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
             self._values["pre_publish_steps"] = pre_publish_steps
         if publish_tools is not None:
             self._values["publish_tools"] = publish_tools
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -475,6 +520,7 @@ class ContinuousReleaseOptions:
     jsii_type="projen.release.GitHubReleasesPublishOptions",
     jsii_struct_bases=[CommonPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -487,6 +533,7 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -496,6 +543,7 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
     ) -> None:
         '''(experimental) Publishing options for GitHub releases.
 
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -509,6 +557,7 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c7008ba35b00dedc375d87db7a317e8f077475b6a4e334303337c92bb77171fb)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -520,12 +569,30 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
             "release_tag_file": release_tag_file,
             "version_file": version_file,
         }
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
             self._values["pre_publish_steps"] = pre_publish_steps
         if publish_tools is not None:
             self._values["publish_tools"] = publish_tools
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -763,6 +830,7 @@ class GitPublishOptions:
     jsii_type="projen.release.GoPublishOptions",
     jsii_struct_bases=[CommonPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -779,6 +847,7 @@ class GoPublishOptions(CommonPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -792,6 +861,7 @@ class GoPublishOptions(CommonPublishOptions):
     ) -> None:
         '''(experimental) Options for Go releases.
 
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -809,6 +879,7 @@ class GoPublishOptions(CommonPublishOptions):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__81a5b8a4f17bcea99089b42477d5b778fd3a9066d3d1126736ccf21a9c44bfbc)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -820,6 +891,8 @@ class GoPublishOptions(CommonPublishOptions):
             check_type(argname="argument git_user_email", value=git_user_email, expected_type=type_hints["git_user_email"])
             check_type(argname="argument git_user_name", value=git_user_name, expected_type=type_hints["git_user_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -840,6 +913,22 @@ class GoPublishOptions(CommonPublishOptions):
             self._values["git_user_email"] = git_user_email
         if git_user_name is not None:
             self._values["git_user_name"] = git_user_name
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -977,6 +1066,7 @@ class GoPublishOptions(CommonPublishOptions):
     jsii_type="projen.release.JsiiReleaseGo",
     jsii_struct_bases=[GoPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -993,6 +1083,7 @@ class JsiiReleaseGo(GoPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1005,6 +1096,7 @@ class JsiiReleaseGo(GoPublishOptions):
         git_user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -1024,6 +1116,7 @@ class JsiiReleaseGo(GoPublishOptions):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44bae65cd3313afa37ada6dbaab99141ff7744458e985bc9c53faa021220e167)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -1035,6 +1128,8 @@ class JsiiReleaseGo(GoPublishOptions):
             check_type(argname="argument git_user_email", value=git_user_email, expected_type=type_hints["git_user_email"])
             check_type(argname="argument git_user_name", value=git_user_name, expected_type=type_hints["git_user_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -1055,6 +1150,22 @@ class JsiiReleaseGo(GoPublishOptions):
             self._values["git_user_email"] = git_user_email
         if git_user_name is not None:
             self._values["git_user_name"] = git_user_name
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -1276,6 +1387,7 @@ class ManualReleaseOptions:
     jsii_type="projen.release.MavenPublishOptions",
     jsii_struct_bases=[CommonPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -1293,6 +1405,7 @@ class MavenPublishOptions(CommonPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1307,6 +1420,7 @@ class MavenPublishOptions(CommonPublishOptions):
     ) -> None:
         '''(experimental) Options for Maven releases.
 
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -1325,6 +1439,7 @@ class MavenPublishOptions(CommonPublishOptions):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__da2d55bfa47dd9e6869b7f55b573dea54539ab2e9b833766e4140d6d4c4c3d7e)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -1337,6 +1452,8 @@ class MavenPublishOptions(CommonPublishOptions):
             check_type(argname="argument maven_staging_profile_id", value=maven_staging_profile_id, expected_type=type_hints["maven_staging_profile_id"])
             check_type(argname="argument maven_username", value=maven_username, expected_type=type_hints["maven_username"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -1359,6 +1476,22 @@ class MavenPublishOptions(CommonPublishOptions):
             self._values["maven_staging_profile_id"] = maven_staging_profile_id
         if maven_username is not None:
             self._values["maven_username"] = maven_username
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -1522,6 +1655,7 @@ class MavenPublishOptions(CommonPublishOptions):
     jsii_type="projen.release.NpmPublishOptions",
     jsii_struct_bases=[CommonPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -1536,6 +1670,7 @@ class NpmPublishOptions(CommonPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1547,6 +1682,7 @@ class NpmPublishOptions(CommonPublishOptions):
     ) -> None:
         '''(experimental) Options for npm release.
 
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -1564,6 +1700,7 @@ class NpmPublishOptions(CommonPublishOptions):
             code_artifact_options = CodeArtifactOptions(**code_artifact_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__458289050585e6e895f9ee709ee4e102166b0f71e3c8b2a0617efa2d24e990fb)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -1573,6 +1710,8 @@ class NpmPublishOptions(CommonPublishOptions):
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -1589,6 +1728,22 @@ class NpmPublishOptions(CommonPublishOptions):
             self._values["npm_token_secret"] = npm_token_secret
         if registry is not None:
             self._values["registry"] = registry
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -1727,6 +1882,7 @@ class NpmPublishOptions(CommonPublishOptions):
     jsii_type="projen.release.NugetPublishOptions",
     jsii_struct_bases=[CommonPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -1738,6 +1894,7 @@ class NugetPublishOptions(CommonPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1746,6 +1903,7 @@ class NugetPublishOptions(CommonPublishOptions):
     ) -> None:
         '''(experimental) Options for NuGet releases.
 
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -1758,12 +1916,15 @@ class NugetPublishOptions(CommonPublishOptions):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__584d4125e43e970396e9062b357de30ef32a6d1b30bd3a0f00fc7db041ea0bec)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
             check_type(argname="argument nuget_api_key_secret", value=nuget_api_key_secret, expected_type=type_hints["nuget_api_key_secret"])
             check_type(argname="argument nuget_server", value=nuget_server, expected_type=type_hints["nuget_server"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -1774,6 +1935,22 @@ class NugetPublishOptions(CommonPublishOptions):
             self._values["nuget_api_key_secret"] = nuget_api_key_secret
         if nuget_server is not None:
             self._values["nuget_server"] = nuget_server
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -1983,6 +2160,7 @@ class Publisher(
         changelog_file: builtins.str,
         release_tag_file: builtins.str,
         version_file: builtins.str,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1992,6 +2170,7 @@ class Publisher(
         :param changelog_file: (experimental) The location of an .md file (relative to ``dist/``) that includes the changelog for the release.
         :param release_tag_file: (experimental) The location of a text file (relative to ``dist/``) that contains the release tag.
         :param version_file: (experimental) The location of a text file (relative to ``dist/``) that contains the version number.
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -2002,6 +2181,7 @@ class Publisher(
             changelog_file=changelog_file,
             release_tag_file=release_tag_file,
             version_file=version_file,
+            github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
             publish_tools=publish_tools,
@@ -2020,6 +2200,7 @@ class Publisher(
         github_use_ssh: typing.Optional[builtins.bool] = None,
         git_user_email: typing.Optional[builtins.str] = None,
         git_user_name: typing.Optional[builtins.str] = None,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2033,6 +2214,7 @@ class Publisher(
         :param github_use_ssh: (experimental) Use SSH to push to GitHub instead of a personal accses token. Default: false
         :param git_user_email: (experimental) The email to use in the release git commit. Default: "github-actions@github.com"
         :param git_user_name: (experimental) The user name to use for the release git commit. Default: "github-actions"
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -2047,6 +2229,7 @@ class Publisher(
             github_use_ssh=github_use_ssh,
             git_user_email=git_user_email,
             git_user_name=git_user_name,
+            github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
             publish_tools=publish_tools,
@@ -2066,6 +2249,7 @@ class Publisher(
         maven_server_id: typing.Optional[builtins.str] = None,
         maven_staging_profile_id: typing.Optional[builtins.str] = None,
         maven_username: typing.Optional[builtins.str] = None,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2080,6 +2264,7 @@ class Publisher(
         :param maven_server_id: (experimental) Used in maven settings for credential lookup (e.g. use github when publishing to GitHub). Set to ``central-ossrh`` to publish to Maven Central. Default: "ossrh" (Maven Central) or "github" when using GitHub Packages
         :param maven_staging_profile_id: (experimental) GitHub secret name which contains the Maven Central (sonatype) staging profile ID (e.g. 68a05363083174). Staging profile ID can be found in the URL of the "Releases" staging profile under "Staging Profiles" in https://oss.sonatype.org (e.g. https://oss.sonatype.org/#stagingProfiles;11a33451234521). Default: "MAVEN_STAGING_PROFILE_ID" or not set when using GitHub Packages
         :param maven_username: (experimental) GitHub secret name which contains the Username for maven repository. For Maven Central, you will need to Create JIRA account and then request a new project (see links). Default: "MAVEN_USERNAME" or the GitHub Actor when using GitHub Packages
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -2095,6 +2280,7 @@ class Publisher(
             maven_server_id=maven_server_id,
             maven_staging_profile_id=maven_staging_profile_id,
             maven_username=maven_username,
+            github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
             publish_tools=publish_tools,
@@ -2111,6 +2297,7 @@ class Publisher(
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         registry: typing.Optional[builtins.str] = None,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2122,6 +2309,7 @@ class Publisher(
         :param npm_provenance: (experimental) Should provenance statements be generated when package is published. Note that this component is using ``publib`` to publish packages, which is using npm internally and supports provenance statements independently of the package manager used. Default: - undefined
         :param npm_token_secret: (experimental) GitHub secret which contains the NPM token to use when publishing packages. Default: - "NPM_TOKEN" or "GITHUB_TOKEN" if ``registry`` is set to ``npm.pkg.github.com``.
         :param registry: (experimental) The domain name of the npm package registry. To publish to GitHub Packages, set this value to ``"npm.pkg.github.com"``. In this if ``npmTokenSecret`` is not specified, it will default to ``GITHUB_TOKEN`` which means that you will be able to publish to the repository's package store. In this case, make sure ``repositoryUrl`` is correctly defined. Default: "registry.npmjs.org"
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -2134,6 +2322,7 @@ class Publisher(
             npm_provenance=npm_provenance,
             npm_token_secret=npm_token_secret,
             registry=registry,
+            github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
             publish_tools=publish_tools,
@@ -2147,6 +2336,7 @@ class Publisher(
         *,
         nuget_api_key_secret: typing.Optional[builtins.str] = None,
         nuget_server: typing.Optional[builtins.str] = None,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2155,6 +2345,7 @@ class Publisher(
 
         :param nuget_api_key_secret: (experimental) GitHub secret which contains the API key for NuGet. Default: "NUGET_API_KEY"
         :param nuget_server: (experimental) NuGet Server URL (defaults to nuget.org).
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -2164,6 +2355,7 @@ class Publisher(
         options = NugetPublishOptions(
             nuget_api_key_secret=nuget_api_key_secret,
             nuget_server=nuget_server,
+            github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
             publish_tools=publish_tools,
@@ -2179,6 +2371,7 @@ class Publisher(
         twine_password_secret: typing.Optional[builtins.str] = None,
         twine_registry_url: typing.Optional[builtins.str] = None,
         twine_username_secret: typing.Optional[builtins.str] = None,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2189,6 +2382,7 @@ class Publisher(
         :param twine_password_secret: (experimental) The GitHub secret which contains PyPI password. Default: "TWINE_PASSWORD"
         :param twine_registry_url: (experimental) The registry url to use when releasing packages. Default: - twine default
         :param twine_username_secret: (experimental) The GitHub secret which contains PyPI user name. Default: "TWINE_USERNAME"
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -2200,6 +2394,7 @@ class Publisher(
             twine_password_secret=twine_password_secret,
             twine_registry_url=twine_registry_url,
             twine_username_secret=twine_username_secret,
+            github_environment=github_environment,
             post_publish_steps=post_publish_steps,
             pre_publish_steps=pre_publish_steps,
             publish_tools=publish_tools,
@@ -2530,6 +2725,7 @@ class PublisherOptions:
     jsii_type="projen.release.PyPiPublishOptions",
     jsii_struct_bases=[CommonPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -2543,6 +2739,7 @@ class PyPiPublishOptions(CommonPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2553,6 +2750,7 @@ class PyPiPublishOptions(CommonPublishOptions):
     ) -> None:
         '''(experimental) Options for PyPI release.
 
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -2569,6 +2767,7 @@ class PyPiPublishOptions(CommonPublishOptions):
             code_artifact_options = CodeArtifactOptions(**code_artifact_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f90cd44def59be822b686bcd759d7f0a910b9936ca8acc0ef3e69cda5ddc21d2)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -2577,6 +2776,8 @@ class PyPiPublishOptions(CommonPublishOptions):
             check_type(argname="argument twine_registry_url", value=twine_registry_url, expected_type=type_hints["twine_registry_url"])
             check_type(argname="argument twine_username_secret", value=twine_username_secret, expected_type=type_hints["twine_username_secret"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -2591,6 +2792,22 @@ class PyPiPublishOptions(CommonPublishOptions):
             self._values["twine_registry_url"] = twine_registry_url
         if twine_username_secret is not None:
             self._values["twine_username_secret"] = twine_username_secret
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -2722,6 +2939,7 @@ class Release(
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -2756,6 +2974,7 @@ class Release(
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -2794,6 +3013,7 @@ class Release(
             publish_tasks=publish_tasks,
             releasable_commits=releasable_commits,
             release_branches=release_branches,
+            release_environment=release_environment,
             release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
@@ -2830,6 +3050,7 @@ class Release(
         branch: builtins.str,
         *,
         major_version: jsii.Number,
+        environment: typing.Optional[builtins.str] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         minor_version: typing.Optional[jsii.Number] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
@@ -2845,6 +3066,7 @@ class Release(
 
         :param branch: The branch to monitor (e.g. ``main``, ``v2.x``).
         :param major_version: (experimental) The major versions released from this branch.
+        :param environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param min_major_version: (experimental) The minimum major version to release.
         :param minor_version: (experimental) The minor versions released from this branch.
         :param npm_dist_tag: (experimental) The npm distribution tag to use for this branch. Default: "latest"
@@ -2859,6 +3081,7 @@ class Release(
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         options = BranchOptions(
             major_version=major_version,
+            environment=environment,
             min_major_version=min_major_version,
             minor_version=minor_version,
             npm_dist_tag=npm_dist_tag,
@@ -2945,6 +3168,7 @@ class Release(
         "publish_tasks": "publishTasks",
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
+        "release_environment": "releaseEnvironment",
         "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
@@ -2975,6 +3199,7 @@ class ReleaseProjectOptions:
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -3002,6 +3227,7 @@ class ReleaseProjectOptions:
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -3033,6 +3259,7 @@ class ReleaseProjectOptions:
             check_type(argname="argument publish_tasks", value=publish_tasks, expected_type=type_hints["publish_tasks"])
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
+            check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
             check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
@@ -3070,6 +3297,8 @@ class ReleaseProjectOptions:
             self._values["releasable_commits"] = releasable_commits
         if release_branches is not None:
             self._values["release_branches"] = release_branches
+        if release_environment is not None:
+            self._values["release_environment"] = release_environment
         if release_every_commit is not None:
             self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
@@ -3273,6 +3502,23 @@ class ReleaseProjectOptions:
         '''
         result = self._values.get("release_branches")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, BranchOptions]], result)
+
+    @builtins.property
+    def release_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the release.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        When multiple artifacts are released, the environment can be overwritten
+        on a per artifact basis.
+
+        :default: - no environment used, unless set at the artifact level
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def release_every_commit(self) -> typing.Optional[builtins.bool]:
@@ -3643,6 +3889,7 @@ class ScheduledReleaseOptions:
     jsii_type="projen.release.JsiiReleaseMaven",
     jsii_struct_bases=[MavenPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -3660,6 +3907,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3673,6 +3921,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
         maven_username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -3693,6 +3942,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__370b478ebba8352e12c41a67b57d5954055dba8a6ceae59144e72607fdc6df41)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -3705,6 +3955,8 @@ class JsiiReleaseMaven(MavenPublishOptions):
             check_type(argname="argument maven_staging_profile_id", value=maven_staging_profile_id, expected_type=type_hints["maven_staging_profile_id"])
             check_type(argname="argument maven_username", value=maven_username, expected_type=type_hints["maven_username"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -3727,6 +3979,22 @@ class JsiiReleaseMaven(MavenPublishOptions):
             self._values["maven_staging_profile_id"] = maven_staging_profile_id
         if maven_username is not None:
             self._values["maven_username"] = maven_username
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -3890,6 +4158,7 @@ class JsiiReleaseMaven(MavenPublishOptions):
     jsii_type="projen.release.JsiiReleaseNpm",
     jsii_struct_bases=[NpmPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -3904,6 +4173,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3914,6 +4184,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
         registry: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -3933,6 +4204,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
             code_artifact_options = CodeArtifactOptions(**code_artifact_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a34680d3cf9e2cc6374987796717402a524a0bb377e9172f0707da67450b3239)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -3942,6 +4214,8 @@ class JsiiReleaseNpm(NpmPublishOptions):
             check_type(argname="argument npm_token_secret", value=npm_token_secret, expected_type=type_hints["npm_token_secret"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -3958,6 +4232,22 @@ class JsiiReleaseNpm(NpmPublishOptions):
             self._values["npm_token_secret"] = npm_token_secret
         if registry is not None:
             self._values["registry"] = registry
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -4096,6 +4386,7 @@ class JsiiReleaseNpm(NpmPublishOptions):
     jsii_type="projen.release.JsiiReleaseNuget",
     jsii_struct_bases=[NugetPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -4107,6 +4398,7 @@ class JsiiReleaseNuget(NugetPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4114,6 +4406,7 @@ class JsiiReleaseNuget(NugetPublishOptions):
         nuget_server: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -4128,12 +4421,15 @@ class JsiiReleaseNuget(NugetPublishOptions):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14abe6d299c2354a8f22a08788f088aafaa8acf2b85b20f297416346274a9b96)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
             check_type(argname="argument nuget_api_key_secret", value=nuget_api_key_secret, expected_type=type_hints["nuget_api_key_secret"])
             check_type(argname="argument nuget_server", value=nuget_server, expected_type=type_hints["nuget_server"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -4144,6 +4440,22 @@ class JsiiReleaseNuget(NugetPublishOptions):
             self._values["nuget_api_key_secret"] = nuget_api_key_secret
         if nuget_server is not None:
             self._values["nuget_server"] = nuget_server
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -4220,6 +4532,7 @@ class JsiiReleaseNuget(NugetPublishOptions):
     jsii_type="projen.release.JsiiReleasePyPi",
     jsii_struct_bases=[PyPiPublishOptions],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -4233,6 +4546,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4242,6 +4556,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         twine_username_secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -4260,6 +4575,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
             code_artifact_options = CodeArtifactOptions(**code_artifact_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0fa7c01cc40634bf771011bf4e8ddb9e3be28efd1b3f15b5d0768a4e810d37bc)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -4268,6 +4584,8 @@ class JsiiReleasePyPi(PyPiPublishOptions):
             check_type(argname="argument twine_registry_url", value=twine_registry_url, expected_type=type_hints["twine_registry_url"])
             check_type(argname="argument twine_username_secret", value=twine_username_secret, expected_type=type_hints["twine_username_secret"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -4282,6 +4600,22 @@ class JsiiReleasePyPi(PyPiPublishOptions):
             self._values["twine_registry_url"] = twine_registry_url
         if twine_username_secret is not None:
             self._values["twine_username_secret"] = twine_username_secret
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -4394,6 +4728,7 @@ class JsiiReleasePyPi(PyPiPublishOptions):
         "publish_tasks": "publishTasks",
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
+        "release_environment": "releaseEnvironment",
         "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
@@ -4431,6 +4766,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -4465,6 +4801,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -4505,6 +4842,7 @@ class ReleaseOptions(ReleaseProjectOptions):
             check_type(argname="argument publish_tasks", value=publish_tasks, expected_type=type_hints["publish_tasks"])
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
+            check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
             check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
@@ -4554,6 +4892,8 @@ class ReleaseOptions(ReleaseProjectOptions):
             self._values["releasable_commits"] = releasable_commits
         if release_branches is not None:
             self._values["release_branches"] = release_branches
+        if release_environment is not None:
+            self._values["release_environment"] = release_environment
         if release_every_commit is not None:
             self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
@@ -4763,6 +5103,23 @@ class ReleaseOptions(ReleaseProjectOptions):
         '''
         result = self._values.get("release_branches")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, BranchOptions]], result)
+
+    @builtins.property
+    def release_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the release.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        When multiple artifacts are released, the environment can be overwritten
+        on a per artifact basis.
+
+        :default: - no environment used, unless set at the artifact level
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def release_every_commit(self) -> typing.Optional[builtins.bool]:
@@ -5049,6 +5406,7 @@ publication.publish()
 def _typecheckingstub__6f62eb98000deee3820f046309b2262c5063c0cb9581232fd1a44731f86986d7(
     *,
     major_version: jsii.Number,
+    environment: typing.Optional[builtins.str] = None,
     min_major_version: typing.Optional[jsii.Number] = None,
     minor_version: typing.Optional[jsii.Number] = None,
     npm_dist_tag: typing.Optional[builtins.str] = None,
@@ -5071,6 +5429,7 @@ def _typecheckingstub__9a328fe64db40633fedae889a7376e6885e1983f57d171d4f4ef85af6
 
 def _typecheckingstub__9603f09b67279d5ef3dc921367168d873983210161b1d6382c369d0b9ec13b0a(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5087,6 +5446,7 @@ def _typecheckingstub__95b36779f92c5190c3ac9d8a636a537bfe6ebc844a55942ee5dfc0a96
 
 def _typecheckingstub__c7008ba35b00dedc375d87db7a317e8f077475b6a4e334303337c92bb77171fb(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5111,6 +5471,7 @@ def _typecheckingstub__d5537e1435c9eea568279fa140de950e1b7275db307b3741959861863
 
 def _typecheckingstub__81a5b8a4f17bcea99089b42477d5b778fd3a9066d3d1126736ccf21a9c44bfbc(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5127,6 +5488,7 @@ def _typecheckingstub__81a5b8a4f17bcea99089b42477d5b778fd3a9066d3d1126736ccf21a9
 
 def _typecheckingstub__44bae65cd3313afa37ada6dbaab99141ff7744458e985bc9c53faa021220e167(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5152,6 +5514,7 @@ def _typecheckingstub__2492d83058b766179e85fd785d08928e38b53ce70b0f2dc9a1c5edccb
 
 def _typecheckingstub__da2d55bfa47dd9e6869b7f55b573dea54539ab2e9b833766e4140d6d4c4c3d7e(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5169,6 +5532,7 @@ def _typecheckingstub__da2d55bfa47dd9e6869b7f55b573dea54539ab2e9b833766e4140d6d4
 
 def _typecheckingstub__458289050585e6e895f9ee709ee4e102166b0f71e3c8b2a0617efa2d24e990fb(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5183,6 +5547,7 @@ def _typecheckingstub__458289050585e6e895f9ee709ee4e102166b0f71e3c8b2a0617efa2d2
 
 def _typecheckingstub__584d4125e43e970396e9062b357de30ef32a6d1b30bd3a0f00fc7db041ea0bec(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5245,6 +5610,7 @@ def _typecheckingstub__4e430972b008e5968049196f964ee9dfa036c68b2195f125119bc2629
 
 def _typecheckingstub__f90cd44def59be822b686bcd759d7f0a910b9936ca8acc0ef3e69cda5ddc21d2(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5278,6 +5644,7 @@ def _typecheckingstub__b447ecb34d36869391ee159467e6c78b74da704722d4c6a517e05bbae
     publish_tasks: typing.Optional[builtins.bool] = None,
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_environment: typing.Optional[builtins.str] = None,
     release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -5304,6 +5671,7 @@ def _typecheckingstub__e0f66d9106b15a88644bb5efb62c4d4d18bb7c7b73bb22b904010a8a6
     branch: builtins.str,
     *,
     major_version: jsii.Number,
+    environment: typing.Optional[builtins.str] = None,
     min_major_version: typing.Optional[jsii.Number] = None,
     minor_version: typing.Optional[jsii.Number] = None,
     npm_dist_tag: typing.Optional[builtins.str] = None,
@@ -5334,6 +5702,7 @@ def _typecheckingstub__cc5e99254de9f29d2ac3b86e193164816e1ed36e491e602128e7d16fb
     publish_tasks: typing.Optional[builtins.bool] = None,
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_environment: typing.Optional[builtins.str] = None,
     release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -5359,6 +5728,7 @@ def _typecheckingstub__629cc7488dbd6e87168962d964694e088625a8e208d09e45c120eac7e
 
 def _typecheckingstub__370b478ebba8352e12c41a67b57d5954055dba8a6ceae59144e72607fdc6df41(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5376,6 +5746,7 @@ def _typecheckingstub__370b478ebba8352e12c41a67b57d5954055dba8a6ceae59144e72607f
 
 def _typecheckingstub__a34680d3cf9e2cc6374987796717402a524a0bb377e9172f0707da67450b3239(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5390,6 +5761,7 @@ def _typecheckingstub__a34680d3cf9e2cc6374987796717402a524a0bb377e9172f0707da674
 
 def _typecheckingstub__14abe6d299c2354a8f22a08788f088aafaa8acf2b85b20f297416346274a9b96(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5401,6 +5773,7 @@ def _typecheckingstub__14abe6d299c2354a8f22a08788f088aafaa8acf2b85b20f2974163462
 
 def _typecheckingstub__0fa7c01cc40634bf771011bf4e8ddb9e3be28efd1b3f15b5d0768a4e810d37bc(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5426,6 +5799,7 @@ def _typecheckingstub__abcbb9106f2fe858c4efa7a5934906e63b00b56fa33c47c5f910dac2a
     publish_tasks: typing.Optional[builtins.bool] = None,
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[BranchOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_environment: typing.Optional[builtins.str] = None,
     release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,

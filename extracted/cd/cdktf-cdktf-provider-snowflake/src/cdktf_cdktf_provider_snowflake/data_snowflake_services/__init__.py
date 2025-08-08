@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_services`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_services`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services).
+Refer to the Terraform Registry for docs: [`data_snowflake_services`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeServices(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeServices.DataSnowflakeServices",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services snowflake_services}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services snowflake_services}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class DataSnowflakeServices(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services snowflake_services} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services snowflake_services} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#id DataSnowflakeServices#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#in DataSnowflakeServices#in}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#like DataSnowflakeServices#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#limit DataSnowflakeServices#limit}
-        :param service_type: (Default: ``ALL``) The type filtering of ``SHOW SERVICES`` results. ``ALL`` returns both services and job services. ``JOBS_ONLY`` returns only job services (``JOB`` option in SQL). ``SERVICES_ONLY`` returns only services (``EXCLUDE_JOBS`` option in SQL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#service_type DataSnowflakeServices#service_type}
-        :param starts_with: Filters the output with **case-sensitive** characters indicating the beginning of the object name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#starts_with DataSnowflakeServices#starts_with}
-        :param with_describe: (Default: ``true``) Runs DESC SERVICE for each service returned by SHOW SERVICES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#with_describe DataSnowflakeServices#with_describe}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#id DataSnowflakeServices#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#in DataSnowflakeServices#in}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#like DataSnowflakeServices#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#limit DataSnowflakeServices#limit}
+        :param service_type: (Default: ``ALL``) The type filtering of ``SHOW SERVICES`` results. ``ALL`` returns both services and job services. ``JOBS_ONLY`` returns only job services (``JOB`` option in SQL). ``SERVICES_ONLY`` returns only services (``EXCLUDE_JOBS`` option in SQL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#service_type DataSnowflakeServices#service_type}
+        :param starts_with: Filters the output with **case-sensitive** characters indicating the beginning of the object name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#starts_with DataSnowflakeServices#starts_with}
+        :param with_describe: (Default: ``true``) Runs DESC SERVICE for each service returned by SHOW SERVICES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#with_describe DataSnowflakeServices#with_describe}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class DataSnowflakeServices(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeServices to import.
-        :param import_from_id: The id of the existing DataSnowflakeServices that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeServices that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeServices to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class DataSnowflakeServices(
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#account DataSnowflakeServices#account}
-        :param compute_pool: Returns records for the specified compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#compute_pool DataSnowflakeServices#compute_pool}
-        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#database DataSnowflakeServices#database}
-        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#schema DataSnowflakeServices#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#account DataSnowflakeServices#account}
+        :param compute_pool: Returns records for the specified compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#compute_pool DataSnowflakeServices#compute_pool}
+        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#database DataSnowflakeServices#database}
+        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#schema DataSnowflakeServices#schema}
         '''
         value = DataSnowflakeServicesIn(
             account=account,
@@ -164,8 +164,8 @@ class DataSnowflakeServices(
         from_: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#rows DataSnowflakeServices#rows}
-        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#from DataSnowflakeServices#from}
+        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#rows DataSnowflakeServices#rows}
+        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#from DataSnowflakeServices#from}
         '''
         value = DataSnowflakeServicesLimit(rows=rows, from_=from_)
 
@@ -375,13 +375,13 @@ class DataSnowflakeServicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#id DataSnowflakeServices#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#in DataSnowflakeServices#in}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#like DataSnowflakeServices#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#limit DataSnowflakeServices#limit}
-        :param service_type: (Default: ``ALL``) The type filtering of ``SHOW SERVICES`` results. ``ALL`` returns both services and job services. ``JOBS_ONLY`` returns only job services (``JOB`` option in SQL). ``SERVICES_ONLY`` returns only services (``EXCLUDE_JOBS`` option in SQL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#service_type DataSnowflakeServices#service_type}
-        :param starts_with: Filters the output with **case-sensitive** characters indicating the beginning of the object name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#starts_with DataSnowflakeServices#starts_with}
-        :param with_describe: (Default: ``true``) Runs DESC SERVICE for each service returned by SHOW SERVICES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#with_describe DataSnowflakeServices#with_describe}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#id DataSnowflakeServices#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#in DataSnowflakeServices#in}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#like DataSnowflakeServices#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#limit DataSnowflakeServices#limit}
+        :param service_type: (Default: ``ALL``) The type filtering of ``SHOW SERVICES`` results. ``ALL`` returns both services and job services. ``JOBS_ONLY`` returns only job services (``JOB`` option in SQL). ``SERVICES_ONLY`` returns only services (``EXCLUDE_JOBS`` option in SQL). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#service_type DataSnowflakeServices#service_type}
+        :param starts_with: Filters the output with **case-sensitive** characters indicating the beginning of the object name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#starts_with DataSnowflakeServices#starts_with}
+        :param with_describe: (Default: ``true``) Runs DESC SERVICE for each service returned by SHOW SERVICES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#with_describe DataSnowflakeServices#with_describe}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -501,7 +501,7 @@ class DataSnowflakeServicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#id DataSnowflakeServices#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#id DataSnowflakeServices#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -513,7 +513,7 @@ class DataSnowflakeServicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def in_(self) -> typing.Optional["DataSnowflakeServicesIn"]:
         '''in block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#in DataSnowflakeServices#in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#in DataSnowflakeServices#in}
         '''
         result = self._values.get("in_")
         return typing.cast(typing.Optional["DataSnowflakeServicesIn"], result)
@@ -522,7 +522,7 @@ class DataSnowflakeServicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def like(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#like DataSnowflakeServices#like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#like DataSnowflakeServices#like}
         '''
         result = self._values.get("like")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -531,7 +531,7 @@ class DataSnowflakeServicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def limit(self) -> typing.Optional["DataSnowflakeServicesLimit"]:
         '''limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#limit DataSnowflakeServices#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#limit DataSnowflakeServices#limit}
         '''
         result = self._values.get("limit")
         return typing.cast(typing.Optional["DataSnowflakeServicesLimit"], result)
@@ -542,7 +542,7 @@ class DataSnowflakeServicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         ``ALL`` returns both services and job services. ``JOBS_ONLY`` returns only job services (``JOB`` option in SQL). ``SERVICES_ONLY`` returns only services (``EXCLUDE_JOBS`` option in SQL).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#service_type DataSnowflakeServices#service_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#service_type DataSnowflakeServices#service_type}
         '''
         result = self._values.get("service_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -551,7 +551,7 @@ class DataSnowflakeServicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def starts_with(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-sensitive** characters indicating the beginning of the object name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#starts_with DataSnowflakeServices#starts_with}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#starts_with DataSnowflakeServices#starts_with}
         '''
         result = self._values.get("starts_with")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -564,7 +564,7 @@ class DataSnowflakeServicesConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         The output of describe is saved to the description field. By default this value is set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#with_describe DataSnowflakeServices#with_describe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#with_describe DataSnowflakeServices#with_describe}
         '''
         result = self._values.get("with_describe")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -601,10 +601,10 @@ class DataSnowflakeServicesIn:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#account DataSnowflakeServices#account}
-        :param compute_pool: Returns records for the specified compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#compute_pool DataSnowflakeServices#compute_pool}
-        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#database DataSnowflakeServices#database}
-        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#schema DataSnowflakeServices#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#account DataSnowflakeServices#account}
+        :param compute_pool: Returns records for the specified compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#compute_pool DataSnowflakeServices#compute_pool}
+        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#database DataSnowflakeServices#database}
+        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#schema DataSnowflakeServices#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1a5a58102b9eec5cafd3d43290111efed7bb6a258f3b07d1b5d047ba2190b6c)
@@ -628,7 +628,7 @@ class DataSnowflakeServicesIn:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Returns records for the entire account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#account DataSnowflakeServices#account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#account DataSnowflakeServices#account}
         '''
         result = self._values.get("account")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -637,7 +637,7 @@ class DataSnowflakeServicesIn:
     def compute_pool(self) -> typing.Optional[builtins.str]:
         '''Returns records for the specified compute pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#compute_pool DataSnowflakeServices#compute_pool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#compute_pool DataSnowflakeServices#compute_pool}
         '''
         result = self._values.get("compute_pool")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -646,7 +646,7 @@ class DataSnowflakeServicesIn:
     def database(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current database in use or for a specified database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#database DataSnowflakeServices#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#database DataSnowflakeServices#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -655,7 +655,7 @@ class DataSnowflakeServicesIn:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current schema in use or a specified schema. Use fully qualified name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#schema DataSnowflakeServices#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#schema DataSnowflakeServices#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -807,8 +807,8 @@ class DataSnowflakeServicesLimit:
         from_: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#rows DataSnowflakeServices#rows}
-        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#from DataSnowflakeServices#from}
+        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#rows DataSnowflakeServices#rows}
+        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#from DataSnowflakeServices#from}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3473213c0fc62a19b1a304b60f3cbcf6ab3954b3cea9724a2dd14a39f2af8a42)
@@ -824,7 +824,7 @@ class DataSnowflakeServicesLimit:
     def rows(self) -> jsii.Number:
         '''The maximum number of rows to return.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#rows DataSnowflakeServices#rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#rows DataSnowflakeServices#rows}
         '''
         result = self._values.get("rows")
         assert result is not None, "Required property 'rows' is missing"
@@ -836,7 +836,7 @@ class DataSnowflakeServicesLimit:
 
         After the first match, the limit on the number of rows will be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/services#from DataSnowflakeServices#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/services#from DataSnowflakeServices#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[builtins.str], result)

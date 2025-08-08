@@ -18,7 +18,7 @@ T = TypeVar("T", bound="RunScriptPreviewJsonBody")
 class RunScriptPreviewJsonBody:
     """
     Attributes:
-        args (RunScriptPreviewJsonBodyArgs):
+        args (RunScriptPreviewJsonBodyArgs): The arguments to pass to the script or flow
         content (Union[Unset, str]):
         path (Union[Unset, str]):
         script_hash (Union[Unset, str]):

@@ -1,4 +1,5 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
+import math
 import os
 import platform
 import re
@@ -19,7 +20,7 @@ from transformers.utils import (is_torch_bf16_gpu_available, is_torch_cuda_avail
                                 is_torch_npu_available, strtobool)
 from transformers.utils.versions import require_version
 
-from swift.utils import get_dist_setting, get_logger, is_mp, is_unsloth_available, patch_getattr, use_torchacc
+from swift.utils import get_dist_setting, get_logger, is_mp, is_unsloth_available, patch_getattr
 from .constant import ModelType
 from .patcher import (patch_automodel, patch_automodel_for_sequence_classification, patch_get_dynamic_module,
                       patch_mp_ddp, patch_tp_plan)
@@ -224,8 +225,11 @@ def get_model_tokenizer_from_local(model_dir: str,
     model_config.torch_dtype = torch_dtype
     HfConfigFactory.compat_zero3(model_config)
     rope_scaling = kwargs.get('rope_scaling')
+    max_model_len = kwargs.get('max_model_len')
     if rope_scaling:
         HfConfigFactory.set_config_attr(model_config, 'rope_scaling', rope_scaling)
+    if max_model_len:
+        HfConfigFactory.set_max_model_len(model_config, max_model_len)
 
     if tokenizer is None:
         tokenizer = AutoTokenizer.from_pretrained(model_dir, trust_remote_code=True)
@@ -257,24 +261,30 @@ def get_model_tokenizer_from_local(model_dir: str,
 
         automodel_class = automodel_class or AutoModelForCausalLM
         model_meta = kwargs['model_meta']
+        context_kwargs = {
+            'model_info': model_info,
+            'model_meta': model_meta,
+            'automodel_class': automodel_class,
+            'return_dummy_model': kwargs['return_dummy_model']
+        }
         if model is None:
             if model_info.task_type == 'seq_cls' and not model_meta.is_reward:
-                context = partial(patch_automodel_for_sequence_classification, model_meta=model_meta)
+                context = partial(patch_automodel_for_sequence_classification, **context_kwargs)
             elif model_info.task_type == 'seq_cls' and model_meta.is_reward and model_config.num_labels > 1:
                 logger.warning('You are using a reward model for seq_cls task and num_labels > 1, '
                                'ignore_mismatched_sizes will be set to True')
                 model_kwargs['ignore_mismatched_sizes'] = True
-                context = partial(patch_automodel_for_sequence_classification, model_meta=model_meta)
+                context = partial(patch_automodel_for_sequence_classification, **context_kwargs)
             elif model_info.task_type == 'reranker':
                 # For reranker task, patch CausalLM to SequenceClassification with num_labels=1
                 logger.info('Converting CausalLM to SequenceClassification for reranker task with num_labels=1')
-                context = partial(patch_automodel_for_sequence_classification, model_meta=model_meta)
+                context = partial(patch_automodel_for_sequence_classification, **context_kwargs)
             elif model_info.task_type == 'generative_reranker':
                 # For generative reranker, keep CausalLM structure unchanged
                 logger.info('Loading model as CausalLM for generative_reranker task')
-                context = partial(patch_automodel, automodel_class=automodel_class, model_info=model_info)
+                context = partial(patch_automodel, **context_kwargs)
             else:
-                context = partial(patch_automodel, automodel_class=automodel_class, model_info=model_info)
+                context = partial(patch_automodel, **context_kwargs)
             with context():
                 model = automodel_class.from_pretrained(
                     model_dir, config=model_config, torch_dtype=torch_dtype, trust_remote_code=True, **model_kwargs)
@@ -473,6 +483,7 @@ def _get_model_info(model_dir: str, model_type: Optional[str], quantization_conf
     torch_dtype = HfConfigFactory.get_torch_dtype(config, quant_info)
     max_model_len = HfConfigFactory.get_max_model_len(config)
     rope_scaling = HfConfigFactory.get_config_attr(config, 'rope_scaling')
+    is_moe_model = HfConfigFactory.is_moe_model(config)
 
     if model_type is None:
         model_type = _read_args_json_model_type(model_dir)
@@ -494,7 +505,9 @@ def _get_model_info(model_dir: str, model_type: Optional[str], quantization_conf
         max_model_len,
         quant_info.get('quant_method'),
         quant_info.get('quant_bits'),
-        rope_scaling=rope_scaling)
+        rope_scaling=rope_scaling,
+        is_moe_model=is_moe_model,
+    )
     return res
 
 
@@ -581,11 +594,14 @@ def get_model_tokenizer(
         model_type: Optional[str] = None,
         quantization_config=None,
         max_memory: Union[str, Dict[str, Any]] = None,
-        attn_impl: Literal['flash_attn', 'sdpa', 'eager', None] = None,
+        attn_impl: Optional[str] = None,
+        new_special_tokens: Optional[List[str]] = None,
         rope_scaling: Optional[Dict[str, Any]] = None,
+        max_model_len: Optional[int] = None,
         automodel_class=None,
         task_type: Literal['causal_lm', 'seq_cls', 'reranker', 'generative_reranker'] = None,
         num_labels: Optional[int] = None,
+        return_dummy_model: bool = False,
         model_kwargs: Optional[Dict[str, Any]] = None,
         **kwargs) -> Tuple[Optional[PreTrainedModel], PreTrainedTokenizerBase]:
     """
@@ -605,7 +621,7 @@ def get_model_tokenizer(
     if model_kwargs is None:
         model_kwargs = {}
     if download_model is None:
-        download_model = load_model
+        download_model = load_model and not return_dummy_model
 
     model_info, model_meta = get_model_info_meta(
         model_id_or_path,
@@ -619,7 +635,7 @@ def get_model_tokenizer(
         task_type=task_type,
         num_labels=num_labels)
 
-    if not use_torchacc() and device_map is None:
+    if device_map is None:
         device_map = get_default_device_map()
     model_kwargs['device_map'] = device_map
     if quantization_config:
@@ -632,6 +648,8 @@ def get_model_tokenizer(
     kwargs['attn_impl'] = attn_impl
     kwargs['rope_scaling'] = rope_scaling
     kwargs['model_meta'] = model_meta
+    kwargs['max_model_len'] = max_model_len
+    kwargs['return_dummy_model'] = return_dummy_model
     with patch_get_dynamic_module(), patch_tp_plan(load_model):
         model, processor = get_function(model_dir, model_info, model_kwargs, load_model, **kwargs)
 
@@ -640,6 +658,16 @@ def get_model_tokenizer(
         patch_getattr(processor.__class__, 'tokenizer')
     else:
         tokenizer = processor
+    if new_special_tokens:
+        num_new_tokens = tokenizer.add_special_tokens({'additional_special_tokens': new_special_tokens})
+        if num_new_tokens > 0:
+            logger.info(f'Added {num_new_tokens} new special tokens.')
+            if model is not None and model.config.vocab_size < len(tokenizer):
+                vocab_size = math.ceil(len(tokenizer) / 128) * 128
+                model.resize_token_embeddings(vocab_size)
+                # fix transformers==4.52.4 qwen2.5-vl
+                model.config.vocab_size = vocab_size
+
     problem_type = kwargs.get('problem_type')
     if problem_type is None and model_info.num_labels == 1:
         problem_type = 'regression'

@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for snowflakedb/snowflake provider version 2.4.0
+# CDKTF prebuilt bindings for snowflakedb/snowflake provider version 2.5.0
 
-This repo builds and publishes the [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform snowflake provider version
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0)
+* [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -218,6 +218,7 @@ __all__ = [
     "image_repository",
     "job_service",
     "legacy_service_user",
+    "listing",
     "managed_account",
     "masking_policy",
     "materialized_view",
@@ -370,6 +371,7 @@ from . import grant_privileges_to_share
 from . import image_repository
 from . import job_service
 from . import legacy_service_user
+from . import listing
 from . import managed_account
 from . import masking_policy
 from . import materialized_view

@@ -16902,7 +16902,7 @@ __Pyx_RefNannySetupContext("PyInit_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,6,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,4,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_9semaphore_9Semaphore_37__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_Semaphore___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_semaphor, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[24])); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_2) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -17003,7 +17003,7 @@ __Pyx_RefNannySetupContext("PyInit_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,4,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,6,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_9semaphore_14DummySemaphore_20__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_DummySemaphore___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_semaphor, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[35])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 3, __pyx_L1_error)

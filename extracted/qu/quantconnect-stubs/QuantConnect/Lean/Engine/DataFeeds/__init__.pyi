@@ -32,57 +32,57 @@ class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerat
     """Subscription data reader is a wrapper on the stream reader class to download, unpack and iterate over a data file."""
 
     @property
-    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], None], None]:
+    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]:
         """Event fired when an invalid configuration has been detected"""
         ...
 
     @invalid_configuration_detected.setter
-    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], None], None]) -> None:
+    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], None], None]:
+    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]:
         """Event fired when the numerical precision in the factor file has been limited"""
         ...
 
     @numerical_precision_limited.setter
-    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], None], None]) -> None:
+    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], None], None]:
+    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]:
         """Event fired when the start date has been limited"""
         ...
 
     @start_date_limited.setter
-    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], None], None]) -> None:
+    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], None], None]:
+    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]:
         """Event fired when there was an error downloading a remote file"""
         ...
 
     @download_failed.setter
-    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], None], None]) -> None:
+    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], None], None]:
+    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]:
         """Event fired when there was an error reading the data"""
         ...
 
     @reader_error_detected.setter
-    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], None], None]) -> None:
+    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def new_tradable_date(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], None], None]:
+    def new_tradable_date(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]:
         """Event fired when there is a new tradable date"""
         ...
 
     @new_tradable_date.setter
-    def new_tradable_date(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], None], None]) -> None:
+    def new_tradable_date(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -257,12 +257,12 @@ class Subscription(System.Object, System.Collections.Generic.IEnumerator[QuantCo
     """Represents the data required for a data feed to process a single subscription"""
 
     @property
-    def new_data_available(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def new_data_available(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event fired when a new data point is available"""
         ...
 
     @new_data_available.setter
-    def new_data_available(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def new_data_available(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -435,12 +435,12 @@ class SubscriptionCollection(System.Object, typing.Iterable[QuantConnect.Lean.En
     """Provides a collection for holding subscriptions."""
 
     @property
-    def fill_forward_resolution_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.FillForwardResolutionChangedEvent], None], None]:
+    def fill_forward_resolution_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.FillForwardResolutionChangedEvent], typing.Any], typing.Any]:
         """Event fired when the fill forward resolution changes"""
         ...
 
     @fill_forward_resolution_changed.setter
-    def fill_forward_resolution_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.FillForwardResolutionChangedEvent], None], None]) -> None:
+    def fill_forward_resolution_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.FillForwardResolutionChangedEvent], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self) -> None:
@@ -514,22 +514,22 @@ class IDataFeedSubscriptionManager(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def subscription_added(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]:
+    def subscription_added(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
         """Event fired when a new subscription is added"""
         ...
 
     @subscription_added.setter
-    def subscription_added(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]) -> None:
+    def subscription_added(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def subscription_removed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]:
+    def subscription_removed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
         """Event fired when an existing subscription is removed"""
         ...
 
     @subscription_removed.setter
-    def subscription_removed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]) -> None:
+    def subscription_removed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -618,12 +618,12 @@ class BaseDataExchange(System.Object):
         """Handler used to manage a single enumerator's move next/end of stream behavior"""
 
         @property
-        def enumerator_finished(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler], None], None]:
+        def enumerator_finished(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler], typing.Any], typing.Any]:
             """Event fired when MoveNext returns false"""
             ...
 
         @enumerator_finished.setter
-        def enumerator_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler], None], None]) -> None:
+        def enumerator_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler], typing.Any], typing.Any]) -> None:
             ...
 
         @property
@@ -636,7 +636,7 @@ class BaseDataExchange(System.Object):
             """The enumerator this handler handles"""
             ...
 
-        def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], should_move_next: typing.Callable[[], bool] = None, handle_data: typing.Callable[[QuantConnect.Data.BaseData], None] = None) -> None:
+        def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], should_move_next: typing.Callable[[], bool] = None, handle_data: typing.Callable[[QuantConnect.Data.BaseData], typing.Any] = None) -> None:
             """
             Initializes a new instance of the EnumeratorHandler class
             
@@ -696,7 +696,7 @@ class BaseDataExchange(System.Object):
         ...
 
     @overload
-    def add_enumerator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], should_move_next: typing.Callable[[], bool] = None, enumerator_finished: typing.Callable[[QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler], None] = None, handle_data: typing.Callable[[QuantConnect.Data.BaseData], None] = None) -> None:
+    def add_enumerator(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], should_move_next: typing.Callable[[], bool] = None, enumerator_finished: typing.Callable[[QuantConnect.Lean.Engine.DataFeeds.BaseDataExchange.EnumeratorHandler], typing.Any] = None, handle_data: typing.Callable[[QuantConnect.Data.BaseData], typing.Any] = None) -> None:
         """
         Adds the enumerator to this exchange. If it has already been added
         then it will remain registered in the exchange only once
@@ -861,12 +861,12 @@ class ISubscriptionSynchronizer(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def subscription_finished(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]:
+    def subscription_finished(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
         """Event fired when a subscription is finished"""
         ...
 
     @subscription_finished.setter
-    def subscription_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]) -> None:
+    def subscription_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
         ...
 
     def sync(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
@@ -1093,7 +1093,7 @@ class ISubscriptionDataSourceReader(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def invalid_source(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], None], None]:
+    def invalid_source(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]:
         """
         Event fired when the specified source is considered invalid, this may
         be from a missing file or failure to download a remote source
@@ -1101,7 +1101,7 @@ class ISubscriptionDataSourceReader(metaclass=abc.ABCMeta):
         ...
 
     @invalid_source.setter
-    def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], None], None]) -> None:
+    def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
@@ -1284,21 +1284,21 @@ class DataManager(System.Object, QuantConnect.Interfaces.IAlgorithmSubscriptionM
     """DataManager will manage the subscriptions for both the DataFeeds and the SubscriptionManager"""
 
     @property
-    def subscription_added(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]:
+    def subscription_added(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
         """Event fired when a new subscription is added"""
         ...
 
     @subscription_added.setter
-    def subscription_added(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]) -> None:
+    def subscription_added(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def subscription_removed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]:
+    def subscription_removed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
         """Event fired when an existing subscription is removed"""
         ...
 
     @subscription_removed.setter
-    def subscription_removed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]) -> None:
+    def subscription_removed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -1398,12 +1398,12 @@ class DefaultDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider, 
     """Default file provider functionality that retrieves data from disc to be used in an algorithm"""
 
     @property
-    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]:
+    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
         """Event raised each time data fetch is finished (successfully or not)"""
         ...
 
     @new_data_request.setter
-    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]) -> None:
+    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def dispose(self) -> None:
@@ -1434,7 +1434,7 @@ class DefaultDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider, 
 class BaseDownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.DefaultDataProvider, metaclass=abc.ABCMeta):
     """Base downloader implementation with some helper methods"""
 
-    def download_once(self, key: str, download: typing.Callable[[str], None]) -> System.IO.Stream:
+    def download_once(self, key: str, download: typing.Callable[[str], typing.Any]) -> System.IO.Stream:
         """
         Helper method which guarantees each requested key is downloaded only once concurrently if required based on NeedToDownload
         
@@ -1725,7 +1725,7 @@ class UpdateData(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_UpdateData_T]
         """
         ...
 
-    def __init__(self, target: QuantConnect_Lean_Engine_DataFeeds_UpdateData_T, data_type: typing.Type, data: typing.List[QuantConnect.Data.BaseData], is_internal_config: bool, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
+    def __init__(self, target: QuantConnect_Lean_Engine_DataFeeds_UpdateData_T, data_type: typing.Type, data: typing.Sequence[QuantConnect.Data.BaseData], is_internal_config: bool, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
         """
         Initializes a new instance of the UpdateData{T} class
         
@@ -1757,7 +1757,7 @@ class AggregationManager(System.Object, QuantConnect.Data.IDataAggregator):
     def time_provider(self, value: QuantConnect.ITimeProvider) -> None:
         ...
 
-    def add(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def add(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Add new subscription to current IDataAggregator instance
         
@@ -1835,7 +1835,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         ...
 
     @property
-    def invalid_source(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], None], None]:
+    def invalid_source(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]:
         """
         Event fired when the specified source is considered invalid, this may
         be from a missing file or failure to download a remote source
@@ -1843,7 +1843,7 @@ class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.D
         ...
 
     @invalid_source.setter
-    def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], None], None]) -> None:
+    def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
@@ -1940,7 +1940,7 @@ class CollectionSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.
     """
 
     @property
-    def reader_error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], None], None]:
+    def reader_error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]:
         """
         Event fired when an exception is thrown during a call to
         BaseData.Reader(SubscriptionDataConfig, string, DateTime, bool)
@@ -1948,7 +1948,7 @@ class CollectionSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.
         ...
 
     @reader_error.setter
-    def reader_error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], None], None]) -> None:
+    def reader_error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
@@ -2176,12 +2176,12 @@ class ProcessedDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider
     """A data provider that will check the processed data folder first"""
 
     @property
-    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]:
+    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
         """Ignored"""
         ...
 
     @new_data_request.setter
-    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]) -> None:
+    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self) -> None:
@@ -2254,7 +2254,7 @@ class TextSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSu
         ...
 
     @property
-    def reader_error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], None], None]:
+    def reader_error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]:
         """
         Event fired when an exception is thrown during a call to
         BaseData.Reader(SubscriptionDataConfig,string,DateTime,bool)
@@ -2262,7 +2262,7 @@ class TextSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSu
         ...
 
     @reader_error.setter
-    def reader_error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], None], None]) -> None:
+    def reader_error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
@@ -2450,12 +2450,12 @@ class DataQueueHandlerManager(System.Object, QuantConnect.Interfaces.IDataQueueH
         ...
 
     @property
-    def unsupported_configuration(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.SubscriptionDataConfig], None], None]:
+    def unsupported_configuration(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.SubscriptionDataConfig], typing.Any], typing.Any]:
         """Event triggered when an unsupported configuration is detected"""
         ...
 
     @unsupported_configuration.setter
-    def unsupported_configuration(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.SubscriptionDataConfig], None], None]) -> None:
+    def unsupported_configuration(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.SubscriptionDataConfig], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -2506,7 +2506,7 @@ class DataQueueHandlerManager(System.Object, QuantConnect.Interfaces.IDataQueueH
         """
         ...
 
-    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Subscribe to the specified configuration
         
@@ -2566,12 +2566,12 @@ class SubscriptionSynchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds
     """Provides the ability to synchronize subscriptions into time slices"""
 
     @property
-    def subscription_finished(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]:
+    def subscription_finished(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
         """Event fired when a Subscription is finished"""
         ...
 
     @subscription_finished.setter
-    def subscription_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], None], None]) -> None:
+    def subscription_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, universe_selection: QuantConnect.Lean.Engine.DataFeeds.UniverseSelection) -> None:
@@ -2807,12 +2807,12 @@ class CompositeDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider
     """This data provider will wrap and use multiple data providers internally in the provided order"""
 
     @property
-    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]:
+    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
         """Event raised each time data fetch is finished (successfully or not)"""
         ...
 
     @new_data_request.setter
-    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]) -> None:
+    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self) -> None:
@@ -2903,12 +2903,12 @@ class RealTimeScheduleEventService(System.Object, System.IDisposable):
     """
 
     @property
-    def new_event(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def new_event(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event fired when the scheduled time is past"""
         ...
 
     @new_event.setter
-    def new_event(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def new_event(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, time_provider: QuantConnect.ITimeProvider) -> None:
@@ -3000,21 +3000,21 @@ class InternalSubscriptionManager(System.Object):
     """Class in charge of handling Leans internal subscriptions"""
 
     @property
-    def added(self) -> typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], None]:
+    def added(self) -> typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]:
         """Event fired when a new internal subscription request is to be added"""
         ...
 
     @added.setter
-    def added(self, value: typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], None]) -> None:
+    def added(self, value: typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]) -> None:
         ...
 
     @property
-    def removed(self) -> typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], None]:
+    def removed(self) -> typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]:
         """Event fired when an existing internal subscription should be removed"""
         ...
 
     @removed.setter
-    def removed(self, value: typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], None]) -> None:
+    def removed(self, value: typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]) -> None:
         ...
 
     def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, resolution: QuantConnect.Resolution) -> None:

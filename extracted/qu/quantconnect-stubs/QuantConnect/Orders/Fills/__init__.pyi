@@ -139,11 +139,11 @@ class FillModelParameters(System.Object):
         ...
 
     @property
-    def on_order_updated(self) -> typing.Callable[[QuantConnect.Orders.Order], None]:
+    def on_order_updated(self) -> typing.Callable[[QuantConnect.Orders.Order], typing.Any]:
         """Callback to notify when an order is updated by the fill model"""
         ...
 
-    def __init__(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, config_provider: QuantConnect.Interfaces.ISubscriptionDataConfigProvider, stale_price_time_span: datetime.timedelta, securities_for_orders: System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security], on_order_updated: typing.Callable[[QuantConnect.Orders.Order], None] = None) -> None:
+    def __init__(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, config_provider: QuantConnect.Interfaces.ISubscriptionDataConfigProvider, stale_price_time_span: datetime.timedelta, securities_for_orders: System.Collections.Generic.Dictionary[QuantConnect.Orders.Order, QuantConnect.Securities.Security], on_order_updated: typing.Callable[[QuantConnect.Orders.Order], typing.Any] = None) -> None:
         """
         Creates a new instance
         

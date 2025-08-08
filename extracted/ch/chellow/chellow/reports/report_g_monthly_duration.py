@@ -3,7 +3,7 @@ import traceback
 
 from flask import g, redirect, request
 
-import odio
+from odio import create_spreadsheet
 
 from sqlalchemy import or_, select, true
 from sqlalchemy.orm import joinedload
@@ -47,9 +47,9 @@ from chellow.utils import (
 def write_spreadsheet(fl, compressed, site_rows, era_rows):
     fl.seek(0)
     fl.truncate()
-    with odio.create_spreadsheet(fl, "1.2", compressed=compressed) as f:
-        f.append_table("Site Level", site_rows)
-        f.append_table("Era Level", era_rows)
+    with create_spreadsheet(fl, compressed=compressed) as sheet:
+        sheet.append_table("Site Level", site_rows)
+        sheet.append_table("Era Level", era_rows)
 
 
 def _process_era(

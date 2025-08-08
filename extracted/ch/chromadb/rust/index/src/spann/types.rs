@@ -51,6 +51,25 @@ pub struct GarbageCollectionContext {
     hnsw_context: HnswGarbageCollectionContext,
 }
 
+impl GarbageCollectionContext {
+    pub async fn new(registry: Registry) -> Result<Self, Box<dyn ChromaError>> {
+        let pl_context = PlGarbageCollectionContext::try_from_config(
+            &PlGarbageCollectionConfig::default(),
+            &registry,
+        )
+        .await?;
+        let hnsw_context = HnswGarbageCollectionContext::try_from_config(
+            &HnswGarbageCollectionConfig::default(),
+            &registry,
+        )
+        .await?;
+        Ok(GarbageCollectionContext {
+            pl_context,
+            hnsw_context,
+        })
+    }
+}
+
 #[async_trait::async_trait]
 impl Configurable<(PlGarbageCollectionConfig, HnswGarbageCollectionConfig)>
     for GarbageCollectionContext
@@ -843,12 +862,6 @@ impl SpannIndexWriter {
     ) -> Result<(), SpannIndexWriterError> {
         // Don't reassign if outdated by now.
         if self.is_outdated(doc_offset_id, doc_version).await? {
-            tracing::debug!(
-                "Outdated point {} for reassignment version {} current head id {}",
-                doc_offset_id,
-                doc_version,
-                prev_head_id
-            );
             return Ok(());
         }
         // RNG query to find the nearest heads.
@@ -871,12 +884,6 @@ impl SpannIndexWriter {
                 .get(&doc_offset_id)
                 .ok_or(SpannIndexWriterError::VersionNotFound)?;
             if Self::is_deleted(*current_version) || doc_version < *current_version {
-                tracing::debug!(
-                    "Outdated point {} for reassignment version {} current head id {}",
-                    doc_offset_id,
-                    doc_version,
-                    prev_head_id
-                );
                 return Ok(());
             }
             next_version = *current_version + 1;
@@ -890,21 +897,8 @@ impl SpannIndexWriter {
             .zip(nearest_head_embeddings.into_iter())
         {
             if self.is_outdated(doc_offset_id, next_version).await? {
-                tracing::debug!(
-                    "Outdated point {} for reassignment version {} current head id {}",
-                    doc_offset_id,
-                    doc_version,
-                    prev_head_id
-                );
                 return Ok(());
             }
-            tracing::debug!(
-                "Reassigning {} to head {} incremented version {} current head id {}",
-                doc_offset_id,
-                nearest_head_id,
-                next_version,
-                prev_head_id
-            );
             self.stats
                 .num_reassigns
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -1074,12 +1068,6 @@ impl SpannIndexWriter {
         {
             let write_guard = self.posting_list_partitioned_mutex.lock(&head_id).await;
             if self.is_head_deleted(head_id as usize).await? {
-                tracing::info!(
-                    "Head {} got concurrently deleted for adding point {} at version {}. Reassigning now",
-                    head_id,
-                    id,
-                    version
-                );
                 if self.is_outdated(id, version).await? {
                     return Ok(());
                 }
@@ -1180,10 +1168,6 @@ impl SpannIndexWriter {
             self.stats
                 .num_splits
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            tracing::debug!(
-                "Splitting posting list of head {} since it exceeds threshold in lieu of appending point {} at version {}",
-                head_id, id, version
-            );
             // Otherwise split the posting list.
             local_indices.truncate(up_to_date_index);
             // Shuffle local_indices.
@@ -1280,10 +1264,6 @@ impl SpannIndexWriter {
                             .distance(&clustering_output.cluster_centers[k], &head_embedding)
                             < 1e-6
                     {
-                        tracing::debug!(
-                            "One of the heads remains the same id {} after splitting in lieu of adding point {} at version {}",
-                            head_id, id, version
-                        );
                         same_head = true;
                         let posting_list = SpannPostingList {
                             doc_offset_ids: &new_doc_offset_ids[k],
@@ -1311,10 +1291,6 @@ impl SpannIndexWriter {
                         let next_id = self
                             .next_head_id
                             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                        tracing::debug!(
-                            "Creating new head {}, old head {} in lieu of adding point {} at version {}",
-                            next_id, head_id, id, version
-                        );
                         let posting_list = SpannPostingList {
                             doc_offset_ids: &new_doc_offset_ids[k],
                             doc_versions: &new_doc_versions[k],
@@ -1342,7 +1318,6 @@ impl SpannIndexWriter {
                         let hnsw_len = hnsw_write_guard.hnsw_index.len_with_deleted();
                         let hnsw_capacity = hnsw_write_guard.hnsw_index.capacity();
                         if hnsw_len + 1 > hnsw_capacity {
-                            tracing::info!("Resizing hnsw index to {}", hnsw_capacity * 2);
                             hnsw_write_guard
                                 .hnsw_index
                                 .resize(hnsw_capacity * 2)
@@ -1372,12 +1347,6 @@ impl SpannIndexWriter {
                     }
                 }
                 if !same_head {
-                    tracing::debug!(
-                        "Deleting head {} after splitting in lieu of adding point {} at version {}",
-                        head_id,
-                        id,
-                        version
-                    );
                     // Delete the old head
                     let hnsw_write_guard = self.hnsw_index.inner.write();
                     hnsw_write_guard
@@ -1425,20 +1394,9 @@ impl SpannIndexWriter {
         // It's fine to create new centers for each of them since the number of such points
         // will be very small and we can also run GC to merge them later if needed.
         if ids.is_empty() {
-            tracing::info!(
-                "No nearby heads found for adding {} at version {}. Creating a new head",
-                id,
-                version
-            );
             let next_id = self
                 .next_head_id
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            tracing::debug!(
-                "Created new head {} in lieu of adding point {} at version {}",
-                next_id,
-                id,
-                version
-            );
             // First add to postings list then to hnsw. This order is important
             // to ensure that if and when the center is discoverable, it also exists
             // in the postings list. Otherwise, it will be a dangling center.
@@ -1465,7 +1423,6 @@ impl SpannIndexWriter {
                 let hnsw_len = write_guard.hnsw_index.len_with_deleted();
                 let hnsw_capacity = write_guard.hnsw_index.capacity();
                 if hnsw_len + 1 > hnsw_capacity {
-                    tracing::info!("Resizing hnsw index to {}", hnsw_capacity * 2);
                     write_guard
                         .hnsw_index
                         .resize(hnsw_capacity * 2)
@@ -1712,7 +1669,6 @@ impl SpannIndexWriter {
                 return Ok(());
             }
             if source_cluster_len == 0 {
-                tracing::info!("Posting list of {} is empty. Deleting from hnsw", head_id);
                 // Delete from hnsw.
                 let hnsw_write_guard = self.hnsw_index.inner.write();
                 hnsw_write_guard.hnsw_index.delete(head_id).map_err(|e| {
@@ -1976,7 +1932,6 @@ impl SpannIndexWriter {
                 let hnsw_len = clean_hnsw_write_guard.hnsw_index.len_with_deleted();
                 let hnsw_capacity = clean_hnsw_write_guard.hnsw_index.capacity();
                 if hnsw_len + 1 > hnsw_capacity {
-                    tracing::info!("Resizing hnsw index to {}", hnsw_capacity * 2);
                     clean_hnsw_write_guard
                         .hnsw_index
                         .resize(hnsw_capacity * 2)
@@ -2045,7 +2000,6 @@ impl SpannIndexWriter {
                     SpannIndexWriterError::HnswIndexSearchError(e)
                 })?
                 .ok_or(SpannIndexWriterError::HeadNotFound)?;
-            tracing::debug!("Garbage collecting head {}", head_id);
             self.garbage_collect_head(*head_id, &head_embedding).await?;
         }
         Ok(())
@@ -2059,7 +2013,11 @@ impl SpannIndexWriter {
             self.collection_id.to_string(),
         )];
         let gc_latency_metric = self.metrics.gc_latency.clone();
-        let stopwatch = Stopwatch::new(&gc_latency_metric, attributes);
+        let stopwatch = Stopwatch::new(
+            &gc_latency_metric,
+            attributes,
+            chroma_tracing::util::StopWatchUnit::Seconds,
+        );
         if self.gc_context.pl_context.enabled {
             match &self.gc_context.pl_context.policy {
                 PlGarbageCollectionPolicy::RandomSample(random_sample) => {
@@ -2225,7 +2183,11 @@ impl SpannIndexWriter {
             self.collection_id.to_string(),
         )];
         let pl_flusher = {
-            let stopwatch = Stopwatch::new(&self.metrics.pl_commit_latency, attribute);
+            let stopwatch = Stopwatch::new(
+                &self.metrics.pl_commit_latency,
+                attribute,
+                chroma_tracing::util::StopWatchUnit::Millis,
+            );
             let pl_writer_clone = self.posting_list_writer.clone();
             let pl_flusher = pl_writer_clone
                 .commit::<u32, &SpannPostingList<'_>>()
@@ -2241,7 +2203,11 @@ impl SpannIndexWriter {
             pl_flusher
         };
         let versions_map_flusher = {
-            let stopwatch = Stopwatch::new(&self.metrics.versions_map_commit_latency, attribute);
+            let stopwatch = Stopwatch::new(
+                &self.metrics.versions_map_commit_latency,
+                attribute,
+                chroma_tracing::util::StopWatchUnit::Millis,
+            );
             // Versions map. Create a writer, write all the data and commit.
             let mut bf_options = BlockfileWriterOptions::new(self.prefix_path.clone());
             bf_options = bf_options.unordered_mutations();
@@ -2311,7 +2277,11 @@ impl SpannIndexWriter {
 
         // Hnsw.
         let (hnsw_id, prefix_path) = {
-            let stopwatch = Stopwatch::new(&self.metrics.hnsw_commit_latency, attribute);
+            let stopwatch = Stopwatch::new(
+                &self.metrics.hnsw_commit_latency,
+                attribute,
+                chroma_tracing::util::StopWatchUnit::Millis,
+            );
             let (hnsw_id, prefix_path, hnsw_index) = match self.cleaned_up_hnsw_index {
                 Some(index) => {
                     tracing::info!("Committing cleaned up hnsw index");
@@ -2404,7 +2374,11 @@ impl SpannIndexFlusher {
             self.collection_id.to_string(),
         )];
         {
-            let stopwatch = Stopwatch::new(&self.metrics.pl_flush_latency, attribute);
+            let stopwatch = Stopwatch::new(
+                &self.metrics.pl_flush_latency,
+                attribute,
+                chroma_tracing::util::StopWatchUnit::Millis,
+            );
             let num_pl_entries_flushed = self.pl_flusher.num_entries();
             self.pl_flusher
                 .flush::<u32, &SpannPostingList<'_>>()
@@ -2423,7 +2397,11 @@ impl SpannIndexFlusher {
             );
         }
         {
-            let stopwatch = Stopwatch::new(&self.metrics.versions_map_flush_latency, attribute);
+            let stopwatch = Stopwatch::new(
+                &self.metrics.versions_map_flush_latency,
+                attribute,
+                chroma_tracing::util::StopWatchUnit::Millis,
+            );
             let num_versions_map_entries_flushed = self.versions_map_flusher.num_entries();
             self.versions_map_flusher
                 .flush::<u32, u32>()
@@ -2449,7 +2427,11 @@ impl SpannIndexFlusher {
                 SpannIndexWriterError::MaxHeadIdFlushError(e)
             })?;
         {
-            let stopwatch = Stopwatch::new(&self.metrics.hnsw_flush_latency, attribute);
+            let stopwatch = Stopwatch::new(
+                &self.metrics.hnsw_flush_latency,
+                attribute,
+                chroma_tracing::util::StopWatchUnit::Millis,
+            );
             self.hnsw_flusher
                 .provider
                 .flush(&self.hnsw_flusher.prefix_path, &self.hnsw_flusher.index_id)
@@ -2490,6 +2472,8 @@ pub enum SpannIndexReaderError {
     ScanHnswError(#[source] Box<dyn ChromaError>),
     #[error("Data inconsistency error")]
     DataInconsistencyError,
+    #[error("Error performing rng query {0}")]
+    RngError(#[from] RngQueryError),
 }
 
 impl ChromaError for SpannIndexReaderError {
@@ -2505,6 +2489,7 @@ impl ChromaError for SpannIndexReaderError {
             Self::VersionsMapNotFound => ErrorCodes::NotFound,
             Self::ScanHnswError(e) => e.code(),
             Self::DataInconsistencyError => ErrorCodes::Internal,
+            Self::RngError(e) => e.code(),
         }
     }
 }
@@ -2521,6 +2506,8 @@ pub struct SpannIndexReader<'me> {
     pub hnsw_index: HnswIndexRef,
     pub versions_map: BlockfileReader<'me, u32, u32>,
     pub dimensionality: usize,
+    pub adaptive_search_nprobe: bool,
+    pub params: InternalSpannConfiguration,
 }
 
 impl<'me> SpannIndexReader<'me> {
@@ -2601,6 +2588,8 @@ impl<'me> SpannIndexReader<'me> {
         versions_map_blockfile_id: Option<&Uuid>,
         blockfile_provider: &BlockfileProvider,
         prefix_path: &str,
+        adaptive_search_nprobe: bool,
+        params: InternalSpannConfiguration,
     ) -> Result<SpannIndexReader<'me>, SpannIndexReaderError> {
         let hnsw_reader = match hnsw_id {
             Some(hnsw_id) => {
@@ -2619,26 +2608,32 @@ impl<'me> SpannIndexReader<'me> {
                 return Err(SpannIndexReaderError::UninitializedIndex);
             }
         };
-        let postings_list_reader = match pl_blockfile_id {
-            Some(pl_id) => {
-                Self::posting_list_reader_from_id(pl_id, blockfile_provider, prefix_path).await?
-            }
-            None => return Err(SpannIndexReaderError::UninitializedIndex),
-        };
 
-        let versions_map_reader = match versions_map_blockfile_id {
-            Some(versions_id) => {
-                Self::versions_map_reader_from_id(versions_id, blockfile_provider, prefix_path)
-                    .await?
-            }
-            None => return Err(SpannIndexReaderError::UninitializedIndex),
-        };
+        let (postings_list_reader, versions_map_reader) =
+            match (pl_blockfile_id, versions_map_blockfile_id) {
+                (Some(pl_id), Some(versions_id)) => {
+                    let (pl_result, vm_result) = tokio::join!(
+                        Self::posting_list_reader_from_id(pl_id, blockfile_provider, prefix_path),
+                        Self::versions_map_reader_from_id(
+                            versions_id,
+                            blockfile_provider,
+                            prefix_path
+                        )
+                    );
+                    (pl_result?, vm_result?)
+                }
+                (None, _) | (_, None) => {
+                    return Err(SpannIndexReaderError::UninitializedIndex);
+                }
+            };
 
         Ok(Self {
             posting_lists: postings_list_reader,
             hnsw_index: hnsw_reader,
             versions_map: versions_map_reader,
             dimensionality,
+            adaptive_search_nprobe,
+            params,
         })
     }
 
@@ -2665,6 +2660,47 @@ impl<'me> SpannIndexReader<'me> {
             })?
             .ok_or(SpannIndexReaderError::VersionsMapNotFound)?;
         Ok(Self::is_version_outdated(actual_version, doc_version))
+    }
+
+    pub fn determine_search_nprobe(
+        &self,
+        collection_num_records_post_compaction: usize,
+        k: usize,
+    ) -> u32 {
+        // Query at least 20x more points than k.
+        let min_nprobe = ((k * 20) as f64 / self.params.split_threshold as f64).ceil() as u32;
+        let optimal_nprobe = if self.adaptive_search_nprobe {
+            if collection_num_records_post_compaction <= 500000 {
+                24
+            } else if collection_num_records_post_compaction <= 1000000 {
+                32
+            } else {
+                64
+            }
+        } else {
+            self.params.search_nprobe
+        };
+
+        optimal_nprobe.max(min_nprobe)
+    }
+
+    pub async fn rng_query(
+        &self,
+        normalized_query: &[f32],
+        collection_num_records_post_compaction: usize,
+        k: usize,
+    ) -> Result<(Vec<usize>, Vec<f32>, Vec<Vec<f32>>), SpannIndexReaderError> {
+        let r = rng_query(
+            normalized_query,
+            self.hnsw_index.clone(),
+            self.determine_search_nprobe(collection_num_records_post_compaction, k) as usize,
+            self.params.search_rng_epsilon,
+            self.params.search_rng_factor,
+            self.params.space.clone().into(),
+            false,
+        )
+        .await?;
+        Ok(r)
     }
 
     pub async fn fetch_posting_list(
@@ -4170,7 +4206,7 @@ mod tests {
                 prefix_path,
                 dimensionality,
                 &blockfile_provider,
-                params,
+                params.clone(),
                 gc_context,
                 pl_block_size,
                 SpannMetrics::default(),
@@ -4215,6 +4251,8 @@ mod tests {
                 Some(&paths.versions_map_id),
                 &blockfile_provider,
                 prefix_path,
+                true,
+                params,
             )
             .await
             .expect("Error creating spann index reader");
@@ -4286,7 +4324,7 @@ mod tests {
                 prefix_path,
                 dimensionality,
                 &blockfile_provider,
-                params,
+                params.clone(),
                 gc_context,
                 pl_block_size,
                 SpannMetrics::default(),
@@ -4353,6 +4391,8 @@ mod tests {
                 Some(&paths.versions_map_id),
                 &blockfile_provider,
                 prefix_path,
+                true,
+                params,
             )
             .await
             .expect("Error creating spann index reader");
@@ -4479,6 +4519,8 @@ mod tests {
                 versions_map_path.as_ref(),
                 &blockfile_provider,
                 prefix_path,
+                true,
+                params.clone(),
             )
             .await
             .expect("Error creating spann index reader");
@@ -4632,6 +4674,8 @@ mod tests {
                 versions_map_path.as_ref(),
                 &blockfile_provider,
                 prefix_path,
+                true,
+                params.clone(),
             )
             .await
             .expect("Error creating spann index reader");
@@ -4931,6 +4975,8 @@ mod tests {
                 versions_map_path.as_ref(),
                 &blockfile_provider,
                 prefix_path,
+                true,
+                params.clone(),
             )
             .await
             .expect("Error creating spann index reader");
@@ -4974,7 +5020,7 @@ mod tests {
                 prefix_path,
                 dimensionality,
                 &blockfile_provider,
-                params,
+                params.clone(),
                 gc_context,
                 pl_block_size,
                 SpannMetrics::default(),
@@ -5007,6 +5053,8 @@ mod tests {
                 versions_map_path.as_ref(),
                 &blockfile_provider,
                 prefix_path,
+                true,
+                params,
             )
             .await
             .expect("Error creating spann index reader");

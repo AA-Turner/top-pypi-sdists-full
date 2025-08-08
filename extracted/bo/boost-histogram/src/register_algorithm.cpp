@@ -7,6 +7,7 @@
 
 #include <boost/histogram/algorithm/reduce.hpp>
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 void register_algorithms(py::module& algorithm) {
     py::class_<bh::algorithm::reduce_command>(algorithm, "reduce_command")
         .def(py::init<bh::algorithm::reduce_command>())
@@ -21,8 +22,8 @@ void register_algorithms(py::module& algorithm) {
                                           : "iaxis={0}, ";
                 const char* c_merge = self.merge > 0 ? ", merge={0}" : "";
 
-                py::str start = py::str(c_start).format(self.iaxis);
-                py::str merge = py::str(c_merge).format(self.merge);
+                py::str const start = py::str(c_start).format(self.iaxis);
+                py::str const merge = py::str(c_merge).format(self.merge);
 
                 if(self.range == range_t::indices) {
                     return py::str("reduce_command(slice{0}({1}begin={2}, "
@@ -33,12 +34,10 @@ void register_algorithms(py::module& algorithm) {
                                 self.end.index,
                                 merge,
                                 self.crop ? "slice_mode.crop" : "slice_mode.shrink");
-                } else {
-                    return py::
-                        str("reduce_command(shrink{0}({1}, lower={2}, upper={3}{4}))")
-                            .format(
-                                suffix, start, self.begin.value, self.end.value, merge);
                 }
+                return py::str(
+                           "reduce_command(shrink{0}({1}, lower={2}, upper={3}{4}))")
+                    .format(suffix, start, self.begin.value, self.end.value, merge);
             }
 
             // self.range == range_t::none

@@ -14,7 +14,6 @@ import singlestoredb as s2
 from singlestoredb.management.job import Status
 from singlestoredb.management.job import TargetType
 from singlestoredb.management.region import Region
-from singlestoredb.management.region import RegionManager
 from singlestoredb.management.utils import NamedList
 
 
@@ -24,6 +23,11 @@ TEST_DIR = pathlib.Path(os.path.dirname(__file__))
 def clean_name(s):
     """Change all non-word characters to -."""
     return re.sub(r'[^\w]', r'-', s).replace('_', '-').lower()
+
+
+def shared_database_name(s):
+    """Return a shared database name. Cannot contain special characters except -"""
+    return re.sub(r'[^\w]', '', s).replace('-', '_').lower()
 
 
 @pytest.mark.management
@@ -366,42 +370,36 @@ class TestWorkspace(unittest.TestCase):
         assert 'endpoint' in cm.exception.msg, cm.exception.msg
 
 
-@pytest.mark.skip('Not implemented in server yet')
 @pytest.mark.management
 class TestStarterWorkspace(unittest.TestCase):
 
     manager = None
     starter_workspace = None
-    starter_workspace_user = {
-        'username': 'starter_user',
-        'password': None,
-    }
-
-    @property
-    def starter_username(self):
-        """Return the username for the starter workspace user."""
-        return self.starter_workspace_user['username']
-
-    @property
-    def password(self):
-        """Return the password for the starter workspace user."""
-        return self.starter_workspace_user['password']
 
     @classmethod
     def setUpClass(cls):
         cls.manager = s2.manage_workspaces()
 
-        us_regions = [x for x in cls.manager.regions if 'US' in x.name]
-        cls.password = secrets.token_urlsafe(20) + '-x&$'
+        shared_tier_regions: NamedList[Region] = [
+            x for x in cls.manager.shared_tier_regions if 'US' in x.name
+        ]
+        cls.starter_username = 'starter_user'
+        cls.password = secrets.token_urlsafe(20)
 
-        name = clean_name(secrets.token_urlsafe(20)[:20])
+        name = shared_database_name(secrets.token_urlsafe(20)[:20])
+
+        cls.database_name = f'starter_db_{name}'
+
+        shared_tier_region: Region = random.choice(shared_tier_regions)
+
+        if not shared_tier_region:
+            raise ValueError('No shared tier regions found')
 
         cls.starter_workspace = cls.manager.create_starter_workspace(
             f'starter-ws-test-{name}',
-            database_name=f'starter_db_{name}',
-            workspace_group={
-                'cell_id': random.choice(us_regions).id,
-            },
+            database_name=cls.database_name,
+            provider=shared_tier_region.provider,
+            region_name=shared_tier_region.region_name,
         )
 
         cls.starter_workspace.create_user(
@@ -469,14 +467,14 @@ class TestStarterWorkspace(unittest.TestCase):
         ) as conn:
             with conn.cursor() as cur:
                 cur.execute('show databases')
-                assert 'starter_db' in [x[0] for x in list(cur)]
+                assert self.database_name in [x[0] for x in list(cur)]
 
         # Test missing endpoint
         workspace = self.manager.get_starter_workspace(self.starter_workspace.id)
         workspace.endpoint = None
 
         with self.assertRaises(s2.ManagementError) as cm:
-            workspace.connect(user='admin', password=self.password)
+            workspace.connect(user=self.starter_username, password=self.password)
 
         assert 'endpoint' in cm.exception.msg, cm.exception.msg
 
@@ -1492,7 +1490,6 @@ class TestFileSpaces(unittest.TestCase):
             space.remove('obj_test_2.ipynb')
 
 
-@pytest.mark.skip('Not implemented in server yet')
 @pytest.mark.management
 class TestRegions(unittest.TestCase):
     """Test cases for region management."""
@@ -1530,14 +1527,6 @@ class TestRegions(unittest.TestCase):
         providers = {x.provider for x in regions}
         assert 'Azure' in providers or 'GCP' in providers or 'AWS' in providers
 
-        # Verify region can be accessed by name or ID
-        region_by_name = regions[region.name]
-        region_by_id = regions[region.id]
-        assert region_by_name == region_by_id
-        assert region_by_name.id == region.id
-        assert region_by_name.name == region.name
-        assert region_by_name.provider == region.provider
-
     def test_list_shared_tier_regions(self):
         """Test listing shared tier regions."""
         regions = self.manager.list_shared_tier_regions()
@@ -1549,21 +1538,13 @@ class TestRegions(unittest.TestCase):
         if regions:
             region = regions[0]
             assert isinstance(region, Region)
-            assert hasattr(region, 'id')
             assert hasattr(region, 'name')
             assert hasattr(region, 'provider')
+            assert hasattr(region, 'region_name')
 
             # Verify provider values
             providers = {x.provider for x in regions}
             assert any(p in providers for p in ['Azure', 'GCP', 'AWS'])
-
-            # Verify region can be accessed by name or ID
-            region_by_name = regions[region.name]
-            region_by_id = regions[region.id]
-            assert region_by_name == region_by_id
-            assert region_by_name.id == region.id
-            assert region_by_name.name == region.name
-            assert region_by_name.provider == region.provider
 
     def test_str_repr(self):
         """Test string representation of regions."""
@@ -1581,17 +1562,3 @@ class TestRegions(unittest.TestCase):
 
         # Test __repr__
         assert repr(region) == str(region)
-
-    def test_no_manager(self):
-        """Test behavior when manager is not available."""
-        regions = self.manager.list_regions()
-        if not regions:
-            self.skipTest('No regions available for testing')
-
-        region = regions[0]
-        region._manager = None
-
-        # Verify from_dict class method
-        with self.assertRaises(s2.ManagementError) as cm:
-            RegionManager.list_shared_tier_regions(None)
-        assert 'No workspace manager' in str(cm.exception)

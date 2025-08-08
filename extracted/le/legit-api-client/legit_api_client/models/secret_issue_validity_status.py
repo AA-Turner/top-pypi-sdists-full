@@ -33,6 +33,7 @@ class SecretIssueValidityStatus(str, Enum):
     NOTVALIDATED = 'NotValidated'
     VALIDATIONFAILED = 'ValidationFailed'
     INCONCLUSIVE = 'Inconclusive'
+    NOTENOUGHINFORMATION = 'NotEnoughInformation'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

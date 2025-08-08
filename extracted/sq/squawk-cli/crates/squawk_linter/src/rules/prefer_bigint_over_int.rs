@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use squawk_syntax::ast::AstNode;
 use squawk_syntax::{Parse, SourceFile, ast};
 
+use crate::identifier::Identifier;
 use crate::{Linter, Rule, Violation};
 
 use crate::visitors::check_not_allowed_types;
@@ -11,8 +12,12 @@ use crate::visitors::is_not_valid_int_type;
 use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref INT_TYPES: HashSet<&'static str> =
-        HashSet::from(["integer", "int4", "serial", "serial4",]);
+    static ref INT_TYPES: HashSet<Identifier> = HashSet::from([
+        Identifier::new("integer"),
+        Identifier::new("int4"),
+        Identifier::new("serial"),
+        Identifier::new("serial4"),
+    ]);
 }
 
 fn check_ty_for_big_int(ctx: &mut Linter, ty: Option<ast::Type>) {
@@ -38,7 +43,8 @@ pub(crate) fn prefer_bigint_over_int(ctx: &mut Linter, parse: &Parse<SourceFile>
 mod test {
     use insta::assert_debug_snapshot;
 
-    use crate::{Linter, Rule};
+    use crate::Rule;
+    use crate::test_utils::lint;
 
     #[test]
     fn err() {
@@ -56,9 +62,7 @@ create table users (
     id serial4
 );
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferBigintOverInt]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferBigintOverInt);
         assert_ne!(errors.len(), 0);
         assert_eq!(errors.len(), 4);
         assert_eq!(
@@ -99,9 +103,7 @@ create table users (
     id serial2
 );
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferBigintOverInt]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferBigintOverInt);
         assert_eq!(errors.len(), 0);
     }
 }

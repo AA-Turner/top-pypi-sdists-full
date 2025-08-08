@@ -4,31 +4,29 @@ from __future__ import annotations
 
 import copy
 from builtins import sum
-from typing import TYPE_CHECKING, Sequence, TypeVar
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, TypeVar
 
 import numpy as np
 
 if TYPE_CHECKING:
     from uhi.typing.plottable import PlottableAxis
 
+from ._compat.typing import Self
 from .typing import AxisLike
 
 __all__ = ("Locator", "Slicer", "at", "loc", "overflow", "rebin", "sum", "underflow")
 
 
-class Slicer:
+def Slicer() -> np.lib._index_tricks_impl.IndexExpression:
     """
-    This is a simple class to make slicing inside dictionaries simpler.
-    This is how it should be used:
+    It is encouraged to use "np.s_" directly instead of this function:
 
-        s = bh.tag.Slicer()
+        h[{0: np.s_[::bh.rebin(2)]}]   # rebin axis 0 by two
 
-        h[{0: s[::bh.rebin(2)]}]   # rebin axis 0 by two
-
+    This is provided for backward compatibility.
     """
-
-    def __getitem__(self, item: slice) -> slice:
-        return item
+    return np.s_
 
 
 T = TypeVar("T", bound="Locator")
@@ -44,12 +42,12 @@ class Locator:
 
         self.offset = offset
 
-    def __add__(self: T, offset: int) -> T:
+    def __add__(self, offset: int) -> Self:
         other = copy.copy(self)
         other.offset += offset
         return other
 
-    def __sub__(self: T, offset: int) -> T:
+    def __sub__(self, offset: int) -> Self:
         other = copy.copy(self)
         other.offset -= offset
         return other
@@ -183,21 +181,22 @@ class rebin:
                 newedges = self.axis.edges
 
             if newedges is not None and hasattr(axis, "edges"):
-                assert newedges[0] == axis.edges[0], "Edges must start at first bin"
-                assert newedges[-1] == axis.edges[-1], "Edges must end at last bin"
-                assert all(
-                    np.isclose(
-                        axis.edges[np.abs(axis.edges - edge).argmin()],
-                        edge,
-                    )
-                    for edge in newedges
-                ), "Edges must be in the axis"
-                matched_ixes = np.where(
-                    np.isin(
-                        axis.edges,
-                        newedges,
-                    )
-                )[0]
+                if newedges[0] != axis.edges[0]:
+                    msg = "Edges must start at first bin"
+                    raise ValueError(msg)
+                if newedges[-1] != axis.edges[-1]:
+                    msg = "Edges must end at last bin"
+                    raise ValueError(msg)
+                matched_ixes = [np.abs(axis.edges - edge).argmin() for edge in newedges]
+                missing_edges = [
+                    edge
+                    for ix, edge in zip(matched_ixes, newedges)
+                    if not np.isclose(axis.edges[ix], edge)
+                ]
+                if missing_edges:
+                    missing_edges_repr = ", ".join(map(str, missing_edges))
+                    msg = f"Edge(s) {missing_edges_repr} not found in axis"
+                    raise ValueError(msg)
                 return [
                     int(ix - matched_ixes[i]) for i, ix in enumerate(matched_ixes[1:])
                 ]

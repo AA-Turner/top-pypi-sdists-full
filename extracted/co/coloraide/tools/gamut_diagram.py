@@ -26,10 +26,9 @@ def main():
         '--color', '-c',
         help="Colors to gamut map separated with semicolons. If multiple colors are used, colors must use the same hue."
     )
-    parser.add_argument('--method', '-m', default='lch-chroma', help="Gamut map method")
     parser.add_argument(
-        '--gmap-options',
-        default='{}',
+        '--gmap',
+        default='lch-chroma:{}',
         help='Options to pass to the gamut mapping method (JSON string).'
     )
     parser.add_argument('--gamut', '-g', default="srgb", help='Gamut to evaluate the color in (default is sRGB).')
@@ -46,9 +45,11 @@ def main():
     parser.add_argument('--width', '-W', type=int, default=800, help="Width")
     args = parser.parse_args()
 
-    method = args.method
-    gmap = {'method': args.method}
-    gmap.update(json.loads(args.gmap_options))
+    parts = [p.strip() if not e else json.loads(p) for e, p in enumerate(args.gmap.split(':', 1))]
+    method = parts[0]
+    gmap = {'method': method}
+    if len(parts) == 2:
+        gmap.update(parts[1])
     adaptive = gmap.get('adaptive', None)
 
     pspace = ''
@@ -85,16 +86,16 @@ def main():
         x = 'c'
         y = 't'
     else:
-        raise ValueError(f'"{args.method}" is an unsupported gamut mapping algorithm')
+        raise ValueError(f"\"{gmap['method']}\" is an unsupported gamut mapping algorithm")
 
     title = ''
     if args.title:
         title = args.title
-    elif args.method == 'clip':
+    elif gmap['method'] == 'clip':
         title = f'Clipping shown in {t_space}'
-    elif args.method.endswith('-chroma'):
+    elif gmap['method'].endswith('-chroma'):
         title = f'MINDE and Chroma Reduction in {t_space}'
-    elif args.method.endswith('raytrace') or args.method.startswith('raytrace'):
+    elif gmap['method'].endswith('raytrace') or args.method.startswith('raytrace'):
         title = f'Ray Tracing Chroma Reduction in {t_space}'
 
     colors = args.color.split(';')

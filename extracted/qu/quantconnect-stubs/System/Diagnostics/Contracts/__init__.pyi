@@ -211,7 +211,7 @@ class ContractOptionAttribute(System.Attribute):
 class Contract(System.Object):
     """Contains static methods for representing program contracts such as preconditions, postconditions, and invariants."""
 
-    contract_failed: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Contracts.ContractFailedEventArgs], None], None]
+    contract_failed: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Contracts.ContractFailedEventArgs], typing.Any], typing.Any]
     """
     Allows a managed application environment such as an interactive interpreter (IronPython)
     to be notified of contract failures and

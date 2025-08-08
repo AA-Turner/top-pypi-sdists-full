@@ -815,12 +815,12 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         ...
 
     @property
-    def updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], None], None]:
+    def updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], typing.Any], typing.Any]:
         """Event handler that fires after this indicator is updated"""
         ...
 
     @updated.setter
-    def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], None], None]) -> None:
+    def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -1426,12 +1426,12 @@ class PivotPointsHighLow(QuantConnect.Indicators.IndicatorBase[QuantConnect.Data
     """
 
     @property
-    def new_pivot_point_formed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.PivotPointsEventArgs], None], None]:
+    def new_pivot_point_formed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.PivotPointsEventArgs], typing.Any], typing.Any]:
         """Event informs of new pivot point formed with new data update"""
         ...
 
     @new_pivot_point_formed.setter
-    def new_pivot_point_formed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.PivotPointsEventArgs], None], None]) -> None:
+    def new_pivot_point_formed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.PivotPointsEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -5950,12 +5950,12 @@ class MultiSymbolIndicator(typing.Generic[QuantConnect_Indicators_MultiSymbolInd
             ...
 
         @property
-        def new_input(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect_Indicators_MultiSymbolIndicator_TInput], None], None]:
+        def new_input(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect_Indicators_MultiSymbolIndicator_TInput], typing.Any], typing.Any]:
             """Event that fires when a new input data point is set for the symbol."""
             ...
 
         @new_input.setter
-        def new_input(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect_Indicators_MultiSymbolIndicator_TInput], None], None]) -> None:
+        def new_input(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect_Indicators_MultiSymbolIndicator_TInput], typing.Any], typing.Any]) -> None:
             ...
 
         @property
@@ -6560,7 +6560,7 @@ class ResetCompositeIndicator(QuantConnect.Indicators.CompositeIndicator):
     """Class that extends CompositeIndicator to execute a given action once is reset"""
 
     @overload
-    def __init__(self, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase, composer: typing.Callable[[QuantConnect.Indicators.IndicatorBase, QuantConnect.Indicators.IndicatorBase], QuantConnect.Indicators.IndicatorResult], extra_reset_action: typing.Callable[[], None]) -> None:
+    def __init__(self, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase, composer: typing.Callable[[QuantConnect.Indicators.IndicatorBase, QuantConnect.Indicators.IndicatorBase], QuantConnect.Indicators.IndicatorResult], extra_reset_action: typing.Callable[[], typing.Any]) -> None:
         """
         Creates a new ResetCompositeIndicator capable of taking the output from the left and right indicators
         and producing a new value via the composer delegate specified
@@ -6573,7 +6573,7 @@ class ResetCompositeIndicator(QuantConnect.Indicators.CompositeIndicator):
         ...
 
     @overload
-    def __init__(self, name: str, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase, composer: typing.Callable[[QuantConnect.Indicators.IndicatorBase, QuantConnect.Indicators.IndicatorBase], QuantConnect.Indicators.IndicatorResult], extra_reset_action: typing.Callable[[], None]) -> None:
+    def __init__(self, name: str, left: QuantConnect.Indicators.IndicatorBase, right: QuantConnect.Indicators.IndicatorBase, composer: typing.Callable[[QuantConnect.Indicators.IndicatorBase, QuantConnect.Indicators.IndicatorBase], QuantConnect.Indicators.IndicatorResult], extra_reset_action: typing.Callable[[], typing.Any]) -> None:
         """
         Creates a new CompositeIndicator capable of taking the output from the left and right indicators
         and producing a new value via the composer delegate specified
@@ -7629,7 +7629,7 @@ class FunctionalIndicator(typing.Generic[QuantConnect_Indicators_FunctionalIndic
         ...
 
     @overload
-    def __init__(self, name: str, compute_next_value: typing.Callable[[QuantConnect_Indicators_FunctionalIndicator_T], float], is_ready: typing.Callable[[QuantConnect.Indicators.IndicatorBase[QuantConnect_Indicators_FunctionalIndicator_T]], bool], reset: typing.Callable[[], None]) -> None:
+    def __init__(self, name: str, compute_next_value: typing.Callable[[QuantConnect_Indicators_FunctionalIndicator_T], float], is_ready: typing.Callable[[QuantConnect.Indicators.IndicatorBase[QuantConnect_Indicators_FunctionalIndicator_T]], bool], reset: typing.Callable[[], typing.Any]) -> None:
         """
         Creates a new FunctionalIndicator using the specified functions as its implementation.
         
@@ -11393,12 +11393,12 @@ class IIndicator(typing.Generic[QuantConnect_Indicators_IIndicator_T], System.IC
 
     @property
     @abc.abstractmethod
-    def updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], None], None]:
+    def updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], typing.Any], typing.Any]:
         """Event handler that fires after this indicator is updated"""
         ...
 
     @updated.setter
-    def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], None], None]) -> None:
+    def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], typing.Any], typing.Any]) -> None:
         ...
 
     @property

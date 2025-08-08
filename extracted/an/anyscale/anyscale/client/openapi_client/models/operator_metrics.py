@@ -38,8 +38,8 @@ class OperatorMetrics(object):
         'state': 'DatasetState',
         'progress': 'int',
         'total': 'int',
-        'start_time': 'int',
-        'end_time': 'int',
+        'start_time': 'float',
+        'end_time': 'float',
         'metrics': 'dict(str, Metric)'
     }
 
@@ -76,7 +76,8 @@ class OperatorMetrics(object):
         self.progress = progress
         if total is not None:
             self.total = total
-        self.start_time = start_time
+        if start_time is not None:
+            self.start_time = start_time
         if end_time is not None:
             self.end_time = end_time
         self.metrics = metrics
@@ -200,7 +201,7 @@ class OperatorMetrics(object):
 
 
         :return: The start_time of this OperatorMetrics.  # noqa: E501
-        :rtype: int
+        :rtype: float
         """
         return self._start_time
 
@@ -210,10 +211,8 @@ class OperatorMetrics(object):
 
 
         :param start_time: The start_time of this OperatorMetrics.  # noqa: E501
-        :type: int
+        :type: float
         """
-        if self.local_vars_configuration.client_side_validation and start_time is None:  # noqa: E501
-            raise ValueError("Invalid value for `start_time`, must not be `None`")  # noqa: E501
 
         self._start_time = start_time
 
@@ -223,7 +222,7 @@ class OperatorMetrics(object):
 
 
         :return: The end_time of this OperatorMetrics.  # noqa: E501
-        :rtype: int
+        :rtype: float
         """
         return self._end_time
 
@@ -233,7 +232,7 @@ class OperatorMetrics(object):
 
 
         :param end_time: The end_time of this OperatorMetrics.  # noqa: E501
-        :type: int
+        :type: float
         """
 
         self._end_time = end_time

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: ydb-dbapi
-Version: 0.1.13
+Version: 0.1.14
 Summary: YDB Python DBAPI which complies with PEP 249
 Author: Yandex LLC
 Author-email: ydb@yandex-team.ru

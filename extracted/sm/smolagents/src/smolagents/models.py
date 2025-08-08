@@ -270,7 +270,7 @@ def remove_stop_sequences(content: str, stop_sequences: list[str]) -> str:
 
 
 def get_clean_message_list(
-    message_list: list[ChatMessage],
+    message_list: list[ChatMessage | dict],
     role_conversions: dict[MessageRole, MessageRole] | dict[str, str] = {},
     convert_images_to_image_urls: bool = False,
     flatten_messages_as_text: bool = False,
@@ -280,7 +280,7 @@ def get_clean_message_list(
     Subsequent messages with the same role will be concatenated to a single message.
 
     Args:
-        message_list (`list[dict[str, str]]`): List of chat messages.
+        message_list (`list[ChatMessage | dict]`): List of chat messages. Mixed types are allowed.
         role_conversions (`dict[MessageRole, MessageRole]`, *optional* ): Mapping to convert roles.
         convert_images_to_image_urls (`bool`, default `False`): Whether to convert images to image URLs.
         flatten_messages_as_text (`bool`, default `False`): Whether to flatten messages as text.
@@ -288,6 +288,8 @@ def get_clean_message_list(
     output_message_list: list[dict[str, Any]] = []
     message_list = deepcopy(message_list)  # Avoid modifying the original list
     for message in message_list:
+        if isinstance(message, dict):
+            message = ChatMessage.from_dict(message)
         role = message.role
         if role not in MessageRole.roles():
             raise ValueError(f"Incorrect role {role}, only {MessageRole.roles()} are supported for now.")
@@ -384,31 +386,11 @@ class Model:
         self.tool_name_key = tool_name_key
         self.tool_arguments_key = tool_arguments_key
         self.kwargs = kwargs
-        self._last_input_token_count: int | None = None
-        self._last_output_token_count: int | None = None
         self.model_id: str | None = model_id
-
-    @property
-    def last_input_token_count(self) -> int | None:
-        warnings.warn(
-            "Attribute last_input_token_count is deprecated and will be removed in version 1.20. "
-            "Please use TokenUsage.input_tokens instead.",
-            FutureWarning,
-        )
-        return self._last_input_token_count
-
-    @property
-    def last_output_token_count(self) -> int | None:
-        warnings.warn(
-            "Attribute last_output_token_count is deprecated and will be removed in version 1.20. "
-            "Please use TokenUsage.output_tokens instead.",
-            FutureWarning,
-        )
-        return self._last_output_token_count
 
     def _prepare_completion_kwargs(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -591,7 +573,7 @@ class VLLMModel(Model):
 
     def generate(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -635,8 +617,6 @@ class VLLMModel(Model):
         )
 
         output_text = out[0].outputs[0].text
-        self._last_input_token_count = len(out[0].prompt_token_ids)
-        self._last_output_token_count = len(out[0].outputs[0].token_ids)
         return ChatMessage(
             role=MessageRole.ASSISTANT,
             content=output_text,
@@ -715,7 +695,7 @@ class MLXModel(Model):
 
     def generate(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -744,9 +724,6 @@ class MLXModel(Model):
             if any((stop_index := text.rfind(stop)) != -1 for stop in stops):
                 text = text[:stop_index]
                 break
-
-        self._last_input_token_count = len(prompt_ids)
-        self._last_output_token_count = output_tokens
         return ChatMessage(
             role=MessageRole.ASSISTANT,
             content=text,
@@ -776,8 +753,8 @@ class TransformersModel(Model):
             The torch_dtype to initialize your model with.
         trust_remote_code (bool, default `False`):
             Some models on the Hub require running remote code: for this model, you would have to set this flag to True.
-        kwargs (dict, *optional*):
-            Any additional keyword arguments that you want to use in model.generate(), for instance `max_new_tokens` or `device`.
+        model_kwargs (`dict[str, Any]`, *optional*):
+            Additional keyword arguments to pass to `AutoModel.from_pretrained` (like revision, model_args, config, etc.).
         **kwargs:
             Additional keyword arguments to pass to `model.generate()`, for instance `max_new_tokens` or `device`.
     Raises:
@@ -804,6 +781,7 @@ class TransformersModel(Model):
         device_map: str | None = None,
         torch_dtype: str | None = None,
         trust_remote_code: bool = False,
+        model_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ):
         try:
@@ -841,12 +819,14 @@ class TransformersModel(Model):
             device_map = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"Using device: {device_map}")
         self._is_vlm = False
+        self.model_kwargs = model_kwargs or {}
         try:
             self.model = AutoModelForImageTextToText.from_pretrained(
                 model_id,
                 device_map=device_map,
                 torch_dtype=torch_dtype,
                 trust_remote_code=trust_remote_code,
+                **self.model_kwargs,
             )
             self.processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=trust_remote_code)
             self._is_vlm = True
@@ -859,6 +839,7 @@ class TransformersModel(Model):
                     device_map=device_map,
                     torch_dtype=torch_dtype,
                     trust_remote_code=trust_remote_code,
+                    **self.model_kwargs,
                 )
                 self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=trust_remote_code)
                 self.streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)  # type: ignore
@@ -891,7 +872,7 @@ class TransformersModel(Model):
 
     def _prepare_completion_args(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
         **kwargs,
@@ -939,7 +920,7 @@ class TransformersModel(Model):
 
     def generate(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -965,9 +946,6 @@ class TransformersModel(Model):
 
         if stop_sequences is not None:
             output_text = remove_stop_sequences(output_text, stop_sequences)
-
-        self._last_input_token_count = count_prompt_tokens
-        self._last_output_token_count = len(generated_tokens)
         return ChatMessage(
             role=MessageRole.ASSISTANT,
             content=output_text,
@@ -983,7 +961,7 @@ class TransformersModel(Model):
 
     def generate_stream(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1001,7 +979,6 @@ class TransformersModel(Model):
 
         # Get prompt token count once
         count_prompt_tokens = generation_kwargs["inputs"].shape[1]  # type: ignore
-        self._last_input_token_count = count_prompt_tokens
 
         # Start generation in a separate thread
         thread = Thread(target=self.model.generate, kwargs={"streamer": self.streamer, **generation_kwargs})
@@ -1132,7 +1109,7 @@ class LiteLLMModel(ApiModel):
 
     def generate(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1152,9 +1129,6 @@ class LiteLLMModel(ApiModel):
         )
         self._apply_rate_limit()
         response = self.client.completion(**completion_kwargs)
-
-        self._last_input_token_count = response.usage.prompt_tokens
-        self._last_output_token_count = response.usage.completion_tokens
         return ChatMessage.from_dict(
             response.choices[0].message.model_dump(include={"role", "content", "tool_calls"}),
             raw=response,
@@ -1166,7 +1140,7 @@ class LiteLLMModel(ApiModel):
 
     def generate_stream(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1187,8 +1161,6 @@ class LiteLLMModel(ApiModel):
         self._apply_rate_limit()
         for event in self.client.completion(**completion_kwargs, stream=True, stream_options={"include_usage": True}):
             if getattr(event, "usage", None):
-                self._last_input_token_count = event.usage.prompt_tokens
-                self._last_output_token_count = event.usage.completion_tokens
                 yield ChatMessageStreamDelta(
                     content="",
                     token_usage=TokenUsage(
@@ -1410,7 +1382,7 @@ class InferenceClientModel(ApiModel):
 
     def generate(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1432,9 +1404,6 @@ class InferenceClientModel(ApiModel):
         )
         self._apply_rate_limit()
         response = self.client.chat_completion(**completion_kwargs)
-
-        self._last_input_token_count = response.usage.prompt_tokens
-        self._last_output_token_count = response.usage.completion_tokens
         return ChatMessage.from_dict(
             asdict(response.choices[0].message),
             raw=response,
@@ -1446,7 +1415,7 @@ class InferenceClientModel(ApiModel):
 
     def generate_stream(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1467,8 +1436,6 @@ class InferenceClientModel(ApiModel):
             **completion_kwargs, stream=True, stream_options={"include_usage": True}
         ):
             if getattr(event, "usage", None):
-                self._last_input_token_count = event.usage.prompt_tokens
-                self._last_output_token_count = event.usage.completion_tokens
                 yield ChatMessageStreamDelta(
                     content="",
                     token_usage=TokenUsage(
@@ -1561,7 +1528,7 @@ class OpenAIServerModel(ApiModel):
 
     def generate_stream(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1582,8 +1549,6 @@ class OpenAIServerModel(ApiModel):
             **completion_kwargs, stream=True, stream_options={"include_usage": True}
         ):
             if event.usage:
-                self._last_input_token_count = event.usage.prompt_tokens
-                self._last_output_token_count = event.usage.completion_tokens
                 yield ChatMessageStreamDelta(
                     content="",
                     token_usage=TokenUsage(
@@ -1614,7 +1579,7 @@ class OpenAIServerModel(ApiModel):
 
     def generate(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1632,10 +1597,6 @@ class OpenAIServerModel(ApiModel):
         )
         self._apply_rate_limit()
         response = self.client.chat.completions.create(**completion_kwargs)
-
-        # Reported that `response.usage` can be None in some cases when using OpenRouter: see GH-1401
-        self._last_input_token_count = getattr(response.usage, "prompt_tokens", 0)
-        self._last_output_token_count = getattr(response.usage, "completion_tokens", 0)
         return ChatMessage.from_dict(
             response.choices[0].message.model_dump(include={"role", "content", "tool_calls"}),
             raw=response,
@@ -1716,6 +1677,18 @@ class AmazonBedrockServerModel(ApiModel):
     This class provides an interface to interact with various Bedrock language models,
     allowing for customized model inference, guardrail configuration, message handling,
     and other parameters allowed by boto3 API.
+
+    Authentication:
+
+    Amazon Bedrock supports multiple authentication methods:
+    - Default AWS credentials:
+       Use the default AWS credential chain (e.g., IAM roles, IAM users).
+    - API Key Authentication (requires `boto3 >= 1.39.0`):
+       Set the API key using the `AWS_BEARER_TOKEN_BEDROCK` environment variable.
+
+    > [!TIP]
+    > API key support requires `boto3 >= 1.39.0`.
+    > For users not relying on API key authentication, the minimum supported version is `boto3 >= 1.36.18`.
 
     Parameters:
         model_id (`str`):
@@ -1808,7 +1781,7 @@ class AmazonBedrockServerModel(ApiModel):
 
     def _prepare_completion_kwargs(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1832,7 +1805,6 @@ class AmazonBedrockServerModel(ApiModel):
             convert_images_to_image_urls=convert_images_to_image_urls,
             **kwargs,
         )
-
         # Not all models in Bedrock support `toolConfig`. Also, smolagents already include the tool call in the prompt,
         # so adding `toolConfig` could cause conflicts. We remove it to avoid issues.
         completion_kwargs.pop("toolConfig", None)
@@ -1861,7 +1833,7 @@ class AmazonBedrockServerModel(ApiModel):
 
     def generate(
         self,
-        messages: list[ChatMessage],
+        messages: list[ChatMessage | dict],
         stop_sequences: list[str] | None = None,
         response_format: dict[str, str] | None = None,
         tools_to_call_from: list[Tool] | None = None,
@@ -1880,11 +1852,14 @@ class AmazonBedrockServerModel(ApiModel):
         # self.client is created in ApiModel class
         response = self.client.converse(**completion_kwargs)
 
-        # Get first message
-        response["output"]["message"]["content"] = response["output"]["message"]["content"][0]["text"]
-
-        self._last_input_token_count = response["usage"]["inputTokens"]
-        self._last_output_token_count = response["usage"]["outputTokens"]
+        # Get last message content block in case thinking mode is enabled: discard thinking
+        last_message_content_block = response["output"]["message"]["content"][-1]
+        if "text" not in last_message_content_block:
+            raise KeyError(
+                '"text" field not found in the last element of response["output"]["message"]["content"]. '
+                "Unexpected output format, possibly due to thinking mode changes."
+            )
+        response["output"]["message"]["content"] = last_message_content_block["text"]
         return ChatMessage.from_dict(
             response["output"]["message"],
             raw=response,

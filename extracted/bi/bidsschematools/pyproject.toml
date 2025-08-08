@@ -34,7 +34,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dynamic = []
-version = "1.0.12"
+version = "1.0.13"
 
 [project.license]
 text = "MIT"
@@ -105,7 +105,7 @@ source = [
 parallel = true
 
 [tool.bumpversion]
-current_version = "1.0.12"
+current_version = "1.0.13"
 parse = "(?x)\n    (?P<major>[0-9]+)\n    \\.(?P<minor>[0-9]+)\n    \\.(?P<patch>[0-9]+)\n    (?:-(?P<pre_label>dev))?\n"
 serialize = [
     "{major}.{minor}.{patch}-{pre_label}",

@@ -8,8 +8,11 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufWriter;
+use std::ops::Not;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Instant;
 
 use itertools::Itertools;
@@ -24,17 +27,26 @@ use pyrefly_util::fs_anyhow;
 use pyrefly_util::lined_buffer::DisplayRange;
 use pyrefly_util::visit::Visit;
 use rayon::prelude::*;
+use ruff_python_ast::AnyNodeRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprContext;
+use ruff_python_ast::ModModule;
 use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtImportFrom;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
+use ruff_text_size::TextRange;
 use serde::Serialize;
 use tracing::debug;
 use tracing::info;
 
 use crate::alt::answers::Answers;
+use crate::alt::types::class_metadata::ClassMro;
+use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMetadata;
+use crate::binding::binding::KeyClassMro;
+use crate::binding::binding::KeyFunction;
 use crate::binding::bindings::Bindings;
 use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::typeshed;
@@ -65,6 +77,8 @@ struct PysaProjectModule {
     module_name: String,            // e.g, `foo.bar`
     source_path: ModulePathDetails, // Path to the source code
     info_path: Option<PathBuf>,     // Path to the PysaModuleFile
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_test: bool, // Uses a set of heuristics to determine if the module is a test file.
 }
 
 /// Format of the index file `pyrefly.pysa.json`
@@ -74,6 +88,29 @@ struct PysaProjectFile {
     modules: HashMap<ModuleId, PysaProjectModule>,
     builtin_module_id: ModuleId,
     object_class_id: ClassId,
+}
+
+#[derive(Debug, Clone, Serialize)]
+enum ScopeParent {
+    Function { location: String },
+    Class { location: String },
+    TopLevel,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct FunctionDefinition {
+    name: String,
+    parent: ScopeParent,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_overload: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_staticmethod: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_classmethod: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_property_getter: bool,
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    is_property_setter: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -97,6 +134,7 @@ struct ClassDefinition {
     class_id: ClassId,
     name: String,
     bases: Vec<ClassRef>,
+    parent: ScopeParent,
 }
 
 /// Format of a module file `my.module:id.json`
@@ -109,6 +147,7 @@ struct PysaModuleFile {
     source_path: ModulePathDetails,
     type_of_expression: HashMap<String, String>,
     goto_definitions_of_expression: HashMap<String, Vec<DefinitionRef>>,
+    function_definitions: HashMap<String, FunctionDefinition>,
     class_definitions: HashMap<String, ClassDefinition>,
 }
 
@@ -453,7 +492,79 @@ fn visit_statements<'a>(statements: impl Iterator<Item = &'a Stmt>, context: &mu
     }
 }
 
-fn get_all_classes(
+fn get_scope_parent(ast: &ModModule, module_info: &Module, range: TextRange) -> ScopeParent {
+    Ast::locate_node(ast, range.start())
+        .iter()
+        .find_map(|node| match node {
+            AnyNodeRef::Identifier(id) if id.range() == range => None,
+            AnyNodeRef::StmtClassDef(class_def) if class_def.name.range() == range => None,
+            AnyNodeRef::StmtFunctionDef(fun_def) if fun_def.name.range() == range => None,
+            AnyNodeRef::StmtClassDef(class_def) => Some(ScopeParent::Class {
+                location: location_key(&module_info.display_range(class_def.name.range())),
+            }),
+            AnyNodeRef::StmtFunctionDef(fun_def) => Some(ScopeParent::Function {
+                location: location_key(&module_info.display_range(fun_def.name.range())),
+            }),
+            _ => None,
+        })
+        .unwrap_or(ScopeParent::TopLevel)
+}
+
+fn get_all_functions(
+    bindings: &Bindings,
+    answers: &Answers,
+) -> impl Iterator<Item = Arc<DecoratedFunction>> {
+    bindings
+        .keys::<KeyFunction>()
+        .map(|idx| answers.get_idx(idx).unwrap().clone())
+}
+
+fn export_all_functions(
+    ast: &ModModule,
+    module_info: &Module,
+    bindings: &Bindings,
+    answers: &Answers,
+) -> HashMap<String, FunctionDefinition> {
+    let mut function_definitions = HashMap::new();
+
+    for function in get_all_functions(bindings, answers) {
+        let display_range = module_info.display_range(function.id_range);
+        let name = function.metadata.kind.as_func_id().func.to_string();
+        let parent = get_scope_parent(ast, module_info, function.id_range);
+        assert!(
+            function_definitions
+                .insert(
+                    location_key(&display_range),
+                    FunctionDefinition {
+                        name,
+                        parent,
+                        is_overload: function.metadata.flags.is_overload,
+                        is_staticmethod: function.metadata.flags.is_staticmethod,
+                        is_classmethod: function.metadata.flags.is_classmethod,
+                        is_property_getter: function.metadata.flags.is_property_getter,
+                        is_property_setter: function
+                            .metadata
+                            .flags
+                            .is_property_setter_with_getter
+                            .is_some(),
+                    }
+                )
+                .is_none(),
+            "Found function definitions with the same location"
+        );
+    }
+
+    function_definitions
+}
+
+fn get_all_classes(bindings: &Bindings, answers: &Answers) -> impl Iterator<Item = Class> {
+    bindings
+        .keys::<KeyClass>()
+        .filter_map(|idx| answers.get_idx(idx).unwrap().0.clone())
+}
+
+fn export_all_classes(
+    ast: &ModModule,
     module_info: &Module,
     bindings: &Bindings,
     answers: &Answers,
@@ -461,45 +572,99 @@ fn get_all_classes(
 ) -> HashMap<String, ClassDefinition> {
     let mut class_definitions = HashMap::new();
 
-    bindings
-        .keys::<KeyClass>()
-        .filter_map(|idx| answers.get_idx(idx).unwrap().0.clone())
-        .for_each(|class| {
-            let display_range = module_info.display_range(class.qname().range());
-            let class_index = class.index();
-            let metadata = answers
-                .get_idx(bindings.key_to_idx(&KeyClassMetadata(class_index)))
-                .unwrap();
+    for class in get_all_classes(bindings, answers) {
+        let display_range = module_info.display_range(class.qname().range());
+        let class_index = class.index();
+        let parent = get_scope_parent(ast, module_info, class.qname().range());
+        let metadata = answers
+            .get_idx(bindings.key_to_idx(&KeyClassMetadata(class_index)))
+            .unwrap();
 
-            let class_definition = ClassDefinition {
-                class_id: ClassId::from_class(&class),
-                name: class.qname().id().to_string(),
-                bases: metadata
-                    .base_class_types()
-                    .iter()
-                    .map(|class_type| {
-                        let base_class = class_type.class_object();
-                        ClassRef {
-                            module_id: module_ids
-                                .get(ModuleKey::from_module(base_class.module()))
-                                .unwrap(),
-                            module_name: base_class.module_name().to_string(),
-                            class_id: ClassId::from_class(base_class),
-                            class_name: base_class.qname().id().to_string(),
-                        }
-                    })
-                    .collect::<Vec<_>>(),
-            };
+        let class_definition = ClassDefinition {
+            class_id: ClassId::from_class(&class),
+            name: class.qname().id().to_string(),
+            parent,
+            bases: metadata
+                .base_class_objects()
+                .iter()
+                .map(|base_class| ClassRef {
+                    module_id: module_ids
+                        .get(ModuleKey::from_module(base_class.module()))
+                        .unwrap(),
+                    module_name: base_class.module_name().to_string(),
+                    class_id: ClassId::from_class(base_class),
+                    class_name: base_class.qname().id().to_string(),
+                })
+                .collect::<Vec<_>>(),
+        };
 
-            assert!(
-                class_definitions
-                    .insert(location_key(&display_range), class_definition)
-                    .is_none(),
-                "Found class definitions with the same location"
-            );
-        });
+        assert!(
+            class_definitions
+                .insert(location_key(&display_range), class_definition)
+                .is_none(),
+            "Found class definitions with the same location"
+        );
+    }
 
     class_definitions
+}
+
+fn is_unittest_module(bindings: &Bindings, answers: &Answers) -> bool {
+    get_all_classes(bindings, answers).any(|class| {
+        match &*answers
+            .get_idx(bindings.key_to_idx(&KeyClassMro(class.index())))
+            .unwrap()
+        {
+            ClassMro::Resolved(mro) => mro
+                .iter()
+                .any(|base| base.has_qname("unittest.case", "TestCase")),
+            ClassMro::Cyclic => false,
+        }
+    })
+}
+
+fn is_pytest_module(bindings: &Bindings, answers: &Answers, ast: &ModModule) -> bool {
+    fn has_pytest_prefix(name: &Name) -> bool {
+        name == "pytest" || name.starts_with("pytest.")
+    }
+    fn imports_pytest(ast: &ModModule) -> bool {
+        ast.body.iter().any(|stmt| match stmt {
+            Stmt::Import(import_stmt) => import_stmt
+                .names
+                .iter()
+                .any(|alias| has_pytest_prefix(&alias.name.id)),
+            Stmt::ImportFrom(StmtImportFrom {
+                module: Some(module),
+                ..
+            }) => has_pytest_prefix(&module.id),
+            _ => false,
+        })
+    }
+    fn has_test_function(bindings: &Bindings, answers: &Answers) -> bool {
+        get_all_functions(bindings, answers).any(|function| {
+            function
+                .metadata
+                .kind
+                .as_func_id()
+                .func
+                .starts_with("test_")
+        })
+    }
+    imports_pytest(ast) && has_test_function(bindings, answers)
+}
+
+/// Returns true if the module is considered a test module for Pysa.
+/// In that case, we won't analyze the module at all.
+///
+/// We currently use the following heuristics:
+/// - If a class inherits from `unittest.TestCase`, we assume this is a test file.
+/// - If `pytest` is imported and at least one function starts with `test_`, we assume this is a test file.
+fn is_test_module(handle: &Handle, transaction: &Transaction) -> bool {
+    let bindings = &transaction.get_bindings(handle).unwrap();
+    let answers = &*transaction.get_answers(handle).unwrap();
+    let ast = &*transaction.get_ast(handle).unwrap();
+
+    is_unittest_module(bindings, answers) || is_pytest_module(bindings, answers, ast)
 }
 
 fn get_module_file(
@@ -534,7 +699,8 @@ fn get_module_file(
         );
     }
 
-    let class_definitions = get_all_classes(module_info, bindings, answers, module_ids);
+    let function_definitions = export_all_functions(ast, module_info, bindings, answers);
+    let class_definitions = export_all_classes(ast, module_info, bindings, answers, module_ids);
 
     PysaModuleFile {
         format_version: 1,
@@ -543,6 +709,7 @@ fn get_module_file(
         source_path: module_info.path().details().clone(),
         type_of_expression,
         goto_definitions_of_expression: definitions_of_expression,
+        function_definitions,
         class_definitions,
     }
 }
@@ -593,6 +760,7 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                         module_name: handle.module().to_string(),
                         source_path: handle.path().details().clone(),
                         info_path: info_path.clone(),
+                        is_test: false,
                     }
                 )
                 .is_none(),
@@ -604,7 +772,9 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
         }
     }
 
-    // Dump information about each module, in parallel.
+    let project_modules = Arc::new(Mutex::new(project_modules));
+
+    // Retrieve and dump information about each module, in parallel.
     module_info_tasks.into_par_iter().try_for_each(
         |(handle, module_id, info_path)| -> anyhow::Result<()> {
             let writer = BufWriter::new(File::create(
@@ -614,6 +784,16 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
                 writer,
                 &get_module_file(handle, module_id, transaction, &module_ids),
             )?;
+
+            if is_test_module(handle, transaction) {
+                project_modules
+                    .lock()
+                    .unwrap()
+                    .get_mut(&module_id)
+                    .unwrap()
+                    .is_test = true;
+            }
+
             Ok(())
         },
     )?;
@@ -643,6 +823,11 @@ pub fn write_results(results_directory: &Path, transaction: &Transaction) -> any
             .object()
             .class_object(),
     );
+
+    let project_modules = Arc::into_inner(project_modules)
+        .unwrap()
+        .into_inner()
+        .unwrap();
 
     let writer = BufWriter::new(File::create(results_directory.join("pyrefly.pysa.json"))?);
     serde_json::to_writer(

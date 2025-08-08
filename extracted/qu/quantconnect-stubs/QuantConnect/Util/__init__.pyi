@@ -253,12 +253,12 @@ class CircularQueue(typing.Generic[QuantConnect_Util_CircularQueue_T], System.Ob
     """A never ending queue that will dequeue and reenqueue the same item"""
 
     @property
-    def circle_completed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def circle_completed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Fired when we do a full circle"""
         ...
 
     @circle_completed.setter
-    def circle_completed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def circle_completed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @overload
@@ -436,7 +436,7 @@ class WorkerThread(System.Object, System.IDisposable):
         """
         ...
 
-    def add(self, action: typing.Callable[[], None]) -> None:
+    def add(self, action: typing.Callable[[], typing.Any]) -> None:
         """
         Adds a new item of work
         
@@ -519,7 +519,7 @@ class ListComparer(typing.Generic[QuantConnect_Util_ListComparer_T], System.Obje
     Useful when using a List{T} as the key of a collection.
     """
 
-    def equals(self, x: typing.List[QuantConnect_Util_ListComparer_T], y: typing.List[QuantConnect_Util_ListComparer_T]) -> bool:
+    def equals(self, x: typing.Sequence[QuantConnect_Util_ListComparer_T], y: typing.Sequence[QuantConnect_Util_ListComparer_T]) -> bool:
         """
         Determines whether the specified objects are equal.
         
@@ -527,7 +527,7 @@ class ListComparer(typing.Generic[QuantConnect_Util_ListComparer_T], System.Obje
         """
         ...
 
-    def get_hash_code(self, obj: typing.List[QuantConnect_Util_ListComparer_T]) -> int:
+    def get_hash_code(self, obj: typing.Sequence[QuantConnect_Util_ListComparer_T]) -> int:
         """
         Returns a hash code for the specified object.
         
@@ -1291,7 +1291,7 @@ class CandlestickJsonConverter(JsonConverter):
 class KeyStringSynchronizer(System.Object):
     """Helper class to synchronize execution based on a string key"""
 
-    def execute(self, key: str, single_execution: bool, action: typing.Callable[[], None]) -> None:
+    def execute(self, key: str, single_execution: bool, action: typing.Callable[[], typing.Any]) -> None:
         """
         Execute the given action synchronously with any other thread using the same key
         
@@ -1342,7 +1342,7 @@ class DisposableExtensions(System.Object):
 
     @staticmethod
     @overload
-    def dispose_safely(disposable: System.IDisposable, error_handler: typing.Callable[[System.Exception], None]) -> bool:
+    def dispose_safely(disposable: System.IDisposable, error_handler: typing.Callable[[System.Exception], typing.Any]) -> bool:
         """
         Calls IDisposable.Dispose within a try/catch and invokes the
          on any errors.
@@ -2000,7 +2000,7 @@ class FuncTextWriter(System.IO.TextWriter):
     def encoding(self) -> System.Text.Encoding:
         ...
 
-    def __init__(self, writer: typing.Callable[[str], None]) -> None:
+    def __init__(self, writer: typing.Callable[[str], typing.Any]) -> None:
         """
         Initializes a new instance of the FuncTextWriter that will direct
         messages to the algorithm's Debug function.
@@ -2248,7 +2248,7 @@ class Ref(typing.Generic[QuantConnect_Util_Ref_T], System.Object, QuantConnect.U
     def value(self, value: QuantConnect_Util_Ref_T) -> None:
         ...
 
-    def __init__(self, getter: typing.Callable[[], QuantConnect_Util_Ref_T], setter: typing.Callable[[QuantConnect_Util_Ref_T], None]) -> None:
+    def __init__(self, getter: typing.Callable[[], QuantConnect_Util_Ref_T], setter: typing.Callable[[QuantConnect_Util_Ref_T], typing.Any]) -> None:
         """
         Initializes a new instance of the Ref{T} class
         

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codeflash
-Version: 0.16.1
+Version: 0.16.3
 Summary: Client for codeflash.ai - automatic code performance optimization, powered by AI
 Project-URL: Homepage, https://codeflash.ai
 Author-email: "CodeFlash Inc." <contact@codeflash.ai>
@@ -102,6 +102,13 @@ For detailed installation and usage instructions, visit our documentation at [do
 - Optimizing the performance of new code for a Pull Request through GitHub Actions. This lets you ship code quickly while ensuring it remains performant.
 
 https://github.com/user-attachments/assets/38f44f4e-be1c-4f84-8db9-63d5ee3e61e5
+
+- Optiming a workflow end to end automatically with `codeflash optimize`
+
+
+https://github.com/user-attachments/assets/355ba295-eb5a-453a-8968-7fb35c70d16c
+
+
 
 ## Support
 

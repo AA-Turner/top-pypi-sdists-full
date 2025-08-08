@@ -269,6 +269,7 @@ blocked_user_list: Optional[Union[str, List]] = None
 banned_keywords_list: Optional[Union[str, List]] = None
 llm_guard_mode: Literal["all", "key-specific", "request-specific"] = "all"
 guardrail_name_config_map: Dict[str, GuardrailItem] = {}
+include_cost_in_streaming_usage: bool = False
 ### PROMPTS ###
 from litellm.types.prompts.init_prompts import PromptSpec
 
@@ -356,7 +357,7 @@ disable_copilot_system_to_assistant: bool = (
 )
 public_model_groups: Optional[List[str]] = None
 public_model_groups_links: Dict[str, str] = {}
-#### REQUEST PRIORITIZATION #####
+#### REQUEST PRIORITIZATION ######
 priority_reservation: Optional[Dict[str, float]] = None
 
 
@@ -429,6 +430,9 @@ project = None
 config_path = None
 vertex_ai_safety_settings: Optional[dict] = None
 BEDROCK_CONVERSE_MODELS = [
+    "openai.gpt-oss-20b-1:0",
+    "openai.gpt-oss-120b-1:0",
+    "anthropic.claude-opus-4-1-20250805-v1:0",
     "anthropic.claude-opus-4-20250514-v1:0",
     "anthropic.claude-sonnet-4-20250514-v1:0",
     "anthropic.claude-3-7-sonnet-20250219-v1:0",
@@ -529,6 +533,7 @@ morph_models: List = []
 lambda_ai_models: List = []
 hyperbolic_models: List = []
 recraft_models: List = []
+oci_models: List = []
 
 
 def is_bedrock_pricing_only_model(key: str) -> bool:
@@ -718,6 +723,8 @@ def add_known_models():
             hyperbolic_models.append(key)
         elif value.get("litellm_provider") == "recraft":
             recraft_models.append(key)
+        elif value.get("litellm_provider") == "oci":
+            oci_models.append(key)
 
 
 add_known_models()
@@ -806,6 +813,7 @@ model_list = (
     + morph_models
     + lambda_ai_models
     + recraft_models
+    + oci_models
 )
 
 model_list_set = set(model_list)
@@ -879,6 +887,7 @@ models_by_provider: dict = {
     "lambda_ai": lambda_ai_models,
     "hyperbolic": hyperbolic_models,
     "recraft": recraft_models,
+    "oci": oci_models,
 }
 
 # mapping for those models which have larger equivalents
@@ -1136,6 +1145,9 @@ openaiOSeriesConfig = OpenAIOSeriesConfig()
 from .llms.openai.chat.gpt_transformation import (
     OpenAIGPTConfig,
 )
+from .llms.openai.chat.gpt_5_transformation import (
+    OpenAIGPT5Config,
+)
 from .llms.openai.transcriptions.whisper_transformation import (
     OpenAIWhisperAudioTranscriptionConfig,
 )
@@ -1149,6 +1161,7 @@ from .llms.openai.chat.gpt_audio_transformation import (
 )
 
 openAIGPTAudioConfig = OpenAIGPTAudioConfig()
+openAIGPT5Config = OpenAIGPT5Config()
 
 from .llms.nvidia_nim.chat.transformation import NvidiaNimConfig
 from .llms.nvidia_nim.embed import NvidiaNimEmbeddingConfig

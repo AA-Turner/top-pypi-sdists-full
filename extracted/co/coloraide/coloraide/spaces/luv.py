@@ -22,10 +22,11 @@ def xyz_to_luv(xyz: Vector, white: tuple[float, float]) -> Vector:
     yr = xyz[1] / w_xyz[1]
     l = 116 * alg.nth_root(yr, 3) - 16 if yr > EPSILON else KAPPA * yr
 
+    n = 13 * l
     return [
         l,
-        13 * l * (u - ur),
-        13 * l * (v - vr),
+        n * (u - ur),
+        n * (v - vr),
     ]
 
 
@@ -36,19 +37,22 @@ def luv_to_xyz(luv: Vector, white: tuple[float, float]) -> Vector:
     w_xyz = util.xy_to_xyz(white)
     ur, vr = util.xy_to_uv(white)
 
-    if l != 0:
-        up = (u / (13 * l)) + ur
-        vp = (v / (13 * l)) + vr
+
+    if l:
+        d = 13 * l
+        up = (u / d) + ur
+        vp = (v / d) + vr
     else:
-        up = vp = 0
+        up = vp = 0.0
 
     y = w_xyz[1] * (((l + 16) / 116) ** 3 if l > KE else l / KAPPA)
 
-    if vp != 0:
-        x = y * ((9 * up) / (4 * vp))
-        z = y * ((12 - 3 * up - 20 * vp) / (4 * vp))
+    if vp:
+        d = 4 * vp
+        x = y * (9 * up) / d
+        z = y * (12 - 3 * up - 20 * vp) / d
     else:
-        x = z = 0
+        x = z = 0.0
 
     return [x, y, z]
 

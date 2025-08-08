@@ -104,8 +104,8 @@ class TestHarmonies(util.ColorAssertsPyTest):
             (
                 'red',
                 'split',
-                ['rgb(255 0 0)',
-                 'rgb(-108.26 144.11 271.69)',
+                ['rgb(-108.26 144.11 271.69)',
+                 'rgb(255 0 0)',
                  'rgb(-142.25 179.87 140.26)'],
                 None,
                 {}
@@ -113,9 +113,9 @@ class TestHarmonies(util.ColorAssertsPyTest):
             (
                 'red',
                 'analogous',
-                ['rgb(255 0 0)',
-                 'rgb(239.47 70.306 -85.526)',
-                 'rgb(245.33 -9.3968 132.34)'],
+                ['rgb(245.33 -9.3968 132.34)',
+                 'rgb(255 0 0)',
+                 'rgb(239.47 70.306 -85.526)'],
                 None,
                 {}
             ),
@@ -186,8 +186,8 @@ class TestHarmonies(util.ColorAssertsPyTest):
             (
                 'red',
                 'split',
-                ['rgb(255 0 0)',
-                 'rgb(-108.26 144.11 271.69)',
+                ['rgb(-108.26 144.11 271.69)',
+                 'rgb(255 0 0)',
                  'rgb(-142.25 179.87 140.26)'],
                 'oklab',
                 {}
@@ -195,9 +195,9 @@ class TestHarmonies(util.ColorAssertsPyTest):
             (
                 'red',
                 'analogous',
-                ['rgb(255 0 0)',
-                 'rgb(239.47 70.306 -85.526)',
-                 'rgb(245.33 -9.3968 132.34)'],
+                ['rgb(245.33 -9.3968 132.34)',
+                 'rgb(255 0 0)',
+                 'rgb(239.47 70.306 -85.526)'],
                 'oklab',
                 {}
             ),

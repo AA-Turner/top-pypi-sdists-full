@@ -36,7 +36,7 @@ class NewHttpTrigger:
         wrap_body (Union[Unset, bool]):
         raw_string (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, NewHttpTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, NewHttpTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, NewHttpTriggerRetry]):
     """
 

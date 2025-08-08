@@ -315,7 +315,7 @@ worker_nodes:
 
 @dataclass(frozen=True)
 class ComputeConfig(ModelBase):
-    """Configuration for instance types and cloud resources for a cluster."""
+    """Compute configuration for instance types and cloud resources for a cluster with a single cloud deployment."""
 
     __doc_py_example__ = """
 from anyscale.compute_config.models import (
@@ -586,7 +586,7 @@ advanced_instance_config: # (Optional) Defaults to no advanced configurations.
         default=False,
         repr=False,
         metadata={
-            "docstring": "Allow worker groups to be automatically configured based on workload. When false, worker groups must be explicitly configured.",
+            "docstring": "Allow worker groups to be automatically configured based on the workload's logical resource requests. When false, worker groups must be explicitly configured.",
         },
     )
 
@@ -608,6 +608,7 @@ from anyscale.compute_config.models import (
     MultiDeploymentComputeConfig, ComputeConfig, HeadNodeConfig, WorkerNodeGroupConfig
 )
 config = MultiDeploymentComputeConfig(
+    cloud="my-cloud",
     configs=[
         ComputeConfig(
             cloud_deployment="vm-aws-us-west-1",
@@ -657,7 +658,6 @@ configs:
     min_nodes: 1
     max_nodes: 10
 """
-
     cloud: Optional[str] = field(
         default=None,
         metadata={
@@ -698,9 +698,6 @@ configs:
             assert isinstance(config, ComputeConfig)
             config_models.append(config)
 
-            if not config.cloud_deployment:
-                raise ValueError("'cloud_deployment' is required for each config.")
-
             if config.cloud:
                 unique_clouds.add(config.cloud)
 
@@ -720,6 +717,47 @@ configs:
             )
 
         return config_models
+
+
+ComputeConfigType = Union[ComputeConfig, MultiDeploymentComputeConfig]
+
+
+def compute_config_type_from_yaml(config_file: str) -> ComputeConfigType:
+    """
+    Parse a YAML compute config file into either a ComputeConfig or MultiDeploymentComputeConfig.
+    """
+    error_message = f"Could not parse config file '{config_file}' as a ComputeConfig or MultiDeploymentComputeConfig:\n"
+
+    try:
+        return ComputeConfig.from_yaml(config_file)
+    except Exception as e:  # noqa: BLE001
+        error_message += f"ComputeConfig: {e}\n"
+
+    try:
+        return MultiDeploymentComputeConfig.from_yaml(config_file)
+    except Exception as e:  # noqa: BLE001
+        error_message += f"MultiDeploymentComputeConfig: {e}\n"
+
+    raise TypeError(error_message.rstrip())
+
+
+def compute_config_type_from_dict(config_dict: Dict) -> ComputeConfigType:
+    """
+    Parse a compute config dict into either a ComputeConfig or MultiDeploymentComputeConfig.
+    """
+    error_message = f"Could not parse config dict '{config_dict}' as a ComputeConfig or MultiDeploymentComputeConfig:\n"
+
+    try:
+        return ComputeConfig.from_dict(config_dict)
+    except Exception as e:  # noqa: BLE001
+        error_message += f"ComputeConfig: {e}\n"
+
+    try:
+        return MultiDeploymentComputeConfig.from_dict(config_dict)
+    except Exception as e:  # noqa: BLE001
+        error_message += f"MultiDeploymentComputeConfig: {e}\n"
+
+    raise TypeError(error_message.rstrip())
 
 
 @dataclass(frozen=True)
@@ -775,29 +813,14 @@ config:
         if not isinstance(id, str):
             raise TypeError("'id' must be a string.")
 
-    config: Optional[ComputeConfig] = field(
+    config: Optional[ComputeConfigType] = field(
         default=None, metadata={"docstring": "The compute configuration."},
     )
 
-    def _validate_config(self, config: Optional[ComputeConfig]):
-        if config is not None and not isinstance(config, ComputeConfig):
-            raise TypeError("'config' must be a ComputeConfig")
-
-    multi_deployment_config: Optional[MultiDeploymentComputeConfig] = field(
-        default=None,
-        repr=False,
-        metadata={
-            "docstring": "Compute configuration for a cluster with multiple possible cloud deployments.",
-            "customer_hosted_only": True,
-        },
-    )
-
-    def _validate_multi_deployment_config(
-        self, multi_deployment_config: Optional[MultiDeploymentComputeConfig]
-    ):
-        if multi_deployment_config is not None and not isinstance(
-            multi_deployment_config, MultiDeploymentComputeConfig
+    def _validate_config(self, config: Optional[ComputeConfigType]):
+        if config is not None and not isinstance(
+            config, (ComputeConfig, MultiDeploymentComputeConfig)
         ):
             raise TypeError(
-                "'multi_deployment_config' must be a MultiDeploymentComputeConfig"
+                "'config' must be a ComputeConfig or MultiDeploymentComputeConfig"
             )

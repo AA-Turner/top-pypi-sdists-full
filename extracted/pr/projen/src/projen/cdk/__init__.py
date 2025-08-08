@@ -615,6 +615,7 @@ class JsiiDocgenOptions:
     jsii_type="projen.cdk.JsiiDotNetTarget",
     jsii_struct_bases=[_NugetPublishOptions_32e8bf09],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -629,6 +630,7 @@ class JsiiDotNetTarget(_NugetPublishOptions_32e8bf09):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -639,6 +641,7 @@ class JsiiDotNetTarget(_NugetPublishOptions_32e8bf09):
         icon_url: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -654,6 +657,7 @@ class JsiiDotNetTarget(_NugetPublishOptions_32e8bf09):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e809c6916d6d93bf1e91d05e4a79f49eb72f74bccaceeb6a508a3005bb5ec7b5)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -666,6 +670,8 @@ class JsiiDotNetTarget(_NugetPublishOptions_32e8bf09):
             "dot_net_namespace": dot_net_namespace,
             "package_id": package_id,
         }
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -678,6 +684,22 @@ class JsiiDotNetTarget(_NugetPublishOptions_32e8bf09):
             self._values["nuget_server"] = nuget_server
         if icon_url is not None:
             self._values["icon_url"] = icon_url
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -780,6 +802,7 @@ class JsiiDotNetTarget(_NugetPublishOptions_32e8bf09):
     jsii_type="projen.cdk.JsiiGoTarget",
     jsii_struct_bases=[_GoPublishOptions_d6430d61],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -799,6 +822,7 @@ class JsiiGoTarget(_GoPublishOptions_d6430d61):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -815,6 +839,7 @@ class JsiiGoTarget(_GoPublishOptions_d6430d61):
     ) -> None:
         '''(experimental) Go target configuration.
 
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -835,6 +860,7 @@ class JsiiGoTarget(_GoPublishOptions_d6430d61):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0ea0b1537651364353b8d1546fea1d78af2aaded6dded156ab976119354df9a)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -851,6 +877,8 @@ class JsiiGoTarget(_GoPublishOptions_d6430d61):
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "module_name": module_name,
         }
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -875,6 +903,22 @@ class JsiiGoTarget(_GoPublishOptions_d6430d61):
             self._values["package_name"] = package_name
         if version_suffix is not None:
             self._values["version_suffix"] = version_suffix
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -1055,6 +1099,7 @@ class JsiiGoTarget(_GoPublishOptions_d6430d61):
     jsii_type="projen.cdk.JsiiJavaTarget",
     jsii_struct_bases=[_MavenPublishOptions_43a9e42a],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -1075,6 +1120,7 @@ class JsiiJavaTarget(_MavenPublishOptions_43a9e42a):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1091,6 +1137,7 @@ class JsiiJavaTarget(_MavenPublishOptions_43a9e42a):
         maven_group_id: builtins.str,
     ) -> None:
         '''
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -1112,6 +1159,7 @@ class JsiiJavaTarget(_MavenPublishOptions_43a9e42a):
             publish_tools = _Tools_75b93a2a(**publish_tools)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__365483a000ed61cc1587d7ada435961b86f33fb0718cd001430497c2290e0820)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -1131,6 +1179,8 @@ class JsiiJavaTarget(_MavenPublishOptions_43a9e42a):
             "maven_artifact_id": maven_artifact_id,
             "maven_group_id": maven_group_id,
         }
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -1153,6 +1203,22 @@ class JsiiJavaTarget(_MavenPublishOptions_43a9e42a):
             self._values["maven_staging_profile_id"] = maven_staging_profile_id
         if maven_username is not None:
             self._values["maven_username"] = maven_username
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -1495,6 +1561,7 @@ class JsiiProject(
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -1663,6 +1730,7 @@ class JsiiProject(
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -1833,6 +1901,7 @@ class JsiiProject(
             publish_tasks=publish_tasks,
             releasable_commits=releasable_commits,
             release_branches=release_branches,
+            release_environment=release_environment,
             release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
@@ -1945,6 +2014,7 @@ class JsiiProject(
         "publish_tasks": "publishTasks",
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
+        "release_environment": "releaseEnvironment",
         "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
@@ -2117,6 +2187,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -2285,6 +2356,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -2532,6 +2604,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             check_type(argname="argument publish_tasks", value=publish_tasks, expected_type=type_hints["publish_tasks"])
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
+            check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
             check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
@@ -2782,6 +2855,8 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
             self._values["releasable_commits"] = releasable_commits
         if release_branches is not None:
             self._values["release_branches"] = release_branches
+        if release_environment is not None:
+            self._values["release_environment"] = release_environment
         if release_every_commit is not None:
             self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
@@ -3984,6 +4059,23 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
 
     @builtins.property
+    def release_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the release.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        When multiple artifacts are released, the environment can be overwritten
+        on a per artifact basis.
+
+        :default: - no environment used, unless set at the artifact level
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def release_every_commit(self) -> typing.Optional[builtins.bool]:
         '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
 
@@ -5014,6 +5106,7 @@ class JsiiProjectOptions(_TypeScriptProjectOptions_d10c83f7):
     jsii_type="projen.cdk.JsiiPythonTarget",
     jsii_struct_bases=[_PyPiPublishOptions_99154bcd],
     name_mapping={
+        "github_environment": "githubEnvironment",
         "post_publish_steps": "postPublishSteps",
         "pre_publish_steps": "prePublishSteps",
         "publish_tools": "publishTools",
@@ -5029,6 +5122,7 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
     def __init__(
         self,
         *,
+        github_environment: typing.Optional[builtins.str] = None,
         post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
         publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5040,6 +5134,7 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
         module: builtins.str,
     ) -> None:
         '''
+        :param github_environment: (experimental) The GitHub Actions environment used for publishing. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. Set this to overwrite a package level publishing environment just for this artifact. Default: - no environment used, unless set at the package level
         :param post_publish_steps: (experimental) Steps to execute after executing the publishing command. These can be used to add/update the release artifacts ot any other tasks needed. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPostPublishingSteps``.
         :param pre_publish_steps: (experimental) Steps to execute before executing the publishing command. These can be used to prepare the artifact for publishing if needed. These steps are executed after ``dist/`` has been populated with the build output. Note that when using this in ``publishToGitHubReleases`` this will override steps added via ``addGitHubPrePublishingSteps``.
         :param publish_tools: (experimental) Additional tools to install in the publishing job. Default: - no additional tools are installed
@@ -5058,6 +5153,7 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
             code_artifact_options = _CodeArtifactOptions_7236977a(**code_artifact_options)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9ccf41e184eae5eabcd38be0ea0cb88c9d6eb3d4f60d6bb85e4a73763bfb94a)
+            check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
             check_type(argname="argument publish_tools", value=publish_tools, expected_type=type_hints["publish_tools"])
@@ -5071,6 +5167,8 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
             "dist_name": dist_name,
             "module": module,
         }
+        if github_environment is not None:
+            self._values["github_environment"] = github_environment
         if post_publish_steps is not None:
             self._values["post_publish_steps"] = post_publish_steps
         if pre_publish_steps is not None:
@@ -5085,6 +5183,22 @@ class JsiiPythonTarget(_PyPiPublishOptions_99154bcd):
             self._values["twine_registry_url"] = twine_registry_url
         if twine_username_secret is not None:
             self._values["twine_username_secret"] = twine_username_secret
+
+    @builtins.property
+    def github_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for publishing.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        Set this to overwrite a package level publishing environment just for this artifact.
+
+        :default: - no environment used, unless set at the package level
+
+        :stability: experimental
+        '''
+        result = self._values.get("github_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def post_publish_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
@@ -5375,6 +5489,7 @@ class ConstructLibrary(
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -5544,6 +5659,7 @@ class ConstructLibrary(
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -5715,6 +5831,7 @@ class ConstructLibrary(
             publish_tasks=publish_tasks,
             releasable_commits=releasable_commits,
             release_branches=release_branches,
+            release_environment=release_environment,
             release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
@@ -5834,6 +5951,7 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "publish_tasks": "publishTasks",
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
+        "release_environment": "releaseEnvironment",
         "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
@@ -6007,6 +6125,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -6176,6 +6295,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -6426,6 +6546,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument publish_tasks", value=publish_tasks, expected_type=type_hints["publish_tasks"])
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
+            check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
             check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
@@ -6677,6 +6798,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["releasable_commits"] = releasable_commits
         if release_branches is not None:
             self._values["release_branches"] = release_branches
+        if release_environment is not None:
+            self._values["release_environment"] = release_environment
         if release_every_commit is not None:
             self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
@@ -7881,6 +8004,23 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
 
     @builtins.property
+    def release_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the release.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        When multiple artifacts are released, the environment can be overwritten
+        on a per artifact basis.
+
+        :default: - no environment used, unless set at the artifact level
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def release_every_commit(self) -> typing.Optional[builtins.bool]:
         '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
 
@@ -9029,6 +9169,7 @@ def _typecheckingstub__2f3fb088da3cc3de21fe4de98d7c818b3cbd2a2139fba0682367f39bd
 
 def _typecheckingstub__e809c6916d6d93bf1e91d05e4a79f49eb72f74bccaceeb6a508a3005bb5ec7b5(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -9043,6 +9184,7 @@ def _typecheckingstub__e809c6916d6d93bf1e91d05e4a79f49eb72f74bccaceeb6a508a3005b
 
 def _typecheckingstub__b0ea0b1537651364353b8d1546fea1d78af2aaded6dded156ab976119354df9a(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -9062,6 +9204,7 @@ def _typecheckingstub__b0ea0b1537651364353b8d1546fea1d78af2aaded6dded156ab976119
 
 def _typecheckingstub__365483a000ed61cc1587d7ada435961b86f33fb0718cd001430497c2290e0820(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -9161,6 +9304,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     publish_tasks: typing.Optional[builtins.bool] = None,
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_environment: typing.Optional[builtins.str] = None,
     release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -9254,6 +9398,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
 
 def _typecheckingstub__b9ccf41e184eae5eabcd38be0ea0cb88c9d6eb3d4f60d6bb85e4a73763bfb94a(
     *,
+    github_environment: typing.Optional[builtins.str] = None,
     post_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     pre_publish_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
     publish_tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -9348,6 +9493,7 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     publish_tasks: typing.Optional[builtins.bool] = None,
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_environment: typing.Optional[builtins.str] = None,
     release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,

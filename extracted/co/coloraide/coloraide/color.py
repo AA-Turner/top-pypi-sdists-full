@@ -221,10 +221,10 @@ class Color(metaclass=ColorMeta):
         space = self._space
         if isinstance(i, slice):
             for index, value in zip(range(len(self._coords))[i], v):  # type: ignore[arg-type]
-                self._coords[index] = alg.clamp(float(value), *space.channels[index].limit)
+                self._coords[index] = space.channels[index].limit(value)
         else:
             index = space.get_channel_index(i) if isinstance(i, str) else i
-            self._coords[index] = alg.clamp(float(v), *space.channels[index].limit)  # type: ignore[arg-type]
+            self._coords[index] = space.channels[index].limit(v)  # type: ignore[arg-type]
 
     def __eq__(self, other: Any) -> bool:
         """Compare equal."""
@@ -256,9 +256,9 @@ class Color(metaclass=ColorMeta):
                 num_channels = len(space_class.CHANNELS)
                 num_data = len(data)
                 if num_data < num_channels:
-                    data = list(data) + [math.nan] * (num_channels - num_data)
-                coords = [alg.clamp(float(v), *c.limit) for c, v in zipl(space_class.CHANNELS, data)]
-                coords.append(alg.clamp(float(alpha), *space_class.channels[-1].limit))
+                    data = [*data, *[math.nan] * (num_channels - num_data)]
+                coords = [c.limit(v) for c, v in zipl(space_class.CHANNELS, data)]
+                coords.append(space_class.channels[-1].limit(alpha))
                 obj = space_class, coords
 
             # Parse a CSS string
@@ -266,8 +266,8 @@ class Color(metaclass=ColorMeta):
                 m = cls._match(color, fullmatch=True)
                 if m is None:
                     raise ValueError(f"'{color}' is not a valid color")
-                coords = [alg.clamp(float(v), *c.limit) for c, v in zipl(m[0].CHANNELS, m[1])]
-                coords.append(alg.clamp(float(m[2]), *m[0].channels[-1].limit))
+                coords = [c.limit(v) for c, v in zipl(m[0].CHANNELS, m[1])]
+                coords.append(m[0].channels[-1].limit(m[2]))
                 obj = m[0], coords
 
         # Handle a color instance
@@ -860,7 +860,7 @@ class Color(metaclass=ColorMeta):
 
         # Return if already in desired form
         if cspace1 == cspace2:
-            return list(coords) + [1] if l == 2 else list(coords)
+            return [*coords, 1] if l == 2 else [*coords]
 
         # If starting space is XYZ, then convert to xy
         if cspace1 == 'xyz':
@@ -891,7 +891,7 @@ class Color(metaclass=ColorMeta):
         if target == 'xyz':
             return util.xy_to_xyz(pair, Y)
 
-        return list(pair) + [Y]
+        return [*pair, Y]
 
     @classmethod
     def chromatic_adaptation(

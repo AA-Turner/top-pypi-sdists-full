@@ -15780,7 +15780,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,3,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,4,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_26_AbstractPrioritySemaphore_21__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AbstractPrioritySemaphore___red, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -15792,7 +15792,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,7,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,8,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_26_AbstractPrioritySemaphore_23__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AbstractPrioritySemaphore___set, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[19])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -15875,7 +15875,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle__AbstractPrioritySemaphoreContextManager__set_state(self, __pyx_state)
 */
-  __Pyx_TraceLine(16,33,0,__PYX_ERR(1, 16, __pyx_L1_error))
+  __Pyx_TraceLine(16,32,0,__PYX_ERR(1, 16, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_40_AbstractPrioritySemaphoreContextManager_18__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AbstractPrioritySemaphoreContex_9, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[31])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_10primitives_5locks_14prio_semaphore__AbstractPrioritySemaphoreContextManager, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(1, 16, __pyx_L1_error)
@@ -15916,7 +15916,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,0,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_32_PrioritySemaphoreContextManager_5__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_PrioritySemaphoreContextManager_2, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[36])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -15928,7 +15928,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,6,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,7,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_32_PrioritySemaphoreContextManager_7__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_PrioritySemaphoreContextManager_3, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[37])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -15949,7 +15949,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,4,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_17PrioritySemaphore_7__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_PrioritySemaphore___reduce_cytho, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[42])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -15961,7 +15961,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,8,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,6,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_17PrioritySemaphore_9__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_PrioritySemaphore___setstate_cyt, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[43])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -15981,7 +15981,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
 */
-  __Pyx_TraceLine(1,0,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,3,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_1__pyx_unpickle__AbstractPrioritySemaphoreContextManager, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__AbstractPriority, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[45])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__AbstractPriority, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -15994,7 +15994,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     __pyx_result._LoopBoundMixin__loop = __pyx_state[0]; __pyx_result._Semaphore__value = __pyx_state[1]; __pyx_result._Semaphore__waiters = __pyx_state[2]; __pyx_result._daemon = __pyx_state[3]; __pyx_result._decorated = __pyx_state[4]; __pyx_result._has_daemon = __pyx_state[5]; __pyx_result._logger = __pyx_state[6]; __pyx_result._name = __pyx_state[7]; __pyx_result._parent = __pyx_state[8]; __pyx_result._priority = __pyx_state[9]; __pyx_result._priority_name = __pyx_state[10]
  *     if len(__pyx_state) > 11 and hasattr(__pyx_result, '__dict__'):
 */
-  __Pyx_TraceLine(11,18,0,__PYX_ERR(1, 11, __pyx_L1_error))
+  __Pyx_TraceLine(11,19,0,__PYX_ERR(1, 11, __pyx_L1_error))
 
 
   /* "a_sync/primitives/locks/prio_semaphore.pyx":1

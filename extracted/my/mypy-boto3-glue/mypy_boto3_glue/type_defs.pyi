@@ -40,6 +40,7 @@ from .literals import (
     CompressionTypeType,
     ComputationTypeType,
     ComputeEnvironmentType,
+    ConfigurationSourceType,
     ConnectionPropertyKeyType,
     ConnectionStatusType,
     ConnectionTypeType,
@@ -748,6 +749,8 @@ __all__ = (
     "IcebergCompactionConfigurationTypeDef",
     "IcebergCompactionMetricsTypeDef",
     "IcebergInputTypeDef",
+    "IcebergOptimizationPropertiesOutputTypeDef",
+    "IcebergOptimizationPropertiesTypeDef",
     "IcebergOrphanFileDeletionConfigurationTypeDef",
     "IcebergOrphanFileDeletionMetricsTypeDef",
     "IcebergPartitionFieldTypeDef",
@@ -1595,11 +1598,24 @@ class DataLakeAccessPropertiesOutputTypeDef(TypedDict):
     StatusMessage: NotRequired[str]
     CatalogType: NotRequired[str]
 
+class IcebergOptimizationPropertiesOutputTypeDef(TypedDict):
+    RoleArn: NotRequired[str]
+    Compaction: NotRequired[Dict[str, str]]
+    Retention: NotRequired[Dict[str, str]]
+    OrphanFileDeletion: NotRequired[Dict[str, str]]
+    LastUpdatedTime: NotRequired[datetime]
+
 class DataLakeAccessPropertiesTypeDef(TypedDict):
     DataLakeAccess: NotRequired[bool]
     DataTransferRole: NotRequired[str]
     KmsKey: NotRequired[str]
     CatalogType: NotRequired[str]
+
+class IcebergOptimizationPropertiesTypeDef(TypedDict):
+    RoleArn: NotRequired[str]
+    Compaction: NotRequired[Mapping[str, str]]
+    Retention: NotRequired[Mapping[str, str]]
+    OrphanFileDeletion: NotRequired[Mapping[str, str]]
 
 class CatalogSchemaChangePolicyTypeDef(TypedDict):
     EnableUpdateCatalog: NotRequired[bool]
@@ -1896,6 +1912,8 @@ ColumnTypeDef = TypedDict(
 
 class IcebergCompactionConfigurationTypeDef(TypedDict):
     strategy: NotRequired[CompactionStrategyType]
+    minInputFiles: NotRequired[int]
+    deleteFileThreshold: NotRequired[int]
 
 class IcebergCompactionMetricsTypeDef(TypedDict):
     NumberOfBytesCompacted: NotRequired[int]
@@ -2964,6 +2982,7 @@ class S3SourceAdditionalOptionsTypeDef(TypedDict):
 class IcebergOrphanFileDeletionConfigurationTypeDef(TypedDict):
     orphanFileRetentionPeriodInDays: NotRequired[int]
     location: NotRequired[str]
+    runRateInHours: NotRequired[int]
 
 class IcebergOrphanFileDeletionMetricsTypeDef(TypedDict):
     NumberOfOrphanFilesDeleted: NotRequired[int]
@@ -2981,6 +3000,7 @@ class IcebergRetentionConfigurationTypeDef(TypedDict):
     snapshotRetentionPeriodInDays: NotRequired[int]
     numberOfSnapshotsToRetain: NotRequired[int]
     cleanExpiredFiles: NotRequired[bool]
+    runRateInHours: NotRequired[int]
 
 class IcebergRetentionMetricsTypeDef(TypedDict):
     NumberOfDataFilesDeleted: NotRequired[int]
@@ -4363,10 +4383,12 @@ class DirectKinesisSourceOutputTypeDef(TypedDict):
 
 class CatalogPropertiesOutputTypeDef(TypedDict):
     DataLakeAccessProperties: NotRequired[DataLakeAccessPropertiesOutputTypeDef]
+    IcebergOptimizationProperties: NotRequired[IcebergOptimizationPropertiesOutputTypeDef]
     CustomProperties: NotRequired[Dict[str, str]]
 
 class CatalogPropertiesTypeDef(TypedDict):
     DataLakeAccessProperties: NotRequired[DataLakeAccessPropertiesTypeDef]
+    IcebergOptimizationProperties: NotRequired[IcebergOptimizationPropertiesTypeDef]
     CustomProperties: NotRequired[Mapping[str, str]]
 
 class GovernedCatalogTargetOutputTypeDef(TypedDict):
@@ -7365,6 +7387,7 @@ TableOptimizerTypeDef = TypedDict(
         "type": NotRequired[TableOptimizerTypeType],
         "configuration": NotRequired[TableOptimizerConfigurationTypeDef],
         "lastRun": NotRequired[TableOptimizerRunTypeDef],
+        "configurationSource": NotRequired[ConfigurationSourceType],
     },
 )
 

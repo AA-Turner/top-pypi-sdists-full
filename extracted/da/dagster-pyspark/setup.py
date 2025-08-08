@@ -27,6 +27,8 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
@@ -34,9 +36,9 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.14",
     install_requires=[
-        "dagster==1.11.4",
-        "dagster_spark==0.27.4",
-        "pyspark>=3,<4",
+        "dagster==1.11.5",
+        "dagster_spark==0.27.5",
+        "pyspark>=3,<5",
     ],
     zip_safe=False,
 )

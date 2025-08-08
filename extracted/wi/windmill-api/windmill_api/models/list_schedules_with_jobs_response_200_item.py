@@ -44,17 +44,20 @@ class ListSchedulesWithJobsResponse200Item:
         is_flow (bool):
         extra_perms (ListSchedulesWithJobsResponse200ItemExtraPerms):
         email (str):
-        args (Union[Unset, ListSchedulesWithJobsResponse200ItemArgs]):
+        args (Union[Unset, ListSchedulesWithJobsResponse200ItemArgs]): The arguments to pass to the script or flow
         error (Union[Unset, str]):
         on_failure (Union[Unset, str]):
         on_failure_times (Union[Unset, float]):
         on_failure_exact (Union[Unset, bool]):
-        on_failure_extra_args (Union[Unset, ListSchedulesWithJobsResponse200ItemOnFailureExtraArgs]):
+        on_failure_extra_args (Union[Unset, ListSchedulesWithJobsResponse200ItemOnFailureExtraArgs]): The arguments to
+            pass to the script or flow
         on_recovery (Union[Unset, str]):
         on_recovery_times (Union[Unset, float]):
-        on_recovery_extra_args (Union[Unset, ListSchedulesWithJobsResponse200ItemOnRecoveryExtraArgs]):
+        on_recovery_extra_args (Union[Unset, ListSchedulesWithJobsResponse200ItemOnRecoveryExtraArgs]): The arguments to
+            pass to the script or flow
         on_success (Union[Unset, str]):
-        on_success_extra_args (Union[Unset, ListSchedulesWithJobsResponse200ItemOnSuccessExtraArgs]):
+        on_success_extra_args (Union[Unset, ListSchedulesWithJobsResponse200ItemOnSuccessExtraArgs]): The arguments to
+            pass to the script or flow
         ws_error_handler_muted (Union[Unset, bool]):
         retry (Union[Unset, ListSchedulesWithJobsResponse200ItemRetry]):
         summary (Union[Unset, str]):

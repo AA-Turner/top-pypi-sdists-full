@@ -383,20 +383,18 @@ class TinybirdAgent:
             workspace_id = config.get("id", "")
             workspace = client.workspace(workspace_id, with_organization=True, version="v1")
             limits_data = client.organization_limits(workspace["organization"]["id"])
-            ai_requests_limits = limits_data.get("limits", {}).get("ai_requests", {})
-            current_ai_requests = ai_requests_limits.get("quantity") or 0
-            max_ai_requests = ai_requests_limits.get("max") or 0
-            remaining_requests = max(max_ai_requests - current_ai_requests, 0)
-            current_ai_requests = min(max_ai_requests, current_ai_requests)
-            if not max_ai_requests:
+            ai_credits_limits = limits_data.get("limits", {}).get("ai_credits", {})
+            current_ai_credits = ai_credits_limits.get("quantity") or 0
+            ai_credits = ai_credits_limits.get("max") or 0
+            remaining_credits = max(ai_credits - current_ai_credits, 0)
+            current_ai_credits = min(ai_credits, current_ai_credits)
+            if not ai_credits:
                 return
-            warning_threshold = max_ai_requests * 0.8
-            message_color = (
-                FeedbackManager.warning if current_ai_requests >= warning_threshold else FeedbackManager.gray
-            )
+            warning_threshold = ai_credits * 0.8
+            message_color = FeedbackManager.warning if current_ai_credits >= warning_threshold else FeedbackManager.gray
             click.echo(
                 message_color(
-                    message=f"{remaining_requests} requests left ({current_ai_requests}/{max_ai_requests}). You can continue using Tinybird Code. Limits will be enforced soon."
+                    message=f"{remaining_credits} credits left ({current_ai_credits}/{ai_credits}). You can continue using Tinybird Code. Limits will be enforced soon."
                 )
             )
         except Exception:

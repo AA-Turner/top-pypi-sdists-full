@@ -1649,6 +1649,9 @@ class AppBase:
     def set_key(self, key, value, category=""):
         return self.set_cache(key, value, category=category)
 
+    def set_datastore_key(self, key, value, category=""):
+        return self.set_cache(key, value, category=category)
+
     def set_cache(self, key, value, category=""):
         org_id = self.full_execution["workflow"]["execution_org"]["id"]
         url = "%s/api/v1/orgs/%s/set_cache" % (self.url, org_id)
@@ -1657,7 +1660,7 @@ class AppBase:
             "execution_id": self.current_execution_id,
             "authorization": self.authorization,
             "org_id": org_id,
-            "key": key,
+            "key": str(key),
             "value": str(value),
         }
 
@@ -1691,6 +1694,9 @@ class AppBase:
     def get_key(self, key, category=""):
         return self.get_cache(key, category=category)
 
+    def get_datastore_key(self, key, category=""):
+        return self.get_cache(key, category=category)
+
     def get_cache(self, key, category=""):
         org_id = self.full_execution["workflow"]["execution_org"]["id"]
         url = "%s/api/v1/orgs/%s/get_cache" % (self.url, org_id)
@@ -1699,7 +1705,7 @@ class AppBase:
             "execution_id": self.current_execution_id,
             "authorization": self.authorization,
             "org_id": org_id,
-            "key": key,
+            "key": str(key),
         }
 
         if category:
@@ -2040,9 +2046,9 @@ class AppBase:
 
                 "app_name": ""
             }
+
             self.authorization = "standalone"
             self.current_execution_id = "standalone"
-
             for key in unknown_args:
                 if "=" not in key:
                     if "standalone" not in key:
@@ -2057,6 +2063,10 @@ class AppBase:
                     namesplit = keysplit[0].split("--")
                     if len(namesplit) == 2:
                         newkey = namesplit[1]
+
+                    # Remove quotes before/after
+                    if newkey.startswith("'") and newkey.endswith("'"):
+                        newkey = newkey[1:-1]
 
                     self.action["parameters"].append({
                         "name": newkey,
@@ -3934,7 +3944,6 @@ class AppBase:
                             # Used for multi testing
                             #if not multiexecution:
                             #    multiexecution = True
-
                             self.logger.info(f"[DEBUG] Param: {params}")
                             self.logger.info(f"[DEBUG] Multiparams: {multi_parameters}")
 
@@ -4444,7 +4453,7 @@ class AppBase:
         else:
             # Has to start like this due to imports in other apps
             # Move it outside everything?
-            print("Running app without webserver")
+            #print("Running app without webserver")
             app = cls(redis=None, logger=logger, console_logger=logger)
             
             if isinstance(action, str):

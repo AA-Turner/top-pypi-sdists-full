@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxslim
-Version: 0.1.63
+Version: 0.1.64
 Summary: OnnxSlim: A Toolkit to Help Optimize Onnx Model
 Home-page: https://github.com/inisis/OnnxSlim
 Author: inisis
@@ -17,6 +17,7 @@ License-File: LICENSE
 Requires-Dist: onnx
 Requires-Dist: sympy>=1.13.3
 Requires-Dist: packaging
+Requires-Dist: colorama
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

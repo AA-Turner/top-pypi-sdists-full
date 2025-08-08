@@ -143,6 +143,11 @@ class Workflow(metaclass=WorkflowMeta):
         else:
             return start_events_found.pop()
 
+    @property
+    def start_event_class(self) -> type[StartEvent]:
+        """Returns the StartEvent type used in this workflow."""
+        return self._start_event_class
+
     def _ensure_stop_event_class(self) -> type[RunResultT]:
         """
         Returns the StopEvent type used in this workflow.
@@ -166,9 +171,17 @@ class Workflow(metaclass=WorkflowMeta):
         else:
             return stop_events_found.pop()
 
+    @property
+    def stop_event_class(self) -> type[RunResultT]:
+        """Returns the StopEvent type used in this workflow."""
+        return self._stop_event_class
+
     async def stream_events(self) -> AsyncGenerator[Event, None]:
         """
         Returns an async generator to consume any event that workflow steps decide to stream.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        Use `handler.stream_events()` instead, where `handler` is the return value of `workflow.run()`.
 
         To be able to use this generator, the usual pattern is to wrap the `run` call in a background task using
         `asyncio.create_task`, then enter a for loop like this:
@@ -180,7 +193,23 @@ class Workflow(metaclass=WorkflowMeta):
                 print(ev)
 
             await r
+
+        New recommended pattern:
+            wf = StreamingWorkflow()
+            handler = wf.run()
+
+            async for ev in handler.stream_events():
+                print(ev)
+
+            await handler
         """
+        warnings.warn(
+            "Workflow.stream_events() is deprecated and will be removed in a future version. "
+            "Use handler.stream_events() instead, where handler is the return value of workflow.run().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         # In the typical streaming use case, `run()` is not awaited but wrapped in a asyncio.Task. Since we'll be
         # consuming events produced by `run()`, we must give its Task the chance to run before entering the dequeueing
         # loop.
@@ -230,7 +259,16 @@ class Workflow(metaclass=WorkflowMeta):
 
         This method only accepts keyword arguments, and the name of the parameter
         will be used as the name of the workflow.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        You can create a sub-workflow directly in the step function or in the workflow
+        class constructor.
         """
+        warnings.warn(
+            "add_workflows() is deprecated and will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         for name, wf in workflows.items():
             self._service_manager.add(name, wf)
 
@@ -296,6 +334,17 @@ class Workflow(metaclass=WorkflowMeta):
         return ctx, run_id
 
     def send_event(self, message: Event, step: str | None = None) -> None:
+        """
+        Send an event to the workflow.
+
+        DEPRECATED: This method is deprecated and will be removed in a future version.
+        """
+        warnings.warn(
+            "send_event() is deprecated and will be removed in a future version. Use ctx.send_event() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         msg = (
             "Use a Context instance to send events from a step. "
             "Make sure your step method or function takes a parameter of type Context like `ctx: Context` and "
@@ -348,6 +397,20 @@ class Workflow(metaclass=WorkflowMeta):
         **kwargs: Any,
     ) -> WorkflowHandler:
         """Runs the workflow until completion."""
+        if checkpoint_callback:
+            warnings.warn(
+                "'checkpoint_callback' parameter is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if stepwise:
+            warnings.warn(
+                "'stepwise' execution is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         # Validate the workflow and determine HITL usage
         uses_hitl = self._validate()
         if uses_hitl and stepwise:
@@ -447,6 +510,12 @@ class Workflow(metaclass=WorkflowMeta):
         The `Context` snapshot contained in the checkpoint is loaded and used
         to execute the `Workflow`.
         """
+        warnings.warn(
+            "WorkflowCheckpointer is deprecated and will be removed in a future version.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         # load the `Context` from the checkpoint
         ctx_serializer = ctx_serializer or JsonSerializer()
         ctx = Context.from_dict(self, checkpoint.ctx_state, serializer=ctx_serializer)

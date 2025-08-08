@@ -34,17 +34,20 @@ class ScheduleWJobs:
         is_flow (bool):
         extra_perms (ScheduleWJobsExtraPerms):
         email (str):
-        args (Union[Unset, ScheduleWJobsArgs]):
+        args (Union[Unset, ScheduleWJobsArgs]): The arguments to pass to the script or flow
         error (Union[Unset, str]):
         on_failure (Union[Unset, str]):
         on_failure_times (Union[Unset, float]):
         on_failure_exact (Union[Unset, bool]):
-        on_failure_extra_args (Union[Unset, ScheduleWJobsOnFailureExtraArgs]):
+        on_failure_extra_args (Union[Unset, ScheduleWJobsOnFailureExtraArgs]): The arguments to pass to the script or
+            flow
         on_recovery (Union[Unset, str]):
         on_recovery_times (Union[Unset, float]):
-        on_recovery_extra_args (Union[Unset, ScheduleWJobsOnRecoveryExtraArgs]):
+        on_recovery_extra_args (Union[Unset, ScheduleWJobsOnRecoveryExtraArgs]): The arguments to pass to the script or
+            flow
         on_success (Union[Unset, str]):
-        on_success_extra_args (Union[Unset, ScheduleWJobsOnSuccessExtraArgs]):
+        on_success_extra_args (Union[Unset, ScheduleWJobsOnSuccessExtraArgs]): The arguments to pass to the script or
+            flow
         ws_error_handler_muted (Union[Unset, bool]):
         retry (Union[Unset, ScheduleWJobsRetry]):
         summary (Union[Unset, str]):

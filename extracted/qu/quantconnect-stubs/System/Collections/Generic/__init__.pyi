@@ -554,7 +554,7 @@ class List(typing.Generic[System_Collections_Generic_List_T], System.Object, Sys
     def find_last_index(self, start_index: int, count: int, match: typing.Callable[[System_Collections_Generic_List_T], bool]) -> int:
         ...
 
-    def for_each(self, action: typing.Callable[[System_Collections_Generic_List_T], None]) -> None:
+    def for_each(self, action: typing.Callable[[System_Collections_Generic_List_T], typing.Any]) -> None:
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.List.Enumerator:

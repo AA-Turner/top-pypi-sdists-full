@@ -1,5 +1,5 @@
 [tool.bumpversion]
-current_version = "0.7.1"
+current_version = "0.8.0"
 commit = true
 tag = true
 tag_name = "{new_version}"
@@ -153,6 +153,9 @@ ignore = [
 # Skip PEP 604 suggestions for files with attr classes
 "zyte_api/errors.py" = ["UP007"]
 "zyte_api/stats.py" = ["UP007"]
+
+[tool.ruff.lint.flake8-pytest-style]
+parametrize-values-type = "tuple"
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-decorators = ["attr.s"]

@@ -16,7 +16,11 @@ from anyscale.client.openapi_client.models.production_job import ProductionJob
 from anyscale.client.openapi_client.models.ray_runtime_env_config import (
     RayRuntimeEnvConfig,
 )
-from anyscale.compute_config.models import ComputeConfig
+from anyscale.compute_config.models import (
+    ComputeConfig,
+    ComputeConfigType,
+    MultiDeploymentComputeConfig,
+)
 from anyscale.job.models import (
     JobConfig,
     JobLogMode,
@@ -63,7 +67,7 @@ class PrivateJobSDK(WorkloadSDK):
         config: JobConfig,
         *,
         autopopulate_in_workspace: bool = True,
-        cloud_id: Optional[str] = None,
+        cloud_id: str,
         workspace_requirements_path: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """Populates a runtime_env from the config.
@@ -88,7 +92,7 @@ class PrivateJobSDK(WorkloadSDK):
             additional_py_modules=config.py_modules,
             py_executable_override=config.py_executable,
             has_multiple_cloud_deployments=self._compute_config_has_multiple_cloud_deployments(
-                config.compute_config
+                compute_config=config.compute_config, cloud=config.cloud
             ),
         )
         [runtime_env] = self.override_and_load_requirements_files(
@@ -103,18 +107,23 @@ class PrivateJobSDK(WorkloadSDK):
         return runtime_env or None
 
     def _compute_config_has_multiple_cloud_deployments(
-        self, compute_config: Union[ComputeConfig, Dict, str, None]
+        self, compute_config: Union[ComputeConfigType, str, None], cloud: Optional[str]
     ) -> bool:
-        if not isinstance(compute_config, str):
-            # Multi-deployment compute configs are not supported in-line, only by name.
+        if isinstance(compute_config, ComputeConfig):
+            # single-deployment compute config
             return False
 
+        if isinstance(compute_config, MultiDeploymentComputeConfig):
+            return len(compute_config.configs) > 1
+
         compute_config_id = self._resolve_compute_config_id(
-            compute_config=compute_config
+            compute_config=compute_config, cloud=cloud
         )
         compute_template = self._client.get_compute_config(compute_config_id)
         if compute_template is None or compute_template.config is None:
-            raise ValueError(f"The compute config '{compute_config}' does not exist.")
+            raise ValueError(
+                f"The compute config '{compute_config_id}' does not exist."
+            )
 
         return (
             compute_template.config.deployment_configs

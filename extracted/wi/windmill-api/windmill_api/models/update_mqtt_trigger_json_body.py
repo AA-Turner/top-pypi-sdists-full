@@ -34,7 +34,8 @@ class UpdateMqttTriggerJsonBody:
         v5_config (Union[Unset, UpdateMqttTriggerJsonBodyV5Config]):
         client_version (Union[Unset, UpdateMqttTriggerJsonBodyClientVersion]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, UpdateMqttTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, UpdateMqttTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, UpdateMqttTriggerJsonBodyRetry]):
     """
 

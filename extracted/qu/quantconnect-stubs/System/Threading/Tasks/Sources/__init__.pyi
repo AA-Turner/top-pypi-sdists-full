@@ -86,7 +86,7 @@ class ManualResetValueTaskSourceCore(typing.Generic[System_Threading_Tasks_Sourc
         """
         ...
 
-    def on_completed(self, continuation: typing.Callable[[System.Object], None], state: typing.Any, token: int, flags: System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags) -> None:
+    def on_completed(self, continuation: typing.Callable[[System.Object], typing.Any], state: typing.Any, token: int, flags: System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags) -> None:
         """
         Schedules the continuation action for this operation.
         
@@ -137,7 +137,7 @@ class IValueTaskSource(typing.Generic[System_Threading_Tasks_Sources_IValueTaskS
         """
         ...
 
-    def on_completed(self, continuation: typing.Callable[[System.Object], None], state: typing.Any, token: int, flags: System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags) -> None:
+    def on_completed(self, continuation: typing.Callable[[System.Object], typing.Any], state: typing.Any, token: int, flags: System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags) -> None:
         """
         Schedules the continuation action for this IValueTaskSource.
         

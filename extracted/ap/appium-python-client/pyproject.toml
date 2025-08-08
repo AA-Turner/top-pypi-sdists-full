@@ -1,0 +1,70 @@
+[project]
+name = "Appium-Python-Client"
+description = "Python client for Appium"
+version = "5.2.0"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Isaac Murchie", email = "isaac@saucelabs.com"},
+]
+maintainers = [
+    {name = "Kazuaki Matsuo"},
+    {name = "Mykola Mokhnach"},
+    {name = "Mori Atsushi"},
+]
+keywords = ["appium", "selenium", "python client", "mobile automation"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Environment :: Console",
+    "Topic :: Software Development :: Testing",
+]
+requires-python = ">=3.9"
+dependencies = [
+  "selenium>=4.26,<5.0",
+  "typing-extensions~=4.13",
+]
+
+[project.urls]
+Homepage = "http://appium.io/"
+Repository = "https://github.com/appium/python-client"
+Issues = "https://github.com/appium/python-client/issues"
+Changelog = "https://github.com/appium/python-client/blob/master/CHANGELOG.rst"
+
+[tool.uv]
+dev-dependencies = [
+  "httpretty~=1.1",
+  "mock~=5.2",
+  "mypy~=1.17",
+  "pre-commit~=4.2",
+  "pytest~=8.4",
+  "pytest-cov~=6.2",
+  "pytest-xdist~=3.8",
+  "python-dateutil~=2.9",
+  "ruff~=0.12",
+  "types-python-dateutil~=2.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "regex"
+path = "appium/version.py"
+pattern = "(?P<version>\\d+\\.\\d+\\.\\d+)"
+
+[tool.hatch.build]
+exclude = [
+  "test/",
+  "script/",
+  "release.sh"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["appium"]

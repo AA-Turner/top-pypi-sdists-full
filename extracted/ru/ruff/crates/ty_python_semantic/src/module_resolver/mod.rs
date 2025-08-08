@@ -1,6 +1,7 @@
 use std::iter::FusedIterator;
 
-pub use module::{KnownModule, Module};
+pub(crate) use module::KnownModule;
+pub use module::Module;
 pub use path::SearchPathValidationError;
 pub use resolver::SearchPaths;
 pub(crate) use resolver::file_to_module;
@@ -20,7 +21,7 @@ mod typeshed;
 mod testing;
 
 /// Returns an iterator over all search paths pointing to a system path
-pub fn system_module_search_paths(db: &dyn Db) -> SystemModuleSearchPathsIter {
+pub fn system_module_search_paths(db: &dyn Db) -> SystemModuleSearchPathsIter<'_> {
     SystemModuleSearchPathsIter {
         inner: search_paths(db),
     }

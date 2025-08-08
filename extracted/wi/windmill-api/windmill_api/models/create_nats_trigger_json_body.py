@@ -27,7 +27,8 @@ class CreateNatsTriggerJsonBody:
         consumer_name (Union[Unset, str]):
         enabled (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, CreateNatsTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, CreateNatsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, CreateNatsTriggerJsonBodyRetry]):
     """
 

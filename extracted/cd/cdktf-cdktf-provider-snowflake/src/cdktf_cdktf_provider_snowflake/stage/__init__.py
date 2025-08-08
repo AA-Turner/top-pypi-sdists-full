@@ -1,7 +1,7 @@
 r'''
 # `snowflake_stage`
 
-Refer to the Terraform Registry for docs: [`snowflake_stage`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage).
+Refer to the Terraform Registry for docs: [`snowflake_stage`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Stage(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.stage.Stage",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage snowflake_stage}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage snowflake_stage}.'''
 
     def __init__(
         self,
@@ -75,26 +75,26 @@ class Stage(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage snowflake_stage} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage snowflake_stage} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: The database in which to create the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#database Stage#database}
-        :param name: Specifies the identifier for the stage; must be unique for the database and schema in which the stage is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#name Stage#name}
-        :param schema: The schema in which to create the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#schema Stage#schema}
-        :param aws_external_id: A unique ID assigned to the specific stage. The ID has the following format: <snowflakeAccount>*SFCRole=<snowflakeRoleId>*<randomId> Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#aws_external_id Stage#aws_external_id}
-        :param comment: Specifies a comment for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#comment Stage#comment}
-        :param copy_options: Specifies the copy options for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#copy_options Stage#copy_options}
-        :param credentials: Specifies the credentials for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#credentials Stage#credentials}
-        :param directory: Specifies the directory settings for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#directory Stage#directory}
-        :param encryption: Specifies the encryption settings for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#encryption Stage#encryption}
-        :param file_format: Specifies the file format for the stage. Specifying the default Snowflake value (e.g. TYPE = CSV) will currently result in a permadiff (check `#2679 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/2679>`_). For now, omit the default values; it will be fixed in the upcoming provider versions. Examples of usage: 1. with hardcoding value: ``file_format="FORMAT_NAME = DB.SCHEMA.FORMATNAME"`` 2. from dynamic value: ``file_format = "FORMAT_NAME = ${snowflake_file_format.myfileformat.fully_qualified_name}"`` 3. from expression: ``file_format = format("FORMAT_NAME =%s.%s.MYFILEFORMAT", var.db_name, each.value.schema_name)``. Reference: `#265 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/265>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#file_format Stage#file_format}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#id Stage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param snowflake_iam_user: An AWS IAM user created for your Snowflake account. This user is the same for every external S3 stage created in your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#snowflake_iam_user Stage#snowflake_iam_user}
-        :param storage_integration: Specifies the name of the storage integration used to delegate authentication responsibility for external cloud storage to a Snowflake identity and access management (IAM) entity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#storage_integration Stage#storage_integration}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#tag Stage#tag}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#timeouts Stage#timeouts}
-        :param url: Specifies the URL for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#url Stage#url}
+        :param database: The database in which to create the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#database Stage#database}
+        :param name: Specifies the identifier for the stage; must be unique for the database and schema in which the stage is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#name Stage#name}
+        :param schema: The schema in which to create the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#schema Stage#schema}
+        :param aws_external_id: A unique ID assigned to the specific stage. The ID has the following format: <snowflakeAccount>*SFCRole=<snowflakeRoleId>*<randomId> Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#aws_external_id Stage#aws_external_id}
+        :param comment: Specifies a comment for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#comment Stage#comment}
+        :param copy_options: Specifies the copy options for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#copy_options Stage#copy_options}
+        :param credentials: Specifies the credentials for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#credentials Stage#credentials}
+        :param directory: Specifies the directory settings for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#directory Stage#directory}
+        :param encryption: Specifies the encryption settings for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#encryption Stage#encryption}
+        :param file_format: Specifies the file format for the stage. Specifying the default Snowflake value (e.g. TYPE = CSV) will currently result in a permadiff (check `#2679 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/2679>`_). For now, omit the default values; it will be fixed in the upcoming provider versions. Examples of usage: 1. with hardcoding value: ``file_format="FORMAT_NAME = DB.SCHEMA.FORMATNAME"`` 2. from dynamic value: ``file_format = "FORMAT_NAME = ${snowflake_file_format.myfileformat.fully_qualified_name}"`` 3. from expression: ``file_format = format("FORMAT_NAME =%s.%s.MYFILEFORMAT", var.db_name, each.value.schema_name)``. Reference: `#265 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/265>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#file_format Stage#file_format}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#id Stage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param snowflake_iam_user: An AWS IAM user created for your Snowflake account. This user is the same for every external S3 stage created in your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#snowflake_iam_user Stage#snowflake_iam_user}
+        :param storage_integration: Specifies the name of the storage integration used to delegate authentication responsibility for external cloud storage to a Snowflake identity and access management (IAM) entity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#storage_integration Stage#storage_integration}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#tag Stage#tag}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#timeouts Stage#timeouts}
+        :param url: Specifies the URL for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#url Stage#url}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -148,7 +148,7 @@ class Stage(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Stage to import.
-        :param import_from_id: The id of the existing Stage that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Stage that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Stage to import is found.
         '''
         if __debug__:
@@ -182,10 +182,10 @@ class Stage(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#create Stage#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#delete Stage#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#read Stage#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#update Stage#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#create Stage#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#delete Stage#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#read Stage#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#update Stage#update}.
         '''
         value = StageTimeouts(create=create, delete=delete, read=read, update=update)
 
@@ -589,22 +589,22 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: The database in which to create the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#database Stage#database}
-        :param name: Specifies the identifier for the stage; must be unique for the database and schema in which the stage is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#name Stage#name}
-        :param schema: The schema in which to create the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#schema Stage#schema}
-        :param aws_external_id: A unique ID assigned to the specific stage. The ID has the following format: <snowflakeAccount>*SFCRole=<snowflakeRoleId>*<randomId> Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#aws_external_id Stage#aws_external_id}
-        :param comment: Specifies a comment for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#comment Stage#comment}
-        :param copy_options: Specifies the copy options for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#copy_options Stage#copy_options}
-        :param credentials: Specifies the credentials for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#credentials Stage#credentials}
-        :param directory: Specifies the directory settings for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#directory Stage#directory}
-        :param encryption: Specifies the encryption settings for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#encryption Stage#encryption}
-        :param file_format: Specifies the file format for the stage. Specifying the default Snowflake value (e.g. TYPE = CSV) will currently result in a permadiff (check `#2679 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/2679>`_). For now, omit the default values; it will be fixed in the upcoming provider versions. Examples of usage: 1. with hardcoding value: ``file_format="FORMAT_NAME = DB.SCHEMA.FORMATNAME"`` 2. from dynamic value: ``file_format = "FORMAT_NAME = ${snowflake_file_format.myfileformat.fully_qualified_name}"`` 3. from expression: ``file_format = format("FORMAT_NAME =%s.%s.MYFILEFORMAT", var.db_name, each.value.schema_name)``. Reference: `#265 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/265>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#file_format Stage#file_format}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#id Stage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param snowflake_iam_user: An AWS IAM user created for your Snowflake account. This user is the same for every external S3 stage created in your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#snowflake_iam_user Stage#snowflake_iam_user}
-        :param storage_integration: Specifies the name of the storage integration used to delegate authentication responsibility for external cloud storage to a Snowflake identity and access management (IAM) entity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#storage_integration Stage#storage_integration}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#tag Stage#tag}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#timeouts Stage#timeouts}
-        :param url: Specifies the URL for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#url Stage#url}
+        :param database: The database in which to create the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#database Stage#database}
+        :param name: Specifies the identifier for the stage; must be unique for the database and schema in which the stage is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#name Stage#name}
+        :param schema: The schema in which to create the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#schema Stage#schema}
+        :param aws_external_id: A unique ID assigned to the specific stage. The ID has the following format: <snowflakeAccount>*SFCRole=<snowflakeRoleId>*<randomId> Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#aws_external_id Stage#aws_external_id}
+        :param comment: Specifies a comment for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#comment Stage#comment}
+        :param copy_options: Specifies the copy options for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#copy_options Stage#copy_options}
+        :param credentials: Specifies the credentials for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#credentials Stage#credentials}
+        :param directory: Specifies the directory settings for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#directory Stage#directory}
+        :param encryption: Specifies the encryption settings for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#encryption Stage#encryption}
+        :param file_format: Specifies the file format for the stage. Specifying the default Snowflake value (e.g. TYPE = CSV) will currently result in a permadiff (check `#2679 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/2679>`_). For now, omit the default values; it will be fixed in the upcoming provider versions. Examples of usage: 1. with hardcoding value: ``file_format="FORMAT_NAME = DB.SCHEMA.FORMATNAME"`` 2. from dynamic value: ``file_format = "FORMAT_NAME = ${snowflake_file_format.myfileformat.fully_qualified_name}"`` 3. from expression: ``file_format = format("FORMAT_NAME =%s.%s.MYFILEFORMAT", var.db_name, each.value.schema_name)``. Reference: `#265 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/265>`_ Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#file_format Stage#file_format}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#id Stage#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param snowflake_iam_user: An AWS IAM user created for your Snowflake account. This user is the same for every external S3 stage created in your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#snowflake_iam_user Stage#snowflake_iam_user}
+        :param storage_integration: Specifies the name of the storage integration used to delegate authentication responsibility for external cloud storage to a Snowflake identity and access management (IAM) entity. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#storage_integration Stage#storage_integration}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#tag Stage#tag}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#timeouts Stage#timeouts}
+        :param url: Specifies the URL for the stage. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#url Stage#url}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -749,7 +749,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The database in which to create the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#database Stage#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#database Stage#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -761,7 +761,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the database and schema in which the stage is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#name Stage#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#name Stage#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -771,7 +771,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> builtins.str:
         '''The schema in which to create the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#schema Stage#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#schema Stage#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -781,7 +781,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws_external_id(self) -> typing.Optional[builtins.str]:
         '''A unique ID assigned to the specific stage. The ID has the following format: <snowflakeAccount>*SFCRole=<snowflakeRoleId>*<randomId>
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#aws_external_id Stage#aws_external_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#aws_external_id Stage#aws_external_id}
         '''
         result = self._values.get("aws_external_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -790,7 +790,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#comment Stage#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#comment Stage#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -799,7 +799,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def copy_options(self) -> typing.Optional[builtins.str]:
         '''Specifies the copy options for the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#copy_options Stage#copy_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#copy_options Stage#copy_options}
         '''
         result = self._values.get("copy_options")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -808,7 +808,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def credentials(self) -> typing.Optional[builtins.str]:
         '''Specifies the credentials for the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#credentials Stage#credentials}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#credentials Stage#credentials}
         '''
         result = self._values.get("credentials")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -817,7 +817,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def directory(self) -> typing.Optional[builtins.str]:
         '''Specifies the directory settings for the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#directory Stage#directory}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#directory Stage#directory}
         '''
         result = self._values.get("directory")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -826,7 +826,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def encryption(self) -> typing.Optional[builtins.str]:
         '''Specifies the encryption settings for the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#encryption Stage#encryption}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#encryption Stage#encryption}
         '''
         result = self._values.get("encryption")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -837,14 +837,14 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Specifying the default Snowflake value (e.g. TYPE = CSV) will currently result in a permadiff (check `#2679 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/2679>`_). For now, omit the default values; it will be fixed in the upcoming provider versions. Examples of usage: 1. with hardcoding value: ``file_format="FORMAT_NAME = DB.SCHEMA.FORMATNAME"`` 2. from dynamic value: ``file_format = "FORMAT_NAME = ${snowflake_file_format.myfileformat.fully_qualified_name}"`` 3. from expression: ``file_format = format("FORMAT_NAME =%s.%s.MYFILEFORMAT", var.db_name, each.value.schema_name)``. Reference: `#265 <https://github.com/snowflakedb/terraform-provider-snowflake/issues/265>`_
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#file_format Stage#file_format}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#file_format Stage#file_format}
         '''
         result = self._values.get("file_format")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#id Stage#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#id Stage#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -858,7 +858,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This user is the same for every external S3 stage created in your account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#snowflake_iam_user Stage#snowflake_iam_user}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#snowflake_iam_user Stage#snowflake_iam_user}
         '''
         result = self._values.get("snowflake_iam_user")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -867,7 +867,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def storage_integration(self) -> typing.Optional[builtins.str]:
         '''Specifies the name of the storage integration used to delegate authentication responsibility for external cloud storage to a Snowflake identity and access management (IAM) entity.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#storage_integration Stage#storage_integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#storage_integration Stage#storage_integration}
         '''
         result = self._values.get("storage_integration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -878,7 +878,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StageTag"]]]:
         '''tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#tag Stage#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#tag Stage#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["StageTag"]]], result)
@@ -887,7 +887,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["StageTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#timeouts Stage#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#timeouts Stage#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["StageTimeouts"], result)
@@ -896,7 +896,7 @@ class StageConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def url(self) -> typing.Optional[builtins.str]:
         '''Specifies the URL for the stage.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#url Stage#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#url Stage#url}
         '''
         result = self._values.get("url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -933,10 +933,10 @@ class StageTag:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Tag name, e.g. department. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#name Stage#name}
-        :param value: Tag value, e.g. marketing_info. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#value Stage#value}
-        :param database: Name of the database that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#database Stage#database}
-        :param schema: Name of the schema that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#schema Stage#schema}
+        :param name: Tag name, e.g. department. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#name Stage#name}
+        :param value: Tag value, e.g. marketing_info. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#value Stage#value}
+        :param database: Name of the database that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#database Stage#database}
+        :param schema: Name of the schema that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#schema Stage#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b37b96ab2079a51de572f8ea1d80e14e16c3b959b12a50edc76bc0fa28f6fac0)
@@ -957,7 +957,7 @@ class StageTag:
     def name(self) -> builtins.str:
         '''Tag name, e.g. department.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#name Stage#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#name Stage#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -967,7 +967,7 @@ class StageTag:
     def value(self) -> builtins.str:
         '''Tag value, e.g. marketing_info.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#value Stage#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#value Stage#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -977,7 +977,7 @@ class StageTag:
     def database(self) -> typing.Optional[builtins.str]:
         '''Name of the database that the tag was created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#database Stage#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#database Stage#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -986,7 +986,7 @@ class StageTag:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Name of the schema that the tag was created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#schema Stage#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#schema Stage#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1233,10 +1233,10 @@ class StageTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#create Stage#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#delete Stage#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#read Stage#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#update Stage#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#create Stage#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#delete Stage#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#read Stage#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#update Stage#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44f87eed405255655202d5fc8f4cdc5841e153e0a78f230525d486ab7aba6fdd)
@@ -1256,25 +1256,25 @@ class StageTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#create Stage#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#create Stage#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#delete Stage#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#delete Stage#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#read Stage#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#read Stage#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/stage#update Stage#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/stage#update Stage#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -18,7 +18,7 @@ fn default_search_rng_epsilon() -> f32 {
 }
 
 fn default_write_nprobe() -> u32 {
-    64
+    32
 }
 
 fn default_write_rng_factor() -> f32 {
@@ -26,11 +26,11 @@ fn default_write_rng_factor() -> f32 {
 }
 
 fn default_write_rng_epsilon() -> f32 {
-    10.0
+    5.0
 }
 
 fn default_split_threshold() -> u32 {
-    200
+    50
 }
 
 fn default_num_samples_kmeans() -> usize {
@@ -46,7 +46,7 @@ fn default_reassign_neighbor_count() -> u32 {
 }
 
 fn default_merge_threshold() -> u32 {
-    100
+    25
 }
 
 fn default_num_centers_to_merge_to() -> u32 {
@@ -106,7 +106,7 @@ pub struct InternalSpannConfiguration {
     #[serde(default = "default_write_rng_epsilon")]
     pub write_rng_epsilon: f32,
     #[serde(default = "default_split_threshold")]
-    #[validate(range(min = 100, max = 200))]
+    #[validate(range(min = 25, max = 200))]
     pub split_threshold: u32,
     #[serde(default = "default_num_samples_kmeans")]
     pub num_samples_kmeans: usize,
@@ -116,7 +116,7 @@ pub struct InternalSpannConfiguration {
     #[validate(range(max = 64))]
     pub reassign_neighbor_count: u32,
     #[serde(default = "default_merge_threshold")]
-    #[validate(range(min = 50, max = 100))]
+    #[validate(range(min = 12, max = 100))]
     pub merge_threshold: u32,
     #[serde(default = "default_num_centers_to_merge_to")]
     #[validate(range(max = 8))]
@@ -197,7 +197,7 @@ impl Default for SpannConfiguration {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq, ToSchema)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize, Validate, PartialEq, ToSchema)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "pyo3", pyo3::pyclass)]
 pub struct UpdateSpannConfiguration {

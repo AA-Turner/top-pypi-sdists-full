@@ -8,6 +8,7 @@ import os
 import plotly.graph_objects as go
 import plotly.io as io
 import argparse
+import json
 
 sys.path.insert(0, os.getcwd())
 
@@ -22,7 +23,7 @@ from coloraide import algebra as alg  # noqa: E402
 def get_spline(x, y, steps=100):
     """Get spline."""
 
-    return tuple(list(i) for i in zip(*alg.interpolate(list(zip(x, y)), method='monotone').steps(steps)))
+    return tuple([*i] for i in zip(*alg.interpolate([*zip(x, y)], method='monotone').steps(steps)))
 
 
 def main():
@@ -48,6 +49,11 @@ def main():
             " and end color specifies as the plot must fit in the 2D plane."
         )
     )
+    parser.add_argument(
+        '--gmap',
+        default='lch-chroma:{}',
+        help='Options to pass to the gamut mapping method (JSON string).'
+    )
     parser.add_argument('--xaxis', '-x', help="The channel to plot on X axis 'name:min:max'.")
     parser.add_argument('--yaxis', '-y', help="The channel to plot on Y axis 'name:min:max'.")
     parser.add_argument('--resolution', '-r', default="800", help="How densely to render the figure.")
@@ -58,6 +64,11 @@ def main():
     parser.add_argument('--width', '-W', type=int, default=800, help="Width")
 
     args = parser.parse_args()
+
+    parts = [p.strip() if not e else json.loads(p) for e, p in enumerate(args.gmap.split(':', 1))]
+    gmap = {'method': parts[0]}
+    if len(parts) == 2:
+        gmap.update(parts[1])
 
     colors = []
     for color in args.color:
@@ -87,7 +98,8 @@ def main():
         polar=True,
         border=not args.no_border,
         height=args.height,
-        width=args.width
+        width=args.width,
+        gmap=gmap
     )
 
     # Get the actual indexes of the specified channels

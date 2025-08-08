@@ -27,7 +27,8 @@ class EditPostgresTrigger:
         postgres_resource_path (str):
         publication (Union[Unset, EditPostgresTriggerPublication]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, EditPostgresTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, EditPostgresTriggerErrorHandlerArgs]): The arguments to pass to the script or
+            flow
         retry (Union[Unset, EditPostgresTriggerRetry]):
     """
 

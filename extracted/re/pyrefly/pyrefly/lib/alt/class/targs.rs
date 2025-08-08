@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
+use pyrefly_types::callable::Callable;
 use pyrefly_types::callable::Function;
 use pyrefly_util::display::count;
 use pyrefly_util::prelude::SliceExt;
@@ -63,7 +64,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         range: TextRange,
         errors: &ErrorCollector,
     ) -> Type {
-        let targs = if !targs.is_empty() && self.get_metadata_for_class(cls).has_unknown_tparams() {
+        let targs = if !targs.is_empty() && self.get_base_types_for_class(cls).has_unknown_tparams()
+        {
             // Accept any number of arguments (by ignoring them).
             TArgs::default()
         } else {
@@ -184,6 +186,21 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .fresh_quantified(tparams, Type::Function(Box::new(func)), self.uniques);
         match t {
             Type::Function(func) => (qs, *func),
+            // We passed a Function to fresh_quantified(), so we know we get a Function back out.
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn instantiate_fresh_callable(
+        &self,
+        tparams: &TParams,
+        c: Callable,
+    ) -> (Vec<Var>, Callable) {
+        let (qs, t) =
+            self.solver()
+                .fresh_quantified(tparams, Type::Callable(Box::new(c)), self.uniques);
+        match t {
+            Type::Callable(c) => (qs, *c),
             // We passed a Function to fresh_quantified(), so we know we get a Function back out.
             _ => unreachable!(),
         }

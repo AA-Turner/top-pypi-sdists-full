@@ -211,11 +211,11 @@ class INotifyPropertyChanging(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def property_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], None], None]:
+    def property_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], typing.Any], typing.Any]:
         ...
 
     @property_changing.setter
-    def property_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], None], None]) -> None:
+    def property_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -278,11 +278,11 @@ class INotifyPropertyChanged(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]:
+    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
         ...
 
     @property_changed.setter
-    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]) -> None:
+    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -296,11 +296,11 @@ class INotifyDataErrorInfo(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def errors_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.DataErrorsChangedEventArgs], None], None]:
+    def errors_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.DataErrorsChangedEventArgs], typing.Any], typing.Any]:
         ...
 
     @errors_changed.setter
-    def errors_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.DataErrorsChangedEventArgs], None], None]) -> None:
+    def errors_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.DataErrorsChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def get_errors(self, property_name: str) -> System.Collections.IEnumerable:
@@ -1400,7 +1400,7 @@ class PropertyDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.A
         """
         ...
 
-    def add_value_changed(self, component: typing.Any, handler: typing.Callable[[System.Object, System.EventArgs], None]) -> None:
+    def add_value_changed(self, component: typing.Any, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> None:
         """Allows interested objects to be notified when this property changes."""
         ...
 
@@ -1498,7 +1498,7 @@ class PropertyDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.A
         """
         ...
 
-    def remove_value_changed(self, component: typing.Any, handler: typing.Callable[[System.Object, System.EventArgs], None]) -> None:
+    def remove_value_changed(self, component: typing.Any, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> None:
         """Allows interested objects to be notified when this property changes."""
         ...
 
@@ -1765,11 +1765,11 @@ class IBindingList(System.Collections.IList, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def list_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], None], None]:
+    def list_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], typing.Any], typing.Any]:
         ...
 
     @list_changed.setter
-    def list_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], None], None]) -> None:
+    def list_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def add_index(self, property: System.ComponentModel.PropertyDescriptor) -> None:
@@ -4267,12 +4267,12 @@ class MarshalByValueComponent(System.Object, System.ComponentModel.IComponent, I
     """
 
     @property
-    def disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds an event handler to listen to the Disposed event on the component."""
         ...
 
     @disposed.setter
-    def disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -4829,12 +4829,12 @@ class ISupportInitializeNotification(System.ComponentModel.ISupportInitialize, m
 
     @property
     @abc.abstractmethod
-    def initialized(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def initialized(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Sent when initialization is complete."""
         ...
 
     @initialized.setter
-    def initialized(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def initialized(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -5583,21 +5583,21 @@ class BindingList(typing.Generic[System_ComponentModel_BindingList_T], System.Co
     """This class has no documentation."""
 
     @property
-    def adding_new(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.AddingNewEventArgs], None], None]:
+    def adding_new(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.AddingNewEventArgs], typing.Any], typing.Any]:
         """Event that allows a custom item to be provided as the new item added to the list by AddNew()."""
         ...
 
     @adding_new.setter
-    def adding_new(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.AddingNewEventArgs], None], None]) -> None:
+    def adding_new(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.AddingNewEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def list_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], None], None]:
+    def list_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], typing.Any], typing.Any]:
         """Event that reports changes to the list or to items in the list."""
         ...
 
     @list_changed.setter
-    def list_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], None], None]) -> None:
+    def list_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.ListChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -5869,7 +5869,7 @@ class TypeDescriptor(System.Object):
     AddProvider methods to define a type description provider for interface types.
     """
 
-    refreshed: _EventContainer[typing.Callable[[System.ComponentModel.RefreshEventArgs], None], None]
+    refreshed: _EventContainer[typing.Callable[[System.ComponentModel.RefreshEventArgs], typing.Any], typing.Any]
     """Occurs when Refreshed is raised for a component."""
 
     COM_OBJECT_TYPE: typing.Type

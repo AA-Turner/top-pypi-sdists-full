@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mct-quantizers-nightly
-Version: 1.6.0.20250807.post1644
+Version: 1.6.0.20250808.post1628
 Summary: Infrastructure for support neural networks compression
 Author-email: ssi-dnn-dev@sony.com
 Classifier: Programming Language :: Python :: 3

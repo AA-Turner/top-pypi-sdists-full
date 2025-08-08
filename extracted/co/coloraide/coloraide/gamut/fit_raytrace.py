@@ -6,9 +6,11 @@ This employs a faster approach than bisecting to reduce chroma.
 from __future__ import annotations
 import math
 from functools import lru_cache
+from .. import util
 from .. import algebra as alg
 from ..gamut import Fit
-from ..spaces import Space, RGBish, HSLish, HSVish, HWBish
+from ..cat import WHITES
+from ..spaces import Prism, Luminant, Space, HSLish, HSVish, HWBish
 from ..spaces.hsl import hsl_to_srgb, srgb_to_hsl
 from ..spaces.hsv import hsv_to_srgb, srgb_to_hsv
 from ..spaces.hwb import hwb_to_hsv, hsv_to_hwb
@@ -19,6 +21,8 @@ from typing import Callable, Any, TYPE_CHECKING  # noqa: F401
 
 if TYPE_CHECKING:  #pragma: no cover
     from ..color import Color
+
+WHITE = util.xy_to_xyz(WHITES['2deg']['D65'])
 
 
 def project_onto(a: Vector, b: Vector, o: Vector) -> Vector:
@@ -32,16 +36,27 @@ def project_onto(a: Vector, b: Vector, o: Vector) -> Vector:
 
     # Create vector from points
     ox, oy, oz = o
-    vec_oa = [a[0] - ox, a[1] - oy, a[2] - oz]
-    vec_ob = [b[0] - ox, b[1] - oy, b[2] - oz]
+    va1 = a[0] - ox
+    va2 = a[1] - oy
+    va3 = a[2] - oz
+    vb1 = b[0] - ox
+    vb2 = b[1] - oy
+    vb3 = b[2] - oz
+
     # Project `vec_oa` onto `vec_ob` and convert back to a point
-    r = alg.matmul_x3(vec_oa, vec_ob, dims=alg.D1) / alg.matmul_x3(vec_ob, vec_ob, dims=alg.D1)
+    n = (va1 * vb1 + va2 * vb2 + va3 * vb3)
+    d = (vb1 * vb1 + vb2 * vb2 + vb3 * vb3)
+
+    if d == 0:  # pragma: no cover
+        d = alg.EPS
+    r = n / d
+
     # Some spaces may project something that exceeds the range of our target vector.
     if r > 1.0:
         r = 1.0
     elif r < 0.0:  # pragma: no cover
         r = 0.0
-    return [vec_ob[0] * r + ox, vec_ob[1] * r + oy, vec_ob[2] * r + oz]
+    return [vb1 * r + ox, vb2 * r + oy, vb3 * r + oz]
 
 
 def hwb_to_srgb(coords: Vector) -> Vector:  # pragma: no cover
@@ -54,6 +69,20 @@ def srgb_to_hwb(coords: Vector) -> Vector:  # pragma: no cover
     """Convert sRGB to HWB."""
 
     return hsv_to_hwb(srgb_to_hsv(coords))
+
+
+def to_rect(coords: Vector, c:int, h: int) -> Vector:
+    """Polar to rectangular."""
+
+    coords[c], coords[h] = alg.polar_to_rect(coords[c], coords[h])
+    return coords
+
+
+def to_polar(coords: Vector, c:int, h: int) -> Vector:
+    """Rectangular to rectangular."""
+
+    coords[c], coords[h] = alg.rect_to_polar(coords[c], coords[h])
+    return coords
 
 
 @lru_cache(maxsize=20, typed=True)
@@ -91,10 +120,10 @@ def coerce_to_rgb(cs: Space) -> Space:
         CLIP_SPACE = None
         WHITE = cs.WHITE
         DYAMIC_RANGE = cs.DYNAMIC_RANGE
-        INDEXES = cs.indexes()  # type: ignore[attr-defined]
+        INDEXES = cs.indexes()
         # Scale saturation and lightness (or HWB whiteness and blackness)
-        SCALE_SAT = cs.CHANNELS[INDEXES[1]].high
-        SCALE_LIGHT = cs.CHANNELS[INDEXES[1]].high
+        SCALE_SAT = cs.channels[INDEXES[1]].high
+        SCALE_LIGHT = cs.channels[INDEXES[2]].high
 
         def to_base(self, coords: Vector) -> Vector:
             """Convert from RGB to HSL."""
@@ -200,145 +229,139 @@ class RayTrace(Fit):
 
         if pspace is None:
             pspace = self.PSPACE
-        polar = color.CS_MAP[pspace].is_polar()
-
         cs = color.CS_MAP[space]
-        bmax = [1.0, 1.0, 1.0]
 
-        # Requires an RGB-ish space, preferably a linear space.
+        # Requires an RGB-ish or Prism space, preferably a linear space.
         # Coerce RGB cylinders with no defined RGB space to RGB
         coerced = False
-        if not isinstance(cs, RGBish):
+        if not isinstance(cs, Prism) or isinstance(cs, Luminant):
             coerced = True
             cs = coerce_to_rgb(cs)
 
-        # If there is a linear version of the RGB space, results will be
-        # better if we use that. If the target RGB space is HDR, we need to
-        # calculate the bounding box size based on the HDR limit in the linear space.
-        sdr = cs.DYNAMIC_RANGE != 'hdr'
-        linear = cs.linear()  # type: ignore[attr-defined]
+        # Get the maximum cube size, usually `[1.0, 1.0, 1.0]`
+        bmax = [chan.high for chan in cs.CHANNELS]
+
+        # If there is a linear version of the RGB space, results will be better if we use that.
+        # Recalculate the bounding box relative to the linear version.
+        linear = cs.linear()
         if linear and linear in color.CS_MAP:
-            if not sdr:
-                bmax = color.new(space, [chan.high for chan in cs.CHANNELS]).convert(linear)[:-1]
+            subtractive = cs.SUBTRACTIVE
+            cs = color.CS_MAP[linear]
+            if subtractive != cs.SUBTRACTIVE:
+                bmax = color.new(space, [chan.low for chan in cs.CHANNELS]).convert(linear, in_place=True)[:-1]
+            else:
+                bmax = color.new(space, bmax).convert(linear, in_place=True)[:-1]
             space = linear
+
+        # Get the minimum bounds
+        bmin = [chan.low for chan in cs.CHANNELS]
 
         orig = color.space()
         mapcolor = color.convert(pspace, norm=False) if orig != pspace else color.clone().normalize(nans=False)
+        polar = mapcolor._space.is_polar()
         achroma = mapcolor.clone()
 
-        # Different perceptual spaces may have components in different orders, account for this
+        # Different perceptual spaces may have components in different orders so capture their indexes
         if polar:
-            l, c, h = achroma._space.indexes()  # type: ignore[attr-defined]
-            light = mapcolor[l]
-            chroma = mapcolor[c]
-            hue = mapcolor[h]
-            ab = alg.polar_to_rect(chroma, hue)
-            achroma[c] = 0
+            l, c, h = achroma._space.indexes()
+            achroma[c] = 0.0
         else:
-            l, a, b = mapcolor._space.indexes()  # type: ignore[attr-defined]
-            light = mapcolor[l]
-            ab = (mapcolor[a], mapcolor[b])
-            chroma, hue = alg.rect_to_polar(*ab)
-            achroma[a] = 0
-            achroma[b] = 0
+            l, a, b = achroma._space.indexes()
+            achroma[a] = 0.0
+            achroma[b] = 0.0
 
         # If an alpha value is provided for adaptive lightness, calculate a lightness
         # anchor point relative to the hue independent mid point. Scale lightness and
         # chroma by the max lightness to get lightness between 0 and 1.
         if adaptive:
-            max_light = color.new(space, [1.0, 1.0, 1.0]).convert(pspace)[l]
-            alight = adaptive_hue_independent(light / max_light, max(chroma, 0) / max_light, adaptive) * max_light
+            max_light = color.new('xyz-d65', WHITE).convert(pspace, in_place=True)[l]
+            alight = adaptive_hue_independent(
+                mapcolor[l] / max_light,
+                max(mapcolor[c] if polar else alg.rect_to_polar(mapcolor[a], mapcolor[b])[0], 0) / max_light,
+                adaptive
+            ) * max_light
             achroma[l] = alight
         else:
-            alight = light
+            alight = mapcolor[l]
 
         # Some perceptual spaces, such as CAM16 or HCT, may compensate for adapting
-        # luminance which may give an achromatic that is not quite achromatic,
-        # causing a more sizeable delta between the max and min value in the
-        # achromatic RGB color. To compensate for such deviations, take the
-        # average value of the RGB components and use that as the achromatic point.
-        anchor = achroma.convert(space)[:-1]
-        anchor = [sum(cs.from_base(anchor) if coerced else anchor) / 3] * 3
+        # luminance which may give an achromatic that is not quite achromatic.
+        # Project the lightness point back onto to the gamut's achromatic line.
+        anchor = cs.from_base(achroma.convert(space)[:-1]) if coerced else achroma.convert(space)[:-1]
+        anchor = project_onto(anchor, bmax, bmin)
 
         # Return white or black if the achromatic version is not within the RGB cube.
         # HDR colors currently use the RGB maximum lightness. We do not currently
         # clip HDR colors to SDR white, but that could be done if required.
-        bmx = bmax[0]
-        point = anchor[0]
-        if point >= bmx:
+        if anchor == bmax:
             color.update(space, cs.to_base(bmax) if coerced else bmax, mapcolor[-1])
-        elif point <= 0:
-            black = [0.0, 0.0, 0.0]
-            color.update(space, cs.to_base(black) if coerced else black, mapcolor[-1])
+        elif anchor == bmin:
+            color.update(space, cs.to_base(bmin) if coerced else bmin, mapcolor[-1])
         else:
-            # Create a ray from our current color to the color with zero chroma.
-            # Trace the line to the RGB cube finding the intersection.
-            # In between iterations, correct the L and H and then cast a ray
-            # to the new corrected color finding the intersection again.
+            # Ensure we are handling coordinates in the polar space to better retain hue
+            if polar:
+                start = mapcolor[:-1]
+                end = achroma[:-1]
+            else:
+                start = to_polar(mapcolor[:-1], a, b)
+                end = to_polar(achroma[:-1], a, b)
+                end[b] = start[b]
+
+            # Use an iterative process of casting rays to find the intersect with the RGB gamut
+            # and correcting the intersection onto the LCh chroma reduction path.
+            last = None
+            offset = 1e-15
             mapcolor.convert(space, in_place=True)
-
-            if adaptive:
-                # Interpolation path
-                start = [light, *ab]
-                end = [alight, 0.0, 0.0]
-
-            # Threshold for anchor adjustment
-            low = 1e-6
-            high = bmx - low
-
             for i in range(4):
                 if i:
-                    mapcolor.convert(pspace, in_place=True, norm=False)
+                    coords = mapcolor.convert(pspace, in_place=True, norm=False)[:-1]
 
-                    # Correct the point onto the desired interpolation path
+                    # Project the point onto the desired interpolation path in LCh if applying adaptive luminance
                     if adaptive:
                         if polar:
-                            mapcolor[l], a_, b_ = project_onto(
-                                [mapcolor[l], *alg.polar_to_rect(mapcolor[c], mapcolor[h])],
-                                start,
-                                end
-                            )
-                            mapcolor[c], mapcolor[h] = alg.rect_to_polar(a_,b_)
+                            mapcolor[:-1] = project_onto(coords, start, end)
                         else:
-                            mapcolor[l], mapcolor[a], mapcolor[b] = project_onto(
-                                [mapcolor[l], mapcolor[a], mapcolor[b]],
-                                start,
-                                end
-                            )
+                            mapcolor[:-1] = to_rect(project_onto(to_polar(coords, a, b), start, end), a, b)
 
-                    # Simple correction for constant lightness
+                    # For constant luminance, just correct lightness and hue in LCh
                     else:
-                        mapcolor[l] = alight
+                        coords[l] = start[l]
                         if polar:
-                            mapcolor[h] = hue
+                            coords[h] = start[h]
                         else:
-                            mapcolor[a], mapcolor[b] = alg.polar_to_rect(
-                                alg.rect_to_polar(mapcolor[a], mapcolor[b])[0],
-                                hue
-                            )
+                            to_polar(coords, a, b)
+                            coords[b] = start[b]
+                            to_rect(coords, a, b)
+                        mapcolor[:-1] = coords
 
                     mapcolor.convert(space, in_place=True)
 
-                coords = mapcolor[:-1]
-                intersection = raytrace_box(anchor, cs.from_base(coords) if coerced else coords, bmax=bmax)
+                # Cast a ray and find the intersection with the gamut surface
+                coords = cs.from_base(mapcolor[:-1]) if coerced else mapcolor[:-1]
+                intersection = raytrace_box(anchor, coords, bmin=bmin, bmax=bmax)
 
-                # Adjust anchor point closer to surface to improve results for some spaces.
-                # Don't move point too close to the surface to avoid corner cases with some spaces.
-                if i and all(low < x < high for x in coords):
+                # Adjust anchor point closer to surface to improve results.
+                if i and all((bmin[r] + offset) < coords[r] < (bmax[r] - offset) for r in range(3)):
                     anchor = coords
 
                 # Update color with the intersection point on the RGB surface.
                 if intersection:
-                    mapcolor[:-1] = cs.to_base(intersection) if coerced else intersection
+                    last = cs.to_base(intersection) if coerced else intersection
+                    mapcolor[:-1] = last
                     continue
+
+                # If we cannot find an intersection, reset to last known intersection
+                if last is not None:
+                    mapcolor[:-1] = last
+
                 break  # pragma: no cover
 
             # Remove noise from floating point conversion.
             if coerced:
                 color.update(
                     space,
-                    cs.to_base([alg.clamp(x, 0.0, bmx) for x in cs.from_base(mapcolor[:-1])]),
+                    cs.to_base([alg.clamp(x, bmin[e], bmax[e]) for e, x in enumerate(cs.from_base(mapcolor[:-1]))]),
                     mapcolor[-1]
                 )
             else:
-                color.update(space, [alg.clamp(x, 0.0, bmx) for x in mapcolor[:-1]], mapcolor[-1])
+                color.update(space, [alg.clamp(x, bmin[e], bmax[e]) for e, x in enumerate(mapcolor[:-1])], mapcolor[-1])

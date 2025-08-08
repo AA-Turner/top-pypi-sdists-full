@@ -441,12 +441,12 @@ class EventSource(System.Object, System.IDisposable):
         ...
 
     @property
-    def event_command_executed(self) -> _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventCommandEventArgs], None], None]:
+    def event_command_executed(self) -> _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventCommandEventArgs], typing.Any], typing.Any]:
         """Fires when a Command (e.g. Enable) comes from a an EventListener."""
         ...
 
     @event_command_executed.setter
-    def event_command_executed(self, value: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventCommandEventArgs], None], None]) -> None:
+    def event_command_executed(self, value: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventCommandEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     CURRENT_THREAD_ACTIVITY_ID: System.Guid
@@ -999,7 +999,7 @@ class EventListener(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
     """
 
     @property
-    def event_source_created(self) -> _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventSourceCreatedEventArgs], None], None]:
+    def event_source_created(self) -> _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventSourceCreatedEventArgs], typing.Any], typing.Any]:
         """
         This event is raised whenever a new eventSource is 'attached' to the dispatcher.
         This can happen for all existing EventSources when the EventListener is created
@@ -1015,11 +1015,11 @@ class EventListener(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
     @event_source_created.setter
-    def event_source_created(self, value: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventSourceCreatedEventArgs], None], None]) -> None:
+    def event_source_created(self, value: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventSourceCreatedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def event_written(self) -> _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventWrittenEventArgs], None], None]:
+    def event_written(self) -> _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventWrittenEventArgs], typing.Any], typing.Any]:
         """
         This event is raised whenever an event has been written by a EventSource for which
         the EventListener has enabled events.
@@ -1027,7 +1027,7 @@ class EventListener(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
     @event_written.setter
-    def event_written(self, value: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventWrittenEventArgs], None], None]) -> None:
+    def event_written(self, value: _EventContainer[typing.Callable[[System.Object, System.Diagnostics.Tracing.EventWrittenEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self) -> None:

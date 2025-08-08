@@ -3841,6 +3841,10 @@ async def db_select_pg(sql, param=None, db_pool=None, db_config=None):
                     result = await conn.fetch(sql, *(param or ()))
                     if "WHERE TRG_CONTENT LIKE '%\"isTriggered\": true%'" in sql:
                         pass
+                    elif "SELECT NOTICE_ID, NOTICE_TYPE, NOTICE_TXT" in sql:
+                        pass
+                    elif "WHERE POST_DT <= NOW()" in sql:
+                        pass
                     else:
                         logger.info(log_ % f"SQL: {sql}, PARAM: {param}")
             else:
@@ -10807,12 +10811,24 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
         POST_DT = await get_utc_from_local(POST_DT, POST_TZ)
         POST_DT = datetime.strptime(POST_DT, "%Y-%m-%dT%H:%M") if POST_DT else None
 
-        if not POST_DT and PROJECT_USERNAME == 'FereyBotBot' and len(targets) > 1:
+        if not POST_DT and PROJECT_USERNAME == 'FereyBotBot' and (POST_TARGETTYPE == 'all' or len(targets) > 1):
             POST_DT = datetime.now().replace(second=0, microsecond=0)
         POST_TR = post['POST_TR'] if 'POST_TR' in post else ''
         POST_TR = await get_utc_from_local(POST_TR, POST_TZ)
-        POST_TR = datetime.strptime(POST_TR, "%Y-%m-%dT%H:%M") if POST_TR else None
+        POST_TR_ = POST_TR = datetime.strptime(POST_TR, "%Y-%m-%dT%H:%M") if POST_TR else None
+        POST_DT_ = POST_DT
         print(f"{POST_DT=}, {POST_TARGET=}, {ENT_TOKEN=}")
+
+        try:
+            if POST_TZ:
+                sign = 1 if POST_TZ[0] == '+' else -1
+                hours = int(POST_TZ[1:3])
+                minutes = int(POST_TZ[4:6])
+                offset = timedelta(hours=hours, minutes=minutes) * sign
+                POST_DT_ = POST_DT + offset
+                POST_TR_ = POST_TR + offset
+        except:
+            pass
 
         if PROJECT_USERNAME == 'FereyPostBot':
             HASH_STR = f"pst-{ENT_TID}-{POST_TID}"
@@ -11023,8 +11039,8 @@ async def post_save(bot, data_user, data_web, MEDIA_D, BASE_P, KEYS_JSON, PROJEC
             'POST_WEB': POST_WEB, 'POST_PAY': POST_PAY, 'POST_INVOICE': POST_INVOICE, 'POST_NFT': POST_NFT,
             'POST_BLOG': POST_BLOG,
             'POST_LZ': POST_LZ, 'POST_TZ': POST_TZ,
-            'POST_DT': POST_DT.strftime("%Y-%m-%dT%H:%M") if POST_DT else None,
-            'POST_TR': POST_TR.strftime("%Y-%m-%dT%H:%M") if POST_TR else None,
+            'POST_DT': POST_DT_.strftime("%Y-%m-%dT%H:%M") if POST_DT_ else None,
+            'POST_TR': POST_TR_.strftime("%Y-%m-%dT%H:%M") if POST_TR_ else None,
         }
         POST_MEDIA = json.dumps(POST_MEDIA, ensure_ascii=False)
         POST_BUTTONS = json.dumps(POST_BUTTONS, ensure_ascii=False)

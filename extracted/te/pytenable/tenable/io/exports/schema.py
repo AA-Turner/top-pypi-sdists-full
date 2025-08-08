@@ -8,7 +8,7 @@ from typing import Dict
 from marshmallow import Schema, fields, post_dump
 from marshmallow import validate as v
 
-from tenable.base.schema.fields import LowerCase
+from tenable.base.schema.fields import LowerCase, UpperCase
 from tenable.base.utils.envelope import envelope
 
 
@@ -130,6 +130,11 @@ class VPRSchema(Schema):
     lte = fields.Float(validate=v.Range(min=0.0, max=10.0))
 
 
+class TimeTakenToFix(Schema):
+    gte = fields.Int()
+    lte = fields.Int()
+
+
 class VulnExportSchema(Schema):
     """
     Vulnerability Export API Schema
@@ -140,7 +145,10 @@ class VulnExportSchema(Schema):
     indexed_at = fields.Int()
     last_fixed = fields.Int()
     last_found = fields.Int()
+    resurfaced_date = fields.Int()
     since = fields.Int()
+
+    time_taken_to_fix = fields.Nested(TimeTakenToFix())
 
     # Plugin fields
     plugin_family = fields.List(fields.Str())
@@ -149,11 +157,16 @@ class VulnExportSchema(Schema):
 
     # Vulnerability Findings fields
     severity = fields.List(LowerCase(fields.Str()))
-    state = fields.List(LowerCase(fields.Str()))
+    state = fields.List(UpperCase(fields.Str()))
     vpr_score = fields.Nested(VPRSchema())
+    vpr_threat_intensity = fields.List(fields.Str())
     scan_uuid = fields.Str()
     source = fields.List(fields.Str())
     severity_modification_type = fields.List(fields.Str())
+    cve_id = fields.List(fields.Str())
+    cve_category = fields.List(fields.Str())
+    exploit_maturity = fields.List(fields.Str())
+    weaponization = fields.List(fields.Str())
 
     # Asset fields
     tags = fields.List(fields.Tuple((fields.Str(), fields.Str())))

@@ -529,6 +529,10 @@ register_model(
                 # swift
                 Model('swift/Qwen3-32B-AWQ'),
             ]),
+            ModelGroup([
+                Model('Qwen/Qwen3-4B-Instruct-2507', 'Qwen/Qwen3-4B-Instruct-2507'),
+                Model('Qwen/Qwen3-4B-Instruct-2507-FP8', 'Qwen/Qwen3-4B-Instruct-2507-FP8'),
+            ])
         ],
         TemplateType.qwen3,
         get_model_tokenizer_with_flash_attn,
@@ -577,6 +581,21 @@ register_model(
 
 register_model(
     ModelMeta(
+        LLMModelType.qwen3_thinking,
+        [
+            ModelGroup([
+                Model('Qwen/Qwen3-4B-Thinking-2507', 'Qwen/Qwen3-4B-Thinking-2507'),
+                Model('Qwen/Qwen3-4B-Thinking-2507-FP8', 'Qwen/Qwen3-4B-Thinking-2507-FP8'),
+            ]),
+        ],
+        TemplateType.qwen3_thinking,
+        get_model_tokenizer_with_flash_attn,
+        architectures=['Qwen3ForCausalLM'],
+        requires=['transformers>=4.51'],
+    ))
+
+register_model(
+    ModelMeta(
         LLMModelType.qwen3_moe_thinking,
         [
             ModelGroup([
@@ -585,7 +604,7 @@ register_model(
                 Model('Qwen/Qwen3-235B-A22B-Thinking-2507', 'Qwen/Qwen3-235B-A22B-Thinking-2507'),
                 Model('Qwen/Qwen3-235B-A22B-Thinking-2507-FP8', 'Qwen/Qwen3-235B-A22B-Thinking-2507-FP8'),
                 # awq
-                Model('swift/Qwen3-235B-A22B-Thinking-2507-AWQ')
+                Model('swift/Qwen3-235B-A22B-Thinking-2507-AWQ'),
             ]),
         ],
         TemplateType.qwen3_thinking,

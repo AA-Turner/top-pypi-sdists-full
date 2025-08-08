@@ -91,7 +91,7 @@ class LocalExecutionClient(ExecutionClient):
                 response = {
                     "execution_id": job_id,
                     "status": job_data["status"],
-                    "start_time": job_data["start_time"],
+                    "start_time": job_data.get("start_time", None),
                     **(
                         {"end_time": job_data.get("end_time")}
                         if job_data.get("end_time") is not None
@@ -102,7 +102,7 @@ class LocalExecutionClient(ExecutionClient):
                 if job_data["status"] == "FAILED":
                     response["error_details"] = {
                         "error_type": ErrorType.SERVER_ERROR,
-                        "error_message": job_data["status_message"],
+                        "error_message": job_data.get("status_message", None),
                     }
 
                 job_files = job_data["job_files"]
@@ -119,7 +119,7 @@ class LocalExecutionClient(ExecutionClient):
                 return {
                     "execution_id": job_id,
                     "status": job_data["status"],
-                    "start_time": job_data["start_time"],
+                    "start_time": job_data.get("start_time", None),
                     **(
                         {"end_time": job_data.get("end_time")}
                         if job_data.get("end_time") is not None
@@ -251,7 +251,7 @@ class LocalExecutionClient(ExecutionClient):
                         "id": item["job_id"],
                         "name": item["name"],
                         "status": item["status"],
-                        "start_time": item["start_time"],
+                        "start_time": item.get("start_time", None),
                         **(
                             {"end_time": item.get("end_time")}
                             if item.get("end_time") is not None

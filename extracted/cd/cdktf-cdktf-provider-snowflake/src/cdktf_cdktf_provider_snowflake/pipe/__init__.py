@@ -1,7 +1,7 @@
 r'''
 # `snowflake_pipe`
 
-Refer to the Terraform Registry for docs: [`snowflake_pipe`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe).
+Refer to the Terraform Registry for docs: [`snowflake_pipe`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Pipe(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.pipe.Pipe",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe snowflake_pipe}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe snowflake_pipe}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class Pipe(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe snowflake_pipe} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe snowflake_pipe} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param copy_statement: Specifies the copy statement for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#copy_statement Pipe#copy_statement}
-        :param database: The database in which to create the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#database Pipe#database}
-        :param name: Specifies the identifier for the pipe; must be unique for the database and schema in which the pipe is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#name Pipe#name}
-        :param schema: The schema in which to create the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#schema Pipe#schema}
-        :param auto_ingest: (Default: ``false``) Specifies a auto_ingest param for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#auto_ingest Pipe#auto_ingest}
-        :param aws_sns_topic_arn: Specifies the Amazon Resource Name (ARN) for the SNS topic for your S3 bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#aws_sns_topic_arn Pipe#aws_sns_topic_arn}
-        :param comment: Specifies a comment for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#comment Pipe#comment}
-        :param error_integration: Specifies the name of the notification integration used for error notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#error_integration Pipe#error_integration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#id Pipe#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integration: Specifies an integration for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#integration Pipe#integration}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#timeouts Pipe#timeouts}
+        :param copy_statement: Specifies the copy statement for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#copy_statement Pipe#copy_statement}
+        :param database: The database in which to create the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#database Pipe#database}
+        :param name: Specifies the identifier for the pipe; must be unique for the database and schema in which the pipe is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#name Pipe#name}
+        :param schema: The schema in which to create the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#schema Pipe#schema}
+        :param auto_ingest: (Default: ``false``) Specifies a auto_ingest param for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#auto_ingest Pipe#auto_ingest}
+        :param aws_sns_topic_arn: Specifies the Amazon Resource Name (ARN) for the SNS topic for your S3 bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#aws_sns_topic_arn Pipe#aws_sns_topic_arn}
+        :param comment: Specifies a comment for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#comment Pipe#comment}
+        :param error_integration: Specifies the name of the notification integration used for error notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#error_integration Pipe#error_integration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#id Pipe#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integration: Specifies an integration for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#integration Pipe#integration}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#timeouts Pipe#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class Pipe(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Pipe to import.
-        :param import_from_id: The id of the existing Pipe that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Pipe that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Pipe to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class Pipe(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#create Pipe#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#delete Pipe#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#read Pipe#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#update Pipe#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#create Pipe#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#delete Pipe#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#read Pipe#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#update Pipe#update}.
         '''
         value = PipeTimeouts(create=create, delete=delete, read=read, update=update)
 
@@ -462,17 +462,17 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param copy_statement: Specifies the copy statement for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#copy_statement Pipe#copy_statement}
-        :param database: The database in which to create the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#database Pipe#database}
-        :param name: Specifies the identifier for the pipe; must be unique for the database and schema in which the pipe is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#name Pipe#name}
-        :param schema: The schema in which to create the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#schema Pipe#schema}
-        :param auto_ingest: (Default: ``false``) Specifies a auto_ingest param for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#auto_ingest Pipe#auto_ingest}
-        :param aws_sns_topic_arn: Specifies the Amazon Resource Name (ARN) for the SNS topic for your S3 bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#aws_sns_topic_arn Pipe#aws_sns_topic_arn}
-        :param comment: Specifies a comment for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#comment Pipe#comment}
-        :param error_integration: Specifies the name of the notification integration used for error notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#error_integration Pipe#error_integration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#id Pipe#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param integration: Specifies an integration for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#integration Pipe#integration}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#timeouts Pipe#timeouts}
+        :param copy_statement: Specifies the copy statement for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#copy_statement Pipe#copy_statement}
+        :param database: The database in which to create the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#database Pipe#database}
+        :param name: Specifies the identifier for the pipe; must be unique for the database and schema in which the pipe is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#name Pipe#name}
+        :param schema: The schema in which to create the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#schema Pipe#schema}
+        :param auto_ingest: (Default: ``false``) Specifies a auto_ingest param for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#auto_ingest Pipe#auto_ingest}
+        :param aws_sns_topic_arn: Specifies the Amazon Resource Name (ARN) for the SNS topic for your S3 bucket. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#aws_sns_topic_arn Pipe#aws_sns_topic_arn}
+        :param comment: Specifies a comment for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#comment Pipe#comment}
+        :param error_integration: Specifies the name of the notification integration used for error notifications. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#error_integration Pipe#error_integration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#id Pipe#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param integration: Specifies an integration for the pipe. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#integration Pipe#integration}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#timeouts Pipe#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -601,7 +601,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def copy_statement(self) -> builtins.str:
         '''Specifies the copy statement for the pipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#copy_statement Pipe#copy_statement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#copy_statement Pipe#copy_statement}
         '''
         result = self._values.get("copy_statement")
         assert result is not None, "Required property 'copy_statement' is missing"
@@ -611,7 +611,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The database in which to create the pipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#database Pipe#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#database Pipe#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -623,7 +623,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the database and schema in which the pipe is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#name Pipe#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#name Pipe#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -633,7 +633,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> builtins.str:
         '''The schema in which to create the pipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#schema Pipe#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#schema Pipe#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -645,7 +645,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Specifies a auto_ingest param for the pipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#auto_ingest Pipe#auto_ingest}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#auto_ingest Pipe#auto_ingest}
         '''
         result = self._values.get("auto_ingest")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -654,7 +654,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def aws_sns_topic_arn(self) -> typing.Optional[builtins.str]:
         '''Specifies the Amazon Resource Name (ARN) for the SNS topic for your S3 bucket.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#aws_sns_topic_arn Pipe#aws_sns_topic_arn}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#aws_sns_topic_arn Pipe#aws_sns_topic_arn}
         '''
         result = self._values.get("aws_sns_topic_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -663,7 +663,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the pipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#comment Pipe#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#comment Pipe#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -672,14 +672,14 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def error_integration(self) -> typing.Optional[builtins.str]:
         '''Specifies the name of the notification integration used for error notifications.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#error_integration Pipe#error_integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#error_integration Pipe#error_integration}
         '''
         result = self._values.get("error_integration")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#id Pipe#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#id Pipe#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -691,7 +691,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def integration(self) -> typing.Optional[builtins.str]:
         '''Specifies an integration for the pipe.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#integration Pipe#integration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#integration Pipe#integration}
         '''
         result = self._values.get("integration")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -700,7 +700,7 @@ class PipeConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PipeTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#timeouts Pipe#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#timeouts Pipe#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PipeTimeouts"], result)
@@ -737,10 +737,10 @@ class PipeTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#create Pipe#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#delete Pipe#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#read Pipe#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#update Pipe#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#create Pipe#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#delete Pipe#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#read Pipe#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#update Pipe#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7c753a71c2b70f8bfca9ef57af927afcc579c2a1843e05f609ae8e320daca46)
@@ -760,25 +760,25 @@ class PipeTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#create Pipe#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#create Pipe#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#delete Pipe#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#delete Pipe#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#read Pipe#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#read Pipe#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/pipe#update Pipe#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/pipe#update Pipe#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

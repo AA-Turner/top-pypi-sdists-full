@@ -594,12 +594,12 @@ class PythonConsolidator(System.Object):
     """Provides a base class for python consolidators, necessary to use event handler."""
 
     @property
-    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], None], None]:
+    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
         """Event handler that fires when a new piece of data is produced"""
         ...
 
     @data_consolidated.setter
-    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], None], None]) -> None:
+    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
         ...
 
     def on_data_consolidated(self, consolidator: typing.Any, data: QuantConnect.Data.IBaseData) -> None:
@@ -696,12 +696,12 @@ class DataConsolidatorPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantC
         ...
 
     @property
-    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], None], None]:
+    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
         """Event handler that fires when a new piece of data is produced"""
         ...
 
     @data_consolidated.setter
-    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], None], None]) -> None:
+    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, consolidator: typing.Any) -> None:

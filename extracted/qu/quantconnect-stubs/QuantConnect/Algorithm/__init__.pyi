@@ -2113,12 +2113,12 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def insights_generated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], None], None]:
+    def insights_generated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], typing.Any], typing.Any]:
         """Event fired when the algorithm generates insights"""
         ...
 
     @insights_generated.setter
-    def insights_generated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], None], None]) -> None:
+    def insights_generated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -2334,21 +2334,21 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
-    def name_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], None], None]:
+    def name_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], typing.Any], typing.Any]:
         """Event fired algorithm's name is changed"""
         ...
 
     @name_updated.setter
-    def name_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], None], None]) -> None:
+    def name_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def tags_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], None], None]:
+    def tags_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], typing.Any], typing.Any]:
         """Event fired when the tag collection is updated"""
         ...
 
     @tags_updated.setter
-    def tags_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], None], None]) -> None:
+    def tags_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -3736,7 +3736,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], None]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Registers the  to receive consolidated data for the specified symbol
         
@@ -3748,7 +3748,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], None]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the  to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Registers the  to receive consolidated data for the specified symbol
         
@@ -3760,31 +3773,20 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], None]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Registers the  to receive consolidated data for the specified symbol
         
         :param symbol: The symbol who's data is to be consolidated
         :param period: The consolidation period
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
         :param handler: Data handler receives new consolidated data when generated
         :returns: A new consolidator matching the requested parameters with the handler already registered.
         """
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], None]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-        """
-        Registers the  to receive consolidated data for the specified symbol
-        
-        :param symbol: The symbol who's data is to be consolidated
-        :param period: The consolidation period
-        :param handler: Data handler receives new consolidated data when generated
-        :returns: A new consolidator matching the requested parameters with the handler already registered.
-        """
-        ...
-
-    @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], None]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Registers the  to receive consolidated data for the specified symbol
         
@@ -3796,7 +3798,80 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], None]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], tick_type: typing.Optional[QuantConnect.TickType], handler: typing.Any) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the  to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param calendar: The consolidation calendar
+        :param tick_type: The tick type of subscription used as data source for consolidator. Specify null to use first subscription found.
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the  to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the  to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: QuantConnect.Resolution, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the  to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], period: datetime.timedelta, handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the  to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param period: The consolidation period
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.QuoteBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Registers the  to receive consolidated data for the specified symbol
+        
+        :param symbol: The symbol who's data is to be consolidated
+        :param calendar: The consolidation calendar
+        :param handler: Data handler receives new consolidated data when generated
+        :returns: A new consolidator matching the requested parameters with the handler already registered.
+        """
+        ...
+
+    @overload
+    def consolidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], handler: typing.Callable[[QuantConnect.Data.Market.TradeBar], typing.Any]) -> QuantConnect.Data.Consolidators.IDataConsolidator:
         """
         Registers the  to receive consolidated data for the specified symbol
         
@@ -6148,6 +6223,19 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
+    @overload
+    def set_brokerage_message_handler(self, handler: typing.Any) -> None:
+        """
+        Sets the implementation used to handle messages from the brokerage.
+        The default implementation will forward messages to debug or error
+        and when a BrokerageMessageType.Error occurs, the algorithm
+        is stopped.
+        
+        :param handler: The message handler to use
+        """
+        ...
+
+    @overload
     def set_brokerage_message_handler(self, handler: QuantConnect.Brokerages.IBrokerageMessageHandler) -> None:
         """
         Sets the implementation used to handle messages from the brokerage.
@@ -6451,7 +6539,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def set_security_initializer(self, security_initializer: typing.Callable[[QuantConnect.Securities.Security], None]) -> None:
+    def set_security_initializer(self, security_initializer: typing.Callable[[QuantConnect.Securities.Security], typing.Any]) -> None:
         """
         Sets the security initializer function, used to initialize/configure securities after creation.
         The initializer will be applied to all universes and manually added securities.
@@ -6461,7 +6549,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def set_security_initializer(self, security_initializer: typing.Callable[[QuantConnect.Securities.Security, bool], None]) -> None:
+    def set_security_initializer(self, security_initializer: typing.Callable[[QuantConnect.Securities.Security, bool], typing.Any]) -> None:
         """
         Sets the security initializer function, used to initialize/configure securities after creation.
         The initializer will be applied to all universes and manually added securities.
@@ -7127,7 +7215,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def train(self, training_code: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def train(self, training_code: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Schedules the provided training code to execute immediately
         
@@ -7136,7 +7224,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @overload
-    def train(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, training_code: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def train(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, training_code: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Schedules the training code to run using the specified date and time rules
         

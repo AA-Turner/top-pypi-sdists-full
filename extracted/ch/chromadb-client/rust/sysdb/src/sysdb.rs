@@ -14,9 +14,9 @@ use chroma_types::{
     DeleteCollectionError, DeleteDatabaseError, DeleteDatabaseResponse, GetCollectionSizeError,
     GetCollectionWithSegmentsError, GetCollectionsError, GetDatabaseError, GetDatabaseResponse,
     GetSegmentsError, GetTenantError, GetTenantResponse, InternalCollectionConfiguration,
-    ListCollectionVersionsError, ListDatabasesError, ListDatabasesResponse, Metadata, ResetError,
-    ResetResponse, SegmentFlushInfo, SegmentFlushInfoConversionError, SegmentUuid,
-    UpdateCollectionConfiguration, UpdateCollectionError, VectorIndexConfiguration,
+    InternalUpdateCollectionConfiguration, ListCollectionVersionsError, ListDatabasesError,
+    ListDatabasesResponse, Metadata, ResetError, ResetResponse, SegmentFlushInfo,
+    SegmentFlushInfoConversionError, SegmentUuid, UpdateCollectionError, VectorIndexConfiguration,
 };
 use chroma_types::{
     BatchGetCollectionSoftDeleteStatusError, BatchGetCollectionVersionFilePathsError, Collection,
@@ -139,25 +139,10 @@ impl SysDb {
 
     pub async fn get_collections(
         &mut self,
-        mut options: GetCollectionsOptions,
+        options: GetCollectionsOptions,
     ) -> Result<Vec<Collection>, GetCollectionsError> {
         match self {
-            SysDb::Grpc(grpc) => {
-                // TODO(c-gamble): Move this to config
-                let max_get_collections_limit = 100u32;
-                match options.limit {
-                    Some(limit) => {
-                        if limit > max_get_collections_limit {
-                            return Err(GetCollectionsError::MaximumLimitExceeded(
-                                limit,
-                                max_get_collections_limit,
-                            ));
-                        }
-                    }
-                    None => options.limit = Some(max_get_collections_limit),
-                }
-                grpc.get_collections(options).await
-            }
+            SysDb::Grpc(grpc) => grpc.get_collections(options).await,
             SysDb::Sqlite(sqlite) => sqlite.get_collections(options).await,
             SysDb::Test(test) => test.get_collections(options).await,
         }
@@ -299,7 +284,7 @@ impl SysDb {
         name: Option<String>,
         metadata: Option<CollectionMetadataUpdate>,
         dimension: Option<u32>,
-        configuration: Option<UpdateCollectionConfiguration>,
+        configuration: Option<InternalUpdateCollectionConfiguration>,
     ) -> Result<(), UpdateCollectionError> {
         match self {
             SysDb::Grpc(grpc) => {
@@ -984,7 +969,7 @@ impl GrpcSysDb {
         name: Option<String>,
         metadata: Option<CollectionMetadataUpdate>,
         dimension: Option<u32>,
-        configuration: Option<UpdateCollectionConfiguration>,
+        configuration: Option<InternalUpdateCollectionConfiguration>,
     ) -> Result<(), UpdateCollectionError> {
         let mut configuration_json_str = None;
         if let Some(configuration) = configuration {
@@ -1446,12 +1431,24 @@ pub enum FlushCompactionError {
 impl ChromaError for FlushCompactionError {
     fn code(&self) -> ErrorCodes {
         match self {
-            FlushCompactionError::FailedToFlushCompaction(_) => ErrorCodes::Internal,
+            FlushCompactionError::FailedToFlushCompaction(status) => {
+                if std::convert::Into::<chroma_error::ErrorCodes>::into(status.code())
+                    == ErrorCodes::FailedPrecondition
+                {
+                    ErrorCodes::FailedPrecondition
+                } else {
+                    ErrorCodes::Internal
+                }
+            }
             FlushCompactionError::SegmentFlushInfoConversionError(_) => ErrorCodes::Internal,
             FlushCompactionError::FlushCompactionResponseConversionError(_) => ErrorCodes::Internal,
             FlushCompactionError::CollectionNotFound => ErrorCodes::Internal,
             FlushCompactionError::SegmentNotFound => ErrorCodes::Internal,
         }
+    }
+
+    fn should_trace_error(&self) -> bool {
+        self.code() == ErrorCodes::Internal
     }
 }
 

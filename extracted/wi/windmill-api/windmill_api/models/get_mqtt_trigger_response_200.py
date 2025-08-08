@@ -45,7 +45,8 @@ class GetMqttTriggerResponse200:
         last_server_ping (Union[Unset, datetime.datetime]):
         error (Union[Unset, str]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, GetMqttTriggerResponse200ErrorHandlerArgs]):
+        error_handler_args (Union[Unset, GetMqttTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, GetMqttTriggerResponse200Retry]):
     """
 

@@ -20,9 +20,8 @@ def plot_model(name, title, filename, gamut='srgb', elev=45, azim=-60.0):
     print(f'===> Generating {name} model...')
     fig = diagrams.plot_gamut_in_space(
         name,
-        gamut=gamut,
+        gamuts={gamut: {}},
         title=title,
-        resolution=200,
         size=(width, height),
         camera={'a': azim, 'e': elev, 'r': 2.5}
     )
@@ -42,7 +41,7 @@ models = {
     'okhsl': {'title': 'Okhsl Color Space', 'filename': 'okhsl-3d.png'},
     'okhsv': {'title': 'Okhsv Color Space', 'filename': 'okhsv-3d.png'},
     'hsluv': {'title': 'HSLuv Color Space', 'filename': 'hsluv-3d.png'},
-    'hpluv': {'title': 'HPLuv Color Space', 'filename': 'hpluv-3d.png'},
+    'hpluv': {'title': 'HPLuv Color Space', 'filename': 'hpluv-3d.png', 'gamut': 'hpluv'},
     'xyz-d50': {'title': TEMPLATE.format('XYZ D50'), 'filename': 'xyz-d50-3d.png'},
     'xyz-d65': {'title': TEMPLATE.format('XYZ D65'), 'filename': 'xyz-d65-3d.png'},
     'xyy': {'title': TEMPLATE.format('xyY'), 'filename': 'xyy-3d.png'},

@@ -1671,3 +1671,83 @@ def test_find_matching_in_responses_yields_all():
 
 def test_find_matching_in_responses_empty():
     assert list(find_matching_in_responses({}, "id")) == []
+
+
+def test_config_override_with_examples(ctx, cli, snapshot_cli, openapi3_base_url):
+    # See GH-3000
+    schema_file = ctx.openapi.write_schema(
+        {
+            "/{primary}/subs/{secondary}": {
+                "put": {
+                    "parameters": [
+                        {"name": "primary", "in": "path", "schema": {"type": "string"}, "required": True},
+                        {
+                            "name": "secondary",
+                            "in": "path",
+                            "schema": {"type": "string"},
+                            "example": "whatever",
+                            "required": True,
+                        },
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Schema"}}},
+                    },
+                    "responses": {"201": {"description": "OK"}},
+                }
+            },
+        },
+        components={
+            "schemas": {
+                "Schema": {
+                    "type": "object",
+                    "properties": {"property": {"schema": {"type": "string"}, "example": "whatever"}},
+                }
+            }
+        },
+    )
+    assert (
+        cli.main(
+            "run",
+            str(schema_file),
+            "--phases=examples",
+            f"--url={openapi3_base_url}",
+            config={"parameters": {"path.primary": "primary"}},
+        )
+        == snapshot_cli
+    )
+
+
+def test_path_parameters_example_escaping(ctx, cli, snapshot_cli, openapi3_base_url):
+    # See GH-3003
+    schema_file = ctx.openapi.write_schema(
+        {
+            "/networks/{network}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "network",
+                            "in": "path",
+                            "required": True,
+                            "schema": {
+                                "type": "string",
+                                "format": "ipv6-network",
+                                "example": "fd00::/64",
+                            },
+                        },
+                    ],
+                    # Set `202` to trigger a failure
+                    "responses": {"202": {"description": "Ok"}},
+                }
+            }
+        }
+    )
+
+    result = cli.main(
+        "run",
+        str(schema_file),
+        "--phases=examples",
+        f"--url={openapi3_base_url}",
+    )
+
+    assert result == snapshot_cli

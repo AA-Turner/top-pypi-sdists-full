@@ -1,6 +1,6 @@
 [package]
 name = "ruff"
-version = "0.12.7"
+version = "0.12.8"
 publish = true
 authors = { workspace = true }
 edition = { workspace = true }
@@ -9,7 +9,7 @@ homepage = { workspace = true }
 documentation = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
-readme = "../../README.md"
+readme = "README.md"
 default-run = "ruff"
 
 [dependencies]

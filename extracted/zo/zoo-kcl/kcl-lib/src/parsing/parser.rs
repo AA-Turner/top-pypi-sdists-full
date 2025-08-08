@@ -787,7 +787,7 @@ fn array_separator(i: &mut TokenSlice) -> ModalResult<()> {
         // Normally you need a comma.
         comma_sep,
         // But, if the array is ending, no need for a comma.
-        peek(preceded(opt(whitespace), close_bracket)).void(),
+        peek(preceded((opt(non_code_node), opt(whitespace)), close_bracket)).void(),
     ))
     .parse_next(i)
 }
@@ -800,7 +800,7 @@ pub(crate) fn array_elem_by_elem(i: &mut TokenSlice) -> ModalResult<Node<ArrayEx
         0..,
         alt((
             terminated(expression.map(NonCodeOr::Code), array_separator),
-            terminated(non_code_node.map(NonCodeOr::NonCode), whitespace),
+            terminated(non_code_node.map(NonCodeOr::NonCode), opt(whitespace)),
         )),
     )
     .context(expected("array contents, a list of elements (like [1, 2, 3])"))
@@ -987,7 +987,7 @@ fn property_separator(i: &mut TokenSlice) -> ModalResult<()> {
         // Normally you need a comma.
         comma_sep,
         // But, if the object is ending, no need for a comma.
-        peek(preceded(opt(whitespace), close_brace)).void(),
+        peek(preceded((opt(non_code_node), opt(whitespace)), close_brace)).void(),
     ))
     .parse_next(i)
 }
@@ -1017,7 +1017,7 @@ pub(crate) fn object(i: &mut TokenSlice) -> ModalResult<Node<ObjectExpression>> 
     let properties: Vec<_> = repeat(
         0..,
         alt((
-            terminated(non_code_node.map(NonCodeOr::NonCode), whitespace),
+            terminated(non_code_node.map(NonCodeOr::NonCode), opt(whitespace)),
             terminated(
                 alt((object_property, object_property_same_key_and_val)),
                 property_separator,
@@ -4839,6 +4839,46 @@ export fn cos(num: number(rad)): number(_) {}"#;
         let module_id = ModuleId::default();
         let tokens = crate::parsing::token::lex(program, module_id).unwrap();
         let _arr = array_elem_by_elem(&mut tokens.as_slice()).unwrap();
+    }
+
+    #[test]
+    fn array_no_trailing_comma_with_comment() {
+        let program = r#"[
+            1, // one
+            2, // two
+            3  // three
+        ]"#;
+        let module_id = ModuleId::default();
+        let tokens = crate::parsing::token::lex(program, module_id).unwrap();
+        let _arr = array_elem_by_elem(&mut tokens.as_slice()).unwrap();
+    }
+
+    #[test]
+    fn array_block_comment_no_whitespace() {
+        let program = r#"[1/* comment*/]"#;
+        let module_id = ModuleId::default();
+        let tokens = crate::parsing::token::lex(program, module_id).unwrap();
+        let _arr = array_elem_by_elem(&mut tokens.as_slice()).unwrap();
+    }
+
+    #[test]
+    fn object_no_trailing_comma_with_comment() {
+        let program = r#"{
+            x=1, // one
+            y=2, // two
+            z=3  // three
+        }"#;
+        let module_id = ModuleId::default();
+        let tokens = crate::parsing::token::lex(program, module_id).unwrap();
+        let _arr = object(&mut tokens.as_slice()).unwrap();
+    }
+
+    #[test]
+    fn object_block_comment_no_whitespace() {
+        let program = r#"{x=1/* comment*/}"#;
+        let module_id = ModuleId::default();
+        let tokens = crate::parsing::token::lex(program, module_id).unwrap();
+        let _arr = object(&mut tokens.as_slice()).unwrap();
     }
 
     #[test]

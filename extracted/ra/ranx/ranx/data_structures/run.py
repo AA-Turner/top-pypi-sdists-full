@@ -147,9 +147,12 @@ class Run(object):
                 self.run[q_id] = create_empty_results_dict()
 
         # Remove results for additional queries
+        to_remove = []
         for q_id in self.run:
             if q_id not in qrels.qrels:
-                del self.run[q_id]
+                to_remove.append(q_id)
+        for q_id in to_remove:
+            del self.run[q_id]
 
         self.sort()
 

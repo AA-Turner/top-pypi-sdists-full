@@ -8,7 +8,7 @@ T = TypeVar("T", bound="ListHttpTriggersResponse200ItemErrorHandlerArgs")
 
 @_attrs_define
 class ListHttpTriggersResponse200ItemErrorHandlerArgs:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

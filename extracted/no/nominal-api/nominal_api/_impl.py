@@ -27615,6 +27615,273 @@ scout_chartdefinition_api_FrequencyPlot.__qualname__ = "FrequencyPlot"
 scout_chartdefinition_api_FrequencyPlot.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_Geo3dDefinition(ConjureUnionType):
+    _v1: Optional["scout_chartdefinition_api_Geo3dDefinitionV1"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'v1': ConjureFieldDefinition('v1', scout_chartdefinition_api_Geo3dDefinitionV1)
+        }
+
+    def __init__(
+            self,
+            v1: Optional["scout_chartdefinition_api_Geo3dDefinitionV1"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if v1 is not None:
+                self._v1 = v1
+                self._type = 'v1'
+
+        elif type_of_union == 'v1':
+            if v1 is None:
+                raise ValueError('a union value must not be None')
+            self._v1 = v1
+            self._type = 'v1'
+
+    @builtins.property
+    def v1(self) -> Optional["scout_chartdefinition_api_Geo3dDefinitionV1"]:
+        return self._v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dDefinitionVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dDefinitionVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'v1' and self.v1 is not None:
+            return visitor._v1(self.v1)
+
+
+scout_chartdefinition_api_Geo3dDefinition.__name__ = "Geo3dDefinition"
+scout_chartdefinition_api_Geo3dDefinition.__qualname__ = "Geo3dDefinition"
+scout_chartdefinition_api_Geo3dDefinition.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dDefinitionVisitor:
+
+    @abstractmethod
+    def _v1(self, v1: "scout_chartdefinition_api_Geo3dDefinitionV1") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dDefinitionVisitor.__name__ = "Geo3dDefinitionVisitor"
+scout_chartdefinition_api_Geo3dDefinitionVisitor.__qualname__ = "Geo3dDefinitionVisitor"
+scout_chartdefinition_api_Geo3dDefinitionVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dDefinitionV1(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'plots': ConjureFieldDefinition('plots', List[scout_chartdefinition_api_GeoPlot3d]),
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str])
+        }
+
+    __slots__: List[str] = ['_plots', '_title']
+
+    def __init__(self, plots: List["scout_chartdefinition_api_GeoPlot3d"], title: Optional[str] = None) -> None:
+        self._plots = plots
+        self._title = title
+
+    @builtins.property
+    def plots(self) -> List["scout_chartdefinition_api_GeoPlot3d"]:
+        return self._plots
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        return self._title
+
+
+scout_chartdefinition_api_Geo3dDefinitionV1.__name__ = "Geo3dDefinitionV1"
+scout_chartdefinition_api_Geo3dDefinitionV1.__qualname__ = "Geo3dDefinitionV1"
+scout_chartdefinition_api_Geo3dDefinitionV1.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dOrientation(ConjureUnionType):
+    _principal_axes: Optional["scout_chartdefinition_api_Geo3dOrientationPrincipalAxes"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'principal_axes': ConjureFieldDefinition('principalAxes', scout_chartdefinition_api_Geo3dOrientationPrincipalAxes)
+        }
+
+    def __init__(
+            self,
+            principal_axes: Optional["scout_chartdefinition_api_Geo3dOrientationPrincipalAxes"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (principal_axes is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if principal_axes is not None:
+                self._principal_axes = principal_axes
+                self._type = 'principalAxes'
+
+        elif type_of_union == 'principalAxes':
+            if principal_axes is None:
+                raise ValueError('a union value must not be None')
+            self._principal_axes = principal_axes
+            self._type = 'principalAxes'
+
+    @builtins.property
+    def principal_axes(self) -> Optional["scout_chartdefinition_api_Geo3dOrientationPrincipalAxes"]:
+        return self._principal_axes
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dOrientationVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dOrientationVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'principalAxes' and self.principal_axes is not None:
+            return visitor._principal_axes(self.principal_axes)
+
+
+scout_chartdefinition_api_Geo3dOrientation.__name__ = "Geo3dOrientation"
+scout_chartdefinition_api_Geo3dOrientation.__qualname__ = "Geo3dOrientation"
+scout_chartdefinition_api_Geo3dOrientation.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dOrientationVisitor:
+
+    @abstractmethod
+    def _principal_axes(self, principal_axes: "scout_chartdefinition_api_Geo3dOrientationPrincipalAxes") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dOrientationVisitor.__name__ = "Geo3dOrientationVisitor"
+scout_chartdefinition_api_Geo3dOrientationVisitor.__qualname__ = "Geo3dOrientationVisitor"
+scout_chartdefinition_api_Geo3dOrientationVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dOrientationPrincipalAxes(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'heading_variable_name': ConjureFieldDefinition('headingVariableName', OptionalTypeWrapper[scout_channelvariables_api_ChannelVariableName]),
+            'pitch_variable_name': ConjureFieldDefinition('pitchVariableName', OptionalTypeWrapper[scout_channelvariables_api_ChannelVariableName]),
+            'roll_variable_name': ConjureFieldDefinition('rollVariableName', OptionalTypeWrapper[scout_channelvariables_api_ChannelVariableName])
+        }
+
+    __slots__: List[str] = ['_heading_variable_name', '_pitch_variable_name', '_roll_variable_name']
+
+    def __init__(self, heading_variable_name: Optional[str] = None, pitch_variable_name: Optional[str] = None, roll_variable_name: Optional[str] = None) -> None:
+        self._heading_variable_name = heading_variable_name
+        self._pitch_variable_name = pitch_variable_name
+        self._roll_variable_name = roll_variable_name
+
+    @builtins.property
+    def heading_variable_name(self) -> Optional[str]:
+        return self._heading_variable_name
+
+    @builtins.property
+    def pitch_variable_name(self) -> Optional[str]:
+        return self._pitch_variable_name
+
+    @builtins.property
+    def roll_variable_name(self) -> Optional[str]:
+        return self._roll_variable_name
+
+
+scout_chartdefinition_api_Geo3dOrientationPrincipalAxes.__name__ = "Geo3dOrientationPrincipalAxes"
+scout_chartdefinition_api_Geo3dOrientationPrincipalAxes.__qualname__ = "Geo3dOrientationPrincipalAxes"
+scout_chartdefinition_api_Geo3dOrientationPrincipalAxes.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dPosition(ConjureUnionType):
+    _wgs84: Optional["scout_chartdefinition_api_Geo3dPositionWgs84"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'wgs84': ConjureFieldDefinition('wgs84', scout_chartdefinition_api_Geo3dPositionWgs84)
+        }
+
+    def __init__(
+            self,
+            wgs84: Optional["scout_chartdefinition_api_Geo3dPositionWgs84"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (wgs84 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if wgs84 is not None:
+                self._wgs84 = wgs84
+                self._type = 'wgs84'
+
+        elif type_of_union == 'wgs84':
+            if wgs84 is None:
+                raise ValueError('a union value must not be None')
+            self._wgs84 = wgs84
+            self._type = 'wgs84'
+
+    @builtins.property
+    def wgs84(self) -> Optional["scout_chartdefinition_api_Geo3dPositionWgs84"]:
+        return self._wgs84
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dPositionVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dPositionVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'wgs84' and self.wgs84 is not None:
+            return visitor._wgs84(self.wgs84)
+
+
+scout_chartdefinition_api_Geo3dPosition.__name__ = "Geo3dPosition"
+scout_chartdefinition_api_Geo3dPosition.__qualname__ = "Geo3dPosition"
+scout_chartdefinition_api_Geo3dPosition.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dPositionVisitor:
+
+    @abstractmethod
+    def _wgs84(self, wgs84: "scout_chartdefinition_api_Geo3dPositionWgs84") -> Any:
+        pass
+
+
+scout_chartdefinition_api_Geo3dPositionVisitor.__name__ = "Geo3dPositionVisitor"
+scout_chartdefinition_api_Geo3dPositionVisitor.__qualname__ = "Geo3dPositionVisitor"
+scout_chartdefinition_api_Geo3dPositionVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_Geo3dPositionWgs84(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'latitude_variable_name': ConjureFieldDefinition('latitudeVariableName', scout_channelvariables_api_ChannelVariableName),
+            'longitude_variable_name': ConjureFieldDefinition('longitudeVariableName', scout_channelvariables_api_ChannelVariableName),
+            'height_variable_name': ConjureFieldDefinition('heightVariableName', OptionalTypeWrapper[scout_channelvariables_api_ChannelVariableName])
+        }
+
+    __slots__: List[str] = ['_latitude_variable_name', '_longitude_variable_name', '_height_variable_name']
+
+    def __init__(self, latitude_variable_name: str, longitude_variable_name: str, height_variable_name: Optional[str] = None) -> None:
+        self._latitude_variable_name = latitude_variable_name
+        self._longitude_variable_name = longitude_variable_name
+        self._height_variable_name = height_variable_name
+
+    @builtins.property
+    def latitude_variable_name(self) -> str:
+        return self._latitude_variable_name
+
+    @builtins.property
+    def longitude_variable_name(self) -> str:
+        return self._longitude_variable_name
+
+    @builtins.property
+    def height_variable_name(self) -> Optional[str]:
+        return self._height_variable_name
+
+
+scout_chartdefinition_api_Geo3dPositionWgs84.__name__ = "Geo3dPositionWgs84"
+scout_chartdefinition_api_Geo3dPositionWgs84.__qualname__ = "Geo3dPositionWgs84"
+scout_chartdefinition_api_Geo3dPositionWgs84.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_GeoAdditionalTileset(ConjureEnumType):
     """A standard tileset to overlay on the base map.
     """
@@ -27748,6 +28015,26 @@ scout_chartdefinition_api_GeoCustomFeatureVisitor.__qualname__ = "GeoCustomFeatu
 scout_chartdefinition_api_GeoCustomFeatureVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
+class scout_chartdefinition_api_GeoLine3dStyle(ConjureEnumType):
+
+    SOLID = 'SOLID'
+    '''SOLID'''
+    DASH = 'DASH'
+    '''DASH'''
+    NONE = 'NONE'
+    '''NONE'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_chartdefinition_api_GeoLine3dStyle.__name__ = "GeoLine3dStyle"
+scout_chartdefinition_api_GeoLine3dStyle.__qualname__ = "GeoLine3dStyle"
+scout_chartdefinition_api_GeoLine3dStyle.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
 class scout_chartdefinition_api_GeoLineStyle(ConjureEnumType):
 
     POINTS = 'POINTS'
@@ -27768,6 +28055,88 @@ class scout_chartdefinition_api_GeoLineStyle(ConjureEnumType):
 scout_chartdefinition_api_GeoLineStyle.__name__ = "GeoLineStyle"
 scout_chartdefinition_api_GeoLineStyle.__qualname__ = "GeoLineStyle"
 scout_chartdefinition_api_GeoLineStyle.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_GeoPlot3d(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'plot_id': ConjureFieldDefinition('plotId', str),
+            'enabled': ConjureFieldDefinition('enabled', OptionalTypeWrapper[bool]),
+            'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str]),
+            'visualization_options': ConjureFieldDefinition('visualizationOptions', scout_chartdefinition_api_GeoPlot3dVisualizationOptions),
+            'position': ConjureFieldDefinition('position', scout_chartdefinition_api_Geo3dPosition),
+            'orientation': ConjureFieldDefinition('orientation', scout_chartdefinition_api_Geo3dOrientation)
+        }
+
+    __slots__: List[str] = ['_plot_id', '_enabled', '_label', '_visualization_options', '_position', '_orientation']
+
+    def __init__(self, orientation: "scout_chartdefinition_api_Geo3dOrientation", plot_id: str, position: "scout_chartdefinition_api_Geo3dPosition", visualization_options: "scout_chartdefinition_api_GeoPlot3dVisualizationOptions", enabled: Optional[bool] = None, label: Optional[str] = None) -> None:
+        self._plot_id = plot_id
+        self._enabled = enabled
+        self._label = label
+        self._visualization_options = visualization_options
+        self._position = position
+        self._orientation = orientation
+
+    @builtins.property
+    def plot_id(self) -> str:
+        return self._plot_id
+
+    @builtins.property
+    def enabled(self) -> Optional[bool]:
+        return self._enabled
+
+    @builtins.property
+    def label(self) -> Optional[str]:
+        return self._label
+
+    @builtins.property
+    def visualization_options(self) -> "scout_chartdefinition_api_GeoPlot3dVisualizationOptions":
+        return self._visualization_options
+
+    @builtins.property
+    def position(self) -> "scout_chartdefinition_api_Geo3dPosition":
+        return self._position
+
+    @builtins.property
+    def orientation(self) -> "scout_chartdefinition_api_Geo3dOrientation":
+        return self._orientation
+
+
+scout_chartdefinition_api_GeoPlot3d.__name__ = "GeoPlot3d"
+scout_chartdefinition_api_GeoPlot3d.__qualname__ = "GeoPlot3d"
+scout_chartdefinition_api_GeoPlot3d.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_GeoPlot3dVisualizationOptions(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'color': ConjureFieldDefinition('color', scout_api_HexColor),
+            'line_style': ConjureFieldDefinition('lineStyle', scout_chartdefinition_api_GeoLine3dStyle)
+        }
+
+    __slots__: List[str] = ['_color', '_line_style']
+
+    def __init__(self, color: str, line_style: "scout_chartdefinition_api_GeoLine3dStyle") -> None:
+        self._color = color
+        self._line_style = line_style
+
+    @builtins.property
+    def color(self) -> str:
+        return self._color
+
+    @builtins.property
+    def line_style(self) -> "scout_chartdefinition_api_GeoLine3dStyle":
+        return self._line_style
+
+
+scout_chartdefinition_api_GeoPlot3dVisualizationOptions.__name__ = "GeoPlot3dVisualizationOptions"
+scout_chartdefinition_api_GeoPlot3dVisualizationOptions.__qualname__ = "GeoPlot3dVisualizationOptions"
+scout_chartdefinition_api_GeoPlot3dVisualizationOptions.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_GeoPlotFromLatLong(ConjureBeanType):
@@ -28628,14 +28997,16 @@ class scout_chartdefinition_api_NumberFormat(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'sig_figs': ConjureFieldDefinition('sigFigs', OptionalTypeWrapper[int]),
-            'display_option': ConjureFieldDefinition('displayOption', OptionalTypeWrapper[scout_chartdefinition_api_NumberFormatDisplayOption])
+            'display_option': ConjureFieldDefinition('displayOption', OptionalTypeWrapper[scout_chartdefinition_api_NumberFormatDisplayOption]),
+            'fixed_decimal_places': ConjureFieldDefinition('fixedDecimalPlaces', OptionalTypeWrapper[int])
         }
 
-    __slots__: List[str] = ['_sig_figs', '_display_option']
+    __slots__: List[str] = ['_sig_figs', '_display_option', '_fixed_decimal_places']
 
-    def __init__(self, display_option: Optional["scout_chartdefinition_api_NumberFormatDisplayOption"] = None, sig_figs: Optional[int] = None) -> None:
+    def __init__(self, display_option: Optional["scout_chartdefinition_api_NumberFormatDisplayOption"] = None, fixed_decimal_places: Optional[int] = None, sig_figs: Optional[int] = None) -> None:
         self._sig_figs = sig_figs
         self._display_option = display_option
+        self._fixed_decimal_places = fixed_decimal_places
 
     @builtins.property
     def sig_figs(self) -> Optional[int]:
@@ -28644,6 +29015,10 @@ class scout_chartdefinition_api_NumberFormat(ConjureBeanType):
     @builtins.property
     def display_option(self) -> Optional["scout_chartdefinition_api_NumberFormatDisplayOption"]:
         return self._display_option
+
+    @builtins.property
+    def fixed_decimal_places(self) -> Optional[int]:
+        return self._fixed_decimal_places
 
 
 scout_chartdefinition_api_NumberFormat.__name__ = "NumberFormat"
@@ -31330,6 +31705,7 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
     _checklist: Optional["scout_chartdefinition_api_ChecklistChartDefinition"] = None
     _frequency: Optional["scout_chartdefinition_api_FrequencyChartDefinition"] = None
     _geo: Optional["scout_chartdefinition_api_GeoVizDefinition"] = None
+    _geo3d: Optional["scout_chartdefinition_api_Geo3dDefinition"] = None
     _histogram: Optional["scout_chartdefinition_api_HistogramChartDefinition"] = None
     _log: Optional["scout_chartdefinition_api_LogPanelDefinition"] = None
     _plotly: Optional["scout_chartdefinition_api_PlotlyPanelDefinition"] = None
@@ -31345,6 +31721,7 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             'checklist': ConjureFieldDefinition('checklist', scout_chartdefinition_api_ChecklistChartDefinition),
             'frequency': ConjureFieldDefinition('frequency', scout_chartdefinition_api_FrequencyChartDefinition),
             'geo': ConjureFieldDefinition('geo', scout_chartdefinition_api_GeoVizDefinition),
+            'geo3d': ConjureFieldDefinition('geo3d', scout_chartdefinition_api_Geo3dDefinition),
             'histogram': ConjureFieldDefinition('histogram', scout_chartdefinition_api_HistogramChartDefinition),
             'log': ConjureFieldDefinition('log', scout_chartdefinition_api_LogPanelDefinition),
             'plotly': ConjureFieldDefinition('plotly', scout_chartdefinition_api_PlotlyPanelDefinition),
@@ -31360,6 +31737,7 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             checklist: Optional["scout_chartdefinition_api_ChecklistChartDefinition"] = None,
             frequency: Optional["scout_chartdefinition_api_FrequencyChartDefinition"] = None,
             geo: Optional["scout_chartdefinition_api_GeoVizDefinition"] = None,
+            geo3d: Optional["scout_chartdefinition_api_Geo3dDefinition"] = None,
             histogram: Optional["scout_chartdefinition_api_HistogramChartDefinition"] = None,
             log: Optional["scout_chartdefinition_api_LogPanelDefinition"] = None,
             plotly: Optional["scout_chartdefinition_api_PlotlyPanelDefinition"] = None,
@@ -31370,7 +31748,7 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (cartesian is not None) + (checklist is not None) + (frequency is not None) + (geo is not None) + (histogram is not None) + (log is not None) + (plotly is not None) + (time_series is not None) + (value_table is not None) + (video is not None) + (procedure is not None) != 1:
+            if (cartesian is not None) + (checklist is not None) + (frequency is not None) + (geo is not None) + (geo3d is not None) + (histogram is not None) + (log is not None) + (plotly is not None) + (time_series is not None) + (value_table is not None) + (video is not None) + (procedure is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if cartesian is not None:
@@ -31385,6 +31763,9 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             if geo is not None:
                 self._geo = geo
                 self._type = 'geo'
+            if geo3d is not None:
+                self._geo3d = geo3d
+                self._type = 'geo3d'
             if histogram is not None:
                 self._histogram = histogram
                 self._type = 'histogram'
@@ -31427,6 +31808,11 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._geo = geo
             self._type = 'geo'
+        elif type_of_union == 'geo3d':
+            if geo3d is None:
+                raise ValueError('a union value must not be None')
+            self._geo3d = geo3d
+            self._type = 'geo3d'
         elif type_of_union == 'histogram':
             if histogram is None:
                 raise ValueError('a union value must not be None')
@@ -31480,6 +31866,10 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
         return self._geo
 
     @builtins.property
+    def geo3d(self) -> Optional["scout_chartdefinition_api_Geo3dDefinition"]:
+        return self._geo3d
+
+    @builtins.property
     def histogram(self) -> Optional["scout_chartdefinition_api_HistogramChartDefinition"]:
         return self._histogram
 
@@ -31518,6 +31908,8 @@ class scout_chartdefinition_api_VizDefinition(ConjureUnionType):
             return visitor._frequency(self.frequency)
         if self._type == 'geo' and self.geo is not None:
             return visitor._geo(self.geo)
+        if self._type == 'geo3d' and self.geo3d is not None:
+            return visitor._geo3d(self.geo3d)
         if self._type == 'histogram' and self.histogram is not None:
             return visitor._histogram(self.histogram)
         if self._type == 'log' and self.log is not None:
@@ -31555,6 +31947,10 @@ class scout_chartdefinition_api_VizDefinitionVisitor:
 
     @abstractmethod
     def _geo(self, geo: "scout_chartdefinition_api_GeoVizDefinition") -> Any:
+        pass
+
+    @abstractmethod
+    def _geo3d(self, geo3d: "scout_chartdefinition_api_Geo3dDefinition") -> Any:
         pass
 
     @abstractmethod
@@ -71058,6 +71454,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
     _workspace: Optional[str] = None
     _created_at: Optional["scout_metadata_CreatedAtQuery"] = None
     _archived_status: Optional["api_ArchivedStatus"] = None
+    _is_published: Optional[bool] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -71077,7 +71474,8 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             'not_': ConjureFieldDefinition('not', scout_internal_search_api_SearchQuery),
             'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
             'created_at': ConjureFieldDefinition('createdAt', scout_metadata_CreatedAtQuery),
-            'archived_status': ConjureFieldDefinition('archivedStatus', api_ArchivedStatus)
+            'archived_status': ConjureFieldDefinition('archivedStatus', api_ArchivedStatus),
+            'is_published': ConjureFieldDefinition('isPublished', bool)
         }
 
     def __init__(
@@ -71098,10 +71496,11 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             workspace: Optional[str] = None,
             created_at: Optional["scout_metadata_CreatedAtQuery"] = None,
             archived_status: Optional["api_ArchivedStatus"] = None,
+            is_published: Optional[bool] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (date_time_field is not None) + (string_field is not None) + (timestamp_field is not None) + (long_field is not None) + (boolean_field is not None) + (exact_match is not None) + (string_array_exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (created_at is not None) + (archived_status is not None) != 1:
+            if (date_time_field is not None) + (string_field is not None) + (timestamp_field is not None) + (long_field is not None) + (boolean_field is not None) + (exact_match is not None) + (string_array_exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (created_at is not None) + (archived_status is not None) + (is_published is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if date_time_field is not None:
@@ -71152,6 +71551,9 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             if archived_status is not None:
                 self._archived_status = archived_status
                 self._type = 'archivedStatus'
+            if is_published is not None:
+                self._is_published = is_published
+                self._type = 'isPublished'
 
         elif type_of_union == 'dateTimeField':
             if date_time_field is None:
@@ -71233,6 +71635,11 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._archived_status = archived_status
             self._type = 'archivedStatus'
+        elif type_of_union == 'isPublished':
+            if is_published is None:
+                raise ValueError('a union value must not be None')
+            self._is_published = is_published
+            self._type = 'isPublished'
 
     @builtins.property
     def date_time_field(self) -> Optional["scout_internal_search_api_DateTimeField"]:
@@ -71305,6 +71712,10 @@ To do a partial match, use an "and" on StringField queries.
         """
         return self._archived_status
 
+    @builtins.property
+    def is_published(self) -> Optional[bool]:
+        return self._is_published
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_internal_search_api_SearchQueryVisitor):
             raise ValueError('{} is not an instance of scout_internal_search_api_SearchQueryVisitor'.format(visitor.__class__.__name__))
@@ -71340,6 +71751,8 @@ To do a partial match, use an "and" on StringField queries.
             return visitor._created_at(self.created_at)
         if self._type == 'archivedStatus' and self.archived_status is not None:
             return visitor._archived_status(self.archived_status)
+        if self._type == 'isPublished' and self.is_published is not None:
+            return visitor._is_published(self.is_published)
 
 
 scout_internal_search_api_SearchQuery.__name__ = "SearchQuery"
@@ -71411,6 +71824,10 @@ class scout_internal_search_api_SearchQueryVisitor:
 
     @abstractmethod
     def _archived_status(self, archived_status: "api_ArchivedStatus") -> Any:
+        pass
+
+    @abstractmethod
+    def _is_published(self, is_published: bool) -> Any:
         pass
 
 

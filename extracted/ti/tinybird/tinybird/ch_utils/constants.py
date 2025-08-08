@@ -257,4 +257,5 @@ VALID_QUERY_FORMATS = (
     "Native",
     "RowBinaryWithNamesAndTypes",
     "TabSeparated",
+    "JSONCompactEachRowWithNamesAndTypes",
 )

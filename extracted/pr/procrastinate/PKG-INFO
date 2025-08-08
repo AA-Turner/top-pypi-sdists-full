@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: procrastinate
-Version: 3.5.0
+Version: 3.5.1
 Summary: Postgres-based distributed task processing library
 Project-URL: homepage, https://procrastinate.readthedocs.io/
 Project-URL: source, https://github.com/procrastinate-org/procrastinate/

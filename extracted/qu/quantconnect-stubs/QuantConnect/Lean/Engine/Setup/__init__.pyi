@@ -137,7 +137,7 @@ class BaseSetupHandler(System.Object):
         ...
 
     @staticmethod
-    def setup_currency_conversions(algorithm: QuantConnect.Interfaces.IAlgorithm, universe_selection: QuantConnect.Lean.Engine.DataFeeds.UniverseSelection, currencies_to_update_white_list: typing.List[str] = None) -> None:
+    def setup_currency_conversions(algorithm: QuantConnect.Interfaces.IAlgorithm, universe_selection: QuantConnect.Lean.Engine.DataFeeds.UniverseSelection, currencies_to_update_white_list: typing.Sequence[str] = None) -> None:
         """
         Will first check and add all the required conversion rate securities
         and later will seed an initial value to them.

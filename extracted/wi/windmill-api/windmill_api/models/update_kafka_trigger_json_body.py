@@ -24,7 +24,8 @@ class UpdateKafkaTriggerJsonBody:
         script_path (str):
         is_flow (bool):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, UpdateKafkaTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, UpdateKafkaTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, UpdateKafkaTriggerJsonBodyRetry]):
     """
 

@@ -74,7 +74,7 @@ class DiarizationFocusMode(str, Enum):
 class AdditionalVocabEntry:
     """Additional vocabulary entry.
 
-    Attributes:
+    Parameters:
         content: The word to add to the dictionary.
         sounds_like: Similar words to the word.
     """
@@ -87,7 +87,7 @@ class AdditionalVocabEntry:
 class DiarizationKnownSpeaker:
     """Known speakers for speaker diarization.
 
-    Attributes:
+    Parameters:
         label: The label of the speaker.
         speaker_identifiers: One or more data strings for the speaker.
     """
@@ -191,7 +191,7 @@ class SpeakerFragments:
             passive_format = active_format
         return {
             "text": self._format_text(active_format if self.is_active else passive_format),
-            "user_id": self.speaker_id,
+            "user_id": self.speaker_id or "",
             "timestamp": self.timestamp,
             "language": self.language,
             "result": [frag.result for frag in self.fragments],

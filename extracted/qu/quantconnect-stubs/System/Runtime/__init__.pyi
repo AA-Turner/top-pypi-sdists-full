@@ -149,7 +149,7 @@ class ControlledExecution(System.Object):
     """This class has no documentation."""
 
     @staticmethod
-    def run(action: typing.Callable[[], None], cancellation_token: System.Threading.CancellationToken) -> None:
+    def run(action: typing.Callable[[], typing.Any], cancellation_token: System.Threading.CancellationToken) -> None:
         """Obsoletions.ControlledExecutionRunMessage"""
         warnings.warn("Obsoletions.ControlledExecutionRunMessage", DeprecationWarning)
 

@@ -8,7 +8,7 @@ T = TypeVar("T", bound="EditHttpTriggerErrorHandlerArgs")
 
 @_attrs_define
 class EditHttpTriggerErrorHandlerArgs:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

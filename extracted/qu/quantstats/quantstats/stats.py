@@ -1397,8 +1397,10 @@ def cagr(returns, rf=0.0, compounded=True, periods=252):
     else:
         total = _np.sum(total, axis=0)
 
-    # Calculate time period in years
-    years = (returns.index[-1] - returns.index[0]).days / periods
+    # Calculate time period in years using trading periods
+    # This is consistent with how Sharpe, Sortino, and other metrics
+    # handle annualization in quantstats
+    years = len(returns) / periods
 
     # Calculate CAGR using geometric mean formula
     res = abs(total + 1.0) ** (1.0 / years) - 1
@@ -2528,13 +2530,26 @@ def compare(
     if prepare_returns:
         returns = _utils._prepare_returns(returns)
 
-    # Prepare benchmark to match returns index
+    # Store original benchmark for proper aggregation
+    # This preserves returns that may fall on non-trading days
+    if isinstance(benchmark, str):
+        benchmark_original = _utils.download_returns(benchmark)
+    elif isinstance(benchmark, _pd.DataFrame):
+        benchmark_original = benchmark[benchmark.columns[0]].copy()
+    else:
+        benchmark_original = benchmark.copy() if benchmark is not None else None
+    
+    # Prepare benchmark to match returns index for other calculations
     benchmark = _utils._prepare_benchmark(benchmark, returns.index)
 
     # Handle Series input
     if isinstance(returns, _pd.Series):
-        # Aggregate both returns and benchmark
-        benchmark_agg = _utils.aggregate_returns(benchmark, aggregate, compounded) * 100
+        # Aggregate returns and use original benchmark for aggregation
+        # This ensures we don't lose benchmark returns on non-trading days
+        if benchmark_original is not None:
+            benchmark_agg = _utils.aggregate_returns(benchmark_original, aggregate, compounded) * 100
+        else:
+            benchmark_agg = _utils.aggregate_returns(benchmark, aggregate, compounded) * 100
         returns_agg = _utils.aggregate_returns(returns, aggregate, compounded) * 100
 
         # Create comparison DataFrame
@@ -2551,10 +2566,15 @@ def compare(
 
     # Handle DataFrame input (multiple strategies)
     elif isinstance(returns, _pd.DataFrame):
-        # Aggregate benchmark
-        bench = {
-            "Benchmark": _utils.aggregate_returns(benchmark, aggregate, compounded) * 100
-        }
+        # Aggregate benchmark using original data to preserve non-trading day returns
+        if benchmark_original is not None:
+            bench = {
+                "Benchmark": _utils.aggregate_returns(benchmark_original, aggregate, compounded) * 100
+            }
+        else:
+            bench = {
+                "Benchmark": _utils.aggregate_returns(benchmark, aggregate, compounded) * 100
+            }
 
         # Aggregate each strategy column
         strategy = {

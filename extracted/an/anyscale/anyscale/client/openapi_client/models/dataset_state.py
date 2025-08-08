@@ -32,8 +32,9 @@ class DatasetState(object):
     RUNNING = "RUNNING"
     FAILED = "FAILED"
     FINISHED = "FINISHED"
+    PENDING = "PENDING"
 
-    allowable_values = [UNKNOWN, RUNNING, FAILED, FINISHED]  # noqa: E501
+    allowable_values = [UNKNOWN, RUNNING, FAILED, FINISHED, PENDING]  # noqa: E501
 
     """
     Attributes:

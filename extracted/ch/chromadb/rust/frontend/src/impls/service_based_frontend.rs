@@ -9,7 +9,8 @@ use chroma_log::{LocalCompactionManager, LocalCompactionManagerConfig, Log};
 use chroma_metering::{
     CollectionForkContext, CollectionReadContext, CollectionWriteContext, Enterable, FinishRequest,
     FtsQueryLength, LatestCollectionLogicalSizeBytes, LogSizeBytes, MetadataPredicateCount,
-    MeterEvent, PulledLogSizeBytes, QueryEmbeddingCount, ReturnBytes, WriteAction,
+    MeterEvent, MeteredFutureExt, PulledLogSizeBytes, QueryEmbeddingCount, ReturnBytes,
+    WriteAction,
 };
 use chroma_segment::local_segment_manager::LocalSegmentManager;
 use chroma_sqlite::db::SqliteDb;
@@ -718,13 +719,16 @@ impl ServiceBasedFrontend {
             ..
         }: AddCollectionRecordsRequest,
     ) -> Result<AddCollectionRecordsResponse, AddCollectionRecordsError> {
-        self.validate_embedding(collection_id, embeddings.as_ref(), true, |embedding| {
-            Some(embedding.len())
-        })
+        self.validate_embedding(
+            collection_id,
+            Some(&embeddings),
+            true,
+            |embedding: &Vec<f32>| Some(embedding.len()),
+        )
         .await
         .map_err(|err| err.boxed())?;
 
-        let embeddings = embeddings.map(|embeddings| embeddings.into_iter().map(Some).collect());
+        let embeddings = Some(embeddings.into_iter().map(Some).collect());
 
         let (records, log_size_bytes) =
             to_records(ids, embeddings, documents, uris, metadatas, Operation::Add)
@@ -884,13 +888,16 @@ impl ServiceBasedFrontend {
             ..
         }: UpsertCollectionRecordsRequest,
     ) -> Result<UpsertCollectionRecordsResponse, UpsertCollectionRecordsError> {
-        self.validate_embedding(collection_id, embeddings.as_ref(), true, |embedding| {
-            Some(embedding.len())
-        })
+        self.validate_embedding(
+            collection_id,
+            Some(&embeddings),
+            true,
+            |embedding: &Vec<f32>| Some(embedding.len()),
+        )
         .await
         .map_err(|err| err.boxed())?;
 
-        let embeddings = embeddings.map(|embeddings| embeddings.into_iter().map(Some).collect());
+        let embeddings = Some(embeddings.into_iter().map(Some).collect());
 
         let (records, log_size_bytes) = to_records(
             ids,
@@ -1064,30 +1071,39 @@ impl ServiceBasedFrontend {
                 collection_id.0.to_string(),
                 WriteAction::Delete,
             ));
+
+        // Closure for write context operations
+        (async {
+            if records.is_empty() {
+                tracing::debug!("Bailing because no records were found");
+                return Ok::<_, DeleteCollectionRecordsError>(DeleteCollectionRecordsResponse {});
+            }
+
+            let log_size_bytes = records.iter().map(OperationRecord::size_bytes).sum();
+
+            self.log_client
+                .push_logs(&tenant_id, collection_id, records)
+                .await
+                .map_err(|err| {
+                    if err.code() == ErrorCodes::Unavailable {
+                        DeleteCollectionRecordsError::Backoff
+                    } else {
+                        DeleteCollectionRecordsError::Internal(Box::new(err) as _)
+                    }
+                })?;
+
+            // Attach metadata to the write context
+            chroma_metering::with_current(|context| {
+                context.log_size_bytes(log_size_bytes);
+            });
+
+            Ok(DeleteCollectionRecordsResponse {})
+        })
+        .meter(collection_write_context_container.clone())
+        .await?;
+
+        // Need to re-enter the write context before attempting to close
         collection_write_context_container.enter();
-
-        if records.is_empty() {
-            tracing::debug!("Bailing because no records were found");
-            return Ok(DeleteCollectionRecordsResponse {});
-        }
-
-        let log_size_bytes = records.iter().map(OperationRecord::size_bytes).sum();
-
-        self.log_client
-            .push_logs(&tenant_id, collection_id, records)
-            .await
-            .map_err(|err| {
-                if err.code() == ErrorCodes::Unavailable {
-                    DeleteCollectionRecordsError::Backoff
-                } else {
-                    DeleteCollectionRecordsError::Internal(Box::new(err) as _)
-                }
-            })?;
-
-        // Attach metadata to the write context
-        chroma_metering::with_current(|context| {
-            context.log_size_bytes(log_size_bytes);
-        });
 
         // TODO: Submit event after the response is sent
         match chroma_metering::close::<CollectionWriteContext>() {
@@ -1588,6 +1604,7 @@ impl Configurable<(FrontendConfig, System)> for ServiceBasedFrontend {
 #[cfg(test)]
 mod tests {
     use chroma_config::registry::Registry;
+    use chroma_log::config::{GrpcLogConfig, LogConfig};
     use chroma_sysdb::GrpcSysDbConfig;
     use chroma_types::Collection;
     use uuid::Uuid;
@@ -1653,7 +1670,12 @@ mod tests {
             segment_manager: None,
             sysdb: Default::default(),
             collections_with_segments_provider: Default::default(),
-            log: Default::default(),
+            log: LogConfig::Grpc(GrpcLogConfig {
+                host: "localhost".to_string(),
+                port: 50054,
+                alt_host: Some("localhost".to_string()),
+                ..Default::default()
+            }),
             executor: ExecutorConfig::Distributed(DistributedExecutorConfig {
                 connections_per_node: 128,
                 replication_factor: 2,
@@ -1663,6 +1685,7 @@ mod tests {
                 assignment: Default::default(),
                 memberlist_provider: Default::default(),
                 max_query_service_response_size_bytes: 65536,
+                client_selection_config: Default::default(),
             }),
             default_knn_index: KnnIndex::Spann,
         };

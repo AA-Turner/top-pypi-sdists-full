@@ -137,12 +137,12 @@ class ITradableDatesNotifier(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def new_tradable_date(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], None], None]:
+    def new_tradable_date(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]:
         """Event fired when there is a new tradable date"""
         ...
 
     @new_tradable_date.setter
-    def new_tradable_date(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], None], None]) -> None:
+    def new_tradable_date(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -550,7 +550,7 @@ class LiveSubscriptionEnumerator(System.Object, System.Collections.Generic.IEnum
         """The current data object instance"""
         ...
 
-    def __init__(self, data_config: QuantConnect.Data.SubscriptionDataConfig, data_queue_handler: QuantConnect.Interfaces.IDataQueueHandler, handler: typing.Callable[[System.Object, System.EventArgs], None], is_expired: typing.Callable[[QuantConnect.Data.SubscriptionDataConfig], bool]) -> None:
+    def __init__(self, data_config: QuantConnect.Data.SubscriptionDataConfig, data_queue_handler: QuantConnect.Interfaces.IDataQueueHandler, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any], is_expired: typing.Callable[[QuantConnect.Data.SubscriptionDataConfig], bool]) -> None:
         """Creates a new instance"""
         ...
 
@@ -1145,7 +1145,7 @@ class ScannableEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enum
         """Gets the element in the collection at the current position of the enumerator."""
         ...
 
-    def __init__(self, consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], time_zone: typing.Any, time_provider: QuantConnect.ITimeProvider, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None], is_period_based: bool = True) -> None:
+    def __init__(self, consolidator: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], time_zone: typing.Any, time_provider: QuantConnect.ITimeProvider, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any], is_period_based: bool = True) -> None:
         """
         Initializes a new instance of the ScannableEnumerator{T} class
         
@@ -1285,12 +1285,12 @@ class SubscriptionFilterEnumerator(System.Object, System.Collections.Generic.IEn
     """Implements a wrapper around a base data enumerator to provide a final filtering step"""
 
     @property
-    def data_filter_error(self) -> _EventContainer[typing.Callable[[System.Object, System.Exception], None], None]:
+    def data_filter_error(self) -> _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]:
         """Fired when there's an error executing a user's data filter"""
         ...
 
     @data_filter_error.setter
-    def data_filter_error(self, value: _EventContainer[typing.Callable[[System.Object, System.Exception], None], None]) -> None:
+    def data_filter_error(self, value: _EventContainer[typing.Callable[[System.Object, System.Exception], typing.Any], typing.Any]) -> None:
         ...
 
     @property

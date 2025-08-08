@@ -1,7 +1,7 @@
 r'''
 # `snowflake_table_constraint`
 
-Refer to the Terraform Registry for docs: [`snowflake_table_constraint`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint).
+Refer to the Terraform Registry for docs: [`snowflake_table_constraint`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TableConstraint(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.tableConstraint.TableConstraint",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint snowflake_table_constraint}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint snowflake_table_constraint}.'''
 
     def __init__(
         self,
@@ -73,24 +73,24 @@ class TableConstraint(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint snowflake_table_constraint} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint snowflake_table_constraint} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param columns: Columns to use in constraint key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#columns TableConstraint#columns}
-        :param name: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#name TableConstraint#name}
-        :param table_id: Identifier for table to create constraint on. Format must follow: ""<db_name>"."<schema_name>"."<table_name>"" or "<db_name>.<schema_name>.<table_name>" (snowflake_table.my_table.id). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
-        :param type: Type of constraint, one of 'UNIQUE', 'PRIMARY KEY', or 'FOREIGN KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#type TableConstraint#type}
-        :param comment: Comment for the table constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#comment TableConstraint#comment}
-        :param deferrable: (Default: ``true``) Whether the constraint is deferrable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#deferrable TableConstraint#deferrable}
-        :param enable: (Default: ``true``) Specifies whether the constraint is enabled or disabled. These properties are provided for compatibility with Oracle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#enable TableConstraint#enable}
-        :param enforced: (Default: ``false``) Whether the constraint is enforced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#enforced TableConstraint#enforced}
-        :param foreign_key_properties: foreign_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#foreign_key_properties TableConstraint#foreign_key_properties}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#id TableConstraint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initially: (Default: ``DEFERRED``) Whether the constraint is initially deferred or immediate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#initially TableConstraint#initially}
-        :param rely: (Default: ``true``) Specifies whether a constraint in NOVALIDATE mode is taken into account during query rewrite. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#rely TableConstraint#rely}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#timeouts TableConstraint#timeouts}
-        :param validate: (Default: ``false``) Specifies whether to validate existing data on the table when a constraint is created. Only used in conjunction with the ENABLE property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#validate TableConstraint#validate}
+        :param columns: Columns to use in constraint key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#columns TableConstraint#columns}
+        :param name: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#name TableConstraint#name}
+        :param table_id: Identifier for table to create constraint on. Format must follow: ""<db_name>"."<schema_name>"."<table_name>"" or "<db_name>.<schema_name>.<table_name>" (snowflake_table.my_table.id). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
+        :param type: Type of constraint, one of 'UNIQUE', 'PRIMARY KEY', or 'FOREIGN KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#type TableConstraint#type}
+        :param comment: Comment for the table constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#comment TableConstraint#comment}
+        :param deferrable: (Default: ``true``) Whether the constraint is deferrable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#deferrable TableConstraint#deferrable}
+        :param enable: (Default: ``true``) Specifies whether the constraint is enabled or disabled. These properties are provided for compatibility with Oracle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#enable TableConstraint#enable}
+        :param enforced: (Default: ``false``) Whether the constraint is enforced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#enforced TableConstraint#enforced}
+        :param foreign_key_properties: foreign_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#foreign_key_properties TableConstraint#foreign_key_properties}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#id TableConstraint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initially: (Default: ``DEFERRED``) Whether the constraint is initially deferred or immediate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#initially TableConstraint#initially}
+        :param rely: (Default: ``true``) Specifies whether a constraint in NOVALIDATE mode is taken into account during query rewrite. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#rely TableConstraint#rely}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#timeouts TableConstraint#timeouts}
+        :param validate: (Default: ``false``) Specifies whether to validate existing data on the table when a constraint is created. Only used in conjunction with the ENABLE property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#validate TableConstraint#validate}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -142,7 +142,7 @@ class TableConstraint(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TableConstraint to import.
-        :param import_from_id: The id of the existing TableConstraint that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TableConstraint that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TableConstraint to import is found.
         '''
         if __debug__:
@@ -163,10 +163,10 @@ class TableConstraint(
         on_update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param references: references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#references TableConstraint#references}
-        :param match: (Default: ``FULL``) The match type for the foreign key. Not applicable for primary/unique keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#match TableConstraint#match}
-        :param on_delete: (Default: ``NO ACTION``) Specifies the action performed when the primary/unique key for the foreign key is deleted. Not applicable for primary/unique keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#on_delete TableConstraint#on_delete}
-        :param on_update: (Default: ``NO ACTION``) Specifies the action performed when the primary/unique key for the foreign key is updated. Not applicable for primary/unique keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#on_update TableConstraint#on_update}
+        :param references: references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#references TableConstraint#references}
+        :param match: (Default: ``FULL``) The match type for the foreign key. Not applicable for primary/unique keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#match TableConstraint#match}
+        :param on_delete: (Default: ``NO ACTION``) Specifies the action performed when the primary/unique key for the foreign key is deleted. Not applicable for primary/unique keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#on_delete TableConstraint#on_delete}
+        :param on_update: (Default: ``NO ACTION``) Specifies the action performed when the primary/unique key for the foreign key is updated. Not applicable for primary/unique keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#on_update TableConstraint#on_update}
         '''
         value = TableConstraintForeignKeyProperties(
             references=references,
@@ -187,10 +187,10 @@ class TableConstraint(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#create TableConstraint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#delete TableConstraint#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#read TableConstraint#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#update TableConstraint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#create TableConstraint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#delete TableConstraint#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#read TableConstraint#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#update TableConstraint#update}.
         '''
         value = TableConstraintTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -568,20 +568,20 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param columns: Columns to use in constraint key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#columns TableConstraint#columns}
-        :param name: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#name TableConstraint#name}
-        :param table_id: Identifier for table to create constraint on. Format must follow: ""<db_name>"."<schema_name>"."<table_name>"" or "<db_name>.<schema_name>.<table_name>" (snowflake_table.my_table.id). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
-        :param type: Type of constraint, one of 'UNIQUE', 'PRIMARY KEY', or 'FOREIGN KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#type TableConstraint#type}
-        :param comment: Comment for the table constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#comment TableConstraint#comment}
-        :param deferrable: (Default: ``true``) Whether the constraint is deferrable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#deferrable TableConstraint#deferrable}
-        :param enable: (Default: ``true``) Specifies whether the constraint is enabled or disabled. These properties are provided for compatibility with Oracle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#enable TableConstraint#enable}
-        :param enforced: (Default: ``false``) Whether the constraint is enforced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#enforced TableConstraint#enforced}
-        :param foreign_key_properties: foreign_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#foreign_key_properties TableConstraint#foreign_key_properties}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#id TableConstraint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initially: (Default: ``DEFERRED``) Whether the constraint is initially deferred or immediate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#initially TableConstraint#initially}
-        :param rely: (Default: ``true``) Specifies whether a constraint in NOVALIDATE mode is taken into account during query rewrite. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#rely TableConstraint#rely}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#timeouts TableConstraint#timeouts}
-        :param validate: (Default: ``false``) Specifies whether to validate existing data on the table when a constraint is created. Only used in conjunction with the ENABLE property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#validate TableConstraint#validate}
+        :param columns: Columns to use in constraint key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#columns TableConstraint#columns}
+        :param name: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#name TableConstraint#name}
+        :param table_id: Identifier for table to create constraint on. Format must follow: ""<db_name>"."<schema_name>"."<table_name>"" or "<db_name>.<schema_name>.<table_name>" (snowflake_table.my_table.id). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
+        :param type: Type of constraint, one of 'UNIQUE', 'PRIMARY KEY', or 'FOREIGN KEY'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#type TableConstraint#type}
+        :param comment: Comment for the table constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#comment TableConstraint#comment}
+        :param deferrable: (Default: ``true``) Whether the constraint is deferrable. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#deferrable TableConstraint#deferrable}
+        :param enable: (Default: ``true``) Specifies whether the constraint is enabled or disabled. These properties are provided for compatibility with Oracle. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#enable TableConstraint#enable}
+        :param enforced: (Default: ``false``) Whether the constraint is enforced. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#enforced TableConstraint#enforced}
+        :param foreign_key_properties: foreign_key_properties block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#foreign_key_properties TableConstraint#foreign_key_properties}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#id TableConstraint#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initially: (Default: ``DEFERRED``) Whether the constraint is initially deferred or immediate. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#initially TableConstraint#initially}
+        :param rely: (Default: ``true``) Specifies whether a constraint in NOVALIDATE mode is taken into account during query rewrite. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#rely TableConstraint#rely}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#timeouts TableConstraint#timeouts}
+        :param validate: (Default: ``false``) Specifies whether to validate existing data on the table when a constraint is created. Only used in conjunction with the ENABLE property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#validate TableConstraint#validate}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -721,7 +721,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def columns(self) -> typing.List[builtins.str]:
         '''Columns to use in constraint key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#columns TableConstraint#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#columns TableConstraint#columns}
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
@@ -731,7 +731,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Name of constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#name TableConstraint#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#name TableConstraint#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -741,7 +741,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def table_id(self) -> builtins.str:
         '''Identifier for table to create constraint on. Format must follow: ""<db_name>"."<schema_name>"."<table_name>"" or "<db_name>.<schema_name>.<table_name>" (snowflake_table.my_table.id).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -751,7 +751,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def type(self) -> builtins.str:
         '''Type of constraint, one of 'UNIQUE', 'PRIMARY KEY', or 'FOREIGN KEY'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#type TableConstraint#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#type TableConstraint#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -761,7 +761,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Comment for the table constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#comment TableConstraint#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#comment TableConstraint#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -772,7 +772,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``true``) Whether the constraint is deferrable.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#deferrable TableConstraint#deferrable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#deferrable TableConstraint#deferrable}
         '''
         result = self._values.get("deferrable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -783,7 +783,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``true``) Specifies whether the constraint is enabled or disabled. These properties are provided for compatibility with Oracle.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#enable TableConstraint#enable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#enable TableConstraint#enable}
         '''
         result = self._values.get("enable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -794,7 +794,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Whether the constraint is enforced.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#enforced TableConstraint#enforced}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#enforced TableConstraint#enforced}
         '''
         result = self._values.get("enforced")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -805,14 +805,14 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["TableConstraintForeignKeyProperties"]:
         '''foreign_key_properties block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#foreign_key_properties TableConstraint#foreign_key_properties}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#foreign_key_properties TableConstraint#foreign_key_properties}
         '''
         result = self._values.get("foreign_key_properties")
         return typing.cast(typing.Optional["TableConstraintForeignKeyProperties"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#id TableConstraint#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#id TableConstraint#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -824,7 +824,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def initially(self) -> typing.Optional[builtins.str]:
         '''(Default: ``DEFERRED``) Whether the constraint is initially deferred or immediate.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#initially TableConstraint#initially}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#initially TableConstraint#initially}
         '''
         result = self._values.get("initially")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -835,7 +835,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``true``) Specifies whether a constraint in NOVALIDATE mode is taken into account during query rewrite.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#rely TableConstraint#rely}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#rely TableConstraint#rely}
         '''
         result = self._values.get("rely")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -844,7 +844,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["TableConstraintTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#timeouts TableConstraint#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#timeouts TableConstraint#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["TableConstraintTimeouts"], result)
@@ -857,7 +857,7 @@ class TableConstraintConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Only used in conjunction with the ENABLE property.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#validate TableConstraint#validate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#validate TableConstraint#validate}
         '''
         result = self._values.get("validate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -894,10 +894,10 @@ class TableConstraintForeignKeyProperties:
         on_update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param references: references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#references TableConstraint#references}
-        :param match: (Default: ``FULL``) The match type for the foreign key. Not applicable for primary/unique keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#match TableConstraint#match}
-        :param on_delete: (Default: ``NO ACTION``) Specifies the action performed when the primary/unique key for the foreign key is deleted. Not applicable for primary/unique keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#on_delete TableConstraint#on_delete}
-        :param on_update: (Default: ``NO ACTION``) Specifies the action performed when the primary/unique key for the foreign key is updated. Not applicable for primary/unique keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#on_update TableConstraint#on_update}
+        :param references: references block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#references TableConstraint#references}
+        :param match: (Default: ``FULL``) The match type for the foreign key. Not applicable for primary/unique keys. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#match TableConstraint#match}
+        :param on_delete: (Default: ``NO ACTION``) Specifies the action performed when the primary/unique key for the foreign key is deleted. Not applicable for primary/unique keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#on_delete TableConstraint#on_delete}
+        :param on_update: (Default: ``NO ACTION``) Specifies the action performed when the primary/unique key for the foreign key is updated. Not applicable for primary/unique keys Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#on_update TableConstraint#on_update}
         '''
         if isinstance(references, dict):
             references = TableConstraintForeignKeyPropertiesReferences(**references)
@@ -921,7 +921,7 @@ class TableConstraintForeignKeyProperties:
     def references(self) -> "TableConstraintForeignKeyPropertiesReferences":
         '''references block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#references TableConstraint#references}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#references TableConstraint#references}
         '''
         result = self._values.get("references")
         assert result is not None, "Required property 'references' is missing"
@@ -931,7 +931,7 @@ class TableConstraintForeignKeyProperties:
     def match(self) -> typing.Optional[builtins.str]:
         '''(Default: ``FULL``) The match type for the foreign key. Not applicable for primary/unique keys.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#match TableConstraint#match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#match TableConstraint#match}
         '''
         result = self._values.get("match")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -942,7 +942,7 @@ class TableConstraintForeignKeyProperties:
 
         Not applicable for primary/unique keys
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#on_delete TableConstraint#on_delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#on_delete TableConstraint#on_delete}
         '''
         result = self._values.get("on_delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -953,7 +953,7 @@ class TableConstraintForeignKeyProperties:
 
         Not applicable for primary/unique keys
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#on_update TableConstraint#on_update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#on_update TableConstraint#on_update}
         '''
         result = self._values.get("on_update")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -998,8 +998,8 @@ class TableConstraintForeignKeyPropertiesOutputReference(
         table_id: builtins.str,
     ) -> None:
         '''
-        :param columns: Columns to use in foreign key reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#columns TableConstraint#columns}
-        :param table_id: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
+        :param columns: Columns to use in foreign key reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#columns TableConstraint#columns}
+        :param table_id: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
         '''
         value = TableConstraintForeignKeyPropertiesReferences(
             columns=columns, table_id=table_id
@@ -1113,8 +1113,8 @@ class TableConstraintForeignKeyPropertiesReferences:
         table_id: builtins.str,
     ) -> None:
         '''
-        :param columns: Columns to use in foreign key reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#columns TableConstraint#columns}
-        :param table_id: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
+        :param columns: Columns to use in foreign key reference. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#columns TableConstraint#columns}
+        :param table_id: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b31407e15cbe676dec2f6226a13eb038690049edbad3d2ad07d3a3d811012fe8)
@@ -1129,7 +1129,7 @@ class TableConstraintForeignKeyPropertiesReferences:
     def columns(self) -> typing.List[builtins.str]:
         '''Columns to use in foreign key reference.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#columns TableConstraint#columns}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#columns TableConstraint#columns}
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
@@ -1139,7 +1139,7 @@ class TableConstraintForeignKeyPropertiesReferences:
     def table_id(self) -> builtins.str:
         '''Name of constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#table_id TableConstraint#table_id}
         '''
         result = self._values.get("table_id")
         assert result is not None, "Required property 'table_id' is missing"
@@ -1249,10 +1249,10 @@ class TableConstraintTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#create TableConstraint#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#delete TableConstraint#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#read TableConstraint#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#update TableConstraint#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#create TableConstraint#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#delete TableConstraint#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#read TableConstraint#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#update TableConstraint#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0a1172e13dbe1d65c23507585fb71e109e56430f211c9b12419a04e024e8cf1a)
@@ -1272,25 +1272,25 @@ class TableConstraintTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#create TableConstraint#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#create TableConstraint#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#delete TableConstraint#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#delete TableConstraint#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#read TableConstraint#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#read TableConstraint#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table_constraint#update TableConstraint#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/resources/table_constraint#update TableConstraint#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

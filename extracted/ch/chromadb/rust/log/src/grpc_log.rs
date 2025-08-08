@@ -15,6 +15,7 @@ use chroma_memberlist::memberlist_provider::{
     CustomResourceMemberlistProvider, MemberlistProvider,
 };
 use chroma_system::System;
+use chroma_tracing::GrpcTraceService;
 use chroma_types::chroma_proto::log_service_client::LogServiceClient;
 use chroma_types::chroma_proto::{self, GetAllCollectionInfoToCompactResponse};
 use chroma_types::{
@@ -23,8 +24,9 @@ use chroma_types::{
 use std::fmt::Debug;
 use std::time::Duration;
 use thiserror::Error;
-use tonic::transport::Endpoint;
+use tonic::transport::{Channel, Endpoint};
 use tower::ServiceBuilder;
+use tracing::Level;
 use uuid::Uuid;
 
 use crate::GarbageCollectError;
@@ -61,6 +63,8 @@ impl ChromaError for GrpcPullLogsError {
 pub enum GrpcPushLogsError {
     #[error("Please backoff exponentially and retry")]
     Backoff,
+    #[error("Please backoff exponentially and retry: log needs compaction")]
+    BackoffCompaction,
     #[error("The log is sealed.  No writes can happen.")]
     Sealed,
     #[error("Failed to push logs: {0}")]
@@ -75,6 +79,7 @@ impl ChromaError for GrpcPushLogsError {
     fn code(&self) -> ErrorCodes {
         match self {
             GrpcPushLogsError::Backoff => ErrorCodes::AlreadyExists,
+            GrpcPushLogsError::BackoffCompaction => ErrorCodes::AlreadyExists,
             GrpcPushLogsError::FailedToPushLogs(_) => ErrorCodes::Internal,
             GrpcPushLogsError::ConversionError(_) => ErrorCodes::Internal,
             GrpcPushLogsError::Sealed => ErrorCodes::FailedPrecondition,
@@ -237,29 +242,10 @@ impl Configurable<(GrpcLogConfig, System)> for GrpcLog {
         let (my_config, system) = my_config;
         let host = &my_config.host;
         let port = &my_config.port;
-        let max_encoding_message_size = my_config.max_encoding_message_size;
-        let max_decoding_message_size = my_config.max_decoding_message_size;
         let connection_string = format!("http://{}:{}", host, port);
-        let client_for_conn_str =
-            |connection_string: String| -> Result<LogServiceClient<_>, Box<dyn ChromaError>> {
-                tracing::info!("Connecting to log service at {}", connection_string);
-                let endpoint_res = match Endpoint::from_shared(connection_string) {
-                    Ok(endpoint) => endpoint,
-                    Err(e) => return Err(Box::new(GrpcLogError::FailedToConnect(e))),
-                };
-                let endpoint_res = endpoint_res
-                    .connect_timeout(Duration::from_millis(my_config.connect_timeout_ms))
-                    .timeout(Duration::from_millis(my_config.request_timeout_ms));
-                let channel = endpoint_res.connect_lazy();
-                let channel = ServiceBuilder::new()
-                    .layer(chroma_tracing::GrpcTraceLayer)
-                    .service(channel);
-                let client = LogServiceClient::new(channel)
-                    .max_encoding_message_size(max_encoding_message_size)
-                    .max_decoding_message_size(max_decoding_message_size);
-                Ok(client)
-            };
-        let client = client_for_conn_str(connection_string)?;
+        let client = client_for_conn_str(connection_string, my_config.clone())
+            .await
+            .map_err(|err| Box::new(GrpcLogError::FailedToConnect(err)) as Box<dyn ChromaError>)?;
 
         // Alt client manager setup
         let assignment_policy =
@@ -294,6 +280,25 @@ impl Configurable<(GrpcLogConfig, System)> for GrpcLog {
     }
 }
 
+async fn client_for_conn_str(
+    connection_string: String,
+    my_config: GrpcLogConfig,
+) -> Result<LogServiceClient<GrpcTraceService<Channel>>, tonic::transport::Error> {
+    tracing::info!("Connecting to log service at {}", connection_string);
+    let endpoint_res = Endpoint::from_shared(connection_string)?;
+    let endpoint_res = endpoint_res
+        .connect_timeout(Duration::from_millis(my_config.connect_timeout_ms))
+        .timeout(Duration::from_millis(my_config.request_timeout_ms));
+    let channel = endpoint_res.connect().await?;
+    let channel = ServiceBuilder::new()
+        .layer(chroma_tracing::GrpcTraceLayer)
+        .service(channel);
+    let client = LogServiceClient::new(channel)
+        .max_encoding_message_size(my_config.max_encoding_message_size)
+        .max_decoding_message_size(my_config.max_decoding_message_size);
+    Ok(client)
+}
+
 impl GrpcLog {
     // NOTE(rescrv) This is a transient hack, so the code duplication is not worth eliminating.
     pub async fn primary_client_from_config(
@@ -304,29 +309,10 @@ impl GrpcLog {
     > {
         let host = &my_config.host;
         let port = &my_config.port;
-        let max_encoding_message_size = my_config.max_encoding_message_size;
-        let max_decoding_message_size = my_config.max_decoding_message_size;
         let connection_string = format!("http://{}:{}", host, port);
-        let client_for_conn_str =
-            |connection_string: String| -> Result<LogServiceClient<_>, Box<dyn ChromaError>> {
-                tracing::info!("Connecting to log service at {}", connection_string);
-                let endpoint_res = match Endpoint::from_shared(connection_string) {
-                    Ok(endpoint) => endpoint,
-                    Err(e) => return Err(Box::new(GrpcLogError::FailedToConnect(e))),
-                };
-                let endpoint_res = endpoint_res
-                    .connect_timeout(Duration::from_millis(my_config.connect_timeout_ms))
-                    .timeout(Duration::from_millis(my_config.request_timeout_ms));
-                let channel = endpoint_res.connect_lazy();
-                let channel = ServiceBuilder::new()
-                    .layer(chroma_tracing::GrpcTraceLayer)
-                    .service(channel);
-                let client = LogServiceClient::new(channel)
-                    .max_encoding_message_size(max_encoding_message_size)
-                    .max_decoding_message_size(max_decoding_message_size);
-                Ok(client)
-            };
-        client_for_conn_str(connection_string)
+        client_for_conn_str(connection_string, my_config.clone())
+            .await
+            .map_err(|err| Box::new(GrpcLogError::FailedToConnect(err)) as Box<dyn ChromaError>)
     }
 
     fn client_is_on_alt_log(to_evaluate: CollectionUuid, alt_host_threshold: Option<&str>) -> bool {
@@ -381,12 +367,11 @@ impl GrpcLog {
     }
 
     // ScoutLogs returns the offset of the next record to be inserted into the log.
-    #[tracing::instrument(skip(self))]
     pub(super) async fn scout_logs(
         &mut self,
         tenant: &str,
         collection_id: CollectionUuid,
-        start_from: u64,
+        _start_from: u64,
     ) -> Result<u64, Box<dyn ChromaError>> {
         let mut client = self
             .client_for(tenant, collection_id)
@@ -406,7 +391,6 @@ impl GrpcLog {
         Ok(scout.first_uninserted_record_offset as u64)
     }
 
-    #[tracing::instrument(skip(self))]
     pub(super) async fn read(
         &mut self,
         tenant: &str,
@@ -448,6 +432,8 @@ impl GrpcLog {
             Err(e) => {
                 if e.code() == chroma_error::ErrorCodes::Unavailable.into() {
                     Err(GrpcPullLogsError::Backoff)
+                } else if e.code() == chroma_error::ErrorCodes::NotFound.into() {
+                    Err(GrpcPullLogsError::FailedToPullLogs(e))
                 } else {
                     tracing::error!("Failed to pull logs: {}", e);
                     Err(GrpcPullLogsError::FailedToPullLogs(e))
@@ -480,7 +466,11 @@ impl GrpcLog {
                 if err.code() == ErrorCodes::Unavailable.into()
                     || err.code() == ErrorCodes::AlreadyExists.into()
                 {
+                    tracing::event!(Level::INFO, name = "backoff reason", error =? err);
                     GrpcPushLogsError::Backoff
+                } else if err.code() == ErrorCodes::ResourceExhausted.into() {
+                    tracing::event!(Level::INFO, name = "backoff reason", error =? err);
+                    GrpcPushLogsError::BackoffCompaction
                 } else {
                     err.into()
                 }
@@ -681,6 +671,37 @@ impl GrpcLog {
             Ok(_) => Ok(()),
             Err(e) => Err(GrpcUpdateCollectionLogOffsetError::FailedToUpdateCollectionLogOffset(e)),
         }
+    }
+
+    pub(super) async fn update_collection_log_offset_on_every_node(
+        &mut self,
+        collection_id: CollectionUuid,
+        new_offset: i64,
+    ) -> Result<(), GrpcUpdateCollectionLogOffsetError> {
+        let Some(assigner) = self.alt_client_assigner.as_mut() else {
+            return Ok(());
+        };
+        let mut res = Ok(());
+        for client in assigner.all().into_iter() {
+            let mut client = client.clone();
+            let request = client.update_collection_log_offset(
+                chroma_proto::UpdateCollectionLogOffsetRequest {
+                    // NOTE(rescrv):  Use the untyped string representation of the collection ID.
+                    collection_id: collection_id.0.to_string(),
+                    log_offset: new_offset,
+                },
+            );
+            let response = request.await;
+            match response {
+                Ok(_) => {}
+                Err(e) => {
+                    res = Err(
+                        GrpcUpdateCollectionLogOffsetError::FailedToUpdateCollectionLogOffset(e),
+                    );
+                }
+            }
+        }
+        res
     }
 
     pub(super) async fn purge_dirty_for_collection(

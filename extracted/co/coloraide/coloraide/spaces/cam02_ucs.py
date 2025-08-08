@@ -27,11 +27,16 @@ class CAM02UCS(Lab):
     # Use the same environment as CAM02JMh
     ENV = CAM02JMh.ENV
 
+    def lightness_name(self) -> str:
+        """Get lightness name."""
+
+        return "j"
+
     def is_achromatic(self, coords: Vector) -> bool:
         """Check if color is achromatic."""
 
-        j, m = cam_ucs_to_cam_jmh(coords, self.MODEL)[:-1]
-        return j == 0 or abs(m) < self.achromatic_threshold
+        m = cam_ucs_to_cam_jmh(coords, self.MODEL)[1]
+        return abs(m) < self.achromatic_threshold
 
     def to_base(self, coords: Vector) -> Vector:
         """To base from UCS."""

@@ -43,7 +43,7 @@ class ListQueueResponse200Item:
         scheduled_for (Union[Unset, datetime.datetime]):
         script_path (Union[Unset, str]):
         script_hash (Union[Unset, str]):
-        args (Union[Unset, ListQueueResponse200ItemArgs]):
+        args (Union[Unset, ListQueueResponse200ItemArgs]): The arguments to pass to the script or flow
         logs (Union[Unset, str]):
         raw_code (Union[Unset, str]):
         canceled_by (Union[Unset, str]):

@@ -42,7 +42,7 @@ class GetJobResponse200Type1:
         scheduled_for (Union[Unset, datetime.datetime]):
         script_path (Union[Unset, str]):
         script_hash (Union[Unset, str]):
-        args (Union[Unset, GetJobResponse200Type1Args]):
+        args (Union[Unset, GetJobResponse200Type1Args]): The arguments to pass to the script or flow
         logs (Union[Unset, str]):
         raw_code (Union[Unset, str]):
         canceled_by (Union[Unset, str]):

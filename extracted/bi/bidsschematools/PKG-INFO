@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bidsschematools
-Version: 1.0.12
+Version: 1.0.13
 Summary: Python tools for working with the BIDS schema.
 Author: bids-standard developers
 Maintainer-Email: bids-standard developers <bids.maintenance@gmail.com>

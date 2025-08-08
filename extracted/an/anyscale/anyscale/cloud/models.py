@@ -220,3 +220,333 @@ cloud = Cloud(
         ):
             raise TypeError("is_aggregated_logs_enabled must be a bool")
         return is_aggregated_logs_enabled
+
+
+################################################################################
+# NOTE: The models below are copied from the OpenAPI CloudDeployment model, which
+# is what is used in the CLI. They are only defined here so that they appear in
+# the generated docs, to provide users with examples of the expected
+# CloudDeployment YAML format. There is no SDK support for Cloud Deployments,
+# nor is there SDK support for creating/updating/deleting Clouds.
+################################################################################
+
+
+class NetworkingMode(ModelEnum):
+    PUBLIC = "PUBLIC"
+    PRIVATE = "PRIVATE"
+
+    __docstrings__ = {
+        PUBLIC: "Direct networking.",
+        PRIVATE: "Customer-defined networking.",
+    }  # type: ignore
+
+
+@dataclass(frozen=True)
+class NFSMountTarget(ModelBase):
+    """NFS mount target configuration."""
+
+    __skip_py_example__ = True
+
+    __doc_yaml_example__ = """\
+nfs_mount_target:
+  address: 123.456.789.012
+"""
+
+    address: str = field(metadata={"docstring": "The address of the NFS mount target."})
+    zone: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The zone of the NFS mount target. If not set, this mount target may be used in any zone."
+        },
+    )
+
+
+@dataclass(frozen=True)
+class ObjectStorage(ModelBase):
+    """Object storage configuration."""
+
+    __skip_py_example__ = True
+
+    __doc_yaml_example__ = """\
+object_storage:
+  bucket_name: s3://my-bucket
+"""
+
+    bucket_name: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The cloud storage bucket name, prefixed with the storage scheme (s3://bucket-name, gs://bucket-name, or azure://bucket-name)."
+        },
+    )
+    region: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The region for the cloud storage bucket. Defaults to the region of the deployment."
+        },
+    )
+    endpoint: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The cloud storage endpoint, used to override the default cloud storage scheme's endpoint. For example, for S3, this will be passed to the AWS_ENDPOINT_URL environment variable."
+        },
+    )
+
+
+@dataclass(frozen=True)
+class FileStorage(ModelBase):
+    """File storage configuration."""
+
+    __skip_py_example__ = True
+
+    __doc_yaml_example__ = """\
+file_storage:
+  file_storage_id: fs-12345678901234567
+"""
+
+    file_storage_id: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "For AWS, the EFS ID. For GCP, the Filestore instance name."
+        },
+    )
+    mount_targets: Optional[List[NFSMountTarget]] = field(
+        default=None, metadata={"docstring": "The mount target(s) to use."}
+    )
+    mount_path: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "For GCP, the Filestore root directory. For NFS, the path of the server to mount from (e.g., <mount-target-address>/<mount-path> will be mounted)."
+        },
+    )
+    persistent_volume_claim: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "For Kubernetes deployments, the name of the persistent volume claim used to mount shared storage into pods."
+        },
+    )
+    csi_ephemeral_volume_driver: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "For Kubernetes deployments, the CSI ephemeral volume driver used to mount shared storage into pods."
+        },
+    )
+
+
+@dataclass(frozen=True)
+class AWSConfig(ModelBase):
+    """AWS provider-specific configurations."""
+
+    __skip_py_example__ = True
+
+    __doc_yaml_example__ = """\
+aws_config:
+  vpc_id: vpc-12345678901234567
+  subnet_ids:
+    - subnet-11111111111111111
+    - subnet-22222222222222222
+  security_group_ids:
+    - sg-12345678901234567
+  anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-iam-role
+  cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-node-role
+  memorydb_cluster_name: my-memorydb-cluster
+"""
+
+    vpc_id: Optional[str] = field(
+        default=None, metadata={"docstring": "The VPC ID."},
+    )
+    subnet_ids: Optional[List[str]] = field(
+        default=None, metadata={"docstring": "List of subnet IDs."},
+    )
+    zones: Optional[List[str]] = field(
+        default=None,
+        metadata={
+            "docstring": "The availability zone corresponding to each subnet ID."
+        },
+    )
+    security_group_ids: Optional[List[str]] = field(
+        default=None, metadata={"docstring": "List of security group IDs."},
+    )
+    anyscale_iam_role_id: Optional[str] = field(
+        default=None, metadata={"docstring": "The Anyscale IAM role ARN."},
+    )
+    external_id: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The trust policy external ID for the cross-account IAM role"
+        },
+    )
+    cluster_iam_role_id: Optional[str] = field(
+        default=None, metadata={"docstring": "The IAM role ARN used by Ray clusters."},
+    )
+    memorydb_cluster_name: Optional[str] = field(
+        default=None, metadata={"docstring": "The MemoryDB cluster name."},
+    )
+    memorydb_cluster_arn: Optional[str] = field(
+        default=None, metadata={"docstring": "The MemoryDB cluster ARN."},
+    )
+    memorydb_cluster_endpoint: Optional[str] = field(
+        default=None, metadata={"docstring": "The MemoryDB cluster endpoint."},
+    )
+    cloudformation_id: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The CloudFormation stack ID, for deployments with Anyscale-managed resources."
+        },
+    )
+
+
+@dataclass(frozen=True)
+class GCPConfig(ModelBase):
+    """GCP provider-specific configurations."""
+
+    __skip_py_example__ = True
+
+    __doc_yaml_example__ = """\
+gcp_config:
+  project_id: my-project
+  provider_name: projects/123456789012/locations/global/workloadIdentityPools/my-cloud/providers/my-provider
+  vpc_name: my-vpc
+  subnet_names:
+    - my-subnet
+  firewall_policy_names:
+    - my-firewall-policy
+  anyscale_service_account_email: my-anyscale-service-account@my-project.iam.gserviceaccount.com
+  cluster_service_account_email: my-cluster-service-account@my-project.iam.gserviceaccount.com
+  memorystore_instance_name: my-memorystore-instance
+"""
+
+    project_id: Optional[str] = field(
+        default=None, metadata={"docstring": "The GCP project ID."},
+    )
+    host_project_id: Optional[str] = field(
+        default=None, metadata={"docstring": "The host project ID for shared VPCs."},
+    )
+    provider_name: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Workload Identity Federation provider name for Anyscale access."
+        },
+    )
+    vpc_name: Optional[str] = field(
+        default=None, metadata={"docstring": "VPC name."},
+    )
+    subnet_names: Optional[List[str]] = field(
+        default=None, metadata={"docstring": "List of GCP subnet names."},
+    )
+    firewall_policy_names: Optional[List[str]] = field(
+        default=None, metadata={"docstring": "List of GCP firewall policy names."},
+    )
+    anyscale_service_account_email: Optional[str] = field(
+        default=None, metadata={"docstring": "The Anyscale service account email."},
+    )
+    cluster_service_account_email: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "The service account email attached to Ray clusters."},
+    )
+    memorystore_instance_name: Optional[str] = field(
+        default=None, metadata={"docstring": "The Memorystore instance name."},
+    )
+    memorystore_endpoint: Optional[str] = field(
+        default=None, metadata={"docstring": "The Memorystore instance endpoint."},
+    )
+    deployment_manager_id: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The deployment manager deployment ID, for deployments with Anyscale-managed resources."
+        },
+    )
+
+
+@dataclass(frozen=True)
+class KubernetesConfig(ModelBase):
+    """Kubernetes stack configurations."""
+
+    __skip_py_example__ = True
+
+    __doc_yaml_example__ = """\
+kubernetes_config:
+  anyscale_operator_iam_id: arn:aws:iam::123456789012:role/anyscale-operator-role
+  zones:
+    - us-west-2a
+    - us-west-2b
+    - us-west-2c
+"""
+
+    anyscale_operator_iam_id: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "The cloud provider IAM identity federated with the Anyscale Operator's Kubernetes service account, which will be used by Anyscale control plane for validation during Anyscale Operator bootstrap in the dataplane. IN AWS EKS, this is the ARN of the IAM role. For GCP GKE, this is the service account email."
+        },
+    )
+    zones: Optional[List[str]] = field(
+        default=None, metadata={"docstring": "List of zones to launch pods in."},
+    )
+
+
+@dataclass(frozen=True)
+class CloudDeployment(ModelBase):
+    """Cloud deployment configuration."""
+
+    __skip_py_example__ = True
+
+    __doc_yaml_example__ = """\
+cloud_deployment:
+  cloud_deployment_id: cldrsrc_12345678901234567890123456
+  name: my-cloud-deployment
+  provider: AWS
+  compute_stack: VM
+  region: us-west-2
+  networking_mode: PUBLIC
+  object_storage:
+    bucket_name: s3://my-bucket
+  file_storage:
+    file_storage_id: fs-12345678901234567
+  aws_config:
+    vpc_id: vpc-12345678901234567
+    subnet_ids:
+      - subnet-11111111111111111
+      - subnet-22222222222222222
+    security_group_ids:
+      - sg-12345678901234567
+    anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-iam-role
+    cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-node-role
+    memorydb_cluster_name: my-memorydb-cluster
+"""
+
+    cloud_deployment_id: Optional[str] = field(
+        default=None, metadata={"docstring": "Unique identifier for this deployment."},
+    )
+    name: Optional[str] = field(
+        default=None, metadata={"docstring": "The name of this deployment."},
+    )
+    provider: Union[CloudProvider, str] = field(
+        default=CloudProvider.UNKNOWN,
+        metadata={"docstring": "The cloud provider type (e.g., AWS, GCP, or AZURE)."},
+    )
+    compute_stack: Union[ComputeStack, str] = field(
+        default=ComputeStack.VM,
+        metadata={"docstring": "The compute stack (VM or K8S)."},
+    )
+    region: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "The region for the deployment (e.g., us-west-2)."},
+    )
+    networking_mode: Optional[NetworkingMode] = field(
+        default=None,
+        metadata={"docstring": "Whether to use public or private networking."},
+    )
+    object_storage: Optional[ObjectStorage] = field(
+        default=None, metadata={"docstring": "Object storage configuration."},
+    )
+    file_storage: Optional[FileStorage] = field(
+        default=None, metadata={"docstring": "File storage configuration."},
+    )
+    aws_config: Optional[AWSConfig] = field(
+        default=None, metadata={"docstring": "AWS provider-specific configurations."},
+    )
+    gcp_config: Optional[GCPConfig] = field(
+        default=None, metadata={"docstring": "GCP provider-specific configurations."},
+    )
+    kubernetes_config: Optional[KubernetesConfig] = field(
+        default=None, metadata={"docstring": "Kubernetes stack configurations."},
+    )

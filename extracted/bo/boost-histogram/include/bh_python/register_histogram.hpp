@@ -48,9 +48,9 @@ auto register_histogram(py::module& m, const char* name, const char* desc) {
 
         .def("__copy__", [](const histogram_t& self) { return histogram_t(self); })
         .def("__deepcopy__",
-             [](const histogram_t& self, py::object memo) {
-                 auto* a         = new histogram_t(self);
-                 py::module copy = py::module::import("copy");
+             [](const histogram_t& self, const py::object& memo) {
+                 auto* a               = new histogram_t(self);
+                 py::module const copy = py::module::import("copy");
                  for(unsigned i = 0; i < a->rank(); i++) {
                      bh::unsafe_access::axis(*a, i).metadata()
                          = copy.attr("deepcopy")(a->axis(i).metadata(), memo);
@@ -79,7 +79,7 @@ auto register_histogram(py::module& m, const char* name, const char* desc) {
 
         .def_property_readonly_static(
             "_storage_type",
-            [](py::object) {
+            [](const py::object&) {
                 return py::type::of<typename histogram_t::storage_type>();
             })
 
@@ -113,7 +113,7 @@ auto register_histogram(py::module& m, const char* name, const char* desc) {
                 unchecked_set(tup, 0, py::array(make_buffer(h, flow)));
 
                 // Add the axis edges
-                h.for_each_axis([&tup, flow, i = 0u](const auto& ax) mutable {
+                h.for_each_axis([&tup, flow, i = 0U](const auto& ax) mutable {
                     unchecked_set(tup, ++i, axis::edges(ax, flow, true));
                 });
 
@@ -123,7 +123,7 @@ auto register_histogram(py::module& m, const char* name, const char* desc) {
 
         .def(
             "view",
-            [](py::object self, bool flow) {
+            [](const py::object& self, bool flow) {
                 auto& h = py::cast<histogram_t&>(self);
                 return py::array(make_buffer(h, flow), self);
             },
@@ -132,8 +132,9 @@ auto register_histogram(py::module& m, const char* name, const char* desc) {
         .def(
             "axis",
             [](const histogram_t& self, int i) -> py::object {
-                unsigned ii = i < 0 ? self.rank() - static_cast<unsigned>(std::abs(i))
-                                    : static_cast<unsigned>(i);
+                unsigned const ii
+                    = i < 0 ? self.rank() - static_cast<unsigned>(std::abs(i))
+                            : static_cast<unsigned>(i);
 
                 if(ii < self.rank()) {
                     const axis_variant& var = self.axis(ii);
@@ -146,12 +147,9 @@ auto register_histogram(py::module& m, const char* name, const char* desc) {
                             return py::cast(item, py::return_value_policy::reference);
                         },
                         var);
-
                 }
 
-                else
-                    throw std::out_of_range(
-                        "The axis value must be less than the rank");
+                throw std::out_of_range("The axis value must be less than the rank");
             },
             "i"_a = 0,
             py::keep_alive<0, 1>())
@@ -173,7 +171,7 @@ auto register_histogram(py::module& m, const char* name, const char* desc) {
         .def(
             "sum",
             [](const histogram_t& self, bool flow) {
-                py::gil_scoped_release release;
+                py::gil_scoped_release const release;
                 return bh::algorithm::sum(
                     self, flow ? bh::coverage::all : bh::coverage::inner);
             },
@@ -182,24 +180,24 @@ auto register_histogram(py::module& m, const char* name, const char* desc) {
         .def(
             "empty",
             [](const histogram_t& self, bool flow) {
-                py::gil_scoped_release release;
+                py::gil_scoped_release const release;
                 return bh::algorithm::empty(
                     self, flow ? bh::coverage::all : bh::coverage::inner);
             },
             "flow"_a = false)
 
         .def("reduce",
-             [](const histogram_t& self, py::args args) {
+             [](const histogram_t& self, const py::args& args) {
                  auto commands
                      = py::cast<std::vector<bh::algorithm::reduce_command>>(args);
-                 py::gil_scoped_release release;
+                 py::gil_scoped_release const release;
                  return bh::algorithm::reduce(self, commands);
              })
 
         .def("project",
-             [](const histogram_t& self, py::args values) {
+             [](const histogram_t& self, const py::args& values) {
                  auto cpp_values = py::cast<std::vector<unsigned>>(values);
-                 py::gil_scoped_release release;
+                 py::gil_scoped_release const release;
                  return bh::algorithm::project(self, cpp_values);
              })
 

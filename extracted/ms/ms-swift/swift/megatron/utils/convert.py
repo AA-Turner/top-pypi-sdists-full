@@ -59,17 +59,13 @@ def _model_cpu_forward_context(modules, torch_dtype=None, device=None, share_emb
     origin_torch_dtype = next(modules[0].parameters()).dtype
 
     def _to_cuda_hook(module, args):
-        if device is not None:
-            module.to(device)
-        if torch_dtype is not None:
-            module.to(torch_dtype)
+        if device is not None or torch_dtype is not None:
+            module.to(device=device, dtype=torch_dtype)
 
     def _to_cpu_hook(module, args, output):
         if share_embedding and module is modules[0]:
             return
-        module.to('cpu')
-        if torch_dtype is not None:
-            module.to(origin_torch_dtype)
+        module.to(device='cpu', dtype=origin_torch_dtype)
 
     hooks = []
     for module in modules:
@@ -86,21 +82,37 @@ def test_convert_precision(hf_model, mg_model, template, torch_dtype=torch.float
     _test_params_sum(hf_model)
     _test_params_sum(mg_model)
 
-    input_ids = template.encode({'messages': [{'role': 'user', 'content': 'who are you?'}]})['input_ids']
-    input_ids = torch.tensor(input_ids)[None].to('cuda')
+    template.set_mode('train')
+    inputs = template.encode({
+        'messages': [
+            {
+                'role': 'user',
+                'content': 'Introduction to ms-swift.'
+            },
+            {
+                'role':
+                'assistant',
+                'content':
+                'ms-swift is an official framework provided by the ModelScope community for fine-tuning '
+                'and deploying large language models and multi-modal large models.'
+            },
+        ]
+    })
+    inputs = to_device(template.data_collator([inputs]), 'cuda')
 
     HfConfigFactory.set_model_config_attr(hf_model, 'use_cache', False)
     share_embedding = mg_model.share_embeddings_and_output_weights
     hf_modules = _find_modules(hf_model)
     with torch.inference_mode(), _model_cpu_forward_context(hf_modules, torch_dtype, share_embedding=share_embedding):
-        hf_logits = hf_model(input_ids).logits
+        hf_logits = hf_model(**inputs).logits
     hf_model = hf_model.to('cpu')
 
+    input_ids = inputs['input_ids']
     attention_mask, _, position_ids = get_ltor_masks_and_position_ids(input_ids, -100, True, True, True)
     packed_seq_params = None
     mg_torch_dtype = torch_dtype
     # thd
-    # from ..train.utils import get_packed_seq_params
+    # from ..trainers.utils import get_packed_seq_params
     # mg_torch_dtype = None
     # packed_seq_params = get_packed_seq_params(position_ids)
     # attention_mask = None
@@ -114,8 +126,10 @@ def test_convert_precision(hf_model, mg_model, template, torch_dtype=torch.float
             position_ids=position_ids,
             packed_seq_params=packed_seq_params)
 
-    mean_diff = (mg_logits - hf_logits).abs().mean().item()
+    token_mean_diff = (mg_logits - hf_logits).abs().mean(dim=-1)
+    mean_diff = token_mean_diff.mean().item()
     max_diff = (mg_logits - hf_logits).abs().max().item()
+    print(f'token_mean_diff: {token_mean_diff}')
     print(f'mean_diff: {mean_diff}, max_diff: {max_diff} (Please check that mean_diff is less than 0.1).')
     hf_tokens = hf_logits.argmax(-1)
     mg_tokens = mg_logits.argmax(-1)
@@ -129,10 +143,7 @@ convert_kwargs = {
     'no_save_rng': True,
     'no_load_optim': True,
     'no_load_rng': True,
-    'no_masked_softmax_fusion': True,
-    'no_bias_dropout_fusion': True,
-    'no_bias_swiglu_fusion': True,
-    'no_rope_fusion': True
+    'attention_backend': 'unfused',
 }
 
 
@@ -156,7 +167,11 @@ def convert_hf2mcore(args: ExportArguments) -> None:
     kwargs = megatron_model_meta.convert_hf_config(processor.model_info.config)
     logger.info(f'megatron_config: {kwargs}')
     _check_megatron_kwargs(kwargs)
-    megatron_args = MegatronArguments(**kwargs, **convert_kwargs, save=args.output_dir, torch_dtype=args.torch_dtype)
+    current_convert_kwargs = convert_kwargs.copy()
+    if hf_model.model_info.is_moe_model:
+        current_convert_kwargs['moe_grouped_gemm'] = True
+    megatron_args = MegatronArguments(
+        **kwargs, **current_convert_kwargs, save=args.output_dir, torch_dtype=args.torch_dtype)
     patch_megatron_tokenizer(processor)
     extra_args = megatron_args.parse_to_megatron()
     extra_args_provider = megatron_model_meta.extra_args_provider
@@ -168,12 +183,13 @@ def convert_hf2mcore(args: ExportArguments) -> None:
     if args.test_convert_precision:
         test_convert_precision(hf_model, mg_model, template)
     logger.info('Successfully transferred HF model weights to MG model.')
-    mg_save_checkpoint(1, [mg_model], None, None, 0)
     args.save_args()
+    mg_save_checkpoint(1, [mg_model], None, None, 0)
     logger.info(f'Successfully saved Megatron model weights in `{args.output_dir}`.')
 
 
 def convert_mcore2hf(args: ExportArguments) -> None:
+    from swift.megatron import prepare_mcore_model, adapter_state_dict_context
     hf_model, template = prepare_model_template(args)
     processor = template.processor
     if args.thread_count is None:
@@ -186,7 +202,15 @@ def convert_mcore2hf(args: ExportArguments) -> None:
     kwargs = megatron_model_meta.convert_hf_config(processor.model_info.config)
     logger.info(f'megatron_config: {kwargs}')
     _check_megatron_kwargs(kwargs)
-    megatron_args = MegatronArguments(**kwargs, **convert_kwargs, load=args.mcore_model, torch_dtype=args.torch_dtype)
+    current_convert_kwargs = convert_kwargs.copy()
+    if hf_model.model_info.is_moe_model:
+        current_convert_kwargs['moe_grouped_gemm'] = True
+    megatron_args = MegatronArguments(
+        **kwargs,
+        **current_convert_kwargs,
+        load=args.mcore_model,
+        adapter_load=args.mcore_adapters[0] if args.mcore_adapters else None,
+        torch_dtype=args.torch_dtype)
     patch_megatron_tokenizer(processor)
     extra_args = megatron_args.parse_to_megatron()
     extra_args_provider = megatron_model_meta.extra_args_provider
@@ -194,18 +218,24 @@ def convert_mcore2hf(args: ExportArguments) -> None:
 
     mg_model = megatron_model_meta.model_provider()
     load_checkpoint([mg_model], None, None, strict=True)
+    if megatron_args.adapter_load is not None:
+        peft_model = prepare_mcore_model(mg_model)
+        with adapter_state_dict_context():
+            load_checkpoint([mg_model], None, None, load_arg='adapter_load', strict=False)
+        logger.info('Merge LoRA...')
+        mg_model = peft_model.merge_and_unload()
     logger.info('Megatron model created successfully.')
     megatron_model_meta.convert_mcore2hf(hf_model, mg_model)
     if args.test_convert_precision:
         test_convert_precision(hf_model, mg_model, template)
     logger.info('Successfully transferred MG model weights to HF model.')
+    ckpt_dir = megatron_args.load if megatron_args.adapter_load is None else megatron_args.adapter_load
     save_checkpoint(
         hf_model,
         processor,
         args.output_dir,
         safe_serialization=args.safe_serialization,
-        model_dirs=[args.mcore_model, args.model_dir],
+        model_dirs=[ckpt_dir, args.model_dir],
         max_shard_size=args.max_shard_size,
         additional_saved_files=hf_model.model_meta.additional_saved_files)
-    args.save_args()
     logger.info(f'Successfully saved HF model weights in `{args.output_dir}`.')

@@ -310,12 +310,12 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
     @property
-    def ended(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Optimizer.OptimizationResult], None], None]:
+    def ended(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Optimizer.OptimizationResult], typing.Any], typing.Any]:
         """Event triggered when the optimization work ended"""
         ...
 
     @ended.setter
-    def ended(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Optimizer.OptimizationResult], None], None]) -> None:
+    def ended(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Optimizer.OptimizationResult], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, node_packet: QuantConnect.Optimizer.OptimizationNodePacket) -> None:

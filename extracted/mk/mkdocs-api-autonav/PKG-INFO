@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-api-autonav
-Version: 0.3.0
+Version: 0.3.1
 Summary: Autogenerate API docs with mkdocstrings, including nav
 Project-URL: homepage, https://github.com/tlambert03/mkdocs-api-autonav
 Project-URL: repository, https://github.com/tlambert03/mkdocs-api-autonav

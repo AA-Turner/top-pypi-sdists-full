@@ -263,6 +263,9 @@ pub(crate) enum ProjectError {
     Io(#[from] std::io::Error),
 
     #[error(transparent)]
+    RetryParsing(#[from] uv_client::RetryParsingError),
+
+    #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
 }
 
@@ -1697,6 +1700,7 @@ pub(crate) async fn resolve_names(
                 no_build_isolation,
                 no_build_isolation_package,
                 extra_build_dependencies,
+                extra_build_variables,
                 prerelease: _,
                 resolution: _,
                 sources,
@@ -1708,7 +1712,7 @@ pub(crate) async fn resolve_names(
 
     let client_builder = BaseClientBuilder::new()
         .retries_from_env()
-        .map_err(uv_requirements::Error::ClientError)?
+        .map_err(|err| uv_requirements::Error::ClientError(err.into()))?
         .connectivity(network_settings.connectivity)
         .native_tls(network_settings.native_tls)
         .keyring(*keyring_provider)
@@ -1764,6 +1768,7 @@ pub(crate) async fn resolve_names(
         config_settings_package,
         build_isolation,
         &extra_build_requires,
+        extra_build_variables,
         *link_mode,
         build_options,
         &build_hasher,
@@ -1857,6 +1862,7 @@ pub(crate) async fn resolve_environment(
         no_build_isolation,
         no_build_isolation_package,
         extra_build_dependencies,
+        extra_build_variables,
         exclude_newer,
         link_mode,
         upgrade: _,
@@ -1979,6 +1985,7 @@ pub(crate) async fn resolve_environment(
         config_settings_package,
         build_isolation,
         &extra_build_requires,
+        extra_build_variables,
         *link_mode,
         build_options,
         &build_hasher,
@@ -2047,6 +2054,7 @@ pub(crate) async fn sync_environment(
         no_build_isolation,
         no_build_isolation_package,
         extra_build_dependencies,
+        extra_build_variables,
         exclude_newer,
         link_mode,
         compile_bytecode,
@@ -2124,6 +2132,7 @@ pub(crate) async fn sync_environment(
         config_settings_package,
         build_isolation,
         &extra_build_requires,
+        extra_build_variables,
         link_mode,
         build_options,
         &build_hasher,
@@ -2218,6 +2227,7 @@ pub(crate) async fn update_environment(
                 no_build_isolation,
                 no_build_isolation_package,
                 extra_build_dependencies: _,
+                extra_build_variables,
                 prerelease,
                 resolution,
                 sources,
@@ -2348,6 +2358,7 @@ pub(crate) async fn update_environment(
         config_settings_package,
         build_isolation,
         &extra_build_requires,
+        extra_build_variables,
         *link_mode,
         build_options,
         &build_hasher,

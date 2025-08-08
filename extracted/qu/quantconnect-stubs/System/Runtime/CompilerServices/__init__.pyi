@@ -242,7 +242,7 @@ class RequiresLocationAttribute(System.Attribute):
 class INotifyCompletion(metaclass=abc.ABCMeta):
     """Represents an operation that will schedule continuations when the operation completes."""
 
-    def on_completed(self, continuation: typing.Callable[[], None]) -> None:
+    def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
         """
         Schedules the continuation action to be invoked when the instance completes.
         
@@ -254,7 +254,7 @@ class INotifyCompletion(metaclass=abc.ABCMeta):
 class ICriticalNotifyCompletion(System.Runtime.CompilerServices.INotifyCompletion, metaclass=abc.ABCMeta):
     """Represents an awaiter used to schedule continuations when an await operation completes."""
 
-    def unsafe_on_completed(self, continuation: typing.Callable[[], None]) -> None:
+    def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
         """
         Schedules the continuation action to be invoked when the instance completes.
         
@@ -278,7 +278,7 @@ class YieldAwaitable:
             """Ends the await operation."""
             ...
 
-        def on_completed(self, continuation: typing.Callable[[], None]) -> None:
+        def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
             """
             Posts the  back to the current context.
             
@@ -286,7 +286,7 @@ class YieldAwaitable:
             """
             ...
 
-        def unsafe_on_completed(self, continuation: typing.Callable[[], None]) -> None:
+        def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
             """
             Posts the  back to the current context.
             
@@ -409,11 +409,11 @@ class ValueTaskAwaiter(typing.Generic[System_Runtime_CompilerServices_ValueTaskA
         """Gets the result of the ValueTask."""
         ...
 
-    def on_completed(self, continuation: typing.Callable[[], None]) -> None:
+    def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
         """Schedules the continuation action for this ValueTask."""
         ...
 
-    def unsafe_on_completed(self, continuation: typing.Callable[[], None]) -> None:
+    def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
         """Schedules the continuation action for this ValueTask."""
         ...
 
@@ -735,7 +735,7 @@ class RuntimeHelpers(System.Object):
         ...
 
     @staticmethod
-    def execute_code_with_guaranteed_cleanup(code: typing.Callable[[System.Object], None], backout_code: typing.Callable[[System.Object, bool], None], user_data: typing.Any) -> None:
+    def execute_code_with_guaranteed_cleanup(code: typing.Callable[[System.Object], typing.Any], backout_code: typing.Callable[[System.Object, bool], typing.Any], user_data: typing.Any) -> None:
         """Obsoletions.ConstrainedExecutionRegionMessage"""
         warnings.warn("Obsoletions.ConstrainedExecutionRegionMessage", DeprecationWarning)
 
@@ -1714,7 +1714,7 @@ class TaskAwaiter(typing.Generic[System_Runtime_CompilerServices_TaskAwaiter_TRe
         """Ends the await on the completed Task."""
         ...
 
-    def on_completed(self, continuation: typing.Callable[[], None]) -> None:
+    def on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
         """
         Schedules the continuation onto the Task associated with this TaskAwaiter.
         
@@ -1722,7 +1722,7 @@ class TaskAwaiter(typing.Generic[System_Runtime_CompilerServices_TaskAwaiter_TRe
         """
         ...
 
-    def unsafe_on_completed(self, continuation: typing.Callable[[], None]) -> None:
+    def unsafe_on_completed(self, continuation: typing.Callable[[], typing.Any]) -> None:
         """
         Schedules the continuation onto the Task associated with this TaskAwaiter.
         

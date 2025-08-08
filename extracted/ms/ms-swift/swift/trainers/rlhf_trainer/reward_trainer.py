@@ -23,7 +23,6 @@ class RewardTrainer(RLHFTrainerMixin, SwiftMixin, HFRewardTrainer):
                      inputs: Dict[str, Union[torch.Tensor, Any]],
                      return_outputs=False,
                      num_items_in_batch=None) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
-        inputs.pop('labels', None)  # not use
         margin = inputs.pop('margin', None)
         attention_mask = inputs['attention_mask']
         batch_size = attention_mask.shape[0] // 2
@@ -77,3 +76,10 @@ class RewardTrainer(RLHFTrainerMixin, SwiftMixin, HFRewardTrainer):
 
                 if wandb.run is not None:
                     wandb.log({'completions': wandb.Table(dataframe=df)})
+
+            if 'swanlab' in self.args.report_to:
+                import swanlab
+                if swanlab.get_run() is not None:
+                    swanlab_table = swanlab.echarts.Table()
+                    swanlab_table.add(headers=df.columns.tolist(), rows=df.values.tolist())
+                    swanlab.log({'completions': swanlab_table})

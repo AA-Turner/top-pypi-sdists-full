@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpds-py
-Version: 0.26.0
+Version: 0.27.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
@@ -18,7 +18,7 @@ License-File: LICENSE
 Summary: Python bindings to Rust's persistent data structures (rpds)
 Keywords: data structures,rust,persistent
 Author-email: Julian Berman <Julian+rpds@GrayVines.com>
-License: MIT
+License-Expression: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
 Project-URL: Documentation, https://rpds.readthedocs.io/

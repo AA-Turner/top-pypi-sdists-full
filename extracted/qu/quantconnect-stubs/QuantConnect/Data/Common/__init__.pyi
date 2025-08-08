@@ -86,12 +86,12 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         ...
 
     @property
-    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], None], None]:
+    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
         """Event handler that fires when a new piece of data is produced"""
         ...
 
     @data_consolidated.setter
-    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], None], None]) -> None:
+    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, daily_strict_end_time_enabled: bool, resolution: QuantConnect.Resolution, data_type: typing.Type, tick_type: QuantConnect.TickType, extended_market_hours: bool) -> None:

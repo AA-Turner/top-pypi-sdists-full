@@ -15,7 +15,7 @@ use chroma_cache::AysncPartitionedMutex;
 use chroma_error::ChromaError;
 use chroma_error::ErrorCodes;
 use chroma_storage::admissioncontrolleds3::StorageRequestPriority;
-use futures::future::join_all;
+use futures::future::{join_all, try_join_all};
 use futures::{Stream, StreamExt, TryStreamExt};
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashSet;
@@ -23,6 +23,7 @@ use std::mem::transmute;
 use std::ops::RangeBounds;
 use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
+use tracing::{Instrument, Span};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -625,24 +626,24 @@ impl<'me, K: ArrowReadableKey<'me> + Into<KeyWrapper>, V: ArrowReadableValue<'me
             .sparse_index
             .get_block_ids_range(prefix_range.clone());
 
-        let mut result: Vec<(&str, K, V)> = vec![];
-        for block_id in block_ids {
-            let block_opt = match self.get_block(block_id, StorageRequestPriority::P0).await {
-                Ok(Some(block)) => Some(block),
-                Ok(None) => {
-                    return Err(Box::new(ArrowBlockfileError::BlockNotFound));
+        let block_futures = block_ids.into_iter().map(|block_id| {
+            async move {
+                match self.get_block(block_id, StorageRequestPriority::P0).await {
+                    Ok(Some(block)) => Ok(block),
+                    Ok(None) => {
+                        Err(Box::new(ArrowBlockfileError::BlockNotFound) as Box<dyn ChromaError>)
+                    }
+                    Err(e) => Err(Box::new(e) as Box<dyn ChromaError>),
                 }
-                Err(e) => {
-                    return Err(Box::new(e));
-                }
-            };
+            }
+            .instrument(
+                tracing::trace_span!(parent: Span::current(), "Fetching block", block_id = %block_id),
+            )
+        });
 
-            let block = match block_opt {
-                Some(b) => b,
-                None => {
-                    return Err(Box::new(ArrowBlockfileError::BlockNotFound));
-                }
-            };
+        let blocks = try_join_all(block_futures).await?;
+        let mut result: Vec<(&str, K, V)> = vec![];
+        for block in blocks {
             result.extend(block.get_range(prefix_range.clone(), key_range.clone()));
         }
 

@@ -180,6 +180,7 @@ class AlitaClient:
             temperature=model_config.get("temperature"),
             max_retries=model_config.get("max_retries", 3),
             seed=model_config.get("seed", None),
+            openai_organization=str(self.project_id),
         )
          
     
@@ -249,9 +250,9 @@ class AlitaClient:
         elif app_type == "llama":
             app_type = "react"
         elif app_type == "dial":
-            app_type = "openai"
+            app_type = "react"
         elif app_type == 'autogen':
-            app_type = "openai"
+            app_type = "react"
         if runtime == 'nonrunnable':
             return LangChainAssistant(self, data, llm, chat_history, app_type,
                                       tools=tools, memory=memory, store=store)

@@ -108,12 +108,12 @@ class SubscriptionDataConfig(System.Object, System.IEquatable[QuantConnect_Data_
             ...
 
     @property
-    def new_symbol(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.SubscriptionDataConfig.NewSymbolEventArgs], None], None]:
+    def new_symbol(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.SubscriptionDataConfig.NewSymbolEventArgs], typing.Any], typing.Any]:
         """Event fired when there is a new symbol due to mapping"""
         ...
 
     @new_symbol.setter
-    def new_symbol(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.SubscriptionDataConfig.NewSymbolEventArgs], None], None]) -> None:
+    def new_symbol(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.SubscriptionDataConfig.NewSymbolEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -1230,7 +1230,7 @@ class SliceExtensions(System.Object):
         ...
 
     @staticmethod
-    def push_through(slices: typing.List[QuantConnect.Data.Slice], handler: typing.Callable[[QuantConnect.Data.BaseData], None], data_type: typing.Type = None) -> None:
+    def push_through(slices: typing.List[QuantConnect.Data.Slice], handler: typing.Callable[[QuantConnect.Data.BaseData], typing.Any], data_type: typing.Type = None) -> None:
         """
         Loops through the specified slices and pushes the data into the consolidators. This can be used to
         easily warm up indicators from a history call that returns slice objects.
@@ -2509,7 +2509,7 @@ class HistoryProviderInitializeParameters(System.Object):
         ...
 
     @property
-    def status_update_action(self) -> typing.Callable[[int], None]:
+    def status_update_action(self) -> typing.Callable[[int], typing.Any]:
         """A function used to send status updates"""
         ...
 
@@ -2533,7 +2533,7 @@ class HistoryProviderInitializeParameters(System.Object):
         """The algorithm settings instance to use"""
         ...
 
-    def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, api: QuantConnect.Interfaces.IApi, data_provider: QuantConnect.Interfaces.IDataProvider, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, status_update_action: typing.Callable[[int], None], parallel_history_requests_enabled: bool, data_permission_manager: QuantConnect.Interfaces.IDataPermissionManager, object_store: QuantConnect.Interfaces.IObjectStore, algorithm_settings: QuantConnect.Interfaces.IAlgorithmSettings) -> None:
+    def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, api: QuantConnect.Interfaces.IApi, data_provider: QuantConnect.Interfaces.IDataProvider, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, status_update_action: typing.Callable[[int], typing.Any], parallel_history_requests_enabled: bool, data_permission_manager: QuantConnect.Interfaces.IDataPermissionManager, object_store: QuantConnect.Interfaces.IObjectStore, algorithm_settings: QuantConnect.Interfaces.IAlgorithmSettings) -> None:
         """
         Initializes a new instance of the HistoryProviderInitializeParameters class from the specified parameters
         
@@ -2609,7 +2609,7 @@ class GetSetPropertyDynamicMetaObject(DynamicMetaObject):
 class IDataAggregator(System.IDisposable, metaclass=abc.ABCMeta):
     """Aggregates ticks and bars based on given subscriptions."""
 
-    def add(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def add(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Add new subscription to current IDataAggregator instance
         
@@ -2710,48 +2710,48 @@ class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvide
     """Provides a base type for all history providers"""
 
     @property
-    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], None], None]:
+    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]:
         """Event fired when an invalid configuration has been detected"""
         ...
 
     @invalid_configuration_detected.setter
-    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], None], None]) -> None:
+    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], None], None]:
+    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]:
         """Event fired when the numerical precision in the factor file has been limited"""
         ...
 
     @numerical_precision_limited.setter
-    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], None], None]) -> None:
+    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], None], None]:
+    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]:
         """Event fired when the start date has been limited"""
         ...
 
     @start_date_limited.setter
-    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], None], None]) -> None:
+    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], None], None]:
+    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]:
         """Event fired when there was an error downloading a remote file"""
         ...
 
     @download_failed.setter
-    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], None], None]) -> None:
+    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], None], None]:
+    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]:
         """Event fired when there was an error reading the data"""
         ...
 
     @reader_error_detected.setter
-    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], None], None]) -> None:
+    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property

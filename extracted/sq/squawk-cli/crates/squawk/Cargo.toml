@@ -1,6 +1,6 @@
 [package]
 name = "squawk"
-version = "2.21.1"
+version = "2.22.0"
 default-run = "squawk"
 
 authors.workspace = true
@@ -9,7 +9,7 @@ license.workspace = true
 description = "Linter for Postgresql focused on database migrations."
 repository = "https://github.com/sbdchd/squawk"
 documentation = "https://github.com/sbdchd/squawk/blob/master/README.md"
-readme = "../../README.md"
+readme = "README.md"
 keywords = ["postgres", "postgresql", "linter"]
 categories = ["command-line-utilities", "development-tools"]
 

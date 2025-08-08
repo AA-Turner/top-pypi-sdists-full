@@ -12,20 +12,23 @@ T = TypeVar("T", bound="EditResource")
 class EditResource:
     """
     Attributes:
-        path (Union[Unset, str]):
-        description (Union[Unset, str]):
+        path (Union[Unset, str]): The path to the resource
+        description (Union[Unset, str]): The new description of the resource
         value (Union[Unset, Any]):
+        resource_type (Union[Unset, str]): The new resource_type to be associated with the resource
     """
 
     path: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
     value: Union[Unset, Any] = UNSET
+    resource_type: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         path = self.path
         description = self.description
         value = self.value
+        resource_type = self.resource_type
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -36,6 +39,8 @@ class EditResource:
             field_dict["description"] = description
         if value is not UNSET:
             field_dict["value"] = value
+        if resource_type is not UNSET:
+            field_dict["resource_type"] = resource_type
 
         return field_dict
 
@@ -48,10 +53,13 @@ class EditResource:
 
         value = d.pop("value", UNSET)
 
+        resource_type = d.pop("resource_type", UNSET)
+
         edit_resource = cls(
             path=path,
             description=description,
             value=value,
+            resource_type=resource_type,
         )
 
         edit_resource.additional_properties = d

@@ -29,7 +29,8 @@ class CreatePostgresTriggerJsonBody:
         publication_name (Union[Unset, str]):
         publication (Union[Unset, CreatePostgresTriggerJsonBodyPublication]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, CreatePostgresTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, CreatePostgresTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, CreatePostgresTriggerJsonBodyRetry]):
     """
 

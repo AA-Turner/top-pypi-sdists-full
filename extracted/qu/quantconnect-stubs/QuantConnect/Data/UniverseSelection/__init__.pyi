@@ -456,12 +456,12 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
     @property
-    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event fired when the universe selection has changed"""
         ...
 
     @selection_changed.setter
-    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -1050,7 +1050,7 @@ class SecurityChanges(System.Object):
         ...
 
     @staticmethod
-    def create(additions: typing.List[QuantConnect.Securities.Security], removals: typing.List[QuantConnect.Securities.Security], internal_additions: typing.List[QuantConnect.Securities.Security], internal_removals: typing.List[QuantConnect.Securities.Security]) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
+    def create(additions: typing.Sequence[QuantConnect.Securities.Security], removals: typing.Sequence[QuantConnect.Securities.Security], internal_additions: typing.Sequence[QuantConnect.Securities.Security], internal_removals: typing.Sequence[QuantConnect.Securities.Security]) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
         """
         Initializes a new instance of the SecurityChanges class all none internal
         
@@ -1654,12 +1654,12 @@ class UserDefinedUniverse(QuantConnect.Data.UniverseSelection.Universe, System.C
     """
 
     @property
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]:
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]:
         """Event fired when a symbol is added or removed from this universe"""
         ...
 
     @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]) -> None:
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property

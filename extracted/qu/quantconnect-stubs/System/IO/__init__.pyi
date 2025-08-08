@@ -823,10 +823,10 @@ class Stream(System.MarshalByRefObject, System.IDisposable, System.IAsyncDisposa
     def write_timeout(self, value: int) -> None:
         ...
 
-    def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
+    def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], typing.Any], state: typing.Any) -> System.IAsyncResult:
         ...
 
-    def begin_write(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
+    def begin_write(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], typing.Any], state: typing.Any) -> System.IAsyncResult:
         ...
 
     def close(self) -> None:
@@ -1315,10 +1315,10 @@ class FileStream(System.IO.Stream):
         """This constructor has been deprecated. Use FileStream(SafeFileHandle handle, FileAccess access, int buffer_size, bool is_async) and optionally make a new SafeFileHandle with owns_handle=false if needed instead."""
         ...
 
-    def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
+    def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], typing.Any], state: typing.Any) -> System.IAsyncResult:
         ...
 
-    def begin_write(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
+    def begin_write(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], typing.Any], state: typing.Any) -> System.IAsyncResult:
         ...
 
     def copy_to(self, destination: System.IO.Stream, buffer_size: int) -> None:
@@ -3766,10 +3766,10 @@ class BufferedStream(System.IO.Stream):
     def __init__(self, stream: System.IO.Stream, buffer_size: int) -> None:
         ...
 
-    def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
+    def begin_read(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], typing.Any], state: typing.Any) -> System.IAsyncResult:
         ...
 
-    def begin_write(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], None], state: typing.Any) -> System.IAsyncResult:
+    def begin_write(self, buffer: typing.List[int], offset: int, count: int, callback: typing.Callable[[System.IAsyncResult], typing.Any], state: typing.Any) -> System.IAsyncResult:
         ...
 
     def copy_to(self, destination: System.IO.Stream, buffer_size: int) -> None:

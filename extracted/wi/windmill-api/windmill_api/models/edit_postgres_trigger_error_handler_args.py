@@ -8,7 +8,7 @@ T = TypeVar("T", bound="EditPostgresTriggerErrorHandlerArgs")
 
 @_attrs_define
 class EditPostgresTriggerErrorHandlerArgs:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

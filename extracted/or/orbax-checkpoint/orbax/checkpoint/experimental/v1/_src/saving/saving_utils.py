@@ -22,6 +22,7 @@ from absl import logging
 import jax
 from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.metadata import step_metadata_serialization
+from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import atomicity
 from orbax.checkpoint._src.path import atomicity_defaults
 from orbax.checkpoint._src.path import atomicity_types
@@ -30,7 +31,6 @@ from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.handlers import composite_handler
 from orbax.checkpoint.experimental.v1._src.handlers import types as handler_types
 from orbax.checkpoint.experimental.v1._src.metadata import serialization as metadata_serialization
-from orbax.checkpoint.experimental.v1._src.path import async_path
 from orbax.checkpoint.experimental.v1._src.path import async_utils as path_async_utils
 from orbax.checkpoint.experimental.v1._src.path import format_utils
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
@@ -202,10 +202,7 @@ class SaveResponse(async_types.AsyncResponse[None]):
           '[process=%s] Finished writing checkpoint metadata.',
           multihost.process_index(),
       )
-      # Properly, this should be an async function. For now, it's not a big
-      # problem if it isn't though, since we have earlier async executions that
-      # will yield control.
-      atomicity.on_commit_callback(
+      await atomicity.on_commit_callback(
           self._tmp_path,
           checkpoint_start_time=self._start_time,
       )

@@ -19,7 +19,8 @@ class EditErrorHandlerJsonBody:
     """
     Attributes:
         error_handler (Union[Unset, str]):
-        error_handler_extra_args (Union[Unset, EditErrorHandlerJsonBodyErrorHandlerExtraArgs]):
+        error_handler_extra_args (Union[Unset, EditErrorHandlerJsonBodyErrorHandlerExtraArgs]): The arguments to pass to
+            the script or flow
         error_handler_muted_on_cancel (Union[Unset, bool]):
     """
 

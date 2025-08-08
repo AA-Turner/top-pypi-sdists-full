@@ -8,7 +8,7 @@ T = TypeVar("T", bound="ListNatsTriggersResponse200ItemErrorHandlerArgs")
 
 @_attrs_define
 class ListNatsTriggersResponse200ItemErrorHandlerArgs:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

@@ -32,6 +32,7 @@ from unittest import mock
 from absl import logging
 from etils import epath
 import jax
+from jax.experimental import multihost_utils
 from jax.experimental import pjit
 import jax.numpy as jnp
 import numpy as np
@@ -55,7 +56,7 @@ PyTree = Any
 
 
 def sync_global_processes(name: str):
-  jax.experimental.multihost_utils.sync_global_devices(name)
+  multihost_utils.sync_global_devices(name)
 
 
 def save_fake_tmp_dir(
@@ -133,7 +134,7 @@ def create_tmp_directory(
           prefix=barrier_sync_key_prefix,
           suffix=f'{final_dir.name}',
       ),
-      timeout=multihost.DIRECTORY_CREATION_TIMEOUT,
+      timeout=multihost.coordination_timeout(),
       processes=active_processes,
   )
   if multihost.is_primary_host(primary_host):
@@ -167,7 +168,7 @@ def create_tmp_directory(
           prefix=barrier_sync_key_prefix,
           suffix=f'{final_dir.name}',
       ),
-      timeout=multihost.DIRECTORY_CREATION_TIMEOUT,
+      timeout=multihost.coordination_timeout(),
       processes=active_processes,
   )
   return tmp_dir
@@ -628,18 +629,22 @@ def ensure_atomic_save(
 ):
   """Wrapper around TemporaryPath.finalize for testing."""
   if temp_ckpt_dir == final_ckpt_dir:
-    atomicity.CommitFileTemporaryPath(
-        temp_ckpt_dir,
-        final_ckpt_dir,
-        checkpoint_metadata_store=metadata_store,
-    ).finalize(
+    asyncio.run(
+        atomicity.CommitFileTemporaryPath(
+            temp_ckpt_dir,
+            final_ckpt_dir,
+            checkpoint_metadata_store=metadata_store,
+        ).finalize(
+        )
     )
   else:
-    atomicity.AtomicRenameTemporaryPath(
-        temp_ckpt_dir,
-        final_ckpt_dir,
-        checkpoint_metadata_store=metadata_store,
-    ).finalize(
+    asyncio.run(
+        atomicity.AtomicRenameTemporaryPath(
+            temp_ckpt_dir,
+            final_ckpt_dir,
+            checkpoint_metadata_store=metadata_store,
+        ).finalize(
+        )
     )
 
 
@@ -759,13 +764,18 @@ def assert_every_n_is_x_apart(testclass, values, n, x):
 
 
 def get_expected_chunk_shape(
-    arr: jax.Array, *, use_replica_parallel: bool = True
+    arr: jax.Array,
+    *,
+    use_replica_parallel: bool = True,
+    max_replicas_for_replica_parallel: Optional[bool] = None,
 ) -> tuple[int, ...]:
   """Expected chunk shape for an array, accounting for replica-parallel."""
   if not use_replica_parallel:
     return arr.sharding.shard_shape(arr.shape)
-  _, local_shape = (
-      replica_slices.calculate_replica_parallel_axis_and_local_shape(arr)
+  _, local_shape, _ = (
+      replica_slices.calculate_replica_parallel_axis_and_local_shape(
+          arr, max_replicas_for_replica_parallel
+      )
   )
   if local_shape is None:
     local_shape = arr.sharding.shard_shape(arr.shape)

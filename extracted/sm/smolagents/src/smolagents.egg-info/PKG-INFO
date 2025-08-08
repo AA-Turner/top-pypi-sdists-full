@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smolagents
-Version: 1.20.0
+Version: 1.21.0
 Summary: 🤗 smolagents: a barebones library for agents. Agents write python code to call tools or orchestrate other agents.
 Author-email: Aymeric Roucher <aymeric@hf.co>
 Requires-Python: >=3.10
@@ -32,7 +32,7 @@ Requires-Dist: gradio>=5.14.0; extra == "gradio"
 Provides-Extra: litellm
 Requires-Dist: litellm>=1.60.2; extra == "litellm"
 Provides-Extra: mcp
-Requires-Dist: mcpadapt>=0.1.8; extra == "mcp"
+Requires-Dist: mcpadapt>=0.1.11; extra == "mcp"
 Requires-Dist: mcp; extra == "mcp"
 Provides-Extra: mlx-lm
 Requires-Dist: mlx-lm; extra == "mlx-lm"
@@ -44,7 +44,7 @@ Requires-Dist: opentelemetry-sdk; extra == "telemetry"
 Requires-Dist: opentelemetry-exporter-otlp; extra == "telemetry"
 Requires-Dist: openinference-instrumentation-smolagents>=0.1.4; extra == "telemetry"
 Provides-Extra: toolkit
-Requires-Dist: duckduckgo-search>=6.3.7; extra == "toolkit"
+Requires-Dist: ddgs>=9.0.0; extra == "toolkit"
 Requires-Dist: markdownify>=0.14.1; extra == "toolkit"
 Provides-Extra: transformers
 Requires-Dist: accelerate; extra == "transformers"
@@ -65,10 +65,12 @@ Requires-Dist: ipython>=8.31.0; extra == "test"
 Requires-Dist: pandas>=2.2.3; extra == "test"
 Requires-Dist: pytest>=8.1.0; extra == "test"
 Requires-Dist: pytest-datadir; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
 Requires-Dist: python-dotenv>=1.0.1; extra == "test"
 Requires-Dist: smolagents[all]; extra == "test"
 Requires-Dist: rank-bm25; extra == "test"
 Requires-Dist: Wikipedia-API>=0.8.1; extra == "test"
+Requires-Dist: mlx[cpu]; extra == "test"
 Provides-Extra: dev
 Requires-Dist: smolagents[quality,test]; extra == "dev"
 Requires-Dist: sqlalchemy; extra == "dev"

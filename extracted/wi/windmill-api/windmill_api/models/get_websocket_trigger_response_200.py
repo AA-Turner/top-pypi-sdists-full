@@ -49,9 +49,11 @@ class GetWebsocketTriggerResponse200:
         error (Union[Unset, str]):
         initial_messages (Union[Unset, List[Union['GetWebsocketTriggerResponse200InitialMessagesItemType0',
             'GetWebsocketTriggerResponse200InitialMessagesItemType1']]]):
-        url_runnable_args (Union[Unset, GetWebsocketTriggerResponse200UrlRunnableArgs]):
+        url_runnable_args (Union[Unset, GetWebsocketTriggerResponse200UrlRunnableArgs]): The arguments to pass to the
+            script or flow
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, GetWebsocketTriggerResponse200ErrorHandlerArgs]):
+        error_handler_args (Union[Unset, GetWebsocketTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, GetWebsocketTriggerResponse200Retry]):
     """
 

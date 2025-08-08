@@ -213,7 +213,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
             lf = lf.with_columns(derived_from.cast(dtype).alias(column_name))
         else:
             raise TypeError(
-                "Can not derive dataframe column from type " f"{type(derived_from)}."
+                f"Can not derive dataframe column from type {type(derived_from)}."
             )
         derived_columns.append(column_name)
         return lf, derived_columns
@@ -337,7 +337,7 @@ class LazyFrame(pl.LazyFrame, Generic[ModelType]):
     def from_existing(cls: type[LDF], lf: pl.LazyFrame) -> LDF:
         """Construct a patito.DataFrame object from an existing polars.DataFrame object."""
         if getattr(cls, "model", False):
-            return cls.model.LazyFrame._from_pyldf(super().lazy()._ldf)  # type: ignore
+            return cls.model.LazyFrame._from_pyldf(super().lazy(lf)._ldf)  # type: ignore
 
         return LazyFrame._from_pyldf(lf._ldf)  # type: ignore
 

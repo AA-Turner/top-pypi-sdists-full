@@ -18189,7 +18189,7 @@ __Pyx_RefNannySetupContext("PyInit_method", 0);
   (void)__Pyx_modinit_variable_import_code(__pyx_mstate);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
-  __Pyx_TraceStartFunc("PyInit_method", __pyx_f[0], 1, 0, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceStartFunc("PyInit_method", __pyx_f[0], 1, 2, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
 
   /* "a_sync/a_sync/method.pyx":11
  * # mypy: disable-error-code=valid-type
@@ -19771,7 +19771,7 @@ __Pyx_RefNannySetupContext("PyInit_method", 0);
  *     cdef tuple state
  *     cdef object _dict
 */
-  __Pyx_TraceLine(1,2,0,__PYX_ERR(2, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,1,0,__PYX_ERR(2, 1, __pyx_L1_error))
   __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_6method_17_ASyncBoundMethod_24__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncBoundMethod___reduce_cytho, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_method, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[32])); if (unlikely(!__pyx_t_9)) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_6method__ASyncBoundMethod, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_9) < 0) __PYX_ERR(2, 1, __pyx_L1_error)
@@ -19783,7 +19783,7 @@ __Pyx_RefNannySetupContext("PyInit_method", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     __pyx_unpickle__ASyncBoundMethod__set_state(self, __pyx_state)
 */
-  __Pyx_TraceLine(16,13,0,__PYX_ERR(2, 16, __pyx_L1_error))
+  __Pyx_TraceLine(16,12,0,__PYX_ERR(2, 16, __pyx_L1_error))
   __pyx_t_9 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_6method_17_ASyncBoundMethod_26__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ASyncBoundMethod___setstate_cyt, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_method, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[33])); if (unlikely(!__pyx_t_9)) __PYX_ERR(2, 16, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_6method__ASyncBoundMethod, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_9) < 0) __PYX_ERR(2, 16, __pyx_L1_error)
@@ -20573,7 +20573,7 @@ __Pyx_RefNannySetupContext("PyInit_method", 0);
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
 */
-  __Pyx_TraceLine(1,1,0,__PYX_ERR(2, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,0,0,__PYX_ERR(2, 1, __pyx_L1_error))
   __pyx_t_10 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_6a_sync_6method_1__pyx_unpickle__ASyncBoundMethod, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ASyncBoundMethod, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_a_sync_method, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[55])); if (unlikely(!__pyx_t_10)) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__ASyncBoundMethod, __pyx_t_10) < 0) __PYX_ERR(2, 1, __pyx_L1_error)
@@ -20594,7 +20594,7 @@ __Pyx_RefNannySetupContext("PyInit_method", 0);
  * This module provides classes for implementing dual-functional sync/async methods in Python.
  * 
 */
-  __Pyx_TraceLine(1,0,0,__PYX_ERR(0, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,2,0,__PYX_ERR(0, 1, __pyx_L1_error))
   __pyx_t_10 = __Pyx_PyDict_NewPresized(21); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_10);
   if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_kp_u_ASyncMethodDescriptor___call___l, __pyx_mstate_global->__pyx_kp_u_Asynchronously_call_the_method) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
@@ -20620,7 +20620,7 @@ __Pyx_RefNannySetupContext("PyInit_method", 0);
   if (PyDict_SetItem(__pyx_t_10, __pyx_mstate_global->__pyx_kp_u_ASyncBoundMethodAsyncDefault___c_2, __pyx_mstate_global->__pyx_kp_u_Call_the_bound_method_with_asyn) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_10) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 2, 0, __PYX_ERR(0, 1, __pyx_L1_error));
   __Pyx_PyMonitoring_ExitScope(0);
 
   /*--- Wrapped vars code ---*/
@@ -20636,7 +20636,7 @@ __Pyx_RefNannySetupContext("PyInit_method", 0);
   __Pyx_XDECREF(__pyx_t_10);
   __Pyx_XDECREF(__pyx_t_11);
   __Pyx_TraceException(__pyx_lineno, 0, 0);
-  __Pyx_TraceExceptionUnwind(0, 0);
+  __Pyx_TraceExceptionUnwind(2, 0);
   if (__pyx_m) {
     if (__pyx_mstate->__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init a_sync.a_sync.method", __pyx_clineno, __pyx_lineno, __pyx_filename);

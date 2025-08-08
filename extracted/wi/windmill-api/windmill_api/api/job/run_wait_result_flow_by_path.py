@@ -78,7 +78,7 @@ def sync_detailed(
         include_header (Union[Unset, None, str]):
         queue_limit (Union[Unset, None, str]):
         job_id (Union[Unset, None, str]):
-        json_body (RunWaitResultFlowByPathJsonBody):
+        json_body (RunWaitResultFlowByPathJsonBody): The arguments to pass to the script or flow
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -122,7 +122,7 @@ async def asyncio_detailed(
         include_header (Union[Unset, None, str]):
         queue_limit (Union[Unset, None, str]):
         job_id (Union[Unset, None, str]):
-        json_body (RunWaitResultFlowByPathJsonBody):
+        json_body (RunWaitResultFlowByPathJsonBody): The arguments to pass to the script or flow
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

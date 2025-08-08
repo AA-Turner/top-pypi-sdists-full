@@ -37,7 +37,8 @@ class DescribeSystemWorkloadResponse(object):
         'workload_names': 'list[SystemWorkloadName]',
         'workload_service_url': 'str',
         'workload_service_url_auth': 'str',
-        'status': 'ClusterState'
+        'status': 'ClusterState',
+        'is_enabled': 'bool'
     }
 
     attribute_map = {
@@ -45,10 +46,11 @@ class DescribeSystemWorkloadResponse(object):
         'workload_names': 'workload_names',
         'workload_service_url': 'workload_service_url',
         'workload_service_url_auth': 'workload_service_url_auth',
-        'status': 'status'
+        'status': 'status',
+        'is_enabled': 'is_enabled'
     }
 
-    def __init__(self, cluster_id=None, workload_names=None, workload_service_url=None, workload_service_url_auth=None, status=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cluster_id=None, workload_names=None, workload_service_url=None, workload_service_url_auth=None, status=None, is_enabled=None, local_vars_configuration=None):  # noqa: E501
         """DescribeSystemWorkloadResponse - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -59,9 +61,11 @@ class DescribeSystemWorkloadResponse(object):
         self._workload_service_url = None
         self._workload_service_url_auth = None
         self._status = None
+        self._is_enabled = None
         self.discriminator = None
 
-        self.cluster_id = cluster_id
+        if cluster_id is not None:
+            self.cluster_id = cluster_id
         self.workload_names = workload_names
         if workload_service_url is not None:
             self.workload_service_url = workload_service_url
@@ -69,6 +73,7 @@ class DescribeSystemWorkloadResponse(object):
             self.workload_service_url_auth = workload_service_url_auth
         if status is not None:
             self.status = status
+        self.is_enabled = is_enabled
 
     @property
     def cluster_id(self):
@@ -88,8 +93,6 @@ class DescribeSystemWorkloadResponse(object):
         :param cluster_id: The cluster_id of this DescribeSystemWorkloadResponse.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and cluster_id is None:  # noqa: E501
-            raise ValueError("Invalid value for `cluster_id`, must not be `None`")  # noqa: E501
 
         self._cluster_id = cluster_id
 
@@ -178,6 +181,29 @@ class DescribeSystemWorkloadResponse(object):
         """
 
         self._status = status
+
+    @property
+    def is_enabled(self):
+        """Gets the is_enabled of this DescribeSystemWorkloadResponse.  # noqa: E501
+
+
+        :return: The is_enabled of this DescribeSystemWorkloadResponse.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_enabled
+
+    @is_enabled.setter
+    def is_enabled(self, is_enabled):
+        """Sets the is_enabled of this DescribeSystemWorkloadResponse.
+
+
+        :param is_enabled: The is_enabled of this DescribeSystemWorkloadResponse.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and is_enabled is None:  # noqa: E501
+            raise ValueError("Invalid value for `is_enabled`, must not be `None`")  # noqa: E501
+
+        self._is_enabled = is_enabled
 
     def to_dict(self):
         """Returns the model properties as a dict"""

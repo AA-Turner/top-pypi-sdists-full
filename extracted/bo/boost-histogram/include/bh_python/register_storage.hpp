@@ -34,15 +34,16 @@ py::class_<A> register_storage(py::module& m, const char* name, const char* desc
              })
         .def(make_pickle<A>())
         .def("__copy__", [](const A& self) { return A(self); })
-        .def("__deepcopy__", [](const A& self, py::object) { return A(self); });
+        .def("__deepcopy__", [](const A& self, const py::object&) { return A(self); });
 
     return storage;
 }
 
 /// Add helpers to the unlimited storage type
 template <>
-py::class_<storage::unlimited>
-register_storage(py::module& m, const char* name, const char* desc) {
+py::class_<storage::unlimited> inline register_storage(py::module& m,
+                                                       const char* name,
+                                                       const char* desc) {
     using A = storage::unlimited; // match code above
 
     py::class_<A> storage(m, name, desc);
@@ -66,7 +67,7 @@ register_storage(py::module& m, const char* name, const char* desc) {
              })
         .def(make_pickle<A>())
         .def("__copy__", [](const A& self) { return A(self); })
-        .def("__deepcopy__", [](const A& self, py::object) { return A(self); });
+        .def("__deepcopy__", [](const A& self, const py::object&) { return A(self); });
 
     return storage;
 }

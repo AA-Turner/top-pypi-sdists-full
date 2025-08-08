@@ -233,3 +233,30 @@ References:
         report.trim(),
     );
 }
+
+#[test]
+fn narrowing() {
+    let code = r#"
+xyz = "test"
+# ^
+if isinstance(xyz, int):
+    print(xyz)
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert_eq!(
+        r#"
+# main.py
+2 | xyz = "test"
+      ^
+References:
+2 | xyz = "test"
+    ^^^
+4 | if isinstance(xyz, int):
+                  ^^^
+5 |     print(xyz)
+              ^^^
+"#
+        .trim(),
+        report.trim(),
+    );
+}

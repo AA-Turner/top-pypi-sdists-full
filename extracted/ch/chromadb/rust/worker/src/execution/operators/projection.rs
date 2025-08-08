@@ -139,6 +139,10 @@ impl Operator<ProjectionInput, ProjectionOutput> for Projection {
                         if let Some(reader) = &record_segment_reader {
                             let record = reader
                                 .get_data_for_offset_id(*offset_id)
+                                .instrument(tracing::trace_span!(
+                                    parent: Span::current(), "Get DataRecord for offset",
+                                    offset_id = *offset_id
+                                ))
                                 .await?
                                 .ok_or(ProjectionError::RecordSegmentPhantomRecord(*offset_id))?;
                             ProjectionRecord {
@@ -184,7 +188,7 @@ mod tests {
     async fn setup_projection_input(
         offset_ids: Vec<u32>,
     ) -> (TestDistributedSegment, ProjectionInput) {
-        let mut test_segment = TestDistributedSegment::default();
+        let mut test_segment = TestDistributedSegment::new().await;
         test_segment
             .populate_with_generator(100, upsert_generator)
             .await;

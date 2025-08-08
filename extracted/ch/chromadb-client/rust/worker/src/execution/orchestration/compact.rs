@@ -26,7 +26,7 @@ use chroma_segment::{
 use chroma_sysdb::SysDb;
 use chroma_system::{
     wrap, ChannelError, ComponentContext, ComponentHandle, Dispatcher, Handler, Orchestrator,
-    PanicError, TaskError, TaskMessage, TaskResult,
+    OrchestratorContext, PanicError, TaskError, TaskMessage, TaskResult,
 };
 use chroma_types::{
     Chunk, Collection, CollectionUuid, LogRecord, SegmentFlushInfo, SegmentType, SegmentUuid,
@@ -112,10 +112,10 @@ pub struct CompactOrchestrator {
     max_partition_size: usize,
 
     // Dependencies
-    dispatcher: ComponentHandle<Dispatcher>,
+    context: OrchestratorContext,
+    blockfile_provider: BlockfileProvider,
     log: Log,
     sysdb: SysDb,
-    blockfile_provider: BlockfileProvider,
     hnsw_provider: HnswIndexProvider,
     spann_provider: SpannProvider,
 
@@ -201,11 +201,25 @@ impl ChromaError for CompactionError {
             _ => ErrorCodes::Internal,
         }
     }
+
+    fn should_trace_error(&self) -> bool {
+        if let CompactionError::FetchLog(FetchLogError::PullLog(e)) = self {
+            e.code() != ErrorCodes::NotFound
+        } else {
+            true
+        }
+    }
 }
 
 #[derive(Debug)]
-pub struct CompactionResponse {
-    pub(crate) collection_id: CollectionUuid,
+pub enum CompactionResponse {
+    Success {
+        collection_id: CollectionUuid,
+    },
+    RequireCompactionOffsetRepair {
+        collection_id: CollectionUuid,
+        witnessed_offset_in_sysdb: i64,
+    },
 }
 
 impl CompactOrchestrator {
@@ -224,6 +238,7 @@ impl CompactOrchestrator {
         dispatcher: ComponentHandle<Dispatcher>,
         result_channel: Option<Sender<Result<CompactionResponse, CompactionError>>>,
     ) -> Self {
+        let context = OrchestratorContext::new(dispatcher);
         CompactOrchestrator {
             collection_id,
             hnsw_index_uuid: None,
@@ -231,10 +246,10 @@ impl CompactOrchestrator {
             fetch_log_batch_size,
             max_compaction_size,
             max_partition_size,
-            dispatcher,
+            context,
+            blockfile_provider,
             log,
             sysdb,
-            blockfile_provider,
             hnsw_provider,
             spann_provider,
             collection: OnceCell::new(),
@@ -266,7 +281,12 @@ impl CompactOrchestrator {
         let operator = PartitionOperator::new();
         tracing::info!("Sending N Records: {:?}", records.len());
         let input = PartitionInput::new(records, self.max_partition_size);
-        let task = wrap(operator, input, ctx.receiver());
+        let task = wrap(
+            operator,
+            input,
+            ctx.receiver(),
+            self.context.task_cancellation_token.clone(),
+        );
         self.send(task, ctx, Some(Span::current())).await;
     }
 
@@ -298,7 +318,12 @@ impl CompactOrchestrator {
                 record_reader.clone(),
                 next_max_offset_id.clone(),
             );
-            let task = wrap(operator, input, ctx.receiver());
+            let task = wrap(
+                operator,
+                input,
+                ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
+            );
             self.send(task, ctx, Some(Span::current())).await;
         }
     }
@@ -329,7 +354,12 @@ impl CompactOrchestrator {
                 materialized_logs.clone(),
                 writers.record_reader.clone(),
             );
-            let task = wrap(operator, input, ctx.receiver());
+            let task = wrap(
+                operator,
+                input,
+                ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
+            );
             let res = self.dispatcher().send(task, Some(span)).await;
             if self.ok_or_terminate(res, ctx).await.is_none() {
                 return;
@@ -352,7 +382,12 @@ impl CompactOrchestrator {
                 materialized_logs.clone(),
                 writers.record_reader.clone(),
             );
-            let task = wrap(operator, input, ctx.receiver());
+            let task = wrap(
+                operator,
+                input,
+                ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
+            );
             let res = self.dispatcher().send(task, Some(span)).await;
             if self.ok_or_terminate(res, ctx).await.is_none() {
                 return;
@@ -372,7 +407,12 @@ impl CompactOrchestrator {
             let operator = ApplyLogToSegmentWriterOperator::new();
             let input =
                 ApplyLogToSegmentWriterInput::new(writer, materialized_logs, writers.record_reader);
-            let task = wrap(operator, input, ctx.receiver());
+            let task = wrap(
+                operator,
+                input,
+                ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
+            );
             let res = self.dispatcher().send(task, Some(span)).await;
             self.ok_or_terminate(res, ctx).await;
         }
@@ -386,7 +426,12 @@ impl CompactOrchestrator {
         let span = self.get_segment_writer_span(&segment_writer);
         let operator = CommitSegmentWriterOperator::new();
         let input = CommitSegmentWriterInput::new(segment_writer);
-        let task = wrap(operator, input, ctx.receiver());
+        let task = wrap(
+            operator,
+            input,
+            ctx.receiver(),
+            self.context.task_cancellation_token.clone(),
+        );
         let res = self.dispatcher().send(task, Some(span)).await;
         self.ok_or_terminate(res, ctx).await;
     }
@@ -399,7 +444,12 @@ impl CompactOrchestrator {
         let span = self.get_segment_flusher_span(&segment_flusher);
         let operator = FlushSegmentWriterOperator::new();
         let input = FlushSegmentWriterInput::new(segment_flusher);
-        let task = wrap(operator, input, ctx.receiver());
+        let task = wrap(
+            operator,
+            input,
+            ctx.receiver(),
+            self.context.task_cancellation_token.clone(),
+        );
         let res = self.dispatcher().send(task, Some(span)).await;
         self.ok_or_terminate(res, ctx).await;
     }
@@ -449,7 +499,12 @@ impl CompactOrchestrator {
             self.log.clone(),
         );
 
-        let task = wrap(operator, input, ctx.receiver());
+        let task = wrap(
+            operator,
+            input,
+            ctx.receiver(),
+            self.context.task_cancellation_token.clone(),
+        );
         self.send(task, ctx, Some(Span::current())).await;
     }
 
@@ -523,7 +578,11 @@ impl Orchestrator for CompactOrchestrator {
     type Error = CompactionError;
 
     fn dispatcher(&self) -> ComponentHandle<Dispatcher> {
-        self.dispatcher.clone()
+        self.context.dispatcher.clone()
+    }
+
+    fn context(&self) -> &OrchestratorContext {
+        &self.context
     }
 
     async fn initial_tasks(
@@ -538,6 +597,7 @@ impl Orchestrator for CompactOrchestrator {
                 }),
                 (),
                 ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
             ),
             Some(Span::current()),
         )]
@@ -622,6 +682,7 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
                     record_segment_reader: record_reader.clone(),
                 },
                 ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
             ),
             false => wrap(
                 Box::new(FetchLogOperator {
@@ -636,6 +697,7 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
                 }),
                 (),
                 ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
             ),
         };
 
@@ -769,6 +831,7 @@ impl Handler<TaskResult<GetCollectionAndSegmentsOutput, GetCollectionAndSegments
                 Box::new(PrefetchSegmentOperator::new()),
                 PrefetchSegmentInput::new(segment, self.blockfile_provider.clone()),
                 ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
             );
             // Prefetch task is detached from the orchestrator
             let prefetch_span =
@@ -817,16 +880,24 @@ impl Handler<TaskResult<FetchLogOutput, FetchLogError>> for CompactOrchestrator 
             }
             None => {
                 tracing::warn!("No logs were pulled from the log service, this can happen when the log compaction offset is behing the sysdb.");
-                // TODO(hammadb): We can repair the log service's understanding of the offset here, as this only happens
-                // when the log service is not up to date on the latest compacted offset, which leads it to schedule an already
-                // compacted collection.
-                self.terminate_with_result(
-                    Ok(CompactionResponse {
-                        collection_id: self.collection_id,
-                    }),
-                    ctx,
-                )
-                .await;
+                if let Some(collection) = self.collection.get() {
+                    self.terminate_with_result(
+                        Ok(CompactionResponse::RequireCompactionOffsetRepair {
+                            collection_id: collection.collection_id,
+                            witnessed_offset_in_sysdb: collection.log_position,
+                        }),
+                        ctx,
+                    )
+                    .await;
+                } else {
+                    self.terminate_with_result(
+                        Err(CompactionError::InvariantViolation(
+                            "self.collection not set",
+                        )),
+                        ctx,
+                    )
+                    .await;
+                }
                 return;
             }
         }
@@ -1041,7 +1112,7 @@ impl Handler<TaskResult<RegisterOutput, RegisterError>> for CompactOrchestrator 
             message
                 .into_inner()
                 .map_err(|e| e.into())
-                .map(|_| CompactionResponse {
+                .map(|_| CompactionResponse::Success {
                     collection_id: self.collection_id,
                 }),
             ctx,
@@ -1084,7 +1155,7 @@ mod tests {
             .expect("Should be able to initialize dispatcher");
         let dispatcher_handle = system.start_component(dispatcher);
         let mut sysdb = SysDb::Test(TestSysDb::new());
-        let test_segments = TestDistributedSegment::default();
+        let test_segments = TestDistributedSegment::new().await;
         let collection_id = test_segments.collection.collection_id;
         sysdb
             .create_collection(

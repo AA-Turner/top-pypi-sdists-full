@@ -17,7 +17,8 @@ class GetWebsocketTriggerResponse200InitialMessagesItemType1RunnableResult:
     """
     Attributes:
         path (str):
-        args (GetWebsocketTriggerResponse200InitialMessagesItemType1RunnableResultArgs):
+        args (GetWebsocketTriggerResponse200InitialMessagesItemType1RunnableResultArgs): The arguments to pass to the
+            script or flow
         is_flow (bool):
     """
 

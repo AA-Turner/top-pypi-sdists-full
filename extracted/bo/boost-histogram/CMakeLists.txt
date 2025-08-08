@@ -37,6 +37,14 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
                                                "RelWithDebInfo")
 endif()
 
+# If no Python venv set, and .venv exists, use it.
+if(NOT DEFINED ENV{VIRTUALENV}
+   AND NOT DEFINED Python_ROOT_DIR
+   AND NOT DEFINED Python_EXECUTABLE
+   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.venv")
+  set(Python_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.venv")
+endif()
+
 # Adding pybind11 and setting up Python
 # Will display pybind11 version
 set(PYBIND11_FINDPYTHON TRUE)
@@ -110,16 +118,10 @@ source_group(
 option(BOOST_HISTOGRAM_ERRORS "Make warnings errors (for CI mostly)")
 
 # Adding warnings
+# Boost.Histogram doesn't pass sign -Wsign-conversion
 if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  target_compile_options(
-    _core
-    PRIVATE -Wall
-            -Wextra
-            -pedantic-errors
-            -Wconversion
-            -Wsign-conversion
-            -Wsign-compare
-            -Wno-unused-value)
+  target_compile_options(_core PRIVATE -Wall -Wextra -pedantic-errors -Wconversion -Wsign-compare
+                                       -Wno-unused-value)
   if(BOOST_HISTOGRAM_ERRORS)
     target_compile_options(_core PRIVATE -Werror)
   endif()

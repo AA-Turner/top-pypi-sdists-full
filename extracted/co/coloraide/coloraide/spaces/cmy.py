@@ -1,7 +1,8 @@
 """Uncalibrated, naive CMY color space."""
 from __future__ import annotations
 from .. import util
-from ..spaces import Regular, Space
+from ..spaces import Prism, Space
+from .srgb import sRGB
 from ..channels import Channel
 from ..cat import WHITES
 from ..types import Vector
@@ -21,7 +22,7 @@ def cmy_to_srgb(cmy: Vector) -> Vector:
     return [1 - c for c in cmy]
 
 
-class CMY(Regular, Space):
+class CMY(Prism, Space):
     """The CMY color class."""
 
     BASE = "srgb"
@@ -38,6 +39,12 @@ class CMY(Regular, Space):
         "yellow": 'y'
     }
     WHITE = WHITES['2deg']['D65']
+    SUBTRACTIVE = True
+
+    def linear(self) -> str:
+        """Linear."""
+
+        return sRGB.BASE
 
     def is_achromatic(self, coords: Vector) -> bool:
         """Test if color is achromatic."""

@@ -1,5 +1,5 @@
 import numpy as np
-import openvino.runtime.opset14 as ov_opset
+import openvino.opset14 as ov_opset
 from openvino import Type
 
 from keras.src.backend import config
@@ -929,7 +929,7 @@ def isfinite(x):
     return OpenVINOKerasTensor(ov_opset.is_finite(x).output(0))
 
 
-def isin(x1, x2):
+def isin(x1, x2, assume_unique=False, invert=False):
     raise NotImplementedError("`isin` is not supported with openvino backend")
 
 

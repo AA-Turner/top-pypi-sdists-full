@@ -45,6 +45,7 @@ class Category(str, Enum):
     APISECURITY = 'ApiSecurity'
     PENTEST = 'Pentest'
     CLOUD = 'Cloud'
+    BUGBOUNTY = 'BugBounty'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

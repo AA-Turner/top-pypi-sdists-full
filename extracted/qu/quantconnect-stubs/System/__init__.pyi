@@ -167,7 +167,7 @@ class Exception(System.Object, System.Runtime.Serialization.ISerializable):
         ...
 
     @property
-    def serialize_object_state(self) -> _EventContainer[typing.Callable[[System.Object, System.Runtime.Serialization.SafeSerializationEventArgs], None], None]:
+    def serialize_object_state(self) -> _EventContainer[typing.Callable[[System.Object, System.Runtime.Serialization.SafeSerializationEventArgs], typing.Any], typing.Any]:
         """
         This property is protected.
         
@@ -176,7 +176,7 @@ class Exception(System.Object, System.Runtime.Serialization.ISerializable):
         warnings.warn("Obsoletions.BinaryFormatterMessage", DeprecationWarning)
 
     @serialize_object_state.setter
-    def serialize_object_state(self, value: _EventContainer[typing.Callable[[System.Object, System.Runtime.Serialization.SafeSerializationEventArgs], None], None]) -> None:
+    def serialize_object_state(self, value: _EventContainer[typing.Callable[[System.Object, System.Runtime.Serialization.SafeSerializationEventArgs], typing.Any], typing.Any]) -> None:
         warnings.warn("Obsoletions.BinaryFormatterMessage", DeprecationWarning)
 
     @property
@@ -17861,7 +17861,7 @@ class GC(System.Object):
         ...
 
     @staticmethod
-    def register_no_gc_region_callback(total_size: int, callback: typing.Callable[[], None]) -> None:
+    def register_no_gc_region_callback(total_size: int, callback: typing.Callable[[], typing.Any]) -> None:
         ...
 
     @staticmethod
@@ -18495,11 +18495,11 @@ class AppDomain(System.MarshalByRefObject):
         warnings.warn("Obsoletions.CodeAccessSecurityMessage", DeprecationWarning)
 
     @property
-    def unhandled_exception(self) -> _EventContainer[typing.Callable[[System.Object, System.UnhandledExceptionEventArgs], None], None]:
+    def unhandled_exception(self) -> _EventContainer[typing.Callable[[System.Object, System.UnhandledExceptionEventArgs], typing.Any], typing.Any]:
         ...
 
     @unhandled_exception.setter
-    def unhandled_exception(self, value: _EventContainer[typing.Callable[[System.Object, System.UnhandledExceptionEventArgs], None], None]) -> None:
+    def unhandled_exception(self, value: _EventContainer[typing.Callable[[System.Object, System.UnhandledExceptionEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -18523,27 +18523,27 @@ class AppDomain(System.MarshalByRefObject):
         ...
 
     @property
-    def domain_unload(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def domain_unload(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         ...
 
     @domain_unload.setter
-    def domain_unload(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def domain_unload(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def first_chance_exception(self) -> _EventContainer[typing.Callable[[System.Object, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs], None], None]:
+    def first_chance_exception(self) -> _EventContainer[typing.Callable[[System.Object, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs], typing.Any], typing.Any]:
         ...
 
     @first_chance_exception.setter
-    def first_chance_exception(self, value: _EventContainer[typing.Callable[[System.Object, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs], None], None]) -> None:
+    def first_chance_exception(self, value: _EventContainer[typing.Callable[[System.Object, System.Runtime.ExceptionServices.FirstChanceExceptionEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def process_exit(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def process_exit(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         ...
 
     @process_exit.setter
-    def process_exit(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def process_exit(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     monitoring_is_enabled: bool
@@ -18563,11 +18563,11 @@ class AppDomain(System.MarshalByRefObject):
         ...
 
     @property
-    def assembly_load(self) -> _EventContainer[typing.Callable[[System.Object, System.AssemblyLoadEventArgs], None], None]:
+    def assembly_load(self) -> _EventContainer[typing.Callable[[System.Object, System.AssemblyLoadEventArgs], typing.Any], typing.Any]:
         ...
 
     @assembly_load.setter
-    def assembly_load(self, value: _EventContainer[typing.Callable[[System.Object, System.AssemblyLoadEventArgs], None], None]) -> None:
+    def assembly_load(self, value: _EventContainer[typing.Callable[[System.Object, System.AssemblyLoadEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -21968,12 +21968,12 @@ class Progress(typing.Generic[System_Progress_T], System.Object, System.IProgres
     """Provides an IProgress{T} that invokes callbacks for each reported progress value."""
 
     @property
-    def progress_changed(self) -> _EventContainer[typing.Callable[[System.Object, System_Progress_T], None], None]:
+    def progress_changed(self) -> _EventContainer[typing.Callable[[System.Object, System_Progress_T], typing.Any], typing.Any]:
         """Raised for each reported progress value."""
         ...
 
     @progress_changed.setter
-    def progress_changed(self, value: _EventContainer[typing.Callable[[System.Object, System_Progress_T], None], None]) -> None:
+    def progress_changed(self, value: _EventContainer[typing.Callable[[System.Object, System_Progress_T], typing.Any], typing.Any]) -> None:
         ...
 
     @overload
@@ -21982,7 +21982,7 @@ class Progress(typing.Generic[System_Progress_T], System.Object, System.IProgres
         ...
 
     @overload
-    def __init__(self, handler: typing.Callable[[System_Progress_T], None]) -> None:
+    def __init__(self, handler: typing.Callable[[System_Progress_T], typing.Any]) -> None:
         """
         Initializes the Progress{T} with the specified callback.
         
@@ -22505,7 +22505,7 @@ class Console(System.Object):
 
     title: str
 
-    cancel_key_press: _EventContainer[typing.Callable[[System.Object, System.ConsoleCancelEventArgs], None], None]
+    cancel_key_press: _EventContainer[typing.Callable[[System.Object, System.ConsoleCancelEventArgs], typing.Any], typing.Any]
 
     treat_control_c_as_input: bool
 

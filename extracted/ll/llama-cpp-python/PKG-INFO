@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: llama_cpp_python
-Version: 0.3.14
+Version: 0.3.15
 Summary: Python bindings for the llama.cpp library
 Author-Email: Andrei Betlen <abetlen@gmail.com>
 License: MIT
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Project-URL: Homepage, https://github.com/abetlen/llama-cpp-python
 Project-URL: Issues, https://github.com/abetlen/llama-cpp-python/issues
 Project-URL: Documentation, https://llama-cpp-python.readthedocs.io/en/latest/
@@ -58,7 +59,7 @@ Description-Content-Type: text/markdown
 [![PyPI](https://img.shields.io/pypi/v/llama-cpp-python)](https://pypi.org/project/llama-cpp-python/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/llama-cpp-python)](https://pypi.org/project/llama-cpp-python/)
 [![PyPI - License](https://img.shields.io/pypi/l/llama-cpp-python)](https://pypi.org/project/llama-cpp-python/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/llama-cpp-python)](https://pypi.org/project/llama-cpp-python/)
+[![PyPI - Downloads](https://static.pepy.tech/badge/llama-cpp-python/month)](https://pepy.tech/projects/llama-cpp-python)
 [![Github All Releases](https://img.shields.io/github/downloads/abetlen/llama-cpp-python/total.svg?label=Github%20Downloads)]()
 
 Simple Python bindings for **@ggerganov's** [`llama.cpp`](https://github.com/ggerganov/llama.cpp) library.

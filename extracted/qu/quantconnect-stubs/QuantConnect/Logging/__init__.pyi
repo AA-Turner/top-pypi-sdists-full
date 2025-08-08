@@ -419,7 +419,7 @@ class FunctionalLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         ...
 
     @overload
-    def __init__(self, debug: typing.Callable[[str], None], trace: typing.Callable[[str], None], error: typing.Callable[[str], None]) -> None:
+    def __init__(self, debug: typing.Callable[[str], typing.Any], trace: typing.Callable[[str], typing.Any], error: typing.Callable[[str], typing.Any]) -> None:
         """Initializes a new instance of the QuantConnect.Logging.FunctionalLogHandler class."""
         ...
 
@@ -461,12 +461,12 @@ class QueueLogHandler(System.Object, QuantConnect.Logging.ILogHandler):
         ...
 
     @property
-    def log_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Logging.LogEntry], None], None]:
+    def log_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Logging.LogEntry], typing.Any], typing.Any]:
         """Logging Event Handler"""
         ...
 
     @log_event.setter
-    def log_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Logging.LogEntry], None], None]) -> None:
+    def log_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Logging.LogEntry], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self) -> None:

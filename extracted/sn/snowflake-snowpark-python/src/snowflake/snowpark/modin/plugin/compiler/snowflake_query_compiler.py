@@ -171,6 +171,7 @@ from snowflake.snowpark.functions import (
     when,
     year,
 )
+from snowflake.snowpark.modin.config.envvars import SnowflakePandasTransferThreshold
 from snowflake.snowpark.modin.plugin._internal import (
     concat_utils,
     generator_utils,
@@ -577,7 +578,6 @@ class SnowflakeQueryCompiler(BaseQueryCompiler):
     _MAX_SIZE_THIS_ENGINE_CAN_HANDLE = 10_000_000_000_000
     _OPERATION_INITIALIZATION_OVERHEAD = 100
     _OPERATION_PER_ROW_OVERHEAD = 10
-    _TRANSFER_THRESHOLD = 10_000_000
 
     def __init__(self, frame: InternalFrame) -> None:
         """this stores internally a local pandas object (refactor this)"""
@@ -783,9 +783,7 @@ class SnowflakeQueryCompiler(BaseQueryCompiler):
                 or ordered_dataframe.row_count_upper_bound
                 > MAX_ROW_COUNT_FOR_ESTIMATION
             ):
-                num_rows = query_compiler.get_axis_len(0)
-            if num_rows is None:
-                return 1000000000
+                return MAX_ROW_COUNT_FOR_ESTIMATION
         else:
             num_rows = query_compiler.get_axis_len(0)
         return num_rows
@@ -799,9 +797,7 @@ class SnowflakeQueryCompiler(BaseQueryCompiler):
             ordered_dataframe.row_count_upper_bound is None
             or ordered_dataframe.row_count_upper_bound > MAX_ROW_COUNT_FOR_ESTIMATION
         ):
-            num_rows = self.get_axis_len(0)
-        if num_rows is None:
-            num_rows = 10_000_000_000
+            return MAX_ROW_COUNT_FOR_ESTIMATION, num_columns
         return num_rows, num_columns
 
     @classmethod
@@ -835,6 +831,10 @@ class SnowflakeQueryCompiler(BaseQueryCompiler):
                 )
                 return False
         return True
+
+    @classmethod
+    def _transfer_threshold(cls) -> int:
+        return SnowflakePandasTransferThreshold.get()
 
     def move_to_cost(
         self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lti-consumer-xblock
-Version: 9.14.0
+Version: 9.14.2
 Summary: This XBlock implements the consumer side of the LTI specification.
 Home-page: https://github.com/openedx/xblock-lti-consumer
 Author: Open edX project
@@ -37,7 +37,6 @@ Requires-Dist: oauthlib
 Requires-Dist: openedx-django-pyfs
 Requires-Dist: openedx-filters
 Requires-Dist: pycryptodomex
-Requires-Dist: pyjwkest
 Requires-Dist: pyjwt
 Dynamic: author
 Dynamic: author-email
@@ -344,6 +343,9 @@ How to Setup
     - Enabled: True
 4. Create a new external LTI configuration and use it in the XBlock.
    This is explained in the README of the `openedx-ltistore`_ repository.
+
+5. (Optional) Allows overriding of the `lti_1p3_launch_url` per block:
+   - Waffle flag: `lti_consumer.enable_external_multiple_launch_urls`
 
 .. _openedx-ltistore: https://github.com/open-craft/openedx-ltistore
 

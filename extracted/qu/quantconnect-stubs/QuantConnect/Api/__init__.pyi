@@ -2903,7 +2903,7 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def create_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint], estimated_cost: float, node_type: str, parallel_nodes: int) -> QuantConnect.Api.OptimizationSummary:
+    def create_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint], estimated_cost: float, node_type: str, parallel_nodes: int) -> QuantConnect.Api.OptimizationSummary:
         """
         Create an optimization with the specified parameters via QuantConnect.com API
         
@@ -3028,7 +3028,7 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def estimate_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint]) -> QuantConnect.Api.Estimate:
+    def estimate_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint]) -> QuantConnect.Api.Estimate:
         """
         Estimate optimization with the specified parameters via QuantConnect.com API
         
@@ -3440,7 +3440,7 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         """
         ...
 
-    def update_backtest_tags(self, project_id: int, backtest_id: str, tags: typing.List[str]) -> QuantConnect.Api.RestResponse:
+    def update_backtest_tags(self, project_id: int, backtest_id: str, tags: typing.Sequence[str]) -> QuantConnect.Api.RestResponse:
         """
         Updates the tags collection for a backtest
         

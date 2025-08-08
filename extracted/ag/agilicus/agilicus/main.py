@@ -3721,7 +3721,9 @@ def list_oidc_upstream_providers(ctx, issuer_id=None, **kwargs):
 @click.option("--org-id", default=None)
 @click.option("--prompt-mode", default=None, type=click.Choice(("auto", "disabled")))
 @click.option("--oidc-flavor", type=click.Choice(["oidc", "microsoft"]), default="oidc")
-@click.option("--client-authorization-type", type=click.Choice(["federated-credential"]))
+@click.option(
+    "--client-authorization-type", type=click.Choice(["federated-credential", ""])
+)
 @click.pass_context
 def update_oidc_upstream_provider(
     ctx,

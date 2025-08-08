@@ -86,15 +86,6 @@ def set_generation_config(model: nn.Module, generation_config: GenerationConfig)
     model.generation_config = generation_config
 
 
-def is_moe_model(model):
-    if 'Moe' in model.__class__.__name__:
-        return True
-    for key in ['num_experts', 'num_experts_per_tok', 'moe_intermediate_size']:
-        if hasattr(model.config, key):
-            return True
-    return False
-
-
 def find_module_list(model) -> Optional[nn.ModuleList]:
     module_lists = []
     for m in model.modules():
@@ -325,3 +316,21 @@ def update_generation_config_eos_token(generation_config, template):
             modified = True
     if modified:
         generation_config.eos_token_id = eos_token_id
+
+
+def get_packed_seq_params(position_ids: torch.Tensor):
+    position_ids_f = position_ids.flatten()
+    indices_q = torch.arange(position_ids_f.shape[0], device=position_ids_f.device, dtype=torch.int32)
+
+    cu_seqlens = torch.cat([
+        indices_q[position_ids_f == 0],
+        torch.tensor(position_ids_f.shape, device=position_ids_f.device, dtype=torch.int32),
+    ])
+
+    max_length = position_ids_f.max() + 1
+    return {
+        'cumulative_seqlens_q': cu_seqlens,
+        'cumulative_seqlens_k': cu_seqlens,
+        'max_length_q': max_length,
+        'max_length_k': max_length,
+    }

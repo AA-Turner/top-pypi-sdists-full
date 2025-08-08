@@ -45,7 +45,7 @@ class ExtendedJobsJobsItemType0:
         parent_job (Union[Unset, str]):
         script_path (Union[Unset, str]):
         script_hash (Union[Unset, str]):
-        args (Union[Unset, ExtendedJobsJobsItemType0Args]):
+        args (Union[Unset, ExtendedJobsJobsItemType0Args]): The arguments to pass to the script or flow
         result (Union[Unset, Any]):
         logs (Union[Unset, str]):
         deleted (Union[Unset, bool]):

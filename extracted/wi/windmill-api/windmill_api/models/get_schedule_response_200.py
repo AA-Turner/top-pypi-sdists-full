@@ -33,17 +33,20 @@ class GetScheduleResponse200:
         is_flow (bool):
         extra_perms (GetScheduleResponse200ExtraPerms):
         email (str):
-        args (Union[Unset, GetScheduleResponse200Args]):
+        args (Union[Unset, GetScheduleResponse200Args]): The arguments to pass to the script or flow
         error (Union[Unset, str]):
         on_failure (Union[Unset, str]):
         on_failure_times (Union[Unset, float]):
         on_failure_exact (Union[Unset, bool]):
-        on_failure_extra_args (Union[Unset, GetScheduleResponse200OnFailureExtraArgs]):
+        on_failure_extra_args (Union[Unset, GetScheduleResponse200OnFailureExtraArgs]): The arguments to pass to the
+            script or flow
         on_recovery (Union[Unset, str]):
         on_recovery_times (Union[Unset, float]):
-        on_recovery_extra_args (Union[Unset, GetScheduleResponse200OnRecoveryExtraArgs]):
+        on_recovery_extra_args (Union[Unset, GetScheduleResponse200OnRecoveryExtraArgs]): The arguments to pass to the
+            script or flow
         on_success (Union[Unset, str]):
-        on_success_extra_args (Union[Unset, GetScheduleResponse200OnSuccessExtraArgs]):
+        on_success_extra_args (Union[Unset, GetScheduleResponse200OnSuccessExtraArgs]): The arguments to pass to the
+            script or flow
         ws_error_handler_muted (Union[Unset, bool]):
         retry (Union[Unset, GetScheduleResponse200Retry]):
         summary (Union[Unset, str]):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stringzilla
-Version: 3.12.5
+Version: 3.12.6
 Summary: SIMD-accelerated string search, sort, hashes, fingerprints, & edit distances
 Home-page: https://github.com/ashvardanian/stringzilla
 Author: Ash Vardanian

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ollama
-Version: 0.5.2
+Version: 0.5.3
 Summary: The official Python client for Ollama.
 Project-URL: homepage, https://ollama.com
 Project-URL: repository, https://github.com/ollama/ollama-python

@@ -8,7 +8,10 @@ import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
 from anyscale.commands.util import AnyscaleCommand, LegacyAnyscaleCommand
-from anyscale.compute_config import ComputeConfig, MultiDeploymentComputeConfig
+from anyscale.compute_config.models import (
+    compute_config_type_from_yaml,
+    ComputeConfigVersion,
+)
 from anyscale.controllers.compute_config_controller import ComputeConfigController
 from anyscale.util import validate_non_negative_arg
 
@@ -105,15 +108,8 @@ def create_compute_config(
     if compute_config_file is not None:
         ComputeConfigController().create(compute_config_file, name)
     elif config_file is not None:
-        try:
-            config = ComputeConfig.from_yaml(config_file)
-        except TypeError:
-            config = MultiDeploymentComputeConfig.from_yaml(config_file)
-
-        if isinstance(config, ComputeConfig):
-            anyscale.compute_config.create(config, name=name)
-        elif isinstance(config, MultiDeploymentComputeConfig):
-            anyscale.compute_config.create_multi_deployment(config, name=name)
+        config = compute_config_type_from_yaml(config_file)
+        anyscale.compute_config.create(config, name=name)
     else:
         raise click.ClickException(
             "Either the --config-file flag or [COMPUTE_CONFIG_FILE] argument must be provided."
@@ -251,7 +247,7 @@ def get_compute_config(
             include_archived=include_archived,
         )
     else:
-        config: ComputeConfig = anyscale.compute_config.get(
+        config: ComputeConfigVersion = anyscale.compute_config.get(
             name=name, _id=cc_id, include_archived=include_archived,
         )
         stream = StringIO()

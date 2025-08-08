@@ -37,9 +37,11 @@ class UpdateWebsocketTriggerJsonBody:
         can_return_message (bool):
         initial_messages (Union[Unset, List[Union['UpdateWebsocketTriggerJsonBodyInitialMessagesItemType0',
             'UpdateWebsocketTriggerJsonBodyInitialMessagesItemType1']]]):
-        url_runnable_args (Union[Unset, UpdateWebsocketTriggerJsonBodyUrlRunnableArgs]):
+        url_runnable_args (Union[Unset, UpdateWebsocketTriggerJsonBodyUrlRunnableArgs]): The arguments to pass to the
+            script or flow
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, UpdateWebsocketTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, UpdateWebsocketTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, UpdateWebsocketTriggerJsonBodyRetry]):
     """
 

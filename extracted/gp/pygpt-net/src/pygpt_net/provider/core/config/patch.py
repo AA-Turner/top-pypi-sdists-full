@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.07 03:00:00                  #
+# Updated Date: 2025.08.07 22:00:00                  #
 # ================================================== #
 
 import copy
@@ -2173,6 +2173,30 @@ class Patch:
                     data["audio.input.device"] = "0"
                 if "audio.output.device" not in data:
                     data["audio.output.device"] = "0"
+
+            # < 2.5.90
+            if old < parse_version("2.5.90"):
+                print("Migrating config from < 2.5.90...")
+                self.window.core.updater.patch_css('style.dark.css', True)  # force replace file
+                self.window.core.updater.patch_css('style.light.css', True)  # force replace file
+                self.window.core.updater.patch_css('web-blocks.css', True)  # force replace file
+                self.window.core.updater.patch_css('web-blocks.dark.css', True)  # force replace file
+                self.window.core.updater.patch_css('web-blocks.light.css', True)  # force replace file
+                updated = True
+
+            # < 2.5.91
+            if old < parse_version("2.5.91"):
+                print("Migrating config from < 2.5.91...")
+                if "audio.cache.enabled" not in data:
+                    data["audio.cache.enabled"] = True
+                updated = True
+
+            # < 2.5.92
+            if old < parse_version("2.5.92"):
+                print("Migrating config from < 2.5.92...")
+                if "audio.cache.max_files" not in data:
+                    data["audio.cache.max_files"] = 1000
+                updated = True
 
         # update file
         migrated = False

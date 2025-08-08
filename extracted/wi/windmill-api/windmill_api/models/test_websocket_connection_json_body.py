@@ -20,7 +20,8 @@ class TestWebsocketConnectionJsonBody:
     Attributes:
         url (str):
         can_return_message (bool):
-        url_runnable_args (Union[Unset, TestWebsocketConnectionJsonBodyUrlRunnableArgs]):
+        url_runnable_args (Union[Unset, TestWebsocketConnectionJsonBodyUrlRunnableArgs]): The arguments to pass to the
+            script or flow
     """
 
     url: str

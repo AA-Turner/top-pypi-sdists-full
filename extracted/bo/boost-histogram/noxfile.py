@@ -5,11 +5,14 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 import nox
 
 nox.needs_version = ">=2025.2.9"
 nox.options.default_venv_backend = "uv|virtualenv"
+
+DIR = Path(__file__).parent.resolve()
 
 
 @nox.session
@@ -20,10 +23,10 @@ def tests(session: nox.Session) -> None:
     opts = (
         ["--reinstall-package=boost-histogram"] if session.venv_backend == "uv" else []
     )
-    args = session.posargs or ["-n", "auto"]
+    args = session.posargs or ["-n", "auto", "--benchmark-disable"]
     pyproject = nox.project.load_toml("pyproject.toml")
     session.install(*nox.project.dependency_groups(pyproject, "test"))
-    session.install("-v", ".", *opts, silent=False)
+    session.install("-v", "-e.", *opts, silent=False)
     session.run("pytest", *args)
 
 
@@ -114,7 +117,7 @@ def pylint(session: nox.Session) -> None:
     """
 
     session.install("pylint==3.3.*")
-    session.install("-e.")
+    session.install(".")
     session.run("pylint", "boost_histogram", *session.posargs)
 
 
@@ -126,6 +129,23 @@ def make_pickle(session: nox.Session) -> None:
     pyproject = nox.project.load_toml("pyproject.toml")
     session.install(".", *nox.project.dependency_groups(pyproject, "dev"))
     session.run("python", "tests/pickles/make_pickle.py", *session.posargs)
+
+
+@nox.session(default=False, venv_backend=None)
+def bump_boost(session: nox.Session) -> None:
+    """
+    Bump boost. Requires a version number.
+    """
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("version", help="Version to checkout")
+    args = parser.parse_args(session.posargs)
+
+    extern = DIR / "extern"
+    for path in extern.iterdir():
+        session.chdir(path)
+        session.run("git", "fetch", external=True)
+        session.run("git", "switch", "--detach", f"boost-{args.version}", external=True)
 
 
 if __name__ == "__main__":

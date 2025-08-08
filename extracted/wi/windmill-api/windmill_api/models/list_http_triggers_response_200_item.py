@@ -50,7 +50,8 @@ class ListHttpTriggersResponse200Item:
         summary (Union[Unset, str]):
         description (Union[Unset, str]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, ListHttpTriggersResponse200ItemErrorHandlerArgs]):
+        error_handler_args (Union[Unset, ListHttpTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, ListHttpTriggersResponse200ItemRetry]):
     """
 

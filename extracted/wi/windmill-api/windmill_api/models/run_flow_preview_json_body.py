@@ -19,7 +19,7 @@ class RunFlowPreviewJsonBody:
     """
     Attributes:
         value (RunFlowPreviewJsonBodyValue):
-        args (RunFlowPreviewJsonBodyArgs):
+        args (RunFlowPreviewJsonBodyArgs): The arguments to pass to the script or flow
         path (Union[Unset, str]):
         tag (Union[Unset, str]):
         restarted_from (Union[Unset, RunFlowPreviewJsonBodyRestartedFrom]):

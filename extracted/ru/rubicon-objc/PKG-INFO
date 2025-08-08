@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rubicon-objc
-Version: 0.5.1
+Version: 0.5.2
 Summary: A bridge between an Objective C runtime environment and Python.
 Author-email: Russell Keith-Magee <russell@keith-magee.com>
 Maintainer-email: BeeWare Team <team@beeware.org>
@@ -28,11 +28,11 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: dev
 Requires-Dist: pre-commit==4.2.0; extra == "dev"
-Requires-Dist: pytest==8.3.5; extra == "dev"
+Requires-Dist: pytest==8.4.1; extra == "dev"
 Requires-Dist: setuptools_scm==8.3.1; extra == "dev"
-Requires-Dist: tox==4.26.0; extra == "dev"
+Requires-Dist: tox==4.28.4; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: furo==2024.8.6; extra == "docs"
+Requires-Dist: furo==2025.7.19; extra == "docs"
 Requires-Dist: pyenchant==3.2.2; extra == "docs"
 Requires-Dist: sphinx==8.2.3; extra == "docs"
 Requires-Dist: sphinx_tabs==3.4.7; extra == "docs"

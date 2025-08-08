@@ -37,21 +37,19 @@ class TestCreateSpendPermissionRequest(unittest.TestCase):
         if include_optional:
             return CreateSpendPermissionRequest(
                 network = 'base',
-                account = '0xd53Ee96438383Bb1eff07958D110B81363E9Ab47',
                 spender = '0x9Fb909eA400c2b8D99Be292DADf07e63B814527c',
                 token = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
                 allowance = '1000000000000000000',
                 period = '86400',
                 start = '0',
                 end = '281474976710655',
-                salt = '0',
+                salt = '95959551014433038874972658238091428449162862973207257628575040053304171156143',
                 extra_data = '0x',
                 paymaster_url = 'https://paymaster.cdp.coinbase.com'
             )
         else:
             return CreateSpendPermissionRequest(
                 network = 'base',
-                account = '0xd53Ee96438383Bb1eff07958D110B81363E9Ab47',
                 spender = '0x9Fb909eA400c2b8D99Be292DADf07e63B814527c',
                 token = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
                 allowance = '1000000000000000000',

@@ -54,6 +54,7 @@ class ExperimentalWorkspace(object):
         'template_url': 'str',
         'snapshot_error_at': 'datetime',
         'snapshot_state': 'WorkspaceSnapshotStates',
+        'latest_started_at': 'datetime',
         'state': 'SessionState',
         'integration_details': 'IntegrationDetails'
     }
@@ -80,11 +81,12 @@ class ExperimentalWorkspace(object):
         'template_url': 'template_url',
         'snapshot_error_at': 'snapshot_error_at',
         'snapshot_state': 'snapshot_state',
+        'latest_started_at': 'latest_started_at',
         'state': 'state',
         'integration_details': 'integration_details'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, state=None, integration_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, state=None, integration_details=None, local_vars_configuration=None):  # noqa: E501
         """ExperimentalWorkspace - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -111,6 +113,7 @@ class ExperimentalWorkspace(object):
         self._template_url = None
         self._snapshot_error_at = None
         self._snapshot_state = None
+        self._latest_started_at = None
         self._state = None
         self._integration_details = None
         self.discriminator = None
@@ -147,6 +150,8 @@ class ExperimentalWorkspace(object):
             self.snapshot_error_at = snapshot_error_at
         if snapshot_state is not None:
             self.snapshot_state = snapshot_state
+        if latest_started_at is not None:
+            self.latest_started_at = latest_started_at
         if state is not None:
             self.state = state
         if integration_details is not None:
@@ -654,6 +659,29 @@ class ExperimentalWorkspace(object):
         """
 
         self._snapshot_state = snapshot_state
+
+    @property
+    def latest_started_at(self):
+        """Gets the latest_started_at of this ExperimentalWorkspace.  # noqa: E501
+
+        The time at which the workspace was last started.  # noqa: E501
+
+        :return: The latest_started_at of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._latest_started_at
+
+    @latest_started_at.setter
+    def latest_started_at(self, latest_started_at):
+        """Sets the latest_started_at of this ExperimentalWorkspace.
+
+        The time at which the workspace was last started.  # noqa: E501
+
+        :param latest_started_at: The latest_started_at of this ExperimentalWorkspace.  # noqa: E501
+        :type: datetime
+        """
+
+        self._latest_started_at = latest_started_at
 
     @property
     def state(self):

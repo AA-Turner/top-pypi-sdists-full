@@ -27,7 +27,7 @@ System_Threading_ThreadLocal_T = typing.TypeVar("System_Threading_ThreadLocal_T"
 class PreAllocatedOverlapped(System.Object, System.IDisposable, System.Threading.IDeferredDisposable):
     """Represents pre-allocated state for native overlapped I/O operations."""
 
-    def __init__(self, callback: typing.Callable[[int, int, typing.Any], None], state: typing.Any, pin_data: typing.Any) -> None:
+    def __init__(self, callback: typing.Callable[[int, int, typing.Any], typing.Any], state: typing.Any, pin_data: typing.Any) -> None:
         """
         Initializes a new instance of the PreAllocatedOverlapped class, specifying
             a delegate that is invoked when each asynchronous I/O operation is complete, a user-provided
@@ -44,7 +44,7 @@ class PreAllocatedOverlapped(System.Object, System.IDisposable, System.Threading
         ...
 
     @staticmethod
-    def unsafe_create(callback: typing.Callable[[int, int, typing.Any], None], state: typing.Any, pin_data: typing.Any) -> System.Threading.PreAllocatedOverlapped:
+    def unsafe_create(callback: typing.Callable[[int, int, typing.Any], typing.Any], state: typing.Any, pin_data: typing.Any) -> System.Threading.PreAllocatedOverlapped:
         """
         Initializes a new instance of the PreAllocatedOverlapped class, specifying
             a delegate that is invoked when each asynchronous I/O operation is complete, a user-provided
@@ -68,7 +68,7 @@ class ThreadPoolBoundHandle(System.Object, System.IDisposable, System.Threading.
         ...
 
     @overload
-    def allocate_native_overlapped(self, callback: typing.Callable[[int, int, typing.Any], None], state: typing.Any, pin_data: typing.Any) -> typing.Any:
+    def allocate_native_overlapped(self, callback: typing.Callable[[int, int, typing.Any], typing.Any], state: typing.Any, pin_data: typing.Any) -> typing.Any:
         ...
 
     @overload
@@ -89,7 +89,7 @@ class ThreadPoolBoundHandle(System.Object, System.IDisposable, System.Threading.
     def get_native_overlapped_state(overlapped: typing.Any) -> System.Object:
         ...
 
-    def unsafe_allocate_native_overlapped(self, callback: typing.Callable[[int, int, typing.Any], None], state: typing.Any, pin_data: typing.Any) -> typing.Any:
+    def unsafe_allocate_native_overlapped(self, callback: typing.Callable[[int, int, typing.Any], typing.Any], state: typing.Any, pin_data: typing.Any) -> typing.Any:
         ...
 
 
@@ -386,7 +386,7 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
     @overload
-    def register(self, callback: typing.Callable[[System.Object], None], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
+    def register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
         """
         Registers a delegate that will be called when this
         CancellationToken is canceled.
@@ -398,7 +398,7 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
     @overload
-    def register(self, callback: typing.Callable[[System.Object, System.Threading.CancellationToken], None], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
+    def register(self, callback: typing.Callable[[System.Object, System.Threading.CancellationToken], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
         """
         Registers a delegate that will be called when this CancellationToken is canceled.
         
@@ -409,7 +409,7 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
     @overload
-    def register(self, callback: typing.Callable[[System.Object], None], state: typing.Any, use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
+    def register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
         """
         Registers a delegate that will be called when this
         CancellationToken is canceled.
@@ -422,7 +422,7 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
     @overload
-    def register(self, callback: typing.Callable[[], None]) -> System.Threading.CancellationTokenRegistration:
+    def register(self, callback: typing.Callable[[], typing.Any]) -> System.Threading.CancellationTokenRegistration:
         """
         Registers a delegate that will be called when this CancellationToken is canceled.
         
@@ -432,7 +432,7 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
     @overload
-    def register(self, callback: typing.Callable[[], None], use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
+    def register(self, callback: typing.Callable[[], typing.Any], use_synchronization_context: bool) -> System.Threading.CancellationTokenRegistration:
         """
         Registers a delegate that will be called when this
         CancellationToken is canceled.
@@ -451,7 +451,7 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
     @overload
-    def unsafe_register(self, callback: typing.Callable[[System.Object], None], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
+    def unsafe_register(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
         """
         Registers a delegate that will be called when this
         CancellationToken is canceled.
@@ -463,7 +463,7 @@ class CancellationToken(System.IEquatable[System_Threading_CancellationToken]):
         ...
 
     @overload
-    def unsafe_register(self, callback: typing.Callable[[System.Object, System.Threading.CancellationToken], None], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
+    def unsafe_register(self, callback: typing.Callable[[System.Object, System.Threading.CancellationToken], typing.Any], state: typing.Any) -> System.Threading.CancellationTokenRegistration:
         """
         Registers a delegate that will be called when this CancellationToken is canceled.
         
@@ -713,22 +713,22 @@ class ThreadPool(System.Object):
 
     @staticmethod
     @overload
-    def queue_user_work_item(call_back: typing.Callable[[System.Object], None], state: typing.Any) -> bool:
+    def queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> bool:
         ...
 
     @staticmethod
     @overload
-    def queue_user_work_item(call_back: typing.Callable[[System.Object], None]) -> bool:
+    def queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any]) -> bool:
         ...
 
     @staticmethod
     @overload
-    def register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, milliseconds_time_out_interval: int, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
+    def register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], typing.Any], state: typing.Any, milliseconds_time_out_interval: int, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
         ...
 
     @staticmethod
     @overload
-    def register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, timeout: datetime.timedelta, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
+    def register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], typing.Any], state: typing.Any, timeout: datetime.timedelta, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
         ...
 
     @staticmethod
@@ -745,7 +745,7 @@ class ThreadPool(System.Object):
 
     @staticmethod
     @overload
-    def unsafe_queue_user_work_item(call_back: typing.Callable[[System.Object], None], state: typing.Any) -> bool:
+    def unsafe_queue_user_work_item(call_back: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> bool:
         ...
 
     @staticmethod
@@ -755,12 +755,12 @@ class ThreadPool(System.Object):
 
     @staticmethod
     @overload
-    def unsafe_register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, milliseconds_time_out_interval: int, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
+    def unsafe_register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], typing.Any], state: typing.Any, milliseconds_time_out_interval: int, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
         ...
 
     @staticmethod
     @overload
-    def unsafe_register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], None], state: typing.Any, timeout: datetime.timedelta, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
+    def unsafe_register_wait_for_single_object(wait_object: System.Threading.WaitHandle, call_back: typing.Callable[[System.Object, bool], typing.Any], state: typing.Any, timeout: datetime.timedelta, execute_only_once: bool) -> System.Threading.RegisteredWaitHandle:
         ...
 
 
@@ -1091,7 +1091,7 @@ class CompressedStack(System.Object, System.Runtime.Serialization.ISerializable)
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
     @staticmethod
-    def run(compressed_stack: System.Threading.CompressedStack, callback: typing.Callable[[System.Object], None], state: typing.Any) -> None:
+    def run(compressed_stack: System.Threading.CompressedStack, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> None:
         ...
 
 
@@ -1192,15 +1192,15 @@ class Timer(System.MarshalByRefObject, System.Threading.ITimer):
     """
 
     @overload
-    def __init__(self, callback: typing.Callable[[System.Object], None], state: typing.Any, due_time: int, period: int) -> None:
+    def __init__(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, due_time: int, period: int) -> None:
         ...
 
     @overload
-    def __init__(self, callback: typing.Callable[[System.Object], None], state: typing.Any, due_time: datetime.timedelta, period: datetime.timedelta) -> None:
+    def __init__(self, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any, due_time: datetime.timedelta, period: datetime.timedelta) -> None:
         ...
 
     @overload
-    def __init__(self, callback: typing.Callable[[System.Object], None]) -> None:
+    def __init__(self, callback: typing.Callable[[System.Object], typing.Any]) -> None:
         ...
 
     @overload
@@ -1515,7 +1515,7 @@ class ExecutionContext(System.Object, System.IDisposable, System.Runtime.Seriali
         ...
 
     @staticmethod
-    def run(execution_context: System.Threading.ExecutionContext, callback: typing.Callable[[System.Object], None], state: typing.Any) -> None:
+    def run(execution_context: System.Threading.ExecutionContext, callback: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -1881,19 +1881,19 @@ class Thread(System.Runtime.ConstrainedExecution.CriticalFinalizerObject):
         ...
 
     @overload
-    def __init__(self, start: typing.Callable[[], None]) -> None:
+    def __init__(self, start: typing.Callable[[], typing.Any]) -> None:
         ...
 
     @overload
-    def __init__(self, start: typing.Callable[[], None], max_stack_size: int) -> None:
+    def __init__(self, start: typing.Callable[[], typing.Any], max_stack_size: int) -> None:
         ...
 
     @overload
-    def __init__(self, start: typing.Callable[[System.Object], None]) -> None:
+    def __init__(self, start: typing.Callable[[System.Object], typing.Any]) -> None:
         ...
 
     @overload
-    def __init__(self, start: typing.Callable[[System.Object], None], max_stack_size: int) -> None:
+    def __init__(self, start: typing.Callable[[System.Object], typing.Any], max_stack_size: int) -> None:
         ...
 
     @overload
@@ -2419,11 +2419,11 @@ class Overlapped(System.Object):
         ...
 
     @overload
-    def pack(self, iocb: typing.Callable[[int, int, typing.Any], None], user_data: typing.Any) -> typing.Any:
+    def pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any], user_data: typing.Any) -> typing.Any:
         ...
 
     @overload
-    def pack(self, iocb: typing.Callable[[int, int, typing.Any], None]) -> typing.Any:
+    def pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any]) -> typing.Any:
         """This overload is not safe and has been deprecated. Use Pack(IOCompletionCallback?, object?) instead."""
         ...
 
@@ -2432,11 +2432,11 @@ class Overlapped(System.Object):
         ...
 
     @overload
-    def unsafe_pack(self, iocb: typing.Callable[[int, int, typing.Any], None], user_data: typing.Any) -> typing.Any:
+    def unsafe_pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any], user_data: typing.Any) -> typing.Any:
         ...
 
     @overload
-    def unsafe_pack(self, iocb: typing.Callable[[int, int, typing.Any], None]) -> typing.Any:
+    def unsafe_pack(self, iocb: typing.Callable[[int, int, typing.Any], typing.Any]) -> typing.Any:
         """This overload is not safe and has been deprecated. Use UnsafePack(IOCompletionCallback?, object?) instead."""
         ...
 
@@ -2601,10 +2601,10 @@ class SynchronizationContext(System.Object):
         """Optional override for subclasses, for responding to notification that operation is starting."""
         ...
 
-    def post(self, d: typing.Callable[[System.Object], None], state: typing.Any) -> None:
+    def post(self, d: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> None:
         ...
 
-    def send(self, d: typing.Callable[[System.Object], None], state: typing.Any) -> None:
+    def send(self, d: typing.Callable[[System.Object], typing.Any], state: typing.Any) -> None:
         ...
 
     @staticmethod
@@ -2870,7 +2870,7 @@ class AsyncLocal(typing.Generic[System_Threading_AsyncLocal_T], System.Object, S
         ...
 
     @overload
-    def __init__(self, value_changed_handler: typing.Callable[[System.Threading.AsyncLocalValueChangedArgs[System_Threading_AsyncLocal_T]], None]) -> None:
+    def __init__(self, value_changed_handler: typing.Callable[[System.Threading.AsyncLocalValueChangedArgs[System_Threading_AsyncLocal_T]], typing.Any]) -> None:
         """
         Instantiates an AsyncLocal{T} instance that receives change notifications.
         

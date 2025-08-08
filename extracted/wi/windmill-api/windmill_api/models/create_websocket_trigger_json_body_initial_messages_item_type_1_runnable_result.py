@@ -17,7 +17,8 @@ class CreateWebsocketTriggerJsonBodyInitialMessagesItemType1RunnableResult:
     """
     Attributes:
         path (str):
-        args (CreateWebsocketTriggerJsonBodyInitialMessagesItemType1RunnableResultArgs):
+        args (CreateWebsocketTriggerJsonBodyInitialMessagesItemType1RunnableResultArgs): The arguments to pass to the
+            script or flow
         is_flow (bool):
     """
 

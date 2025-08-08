@@ -40,6 +40,7 @@ __all__ = (
     "CompressionTypeType",
     "ComputationTypeType",
     "ComputeEnvironmentType",
+    "ConfigurationSourceType",
     "ConnectionPropertyKeyType",
     "ConnectionStatusType",
     "ConnectionTypeType",
@@ -231,6 +232,7 @@ CompatibilityType = Literal[
 CompressionTypeType = Literal["bzip2", "gzip"]
 ComputationTypeType = Literal["FULL", "INCREMENTAL"]
 ComputeEnvironmentType = Literal["ATHENA", "PYTHON", "SPARK"]
+ConfigurationSourceType = Literal["catalog", "table"]
 ConnectionPropertyKeyType = Literal[
     "CLUSTER_IDENTIFIER",
     "CONFIG_FILES",

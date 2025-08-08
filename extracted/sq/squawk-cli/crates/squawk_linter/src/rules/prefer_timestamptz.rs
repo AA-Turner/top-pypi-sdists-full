@@ -4,7 +4,7 @@ use squawk_syntax::{
 };
 
 use crate::{Linter, Rule, Violation};
-use crate::{text::trim_quotes, visitors::check_not_allowed_types};
+use crate::{identifier::Identifier, visitors::check_not_allowed_types};
 
 pub fn is_not_allowed_timestamp(ty: &ast::Type) -> bool {
     match ty {
@@ -26,7 +26,8 @@ pub fn is_not_allowed_timestamp(ty: &ast::Type) -> bool {
                 return false;
             };
             // if we don't have any args, then it's the same as `text`
-            trim_quotes(ty_name.as_str()) == "varchar" && path_type.arg_list().is_some()
+            Identifier::new(ty_name.as_str()) == Identifier::new("varchar")
+                && path_type.arg_list().is_some()
         }
         ast::Type::CharType(_) => false,
         ast::Type::BitType(_) => false,
@@ -65,7 +66,8 @@ pub(crate) fn prefer_timestamptz(ctx: &mut Linter, parse: &Parse<SourceFile>) {
 mod test {
     use insta::assert_debug_snapshot;
 
-    use crate::{Linter, Rule};
+    use crate::Rule;
+    use crate::test_utils::lint;
 
     #[test]
     fn create_table_with_timestamp_err() {
@@ -79,9 +81,7 @@ create table app.accounts
     created_ts timestamp without time zone
 );
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTimestampTz]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTimestampTz);
         assert_ne!(errors.len(), 0);
         assert_debug_snapshot!(errors);
     }
@@ -94,9 +94,7 @@ alter table app.users
 alter table app.accounts
     alter column created_ts type timestamp without time zone;
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTimestampTz]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTimestampTz);
         assert_ne!(errors.len(), 0);
         assert_debug_snapshot!(errors);
     }
@@ -113,9 +111,7 @@ create table app.accounts
     created_ts timestamp with time zone
 );
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTimestampTz]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTimestampTz);
         assert_eq!(errors.len(), 0);
     }
 
@@ -131,9 +127,7 @@ create table app.accounts
     created_ts timestamp with time zone
 );
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTimestampTz]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTimestampTz);
         assert_eq!(errors.len(), 0);
     }
 }

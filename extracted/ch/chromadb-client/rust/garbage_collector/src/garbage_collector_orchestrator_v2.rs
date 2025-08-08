@@ -38,7 +38,7 @@ use chroma_storage::Storage;
 use chroma_sysdb::{GetCollectionsOptions, SysDb};
 use chroma_system::{
     wrap, ChannelError, ComponentContext, ComponentHandle, Dispatcher, Handler, Orchestrator,
-    PanicError, System, TaskError, TaskResult,
+    OrchestratorContext, PanicError, System, TaskError, TaskResult,
 };
 use chroma_types::chroma_proto::{CollectionVersionFile, VersionListForCollection};
 use chroma_types::{CollectionUuid, DeleteCollectionError};
@@ -60,7 +60,7 @@ pub struct GarbageCollectorOrchestrator {
     version_absolute_cutoff_time: DateTime<Utc>,
     collection_soft_delete_absolute_cutoff_time: DateTime<Utc>,
     sysdb_client: SysDb,
-    dispatcher: ComponentHandle<Dispatcher>,
+    context: OrchestratorContext,
     system: System,
     storage: Storage,
     logs: Log,
@@ -76,7 +76,7 @@ pub struct GarbageCollectorOrchestrator {
     file_ref_counts: HashMap<String, u32>,
     num_pending_tasks: usize,
     min_versions_to_keep: u32,
-    disable_log_gc: bool,
+    enable_log_gc: bool,
     graph: Option<VersionGraph>,
     soft_deleted_collections_to_gc: HashSet<CollectionUuid>,
     tenant: Option<String>,
@@ -84,6 +84,8 @@ pub struct GarbageCollectorOrchestrator {
 
     num_files_deleted: u32,
     num_versions_deleted: u32,
+
+    enable_dangerous_option_to_ignore_min_versions_for_wal3: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -102,7 +104,8 @@ impl GarbageCollectorOrchestrator {
         root_manager: RootManager,
         cleanup_mode: CleanupMode,
         min_versions_to_keep: u32,
-        disable_log_gc: bool,
+        enable_log_gc: bool,
+        enable_dangerous_option_to_ignore_min_versions_for_wal3: bool,
     ) -> Self {
         Self {
             collection_id,
@@ -111,7 +114,7 @@ impl GarbageCollectorOrchestrator {
             version_absolute_cutoff_time,
             collection_soft_delete_absolute_cutoff_time,
             sysdb_client,
-            dispatcher,
+            context: OrchestratorContext::new(dispatcher),
             system,
             storage,
             logs,
@@ -127,7 +130,7 @@ impl GarbageCollectorOrchestrator {
             delete_unused_log_output: None,
             num_pending_tasks: 0,
             min_versions_to_keep,
-            disable_log_gc,
+            enable_log_gc,
             graph: None,
             soft_deleted_collections_to_gc: HashSet::new(),
             tenant: None,
@@ -135,6 +138,8 @@ impl GarbageCollectorOrchestrator {
 
             num_files_deleted: 0,
             num_versions_deleted: 0,
+
+            enable_dangerous_option_to_ignore_min_versions_for_wal3,
         }
     }
 }
@@ -209,7 +214,11 @@ impl Orchestrator for GarbageCollectorOrchestrator {
     type Error = GarbageCollectorError;
 
     fn dispatcher(&self) -> ComponentHandle<Dispatcher> {
-        self.dispatcher.clone()
+        self.context.dispatcher.clone()
+    }
+
+    fn context(&self) -> &OrchestratorContext {
+        &self.context
     }
 
     async fn on_start(&mut self, ctx: &ComponentContext<Self>) {
@@ -322,6 +331,7 @@ impl GarbageCollectorOrchestrator {
                 min_versions_to_keep: self.min_versions_to_keep,
             },
             ctx.receiver(),
+            self.context.task_cancellation_token.clone(),
         );
 
         self.dispatcher()
@@ -400,6 +410,7 @@ impl GarbageCollectorOrchestrator {
                     oldest_version_to_keep: 0,
                 },
                 ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
             );
             self.dispatcher()
                 .send(mark_deleted_versions_task, Some(Span::current()))
@@ -415,6 +426,7 @@ impl GarbageCollectorOrchestrator {
                         *version,
                     ),
                     ctx.receiver(),
+                    self.context.task_cancellation_token.clone(),
                 );
 
                 self.dispatcher()
@@ -513,19 +525,19 @@ impl GarbageCollectorOrchestrator {
 
         let task = wrap(
             Box::new(DeleteUnusedLogsOperator {
-                dry_run: self.disable_log_gc
-                    || matches!(
-                        self.cleanup_mode,
-                        CleanupMode::DryRun | CleanupMode::DryRunV2
-                    ),
+                enabled: self.enable_log_gc,
+                mode: self.cleanup_mode,
                 storage: self.storage.clone(),
                 logs: self.logs.clone(),
+                enable_dangerous_option_to_ignore_min_versions_for_wal3: self
+                    .enable_dangerous_option_to_ignore_min_versions_for_wal3,
             }),
             DeleteUnusedLogsInput {
                 collections_to_destroy,
                 collections_to_garbage_collect,
             },
             ctx.receiver(),
+            self.context.task_cancellation_token.clone(),
         );
         self.dispatcher()
             .send(task, Some(Span::current()))
@@ -736,6 +748,7 @@ impl GarbageCollectorOrchestrator {
                 hnsw_prefixes_for_deletion: vec![],
             },
             ctx.receiver(),
+            self.context.task_cancellation_token.clone(),
         );
         self.dispatcher()
             .send(task, Some(Span::current()))
@@ -853,6 +866,7 @@ impl GarbageCollectorOrchestrator {
                     unused_s3_files: output.deleted_files.clone(),
                 },
                 ctx.receiver(),
+                self.context.task_cancellation_token.clone(),
             );
 
             self.dispatcher()
@@ -1201,6 +1215,7 @@ mod tests {
             root_manager,
             crate::types::CleanupMode::Delete,
             1,
+            true,
             false,
         );
         let result = orchestrator.run(system).await;

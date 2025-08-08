@@ -6,8 +6,10 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
+import transformers
+from packaging import version
 
-from swift.llm import to_device, to_float_dtype
+from swift.llm import get_packed_seq_params, to_device, to_float_dtype
 from swift.utils import get_env_args, is_deepspeed_enabled
 from ..base import Template
 from ..constant import LLMTemplateType, MLLMTemplateType
@@ -298,14 +300,18 @@ class Qwen2VLTemplate(Template):
     def forward_context(self, model, inputs):
         if 'real_position_ids' not in inputs:
             return super().forward_context(model, inputs)
+        position_ids = inputs['position_ids']
+        inputs['position_ids'] = inputs.pop('real_position_ids')
+        transformers_ge_453 = version.parse(transformers.__version__) >= version.parse('4.53')
+        if transformers_ge_453:
+            inputs.update(get_packed_seq_params(position_ids))
+            return super().forward_context(model, inputs)
         if self.version == 'v2':
             from transformers.models.qwen2_vl import modeling_qwen2_vl as modeling_module
         elif self.version == 'v2_5':
             from transformers.models.qwen2_5_vl import modeling_qwen2_5_vl as modeling_module
         elif self.version == 'omni':
             from transformers.models.qwen2_5_omni import modeling_qwen2_5_omni as modeling_module
-        position_ids = inputs['position_ids']
-        inputs['position_ids'] = inputs.pop('real_position_ids')
         return self._patch_flash_attention_forward(modeling_module, position_ids)
 
     def _post_encode(self, model, inputs: Dict[str, Any]) -> Dict[str, Any]:
@@ -335,16 +341,35 @@ class Qwen2VLTemplate(Template):
                 image_embeds = model.visual(pixel_values, grid_thw=media_inputs['image_grid_thw'])
                 inputs_embeds += image_embeds.mean() * 0.
         else:
-            if pixel_values is not None:
-                pixel_values = pixel_values.type(dtype)
-                image_embeds = model.visual(pixel_values, grid_thw=image_grid_thw)
+            if pixel_values is None:
+                pixel_values_mixed = pixel_values_videos
+                grid_thw = video_grid_thw
+            elif pixel_values_videos is None:
+                pixel_values_mixed = pixel_values
+                grid_thw = image_grid_thw
+            else:
+                pixel_values_mixed = torch.concat([pixel_values, pixel_values_videos], dim=0)
+                grid_thw = torch.concat([image_grid_thw, video_grid_thw], dim=0)
+            pixel_values_mixed = pixel_values_mixed.type(dtype)
+            mixed_embeds = model.visual(pixel_values_mixed, grid_thw=grid_thw)
+            if pixel_values is None:
+                image_embeds = None
+                video_embeds = mixed_embeds
+            elif pixel_values_videos is None:
+                image_embeds = mixed_embeds
+                video_embeds = None
+            else:
+                merge_length = self.processor.image_processor.merge_size**2
+                image_tokens = (image_grid_thw.prod(dim=-1) // merge_length).sum()
+                image_embeds = mixed_embeds[:image_tokens]
+                video_embeds = mixed_embeds[image_tokens:]
+
+            if image_embeds is not None:
                 image_mask = (input_ids == model.config.image_token_id).unsqueeze(-1).expand_as(inputs_embeds)
                 image_embeds = image_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
                 inputs_embeds = inputs_embeds.masked_scatter(image_mask, image_embeds)
 
-            if pixel_values_videos is not None:
-                pixel_values_videos = pixel_values_videos.type(dtype)
-                video_embeds = model.visual(pixel_values_videos, grid_thw=video_grid_thw)
+            if video_embeds is not None:
                 video_mask = (input_ids == model.config.video_token_id).unsqueeze(-1).expand_as(inputs_embeds)
                 video_embeds = video_embeds.to(inputs_embeds.device, inputs_embeds.dtype)
                 inputs_embeds = inputs_embeds.masked_scatter(video_mask, video_embeds)
@@ -362,10 +387,10 @@ class Qwen2VLTemplate(Template):
                 res[f'{media_type}_grid_thw'] = grid_thw
         return res
 
-    def packing_row(self, row: List[Tuple[Dict[str, Any], int]]) -> Dict[str, Any]:
+    def packing_row(self, row: List[Dict[str, Any]]) -> Dict[str, Any]:
         position_ids = []
         for r in row:
-            r = r[0].copy()
+            r = r.copy()
             r['input_ids'] = torch.tensor(r['input_ids'])[None]
             position_ids.append(self._get_position_ids(r))
         packed = super().packing_row(row)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hmr
-Version: 0.6.4.4
+Version: 0.6.4.6
 Summary: Hot Module Reload for Python
 Keywords: reactive-programming,reload,signals,hmr
 Classifier: Development Status :: 5 - Production/Stable

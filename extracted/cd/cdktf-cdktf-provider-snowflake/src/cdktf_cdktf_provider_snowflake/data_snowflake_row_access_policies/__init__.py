@@ -1,7 +1,7 @@
 r'''
 # `data_snowflake_row_access_policies`
 
-Refer to the Terraform Registry for docs: [`data_snowflake_row_access_policies`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies).
+Refer to the Terraform Registry for docs: [`data_snowflake_row_access_policies`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataSnowflakeRowAccessPolicies(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.dataSnowflakeRowAccessPolicies.DataSnowflakeRowAccessPolicies",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies snowflake_row_access_policies}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies snowflake_row_access_policies}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class DataSnowflakeRowAccessPolicies(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies snowflake_row_access_policies} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies snowflake_row_access_policies} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#id DataSnowflakeRowAccessPolicies#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#in DataSnowflakeRowAccessPolicies#in}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#like DataSnowflakeRowAccessPolicies#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#limit DataSnowflakeRowAccessPolicies#limit}
-        :param with_describe: (Default: ``true``) Runs DESC ROW ACCESS POLICY for each row access policy returned by SHOW ROW ACCESS POLICIES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#with_describe DataSnowflakeRowAccessPolicies#with_describe}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#id DataSnowflakeRowAccessPolicies#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#in DataSnowflakeRowAccessPolicies#in}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#like DataSnowflakeRowAccessPolicies#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#limit DataSnowflakeRowAccessPolicies#limit}
+        :param with_describe: (Default: ``true``) Runs DESC ROW ACCESS POLICY for each row access policy returned by SHOW ROW ACCESS POLICIES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#with_describe DataSnowflakeRowAccessPolicies#with_describe}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class DataSnowflakeRowAccessPolicies(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataSnowflakeRowAccessPolicies to import.
-        :param import_from_id: The id of the existing DataSnowflakeRowAccessPolicies that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataSnowflakeRowAccessPolicies that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataSnowflakeRowAccessPolicies to import is found.
         '''
         if __debug__:
@@ -137,11 +137,11 @@ class DataSnowflakeRowAccessPolicies(
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#account DataSnowflakeRowAccessPolicies#account}
-        :param application: Returns records for the specified application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#application DataSnowflakeRowAccessPolicies#application}
-        :param application_package: Returns records for the specified application package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#application_package DataSnowflakeRowAccessPolicies#application_package}
-        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#database DataSnowflakeRowAccessPolicies#database}
-        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#schema DataSnowflakeRowAccessPolicies#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#account DataSnowflakeRowAccessPolicies#account}
+        :param application: Returns records for the specified application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#application DataSnowflakeRowAccessPolicies#application}
+        :param application_package: Returns records for the specified application package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#application_package DataSnowflakeRowAccessPolicies#application_package}
+        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#database DataSnowflakeRowAccessPolicies#database}
+        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#schema DataSnowflakeRowAccessPolicies#schema}
         '''
         value = DataSnowflakeRowAccessPoliciesIn(
             account=account,
@@ -161,8 +161,8 @@ class DataSnowflakeRowAccessPolicies(
         from_: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#rows DataSnowflakeRowAccessPolicies#rows}
-        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#from DataSnowflakeRowAccessPolicies#from}
+        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#rows DataSnowflakeRowAccessPolicies#rows}
+        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#from DataSnowflakeRowAccessPolicies#from}
         '''
         value = DataSnowflakeRowAccessPoliciesLimit(rows=rows, from_=from_)
 
@@ -328,11 +328,11 @@ class DataSnowflakeRowAccessPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#id DataSnowflakeRowAccessPolicies#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#in DataSnowflakeRowAccessPolicies#in}
-        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#like DataSnowflakeRowAccessPolicies#like}
-        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#limit DataSnowflakeRowAccessPolicies#limit}
-        :param with_describe: (Default: ``true``) Runs DESC ROW ACCESS POLICY for each row access policy returned by SHOW ROW ACCESS POLICIES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#with_describe DataSnowflakeRowAccessPolicies#with_describe}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#id DataSnowflakeRowAccessPolicies#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param in_: in block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#in DataSnowflakeRowAccessPolicies#in}
+        :param like: Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#like DataSnowflakeRowAccessPolicies#like}
+        :param limit: limit block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#limit DataSnowflakeRowAccessPolicies#limit}
+        :param with_describe: (Default: ``true``) Runs DESC ROW ACCESS POLICY for each row access policy returned by SHOW ROW ACCESS POLICIES. The output of describe is saved to the description field. By default this value is set to true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#with_describe DataSnowflakeRowAccessPolicies#with_describe}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -446,7 +446,7 @@ class DataSnowflakeRowAccessPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#id DataSnowflakeRowAccessPolicies#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#id DataSnowflakeRowAccessPolicies#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -458,7 +458,7 @@ class DataSnowflakeRowAccessPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def in_(self) -> typing.Optional["DataSnowflakeRowAccessPoliciesIn"]:
         '''in block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#in DataSnowflakeRowAccessPolicies#in}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#in DataSnowflakeRowAccessPolicies#in}
         '''
         result = self._values.get("in_")
         return typing.cast(typing.Optional["DataSnowflakeRowAccessPoliciesIn"], result)
@@ -467,7 +467,7 @@ class DataSnowflakeRowAccessPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def like(self) -> typing.Optional[builtins.str]:
         '''Filters the output with **case-insensitive** pattern, with support for SQL wildcard characters (``%`` and ``_``).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#like DataSnowflakeRowAccessPolicies#like}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#like DataSnowflakeRowAccessPolicies#like}
         '''
         result = self._values.get("like")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -476,7 +476,7 @@ class DataSnowflakeRowAccessPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def limit(self) -> typing.Optional["DataSnowflakeRowAccessPoliciesLimit"]:
         '''limit block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#limit DataSnowflakeRowAccessPolicies#limit}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#limit DataSnowflakeRowAccessPolicies#limit}
         '''
         result = self._values.get("limit")
         return typing.cast(typing.Optional["DataSnowflakeRowAccessPoliciesLimit"], result)
@@ -489,7 +489,7 @@ class DataSnowflakeRowAccessPoliciesConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
         The output of describe is saved to the description field. By default this value is set to true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#with_describe DataSnowflakeRowAccessPolicies#with_describe}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#with_describe DataSnowflakeRowAccessPolicies#with_describe}
         '''
         result = self._values.get("with_describe")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -528,11 +528,11 @@ class DataSnowflakeRowAccessPoliciesIn:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#account DataSnowflakeRowAccessPolicies#account}
-        :param application: Returns records for the specified application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#application DataSnowflakeRowAccessPolicies#application}
-        :param application_package: Returns records for the specified application package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#application_package DataSnowflakeRowAccessPolicies#application_package}
-        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#database DataSnowflakeRowAccessPolicies#database}
-        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#schema DataSnowflakeRowAccessPolicies#schema}
+        :param account: Returns records for the entire account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#account DataSnowflakeRowAccessPolicies#account}
+        :param application: Returns records for the specified application. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#application DataSnowflakeRowAccessPolicies#application}
+        :param application_package: Returns records for the specified application package. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#application_package DataSnowflakeRowAccessPolicies#application_package}
+        :param database: Returns records for the current database in use or for a specified database. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#database DataSnowflakeRowAccessPolicies#database}
+        :param schema: Returns records for the current schema in use or a specified schema. Use fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#schema DataSnowflakeRowAccessPolicies#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d962c3b3908e3936fa774cfa3b68d2a329854e4f5e0fdab4871ae063d30eda7c)
@@ -559,7 +559,7 @@ class DataSnowflakeRowAccessPoliciesIn:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Returns records for the entire account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#account DataSnowflakeRowAccessPolicies#account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#account DataSnowflakeRowAccessPolicies#account}
         '''
         result = self._values.get("account")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -568,7 +568,7 @@ class DataSnowflakeRowAccessPoliciesIn:
     def application(self) -> typing.Optional[builtins.str]:
         '''Returns records for the specified application.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#application DataSnowflakeRowAccessPolicies#application}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#application DataSnowflakeRowAccessPolicies#application}
         '''
         result = self._values.get("application")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -577,7 +577,7 @@ class DataSnowflakeRowAccessPoliciesIn:
     def application_package(self) -> typing.Optional[builtins.str]:
         '''Returns records for the specified application package.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#application_package DataSnowflakeRowAccessPolicies#application_package}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#application_package DataSnowflakeRowAccessPolicies#application_package}
         '''
         result = self._values.get("application_package")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -586,7 +586,7 @@ class DataSnowflakeRowAccessPoliciesIn:
     def database(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current database in use or for a specified database.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#database DataSnowflakeRowAccessPolicies#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#database DataSnowflakeRowAccessPolicies#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -595,7 +595,7 @@ class DataSnowflakeRowAccessPoliciesIn:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Returns records for the current schema in use or a specified schema. Use fully qualified name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#schema DataSnowflakeRowAccessPolicies#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#schema DataSnowflakeRowAccessPolicies#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -771,8 +771,8 @@ class DataSnowflakeRowAccessPoliciesLimit:
         from_: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#rows DataSnowflakeRowAccessPolicies#rows}
-        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#from DataSnowflakeRowAccessPolicies#from}
+        :param rows: The maximum number of rows to return. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#rows DataSnowflakeRowAccessPolicies#rows}
+        :param from_: Specifies a **case-sensitive** pattern that is used to match object name. After the first match, the limit on the number of rows will be applied. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#from DataSnowflakeRowAccessPolicies#from}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fdfb843bd60023a5120700334c4e15fb2b64eff15f407eade7cb38e6d82e196f)
@@ -788,7 +788,7 @@ class DataSnowflakeRowAccessPoliciesLimit:
     def rows(self) -> jsii.Number:
         '''The maximum number of rows to return.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#rows DataSnowflakeRowAccessPolicies#rows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#rows DataSnowflakeRowAccessPolicies#rows}
         '''
         result = self._values.get("rows")
         assert result is not None, "Required property 'rows' is missing"
@@ -800,7 +800,7 @@ class DataSnowflakeRowAccessPoliciesLimit:
 
         After the first match, the limit on the number of rows will be applied.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/data-sources/row_access_policies#from DataSnowflakeRowAccessPolicies#from}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.5.0/docs/data-sources/row_access_policies#from DataSnowflakeRowAccessPolicies#from}
         '''
         result = self._values.get("from_")
         return typing.cast(typing.Optional[builtins.str], result)

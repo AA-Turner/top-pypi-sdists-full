@@ -1,14 +1,24 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
+import concurrent.futures
 import os
+import subprocess
 import sys
+from contextlib import contextmanager
+from copy import copy
 from datetime import datetime
+from typing import List, Optional, Tuple
 
+import numpy as np
+import peft
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from packaging import version
+from tqdm import tqdm
 
 from swift.llm import git_clone_github
-from swift.utils import get_logger, is_megatron_available, safe_ddp_context, subprocess_run
+from swift.utils import (JsonlWriter, format_time, get_logger, is_flash_attn_3_available, is_master,
+                         is_megatron_available, safe_ddp_context, split_list, subprocess_run)
 
 logger = get_logger()
 
@@ -57,12 +67,18 @@ def _patch_training_log():
     from megatron.training.training import num_floating_point_operations
     from megatron.core.num_microbatches_calculator import get_num_microbatches
     from megatron.training.utils import reduce_max_stat_across_model_parallel_group, report_memory
+    jsonl_writer = None
 
     # Code borrowed from NVIDIA/Megatron-LM
     def training_log(loss_dict, total_loss_dict, learning_rate, decoupled_learning_rate, iteration, loss_scale,
                      report_memory_flag, skipped_iter, grad_norm, params_norm, num_zeros_in_grad):
         """Log training information such as losses, timing, ...."""
+        nonlocal jsonl_writer
         args = get_args()
+        if is_master() and jsonl_writer is None:
+            logging_path = os.path.join(args.save, 'logging.jsonl')
+            logger.info(f'logging_path: {logging_path}')
+            jsonl_writer = JsonlWriter(logging_path, enable_async=True)
         timers = get_timers()
         writer = get_tensorboard_writer()
         wandb_writer = get_wandb_writer()
@@ -206,6 +222,8 @@ def _patch_training_log():
             mtp_loss_scale = 1 / get_num_microbatches()
             MTPLossLoggingHelper.track_mtp_metrics(mtp_loss_scale, iteration, writer, wandb_writer, total_loss_dict)
         if iteration % args.log_interval == 0 or iteration == 1:
+            origin_total_loss_dict = total_loss_dict.copy()
+
             if args.record_memory_history and is_last_rank():
                 snapshot = torch.cuda.memory._snapshot()
                 from pickle import dump
@@ -214,6 +232,12 @@ def _patch_training_log():
 
             elapsed_time = timers('interval-time').elapsed(barrier=True)
             elapsed_time_per_iteration = elapsed_time / total_iterations
+            train_percentage = iteration / args.train_iters
+            total_elapsed_time = timers('interval-time').active_time()
+            memory_GiB = round(torch.cuda.max_memory_reserved() / 1024**3, 2)
+            remaining_time = total_elapsed_time / train_percentage - total_elapsed_time
+            total_elapsed_time = format_time(total_elapsed_time)
+            remaining_time = format_time(remaining_time)
 
             throughput = num_floating_point_operations(args, batch_size) / (
                 elapsed_time_per_iteration * 10**12 * args.world_size)
@@ -231,6 +255,8 @@ def _patch_training_log():
             if args.skipped_train_samples > 0:
                 log_string += ' skipped samples: {:12d} |'.format(args.skipped_train_samples)
             log_string += ' elapsed time per iteration (ms): {:.1f} |'.format(elapsed_time_per_iteration * 1000.0)
+            log_string += (f' memory(GiB): {memory_GiB} |'
+                           f' elapsed time: {total_elapsed_time} | remaining time: {remaining_time} |')
             if args.log_throughput:
                 log_string += f' throughput per GPU (TFLOP/s/GPU): {throughput:.1f} |'
                 if args.log_timers_to_tensorboard:
@@ -273,6 +299,29 @@ def _patch_training_log():
                 report_memory(f'(after {iteration} iterations)')
                 report_memory_flag = False
             timers.log(timers_to_log, normalizer=args.log_interval)
+
+            if is_master():
+                logs = {}
+                for key in origin_total_loss_dict:
+                    if key not in [advanced_iters_key, skipped_iters_key, nan_iters_key]:
+                        avg = origin_total_loss_dict[key].item() / float(
+                            max(1, origin_total_loss_dict[advanced_iters_key]))
+                        logs[key] = round(avg, 8)
+                if grad_norm is not None:
+                    logs['grad_norm'] = round(grad_norm, 8)
+                if params_norm is not None:
+                    logs['params_norm'] = round(params_norm, 8)
+                logs['learning_rate'] = round(learning_rate, 8)
+                logs['elapsed_time_per_iteration'] = round(elapsed_time_per_iteration, 8)
+                logs['memory(GiB)'] = memory_GiB
+                logs['elapsed_time'] = total_elapsed_time
+                logs['remaining_time'] = remaining_time
+                if args.log_throughput:
+                    logs['throughput'] = round(throughput, 8)
+                logs['loss_scale'] = round(loss_scale, 8)
+                logs['consumed_samples'] = args.consumed_train_samples
+                logs['global_step/max_steps'] = f'{iteration}/{args.train_iters}'
+                jsonl_writer.append(logs)
 
         return report_memory_flag
 
@@ -577,13 +626,196 @@ def _patch_mla_attention():
     MLASelfAttention.get_query_key_value_tensors = get_query_key_value_tensors
 
 
+def _patch_peft_BaseTuner():
+    from peft.tuners.tuners_utils import BaseTuner
+    _origin_get_tied_target_modules = BaseTuner._get_tied_target_modules
+
+    def _get_tied_target_modules(self, model: nn.Module) -> List[str]:
+        try:
+            return _origin_get_tied_target_modules(self, model)
+        except AttributeError:
+            tied_target_modules = []
+            if model.share_embeddings_and_output_weights:
+                for target_module in self.targeted_module_names:
+                    if target_module.split('.')[-1] in ['output_layer', 'embedding']:
+                        tied_target_modules.append(target_module)
+            return tied_target_modules
+
+    BaseTuner._get_tied_target_modules = _get_tied_target_modules
+
+
+def _patch_TEGroupedLinear():
+    from megatron.core.extensions.transformer_engine import TEGroupedLinear
+
+    def sharded_state_dict(
+            self,
+            prefix: str = '',
+            sharded_offsets: Tuple[Tuple[int, int, int]] = (),
+            metadata: Optional[dict] = None,
+    ):
+        return self._sharded_state_dict_grouped(None, prefix, sharded_offsets, metadata)
+
+    TEGroupedLinear.sharded_state_dict = sharded_state_dict
+
+
+def _patch_peft_ModulesToSaveWrapper():
+    if version.parse(peft.__version__) >= version.parse('0.16'):
+        from peft.utils import other as peft_module
+    else:
+        from peft.tuners import tuners_utils as peft_module
+    from megatron.core.dist_checkpointing.mapping import ShardedStateDict
+    from .utils import tuners_sharded_state_dict
+
+    ModulesToSaveWrapper = peft_module.ModulesToSaveWrapper
+
+    class NewModulesToSaveWrapper(ModulesToSaveWrapper):
+
+        def __init__(self, module_to_save, *args, **kwargs):
+            tp_group = getattr(module_to_save, 'tp_group', None)
+            if tp_group is not None:
+                module_to_save.tp_group = None
+            super().__init__(module_to_save, *args, **kwargs)
+            if tp_group is not None:
+                module_to_save.tp_group = tp_group
+                for module in self.modules_to_save.values():
+                    module.tp_group = tp_group
+
+        def sharded_state_dict(
+                self,
+                prefix: str = '',
+                sharded_offsets: Tuple[Tuple[int, int, int]] = (),
+                metadata: Optional[dict] = None,
+        ) -> ShardedStateDict:
+            sharded_state_dict = tuners_sharded_state_dict(self, prefix, sharded_offsets, metadata)
+            if prefix == 'output_layer.':
+                output_layer_extra_state_key = f'{prefix}modules_to_save.default._extra_state'
+
+                # Old GPT checkpoints only stored the output layer weight key. So we remove the
+                # _extra_state key but check that it doesn't contain any data anyway
+                output_extra_state = sharded_state_dict.pop(output_layer_extra_state_key, None)
+                assert not (output_extra_state and output_extra_state.data
+                            ), f'Expected output layer extra state to be empty, got: {output_extra_state}'
+                # fix error
+                if f'{prefix}modules_to_save.default.weight' in sharded_state_dict:
+                    sharded_state_dict[f'{prefix}weight'] = sharded_state_dict[
+                        f'{prefix}modules_to_save.default.weight']
+            return sharded_state_dict
+
+    peft_module.ModulesToSaveWrapper = NewModulesToSaveWrapper
+
+
+def _patch_TransformerLayer():
+    import megatron.core
+    from megatron.training import get_args
+    from megatron.core.transformer import TransformerLayer
+    _origin_forward = TransformerLayer.forward
+
+    def forward(self, *_args, **kwargs):
+        """
+        Perform a forward pass through the transformer layer.
+
+        This method calls the core computation of a transformer layer, including
+        self-attention, cross-attention (if applicable), and feed-forward operations.
+        """
+        megatron_core_013 = version.parse(megatron.core.__version__) >= version.parse('0.13.0rc0')
+        if not megatron_core_013:
+            return _origin_forward(self, *_args, **kwargs)
+        hidden_states, context = self._forward_attention(*_args, **kwargs)
+        args = get_args()
+        mlp_padding_free = args.mlp_padding_free and 'attention_mask' in kwargs
+        if mlp_padding_free:
+            mask = (kwargs['attention_mask'].sum(dim=(1, 3)) > 0).t()
+            hidden_states = hidden_states[mask][:, None]
+        output = self._forward_mlp(hidden_states, kwargs.get('inference_context', None))
+        if mlp_padding_free:
+            new_output = hidden_states.new_zeros((*mask.shape, output.shape[-1]))
+            new_output[mask] = output.squeeze(1)
+            output = new_output
+        return output, context
+
+    TransformerLayer.forward = forward
+
+
+def _patch_compile_helpers():
+    from megatron.core.datasets import utils
+
+    def compile_helpers():
+        command = ['make', '-C', os.path.abspath(os.path.dirname(utils.__file__))]
+        if subprocess.run(command).returncode != 0:
+            logger.warning('Failed to compile the C++ dataset helper functions')
+
+    utils.compile_helpers = compile_helpers
+
+
+def _patch_flash_attn():
+    # flash_attention_3
+    if is_flash_attn_3_available():
+        import flash_attn_interface
+        sys.modules['flash_attn_3.flash_attn_interface'] = flash_attn_interface
+
+
+def _patch_torch_FileSystemReader():
+    from torch.distributed.checkpoint.filesystem import FileSystemReader
+    from torch.futures import Future
+    _origin_read_data = FileSystemReader.read_data
+    _origin__slice_file = FileSystemReader._slice_file
+    READER_MAX_WORKERS = int(os.environ.get('MCORE_READER_MAX_WORKERS', '16'))
+
+    @contextmanager
+    def _patch__slice_file(prog_bar):
+
+        def _slice_file(self, *args, **kwargs):
+            prog_bar.update()
+            return _origin__slice_file(self, *args, **kwargs)
+
+        FileSystemReader._slice_file = _slice_file
+        try:
+            yield
+        finally:
+            FileSystemReader._slice_file = _origin__slice_file
+
+    def read_data(self, plan, planner):
+
+        def _worker(plan_shard):
+            _origin_read_data(self, plan_shard, planner)
+
+        prog_bar = tqdm(total=len(plan.items), dynamic_ncols=True, desc='Loading: ')
+        plan_shards = split_list(plan.items, READER_MAX_WORKERS, contiguous=False)
+        with _patch__slice_file(prog_bar):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=READER_MAX_WORKERS) as pool:
+                futures = []
+                for i in range(READER_MAX_WORKERS):
+                    plan_shard = copy(plan)
+                    plan_shard.items = plan_shards[i]
+                    futures.append(pool.submit(_worker, plan_shard))
+                concurrent.futures.wait(futures)
+        prog_bar.close()
+        fut: Future = Future()
+        fut.set_result(None)
+        return fut
+
+    FileSystemReader.read_data = read_data
+
+
 def _patch_megatron():
+    _patch_flash_attn()
     _patch_transformer_engine()
     _patch__batched_p2p_ops()
     _patch_mla_attention()
+    _patch_TEGroupedLinear()
+    _patch_TransformerLayer()
+    _patch_compile_helpers()
+    _patch_training_log()
+    from swift.megatron import tuners  # patch lora
     try:
-        _patch_training_log()
-        logger.info('Patch training_log successfully applied.')
+        _patch_torch_FileSystemReader()
+        logger.info('Patch FileSystemReader successfully applied.')
+    except Exception:
+        pass
+    try:
+        _patch_peft_BaseTuner()
+        _patch_peft_ModulesToSaveWrapper()
+        logger.info('Patch peft successfully applied.')
     except Exception:
         pass
 
@@ -591,7 +823,7 @@ def _patch_megatron():
 def init_megatron_env() -> None:
     if 'MEGATRON_LM_PATH' not in os.environ:
         os.environ['MEGATRON_LM_PATH'] = git_clone_github(
-            'https://github.com/NVIDIA/Megatron-LM', branch='core_r0.12.0')
+            'https://github.com/NVIDIA/Megatron-LM', branch='core_r0.13.0')
     with safe_ddp_context(hash_id='megatron-lm'):
         if not is_megatron_available():
             subprocess_run([sys.executable, '-m', 'pip', 'install', '-e', os.environ['MEGATRON_LM_PATH']])

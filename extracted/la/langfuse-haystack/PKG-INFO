@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langfuse-haystack
-Version: 2.2.0
+Version: 2.2.1
 Summary: Langfuse integration for Haystack
 Project-URL: Documentation, https://github.com/deepset-ai/haystack-core-integrations/tree/main/integrations/langfuse#readme
 Project-URL: Issues, https://github.com/deepset-ai/haystack-core-integrations/issues

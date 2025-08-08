@@ -14,6 +14,7 @@ use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
 use crate::alt::class::variance_inference::VarianceMap;
+use crate::alt::types::class_bases::ClassBases;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassMro;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -26,10 +27,12 @@ use crate::binding::binding::AnnotationWithTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingClass;
+use crate::binding::binding::BindingClassBaseType;
 use crate::binding::binding::BindingClassField;
 use crate::binding::binding::BindingClassMetadata;
 use crate::binding::binding::BindingClassMro;
 use crate::binding::binding::BindingClassSynthesizedFields;
+use crate::binding::binding::BindingConsistentOverrideCheck;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingFunction;
@@ -43,10 +46,12 @@ use crate::binding::binding::Initialized;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
+use crate::binding::binding::KeyClassBaseType;
 use crate::binding::binding::KeyClassField;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::KeyConsistentOverrideCheck;
 use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyExport;
 use crate::binding::binding::KeyFunction;
@@ -139,6 +144,20 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyExpect {
     }
 }
 
+impl<Ans: LookupAnswer> Solve<Ans> for KeyConsistentOverrideCheck {
+    fn solve(
+        answers: &AnswersSolver<Ans>,
+        binding: &BindingConsistentOverrideCheck,
+        errors: &ErrorCollector,
+    ) -> Arc<EmptyAnswer> {
+        answers.solve_consistent_override_check(binding, errors)
+    }
+
+    fn promote_recursive(_: Var) -> Self::Answer {
+        EmptyAnswer
+    }
+}
+
 impl<Ans: LookupAnswer> Solve<Ans> for KeyExport {
     fn solve(
         answers: &AnswersSolver<Ans>,
@@ -208,6 +227,20 @@ impl<Ans: LookupAnswer> Solve<Ans> for KeyTParams {
 
     fn promote_recursive(_: Var) -> Self::Answer {
         TParams::default()
+    }
+}
+
+impl<Ans: LookupAnswer> Solve<Ans> for KeyClassBaseType {
+    fn solve(
+        answers: &AnswersSolver<Ans>,
+        binding: &BindingClassBaseType,
+        errors: &ErrorCollector,
+    ) -> Arc<ClassBases> {
+        answers.solve_class_base_type(binding, errors)
+    }
+
+    fn promote_recursive(_: Var) -> Self::Answer {
+        ClassBases::default()
     }
 }
 

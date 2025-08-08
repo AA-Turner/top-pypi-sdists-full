@@ -5,6 +5,7 @@ import argparse
 import bisect
 import plotly.graph_objects as go
 import plotly.io as io
+import json
 
 sys.path.insert(0, os.getcwd())
 
@@ -13,7 +14,7 @@ try:
 except ImportError:
     from coloraide.everything import ColorAll as Color
 from coloraide.util import fmt_float  # noqa: E402
-from coloraide.spaces import LChish, Regular, Labish, HSLish, HSVish  # noqa: E402
+from coloraide.spaces import LChish, Luminant, Prism, Labish, HSLish, HSVish  # noqa: E402
 from coloraide.spaces.hsl import HSL  # noqa: E402
 from coloraide.spaces.lch import LCh  # noqa: E402
 from coloraide import algebra as alg  # noqa: E402
@@ -44,17 +45,31 @@ class _HSL(HSL):
     INDEXES = [0, 1, 2]
 
     def to_base(self, coords):
-        """Convert to the base."""
+        """Convert from RGB to HSL."""
 
+        # Convert from HSL back to its original space
+        coords = super().to_base(coords)
+        # Scale and offset the values back to the origin space's configuration
+        coords[0] = coords[0] * (self.SCALE_1 - self.OFFSET_1) + self.OFFSET_1
+        coords[1] = coords[1] * (self.SCALE_2 - self.OFFSET_2) + self.OFFSET_2
+        coords[2] = coords[2] * (self.SCALE_3 - self.OFFSET_3) + self.OFFSET_3
         ordered = [0.0, 0.0, 0.0]
-        for e, c in enumerate(super().to_base(coords)):
+        # Consistently order a given color spaces points based on its type
+        for e, c in enumerate(coords):
             ordered[self.INDEXES[e]] = c
         return ordered
 
     def from_base(self, coords):
-        """Convert from the base."""
+        """Convert from HSL to RGB."""
 
-        return super().from_base([coords[i] for i in self.INDEXES])
+        # Undo order a given color spaces points based on its type
+        coords = [coords[i] for i in self.INDEXES]
+        # Scale and offset the values such that channels are between 0 - 1
+        coords[0] = (coords[0] - self.OFFSET_1) / (self.SCALE_1 - self.OFFSET_1)
+        coords[1] = (coords[1] - self.OFFSET_2) / (self.SCALE_2 - self.OFFSET_2)
+        coords[2] = (coords[2] - self.OFFSET_3) / (self.SCALE_3 - self.OFFSET_3)
+        # Convert to HSL
+        return super().from_base(coords)
 
 
 def get_cylinder(color, space):
@@ -78,7 +93,7 @@ def get_cylinder(color, space):
 
         return ColorCyl
 
-    if isinstance(cs, Regular):
+    if isinstance(cs, Prism) and not isinstance(cs, Luminant):
 
         class CustomHSL(_HSL):
             NAME = '-custom-cylinder'
@@ -87,7 +102,16 @@ def get_cylinder(color, space):
             GAMUT_CHECK = cs.NAME
             WHITE = cs.WHITE
             DYAMIC_RANGE = cs.DYNAMIC_RANGE
-            INDEXES = cs.indexes() if hasattr(cs, 'indexes') else [0, 1, 2]
+            INDEXES = cs.indexes()
+
+            # Scale channels as needed
+            OFFSET_1 = cs.channels[INDEXES[0]].low
+            OFFSET_2 = cs.channels[INDEXES[1]].low
+            OFFSET_3 = cs.channels[INDEXES[2]].low
+
+            SCALE_1 = cs.channels[INDEXES[0]].high
+            SCALE_2 = cs.channels[INDEXES[1]].high
+            SCALE_3 = cs.channels[INDEXES[2]].high
 
         class ColorCyl(color):
             """Custom color."""
@@ -108,8 +132,7 @@ def plot_slice(
     gamut='srgb',
     gmap=None,
     res=500,
-    scatter_size=16,
-    pspace=None
+    scatter_size=16
 ):
     """Plot a slice."""
 
@@ -121,8 +144,12 @@ def plot_slice(
         hue, chroma, lightness = cs.names()
     else:
         lightness, chroma, hue = cs.names()
-    if pspace is None:
-        pspace = cs.NAME
+
+    if gmap is None:
+        gmap = {'method': 'raytrace'}
+
+    if 'pspace' not in gmap:
+        gmap['pspace'] = cs.NAME
 
     # Interpolate between each x axis color along the y axis
     cmap = []
@@ -133,7 +160,7 @@ def plot_slice(
         custom[hue] = h
         custom[lightness] = constant
         custom[chroma] = max_chroma
-        custom.fit(gamut, method=gmap, pspace=pspace)
+        custom.fit(gamut, **gmap)
         mx = custom[chroma]
         chromas = []
         for c in alg.linspace(0, mx, res):
@@ -141,7 +168,7 @@ def plot_slice(
             custom[chroma] = c
             theta.append(h)
             chromas.append(c)
-            cmap.append(custom.convert('srgb').to_string(hex=True, fit=gmap, pspace=pspace))
+            cmap.append(custom.convert('srgb').to_string(hex=True, **gmap))
         maximums.append((h, mx))
         r.extend([alg.zdiv(ci, mx) for ci in chromas])
 
@@ -167,7 +194,7 @@ def main():
     parser.add_argument('--gamut', '-g', default="srgb", help='Gamut to evaluate the color in (default is sRGB).')
     parser.add_argument('--pspace', '-p', help="Specific perceptual space to gamut map in.")
     parser.add_argument('--map-colors', '-m', action='store_true', help="Gamut map colors to be within the gamut.")
-    parser.add_argument('--gamut-map-method', '-f', default="raytrace", help="Gamut mapping space.")
+    parser.add_argument('--gmap', '-f', default="raytrace", help="Gamut mapping space.")
     parser.add_argument('--title', '-t', default='', help="Provide a title for the diagram.")
     parser.add_argument('--resolution', '-r', type=int, default=500, help="How densely to render the figure.")
     parser.add_argument('--scatter-size', '-S', type=int, default=4, help="Define scatter plot size.")
@@ -199,7 +226,7 @@ def main():
     c_value = c1[lightness]
 
     if not args.title:
-        title = f"Color Harmony '{args.harmony}'' in Color Space '{args.space}' in Gamut '{args.gamut}'"
+        title = f"Color Harmony '{args.harmony}' in Color Space '{args.space}' in Gamut '{args.gamut}'"
     else:
         title = args.title
 
@@ -216,7 +243,10 @@ def main():
         }
     )
 
-    gmap = args.gamut_map_method
+    parts = [p.strip() if not e else json.loads(p) for e, p in enumerate(args.gmap.split(':', 1))]
+    gmap = {'method': parts[0]}
+    if len(parts) == 2:
+        gmap.update(parts[1])
 
     maximums = plot_slice(
         fig,
@@ -227,8 +257,7 @@ def main():
         gamut=args.gamut,
         gmap=gmap,
         res=args.resolution,
-        scatter_size=int(args.scatter_size),
-        pspace=args.pspace if args.pspace else None
+        scatter_size=int(args.scatter_size)
     )
 
     if args.harmony:

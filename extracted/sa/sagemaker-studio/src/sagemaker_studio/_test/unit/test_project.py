@@ -538,3 +538,74 @@ class TestProject(TestCase):
             self.assertTrue(
                 "Encountered an error getting the current user ID" in str(context.exception)
             )
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_shared_files_success(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        mock_connection = Mock()
+        mock_connection.data.s3_uri = "s3://shared-bucket/shared-files/"
+        get_connection_by_name_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+        result = project.shared_files
+        get_connection_by_name_mock.assert_called_with(name="default.s3_shared")
+        self.assertEqual(result, "s3://shared-bucket/shared-files/")
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_shared_files_connection_not_found(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        get_connection_by_name_mock.return_value = None
+        project = Project(id="aa76bmnbd042v")
+
+        with self.assertRaises(RuntimeError) as context:
+            project.shared_files
+        self.assertIn("No connection found for shared files.", str(context.exception))
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_shared_files_runtime_error_accessing_s3_uri(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        mock_connection = Mock()
+        # Remove the s3_uri attribute to simulate AttributeError
+        del mock_connection.data.s3_uri
+        get_connection_by_name_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+
+        with self.assertRaises(RuntimeError) as context:
+            project.shared_files
+        error_message = str(context.exception)
+        self.assertIn("Encountered an error getting the shared files path", error_message)
+        self.assertIn("project 'My_Project_m20x7i9x'", error_message)
+        self.assertIn("domain 'dzd_1234'", error_message)
+
+    @patch("sagemaker_studio.sagemaker_studio_api.SageMakerStudioAPI._get_aws_client")
+    @patch("sagemaker_studio.utils._internal.InternalUtils._get_domain_id")
+    @patch("sagemaker_studio.connections.ConnectionService.get_connection_by_name")
+    def test_shared_files_attribute_error_accessing_data(
+        self, get_connection_by_name_mock: Mock, get_domain_id_mock: Mock, get_aws_client_mock: Mock
+    ):
+        get_domain_id_mock.return_value = "dzd_1234"
+        get_aws_client_mock.side_effect = lambda x, y: self.mock_datazone_api
+        mock_connection = Mock()
+        # Remove the data attribute to simulate AttributeError
+        del mock_connection.data
+        get_connection_by_name_mock.return_value = mock_connection
+        project = Project(id="aa76bmnbd042v")
+
+        with self.assertRaises(RuntimeError) as context:
+            project.shared_files
+        error_message = str(context.exception)
+        self.assertIn("Encountered an error getting the shared files path", error_message)

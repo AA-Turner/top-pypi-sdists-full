@@ -14,13 +14,13 @@ T = TypeVar("T", bound="CreateVariable")
 class CreateVariable:
     """
     Attributes:
-        path (str):
-        value (str):
-        is_secret (bool):
-        description (str):
-        account (Union[Unset, int]):
-        is_oauth (Union[Unset, bool]):
-        expires_at (Union[Unset, datetime.datetime]):
+        path (str): The path to the variable
+        value (str): The value of the variable
+        is_secret (bool): Whether the variable is a secret
+        description (str): The description of the variable
+        account (Union[Unset, int]): The account identifier
+        is_oauth (Union[Unset, bool]): Whether the variable is an OAuth variable
+        expires_at (Union[Unset, datetime.datetime]): The expiration date of the variable
     """
 
     path: str

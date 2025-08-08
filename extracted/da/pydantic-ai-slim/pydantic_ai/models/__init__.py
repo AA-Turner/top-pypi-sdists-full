@@ -18,6 +18,7 @@ from typing import Generic, TypeVar, overload
 import httpx
 from typing_extensions import Literal, TypeAliasType, TypedDict
 
+from pydantic_ai.builtin_tools import AbstractBuiltinTool
 from pydantic_ai.profiles import DEFAULT_PROFILE, ModelProfile, ModelProfileSpec
 
 from .. import _utils
@@ -217,6 +218,9 @@ KnownModelName = TypeAliasType(
         'heroku:claude-3-7-sonnet',
         'heroku:claude-4-sonnet',
         'heroku:claude-3-haiku',
+        'heroku:gpt-oss-120b',
+        'heroku:nova-lite',
+        'heroku:nova-pro',
         'huggingface:Qwen/QwQ-32B',
         'huggingface:Qwen/Qwen2.5-72B-Instruct',
         'huggingface:Qwen/Qwen3-235B-A22B',
@@ -333,6 +337,7 @@ class ModelRequestParameters:
     """Configuration for an agent's request to a model, specifically related to tools and output handling."""
 
     function_tools: list[ToolDefinition] = field(default_factory=list)
+    builtin_tools: list[AbstractBuiltinTool] = field(default_factory=list)
 
     output_mode: OutputMode = 'text'
     output_object: OutputObjectDefinition | None = None
@@ -790,12 +795,18 @@ def get_user_agent() -> str:
 def _customize_tool_def(transformer: type[JsonSchemaTransformer], t: ToolDefinition):
     schema_transformer = transformer(t.parameters_json_schema, strict=t.strict)
     parameters_json_schema = schema_transformer.walk()
-    if t.strict is None:
-        t = replace(t, strict=schema_transformer.is_strict_compatible)
-    return replace(t, parameters_json_schema=parameters_json_schema)
+    return replace(
+        t,
+        parameters_json_schema=parameters_json_schema,
+        strict=schema_transformer.is_strict_compatible if t.strict is None else t.strict,
+    )
 
 
 def _customize_output_object(transformer: type[JsonSchemaTransformer], o: OutputObjectDefinition):
-    schema_transformer = transformer(o.json_schema, strict=True)
-    son_schema = schema_transformer.walk()
-    return replace(o, json_schema=son_schema)
+    schema_transformer = transformer(o.json_schema, strict=o.strict)
+    json_schema = schema_transformer.walk()
+    return replace(
+        o,
+        json_schema=json_schema,
+        strict=schema_transformer.is_strict_compatible if o.strict is None else o.strict,
+    )

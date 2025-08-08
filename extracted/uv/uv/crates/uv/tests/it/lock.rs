@@ -6,9 +6,11 @@ use insta::assert_snapshot;
 use std::io::BufReader;
 use url::Url;
 
+#[cfg(feature = "git")]
+use crate::common::{READ_ONLY_GITHUB_TOKEN, decode_token};
 use crate::common::{
-    self, TestContext, build_vendor_links_url, decode_token, download_to_disk, packse_index_url,
-    uv_snapshot, venv_bin_path,
+    TestContext, build_vendor_links_url, download_to_disk, packse_index_url, uv_snapshot,
+    venv_bin_path,
 };
 use uv_fs::Simplified;
 use uv_static::EnvVars;
@@ -3671,7 +3673,7 @@ fn lock_requires_python() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-      × No solution found when resolving dependencies for split (python_full_version >= '3.7' and python_full_version < '3.7.9'):
+      × No solution found when resolving dependencies for split (markers: python_full_version >= '3.7' and python_full_version < '3.7.9'):
       ╰─▶ Because the requested Python version (>=3.7) does not satisfy Python>=3.7.9 and pygls>=1.1.0,<=1.2.1 depends on Python>=3.7.9,<4, we can conclude that pygls>=1.1.0,<=1.2.1 cannot be used.
           And because only the following versions of pygls are available:
               pygls<=1.1.0
@@ -8053,7 +8055,7 @@ fn lock_redact_https() -> Result<()> {
 #[cfg(feature = "git")]
 fn lock_redact_git_pep508() -> Result<()> {
     let context = TestContext::new("3.12").with_filtered_link_mode_warning();
-    let token = decode_token(common::READ_ONLY_GITHUB_TOKEN);
+    let token = decode_token(READ_ONLY_GITHUB_TOKEN);
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(&formatdoc! {
@@ -8138,7 +8140,7 @@ fn lock_redact_git_pep508() -> Result<()> {
 #[cfg(feature = "git")]
 fn lock_redact_git_sources() -> Result<()> {
     let context = TestContext::new("3.12").with_filtered_link_mode_warning();
-    let token = decode_token(common::READ_ONLY_GITHUB_TOKEN);
+    let token = decode_token(READ_ONLY_GITHUB_TOKEN);
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(&formatdoc! {
@@ -8226,7 +8228,7 @@ fn lock_redact_git_sources() -> Result<()> {
 #[cfg(feature = "git")]
 fn lock_redact_git_pep508_non_project() -> Result<()> {
     let context = TestContext::new("3.12").with_filtered_link_mode_warning();
-    let token = decode_token(common::READ_ONLY_GITHUB_TOKEN);
+    let token = decode_token(READ_ONLY_GITHUB_TOKEN);
 
     let pyproject_toml = context.temp_dir.child("pyproject.toml");
     pyproject_toml.write_str(&formatdoc! {
@@ -28520,7 +28522,7 @@ fn lock_conflict_for_disjoint_python_version() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-      × No solution found when resolving dependencies for split (python_full_version >= '3.11'):
+      × No solution found when resolving dependencies for split (markers: python_full_version >= '3.11'):
       ╰─▶ Because only the following versions of numpy{python_full_version >= '3.10'} are available:
               numpy{python_full_version >= '3.10'}<=1.21.0
               numpy{python_full_version >= '3.10'}==1.21.1
@@ -28774,7 +28776,7 @@ fn lock_conflict_for_disjoint_platform() -> Result<()> {
     ----- stdout -----
 
     ----- stderr -----
-      × No solution found when resolving dependencies for split (sys_platform == 'exotic'):
+      × No solution found when resolving dependencies for split (markers: sys_platform == 'exotic'):
       ╰─▶ Because only the following versions of numpy{sys_platform == 'exotic'} are available:
               numpy{sys_platform == 'exotic'}<=1.24.0
               numpy{sys_platform == 'exotic'}==1.24.1

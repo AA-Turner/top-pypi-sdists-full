@@ -240,7 +240,7 @@ class Api:
                     user_g4f_api_key = await self.security(request)
                     if hasattr(user_g4f_api_key, "credentials"):
                         user_g4f_api_key = user_g4f_api_key.credentials
-                if AppConfig.g4f_api_key is None or not secrets.compare_digest(AppConfig.g4f_api_key, user_g4f_api_key):
+                if AppConfig.g4f_api_key is None or not user_g4f_api_key or not secrets.compare_digest(AppConfig.g4f_api_key, user_g4f_api_key):
                     if has_crypto and user_g4f_api_key:
                         try:
                             expires, user = decrypt_data(private_key, user_g4f_api_key).split(":", 1)
@@ -275,8 +275,9 @@ class Api:
                             return ErrorResponse.from_message(e.detail, e.status_code, e.headers)
                 if user is None:
                     ip = request.headers.get("X-Forwarded-For", "")[:4].strip(":.")
-                    user = request.headers.get("Cf-Ipcountry", "")
-                    user = f"{user}:{ip}" if user else ip
+                    country = request.headers.get("Cf-Ipcountry", "")
+                    user = request.headers.get("x-user", ip)
+                    user = f"{country}:{user}" if country else user
                 request = update_headers(request, user)
             response = await call_next(request)
             return response
@@ -362,6 +363,7 @@ class Api:
                     "owned_by": getattr(provider, "label", provider.__name__),
                     "image": model in getattr(provider, "image_models", []),
                     "vision": model in getattr(provider, "vision_models", []),
+                    "type": "image" if model in getattr(provider, "image_models", []) else "text",
                 } for model in models]
             }
 

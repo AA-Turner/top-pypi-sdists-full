@@ -11,11 +11,19 @@ from anyscale import scripts
 from anyscale._private.docgen.generator import MarkdownGenerator, Module
 from anyscale.aggregated_instance_usage.models import DownloadCSVFilters
 from anyscale.cloud.models import (
+    AWSConfig,
     Cloud,
+    CloudDeployment,
     CloudPermissionLevel,
     CloudProvider,
     ComputeStack,
     CreateCloudCollaborator,
+    FileStorage,
+    GCPConfig,
+    KubernetesConfig,
+    NetworkingMode,
+    NFSMountTarget,
+    ObjectStorage,
 )
 from anyscale.commands import (
     aggregated_instance_usage_commands,
@@ -39,9 +47,8 @@ from anyscale.commands import (
     workspace_commands,
     workspace_commands_v2,
 )
-from anyscale.commands.llm import dataset_commands, models_commands
 from anyscale.compute_config.models import (
-    CloudDeployment,
+    CloudDeployment as CloudDeploymentSelector,
     ComputeConfig,
     ComputeConfigVersion,
     HeadNodeConfig,
@@ -60,12 +67,6 @@ from anyscale.job.models import (
     JobRunStatus,
     JobState,
     JobStatus,
-)
-from anyscale.llm.dataset._private.models import Dataset
-from anyscale.llm.model.models import (
-    DeletedFineTunedModel,
-    FineTunedModel,
-    FineTuningType,
 )
 from anyscale.organization_invitation.models import OrganizationInvitation
 from anyscale.project.models import CreateProjectCollaborator, ProjectPermissionLevel
@@ -315,10 +316,11 @@ ALL_MODULES = [
         ],
         models=[
             ComputeConfig,
+            MultiDeploymentComputeConfig,
             HeadNodeConfig,
             WorkerNodeGroupConfig,
             MarketType,
-            CloudDeployment,
+            CloudDeploymentSelector,
             MultiDeploymentComputeConfig,
             ComputeConfigVersion,
         ],
@@ -433,7 +435,10 @@ ALL_MODULES = [
             cloud_commands.cloud_delete,
             cloud_commands.cloud_verify,
             cloud_commands.list_cloud,
-            cloud_commands.cloud_add_deployment,
+            cloud_commands.cloud_deployment_create,
+            cloud_commands.cloud_deployment_get,
+            cloud_commands.cloud_deployment_update,
+            cloud_commands.cloud_deployment_delete,
             cloud_commands.cloud_config_update,
             cloud_commands.cloud_set_default,
             cloud_commands.add_collaborators,
@@ -449,11 +454,19 @@ ALL_MODULES = [
             anyscale.cloud.terminate_system_cluster,
         ],
         models=[
+            Cloud,
             CloudPermissionLevel,
             CreateCloudCollaborator,
-            Cloud,
+            CloudDeployment,
             ComputeStack,
             CloudProvider,
+            NetworkingMode,
+            ObjectStorage,
+            FileStorage,
+            NFSMountTarget,
+            AWSConfig,
+            GCPConfig,
+            KubernetesConfig,
         ],
         cli_command_group_prefix={cloud_commands.cloud_config_update: "config"},
         legacy_sdk_commands={
@@ -581,40 +594,6 @@ ALL_MODULES = [
             "TerminateClusterOptions",
             "UpdateCluster",
         ],
-    ),
-    Module(
-        title="LLM Model",
-        filename="llm_models.md",
-        cli_prefix="anyscale llm model",
-        cli_commands=[
-            models_commands.get_model,
-            models_commands.list_models,
-            models_commands.delete_model,
-        ],
-        sdk_prefix="anyscale.llm.model",
-        sdk_commands=[
-            anyscale.llm.model.get,
-            anyscale.llm.model.list,
-            anyscale.llm.model.delete,
-        ],
-        models=[FineTunedModel, FineTuningType, DeletedFineTunedModel],
-    ),
-    Module(
-        title="LLM Dataset",
-        filename="llm_dataset.md",
-        cli_prefix="anyscale llm dataset",
-        cli_commands=[
-            dataset_commands.get_dataset,
-            dataset_commands.upload_dataset,
-            dataset_commands.download_dataset,
-        ],
-        sdk_prefix="anyscale.llm.dataset",
-        sdk_commands=[
-            anyscale.llm.dataset.get,
-            anyscale.llm.dataset.upload,
-            anyscale.llm.dataset.download,
-        ],
-        models=[Dataset],
     ),
     Module(
         title="Resource quotas",

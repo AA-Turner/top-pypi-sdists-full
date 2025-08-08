@@ -45,7 +45,7 @@ from orbax.checkpoint._src.metadata import sharding as sharding_metadata
 from orbax.checkpoint._src.metadata import value as value_metadata
 from orbax.checkpoint._src.multihost import multihost
 from orbax.checkpoint._src.multihost import multislice
-from orbax.checkpoint._src.path import async_utils
+from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import format_utils
 from orbax.checkpoint._src.serialization import replica_slices
 from orbax.checkpoint._src.serialization import serialization
@@ -89,7 +89,7 @@ async def _assert_parameter_files_exist(
     param_dir: epath.Path, metadata_key: Optional[str], use_zarr3: bool = False
 ):
   """Checks for existence of parameter subdir and .zarray file."""
-  exists = await async_utils.async_exists(param_dir)
+  exists = await async_path.exists(param_dir)
   if not exists:
     raise FileNotFoundError(
         f'Individual parameter subdirectory not found at path: {param_dir}.'
@@ -97,7 +97,7 @@ async def _assert_parameter_files_exist(
   if metadata_key is None:
     metadata_key = 'zarr.json' if use_zarr3 else '.zarray'
   metadata_path = param_dir / metadata_key
-  exists = await async_utils.async_exists(metadata_path)
+  exists = await async_path.exists(metadata_path)
   if not exists:
     raise FileNotFoundError(
         f'File not found: {metadata_path}. In many cases, this results from'
@@ -886,6 +886,8 @@ class ArrayHandler(types.TypeHandler):
       primary_host: Optional[int] = 0,
       replica_id: Optional[int] = 0,
       use_replica_parallel: bool = True,
+      min_slice_bytes_for_replica_parallel: Optional[int] = None,
+      max_replicas_for_replica_parallel: Optional[int] = None,
       enable_write_sharding_file: bool = True,
       array_metadata_store: array_metadata_store_lib.Store | None = None,
   ):
@@ -900,6 +902,11 @@ class ArrayHandler(types.TypeHandler):
         set to None, each shards will pick first replica_id to be used.  It's
         useful in the case that all hosts are only working with local storage.
       use_replica_parallel: Whether to parallelize saving across replicas.
+      min_slice_bytes_for_replica_parallel: Minimum number of bytes per replica 
+        slice. Only uses replica-parallel when the amount of data written per 
+        replica is greater than or equal to this number.
+      max_replicas_for_replica_parallel: Maximum number of replicas over which
+        saving will be parallelized if use_replica_parallel is True.
       enable_write_sharding_file: whether to write sharding file, defaults to
         True.
       array_metadata_store: Store to manage per host ArrayMetadata. To disable
@@ -910,6 +917,10 @@ class ArrayHandler(types.TypeHandler):
     self._replica_id = replica_id
     self._enable_write_sharding_file = enable_write_sharding_file
     self._use_replica_parallel = use_replica_parallel
+    self._min_slice_bytes_for_replica_parallel = (
+        min_slice_bytes_for_replica_parallel
+    )
+    self._max_replicas_for_replica_parallel = max_replicas_for_replica_parallel
     self._array_metadata_store = array_metadata_store
     self._ext_metadata = dict()
 
@@ -976,7 +987,7 @@ class ArrayHandler(types.TypeHandler):
     if infos[0].parent_dir is None:
       raise ValueError('parent_dir cannot be None')
     sharding_file_path = infos[0].parent_dir / _SHARDING
-    sharding_file_exists = await async_utils.async_exists(sharding_file_path)
+    sharding_file_exists = await async_path.exists(sharding_file_path)
     for info in infos:
       # Use OCDBT flag from the existing checkpoint.
       use_ocdbt = info.is_ocdbt_checkpoint
@@ -1167,6 +1178,8 @@ class ArrayHandler(types.TypeHandler):
         self._replica_id,
         self._use_replica_parallel,
         enable_pinned_host_transfer=infos[0].enable_pinned_host_transfer,
+        min_slice_bytes_for_replica_parallel=self._min_slice_bytes_for_replica_parallel,
+        max_replicas_for_replica_parallel=self._max_replicas_for_replica_parallel,
     )
 
     return [
@@ -1237,7 +1250,7 @@ class ArrayHandler(types.TypeHandler):
     if infos[0].parent_dir is None:
       raise ValueError('parent_dir cannot be None')
     sharding_file_path = infos[0].parent_dir / _SHARDING
-    sharding_file_exists = await async_utils.async_exists(sharding_file_path)
+    sharding_file_exists = await async_path.exists(sharding_file_path)
     for info, arg in zip(infos, args):
       sharding = None
       arg = cast(ArrayRestoreArgs, arg)
@@ -1349,6 +1362,8 @@ class ArrayHandler(types.TypeHandler):
               v,
               replica_id=self._replica_id,
               use_replica_parallel=self._use_replica_parallel,
+              min_slice_bytes_for_replica_parallel=self._min_slice_bytes_for_replica_parallel,
+              max_replicas_for_replica_parallel=self._max_replicas_for_replica_parallel,
           ).nbytes
       )
       read_sizes.append(

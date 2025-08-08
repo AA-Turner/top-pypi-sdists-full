@@ -28,7 +28,7 @@ from openapi_client.models.aggregatedinstanceusagecsv_list_response import Aggre
 from openapi_client.models.aggregatedusage_response import AggregatedusageResponse
 from openapi_client.models.aioa_cloud_waitlist_record import AioaCloudWaitlistRecord
 from openapi_client.models.aioacloudwaitlistrecord_response import AioacloudwaitlistrecordResponse
-from openapi_client.models.alert_type import AlertType
+from openapi_client.models.alert_issue_type import AlertIssueType
 from openapi_client.models.anyscale_aws_account import AnyscaleAWSAccount
 from openapi_client.models.anyscale_service_account import AnyscaleServiceAccount
 from openapi_client.models.anyscaleawsaccount_response import AnyscaleawsaccountResponse
@@ -417,6 +417,7 @@ from openapi_client.models.operation_result import OperationResult
 from openapi_client.models.operator_branch import OperatorBranch
 from openapi_client.models.operator_id import OperatorId
 from openapi_client.models.operator_metrics import OperatorMetrics
+from openapi_client.models.operator_status import OperatorStatus
 from openapi_client.models.organization import Organization
 from openapi_client.models.organization_collaborator import OrganizationCollaborator
 from openapi_client.models.organization_configuration import OrganizationConfiguration

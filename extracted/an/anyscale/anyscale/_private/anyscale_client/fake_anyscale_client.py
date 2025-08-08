@@ -11,7 +11,6 @@ from anyscale._private.anyscale_client.common import (
     WORKSPACE_CLUSTER_NAME_PREFIX,
 )
 from anyscale._private.models.image_uri import ImageURI
-from anyscale._private.models.model_base import ListResponse
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models import (
     AdminCreatedUser,
@@ -58,7 +57,6 @@ from anyscale.client.openapi_client.models.decorated_schedule import DecoratedSc
 from anyscale.client.openapi_client.models.decorated_session import DecoratedSession
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
 from anyscale.cluster_compute import parse_cluster_compute_name_version
-from anyscale.llm.dataset._private.models import Dataset
 from anyscale.sdk.anyscale_client.configuration import Configuration
 from anyscale.sdk.anyscale_client.models import (
     ApplyProductionServiceV2Model,
@@ -105,6 +103,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     WORKSPACE_CLUSTER_ID = "fake-workspace-cluster-id"
     WORKSPACE_PROJECT_ID = "fake-workspace-project-id"
     WORKSPACE_CLUSTER_COMPUTE_ID = "fake-workspace-cluster-compute-id"
+    WORKSPACE_CLUSTER_COMPUTE_NAME = "fake-workspace-cluster-compute"
     WORKSPACE_CLUSTER_ENV_BUILD_ID = "fake-workspace-cluster-env-build-id"
 
     SCHEDULE_NEXT_TRIGGER_AT_TIME = datetime.utcnow()
@@ -210,10 +209,28 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             ),
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
+
+        workspace_compute_config = ClusterCompute(
+            id=self.WORKSPACE_CLUSTER_COMPUTE_ID,
+            name=self.WORKSPACE_CLUSTER_COMPUTE_NAME,
+            config=ClusterComputeConfig(
+                cloud_id=self.WORKSPACE_CLOUD_ID,
+                head_node_type=ComputeNodeType(
+                    name="default-head-node",
+                    instance_type="m5.2xlarge",
+                    resources={"CPU": 8, "GPU": 1},
+                ),
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
         self._default_compute_configs: Dict[str, ClusterCompute] = {
             self.DEFAULT_CLOUD_ID: compute_config,
+            self.WORKSPACE_CLOUD_ID: workspace_compute_config,
         }
         self.add_compute_config(compute_config)
+        self.add_compute_config(workspace_compute_config)
 
     def get_job_ui_url(self, job_id: str) -> str:
         return f"{self.BASE_UI_URL}/jobs/{job_id}"
@@ -992,50 +1009,6 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
 
     def trigger_counts(self, id: str):  # noqa: A002
         return self._schedule_trigger_counts[id]
-
-    def get_dataset(
-        self, name: str, version: Optional[int], project: Optional[str]  # noqa: ARG002
-    ) -> Dataset:
-        raise NotImplementedError
-
-    def upload_dataset(
-        self,
-        dataset_file: str,  # noqa: ARG002
-        name: Optional[str],  # noqa: ARG002
-        description: Optional[str],  # noqa: ARG002
-        cloud: Optional[str],  # noqa: ARG002
-        project: Optional[str],  # noqa: ARG002
-    ) -> Dataset:
-        raise NotImplementedError
-
-    def download_dataset(
-        self, name: str, version: Optional[int], project: Optional[str]  # noqa: ARG002
-    ) -> bytes:
-        return b""
-
-    def list_datasets(
-        self,
-        limit: Optional[int] = None,  # noqa: ARG002
-        after: Optional[str] = None,  # noqa: ARG002
-        name_contains: Optional[str] = None,  # noqa: ARG002
-        cloud: Optional[str] = None,  # noqa: ARG002
-        project: Optional[str] = None,  # noqa: ARG002
-    ) -> ListResponse[Dataset]:
-        raise NotImplementedError
-
-    def get_finetuned_model(
-        self, model_id: Optional[str], job_id: Optional[str]  # noqa: ARG002
-    ) -> FineTunedModel:
-        return FineTunedModel(
-            id=model_id if model_id else "test-model-id",
-            model_id=model_id if model_id else "test-model-id",
-            base_model_id="my_base_model_id",
-            ft_type=FineTuneType.LORA,
-            creator_id="",
-            creator_email="",
-            created_at=datetime.utcnow(),
-            storage_uri="s3://fake_bucket/fake_folder/",
-        )
 
     def create_workspace(self, model: CreateExperimentalWorkspace) -> str:
         workspace_id = uuid.uuid4()

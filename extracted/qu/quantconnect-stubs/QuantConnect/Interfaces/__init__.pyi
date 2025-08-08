@@ -59,7 +59,7 @@ class IDataQueueHandler(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Subscribe to the specified configuration
         
@@ -160,7 +160,7 @@ class ISecurityPrice(metaclass=abc.ABCMeta):
         """
         ...
 
-    def update(self, data: typing.List[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool]) -> None:
+    def update(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool]) -> None:
         """
         Updates all of the security properties, such as price/OHLCV/bid/ask based
         on the data provided. Data is also stored into the security's data cache
@@ -243,52 +243,52 @@ class IDataProviderEvents(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], None], None]:
+    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]:
         """Event fired when an invalid configuration has been detected"""
         ...
 
     @invalid_configuration_detected.setter
-    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], None], None]) -> None:
+    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], None], None]:
+    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]:
         """Event fired when the numerical precision in the factor file has been limited"""
         ...
 
     @numerical_precision_limited.setter
-    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], None], None]) -> None:
+    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], None], None]:
+    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]:
         """Event fired when there was an error downloading a remote file"""
         ...
 
     @download_failed.setter
-    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], None], None]) -> None:
+    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], None], None]:
+    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]:
         """Event fired when there was an error reading the data"""
         ...
 
     @reader_error_detected.setter
-    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], None], None]) -> None:
+    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], None], None]:
+    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]:
         """Event fired when the start date has been limited"""
         ...
 
     @start_date_limited.setter
-    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], None], None]) -> None:
+    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -672,7 +672,7 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def create_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint], estimated_cost: float, node_type: str, parallel_nodes: int) -> QuantConnect.Api.OptimizationSummary:
+    def create_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint], estimated_cost: float, node_type: str, parallel_nodes: int) -> QuantConnect.Api.OptimizationSummary:
         ...
 
     def create_project(self, name: str, language: QuantConnect.Language, organization_id: str = None) -> QuantConnect.Api.ProjectResponse:
@@ -765,7 +765,7 @@ class IApi(System.IDisposable, metaclass=abc.ABCMeta):
         """
         ...
 
-    def estimate_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.List[QuantConnect.Optimizer.Objectives.Constraint]) -> QuantConnect.Api.Estimate:
+    def estimate_optimization(self, project_id: int, name: str, target: str, target_to: str, target_value: typing.Optional[float], strategy: str, compile_id: str, parameters: System.Collections.Generic.HashSet[QuantConnect.Optimizer.Parameters.OptimizationParameter], constraints: typing.Sequence[QuantConnect.Optimizer.Objectives.Constraint]) -> QuantConnect.Api.Estimate:
         ...
 
     def get_algorithm_status(self, algorithm_id: str) -> QuantConnect.AlgorithmControl:
@@ -1175,12 +1175,12 @@ class IObjectStore(System.IDisposable, typing.Iterable[System.Collections.Generi
 
     @property
     @abc.abstractmethod
-    def error_raised(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], None], None]:
+    def error_raised(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], typing.Any], typing.Any]:
         """Event raised each time there's an error"""
         ...
 
     @error_raised.setter
-    def error_raised(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], None], None]) -> None:
+    def error_raised(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -1259,12 +1259,12 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
 
     @property
     @abc.abstractmethod
-    def insights_generated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], None], None]:
+    def insights_generated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], typing.Any], typing.Any]:
         """Event fired when an algorithm generates a insight"""
         ...
 
     @insights_generated.setter
-    def insights_generated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], None], None]) -> None:
+    def insights_generated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -1413,22 +1413,22 @@ class IAlgorithm(QuantConnect.Interfaces.ISecurityInitializerProvider, QuantConn
 
     @property
     @abc.abstractmethod
-    def name_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], None], None]:
+    def name_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], typing.Any], typing.Any]:
         """Event fired algorithm's name is changed"""
         ...
 
     @name_updated.setter
-    def name_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], None], None]) -> None:
+    def name_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def tags_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], None], None]:
+    def tags_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], typing.Any], typing.Any]:
         """Event fired when the tag collection is updated"""
         ...
 
     @tags_updated.setter
-    def tags_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], None], None]) -> None:
+    def tags_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -2640,92 +2640,92 @@ class IBrokerage(QuantConnect.Interfaces.IBrokerageCashSynchronizer, System.IDis
 
     @property
     @abc.abstractmethod
-    def order_id_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.BrokerageOrderIdChangedEvent], None], None]:
+    def order_id_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.BrokerageOrderIdChangedEvent], typing.Any], typing.Any]:
         """Event that fires each time the brokerage order id changes"""
         ...
 
     @order_id_changed.setter
-    def order_id_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.BrokerageOrderIdChangedEvent], None], None]) -> None:
+    def order_id_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.BrokerageOrderIdChangedEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def orders_status_changed(self) -> _EventContainer[typing.Callable[[System.Object, typing.List[QuantConnect.Orders.OrderEvent]], None], None]:
+    def orders_status_changed(self) -> _EventContainer[typing.Callable[[System.Object, typing.List[QuantConnect.Orders.OrderEvent]], typing.Any], typing.Any]:
         """Event that fires each time the status for a list of orders change"""
         ...
 
     @orders_status_changed.setter
-    def orders_status_changed(self, value: _EventContainer[typing.Callable[[System.Object, typing.List[QuantConnect.Orders.OrderEvent]], None], None]) -> None:
+    def orders_status_changed(self, value: _EventContainer[typing.Callable[[System.Object, typing.List[QuantConnect.Orders.OrderEvent]], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def order_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderUpdateEvent], None], None]:
+    def order_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderUpdateEvent], typing.Any], typing.Any]:
         """Event that fires each time an order is updated in the brokerage side"""
         ...
 
     @order_updated.setter
-    def order_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderUpdateEvent], None], None]) -> None:
+    def order_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderUpdateEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def option_position_assigned(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], None], None]:
+    def option_position_assigned(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]:
         """Event that fires each time a short option position is assigned"""
         ...
 
     @option_position_assigned.setter
-    def option_position_assigned(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], None], None]) -> None:
+    def option_position_assigned(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def option_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.OptionNotificationEventArgs], None], None]:
+    def option_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.OptionNotificationEventArgs], typing.Any], typing.Any]:
         """Event that fires each time an option position has changed"""
         ...
 
     @option_notification.setter
-    def option_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.OptionNotificationEventArgs], None], None]) -> None:
+    def option_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.OptionNotificationEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def new_brokerage_order_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.NewBrokerageOrderNotificationEventArgs], None], None]:
+    def new_brokerage_order_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.NewBrokerageOrderNotificationEventArgs], typing.Any], typing.Any]:
         """Event that fires each time there's a brokerage side generated order"""
         ...
 
     @new_brokerage_order_notification.setter
-    def new_brokerage_order_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.NewBrokerageOrderNotificationEventArgs], None], None]) -> None:
+    def new_brokerage_order_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.NewBrokerageOrderNotificationEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def delisting_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.DelistingNotificationEventArgs], None], None]:
+    def delisting_notification(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.DelistingNotificationEventArgs], typing.Any], typing.Any]:
         """Event that fires each time a delisting occurs"""
         ...
 
     @delisting_notification.setter
-    def delisting_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.DelistingNotificationEventArgs], None], None]) -> None:
+    def delisting_notification(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.DelistingNotificationEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def account_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.AccountEvent], None], None]:
+    def account_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.AccountEvent], typing.Any], typing.Any]:
         """Event that fires each time a user's brokerage account is changed"""
         ...
 
     @account_changed.setter
-    def account_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.AccountEvent], None], None]) -> None:
+    def account_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.AccountEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def message(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BrokerageMessageEvent], None], None]:
+    def message(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BrokerageMessageEvent], typing.Any], typing.Any]:
         """Event that fires when a message is received from the brokerage"""
         ...
 
     @message.setter
-    def message(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BrokerageMessageEvent], None], None]) -> None:
+    def message(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.BrokerageMessageEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -2972,12 +2972,12 @@ class IDataProvider(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]:
+    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
         """Event raised each time data fetch is finished (successfully or not)"""
         ...
 
     @new_data_request.setter
-    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], None], None]) -> None:
+    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def fetch(self, key: str) -> System.IO.Stream:

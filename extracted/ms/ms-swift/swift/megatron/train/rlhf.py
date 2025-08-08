@@ -1,10 +1,10 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
-from typing import List, Union
+from typing import List, Optional, Union
 
 from swift.utils import get_logger
 from ..argument import MegatronRLHFArguments
+from ..trainers import MegatronDPOTrainer
 from .sft import MegatronSft
-from .trainers import MegatronDPOTrainer
 
 logger = get_logger()
 
@@ -12,7 +12,6 @@ logger = get_logger()
 class MegatronRLHF(MegatronSft):
     args_class = MegatronRLHFArguments
     args: args_class
-    trainer_cls = MegatronDPOTrainer
 
     def prepare_trainer(self):
         args = self.args
@@ -27,5 +26,5 @@ class MegatronRLHF(MegatronSft):
         self.template.set_mode('rlhf')
 
 
-def megatron_rlhf_main(args: Union[List[str], MegatronRLHFArguments, None] = None):
+def megatron_rlhf_main(args: Optional[Union[List[str], MegatronRLHFArguments]] = None):
     return MegatronRLHF(args).main()

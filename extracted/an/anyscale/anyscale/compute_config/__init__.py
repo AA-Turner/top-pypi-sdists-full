@@ -10,17 +10,15 @@ from anyscale.compute_config.commands import (
     _ARCHIVE_EXAMPLE,
     _CREATE_ARG_DOCSTRINGS,
     _CREATE_EXAMPLE,
-    _CREATE_MULTI_DEPLOYMENT_ARG_DOCSTRINGS,
-    _CREATE_MULTI_DEPLOYMENT_EXAMPLE,
     _GET_ARG_DOCSTRINGS,
     _GET_EXAMPLE,
     archive,
     create,
-    create_multi_deployment,
     get,
 )
 from anyscale.compute_config.models import (
     ComputeConfig,
+    ComputeConfigType,
     ComputeConfigVersion,
     HeadNodeConfig,
     MultiDeploymentComputeConfig,
@@ -44,25 +42,13 @@ class ComputeConfigSDK:
         doc_py_example=_CREATE_EXAMPLE, arg_docstrings=_CREATE_ARG_DOCSTRINGS,
     )
     def create(  # noqa: F811
-        self, config: ComputeConfig, *, name: Optional[str],
+        self, config: ComputeConfigType, *, name: Optional[str],
     ) -> str:
         """Create a new version of a compute config.
 
         Returns the full name of the registered compute config, including the version.
         """
         full_name, _ = self._private_sdk.create_compute_config(config, name=name)
-        return full_name
-
-    @sdk_docs(
-        doc_py_example=_CREATE_MULTI_DEPLOYMENT_EXAMPLE,
-        arg_docstrings=_CREATE_MULTI_DEPLOYMENT_ARG_DOCSTRINGS,
-    )
-    def create_multi_deployment(  # noqa: F811
-        self, config: MultiDeploymentComputeConfig, *, name: Optional[str],
-    ) -> str:
-        full_name, _ = self._private_sdk.create_multi_deployment_compute_config(
-            config, name=name
-        )
         return full_name
 
     @sdk_docs(

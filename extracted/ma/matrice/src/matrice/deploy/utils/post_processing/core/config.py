@@ -326,10 +326,10 @@ class PeopleCountingConfig(BaseConfig):
             errors.extend(self.alert_config.validate())
         
         return errors
-    
+
 @dataclass
-class HumanActivityConfig(BaseConfig):
-    """Configuration for Human Activity use case."""
+class ProximityConfig(BaseConfig):
+    """Configuration for Proximity identification use case."""
     
     # Smoothing configuration
     enable_smoothing: bool = True
@@ -346,34 +346,21 @@ class HumanActivityConfig(BaseConfig):
     time_window_minutes: int = 60
     
     # Category mapping
-    activity_categories: List[str] = field(
-        default_factory=lambda: ["barbequing", "bartending", "breading or flooring", "celebrating",
-                                "clapping", "cleaning floor", "cleaning gutters", "cleaning toilet",
-                                "cleaning windows", "climbing ladder", "cooking chicken", "cooking egg",
-                                "cooking sausages", "counting money", "cutting pineapple", "cutting watermelon",
-                                "dining", "drinking", "drinking beer", "drinking shots", "eating burger", "eating cake",
-                                "eating carrots", "eating chips", "eating doughnuts", "eating hotdog", "eating ice cream",
-                                "eating spaghetti", "eating watermelon", "flipping pancake", "frying vegetables", "garbage collecting",
-                                "making a cake", "making a sandwich", "making pizza making sushi", "making tea",
-                                "mopping floor", "moving furniture", "peeling apples", "peeling potatos", "picking fruit",
-                                "reading book", "reading newspaper", "setting table", "shaking hands", "smoking", "smoking hookah",
-                                "sweeping floor", "tasting beer", "tasting food", "tossing salad", "washing hands",
-                                "washing dishes", "texting", "using computer"]
-        )
+    person_categories: List[str] = field(default_factory=lambda: ["person", "people"])
     index_to_category: Optional[Dict[int, str]] = None
     
     # Alert configuration
     alert_config: Optional[AlertConfig] = None
     
     def validate(self) -> List[str]:
-        """Validate human activity configuration."""
+        """Validate people counting configuration."""
         errors = super().validate()
         
         if self.time_window_minutes <= 0:
             errors.append("time_window_minutes must be positive")
         
-        if not self.activity_categories:
-            errors.append("activity_categories cannot be empty")
+        if not self.person_categories:
+            errors.append("person_categories cannot be empty")
         
         # Validate nested configurations
         if self.zone_config:
@@ -383,7 +370,6 @@ class HumanActivityConfig(BaseConfig):
             errors.extend(self.alert_config.validate())
         
         return errors
-    
 
 
 @dataclass  
@@ -463,7 +449,6 @@ class ConfigManager:
             "people_counting": PeopleCountingConfig,
             "customer_service": CustomerServiceConfig,
             "advanced_customer_service": CustomerServiceConfig,
-            "human_activity_recognition": HumanActivityConfig,
             "basic_counting_tracking": None,  # Will be set later to avoid circular import
             "license_plate_detection": None,  # Will be set later to avoid circular import
             "ppe_compliance_detection": None,
@@ -512,7 +497,10 @@ class ConfigManager:
             'face_recognition': None,
             'drowsy_driver_detection': None,
             'waterbody_segmentation': None,
-            'litter_detection' :None,
+            'litter_detection':None,
+            'leak_detection': None,
+            'human_activity_recognition': None,
+            'gas_leak_detection': None,
 
             #Put all image based usecases here::
             'blood_cancer_detection_img': None,
@@ -916,6 +904,30 @@ class ConfigManager:
             return LitterDetectionConfig
         except ImportError:
             return None
+        
+    def leak_detection_config_class(self):
+        """Get Leak detection class to avoid circular imports."""
+        try:
+            from ..usecases.leak_detection import LeakDetectionConfig
+            return LeakDetectionConfig
+        except ImportError:
+            return None
+    
+    def human_activity_recognition_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.human_activity_recognition import HumanActivityConfig
+            return HumanActivityConfig
+        except ImportError:
+            return None
+    
+    def gas_leak_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.gas_leak_detection import GasLeakDetectionConfig
+            return GasLeakDetectionConfig
+        except ImportError:
+            return None
     
     #put all image based usecases here::
     def blood_cancer_detection_config_class(self):
@@ -933,6 +945,7 @@ class ConfigManager:
             return PlaqueSegmentationConfig
         except ImportError:
             return None
+        
     def skin_cancer_classification_config_class(self):
         """Register a configuration class for a use case."""
         try:
@@ -1004,23 +1017,6 @@ class ConfigManager:
                 category=category or "sales",
                 usecase=usecase,
                 tracking_config=tracking_config,
-                alert_config=alert_config,
-                **kwargs
-            )
-        elif usecase == "human_activity_recognition":
-            # Handle nested configurations
-            zone_config = kwargs.pop("zone_config", None)
-            if zone_config and isinstance(zone_config, dict):
-                zone_config = ZoneConfig(**zone_config)
-
-            alert_config = kwargs.pop("alert_config", None)
-            if alert_config and isinstance(alert_config, dict):
-                alert_config = AlertConfig(**alert_config)
-
-            config = HumanActivityConfig(
-                category=category or "general",
-                usecase=usecase,
-                zone_config=zone_config,
                 alert_config=alert_config,
                 **kwargs
             )
@@ -1885,7 +1881,54 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        
+        elif usecase == "leak_detection":
+            # Import here to avoid circular import
+            from ..usecases.leak_detection import LeakDetectionConfig
 
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = LeakDetectionConfig(
+                category=category or "oil_gas",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "human_activity_recognition":
+            # Import here to avoid circular import
+            from ..usecases.human_activity_recognition import HumanActivityConfig
+
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = HumanActivityConfig(
+                category=category or "general",
+                usecase=usecase,
+                zone_config=zone_config,
+                alert_config=alert_config,
+                **kwargs
+            )
+            
+        elif usecase == "gas_leak_detection":
+            # Import here to avoid circular import
+            from ..usecases.gas_leak_detection import GasLeakDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = GasLeakDetectionConfig(
+                category=category or "oil_gas",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
         
         #Add IMAGE based usecases here::
         elif usecase == "blood_cancer_detection_img":
@@ -2335,6 +2378,22 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.litter_monitoring import LitterDetectionConfig
             default_config = LitterDetectionConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "leak_detection":
+            # Import here to avoid circular import
+            from ..usecases.leak_detection import LeakDetectionConfig
+            default_config = LeakDetectionConfig()
+            return default_config.to_dict()
+        elif usecase == "human_activity_recognition":
+            # Import here to avoid circular import
+            from ..usecases.human_activity_recognition import HumanActivityConfig
+            default_config = HumanActivityConfig()
+            return default_config.to_dict()
+        elif usecase == "gas_leak_detection":
+            # Import here to avoid circular import
+            from ..usecases.gas_leak_detection import GasLeakDetectionConfig
+            default_config = GasLeakDetectionConfig()
             return default_config.to_dict()
 
         #Add all image based usecases here

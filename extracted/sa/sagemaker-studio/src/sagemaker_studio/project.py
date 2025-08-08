@@ -180,6 +180,25 @@ class Project:
         """
         return self._utils._get_user_id()
 
+    @property
+    def shared_files(self) -> str:
+        """
+        Retrieves the path of shared files.
+
+        Returns:
+            str: The path of shared files.
+        """
+        try:
+            connection = self.connection(name="default.s3_shared")
+            if connection:
+                return connection.data.s3_uri
+            raise RuntimeError("No connection found for shared files.")
+        except Exception as e:
+            raise RuntimeError(
+                f"Encountered an error getting the shared files path for project '{self.name}' in domain '{self.domain_id}'",
+                e,
+            )
+
 
 class _ProjectS3Path:
     """

@@ -67,6 +67,7 @@ from orbax.checkpoint._src.futures import synchronization
 from orbax.checkpoint._src.metadata import checkpoint as checkpoint_metadata
 from orbax.checkpoint._src.metadata import step_metadata_serialization
 from orbax.checkpoint._src.multihost import multihost
+from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import atomicity_types
 from orbax.checkpoint._src.path import step as step_lib
 from orbax.checkpoint._src.path import utils
@@ -75,23 +76,13 @@ from orbax.checkpoint._src.path import utils
 TMP_DIR_SUFFIX = step_lib.TMP_DIR_SUFFIX
 COMMIT_SUCCESS_FILE = step_lib._COMMIT_SUCCESS_FILE  # pylint: disable=protected-access
 
+_LAST_CHECKPOINT_WRITE_TIME = time.time()
+
 _T = TypeVar('_T', bound='_TemporaryPathBase')
-
-
-async def _mkdir(path: epath.Path, *args, **kwargs):
-  return await asyncio.to_thread(path.mkdir, *args, **kwargs)
-
-
-async def _exists(path: epath.Path):
-  return await asyncio.to_thread(path.exists)
 
 
 async def _is_tmp_checkpoint(path: epath.Path):
   return await asyncio.to_thread(step_lib.is_tmp_checkpoint, path)
-
-
-async def _rmtree(path: epath.Path):
-  return await asyncio.to_thread(path.rmtree)
 
 
 class AsyncMakeDirFunc(Protocol):
@@ -139,14 +130,14 @@ async def _create_tmp_directory(
   Raises:
     FileExistsError: if tmp directory already exists.
   """
-  if await _exists(tmp_dir):
+  if await async_path.exists(tmp_dir):
     if await _is_tmp_checkpoint(tmp_dir):
       logging.warning(
           'Attempted to create temporary directory %s which already exists.'
           ' Removing existing directory since it is not finalized.',
           tmp_dir,
       )
-      await _rmtree(tmp_dir)
+      await async_path.rmtree(tmp_dir)
     else:
       raise FileExistsError(
           f'Attempted to create temporary directory {tmp_dir} which already'
@@ -176,9 +167,7 @@ async def _create_tmp_directory(
 def _get_tmp_directory(final_path: epath.Path) -> epath.Path:
   # Path may not be completely unique if a preemption occurs. We rely on the
   # existing tmp directory being deleted elsewhere.
-  return epath.Path(final_path.parent) / (
-      final_path.name + TMP_DIR_SUFFIX
-  )
+  return epath.Path(final_path.parent) / (final_path.name + TMP_DIR_SUFFIX)
 
 
 def _get_tmp_directory_pattern(final_path_name: str | None = None) -> str:
@@ -309,7 +298,7 @@ class ReadOnlyTemporaryPath(atomicity_types.TemporaryPath):
     """Not supported for ReadOnlyTemporaryPath."""
     raise NotImplementedError('`create` is not supported.')
 
-  def finalize(
+  async def finalize(
       self,
   ) -> None:
     """Not supported for ReadOnlyTemporaryPath."""
@@ -358,13 +347,13 @@ class AtomicRenameTemporaryPath(_TemporaryPathBase):
       FileExistsError: if tmp directory already exists.
     """
     return await _create_tmp_directory(
-        _mkdir,
+        async_path.mkdir,
         self._tmp_path,
         path_permission_mode=self._path_permission_mode,
         checkpoint_metadata_store=self._checkpoint_metadata_store,
     )
 
-  def finalize(
+  async def finalize(
       self,
   ):
     """Finalizes atomic save by renaming tmp_dir.
@@ -374,14 +363,19 @@ class AtomicRenameTemporaryPath(_TemporaryPathBase):
     """
     logging.info('Renaming %s to %s', self._tmp_path, self._final_path)
     if self._checkpoint_metadata_store:
-      self._checkpoint_metadata_store.wait_until_finished()
-      self._checkpoint_metadata_store.update(
+      await asyncio.to_thread(
+          self._checkpoint_metadata_store.wait_until_finished
+      )
+      await asyncio.to_thread(
+          self._checkpoint_metadata_store.update,
           file_path=checkpoint_metadata.step_metadata_file_path(self._tmp_path),
           commit_timestamp_nsecs=time.time_ns(),
       )
-      self._checkpoint_metadata_store.wait_until_finished()
+      await asyncio.to_thread(
+          self._checkpoint_metadata_store.wait_until_finished
+      )
 
-    self._tmp_path.rename(self._final_path)
+    await async_path.rename(self._tmp_path, self._final_path)
 
   def __repr__(self) -> str:
     return (
@@ -433,13 +427,13 @@ class CommitFileTemporaryPath(_TemporaryPathBase):
       FileExistsError: if tmp directory already exists.
     """
     return await _create_tmp_directory(
-        _mkdir,
+        async_path.mkdir,
         self._tmp_path,
         path_permission_mode=self._path_permission_mode,
         checkpoint_metadata_store=self._checkpoint_metadata_store,
     )
 
-  def finalize(
+  async def finalize(
       self,
   ):
     """Finalizes atomic save by writing a success file.
@@ -449,16 +443,22 @@ class CommitFileTemporaryPath(_TemporaryPathBase):
     """
     logging.info('Finalizing %s', self._tmp_path)
     if self._checkpoint_metadata_store:
-      self._checkpoint_metadata_store.wait_until_finished()
-      self._checkpoint_metadata_store.update(
+      await asyncio.to_thread(
+          self._checkpoint_metadata_store.wait_until_finished
+      )
+      await asyncio.to_thread(
+          self._checkpoint_metadata_store.update,
           file_path=checkpoint_metadata.step_metadata_file_path(self._tmp_path),
           commit_timestamp_nsecs=time.time_ns(),
       )
-      self._checkpoint_metadata_store.wait_until_finished()
+      await asyncio.to_thread(
+          self._checkpoint_metadata_store.wait_until_finished
+      )
 
     commit_success_file = self._final_path / COMMIT_SUCCESS_FILE
-    commit_success_file.write_text(
-        f'Checkpoint commit was successful to {self._final_path}'
+    await async_path.write_text(
+        commit_success_file,
+        f'Checkpoint commit was successful to {self._final_path}',
     )
 
 
@@ -481,7 +481,7 @@ async def create_all(
           'create_tmp_directory:pre',
           prefix=barrier_sync_key_prefix,
       ),
-      timeout=multihost.DIRECTORY_CREATION_TIMEOUT,
+      timeout=multihost.coordination_timeout(),
       processes=active_processes,
   )
   if multihost.is_primary_host(multiprocessing_options.primary_host):
@@ -491,7 +491,7 @@ async def create_all(
           'create_tmp_directory:post',
           prefix=barrier_sync_key_prefix,
       ),
-      timeout=multihost.DIRECTORY_CREATION_TIMEOUT,
+      timeout=multihost.coordination_timeout(),
       processes=active_processes,
   )
   directory_creation_secs = time.time() - start
@@ -511,6 +511,7 @@ def create_all_async(
     *,
     multiprocessing_options: options_lib.MultiprocessingOptions | None = None,
     subdirectories: Sequence[str] | None = None,
+    operation_id: str | None = None,
 ) -> future.Future:
   """Creates all temporary paths in parallel asynchronously.
 
@@ -523,6 +524,8 @@ def create_all_async(
     subdirectories: Sequence of subdirectories to create under `paths`. If not
       provided, no subdirectories will be created. The same set of
       subdirectories will be created under each path in `paths`.
+    operation_id: The operation id to use for the barrier keys. If None, the
+      current operation id is used.
 
   Returns:
     A future that which sends the completion signals when all paths are created.
@@ -540,7 +543,7 @@ def create_all_async(
           'create_tmp_directory:post_existence_check',
           prefix=barrier_sync_key_prefix,
       ),
-      timeout=multihost.DIRECTORY_CREATION_TIMEOUT,
+      timeout=multihost.coordination_timeout(),
       processes=active_processes,
   )
 
@@ -552,7 +555,8 @@ def create_all_async(
             subdirectories=subdirectories,
         ),
         send_signals=completion_signals,
-        timeout_secs=multihost.DIRECTORY_CREATION_TIMEOUT,
+        timeout_secs=multihost.coordination_timeout(),
+        operation_id=operation_id,
     )
     future.add_to_awaitable_signals_contract(completion_signals)
 
@@ -562,7 +566,7 @@ def create_all_async(
           'add_to_awaitable_signals_contract',
           prefix=barrier_sync_key_prefix,
       ),
-      timeout=multihost.DIRECTORY_CREATION_TIMEOUT,
+      timeout=multihost.coordination_timeout(),
       processes=active_processes,
   )
   return commit_future
@@ -579,7 +583,7 @@ async def _create_paths(
     creation_ops = []
     for path in paths:
       creation_ops.extend([
-          _mkdir(path / name, parents=False, exist_ok=False)
+          async_path.mkdir(path / name, parents=False, exist_ok=False)
           for name in subdirectories
       ])
     await asyncio.gather(*creation_ops)
@@ -602,7 +606,7 @@ async def _create_paths(
   )
 
 
-def on_commit_callback(
+async def on_commit_callback(
     tmp_dir: atomicity_types.TemporaryPath,
     *,
     checkpoint_start_time: float,
@@ -617,9 +621,9 @@ def on_commit_callback(
     checkpoint_start_time: The time at which checkpoint saving began. # BEGIN
     tree_verity_options: Options to configure checkpoint signing and integrity
   """
-  tmp_dir.finalize(
+  await tmp_dir.finalize(
   )
-  step_lib.record_saved_duration(checkpoint_start_time)
+  record_saved_duration(checkpoint_start_time)
   jax.monitoring.record_event('/jax/orbax/write/success')
   logging.info(
       '[process=%s][thread=%s] Finished saving checkpoint (finalized tmp dir)'
@@ -628,3 +632,31 @@ def on_commit_callback(
       threading.current_thread().name,
       tmp_dir.get_final(),
   )
+
+
+def record_saved_duration(checkpoint_start_time: float):
+  """Record program duration that is accounted for by this checkpoint.
+
+  For the very first checkpoint, this is the interval between program init and
+  current checkpoint start time.
+
+  Note that we use the checkpoint start time instead of end time. The saved
+  duration should not include parallel training duration while the async
+  checkpoint is being written in the background.
+
+  Args:
+    checkpoint_start_time: Start time of current checkpoint.
+  """
+  global _LAST_CHECKPOINT_WRITE_TIME
+  # Note: for the very first checkpoint, this is the interval between program
+  # init and the current checkpoint start time.
+  duration_since_last_checkpoint = (
+      checkpoint_start_time - _LAST_CHECKPOINT_WRITE_TIME
+  )
+  # TODO(hanyangtay): Remove version guard.
+  if jax.version.__version_info__ > (0, 3, 25):
+    jax.monitoring.record_event_duration_secs(
+        '/jax/checkpoint/write/duration_since_last_checkpoint_secs',
+        duration_since_last_checkpoint,
+    )
+  _LAST_CHECKPOINT_WRITE_TIME = checkpoint_start_time

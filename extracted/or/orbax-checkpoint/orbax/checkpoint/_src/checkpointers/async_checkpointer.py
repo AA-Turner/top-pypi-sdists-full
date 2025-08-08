@@ -32,7 +32,7 @@ from orbax.checkpoint._src.futures import synchronization
 from orbax.checkpoint._src.handlers import async_checkpoint_handler
 from orbax.checkpoint._src.metadata import checkpoint
 from orbax.checkpoint._src.multihost import multihost
-from orbax.checkpoint._src.path import async_utils
+from orbax.checkpoint._src.path import async_path
 from orbax.checkpoint._src.path import atomicity
 from orbax.checkpoint._src.path import atomicity_types
 from orbax.checkpoint._src.path import utils as path_utils
@@ -50,9 +50,11 @@ def _on_commit_callback(
     checkpoint_start_time: float,
 ):
   """Finalize atomic save and record checkpoint save metrics."""
-  atomicity.on_commit_callback(
-      tmpdir,
-      checkpoint_start_time=checkpoint_start_time,
+  asyncio_utils.run_sync(
+      atomicity.on_commit_callback(
+          tmpdir,
+          checkpoint_start_time=checkpoint_start_time,
+      )
   )
   total_duration_secs = time.time() - checkpoint_start_time
   jax.monitoring.record_event_duration_secs(
@@ -163,10 +165,15 @@ class _AsyncManager:
       self,
       *,
       barrier_sync_fn: multihost.BarrierSyncFn,
-      timeout_secs: int = 600,
+      timeout_secs: int | None = None,
       primary_host: Optional[int] = 0,
       barrier_sync_key_prefix: Optional[str] = None,
   ):
+    timeout_secs = timeout_secs or multihost.coordination_timeout()
+    if timeout_secs <= 0:
+      raise ValueError(
+          f'Timeout must be positive, but got {timeout_secs} seconds.'
+      )
     logging.info(
         '[process=%s][thread=%s] Using barrier_sync_fn: %s timeout: %d secs and'
         ' primary_host=%s for async checkpoint writes',
@@ -446,14 +453,14 @@ class AsyncCheckpointer(checkpointer.Checkpointer):
         directory,
     )
 
-    if await async_utils.async_exists(directory):
+    if await async_path.exists(directory):
       if force:
         if utils.is_primary_host(self._primary_host):
           logging.info(
               '[process=%s] Specified `force`: removing existing directory.',
               multihost.process_index(),
           )
-          await async_utils.async_rmtree(
+          await async_path.rmtree(
               directory
           )  # Post-sync handled by create_tmp_directory.
       else:

@@ -36,7 +36,8 @@ class CreateHttpTriggerJsonBody:
         wrap_body (Union[Unset, bool]):
         raw_string (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, CreateHttpTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, CreateHttpTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, CreateHttpTriggerJsonBodyRetry]):
     """
 

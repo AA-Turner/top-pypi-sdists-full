@@ -1,5 +1,5 @@
 use crate::collection_configuration::InternalCollectionConfiguration;
-use crate::collection_configuration::UpdateCollectionConfiguration;
+use crate::collection_configuration::InternalUpdateCollectionConfiguration;
 use crate::error::QueryConversionError;
 use crate::operator::GetResult;
 use crate::operator::KnnBatchResult;
@@ -694,8 +694,6 @@ pub enum GetCollectionsError {
     CollectionId(#[from] uuid::Error),
     #[error("Could not deserialize database ID")]
     DatabaseId,
-    #[error("Provided limit `{0}` exceeds maximum allowable limit `{1}`")]
-    MaximumLimitExceeded(u32, u32),
 }
 
 impl ChromaError for GetCollectionsError {
@@ -705,7 +703,6 @@ impl ChromaError for GetCollectionsError {
             GetCollectionsError::Configuration(_) => ErrorCodes::Internal,
             GetCollectionsError::CollectionId(_) => ErrorCodes::Internal,
             GetCollectionsError::DatabaseId => ErrorCodes::Internal,
-            GetCollectionsError::MaximumLimitExceeded(_, _) => ErrorCodes::InvalidArgument,
         }
     }
 }
@@ -724,7 +721,7 @@ pub struct UpdateCollectionRequest {
     pub new_name: Option<String>,
     #[validate(custom(function = "validate_non_empty_collection_update_metadata"))]
     pub new_metadata: Option<CollectionMetadataUpdate>,
-    pub new_configuration: Option<UpdateCollectionConfiguration>,
+    pub new_configuration: Option<InternalUpdateCollectionConfiguration>,
 }
 
 impl UpdateCollectionRequest {
@@ -732,7 +729,7 @@ impl UpdateCollectionRequest {
         collection_id: CollectionUuid,
         new_name: Option<String>,
         new_metadata: Option<CollectionMetadataUpdate>,
-        new_configuration: Option<UpdateCollectionConfiguration>,
+        new_configuration: Option<InternalUpdateCollectionConfiguration>,
     ) -> Result<Self, ChromaValidationError> {
         let request = Self {
             collection_id,
@@ -970,7 +967,8 @@ pub struct AddCollectionRecordsRequest {
     pub database_name: String,
     pub collection_id: CollectionUuid,
     pub ids: Vec<String>,
-    pub embeddings: Option<Vec<Vec<f32>>>,
+    #[validate(custom(function = "validate_embeddings"))]
+    pub embeddings: Vec<Vec<f32>>,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
     pub metadatas: Option<Vec<Option<Metadata>>>,
@@ -983,7 +981,7 @@ impl AddCollectionRecordsRequest {
         database_name: String,
         collection_id: CollectionUuid,
         ids: Vec<String>,
-        embeddings: Option<Vec<Vec<f32>>>,
+        embeddings: Vec<Vec<f32>>,
         documents: Option<Vec<Option<String>>>,
         uris: Option<Vec<Option<String>>>,
         metadatas: Option<Vec<Option<Metadata>>>,
@@ -1001,6 +999,14 @@ impl AddCollectionRecordsRequest {
         request.validate().map_err(ChromaValidationError::from)?;
         Ok(request)
     }
+}
+
+fn validate_embeddings(embeddings: &[Vec<f32>]) -> Result<(), ValidationError> {
+    if embeddings.iter().any(|e| e.is_empty()) {
+        return Err(ValidationError::new("embedding_minimum_dimensions")
+            .with_message("Each embedding must have at least 1 dimension".into()));
+    }
+    Ok(())
 }
 
 #[derive(Serialize, ToSchema, Default, Deserialize)]
@@ -1097,7 +1103,8 @@ pub struct UpsertCollectionRecordsRequest {
     pub database_name: String,
     pub collection_id: CollectionUuid,
     pub ids: Vec<String>,
-    pub embeddings: Option<Vec<Vec<f32>>>,
+    #[validate(custom(function = "validate_embeddings"))]
+    pub embeddings: Vec<Vec<f32>>,
     pub documents: Option<Vec<Option<String>>>,
     pub uris: Option<Vec<Option<String>>>,
     pub metadatas: Option<Vec<Option<UpdateMetadata>>>,
@@ -1110,7 +1117,7 @@ impl UpsertCollectionRecordsRequest {
         database_name: String,
         collection_id: CollectionUuid,
         ids: Vec<String>,
-        embeddings: Option<Vec<Vec<f32>>>,
+        embeddings: Vec<Vec<f32>>,
         documents: Option<Vec<Option<String>>>,
         uris: Option<Vec<Option<String>>>,
         metadatas: Option<Vec<Option<UpdateMetadata>>>,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-airflow
-Version: 1.11.4
+Version: 1.11.5
 Summary: Airflow plugin for Dagster
 Home-page: https://github.com/dagster-io/dagster
 Author: Dagster Labs
@@ -12,7 +12,7 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<3.14
 License-File: LICENSE
-Requires-Dist: dagster==1.11.4
+Requires-Dist: dagster==1.11.5
 Requires-Dist: lazy_object_proxy
 Requires-Dist: setuptools<71.0.0
 Requires-Dist: pendulum

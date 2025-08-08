@@ -8,7 +8,7 @@ from packaging import version
 
 from swift.llm import get_llm_model
 from .base import CommonSequenceParallel
-from .utils import (SequenceParallelDispatcher, SequenceParallelSampler, _get_per_token_logps_grpo,
+from .utils import (SequenceParallelDispatcher, SequenceParallelSampler, _get_per_token_logps_and_entropies_grpo,
                     _get_train_sampler_grpo, _prepare_inputs, _prepare_inputs_grpo, get_common_dataloader,
                     get_per_token_logps, loss_scale_sp_func, old_policy_grpo, setup_compute_acc,
                     split_by_mini_batches_grpo)
@@ -277,11 +277,13 @@ class Ulysses(CommonSequenceParallel):
                 query_states.transpose(1, 2), key_states.transpose(1, 2), value_states.transpose(1, 2), attention_mask,
                 *args, **kwargs), None
 
-        ALL_ATTENTION_FUNCTIONS['flash_attention_2_origin'] = ALL_ATTENTION_FUNCTIONS['flash_attention_2']
-        ALL_ATTENTION_FUNCTIONS['sdpa_origin'] = ALL_ATTENTION_FUNCTIONS['sdpa']
-        ALL_ATTENTION_FUNCTIONS['flash_attention_2'] = partial(
-            local_flash_attn, dist_attn=DistributedAttention(None, self.sp_group))
-        ALL_ATTENTION_FUNCTIONS['sdpa'] = partial(local_sdpa_attn, dist_attn=DistributedAttention(None, self.sp_group))
+        if 'flash_attention_2_origin' not in ALL_ATTENTION_FUNCTIONS:
+            ALL_ATTENTION_FUNCTIONS['flash_attention_2_origin'] = ALL_ATTENTION_FUNCTIONS['flash_attention_2']
+            ALL_ATTENTION_FUNCTIONS['sdpa_origin'] = ALL_ATTENTION_FUNCTIONS['sdpa']
+            ALL_ATTENTION_FUNCTIONS['flash_attention_2'] = partial(
+                local_flash_attn, dist_attn=DistributedAttention(None, self.sp_group))
+            ALL_ATTENTION_FUNCTIONS['sdpa'] = partial(
+                local_sdpa_attn, dist_attn=DistributedAttention(None, self.sp_group))
 
     def get_dataloader(self, trainer, dataset, batch_size, skip_batches: int = 0):
         return get_common_dataloader(
@@ -317,7 +319,8 @@ class Ulysses(CommonSequenceParallel):
             trainer.old_policy = MethodType(partial(old_policy_grpo, sp_instance=self), trainer)
             trainer._get_train_sampler = MethodType(partial(_get_train_sampler_grpo, sp_instance=self), trainer)
             trainer._prepare_inputs = MethodType(partial(_prepare_inputs_grpo, sp_instance=self), trainer)
-            trainer._get_per_token_logps = MethodType(partial(_get_per_token_logps_grpo, sp_instance=self), trainer)
+            trainer._get_per_token_logps_and_entropies = MethodType(
+                partial(_get_per_token_logps_and_entropies_grpo, sp_instance=self), trainer)
             trainer.split_by_mini_batches = MethodType(partial(split_by_mini_batches_grpo, sp_instance=self), trainer)
 
         setup_compute_acc(self)

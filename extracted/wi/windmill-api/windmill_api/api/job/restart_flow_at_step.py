@@ -109,7 +109,7 @@ def sync_detailed(
         job_id (Union[Unset, None, str]):
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
-        json_body (RestartFlowAtStepJsonBody):
+        json_body (RestartFlowAtStepJsonBody): The arguments to pass to the script or flow
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -171,7 +171,7 @@ async def asyncio_detailed(
         job_id (Union[Unset, None, str]):
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
-        json_body (RestartFlowAtStepJsonBody):
+        json_body (RestartFlowAtStepJsonBody): The arguments to pass to the script or flow
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

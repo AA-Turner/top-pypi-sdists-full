@@ -18,7 +18,7 @@ T = TypeVar("T", bound="Preview")
 class Preview:
     """
     Attributes:
-        args (PreviewArgs):
+        args (PreviewArgs): The arguments to pass to the script or flow
         content (Union[Unset, str]):
         path (Union[Unset, str]):
         script_hash (Union[Unset, str]):

@@ -83,7 +83,7 @@ class Timer(System.ComponentModel.Component, System.ComponentModel.ISupportIniti
         ...
 
     @property
-    def elapsed(self) -> _EventContainer[typing.Callable[[System.Object, System.Timers.ElapsedEventArgs], None], None]:
+    def elapsed(self) -> _EventContainer[typing.Callable[[System.Object, System.Timers.ElapsedEventArgs], typing.Any], typing.Any]:
         """
         Occurs when the System.Timers.Timer.Interval has
         elapsed.
@@ -91,7 +91,7 @@ class Timer(System.ComponentModel.Component, System.ComponentModel.ISupportIniti
         ...
 
     @elapsed.setter
-    def elapsed(self, value: _EventContainer[typing.Callable[[System.Object, System.Timers.ElapsedEventArgs], None], None]) -> None:
+    def elapsed(self, value: _EventContainer[typing.Callable[[System.Object, System.Timers.ElapsedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property

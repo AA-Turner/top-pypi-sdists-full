@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: timezonefinder
-Version: 7.0.1
+Version: 7.0.2
 Summary: python package for finding the timezone of any point on earth (coordinates) offline
 Author-email: jannikmi <github@michelfe.it>
 License: The MIT License (MIT)

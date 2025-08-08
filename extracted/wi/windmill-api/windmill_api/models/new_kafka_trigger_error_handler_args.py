@@ -8,7 +8,7 @@ T = TypeVar("T", bound="NewKafkaTriggerErrorHandlerArgs")
 
 @_attrs_define
 class NewKafkaTriggerErrorHandlerArgs:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

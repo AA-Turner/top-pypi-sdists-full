@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: flagsmith
-Version: 3.9.2
+Version: 3.10.0
 Summary: Flagsmith Python SDK
 License: BSD3
 Keywords: feature,flag,flagsmith,remote,config
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: flagsmith-flag-engine (>=5.3.1,<6.0.0)
+Requires-Dist: flagsmith-flag-engine (>=6.0.2,<7.0.0)
 Requires-Dist: pydantic (>=2,<3)
 Requires-Dist: requests (>=2.32.3,<3.0.0)
 Requires-Dist: requests-futures (>=1.0.1,<2.0.0)

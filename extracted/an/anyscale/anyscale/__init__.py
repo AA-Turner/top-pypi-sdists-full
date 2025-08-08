@@ -26,7 +26,6 @@ from anyscale import (
     integrations,
     job,
     job_queue,
-    llm,
     organization_invitation,
     project,
     resource_quota,
@@ -48,7 +47,6 @@ from anyscale.connect import ClientBuilder
 from anyscale.image import ImageSDK
 from anyscale.job import JobSDK
 from anyscale.job_queue import JobQueueSDK
-from anyscale.llm import LLMSDK
 from anyscale.organization_invitation import OrganizationInvitationSDK
 from anyscale.project import ProjectSDK
 from anyscale.resource_quota import ResourceQuotaSDK
@@ -127,7 +125,6 @@ class Anyscale:
         self._cloud_sdk = CloudSDK(client=self._anyscale_client)
         self._schedule_sdk = ScheduleSDK(client=self._anyscale_client)
         self._image_sdk = ImageSDK(client=self._anyscale_client)
-        self._llm_sdk = LLMSDK(client=self._anyscale_client)
         self._organization_invitation_sdk = OrganizationInvitationSDK(
             client=self._anyscale_client
         )
@@ -216,10 +213,6 @@ class Anyscale:
     @property
     def image(self) -> ImageSDK:  # noqa: F811
         return self._image_sdk
-
-    @property
-    def llm(self) -> LLMSDK:  # noqa: F811
-        return self._llm_sdk
 
     @property
     def organization_invitation(self) -> OrganizationInvitationSDK:  # noqa: F811

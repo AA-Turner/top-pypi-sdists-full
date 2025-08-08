@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: actipy
-Version: 3.6.0
+Version: 3.6.1
 Summary: Python package to process wearable accelerometer data
 Home-page: https://github.com/OxWearables/actipy
 Download-URL: https://github.com/OxWearables/actipy
@@ -27,7 +27,7 @@ License-File: LICENSE.md
 
 A Python package to process accelerometer data.
 
-Axivity3 and Axivity6 (`.cwa`), Actigraph (`.gt3x`), and GENEActiv (`.bin`) files are supported,
+Axivity3 and Axivity6 (.cwa), Actigraph (.gt3x), GENEActiv (.bin), and Matrix (.bin) files are supported,
 as well as custom CSV files.
 
 Axivity3 is the activity tracker watch used in the large-scale

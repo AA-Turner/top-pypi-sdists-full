@@ -23,12 +23,7 @@ from anyscale._private.anyscale_client.common import (
     RUNTIME_ENV_PACKAGE_FORMAT,
 )
 from anyscale._private.models.image_uri import ImageURI
-from anyscale._private.models.model_base import InternalListResponse, ListResponse
-from anyscale._private.utils.progress_util import (
-    FileDownloadProgress,
-    ProgressFileReader,
-)
-from anyscale.api_utils.common_utils import source_cloud_id_and_project_id
+from anyscale._private.utils.progress_util import FileDownloadProgress
 from anyscale.api_utils.logs_util import _download_log_from_s3_url_sync
 from anyscale.authenticate import AuthenticationBlock, get_auth_api_client
 from anyscale.cli_logger import BlockLogger
@@ -53,23 +48,17 @@ from anyscale.client.openapi_client.models import (
     ComputeTemplateQuery,
     CreateCloudCollaborator,
     CreateComputeTemplate,
-    CreateDataset,
     CreateExperimentalWorkspace,
     CreateInternalProductionJob,
     CreateOrganizationInvitation,
     CreateResourceQuota,
     CreateUserProjectCollaborator,
-    Dataset as InternalDataset,
-    DatasetUpload,
     DecoratedComputeTemplate,
     DecoratedjobqueueListResponse,
     DecoratedlistserviceapimodelListResponse,
     DecoratedProductionServiceV2APIModel,
     DecoratedSession,
-    DeletedPlatformFineTunedModel,
     ExperimentalWorkspace,
-    FineTunedModel,
-    FinetunedmodelListResponse,
     GetOrCreateBuildFromImageUriRequest,
     InternalProductionJob,
     JobQueueSortDirective,
@@ -1565,160 +1554,6 @@ class AnyscaleClient(AnyscaleClientInterface):
         )
 
     @handle_api_exceptions
-    def get_dataset(self, name: str, version: Optional[int], project: Optional[str]):
-        project_id = self._source_project_id(project)
-        internal_dataset = self._internal_api_client.find_dataset_api_v2_datasets_find_get(
-            name=name, version=version, project_id=project_id
-        ).result
-        from anyscale.llm.dataset._private.models import Dataset
-
-        dataset = Dataset.parse_from_internal_model(internal_dataset)
-        return dataset
-
-    def upload_dataset(
-        self,
-        dataset_file: str,
-        name: Optional[str],
-        description: Optional[str],
-        cloud: Optional[str],
-        project: Optional[str],
-    ):
-        # Resolve `~/.../file` to `/home/user/.../file`
-        dataset_file = os.path.expanduser(dataset_file)
-
-        if not os.path.isfile(dataset_file):
-            raise ValueError(f"Path '{dataset_file}' is not a valid file.")
-        dataset_file_size = os.path.getsize(dataset_file)
-        if dataset_file_size > 5 * Bytes.GB:
-            raise ValueError(
-                f"File '{dataset_file}' is too large to upload. The maximum size is 5 GB."
-            )
-        project_id = self._get_project_id_by_name(name=project) if project else None
-        cloud_id = self.get_cloud_id(cloud_name=cloud) if cloud else None
-
-        with FileDownloadProgress() as progress:
-            task_id = progress.add_task(
-                description=f"Creating an upload request for '{dataset_file}'",
-                total=dataset_file_size,
-            )
-            _, project_id = source_cloud_id_and_project_id(
-                internal_api=self._internal_api_client,
-                external_api=self._external_api_client,
-                cloud_id=cloud_id,
-                project_id=project_id,
-            )
-            dataset_upload: DatasetUpload = self._internal_api_client.create_dataset_upload_api_v2_datasets_upload_post(
-                create_dataset=CreateDataset(
-                    filename=os.path.basename(dataset_file),
-                    description=description,
-                    name=name,
-                    project_id=project_id,
-                )
-            ).result
-
-            progress.update(task_id, description=f"Uploading '{dataset_file}'")
-
-            with open(dataset_file, "rb") as file_reader:
-                progress_reader = ProgressFileReader(file_reader, progress, task_id)
-                response = requests.put(
-                    dataset_upload.upload_url, data=progress_reader,
-                )
-                response.raise_for_status()
-
-            progress.update(task_id, completed=os.path.getsize(dataset_file))
-            progress.console.print(
-                "Upload complete!", style=Style(bold=True, color="green")
-            )
-        internal_dataset = dataset_upload.dataset
-        from anyscale.llm.dataset._private.models import Dataset
-
-        dataset = Dataset.parse_from_internal_model(internal_dataset)
-        return dataset
-
-    @handle_api_exceptions
-    def download_dataset(
-        self, name: str, version: Optional[int], project: Optional[str]
-    ) -> bytes:
-        project_id = self._source_project_id(project)
-        with FileDownloadProgress() as progress:
-            task_id = progress.add_task(
-                description=f"Getting download info for '{name}'",
-            )
-            download_url: str = self._internal_api_client.get_dataset_download_url_api_v2_datasets_download_get(
-                name, version=version, project_id=project_id,
-            )
-            progress.update(task_id, description=f"Downloading '{name}'")
-            response = requests.get(download_url, stream=True)
-            total_size = int(response.headers.get("content-length", 0))
-            progress.update(task_id, total=total_size)
-
-            # For CLI, consider writing to disk instead of loading the entire file into memory.
-            dataset_bytes = b""
-            for data in response.iter_content(Bytes.MB):
-                dataset_bytes += data
-                progress.update(task_id, advance=len(data))
-
-            progress.update(task_id, completed=total_size)
-            progress.console.print(
-                "Download complete!", style=Style(bold=True, color="green")
-            )
-
-        return dataset_bytes
-
-    @handle_api_exceptions
-    def list_datasets(
-        self,
-        limit: Optional[int] = None,
-        after: Optional[str] = None,  # Unique ID to start listing after
-        name_contains: Optional[str] = None,
-        cloud: Optional[str] = None,
-        project: Optional[str] = None,
-    ):
-        project_id = self._source_project_id(project)
-        cloud_id = self.get_cloud_id(cloud_name=cloud) if cloud else None
-
-        def get_next_page(
-            after_id: Optional[str],
-        ) -> InternalListResponse[InternalDataset]:
-            internal_datasets: InternalListResponse = self._internal_api_client.list_datasets_api_v2_datasets_get(
-                project_id=project_id,
-                cloud_id=cloud_id,
-                name_contains=name_contains,
-                after=after_id,
-            )
-            return internal_datasets
-
-        from anyscale.llm.dataset._private.models import Dataset
-
-        list_response = ListResponse(
-            after=after, limit=limit, get_next_page=get_next_page, cls=Dataset,
-        )
-        return list_response
-
-    def _source_project_id(self, project_name: Optional[str]) -> Optional[str]:
-        """Sources a optional project ID from an optionally-provided project name."""
-        if project_name:
-            project_id = self._get_project_id_by_name(name=project_name)
-        else:
-            project_id = None
-        return project_id
-
-    @handle_api_exceptions
-    def get_finetuned_model(
-        self, model_id: Optional[str], job_id: Optional[str]
-    ) -> FineTunedModel:
-        if model_id:
-            return self._internal_api_client.get_model_api_v2_llm_models_model_id_get(
-                model_id
-            ).result
-        elif job_id:
-            return self._internal_api_client.get_model_by_job_id_api_v2_llm_models_get_by_job_id_job_id_get(
-                job_id
-            ).result
-        else:
-            raise ValueError("Atleast one of `model_id` or `job_id` must be provided")
-
-    @handle_api_exceptions
     def create_workspace(self, model: CreateExperimentalWorkspace) -> str:
         return self._internal_api_client.create_workspace_api_v2_experimental_workspaces_post(
             create_experimental_workspace=model,
@@ -1897,48 +1732,6 @@ class AnyscaleClient(AnyscaleClientInterface):
             return project.directory_name
         else:
             return project.name
-
-    @handle_api_exceptions
-    def delete_finetuned_model(self, model_id: str) -> DeletedPlatformFineTunedModel:
-        deleted_model = self._internal_api_client.delete_model_api_v2_llm_models_model_id_delete(
-            model_id
-        ).result
-        return deleted_model
-
-    @handle_api_exceptions
-    def list_finetuned_models(
-        self, cloud_id: Optional[str], project_id: Optional[str], max_items: int,
-    ) -> List[FineTunedModel]:
-        if self.inside_workspace():
-            # Resolve `cloud_id` and `project_id`. If not provided and if this is being run in a workspace,
-            # we use the `cloud_id` and `project_id` of the workspace
-            cloud_id, project_id = source_cloud_id_and_project_id(
-                internal_api=self._internal_api_client,
-                external_api=self._external_api_client,
-                cloud_id=cloud_id,
-                project_id=project_id,
-            )
-
-        paging_token = None
-        results = []
-        while True:
-            count = min(self.LIST_ENDPOINT_COUNT, max_items)
-            resp: FinetunedmodelListResponse = self._internal_api_client.list_models_api_v2_llm_models_get(
-                cloud_id=cloud_id,
-                project_id=project_id,
-                paging_token=paging_token,
-                count=count,
-            )
-            models = resp.results
-            results.extend(models)
-            if not len(models) or not resp.metadata.next_paging_token:
-                break
-
-            if max_items and len(results) >= max_items:
-                break
-            paging_token = resp.metadata.next_paging_token
-
-        return results[:max_items] if max_items else results
 
     @handle_api_exceptions
     def download_aggregated_instance_usage_csv(

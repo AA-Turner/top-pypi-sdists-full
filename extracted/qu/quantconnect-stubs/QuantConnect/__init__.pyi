@@ -1811,7 +1811,7 @@ class RealTimeSynchronizedTimer(System.Object):
         ...
 
     @overload
-    def __init__(self, period: datetime.timedelta, callback: typing.Callable[[datetime.datetime], None]) -> None:
+    def __init__(self, period: datetime.timedelta, callback: typing.Callable[[datetime.datetime], typing.Any]) -> None:
         """
         Trigger an event callback after precisely milliseconds-lapsed.
         This is expensive, it creates a new thread and closely monitors the loop.
@@ -3365,7 +3365,7 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
-    def get_or_add_unrequested_security(algorithm: QuantConnect.Interfaces.IAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], security: typing.Optional[QuantConnect.Securities.Security], on_error: typing.Callable[[typing.List[QuantConnect.SecurityType]], None] = None) -> typing.Tuple[bool, QuantConnect.Securities.Security]:
+    def get_or_add_unrequested_security(algorithm: QuantConnect.Interfaces.IAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], security: typing.Optional[QuantConnect.Securities.Security], on_error: typing.Callable[[typing.Sequence[QuantConnect.SecurityType]], typing.Any] = None) -> typing.Tuple[bool, QuantConnect.Securities.Security]:
         """
         Gets the security for the specified symbol from the algorithm's securities collection.
         In case the security is not found, it will be created using the IAlgorithm.UniverseSettings
@@ -4127,7 +4127,7 @@ class Extensions(System.Object):
         ...
 
     @staticmethod
-    def subscribe_with_mapping(data_queue_handler: QuantConnect.Interfaces.IDataQueueHandler, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None], is_expired: typing.Callable[[QuantConnect.Data.SubscriptionDataConfig], bool], subscribed_config: typing.Optional[QuantConnect.Data.SubscriptionDataConfig]) -> typing.Tuple[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], QuantConnect.Data.SubscriptionDataConfig]:
+    def subscribe_with_mapping(data_queue_handler: QuantConnect.Interfaces.IDataQueueHandler, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any], is_expired: typing.Callable[[QuantConnect.Data.SubscriptionDataConfig], bool], subscribed_config: typing.Optional[QuantConnect.Data.SubscriptionDataConfig]) -> typing.Tuple[System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], QuantConnect.Data.SubscriptionDataConfig]:
         """Helper method to subscribe a given configuration, handling any required mapping"""
         ...
 
@@ -5455,7 +5455,7 @@ class Isolator(System.Object):
         ...
 
     @overload
-    def execute_with_time_limit(self, time_span: datetime.timedelta, within_custom_limits: typing.Callable[[], QuantConnect.IsolatorLimitResult], code_block: typing.Callable[[], None], memory_cap: int = 1024, sleep_interval_millis: int = 1000, worker_thread: QuantConnect.Util.WorkerThread = None) -> bool:
+    def execute_with_time_limit(self, time_span: datetime.timedelta, within_custom_limits: typing.Callable[[], QuantConnect.IsolatorLimitResult], code_block: typing.Callable[[], typing.Any], memory_cap: int = 1024, sleep_interval_millis: int = 1000, worker_thread: QuantConnect.Util.WorkerThread = None) -> bool:
         """
         Execute a code block with a maximum limit on time and memory.
         
@@ -5470,7 +5470,7 @@ class Isolator(System.Object):
         ...
 
     @overload
-    def execute_with_time_limit(self, time_span: datetime.timedelta, code_block: typing.Callable[[], None], memory_cap: int, sleep_interval_millis: int = 1000, worker_thread: QuantConnect.Util.WorkerThread = None) -> bool:
+    def execute_with_time_limit(self, time_span: datetime.timedelta, code_block: typing.Callable[[], typing.Any], memory_cap: int, sleep_interval_millis: int = 1000, worker_thread: QuantConnect.Util.WorkerThread = None) -> bool:
         """
         Execute a code block with a maximum limit on time and memory.
         
@@ -6290,7 +6290,7 @@ class IsolatorLimitResultProvider(System.Object):
 
     @staticmethod
     @overload
-    def consume(isolator_limit_provider: QuantConnect.IIsolatorLimitResultProvider, time_provider: QuantConnect.ITimeProvider, code: typing.Callable[[], None], time_monitor: QuantConnect.Scheduling.TimeMonitor) -> None:
+    def consume(isolator_limit_provider: QuantConnect.IIsolatorLimitResultProvider, time_provider: QuantConnect.ITimeProvider, code: typing.Callable[[], typing.Any], time_monitor: QuantConnect.Scheduling.TimeMonitor) -> None:
         """
         Executes the provided code block and while the code block is running, continually consume from
         the limit result provided one token each minute. This function allows the code to run for the
@@ -6374,7 +6374,7 @@ class DataMonitorReport(System.Object):
         ...
 
     @overload
-    def __init__(self, succeeded_data_requests_count: int, failed_data_requests_count: int, succeeded_universe_data_requests_count: int, failed_universe_data_requests_count: int, data_request_rates: typing.List[float]) -> None:
+    def __init__(self, succeeded_data_requests_count: int, failed_data_requests_count: int, succeeded_universe_data_requests_count: int, failed_universe_data_requests_count: int, data_request_rates: typing.Sequence[float]) -> None:
         """
         Initializes a new instance of the DataMonitorReport class
         
@@ -6476,12 +6476,12 @@ class LocalTimeKeeper(System.Object):
     """
 
     @property
-    def time_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.TimeUpdatedEventArgs], None], None]:
+    def time_updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.TimeUpdatedEventArgs], typing.Any], typing.Any]:
         """Event fired each time UpdateTime is called"""
         ...
 
     @time_updated.setter
-    def time_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.TimeUpdatedEventArgs], None], None]) -> None:
+    def time_updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.TimeUpdatedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -10044,11 +10044,6 @@ class Messages(System.Object):
             Returns a string message saying it is impossible to cast the given non-finite floating-point value
             as a decimal
             """
-            ...
-
-        @staticmethod
-        def convert_to_delegate_cannot_conver_py_object_to_type(method_name: str, type: typing.Type) -> str:
-            """Returns a string message saying the given method cannot be used to convert a PyObject into the given type"""
             ...
 
         @staticmethod

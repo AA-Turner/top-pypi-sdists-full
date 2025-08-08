@@ -116,6 +116,7 @@ impl GarbageCollector {
         collection_soft_delete_absolute_cutoff_time: DateTime<Utc>,
         collection: CollectionToGcInfo,
         cleanup_mode: CleanupMode,
+        enable_dangerous_option_to_ignore_min_versions_for_wal3: bool,
     ) -> Result<GarbageCollectorResponse, GarbageCollectCollectionError> {
         let dispatcher = self
             .dispatcher
@@ -127,6 +128,12 @@ impl GarbageCollector {
             .ok_or(GarbageCollectCollectionError::Uninitialized)?;
 
         if cleanup_mode.is_v2() {
+            let enable_log_gc = collection.tenant <= self.config.enable_log_gc_for_tenant_threshold
+                || self
+                    .config
+                    .enable_log_gc_for_tenant
+                    .contains(&collection.tenant);
+
             let orchestrator =
                 crate::garbage_collector_orchestrator_v2::GarbageCollectorOrchestrator::new(
                     collection.id,
@@ -142,7 +149,8 @@ impl GarbageCollector {
                     self.root_manager.clone(),
                     cleanup_mode,
                     self.config.min_versions_to_keep,
-                    self.config.disable_log_gc,
+                    enable_log_gc,
+                    enable_dangerous_option_to_ignore_min_versions_for_wal3,
                 );
 
             let started_at = SystemTime::now();
@@ -222,7 +230,9 @@ impl GarbageCollector {
             }),
             (),
             ctx.receiver(),
+            ctx.cancellation_token.clone(),
         );
+
         if let Err(err) = dispatcher
             .send(truncate_dirty_log_task, Some(Span::current()))
             .await
@@ -411,6 +421,7 @@ impl Handler<GarbageCollectMessage> for GarbageCollector {
                 collection_soft_delete_absolute_cutoff_time,
                 collection,
                 cleanup_mode,
+                self.config.enable_dangerous_option_to_ignore_min_versions_for_wal3,
             )
             .instrument(instrumented_span)
         })
@@ -536,11 +547,12 @@ mod tests {
 
     use super::*;
     use crate::helper::ChromaGrpcClients;
-    use chroma_log::config::LogConfig;
+    use chroma_log::config::{GrpcLogConfig, LogConfig};
     use chroma_memberlist::memberlist_provider::Member;
     use chroma_storage::s3_config_for_localhost_with_bucket_name;
     use chroma_sysdb::{GetCollectionsOptions, GrpcSysDb, GrpcSysDbConfig};
     use chroma_system::{DispatcherConfig, System};
+    use chroma_tracing::{OtelFilter, OtelFilterLevel};
     use chroma_types::CollectionUuid;
     use tracing_test::traced_test;
     use uuid::Uuid;
@@ -709,6 +721,10 @@ mod tests {
         let config = GarbageCollectorConfig {
             service_name: "gc".to_string(),
             otel_endpoint: "none".to_string(),
+            otel_filters: vec![OtelFilter {
+                crate_name: "garbage_collector".to_string(),
+                filter_level: OtelFilterLevel::Debug,
+            }],
             version_cutoff_time: Duration::from_secs(1),
             collection_soft_delete_grace_period: Duration::from_secs(1),
             max_collections_to_gc: 100,
@@ -733,8 +749,16 @@ mod tests {
             port: 50055,
             root_cache_config: Default::default(),
             jemalloc_pprof_server_port: None,
-            disable_log_gc: false,
-            log: LogConfig::default(),
+            log: LogConfig::Grpc(GrpcLogConfig {
+                host: "localhost".to_string(),
+                port: 50054,
+                alt_host: Some("localhost".to_string()),
+                ..Default::default()
+            }),
+            enable_log_gc_for_tenant: Vec::new(),
+            enable_log_gc_for_tenant_threshold: "tenant-ffffffff-ffff-ffff-ffff-ffffffffffff"
+                .to_string(),
+            enable_dangerous_option_to_ignore_min_versions_for_wal3: false,
         };
         let registry = Registry::new();
 
@@ -834,6 +858,10 @@ mod tests {
         let config = GarbageCollectorConfig {
             service_name: "gc".to_string(),
             otel_endpoint: "none".to_string(),
+            otel_filters: vec![OtelFilter {
+                crate_name: "garbage_collector".to_string(),
+                filter_level: OtelFilterLevel::Debug,
+            }],
             version_cutoff_time: Duration::from_secs(1),
             collection_soft_delete_grace_period: Duration::from_secs(1),
             max_collections_to_gc: 100,
@@ -858,8 +886,15 @@ mod tests {
             port: 50055,
             root_cache_config: Default::default(),
             jemalloc_pprof_server_port: None,
-            disable_log_gc: false,
-            log: LogConfig::default(),
+            enable_log_gc_for_tenant: Vec::new(),
+            enable_log_gc_for_tenant_threshold: "tenant-threshold".to_string(),
+            log: LogConfig::Grpc(GrpcLogConfig {
+                host: "localhost".to_string(),
+                port: 50054,
+                alt_host: Some("localhost".to_string()),
+                ..Default::default()
+            }),
+            enable_dangerous_option_to_ignore_min_versions_for_wal3: false,
         };
         let registry = Registry::new();
 
@@ -1059,8 +1094,16 @@ mod tests {
             port: 50055,
             root_cache_config: Default::default(),
             jemalloc_pprof_server_port: None,
-            disable_log_gc: false,
-            log: LogConfig::default(),
+            enable_log_gc_for_tenant: Vec::new(),
+            enable_log_gc_for_tenant_threshold:
+                "tenant-delete-mode-ffffffff-ffff-ffff-ffff-ffffffffffff".to_string(),
+            log: LogConfig::Grpc(GrpcLogConfig {
+                host: "localhost".to_string(),
+                port: 50054,
+                alt_host: Some("localhost".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
         };
         let registry = Registry::new();
 

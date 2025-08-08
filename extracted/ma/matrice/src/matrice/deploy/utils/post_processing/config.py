@@ -44,7 +44,10 @@ APP_NAME_TO_USECASE = {
     "drowsy_driver_detection": "drowsy_driver_detection",
     "waterbody_segmentation": "waterbody_segmentation",
     "litter_detection" : "litter_detection",
+    "leak_detection": "leak_detection",
+    "fire_smoke_detection": "fire_smoke_detection",
     "human_activity_recognition": "human_activity_recognition",
+    "gas_leak_detection": "gas_leak_detection",
 }
 
 APP_NAME_TO_CATEGORY = {
@@ -93,7 +96,10 @@ APP_NAME_TO_CATEGORY = {
     "drowsy_driver_detection": "automobile",
     "waterbody_segmentation": "agriculture",
     "litter_detection" : "litter_detection",
+    "leak_detection": "oil_gas",
+    "fire_smoke_detection": "hazard",
     "human_activity_recognition": "general",
+    "gas_leak_detection": "oil_gas",
 }
 
 def get_usecase_from_app_name(app_name: str) -> str:

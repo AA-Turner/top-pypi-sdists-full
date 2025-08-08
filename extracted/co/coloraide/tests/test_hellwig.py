@@ -49,7 +49,10 @@ class TestHellwigJMhPoperties(util.ColorAsserts, unittest.TestCase):
     def test_names(self):
         """Test LCh-ish names."""
 
-        self.assertEqual(Color('color(--hellwig-jmh 97.139 75.504 111.05)')._space.names(), ('j', 'm', 'h'))
+        c = Color('color(--hellwig-jmh 97.139 75.504 111.05)')
+        self.assertEqual(c._space.names(), ('j', 'm', 'h'))
+        self.assertEqual(c._space.lightness_name(), 'j')
+        self.assertEqual(c._space.radial_name(), 'm')
 
     def test_h(self):
         """Test `h`."""
@@ -124,8 +127,8 @@ class TestsAchromatic(util.ColorAsserts, unittest.TestCase):
         )
         self.assertEqual(Color('hellwig-jmh', [NaN, 0.00001, 270]).is_achromatic(), True)
         self.assertEqual(Color('hellwig-jmh', [0, NaN, 270]).is_achromatic(), True)
-        self.assertEqual(Color('hellwig-jmh', [0, 50, 270]).is_achromatic(), True)
-        self.assertEqual(Color('hellwig-jmh', [NaN, 50, 270]).is_achromatic(), True)
+        self.assertEqual(Color('hellwig-jmh', [0, 50, 270]).is_achromatic(), False)
+        self.assertEqual(Color('hellwig-jmh', [NaN, 50, 270]).is_achromatic(), False)
         self.assertEqual(Color('hellwig-jmh', [20, NaN, 270]).is_achromatic(), True)
         self.assertEqual(Color('hellwig-jmh', [NaN, NaN, 270]).is_achromatic(), True)
         self.assertEqual(Color('hellwig-jmh', [20, -1.3, 90]).is_achromatic(), False)
@@ -195,6 +198,24 @@ class TestHellwigApperanceModel(util.ColorAsserts, unittest.TestCase):
         for a, b in zip(
             cam_to_xyz(J=self.COORDS.J, C=self.COORDS.C, h=self.COORDS.h, env=HellwigJMh.ENV),
             cam_to_xyz(Q=self.COORDS.Q, M=self.COORDS.M, h=self.COORDS.h, env=HellwigJMh.ENV)
+        ):
+            self.assertCompare(a, b, 14)
+
+    def test_Q_zero_high_colorfulness(self):
+        """Test Q as zero with high colorfulness."""
+
+        for a, b in zip(
+            cam_to_xyz(Q=0, M=self.COORDS.M, h=self.COORDS.h, env=HellwigJMh.ENV),
+            [-0.00561722983796, -0.00135510306102, -0.08167951639685]
+        ):
+            self.assertCompare(a, b, 14)
+
+    def test_Q_zero_low_colorfulness(self):
+        """Test Q as zero with zero colorfulness."""
+
+        for a, b in zip(
+            cam_to_xyz(Q=0, M=0, h=self.COORDS.h, env=HellwigJMh.ENV),
+            [0, 0, 0]
         ):
             self.assertCompare(a, b, 14)
 

@@ -117,6 +117,24 @@ async def test_multiple_sequential_streams() -> None:
 
 
 @pytest.mark.asyncio
+async def test_consume_only_once() -> None:
+    wf = StreamingWorkflow()
+    handler = wf.run()
+
+    async for _ in handler.stream_events():
+        pass
+
+    with pytest.raises(
+        WorkflowRuntimeError,
+        match="All the streamed events have already been consumed.",
+    ):
+        async for _ in handler.stream_events():
+            pass
+
+    await handler
+
+
+@pytest.mark.asyncio
 async def test_multiple_ongoing_streams() -> None:
     wf = StreamingWorkflow()
     stream_1 = wf.run()
@@ -140,8 +158,8 @@ async def test_resume_streams() -> None:
         async def count(self, ctx: Context, ev: StartEvent) -> StopEvent:
             ctx.write_event_to_stream(Event(msg="hello!"))
 
-            cur_count = await ctx.get("cur_count", default=0)
-            await ctx.set("cur_count", cur_count + 1)
+            cur_count = await ctx.store.get("cur_count", default=0)
+            await ctx.store.set("cur_count", cur_count + 1)
             return StopEvent(result="done")
 
     wf = CounterWorkflow()
@@ -158,4 +176,4 @@ async def test_resume_streams() -> None:
     await handler_2
 
     assert handler_2.ctx
-    assert await handler_2.ctx.get("cur_count") == 2
+    assert await handler_2.ctx.store.get("cur_count") == 2

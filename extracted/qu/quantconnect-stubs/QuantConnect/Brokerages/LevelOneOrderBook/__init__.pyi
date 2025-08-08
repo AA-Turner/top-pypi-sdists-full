@@ -138,12 +138,12 @@ class LevelOneMarketData(System.Object):
     """This class has no documentation."""
 
     @property
-    def base_data_received(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.LevelOneOrderBook.BaseDataEventArgs], None], None]:
+    def base_data_received(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.LevelOneOrderBook.BaseDataEventArgs], typing.Any], typing.Any]:
         """Occurs when a new tick is received, such as a last trade update or a change in bid/ask values."""
         ...
 
     @base_data_received.setter
-    def base_data_received(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.LevelOneOrderBook.BaseDataEventArgs], None], None]) -> None:
+    def base_data_received(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Brokerages.LevelOneOrderBook.BaseDataEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property

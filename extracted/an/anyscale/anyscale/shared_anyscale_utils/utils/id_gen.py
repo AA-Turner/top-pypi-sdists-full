@@ -117,6 +117,7 @@ class IDTypes(Enum):
     machine_pools = "mp"
     machines = "m"
     cluster_log_cloud_resources = "clcr"
+    system_cluster_configs = "scc"
 
 
 _default_id_length: int = 26

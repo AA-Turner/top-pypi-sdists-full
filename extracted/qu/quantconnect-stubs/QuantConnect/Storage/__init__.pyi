@@ -17,12 +17,12 @@ class ObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typing.It
     """Helper class for easier access to IObjectStore methods"""
 
     @property
-    def error_raised(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], None], None]:
+    def error_raised(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], typing.Any], typing.Any]:
         """Event raised each time there's an error"""
         ...
 
     @error_raised.setter
-    def error_raised(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], None], None]) -> None:
+    def error_raised(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.ObjectStoreErrorRaisedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property

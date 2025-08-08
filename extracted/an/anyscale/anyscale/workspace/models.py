@@ -3,7 +3,12 @@ from typing import Dict, List, Optional, Union
 
 from anyscale._private.models import ImageURI, ModelBase
 from anyscale._private.models.model_base import ModelEnum
-from anyscale.compute_config.models import ComputeConfig
+from anyscale.compute_config.models import (
+    compute_config_type_from_dict,
+    ComputeConfig,
+    ComputeConfigType,
+    MultiDeploymentComputeConfig,
+)
 
 
 class WorkspaceState(ModelEnum):
@@ -83,7 +88,7 @@ requirements: /tmp/requirements.txt
         if containerfile is not None and not isinstance(containerfile, str):
             raise TypeError("'containerfile' must be a string.")
 
-    compute_config: Union[ComputeConfig, Dict, str, None] = field(
+    compute_config: Union[ComputeConfigType, Dict, str, None] = field(
         default=None,
         metadata={
             "docstring": "The name of an existing registered compute config (including version) or an inlined ComputeConfig object."
@@ -91,16 +96,18 @@ requirements: /tmp/requirements.txt
     )
 
     def _validate_compute_config(
-        self, compute_config: Union[ComputeConfig, Dict, str, None]
-    ) -> Union[None, str, ComputeConfig]:
+        self, compute_config: Union[ComputeConfigType, Dict, str, None]
+    ) -> Union[None, str, ComputeConfigType]:
         if compute_config is None or isinstance(compute_config, str):
             return compute_config
 
         if isinstance(compute_config, dict):
-            compute_config = ComputeConfig.from_dict(compute_config)
-        if not isinstance(compute_config, ComputeConfig):
+            compute_config = compute_config_type_from_dict(compute_config)
+        if not isinstance(
+            compute_config, (ComputeConfig, MultiDeploymentComputeConfig)
+        ):
             raise TypeError(
-                "'compute_config' must be a string, ComputeConfig, or corresponding dict"
+                "'compute_config' must be a string, ComputeConfig, MultiDeploymentComputeConfig, or corresponding dict"
             )
 
         return compute_config

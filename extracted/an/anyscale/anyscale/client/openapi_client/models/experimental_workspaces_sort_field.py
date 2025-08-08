@@ -30,8 +30,9 @@ class ExperimentalWorkspacesSortField(object):
     """
     STATUS = "STATUS"
     CREATED_AT = "CREATED_AT"
+    LATEST_STARTED_AT = "LATEST_STARTED_AT"
 
-    allowable_values = [STATUS, CREATED_AT]  # noqa: E501
+    allowable_values = [STATUS, CREATED_AT, LATEST_STARTED_AT]  # noqa: E501
 
     """
     Attributes:

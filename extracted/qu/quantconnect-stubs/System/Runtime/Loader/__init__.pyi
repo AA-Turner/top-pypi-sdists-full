@@ -54,11 +54,11 @@ class AssemblyLoadContext(System.Object):
         ...
 
     @property
-    def unloading(self) -> _EventContainer[typing.Callable[[System.Runtime.Loader.AssemblyLoadContext], None], None]:
+    def unloading(self) -> _EventContainer[typing.Callable[[System.Runtime.Loader.AssemblyLoadContext], typing.Any], typing.Any]:
         ...
 
     @unloading.setter
-    def unloading(self, value: _EventContainer[typing.Callable[[System.Runtime.Loader.AssemblyLoadContext], None], None]) -> None:
+    def unloading(self, value: _EventContainer[typing.Callable[[System.Runtime.Loader.AssemblyLoadContext], typing.Any], typing.Any]) -> None:
         ...
 
     DEFAULT: System.Runtime.Loader.AssemblyLoadContext

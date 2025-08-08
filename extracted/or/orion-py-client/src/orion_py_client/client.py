@@ -373,37 +373,47 @@ class OrionPyClient:
         
         return feature_values
 
+
     def write_protobuf_df_to_kafka(
         self,
-        df,
-        kafka_bootstrap_servers: str,
-        kafka_topic: str,
-        additional_options: dict = {},
-        kafka_num_batches: int = 1,
+        spark,
+        proto_out_path,
+        kafka_bootstrap_servers,
+        kafka_topic,
+        additional_options={},
+        kafka_num_batches=1,
     ):
-        additional_options = additional_options or {}
-
-        # Base Kafka config
+        """
+        Optimized Kafka writing using partitioned proto data
+        """
         kafka_config = {
             "kafka.bootstrap.servers": kafka_bootstrap_servers,
             "topic": kafka_topic,
         }
-
-        # Merge base config with provided options
-        kafka_config.update(additional_options)
-
+        kafka_config.update(additional_options or {})
         
-        # Write to Kafka
         if kafka_num_batches == 1:
-            df = df.drop("intra_batch_id")
+            # Single batch - read all data
+            df = spark.read.parquet(proto_out_path)
+            df = df.drop("intra_batch_id") if "intra_batch_id" in df.columns else df
             df.write.format("kafka").options(**kafka_config).save()
+            print("Wrote single batch to Kafka")
         else:
-            import pyspark.sql.functions as F
-            print("Writing to Kafka in batches")
-            df = df.withColumn("batch_no", F.col("intra_batch_id") % kafka_num_batches)
-            df = df.drop("intra_batch_id")
+            print(f"Writing {kafka_num_batches} batches to Kafka using partitioned reads")
             
+            # Read each batch partition
             for i in range(kafka_num_batches):
-                df_batch = df.filter(F.col("batch_no") == i)
+                partition_path = f"{proto_out_path}/batch_no={i}"
+                
+                # Dynamic partition pruning read
+                df_batch = spark.read \
+                    .option("basePath", proto_out_path) \
+                    .parquet(partition_path)
+                
+                # Clean up columns
+                columns_to_drop = [col for col in ["batch_no", "intra_batch_id"] if col in df_batch.columns]
+                if columns_to_drop:
+                    df_batch = df_batch.drop(*columns_to_drop)
+                
                 df_batch.write.format("kafka").options(**kafka_config).save()
                 print(f"Wrote batch {i} to Kafka")

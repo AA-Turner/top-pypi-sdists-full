@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sglang-router
-Version: 0.1.8
+Version: 0.1.9
 Summary: High-performance Rust-based load balancer for SGLang with multiple routing algorithms and prefill-decode disaggregation support
 Author-email: Byron Hsu <byronhsu1230@gmail.com>
 License: Apache-2.0

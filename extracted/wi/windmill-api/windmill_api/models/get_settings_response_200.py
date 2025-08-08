@@ -40,7 +40,8 @@ class GetSettingsResponse200:
         deploy_to (Union[Unset, str]):
         ai_config (Union[Unset, GetSettingsResponse200AiConfig]):
         error_handler (Union[Unset, str]):
-        error_handler_extra_args (Union[Unset, GetSettingsResponse200ErrorHandlerExtraArgs]):
+        error_handler_extra_args (Union[Unset, GetSettingsResponse200ErrorHandlerExtraArgs]): The arguments to pass to
+            the script or flow
         large_file_storage (Union[Unset, GetSettingsResponse200LargeFileStorage]):
         ducklake (Union[Unset, GetSettingsResponse200Ducklake]):
         git_sync (Union[Unset, GetSettingsResponse200GitSync]):

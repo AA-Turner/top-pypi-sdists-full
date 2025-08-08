@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use chroma_blockstore::provider::BlockfileProvider;
 use chroma_config::{registry::Registry, Configurable};
 use chroma_error::ChromaError;
-use chroma_index::{hnsw_provider::HnswIndexProvider, spann::types::SpannMetrics};
+use chroma_index::hnsw_provider::HnswIndexProvider;
+use chroma_jemalloc_pprof_server::spawn_pprof_server;
 use chroma_log::Log;
 use chroma_segment::spann_provider::SpannProvider;
 use chroma_storage::Storage;
@@ -44,7 +45,9 @@ pub struct WorkerServer {
     _sysdb: SysDb,
     hnsw_index_provider: HnswIndexProvider,
     blockfile_provider: BlockfileProvider,
+    spann_provider: SpannProvider,
     port: u16,
+    jemalloc_pprof_server_port: Option<u16>,
     // config
     fetch_log_batch_size: u32,
 }
@@ -69,6 +72,15 @@ impl Configurable<(QueryServiceConfig, System)> for WorkerServer {
             registry,
         )
         .await?;
+        let spann_provider = SpannProvider::try_from_config(
+            &(
+                hnsw_index_provider.clone(),
+                blockfile_provider.clone(),
+                config.spann_provider.clone(),
+            ),
+            registry,
+        )
+        .await?;
         Ok(WorkerServer {
             dispatcher: None,
             system: system.clone(),
@@ -76,7 +88,9 @@ impl Configurable<(QueryServiceConfig, System)> for WorkerServer {
             log,
             hnsw_index_provider,
             blockfile_provider,
+            spann_provider,
             port: config.my_port,
+            jemalloc_pprof_server_port: config.jemalloc_pprof_server_port,
             fetch_log_batch_size: config.fetch_log_batch_size,
         })
     }
@@ -92,6 +106,15 @@ impl WorkerServer {
         let server = Server::builder()
             .add_service(health_service)
             .add_service(QueryExecutorServer::new(worker.clone()));
+
+        // Start pprof server
+        let mut pprof_shutdown_tx = None;
+        if let Some(port) = worker.jemalloc_pprof_server_port {
+            tracing::info!("Starting jemalloc pprof server on port {}", port);
+            let shutdown_channel = tokio::sync::oneshot::channel();
+            pprof_shutdown_tx = Some(shutdown_channel.0);
+            spawn_pprof_server(port, shutdown_channel.1).await;
+        }
 
         #[cfg(debug_assertions)]
         let server = server.add_service(
@@ -127,6 +150,11 @@ impl WorkerServer {
         });
 
         server.await?;
+
+        // Shutdown pprof server after server is finished shutting down
+        if let Some(shutdown_tx) = pprof_shutdown_tx {
+            let _ = shutdown_tx.send(());
+        }
 
         Ok(())
     }
@@ -311,18 +339,11 @@ impl WorkerServer {
 
         if vector_segment_type == SegmentType::Spann {
             tracing::debug!("Running KNN on SPANN segment");
-            let spann_provider = SpannProvider {
-                hnsw_provider: self.hnsw_index_provider.clone(),
-                blockfile_provider: self.blockfile_provider.clone(),
-                garbage_collection_context: None,
-                metrics: SpannMetrics::default(),
-                pl_block_size: None,
-            };
             let knn_orchestrator_futures = Vec::from(KnnBatch::try_from(knn)?)
                 .into_iter()
                 .map(|knn| {
                     SpannKnnOrchestrator::new(
-                        spann_provider.clone(),
+                        self.spann_provider.clone(),
                         dispatcher.clone(),
                         1000,
                         collection_and_segments.collection.clone(),
@@ -477,11 +498,11 @@ mod tests {
     use chroma_types::chroma_proto::query_executor_client::QueryExecutorClient;
     use uuid::Uuid;
 
-    fn run_server() -> String {
+    async fn run_server() -> String {
         let sysdb = TestSysDb::new();
         let system = System::new();
         let log = InMemoryLog::new();
-        let segments = TestDistributedSegment::default();
+        let segments = TestDistributedSegment::new().await;
         let port = random_port::PortPicker::new().random(true).pick().unwrap();
 
         let mut server = WorkerServer {
@@ -491,7 +512,9 @@ mod tests {
             log: Log::InMemory(log),
             hnsw_index_provider: segments.hnsw_provider,
             blockfile_provider: segments.blockfile_provider,
+            spann_provider: segments.spann_provider,
             port,
+            jemalloc_pprof_server_port: None,
             fetch_log_batch_size: 100,
         };
 
@@ -557,7 +580,7 @@ mod tests {
     #[tokio::test]
     #[cfg(debug_assertions)]
     async fn gracefully_handles_panics() {
-        let mut client = DebugClient::connect(run_server()).await.unwrap();
+        let mut client = DebugClient::connect(run_server().await).await.unwrap();
 
         // Test response when handler panics
         let err_response = client.trigger_panic(Request::new(())).await.unwrap_err();
@@ -570,7 +593,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_count_plan() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut scan_operator = scan();
         scan_operator.metadata = Some(chroma_proto::Segment {
             id: "invalid-metadata-segment-id".to_string(),
@@ -597,7 +622,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_get_plan() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut scan_operator = scan();
         let request = chroma_proto::GetPlan {
             scan: Some(scan_operator.clone()),
@@ -682,7 +709,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_empty_embeddings() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let response = executor.knn(gen_knn_request(None)).await;
         assert!(response.is_ok());
         assert_eq!(response.unwrap().into_inner().results.len(), 0);
@@ -690,7 +719,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_filter() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut request = gen_knn_request(None);
         request.filter = None;
         let response = executor.knn(request).await;
@@ -705,7 +736,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_knn() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut request = gen_knn_request(None);
         request.knn = None;
         let response = executor.knn(request).await;
@@ -721,7 +754,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_projection() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut request = gen_knn_request(None);
         request.projection = None;
         let response = executor.knn(request).await;
@@ -752,7 +787,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_scan() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut request = gen_knn_request(None);
         request.scan = None;
         let response = executor.knn(request).await;
@@ -767,7 +804,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_scan_collection() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut scan = scan();
         scan.collection.as_mut().unwrap().id = "invalid-collection-id".to_string();
         let response = executor.knn(gen_knn_request(Some(scan))).await;
@@ -778,7 +817,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_scan_vector() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         // invalid vector uuid
         let mut scan_operator = scan();
         scan_operator.knn = Some(chroma_proto::Segment {
@@ -802,7 +843,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_scan_record() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut scan_operator = scan();
         scan_operator.record = Some(chroma_proto::Segment {
             id: "invalid-record-segment-id".to_string(),
@@ -825,7 +868,9 @@ mod tests {
 
     #[tokio::test]
     async fn validate_knn_plan_scan_metadata() {
-        let mut executor = QueryExecutorClient::connect(run_server()).await.unwrap();
+        let mut executor = QueryExecutorClient::connect(run_server().await)
+            .await
+            .unwrap();
         let mut scan_operator = scan();
         scan_operator.metadata = Some(chroma_proto::Segment {
             id: "invalid-metadata-segment-id".to_string(),

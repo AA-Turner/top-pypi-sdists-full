@@ -1,5 +1,5 @@
 import re
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 
 ANYSCALE_SDK_INTRO = """\
@@ -16,6 +16,57 @@ from anyscale import AnyscaleSDK
 sdk = AnyscaleSDK()
 ```
 """
+
+
+def _build_model_to_module_mapping() -> Dict[str, str]:
+    """Build mapping from model name (lowercase) to module filename.
+    
+    This dynamically discovers the mapping from ALL_MODULES configuration,
+    eliminating the need for hardcoded constants.
+    """
+    # Import here to avoid circular imports
+    from anyscale._private.docgen.__main__ import ALL_MODULES
+
+    model_name_to_file = {}
+
+    for module in ALL_MODULES:
+        # Current models (Python types)
+        for model_type in module.models:
+            model_name_to_file[model_type.__name__.lower()] = module.filename
+
+        # Legacy models (strings)
+        if module.legacy_sdk_models:
+            for model_name in module.legacy_sdk_models:
+                model_name_to_file[model_name.lower()] = module.filename
+
+    return model_name_to_file
+
+
+def _transform_legacy_links(text: str) -> str:
+    """Transform legacy model links to include proper cross-module references."""
+    # Build the mapping dynamically
+    model_mapping = _build_model_to_module_mapping()
+
+    def replace_link(match):
+        model_name = match.group(1)
+        if model_name in model_mapping:
+            module_file = model_mapping[model_name]
+            return f"({module_file}#{model_name}-legacy)"
+        else:
+            # Fallback for unmapped models (stay in same file)
+            return f"(#{model_name}-legacy)"
+
+    # Transform links from (#modelname) to proper cross-module references
+    text = re.sub(r"\(#([a-z]+)\)", replace_link, text)
+
+    # Transform workspace command references to point to workspaces.md
+    text = re.sub(
+        r"\(#anyscale-workspace_v2-([a-z]+)\)",
+        r"(workspaces.md#anyscale-workspace_v2-\1)",
+        text,
+    )
+
+    return text
 
 
 class LegacySDK:
@@ -35,9 +86,10 @@ class LegacySDK:
             if line.startswith("### "):
                 name = line[4:]
             else:
-                docstring += (
-                    re.sub("\\(./models.md#([a-z]+)\\)", "(#\\1-legacy)", line) + "\n"
-                )
+                # First transform ./models.md links, then transform local links
+                line = re.sub(r"\(./models\.md#([a-z]+)\)", r"(#\1-legacy)", line)
+                line = _transform_legacy_links(line)
+                docstring += line + "\n"
 
         return cls(name=name, docstring=docstring.strip())
 
@@ -50,7 +102,7 @@ class LegacyModel:
     @classmethod
     def from_md(cls, md: str) -> "LegacyModel":
         """
-        Convert a blob of markdown into a LegacySDK object.
+        Convert a blob of markdown into a LegacyModel object.
         """
         name = ""
         docstring = ""
@@ -59,7 +111,7 @@ class LegacyModel:
             if line.startswith("## "):
                 name = line[3:]
             else:
-                docstring += re.sub("\\(#([a-z]+)\\)", "(#\\1-legacy)", line) + "\n"
+                docstring += _transform_legacy_links(line) + "\n"
 
         return cls(name=name, docstring=docstring.strip())
 

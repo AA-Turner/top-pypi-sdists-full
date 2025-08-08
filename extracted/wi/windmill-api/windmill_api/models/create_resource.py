@@ -12,10 +12,10 @@ T = TypeVar("T", bound="CreateResource")
 class CreateResource:
     """
     Attributes:
-        path (str):
+        path (str): The path to the resource
         value (Any):
-        resource_type (str):
-        description (Union[Unset, str]):
+        resource_type (str): The resource_type associated with the resource
+        description (Union[Unset, str]): The description of the resource
     """
 
     path: str

@@ -15,7 +15,8 @@ T = TypeVar("T", bound="NewScheduleRetry")
 
 @_attrs_define
 class NewScheduleRetry:
-    """
+    """The retry configuration for the schedule
+
     Attributes:
         constant (Union[Unset, NewScheduleRetryConstant]):
         exponential (Union[Unset, NewScheduleRetryExponential]):

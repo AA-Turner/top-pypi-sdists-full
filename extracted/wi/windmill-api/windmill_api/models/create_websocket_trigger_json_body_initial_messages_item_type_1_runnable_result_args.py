@@ -8,7 +8,7 @@ T = TypeVar("T", bound="CreateWebsocketTriggerJsonBodyInitialMessagesItemType1Ru
 
 @_attrs_define
 class CreateWebsocketTriggerJsonBodyInitialMessagesItemType1RunnableResultArgs:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

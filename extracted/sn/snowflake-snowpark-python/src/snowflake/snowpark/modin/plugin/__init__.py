@@ -138,7 +138,12 @@ for (doc_module, target_module) in function_inherit_modules:
 # Configure Modin engine so it detects our Snowflake I/O classes.
 # This is necessary to define the `from_pandas` method for each Modin backend, which is called in I/O methods.
 
-from modin.config import Engine, Backend, Execution  # isort: skip  # noqa: E402
+from modin.config import (  # isort: skip  # noqa: E402
+    Engine,
+    Backend,
+    Execution,
+    ValueSource,
+)
 
 # Secretly insert our factory class into Modin so the dispatcher can find it
 from modin.core.execution.dispatching.factories import (  # isort: skip  # noqa: E402
@@ -165,8 +170,8 @@ from modin.core.storage_formats.pandas.query_compiler_caster import (  # isort: 
 )
 from modin.config import AutoSwitchBackend  # isort: skip  # noqa: E402
 
-# Disable automatic backend switching by default
-AutoSwitchBackend().disable()
+if AutoSwitchBackend.get_value_source() is ValueSource.DEFAULT:
+    AutoSwitchBackend.disable()
 
 # Hybrid Mode Registration
 # In hybrid execution mode, the client will automatically switch backends when a
@@ -185,6 +190,7 @@ pre_op_switch_points: list[dict[str, Union[str, None]]] = [
     {"class_name": "Series", "method": "plot"},
     {"class_name": "Series", "method": "quantile"},
     {"class_name": "DataFrame", "method": "T"},
+    {"class_name": "DataFrame", "method": "transpose"},
     {"class_name": None, "method": "read_csv"},
     {"class_name": None, "method": "read_json"},
     {"class_name": None, "method": "concat"},

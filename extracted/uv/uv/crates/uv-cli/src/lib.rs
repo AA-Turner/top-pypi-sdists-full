@@ -2769,6 +2769,11 @@ pub struct VenvArgs {
     ///
     /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
     /// Windows.
+    ///
+    /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
+    /// the cache and the target environment. For example, clearing the cache (`uv cache clear`)
+    /// will break all installed packages by way of removing the underlying source files. Use
+    /// symlinks with caution.
     #[arg(long, value_enum, env = EnvVars::UV_LINK_MODE)]
     pub link_mode: Option<uv_install_wheel::LinkMode>,
 
@@ -3662,7 +3667,7 @@ pub struct AddArgs {
     #[arg(long, overrides_with = "no_editable")]
     pub editable: bool,
 
-    #[arg(long, overrides_with = "editable", hide = true)]
+    #[arg(long, overrides_with = "editable", hide = true, value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_EDITABLE)]
     pub no_editable: bool,
 
     /// Add a dependency as provided.
@@ -4164,7 +4169,7 @@ pub struct ExportArgs {
 
     /// Export any editable dependencies, including the project and any workspace members, as
     /// non-editable.
-    #[arg(long)]
+    #[arg(long, value_parser = clap::builder::BoolishValueParser::new(), env = EnvVars::UV_NO_EDITABLE)]
     pub no_editable: bool,
 
     /// Include hashes for all dependencies.
@@ -4808,6 +4813,11 @@ pub struct ToolUpgradeArgs {
     ///
     /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
     /// Windows.
+    ///
+    /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
+    /// the cache and the target environment. For example, clearing the cache (`uv cache clear`)
+    /// will break all installed packages by way of removing the underlying source files. Use
+    /// symlinks with caution.
     #[arg(
         long,
         value_enum,
@@ -5612,6 +5622,11 @@ pub struct InstallerArgs {
     ///
     /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
     /// Windows.
+    ///
+    /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
+    /// the cache and the target environment. For example, clearing the cache (`uv cache clear`)
+    /// will break all installed packages by way of removing the underlying source files. Use
+    /// symlinks with caution.
     #[arg(
         long,
         value_enum,
@@ -5824,6 +5839,11 @@ pub struct ResolverArgs {
     ///
     /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
     /// Windows.
+    ///
+    /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
+    /// the cache and the target environment. For example, clearing the cache (`uv cache clear`)
+    /// will break all installed packages by way of removing the underlying source files. Use
+    /// symlinks with caution.
     #[arg(
         long,
         value_enum,
@@ -6028,6 +6048,11 @@ pub struct ResolverInstallerArgs {
     ///
     /// Defaults to `clone` (also known as Copy-on-Write) on macOS, and `hardlink` on Linux and
     /// Windows.
+    ///
+    /// WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
+    /// the cache and the target environment. For example, clearing the cache (`uv cache clear`)
+    /// will break all installed packages by way of removing the underlying source files. Use
+    /// symlinks with caution.
     #[arg(
         long,
         value_enum,

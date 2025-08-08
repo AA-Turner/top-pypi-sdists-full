@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: torchmetrics
-Version: 1.8.0
+Version: 1.8.1
 Summary: PyTorch native Metrics
 Home-page: https://github.com/Lightning-AI/torchmetrics
 Download-URL: https://github.com/Lightning-AI/torchmetrics/archive/master.zip
@@ -33,158 +33,158 @@ Requires-Dist: packaging>17.1
 Requires-Dist: torch>=2.0.0
 Requires-Dist: lightning-utilities>=0.8.0
 Provides-Extra: audio
+Requires-Dist: torchaudio>=2.0.1; extra == "audio"
+Requires-Dist: librosa>=0.10.0; extra == "audio"
+Requires-Dist: gammatone>=1.0.0; extra == "audio"
 Requires-Dist: onnxruntime>=1.12.0; extra == "audio"
 Requires-Dist: pesq>=0.0.4; extra == "audio"
-Requires-Dist: requests>=2.19.0; extra == "audio"
-Requires-Dist: librosa>=0.10.0; extra == "audio"
 Requires-Dist: pystoi>=0.4.0; extra == "audio"
-Requires-Dist: torchaudio>=2.0.1; extra == "audio"
-Requires-Dist: gammatone>=1.0.0; extra == "audio"
+Requires-Dist: requests>=2.19.0; extra == "audio"
 Provides-Extra: clustering
 Requires-Dist: torch_linear_assignment>=0.0.2; extra == "clustering"
 Provides-Extra: debug
 Provides-Extra: detection
-Requires-Dist: torchvision>=0.15.1; extra == "detection"
 Requires-Dist: pycocotools>2.0.0; extra == "detection"
+Requires-Dist: torchvision>=0.15.1; extra == "detection"
 Provides-Extra: image
-Requires-Dist: torchvision>=0.15.1; extra == "image"
-Requires-Dist: scipy>1.0.0; extra == "image"
 Requires-Dist: torch-fidelity<=0.4.0; extra == "image"
+Requires-Dist: scipy>1.0.0; extra == "image"
+Requires-Dist: torchvision>=0.15.1; extra == "image"
 Provides-Extra: integrate
 Provides-Extra: multimodal
-Requires-Dist: einops>=0.7.0; extra == "multimodal"
-Requires-Dist: piq<=0.8.0; extra == "multimodal"
-Requires-Dist: timm>=0.9.0; extra == "multimodal"
 Requires-Dist: transformers>=4.43.0; extra == "multimodal"
+Requires-Dist: piq<=0.8.0; extra == "multimodal"
+Requires-Dist: einops>=0.7.0; extra == "multimodal"
+Requires-Dist: timm>=0.9.0; extra == "multimodal"
 Provides-Extra: text
-Requires-Dist: nltk>3.8.1; extra == "text"
-Requires-Dist: sentencepiece>=0.2.0; extra == "text"
 Requires-Dist: regex>=2021.9.24; extra == "text"
-Requires-Dist: tqdm<4.68.0; extra == "text"
-Requires-Dist: transformers>=4.43.0; extra == "text"
 Requires-Dist: ipadic>=1.0.0; extra == "text"
+Requires-Dist: nltk>3.8.1; extra == "text"
 Requires-Dist: mecab-python3>=1.0.6; extra == "text"
+Requires-Dist: transformers>=4.43.0; extra == "text"
+Requires-Dist: tqdm<4.68.0; extra == "text"
+Requires-Dist: sentencepiece>=0.2.0; extra == "text"
 Provides-Extra: typing
 Requires-Dist: types-PyYAML; extra == "typing"
-Requires-Dist: torch==2.7.1; extra == "typing"
-Requires-Dist: mypy==1.17.0; extra == "typing"
-Requires-Dist: types-setuptools; extra == "typing"
 Requires-Dist: types-six; extra == "typing"
+Requires-Dist: mypy==1.17.1; extra == "typing"
 Requires-Dist: types-protobuf; extra == "typing"
-Requires-Dist: types-tabulate; extra == "typing"
 Requires-Dist: types-emoji; extra == "typing"
+Requires-Dist: torch==2.7.1; extra == "typing"
+Requires-Dist: types-tabulate; extra == "typing"
+Requires-Dist: types-setuptools; extra == "typing"
 Requires-Dist: types-requests; extra == "typing"
 Provides-Extra: video
-Requires-Dist: vmaf-torch>=1.1.0; extra == "video"
 Requires-Dist: einops>=0.7.0; extra == "video"
+Requires-Dist: vmaf-torch>=1.1.0; extra == "video"
 Provides-Extra: visual
 Requires-Dist: matplotlib>=3.6.0; extra == "visual"
 Requires-Dist: SciencePlots>=2.0.0; extra == "visual"
 Provides-Extra: all
+Requires-Dist: torchaudio>=2.0.1; extra == "all"
+Requires-Dist: librosa>=0.10.0; extra == "all"
+Requires-Dist: gammatone>=1.0.0; extra == "all"
 Requires-Dist: onnxruntime>=1.12.0; extra == "all"
 Requires-Dist: pesq>=0.0.4; extra == "all"
-Requires-Dist: requests>=2.19.0; extra == "all"
-Requires-Dist: librosa>=0.10.0; extra == "all"
 Requires-Dist: pystoi>=0.4.0; extra == "all"
-Requires-Dist: torchaudio>=2.0.1; extra == "all"
-Requires-Dist: gammatone>=1.0.0; extra == "all"
+Requires-Dist: requests>=2.19.0; extra == "all"
 Requires-Dist: torch_linear_assignment>=0.0.2; extra == "all"
-Requires-Dist: torchvision>=0.15.1; extra == "all"
 Requires-Dist: pycocotools>2.0.0; extra == "all"
 Requires-Dist: torchvision>=0.15.1; extra == "all"
-Requires-Dist: scipy>1.0.0; extra == "all"
 Requires-Dist: torch-fidelity<=0.4.0; extra == "all"
-Requires-Dist: einops>=0.7.0; extra == "all"
+Requires-Dist: scipy>1.0.0; extra == "all"
+Requires-Dist: torchvision>=0.15.1; extra == "all"
+Requires-Dist: transformers>=4.43.0; extra == "all"
 Requires-Dist: piq<=0.8.0; extra == "all"
-Requires-Dist: timm>=0.9.0; extra == "all"
-Requires-Dist: transformers>=4.43.0; extra == "all"
-Requires-Dist: nltk>3.8.1; extra == "all"
-Requires-Dist: sentencepiece>=0.2.0; extra == "all"
-Requires-Dist: regex>=2021.9.24; extra == "all"
-Requires-Dist: tqdm<4.68.0; extra == "all"
-Requires-Dist: transformers>=4.43.0; extra == "all"
-Requires-Dist: ipadic>=1.0.0; extra == "all"
-Requires-Dist: mecab-python3>=1.0.6; extra == "all"
-Requires-Dist: types-PyYAML; extra == "all"
-Requires-Dist: torch==2.7.1; extra == "all"
-Requires-Dist: mypy==1.17.0; extra == "all"
-Requires-Dist: types-setuptools; extra == "all"
-Requires-Dist: types-six; extra == "all"
-Requires-Dist: types-protobuf; extra == "all"
-Requires-Dist: types-tabulate; extra == "all"
-Requires-Dist: types-emoji; extra == "all"
-Requires-Dist: types-requests; extra == "all"
-Requires-Dist: vmaf-torch>=1.1.0; extra == "all"
 Requires-Dist: einops>=0.7.0; extra == "all"
+Requires-Dist: timm>=0.9.0; extra == "all"
+Requires-Dist: regex>=2021.9.24; extra == "all"
+Requires-Dist: ipadic>=1.0.0; extra == "all"
+Requires-Dist: nltk>3.8.1; extra == "all"
+Requires-Dist: mecab-python3>=1.0.6; extra == "all"
+Requires-Dist: transformers>=4.43.0; extra == "all"
+Requires-Dist: tqdm<4.68.0; extra == "all"
+Requires-Dist: sentencepiece>=0.2.0; extra == "all"
+Requires-Dist: types-PyYAML; extra == "all"
+Requires-Dist: types-six; extra == "all"
+Requires-Dist: mypy==1.17.1; extra == "all"
+Requires-Dist: types-protobuf; extra == "all"
+Requires-Dist: types-emoji; extra == "all"
+Requires-Dist: torch==2.7.1; extra == "all"
+Requires-Dist: types-tabulate; extra == "all"
+Requires-Dist: types-setuptools; extra == "all"
+Requires-Dist: types-requests; extra == "all"
+Requires-Dist: einops>=0.7.0; extra == "all"
+Requires-Dist: vmaf-torch>=1.1.0; extra == "all"
 Requires-Dist: matplotlib>=3.6.0; extra == "all"
 Requires-Dist: SciencePlots>=2.0.0; extra == "all"
 Provides-Extra: dev
+Requires-Dist: torchaudio>=2.0.1; extra == "dev"
+Requires-Dist: librosa>=0.10.0; extra == "dev"
+Requires-Dist: gammatone>=1.0.0; extra == "dev"
 Requires-Dist: onnxruntime>=1.12.0; extra == "dev"
 Requires-Dist: pesq>=0.0.4; extra == "dev"
-Requires-Dist: requests>=2.19.0; extra == "dev"
-Requires-Dist: librosa>=0.10.0; extra == "dev"
 Requires-Dist: pystoi>=0.4.0; extra == "dev"
-Requires-Dist: torchaudio>=2.0.1; extra == "dev"
-Requires-Dist: gammatone>=1.0.0; extra == "dev"
+Requires-Dist: requests>=2.19.0; extra == "dev"
 Requires-Dist: torch_linear_assignment>=0.0.2; extra == "dev"
-Requires-Dist: torchvision>=0.15.1; extra == "dev"
 Requires-Dist: pycocotools>2.0.0; extra == "dev"
 Requires-Dist: torchvision>=0.15.1; extra == "dev"
-Requires-Dist: scipy>1.0.0; extra == "dev"
 Requires-Dist: torch-fidelity<=0.4.0; extra == "dev"
-Requires-Dist: einops>=0.7.0; extra == "dev"
+Requires-Dist: scipy>1.0.0; extra == "dev"
+Requires-Dist: torchvision>=0.15.1; extra == "dev"
+Requires-Dist: transformers>=4.43.0; extra == "dev"
 Requires-Dist: piq<=0.8.0; extra == "dev"
-Requires-Dist: timm>=0.9.0; extra == "dev"
-Requires-Dist: transformers>=4.43.0; extra == "dev"
-Requires-Dist: nltk>3.8.1; extra == "dev"
-Requires-Dist: sentencepiece>=0.2.0; extra == "dev"
-Requires-Dist: regex>=2021.9.24; extra == "dev"
-Requires-Dist: tqdm<4.68.0; extra == "dev"
-Requires-Dist: transformers>=4.43.0; extra == "dev"
-Requires-Dist: ipadic>=1.0.0; extra == "dev"
-Requires-Dist: mecab-python3>=1.0.6; extra == "dev"
-Requires-Dist: types-PyYAML; extra == "dev"
-Requires-Dist: torch==2.7.1; extra == "dev"
-Requires-Dist: mypy==1.17.0; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
-Requires-Dist: types-six; extra == "dev"
-Requires-Dist: types-protobuf; extra == "dev"
-Requires-Dist: types-tabulate; extra == "dev"
-Requires-Dist: types-emoji; extra == "dev"
-Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: vmaf-torch>=1.1.0; extra == "dev"
 Requires-Dist: einops>=0.7.0; extra == "dev"
+Requires-Dist: timm>=0.9.0; extra == "dev"
+Requires-Dist: regex>=2021.9.24; extra == "dev"
+Requires-Dist: ipadic>=1.0.0; extra == "dev"
+Requires-Dist: nltk>3.8.1; extra == "dev"
+Requires-Dist: mecab-python3>=1.0.6; extra == "dev"
+Requires-Dist: transformers>=4.43.0; extra == "dev"
+Requires-Dist: tqdm<4.68.0; extra == "dev"
+Requires-Dist: sentencepiece>=0.2.0; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: types-six; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
+Requires-Dist: types-protobuf; extra == "dev"
+Requires-Dist: types-emoji; extra == "dev"
+Requires-Dist: torch==2.7.1; extra == "dev"
+Requires-Dist: types-tabulate; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: einops>=0.7.0; extra == "dev"
+Requires-Dist: vmaf-torch>=1.1.0; extra == "dev"
 Requires-Dist: matplotlib>=3.6.0; extra == "dev"
 Requires-Dist: SciencePlots>=2.0.0; extra == "dev"
-Requires-Dist: bert_score==0.3.13; extra == "dev"
 Requires-Dist: netcal>1.0.0; extra == "dev"
-Requires-Dist: properscoring==0.1; extra == "dev"
-Requires-Dist: faster-coco-eval>=1.6.3; extra == "dev"
-Requires-Dist: mecab-ko-dic>=1.0.0; python_version < "3.12" and extra == "dev"
-Requires-Dist: monai==1.4.0; extra == "dev"
-Requires-Dist: fairlearn; extra == "dev"
-Requires-Dist: kornia>=0.6.7; extra == "dev"
-Requires-Dist: huggingface-hub<0.34; extra == "dev"
-Requires-Dist: statsmodels>0.13.5; extra == "dev"
-Requires-Dist: pytorch-msssim==1.0.0; extra == "dev"
-Requires-Dist: lpips<=0.1.4; extra == "dev"
-Requires-Dist: mir-eval>=0.6; extra == "dev"
 Requires-Dist: dython==0.7.9; extra == "dev"
-Requires-Dist: dists-pytorch==0.1; extra == "dev"
-Requires-Dist: aeon>=1.0.0; python_version > "3.10" and extra == "dev"
-Requires-Dist: rouge-score>0.1.0; extra == "dev"
-Requires-Dist: scikit-image>=0.19.0; extra == "dev"
-Requires-Dist: scipy>1.0.0; extra == "dev"
-Requires-Dist: pandas>1.4.0; extra == "dev"
+Requires-Dist: huggingface-hub<0.35; extra == "dev"
 Requires-Dist: mecab-ko<1.1.0,>=1.0.0; python_version < "3.12" and extra == "dev"
-Requires-Dist: numpy<2.4.0; extra == "dev"
-Requires-Dist: sewar>=0.4.4; extra == "dev"
-Requires-Dist: fast-bss-eval>=0.1.0; extra == "dev"
-Requires-Dist: torch_complex<0.5.0; extra == "dev"
+Requires-Dist: kornia>=0.6.7; extra == "dev"
 Requires-Dist: jiwer>=2.3.0; extra == "dev"
-Requires-Dist: permetrics==2.0.0; extra == "dev"
-Requires-Dist: PyTDC==0.4.1; (python_version < "3.10" or (platform_system == "Windows" and python_version < "3.12")) and extra == "dev"
+Requires-Dist: properscoring==0.1; extra == "dev"
+Requires-Dist: mecab-ko-dic>=1.0.0; python_version < "3.12" and extra == "dev"
+Requires-Dist: statsmodels>0.13.5; extra == "dev"
+Requires-Dist: torch_complex<0.5.0; extra == "dev"
+Requires-Dist: fairlearn; extra == "dev"
 Requires-Dist: sacrebleu>=2.3.0; extra == "dev"
+Requires-Dist: mir-eval>=0.6; extra == "dev"
+Requires-Dist: faster-coco-eval>=1.6.3; extra == "dev"
+Requires-Dist: PyTDC==0.4.1; (python_version < "3.10" or (platform_system == "Windows" and python_version < "3.12")) and extra == "dev"
+Requires-Dist: permetrics==2.0.0; extra == "dev"
+Requires-Dist: pandas>1.4.0; extra == "dev"
+Requires-Dist: rouge-score>0.1.0; extra == "dev"
+Requires-Dist: monai==1.4.0; extra == "dev"
+Requires-Dist: pytorch-msssim==1.0.0; extra == "dev"
+Requires-Dist: scipy>1.0.0; extra == "dev"
+Requires-Dist: fast-bss-eval>=0.1.0; extra == "dev"
+Requires-Dist: sewar>=0.4.4; extra == "dev"
+Requires-Dist: dists-pytorch==0.1; extra == "dev"
+Requires-Dist: lpips<=0.1.4; extra == "dev"
+Requires-Dist: bert_score==0.3.13; extra == "dev"
+Requires-Dist: scikit-image>=0.19.0; extra == "dev"
+Requires-Dist: numpy<2.4.0; extra == "dev"
+Requires-Dist: aeon>=1.0.0; python_version > "3.10" and extra == "dev"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -203,7 +203,7 @@ Dynamic: summary
 
 <div align="center">
 
-<img src="https://github.com/Lightning-AI/torchmetrics/raw/v1.8.0/docs/source/_static/images/logo.png" width="400px">
+<img src="https://github.com/Lightning-AI/torchmetrics/raw/v1.8.1/docs/source/_static/images/logo.png" width="400px">
 
 **Machine learning metrics for distributed, scalable PyTorch applications.**
 
@@ -228,8 +228,8 @@ ______________________________________________________________________
 [![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/torchmetrics/blob/master/LICENSE)
 
 [![CI testing | CPU](https://github.com/Lightning-AI/torchmetrics/actions/workflows/ci-tests.yml/badge.svg?event=push)](https://github.com/Lightning-AI/torchmetrics/actions/workflows/ci-tests.yml)
-[![Build Status](https://dev.azure.com/Lightning-AI/Metrics/_apis/build/status%2FTM.unittests?branchName=refs%2Ftags%2Fv1.8.0)](https://dev.azure.com/Lightning-AI/Metrics/_build/latest?definitionId=2&branchName=refs%2Ftags%2Fv1.8.0)
-[![codecov](https://codecov.io/gh/Lightning-AI/torchmetrics/release/v1.8.0/graph/badge.svg?token=NER6LPI3HS)](https://codecov.io/gh/Lightning-AI/torchmetrics)
+[![Build Status](https://dev.azure.com/Lightning-AI/Metrics/_apis/build/status%2FTM.unittests?branchName=refs%2Ftags%2Fv1.8.1)](https://dev.azure.com/Lightning-AI/Metrics/_build/latest?definitionId=2&branchName=refs%2Ftags%2Fv1.8.1)
+[![codecov](https://codecov.io/gh/Lightning-AI/torchmetrics/release/v1.8.1/graph/badge.svg?token=NER6LPI3HS)](https://codecov.io/gh/Lightning-AI/torchmetrics)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Lightning-AI/torchmetrics/master.svg)](https://results.pre-commit.ci/latest/github/Lightning-AI/torchmetrics/master)
 
 [![Documentation Status](https://readthedocs.org/projects/torchmetrics/badge/?version=latest)](https://torchmetrics.readthedocs.io/en/latest/?badge=latest)
@@ -256,6 +256,12 @@ Install using conda
 
 ```bash
 conda install -c conda-forge torchmetrics
+```
+
+Install using uv
+
+```bash
+uv add torchmetrics
 ```
 
 Pip from source
@@ -535,7 +541,7 @@ fig3, ax3 = acc.plot(values)
 ```
 
 <p align="center">
-  <img src="https://github.com/Lightning-AI/torchmetrics/raw/v1.8.0/docs/source/_static/images/plot_example.png" width="1000">
+  <img src="https://github.com/Lightning-AI/torchmetrics/raw/v1.8.1/docs/source/_static/images/plot_example.png" width="1000">
 </p>
 
 For examples of plotting different metrics try running [this example file](_samples/plotting.py).

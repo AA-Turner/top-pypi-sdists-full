@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: treescope
-Version: 0.1.9
+Version: 0.1.10
 Summary: Treescope: An interactive HTML pretty-printer for ML research in IPython notebooks.
 Keywords: 
 Author-email: The Treescope Authors <treescope-dev@google.com>
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Science/Research
+License-File: LICENSE
 Requires-Dist: numpy>=1.25.2
 Requires-Dist: pylint>=2.6.0 ; extra == "dev"
 Requires-Dist: pyink>=24.3.0 ; extra == "dev"

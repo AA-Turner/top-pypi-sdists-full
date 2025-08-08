@@ -196,12 +196,12 @@ class INotifyCollectionChanged(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]:
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]:
         """Occurs when the collection changes, either by adding or removing an item."""
         ...
 
     @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]) -> None:
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 

@@ -22014,22 +22014,6 @@ class LastSizeChange(sgqlc.types.Type):
     """Size delta to the previous table size change"""
 
 
-class LastUpdates(sgqlc.types.Type):
-    """this class will be used to hold new last updates v2 results. The
-    time_interval_in_sec would indicate the time bucket interval used
-    for integration. For direct query result, time_interval_in_sec
-    field will be set to 0
-    """
-
-    __schema__ = schema
-    __field_names__ = ("last_updates", "time_interval_in_sec")
-    last_updates = sgqlc.types.Field(
-        sgqlc.types.list_of("TableUpdateTime"), graphql_name="lastUpdates"
-    )
-
-    time_interval_in_sec = sgqlc.types.Field(Int, graphql_name="timeIntervalInSec")
-
-
 class LineageAirflowJobAttributes(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -61068,15 +61052,6 @@ class TableMonitorStatuses(sgqlc.types.Type):
     )
 
 
-class TableObjectsDeleted(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "measurement_timestamp")
-    value = sgqlc.types.Field(Float, graphql_name="value")
-
-    measurement_timestamp = sgqlc.types.Field(DateTime, graphql_name="measurementTimestamp")
-    """the start time of a time interval"""
-
-
 class TableOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("mcon", "table_id", "is_key_asset")
@@ -61277,36 +61252,6 @@ class TableTagEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
-class TableTotalByteCount(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "measurement_timestamp", "thresholds")
-    value = sgqlc.types.Field(Float, graphql_name="value")
-
-    measurement_timestamp = sgqlc.types.Field(DateTime, graphql_name="measurementTimestamp")
-
-    thresholds = sgqlc.types.Field(sgqlc.types.list_of("Threshold"), graphql_name="thresholds")
-    """Thresholds"""
-
-
-class TableTotalRowCount(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "measurement_timestamp", "thresholds")
-    value = sgqlc.types.Field(Float, graphql_name="value")
-
-    measurement_timestamp = sgqlc.types.Field(DateTime, graphql_name="measurementTimestamp")
-
-    thresholds = sgqlc.types.Field(sgqlc.types.list_of("Threshold"), graphql_name="thresholds")
-    """Thresholds"""
-
-
-class TableUpdateTime(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "measurement_timestamp")
-    value = sgqlc.types.Field(DateTime, graphql_name="value")
-
-    measurement_timestamp = sgqlc.types.Field(DateTime, graphql_name="measurementTimestamp")
-
-
 class TableUpstreamData(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
@@ -61337,15 +61282,6 @@ class TableValidation(sgqlc.types.Type):
     """Whether this validation will run if no validationNames are
     specified (valid only for asset validations).
     """
-
-
-class TableWriteThroughputInBytes(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "measurement_timestamp")
-    value = sgqlc.types.Field(Float, graphql_name="value")
-
-    measurement_timestamp = sgqlc.types.Field(DateTime, graphql_name="measurementTimestamp")
-    """the start time of a time interval"""
 
 
 class TableauAccount(sgqlc.types.Type):
@@ -73337,13 +73273,7 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "status_scalar",
         "node_id",
         "is_partial_date_range",
-        "last_updates",
-        "last_updates_v2",
         "freshness",
-        "total_row_counts",
-        "total_byte_counts",
-        "write_throughput",
-        "objects_deleted",
         "maintenance_windows",
         "freshness_collection_status",
         "volume_collection_status",
@@ -73781,42 +73711,6 @@ class WarehouseTable(sgqlc.types.Type, Node):
     * `end_time` (`DateTime`)None
     """
 
-    last_updates = sgqlc.types.Field(
-        sgqlc.types.list_of(TableUpdateTime),
-        graphql_name="lastUpdates",
-        args=sgqlc.types.ArgDict(
-            (
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of table updates
-
-    Arguments:
-
-    * `start_time` (`DateTime`)None
-    * `end_time` (`DateTime`)None
-    """
-
-    last_updates_v2 = sgqlc.types.Field(
-        LastUpdates,
-        graphql_name="lastUpdatesV2",
-        args=sgqlc.types.ArgDict(
-            (
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of table updates
-
-    Arguments:
-
-    * `start_time` (`DateTime`)None
-    * `end_time` (`DateTime`)None
-    """
-
     freshness = sgqlc.types.Field(
         sgqlc.types.list_of(TableFreshness),
         graphql_name="freshness",
@@ -73839,112 +73733,6 @@ class WarehouseTable(sgqlc.types.Type, Node):
 
     * `start_time` (`DateTime!`)None
     * `end_time` (`DateTime`)None
-    """
-
-    total_row_counts = sgqlc.types.Field(
-        sgqlc.types.list_of(TableTotalRowCount),
-        graphql_name="totalRowCounts",
-        args=sgqlc.types.ArgDict(
-            (
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                (
-                    "eliminate_gaps",
-                    sgqlc.types.Arg(Boolean, graphql_name="eliminateGaps", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of total row count values for the
-    table
-
-    Arguments:
-
-    * `start_time` (`DateTime`)None
-    * `end_time` (`DateTime`)None
-    * `eliminate_gaps` (`Boolean`)None
-    """
-
-    total_byte_counts = sgqlc.types.Field(
-        sgqlc.types.list_of(TableTotalByteCount),
-        graphql_name="totalByteCounts",
-        args=sgqlc.types.ArgDict(
-            (
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                (
-                    "eliminate_gaps",
-                    sgqlc.types.Arg(Boolean, graphql_name="eliminateGaps", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of total byte count values for the
-    table
-
-    Arguments:
-
-    * `start_time` (`DateTime`)None
-    * `end_time` (`DateTime`)None
-    * `eliminate_gaps` (`Boolean`)None
-    """
-
-    write_throughput = sgqlc.types.Field(
-        sgqlc.types.list_of(TableWriteThroughputInBytes),
-        graphql_name="writeThroughput",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "start_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
-                    ),
-                ),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                ("granularity", sgqlc.types.Arg(String, graphql_name="granularity", default=None)),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of latest write throughput in
-    bytes, at most 10000 data points.
-
-    Arguments:
-
-    * `start_time` (`DateTime!`): start time point of the metric.
-    * `end_time` (`DateTime`): end time point of the metric, if not
-      specified, current timestamp will be used.
-    * `granularity` (`String`): Indicates the time interval to
-      aggregate the result. By default it is 1h. We support xm(x
-      minutes), xh(x hours), xd(x days)
-    """
-
-    objects_deleted = sgqlc.types.Field(
-        sgqlc.types.list_of(TableObjectsDeleted),
-        graphql_name="objectsDeleted",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "start_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
-                    ),
-                ),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                ("granularity", sgqlc.types.Arg(String, graphql_name="granularity", default=None)),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of latest objects deleted events,
-    at most 10000 data points.
-
-    Arguments:
-
-    * `start_time` (`DateTime!`): start time point of the metric.
-    * `end_time` (`DateTime`): end time point of the metric, if not
-      specified, current timestamp will be used.
-    * `granularity` (`String`): Indicates the time interval to
-      aggregate the result. By default it is 1h. We support xm(x
-      minutes), xh(x hours), xd(x days)
     """
 
     maintenance_windows = sgqlc.types.Field(

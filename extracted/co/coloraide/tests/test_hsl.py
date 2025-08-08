@@ -77,20 +77,20 @@ class TestHSLSerialize(util.ColorAssertsPyTest):
 
     COLORS = [
         # Test hex no options
-        ('hsl(270 30% 75%)', {}, 'hsl(270 30% 75%)'),
+        ('hsl(270 30% 75%)', {}, 'hsl(270 30 75)'),
         # Test alpha
-        ('hsl(270 30% 75% / 0.5)', {}, 'hsl(270 30% 75% / 0.5)'),
-        ('hsl(270 30% 75%)', {'alpha': True}, 'hsl(270 30% 75% / 1)'),
-        ('hsl(270 30% 75% / 0.5)', {'alpha': False}, 'hsl(270 30% 75%)'),
+        ('hsl(270 30% 75% / 0.5)', {}, 'hsl(270 30 75 / 0.5)'),
+        ('hsl(270 30% 75%)', {'alpha': True}, 'hsl(270 30 75 / 1)'),
+        ('hsl(270 30% 75% / 0.5)', {'alpha': False}, 'hsl(270 30 75)'),
         # Test percent
-        ('hsl(270 30% 75% / 50%)', {'percent': False}, 'hsl(270 30 75 / 0.5)'),
-        ('hsl(270 30% 75% / 50%)', {'percent': [False, False, False, True]}, 'hsl(270 30 75 / 50%)'),
+        ('hsl(270 30% 75% / 50%)', {'percent': True}, 'hsl(270 30% 75% / 0.5)'),
+        ('hsl(270 30% 75% / 50%)', {'percent': [False, True, False, True]}, 'hsl(270 30% 75 / 50%)'),
         # Test None
-        ('hsl(none 30% 75%)', {}, 'hsl(0 30% 75%)'),
-        ('hsl(none 30% 75%)', {'none': True}, 'hsl(none 30% 75%)'),
+        ('hsl(none 30% 75%)', {}, 'hsl(0 30 75)'),
+        ('hsl(none 30% 75%)', {'none': True}, 'hsl(none 30 75)'),
         # Test fit
-        ('hsl(20 150% 75%)', {}, 'hsl(21.118 100% 74.445%)'),
-        ('hsl(20 150% 75%)', {'fit': False}, 'hsl(20 150% 75%)'),
+        ('hsl(20 150% 75%)', {}, 'hsl(21.118 100 74.445)'),
+        ('hsl(20 150% 75%)', {'fit': False}, 'hsl(20 150 75)'),
         # Test legacy
         ('hsl(270 30% 75%)', {'comma': True}, 'hsl(270, 30%, 75%)'),
         # Test legacy alpha
@@ -133,6 +133,14 @@ class TestHSLProperties(util.ColorAsserts, unittest.TestCase):
         self.assertEqual(c._space.names(), ('h', 's', 'l'))
         self.assertEqual(c._space.radial_name(), 's')
         self.assertEqual(c._space.hue_name(), 'h')
+        self.assertEqual(c._space.lightness_name(), 'l')
+
+    def test_indexes(self):
+        """Test HSL-ish indexes."""
+
+        c = Color('color(--hsl 120 50% 90% / 1)')
+        self.assertEqual(c._space.indexes(), [0, 1, 2])
+        self.assertEqual(c._space.lightness_index(), 2)
 
     def test_hue(self):
         """Test `hue`."""

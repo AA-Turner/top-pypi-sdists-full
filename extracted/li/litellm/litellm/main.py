@@ -3902,7 +3902,6 @@ def embedding(  # noqa: PLR0915
             )
         elif (
             custom_llm_provider == "openai_like"
-            or custom_llm_provider == "jina_ai"
             or custom_llm_provider == "hosted_vllm"
             or custom_llm_provider == "llamafile"
             or custom_llm_provider == "lm_studio"
@@ -4326,6 +4325,25 @@ def embedding(  # noqa: PLR0915
                 timeout=timeout,
                 model_response=EmbeddingResponse(),
                 optional_params=optional_params,
+                client=client,
+                aembedding=aembedding,
+            )
+        elif custom_llm_provider == "jina_ai":
+            if isinstance(input, str):
+                transformed_input = [input]
+            else:
+                transformed_input = input
+            response = base_llm_http_handler.embedding(
+                model=model,
+                input=transformed_input,
+                custom_llm_provider=custom_llm_provider,
+                api_base=api_base,
+                api_key=api_key,
+                logging_obj=logging,
+                timeout=timeout,
+                model_response=EmbeddingResponse(),
+                optional_params=optional_params,
+                litellm_params={},
                 client=client,
                 aembedding=aembedding,
             )
@@ -5704,7 +5722,11 @@ def stream_chunk_builder_text_completion(
 
 
 def stream_chunk_builder(  # noqa: PLR0915
-    chunks: list, messages: Optional[list] = None, start_time=None, end_time=None
+    chunks: list,
+    messages: Optional[list] = None,
+    start_time=None,
+    end_time=None,
+    logging_obj: Optional[Logging] = None,
 ) -> Optional[Union[ModelResponse, TextCompletionResponse]]:
     try:
         if chunks is None:
@@ -5828,6 +5850,12 @@ def stream_chunk_builder(  # noqa: PLR0915
         )
 
         setattr(response, "usage", usage)
+
+        # Add cost to usage object if include_cost_in_streaming_usage is True
+        if litellm.include_cost_in_streaming_usage and logging_obj is not None:
+            setattr(
+                usage, "cost", logging_obj._response_cost_calculator(result=response)
+            )
 
         return response
     except Exception as e:

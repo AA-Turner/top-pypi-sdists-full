@@ -342,7 +342,7 @@ class ReadOnlyObservableCollection(typing.Generic[System_Collections_ObjectModel
     """Gets an empty ReadOnlyObservableCollection{T}."""
 
     @property
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]:
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]:
         """
         Occurs when the collection changes, either by adding or removing an item.
         
@@ -351,11 +351,11 @@ class ReadOnlyObservableCollection(typing.Generic[System_Collections_ObjectModel
         ...
 
     @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]) -> None:
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]:
+    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
         """
         Occurs when a property changes.
         
@@ -364,7 +364,7 @@ class ReadOnlyObservableCollection(typing.Generic[System_Collections_ObjectModel
         ...
 
     @property_changed.setter
-    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]) -> None:
+    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def __init__(self, list: System.Collections.ObjectModel.ObservableCollection[System_Collections_ObjectModel_ReadOnlyObservableCollection_T]) -> None:
@@ -399,16 +399,16 @@ class ObservableCollection(typing.Generic[System_Collections_ObjectModel_Observa
     """
 
     @property
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]:
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]:
         """Occurs when the collection changes, either by adding or removing an item."""
         ...
 
     @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]) -> None:
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]:
+    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
         """
         PropertyChanged event (per INotifyPropertyChanged).
         
@@ -417,7 +417,7 @@ class ObservableCollection(typing.Generic[System_Collections_ObjectModel_Observa
         ...
 
     @property_changed.setter
-    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], None], None]) -> None:
+    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @overload

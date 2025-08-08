@@ -10,7 +10,11 @@ from anyscale._private.anyscale_client import (
 from anyscale._private.sdk.base_sdk import BaseSDK, Timer
 from anyscale.cli_logger import BlockLogger
 from anyscale.compute_config._private.compute_config_sdk import PrivateComputeConfigSDK
-from anyscale.compute_config.models import ComputeConfig
+from anyscale.compute_config.models import (
+    ComputeConfig,
+    ComputeConfigType,
+    MultiDeploymentComputeConfig,
+)
 from anyscale.image._private.image_sdk import PrivateImageSDK
 from anyscale.utils.runtime_env import is_dir_remote_uri, parse_requirements_file
 
@@ -189,7 +193,9 @@ class WorkloadSDK(BaseSDK):
         return new_runtime_envs
 
     def _resolve_compute_config_id(
-        self, compute_config: Union[str, ComputeConfig], cloud: Optional[str] = None,
+        self,
+        compute_config: Union[str, ComputeConfigType, None],
+        cloud: Optional[str] = None,
     ) -> str:
         """Resolve the passed compute config to its ID.
 
@@ -207,6 +213,15 @@ class WorkloadSDK(BaseSDK):
                 raise ValueError(
                     f"The compute config '{compute_config}' does not exist."
                 )
+        elif compute_config is None:
+            cloud_id = self.client.get_cloud_id(cloud_name=cloud)  # type: ignore
+            compute_config_id = self._client.get_default_compute_config(
+                cloud_id=cloud_id
+            ).id
+            if compute_config_id is None:
+                raise ValueError(
+                    f"The default compute config for cloud '{cloud}' does not exist."
+                )
         else:
             _, compute_config_id = self._compute_config_sdk.create_compute_config(
                 compute_config
@@ -217,7 +232,7 @@ class WorkloadSDK(BaseSDK):
     def resolve_compute_config_and_cloud_id(
         self,
         *,
-        compute_config: Union[ComputeConfig, Dict, str, None],
+        compute_config: Union[ComputeConfigType, Dict, str, None],
         cloud: Union[None, str],
     ) -> Tuple[str, str]:
         """Resolve the passed compute config to its ID and corresponding cloud ID.
@@ -252,7 +267,9 @@ class WorkloadSDK(BaseSDK):
         else:
             # If we are creating a new compute config, ensure cloud is set accordingly
             if (
-                isinstance(compute_config, ComputeConfig)
+                isinstance(
+                    compute_config, (ComputeConfig, MultiDeploymentComputeConfig)
+                )
                 and compute_config.cloud is None
             ):
                 compute_config = replace(compute_config, cloud=cloud)
@@ -315,7 +332,7 @@ class WorkloadSDK(BaseSDK):
 
     def get_user_facing_compute_config(
         self, compute_config_id: str,
-    ) -> Union[str, ComputeConfig]:
+    ) -> Union[str, ComputeConfigType]:
         """Get the compute config in a format to be displayed in a user-facing status.
 
         If the compute config refers to an anonymous compute config, its config

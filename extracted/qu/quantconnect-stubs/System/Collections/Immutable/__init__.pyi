@@ -392,7 +392,7 @@ class ImmutableList(typing.Generic[System_Collections_Immutable_ImmutableList_T]
             """
             ...
 
-        def for_each(self, action: typing.Callable[[System_Collections_Immutable_ImmutableList_T], None]) -> None:
+        def for_each(self, action: typing.Callable[[System_Collections_Immutable_ImmutableList_T], typing.Any]) -> None:
             """
             Performs the specified action on each element of the list.
             
@@ -935,7 +935,7 @@ class ImmutableList(typing.Generic[System_Collections_Immutable_ImmutableList_T]
         """
         ...
 
-    def for_each(self, action: typing.Callable[[System_Collections_Immutable_ImmutableList_T], None]) -> None:
+    def for_each(self, action: typing.Callable[[System_Collections_Immutable_ImmutableList_T], typing.Any]) -> None:
         """
         Performs the specified action on each element of the list.
         

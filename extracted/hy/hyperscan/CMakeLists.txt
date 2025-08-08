@@ -86,8 +86,8 @@ if(NOT HS_BUILD_LIB_ROOT OR NOT HS_SRC_ROOT)
     set(HYPERSCAN_REPO https://github.com/intel/hyperscan.git)
     message(STATUS "Using Hyperscan ${HYPERSCAN_VERSION} from ${HYPERSCAN_REPO}")
   else()
-    set(HYPERSCAN_VERSION 5.4.11)
-    set(HYPERSCAN_TAG vectorscan/5.4.11)
+    set(HYPERSCAN_VERSION 5.4.12)
+    set(HYPERSCAN_TAG vectorscan/5.4.12)
     set(HYPERSCAN_REPO https://github.com/VectorCamp/vectorscan.git)
     message(STATUS "Using VectorScan ${HYPERSCAN_VERSION} from ${HYPERSCAN_REPO}")
   endif()
@@ -214,15 +214,28 @@ if(HS_BUILD_REQUIRED)
     endif()
   else()
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
-
-    if(NOT USE_VECTORSCAN)
-      set(HS_CMAKE_COMMON_FLAGS "-march=core2 -fPIC")
+    
+    # Architecture-specific compiler flags
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm|aarch64|arm64)")
+      # ARM architecture - use conservative flags with SIMDE_BACKEND
+      set(HS_CMAKE_COMMON_FLAGS "-fPIC")
+    elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86|X86|amd64|AMD64|x86_64|i[3-6]86)")
+      # x86/x86_64 architecture - use compatible x86-64 baseline
+      set(HS_CMAKE_COMMON_FLAGS "-march=x86-64 -fPIC")
     else()
+      # Other architectures - rely on SIMDE_BACKEND for portability
       set(HS_CMAKE_COMMON_FLAGS "-fPIC")
     endif()
-
+    
+    
     set(HS_CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${HS_CMAKE_COMMON_FLAGS}")
     set(HS_CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${HS_CMAKE_COMMON_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=1")
+    
+    # Add clang warning suppression for vectorscan builds
+    if(USE_VECTORSCAN AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER MATCHES "[Cc]lang.*"))
+      set(HS_CMAKE_CXX_FLAGS "${HS_CMAKE_CXX_FLAGS} -Wno-unqualified-std-cast-call")
+    endif()
+    
     set(HS_CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS}")
     set(HS_GENERATOR "Unix Makefiles")
   endif()
@@ -388,6 +401,7 @@ if(HS_BUILD_REQUIRED)
   if(USE_VECTORSCAN)
     list(
       APPEND HS_CMAKE_ARGS
+      -DSIMDE_BACKEND=ON
       -DRAGEL=${RAGEL_EXECUTABLE}
       -DPCRE_BUILD_SOURCE=ON
       -DBUILD_STATIC_LIBS=ON
@@ -425,7 +439,7 @@ if(HS_BUILD_REQUIRED)
     STAMP_DIR ${hyperscan_STAMP_DIR}
     INSTALL_COMMAND ""
     CMAKE_GENERATOR ${HS_GENERATOR}
-    CMAKE_ARGS ${HS_CMAKE_ARGS}
+    CMAKE_ARGS ${HS_CMAKE_ARGS} -Wno-dev
     BUILD_BYPRODUCTS ${HS_BUILD_BYPRODUCTS}
     BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release --parallel 4 ${HS_TARGETS}
   )

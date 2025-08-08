@@ -21,14 +21,15 @@ logger = get_logger()
 
 class RowPreprocessor:
     standard_keys = [
-        'messages', 'rejected_response', 'label', 'images', 'videos', 'audios', 'tools', 'objects', 'channel', 'margin'
+        'messages', 'rejected_response', 'rejected_images', 'label', 'images', 'videos', 'audios', 'tools', 'objects',
+        'channel', 'margin'
     ]
 
     def __init__(self,
                  *,
                  columns: Optional[Dict[str, str]] = None,
                  dataset_sample: Optional[int] = None,
-                 random_state: Union[np.random.RandomState, int, None] = 42,
+                 random_state: Optional[Union[np.random.RandomState, int]] = 42,
                  traceback_limit: int = 10) -> None:
         self.columns = columns or {}
         self.origin_columns = self.columns.copy()  # Higher priority and raise Error
@@ -67,16 +68,19 @@ class RowPreprocessor:
 
     @staticmethod
     def _cast_mm_data(row: Dict[str, Any]) -> None:
-        images = row.get('images')
+        for key in ['images', 'rejected_images']:
+            images = row.get(key, None)
+            if images is None:
+                continue
 
-        if isinstance(images, str) or isinstance(images, list) and images and isinstance(images[0], str):
-            if isinstance(images, str):
-                images = [images]
-            for i, image in enumerate(images):
-                images[i] = {'bytes': None, 'path': image}
-            row['images'] = images
-        elif isinstance(images, dict):
-            row['images'] = [images]
+            if isinstance(images, str) or (isinstance(images, list) and images and isinstance(images[0], str)):
+                if isinstance(images, str):
+                    images = [images]
+                for i, image in enumerate(images):
+                    images[i] = {'bytes': None, 'path': image}
+                row[key] = images
+            elif isinstance(images, dict):
+                row[key] = [images]
 
         for key in ['videos', 'audios']:
             mm_data = row.get(key)
@@ -282,8 +286,9 @@ class RowPreprocessor:
 
     def _cast_pil_image(self, dataset):
         features = dataset.features
-        if 'images' in features and isinstance(features['images'], Image) and features['images'].decode:
-            dataset = dataset.cast_column('images', Image(decode=False))
+        for col in ['images', 'rejected_images']:
+            if (col in features and isinstance(features[col], Image) and getattr(features[col], 'decode', False)):
+                dataset = dataset.cast_column(col, Image(decode=False))
         return dataset
 
     def __call__(

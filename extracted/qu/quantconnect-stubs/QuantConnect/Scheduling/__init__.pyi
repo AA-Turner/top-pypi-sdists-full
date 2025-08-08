@@ -44,12 +44,12 @@ class ScheduledEvent(System.Object, System.IDisposable):
     """Gets the default time before midnight end of day events will fire"""
 
     @property
-    def event_fired(self) -> _EventContainer[typing.Callable[[str, datetime.datetime], None], None]:
+    def event_fired(self) -> _EventContainer[typing.Callable[[str, datetime.datetime], typing.Any], typing.Any]:
         """Event that fires each time this scheduled event happens"""
         ...
 
     @event_fired.setter
-    def event_fired(self, value: _EventContainer[typing.Callable[[str, datetime.datetime], None], None]) -> None:
+    def event_fired(self, value: _EventContainer[typing.Callable[[str, datetime.datetime], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -72,7 +72,7 @@ class ScheduledEvent(System.Object, System.IDisposable):
         ...
 
     @overload
-    def __init__(self, name: str, event_utc_time: typing.Union[datetime.datetime, datetime.date], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
+    def __init__(self, name: str, event_utc_time: typing.Union[datetime.datetime, datetime.date], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
         """
         Initializes a new instance of the ScheduledEvent class
         
@@ -83,7 +83,7 @@ class ScheduledEvent(System.Object, System.IDisposable):
         ...
 
     @overload
-    def __init__(self, name: str, ordered_event_utc_times: typing.List[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
+    def __init__(self, name: str, ordered_event_utc_times: typing.List[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
         """
         Initializes a new instance of the ScheduledEvent class
         
@@ -94,7 +94,7 @@ class ScheduledEvent(System.Object, System.IDisposable):
         ...
 
     @overload
-    def __init__(self, name: str, ordered_event_utc_times: System.Collections.Generic.IEnumerator[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], None] = None) -> None:
+    def __init__(self, name: str, ordered_event_utc_times: System.Collections.Generic.IEnumerator[datetime.datetime], callback: typing.Callable[[str, datetime.datetime], typing.Any] = None) -> None:
         """
         Initializes a new instance of the ScheduledEvent class
         
@@ -821,17 +821,17 @@ class IFluentSchedulingRunnable(QuantConnect.Scheduling.IFluentSchedulingTimeSpe
         ...
 
     @overload
-    def run(self, callback: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def run(self, callback: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """Register the defined event with the callback"""
         ...
 
     @overload
-    def run(self, callback: typing.Callable[[datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def run(self, callback: typing.Callable[[datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """Register the defined event with the callback"""
         ...
 
     @overload
-    def run(self, callback: typing.Callable[[str, datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def run(self, callback: typing.Callable[[str, datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """Register the defined event with the callback"""
         ...
 
@@ -988,7 +988,7 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
     @overload
-    def on(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, callback: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def on(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, callback: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Schedules the callback to run using the specified date and time rules
         
@@ -999,7 +999,7 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
     @overload
-    def on(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, callback: typing.Callable[[str, datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def on(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, callback: typing.Callable[[str, datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Schedules the callback to run using the specified date and time rules
         
@@ -1010,7 +1010,7 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
     @overload
-    def on(self, name: str, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, callback: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def on(self, name: str, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, callback: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Schedules the callback to run using the specified date and time rules
         
@@ -1022,7 +1022,7 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
     @overload
-    def on(self, name: str, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, callback: typing.Callable[[str, datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def on(self, name: str, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, callback: typing.Callable[[str, datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Schedules the callback to run using the specified date and time rules
         
@@ -1053,7 +1053,7 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
     @overload
-    def training(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, training_code: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def training(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, training_code: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Schedules the training code to run using the specified date and time rules
         
@@ -1064,7 +1064,7 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
     @overload
-    def training(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, training_code: typing.Callable[[datetime.datetime], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def training(self, date_rule: QuantConnect.Scheduling.IDateRule, time_rule: QuantConnect.Scheduling.ITimeRule, training_code: typing.Callable[[datetime.datetime], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """
         Schedules the training code to run using the specified date and time rules
         
@@ -1080,7 +1080,7 @@ class ScheduleManager(System.Object, QuantConnect.Scheduling.IEventSchedule):
         ...
 
     @overload
-    def training_now(self, training_code: typing.Callable[[], None]) -> QuantConnect.Scheduling.ScheduledEvent:
+    def training_now(self, training_code: typing.Callable[[], typing.Any]) -> QuantConnect.Scheduling.ScheduledEvent:
         """Schedules the provided training code to execute immediately"""
         ...
 

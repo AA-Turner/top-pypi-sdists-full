@@ -93,7 +93,7 @@ class Cash(System.Object):
     """Represents a holding of a currency in cash."""
 
     @property
-    def updated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def updated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """
         Event fired when this instance is updated
         AddAmount, SetAmount, Update
@@ -101,16 +101,16 @@ class Cash(System.Object):
         ...
 
     @updated.setter
-    def updated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def updated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def currency_conversion_updated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def currency_conversion_updated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Event fired when this instance's CurrencyConversion is set/updated"""
         ...
 
     @currency_conversion_updated.setter
-    def currency_conversion_updated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def currency_conversion_updated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -381,7 +381,7 @@ class SecurityCache(System.Object):
         """
         ...
 
-    def add_data_list(self, data: typing.List[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
+    def add_data_list(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
         """Add a list of market data points to the local security cache for the current market price."""
         ...
 
@@ -434,7 +434,7 @@ class SecurityCache(System.Object):
         """
         ...
 
-    def store_data(self, data: typing.List[QuantConnect.Data.BaseData], data_type: typing.Type) -> None:
+    def store_data(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type) -> None:
         """
         Stores the specified data list in the cache WITHOUT updating any of the cache properties, such as Price
         
@@ -443,7 +443,7 @@ class SecurityCache(System.Object):
         """
         ...
 
-    def try_get_value(self, type: typing.Type, data: typing.Optional[typing.List[QuantConnect.Data.BaseData]]) -> typing.Tuple[bool, typing.List[QuantConnect.Data.BaseData]]:
+    def try_get_value(self, type: typing.Type, data: typing.Optional[typing.Sequence[QuantConnect.Data.BaseData]]) -> typing.Tuple[bool, typing.Sequence[QuantConnect.Data.BaseData]]:
         """Gets whether or not this dynamic data instance has data stored for the specified type"""
         ...
 
@@ -581,12 +581,12 @@ class SecurityHolding(System.Object):
     """SecurityHolding is a base class for purchasing and holding a market item which manages the asset portfolio"""
 
     @property
-    def quantity_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.SecurityHoldingQuantityChangedEventArgs], None], None]:
+    def quantity_changed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.SecurityHoldingQuantityChangedEventArgs], typing.Any], typing.Any]:
         """Event raised each time the holdings quantity is changed."""
         ...
 
     @quantity_changed.setter
-    def quantity_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.SecurityHoldingQuantityChangedEventArgs], None], None]) -> None:
+    def quantity_changed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.SecurityHoldingQuantityChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -2643,7 +2643,7 @@ class Security(DynamicObject, QuantConnect.Interfaces.ISecurityPrice):
         """This is a DynamicObject override. Not meant for external use."""
         ...
 
-    def update(self, data: typing.List[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
+    def update(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
         """
         Updates all of the security properties, such as price/OHLCV/bid/ask based
         on the data provided. Data is also stored into the security's data cache
@@ -3102,12 +3102,12 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
     """Enumerable security management class for grouping security objects into an array and providing any common properties."""
 
     @property
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]:
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]:
         """Event fired when a security is added or removed from this collection"""
         ...
 
     @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]) -> None:
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -3977,7 +3977,7 @@ class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash
     """Provides a means of keeping track of the different cash holdings of an algorithm"""
 
     @property
-    def updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.CashBookUpdatedEventArgs], None], None]:
+    def updated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.CashBookUpdatedEventArgs], typing.Any], typing.Any]:
         """
         Event fired when a Cash instance is added or removed, and when
         the Cash.Updated is triggered for the currently hold instances
@@ -3985,7 +3985,7 @@ class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash
         ...
 
     @updated.setter
-    def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.CashBookUpdatedEventArgs], None], None]) -> None:
+    def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Securities.CashBookUpdatedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -5604,12 +5604,12 @@ class IOrderEventProvider(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def new_order_event(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], None], None]:
+    def new_order_event(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]:
         """Event fired when there is a new OrderEvent"""
         ...
 
     @new_order_event.setter
-    def new_order_event(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], None], None]) -> None:
+    def new_order_event(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -5798,7 +5798,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         """
         ...
 
-    def __init__(self, entries: System.Collections.Generic.Dictionary[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect_Securities_BaseSecurityDatabase_TEntry], from_data_folder: typing.Callable[[], QuantConnect_Securities_BaseSecurityDatabase_T], update_entry: typing.Callable[[QuantConnect_Securities_BaseSecurityDatabase_TEntry, QuantConnect_Securities_BaseSecurityDatabase_TEntry], None]) -> None:
+    def __init__(self, entries: System.Collections.Generic.Dictionary[QuantConnect.Securities.SecurityDatabaseKey, QuantConnect_Securities_BaseSecurityDatabase_TEntry], from_data_folder: typing.Callable[[], QuantConnect_Securities_BaseSecurityDatabase_T], update_entry: typing.Callable[[QuantConnect_Securities_BaseSecurityDatabase_TEntry, QuantConnect_Securities_BaseSecurityDatabase_TEntry], typing.Any]) -> None:
         """
         Initializes a new instance of the BaseSecurityDatabase{T, TEntry} class
         
@@ -5955,12 +5955,12 @@ class UniverseManager(System.Object, System.Collections.Generic.IDictionary[Quan
     """Manages the algorithm's collection of universes"""
 
     @property
-    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]:
+    def collection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]:
         """Event fired when a universe is added or removed"""
         ...
 
     @collection_changed.setter
-    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], None], None]) -> None:
+    def collection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.Collections.Specialized.NotifyCollectionChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -6570,7 +6570,7 @@ class SecurityCacheDataStoredEventArgs(System.EventArgs):
         """The list of data points stored"""
         ...
 
-    def __init__(self, data_type: typing.Type, data: typing.List[QuantConnect.Data.BaseData]) -> None:
+    def __init__(self, data_type: typing.Type, data: typing.Sequence[QuantConnect.Data.BaseData]) -> None:
         """
         Initializes a new instance of the SecurityCacheDataStoredEventArgs class
         
@@ -6803,7 +6803,7 @@ class FuncSecurityInitializer(System.Object, QuantConnect.Securities.ISecurityIn
         ...
 
     @overload
-    def __init__(self, initializer: typing.Callable[[QuantConnect.Securities.Security], None]) -> None:
+    def __init__(self, initializer: typing.Callable[[QuantConnect.Securities.Security], typing.Any]) -> None:
         """
         Initializes a new instance of the FuncSecurityInitializer class
         
@@ -8989,7 +8989,7 @@ class IndicatorVolatilityModel(QuantConnect.Securities.Volatility.BaseVolatility
         ...
 
     @overload
-    def __init__(self, indicator: QuantConnect.Indicators.IIndicator, indicator_update: typing.Callable[[QuantConnect.Securities.Security, QuantConnect.Data.BaseData, QuantConnect.Indicators.IIndicator], None]) -> None:
+    def __init__(self, indicator: QuantConnect.Indicators.IIndicator, indicator_update: typing.Callable[[QuantConnect.Securities.Security, QuantConnect.Data.BaseData, QuantConnect.Indicators.IIndicator], typing.Any]) -> None:
         """
         Initializes a new instance of the IVolatilityModel using
         the specified . The 

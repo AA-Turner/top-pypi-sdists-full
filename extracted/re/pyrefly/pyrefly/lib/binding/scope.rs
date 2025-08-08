@@ -38,9 +38,11 @@ use crate::binding::binding::ExprOrBinding;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyClass;
+use crate::binding::binding::KeyClassBaseType;
 use crate::binding::binding::KeyClassMetadata;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyClassSynthesizedFields;
+use crate::binding::binding::KeyConsistentOverrideCheck;
 use crate::binding::binding::KeyFunction;
 use crate::binding::binding::KeyVariance;
 use crate::binding::binding::KeyYield;
@@ -365,10 +367,12 @@ impl FlowInfo {
 pub struct ClassIndices {
     pub def_index: ClassDefIndex,
     pub class_idx: Idx<KeyClass>,
+    pub base_type_idx: Idx<KeyClassBaseType>,
     pub metadata_idx: Idx<KeyClassMetadata>,
     pub mro_idx: Idx<KeyClassMro>,
     pub synthesized_fields_idx: Idx<KeyClassSynthesizedFields>,
     pub variance_idx: Idx<KeyVariance>,
+    pub consistent_override_check_idx: Idx<KeyConsistentOverrideCheck>,
 }
 
 #[derive(Clone, Debug)]

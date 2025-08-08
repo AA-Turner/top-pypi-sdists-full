@@ -258,7 +258,7 @@ class IDesignerSerializationManager(IServiceProvider, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def resolve_name(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.Serialization.ResolveNameEventArgs], None], None]:
+    def resolve_name(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.Serialization.ResolveNameEventArgs], typing.Any], typing.Any]:
         """
         ResolveName event. This event
         is raised when GetName is called, but the name is not found
@@ -271,12 +271,12 @@ class IDesignerSerializationManager(IServiceProvider, metaclass=abc.ABCMeta):
         ...
 
     @resolve_name.setter
-    def resolve_name(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.Serialization.ResolveNameEventArgs], None], None]) -> None:
+    def resolve_name(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.Serialization.ResolveNameEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def serialization_complete(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def serialization_complete(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """
         This event is raised when serialization or deserialization
         has been completed. Generally, serialization code should
@@ -297,7 +297,7 @@ class IDesignerSerializationManager(IServiceProvider, metaclass=abc.ABCMeta):
         ...
 
     @serialization_complete.setter
-    def serialization_complete(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def serialization_complete(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def add_serialization_provider(self, provider: System.ComponentModel.Design.Serialization.IDesignerSerializationProvider) -> None:

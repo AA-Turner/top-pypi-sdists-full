@@ -8,7 +8,7 @@ T = TypeVar("T", bound="ListSchedulesWithJobsResponse200ItemOnRecoveryExtraArgs"
 
 @_attrs_define
 class ListSchedulesWithJobsResponse200ItemOnRecoveryExtraArgs:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

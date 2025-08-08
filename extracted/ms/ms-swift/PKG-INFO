@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ms_swift
-Version: 3.6.4
+Version: 3.7.0
 Summary: Swift: Scalable lightWeight Infrastructure for Fine-Tuning
 Home-page: https://github.com/modelscope/swift
 Author: DAMO ModelScope teams
@@ -35,12 +35,13 @@ Requires-Dist: jieba
 Requires-Dist: matplotlib
 Requires-Dist: modelscope>=1.23
 Requires-Dist: nltk
-Requires-Dist: numpy<2.0
+Requires-Dist: numpy
 Requires-Dist: openai
 Requires-Dist: oss2
 Requires-Dist: pandas
-Requires-Dist: peft<0.16,>=0.11
+Requires-Dist: peft<0.17,>=0.11
 Requires-Dist: pillow
+Requires-Dist: PyYAML>=5.4
 Requires-Dist: requests
 Requires-Dist: rouge
 Requires-Dist: safetensors
@@ -51,9 +52,9 @@ Requires-Dist: sortedcontainers>=1.5.9
 Requires-Dist: tensorboard
 Requires-Dist: tiktoken
 Requires-Dist: tqdm
-Requires-Dist: transformers<4.53,>=4.33
+Requires-Dist: transformers<4.56,>=4.33
 Requires-Dist: transformers_stream_generator
-Requires-Dist: trl<0.20,>=0.15
+Requires-Dist: trl<0.21,>=0.15
 Requires-Dist: uvicorn
 Requires-Dist: zstandard
 Provides-Extra: eval
@@ -63,8 +64,6 @@ Requires-Dist: evalscope[opencompass]; extra == "eval"
 Requires-Dist: evalscope[vlmeval]; extra == "eval"
 Provides-Extra: swanlab
 Requires-Dist: swanlab; extra == "swanlab"
-Provides-Extra: seq-parallel
-Requires-Dist: xtuner; extra == "seq-parallel"
 Provides-Extra: all
 Requires-Dist: accelerate; extra == "all"
 Requires-Dist: addict; extra == "all"
@@ -83,12 +82,13 @@ Requires-Dist: jieba; extra == "all"
 Requires-Dist: matplotlib; extra == "all"
 Requires-Dist: modelscope>=1.23; extra == "all"
 Requires-Dist: nltk; extra == "all"
-Requires-Dist: numpy<2.0; extra == "all"
+Requires-Dist: numpy; extra == "all"
 Requires-Dist: openai; extra == "all"
 Requires-Dist: oss2; extra == "all"
 Requires-Dist: pandas; extra == "all"
-Requires-Dist: peft<0.16,>=0.11; extra == "all"
+Requires-Dist: peft<0.17,>=0.11; extra == "all"
 Requires-Dist: pillow; extra == "all"
+Requires-Dist: PyYAML>=5.4; extra == "all"
 Requires-Dist: requests; extra == "all"
 Requires-Dist: rouge; extra == "all"
 Requires-Dist: safetensors; extra == "all"
@@ -99,16 +99,15 @@ Requires-Dist: sortedcontainers>=1.5.9; extra == "all"
 Requires-Dist: tensorboard; extra == "all"
 Requires-Dist: tiktoken; extra == "all"
 Requires-Dist: tqdm; extra == "all"
-Requires-Dist: transformers<4.53,>=4.33; extra == "all"
+Requires-Dist: transformers<4.56,>=4.33; extra == "all"
 Requires-Dist: transformers_stream_generator; extra == "all"
-Requires-Dist: trl<0.20,>=0.15; extra == "all"
+Requires-Dist: trl<0.21,>=0.15; extra == "all"
 Requires-Dist: uvicorn; extra == "all"
 Requires-Dist: zstandard; extra == "all"
 Requires-Dist: datasets==3.2.0; extra == "all"
 Requires-Dist: evalscope>=0.16; extra == "all"
 Requires-Dist: evalscope[opencompass]; extra == "all"
 Requires-Dist: evalscope[vlmeval]; extra == "all"
-Requires-Dist: xtuner; extra == "all"
 Requires-Dist: swanlab; extra == "all"
 
 # SWIFT (Scalable lightWeight Infrastructure for Fine-Tuning)
@@ -184,10 +183,12 @@ You can contact us and communicate with us by adding our group:
 - 🍉 **Toolbox Capabilities**: Offers not only training support for large models and multi-modal large models but also covers the entire process of inference, evaluation, quantization, and deployment.
 - **Inference Acceleration**: Supports inference acceleration engines like PyTorch, vLLM, SGLang, LmDeploy, and provides OpenAI API for accelerating inference, deployment, and evaluation modules.
 - **Model Evaluation**: Uses EvalScope as the evaluation backend and supports evaluation on 100+ datasets for both pure text and multi-modal models.
-- **Model Quantization**: Supports AWQ, GPTQ, and BNB quantized exports, with models that can use vLLM/SGLang/LmDeploy for inference acceleration and continue training.
+- **Model Quantization**: Supports AWQ, GPTQ, FP8, and BNB quantized exports, with models that can use vLLM/SGLang/LmDeploy for inference acceleration and continue training.
 
 
 ## 🎉 News
+- 🎁 2025.07.12: Deployment(pt/vLLM/SGLang) of Embedding models is supported, check [here](examples/deploy/embedding/client.py).
+- 🎁 2025.07.09: Megatron-SWIFT supports LoRA training. Compared to ms-swift, it achieves significant speedup on MoE models. Training scripts can be found [here](https://github.com/modelscope/ms-swift/blob/main/examples/train/megatron/lora).
 - 🎁 2025.06.23: Fine-tuning of reranker models is supported. Training scripts can be found here: [Reranker](https://github.com/modelscope/ms-swift/blob/main/examples/train/reranker/train_reranker.sh).
 - 🎁 2025.06.18: Support for accelerating the ms-swift [inference](https://github.com/modelscope/ms-swift/blob/main/examples/infer/sglang), deployment, evaluation, and UI modules using the [sglang](https://github.com/sgl-project/sglang) inference acceleration engine. Simply set `--infer_backend sglang` to enable it.
 - 🎁 2025.06.15: Support for GKD training on both pure text large models and multimodal models. Training scripts can be found here: [Pure Text](https://github.com/modelscope/ms-swift/blob/main/examples/train/rlhf/gkd), [Multimodal](https://github.com/modelscope/ms-swift/blob/main/examples/train/multimodal/rlhf/gkd).
@@ -229,20 +230,22 @@ pip install -e .
 
 Running Environment:
 
-|              | Range        | Recommended | Notes                                     |
-| ------------ |--------------| ----------- | ----------------------------------------- |
-| python       | >=3.9        | 3.10        |                                           |
-| cuda         |              | cuda12      | No need to install if using CPU, NPU, MPS |
-| torch        | >=2.0        |             |                                           |
-| transformers | >=4.33       | 4.51.3      |                                           |
-| modelscope   | >=1.23       |             |                                           |
-| peft | >=0.11,<0.16 | ||
-| trl | >=0.13,<0.19 | 0.18 |RLHF|
-| deepspeed    | >=0.14       | 0.16.9 | Training                                  |
-| vllm         | >=0.5.1      | 0.8.5.post1       | Inference/Deployment/Evaluation           |
-| sglang |     | 0.4.6.post5 | Inference/Deployment/Evaluation |
-| lmdeploy     | >=0.5,<0.9        | 0.8       | Inference/Deployment/Evaluation           |
-| evalscope | >=0.11       |  | Evaluation |
+|              | Range        | Recommended         | Notes                                     |
+|--------------|--------------|---------------------|-------------------------------------------|
+| python       | >=3.9        | 3.10                |                                           |
+| cuda         |              | cuda12              | No need to install if using CPU, NPU, MPS |
+| torch        | >=2.0        | 2.7.1               |                                           |
+| transformers | >=4.33       | 4.54.1              |                                           |
+| modelscope   | >=1.23       |                     |                                           |
+| peft         | >=0.11,<0.17 |                     |                                           |
+| flash_attn   |              | 2.7.4.post1/3.0.0b1 |                                           |
+| trl          | >=0.15,<0.21 | 0.20.0              | RLHF                                      |
+| deepspeed    | >=0.14       | 0.16.9              | Training                                  |
+| vllm         | >=0.5.1      | 0.10                | Inference/Deployment                      |
+| sglang       | >=0.4.6      | 0.4.9.post6         | Inference/Deployment                      |
+| lmdeploy     | >=0.5,<0.9   | 0.8                 | Inference/Deployment                      |
+| evalscope    | >=0.11       |                     | Evaluation                                |
+| gradio       |              | 5.32.1              | Web-UI/App                                |
 
 For more optional dependencies, you can refer to [here](https://github.com/modelscope/ms-swift/blob/main/requirements/install_all.sh).
 
@@ -311,7 +314,7 @@ swift infer \
     --stream true \
     --merge_lora true \
     --infer_backend vllm \
-    --max_model_len 8192 \
+    --vllm_max_model_len 8192 \
     --temperature 0 \
     --max_new_tokens 2048
 ```

@@ -153,21 +153,21 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     @property
-    def name_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], None], None]:
+    def name_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], typing.Any], typing.Any]:
         """Event fired algorithm's name is changed"""
         ...
 
     @name_updated.setter
-    def name_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], None], None]) -> None:
+    def name_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, str], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def tags_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], None], None]:
+    def tags_updated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], typing.Any], typing.Any]:
         """Event fired when the tag collection is updated"""
         ...
 
     @tags_updated.setter
-    def tags_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], None], None]) -> None:
+    def tags_updated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, System.Collections.Generic.HashSet[str]], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -260,12 +260,12 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     @property
-    def insights_generated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], None], None]:
+    def insights_generated(self) -> _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], typing.Any], typing.Any]:
         """Event fired when an algorithm generates a insight"""
         ...
 
     @insights_generated.setter
-    def insights_generated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], None], None]) -> None:
+    def insights_generated(self, value: _EventContainer[typing.Callable[[QuantConnect.Interfaces.IAlgorithm, QuantConnect.Algorithm.Framework.Alphas.GeneratedInsightsCollection], typing.Any], typing.Any]) -> None:
         ...
 
     @property

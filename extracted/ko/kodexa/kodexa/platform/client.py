@@ -22,8 +22,10 @@ from functional import seq
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic_yaml import to_yaml_str
 
-from kodexa_document.model import Document, Ref
+from kodexa.model import Document
+from kodexa.model.model import Ref
 from kodexa.model.objects import (
+    AggregatedModelCost,
     PageUser,
     PageMembership,
     PageExecution,
@@ -104,6 +106,8 @@ from kodexa.model.objects import (
     PageTaskDocumentFamily,
     PageTaskActivity,
     PageTaskTag,
+    Note,
+    PageNote,
 )
 
 logger = logging.getLogger()
@@ -1376,6 +1380,20 @@ class DocumentFamiliesEndpoint(EntitiesEndpoint):
     def get_page_class(self, object_dict=None):
         return PageDocumentFamilyEndpoint
     
+class DataExceptionsEndpoint(EntitiesEndpoint):
+    """
+    Represents data exceptions endpoints.
+    """
+
+    def get_type(self) -> str:
+        return "exceptions"
+    
+    def get_instance_class(self, object_dict=None):
+        return DataExceptionEndpoint
+
+    def get_page_class(self, object_dict=None):
+        return PageDataExceptionEndpoint
+    
 
 class TaskTagEndpoint(EntityEndpoint, TaskTag):
     """
@@ -1399,6 +1417,39 @@ class TaskTagsEndpoint(EntitiesEndpoint):
 
     def get_page_class(self, object_dict=None):
         return PageTaskTagEndpoint
+
+
+class NoteEndpoint(EntityEndpoint, Note):
+    """
+    Represents a note endpoint.
+    """
+
+    def get_type(self) -> str:
+        return "notes"
+
+
+class NotesEndpoint(EntitiesEndpoint):
+    """
+    Represents notes endpoints.
+    """
+
+    def get_type(self) -> str:
+        return "notes"
+
+    def get_instance_class(self, object_dict=None):
+        return NoteEndpoint
+
+    def get_page_class(self, object_dict=None):
+        return PageNoteEndpoint
+
+
+class PageNoteEndpoint(PageNote, PageEndpoint):
+    """
+    Represents a page note endpoint.
+    """
+
+    def get_type(self) -> Optional[str]:
+        return "notes"
 
 
 class PageTaskTemplateEndpoint(PageTask, PageEndpoint):
@@ -3203,7 +3254,7 @@ class ProjectsEndpoint(EntitiesEndpoint):
             ).set_client(self.client)
         return None
 
-    def stream_query(self, query: str = "*", sort=None, limit=None):
+    def stream_query(self, query: str = "*", sort=None, limit=None, starting_offset = 0):
         """
         Stream the query for the project endpoints.
 
@@ -3216,7 +3267,7 @@ class ProjectsEndpoint(EntitiesEndpoint):
             ProjectEndpoint: A generator of the project endpoints.
         """
         page_size = 5
-        page = 1
+        page = starting_offset // page_size + 1
         counter = 0
 
         if not sort:
@@ -5884,7 +5935,7 @@ class DocumentStoreEndpoint(StoreEndpoint):
             get_response.json()
         ).set_client(self.client)
 
-    def stream_filter(self, filter_string: str = "", sort=None, limit=None, page_size=5):
+    def stream_filter(self, filter_string: str = "", sort=None, limit=None, page_size=5, starting_offset: int = 0):
         """
         Stream the filter for the document family.
 
@@ -5893,11 +5944,12 @@ class DocumentStoreEndpoint(StoreEndpoint):
             sort (str, optional): Sorting order of the query. Defaults to None.
             limit (int, optional): The maximum number of items to return. Defaults to None.
             page_size (int, optional): The pagination size for the streaming
+            starting_offset (int, optional): The starting offset for the streaming
 
         Returns:
             generator: A generator of the document families.
         """
-        page = 1
+        page = starting_offset // page_size + 1
         count = 0
         if not sort:
             sort = "id"
@@ -5928,7 +5980,6 @@ class DocumentStoreEndpoint(StoreEndpoint):
             page (int, optional): The page number to get. Defaults to 1.
             page_size (int, optional): The number of items per page. Defaults to 100.
             sort (str, optional): Sorting order of the query. Defaults to None.
-
         Returns:
             PageDocumentFamilyEndpoint: The page of document families.
         """
@@ -6450,6 +6501,13 @@ OBJECT_TYPES = {
         "type": PipelineEndpoint,
         "endpoint": PipelinesEndpoint,
     },
+    "notes": {
+        "name": "note",
+        "plural": "notes",
+        "type": NoteEndpoint,
+        "endpoint": NotesEndpoint,
+        "global": True,
+    },
     "assistants": {
         "name": "assistant",
         "plural": "assistants",
@@ -6702,6 +6760,38 @@ class ExtractionEngineEndpoint:
         return response.text
 
 
+class ModelCostsEndpoint:
+    """
+    Provides endpoint access to the model costs.
+
+    Attributes:
+        client (KodexaClient): The client to interact with the model costs.
+    """
+
+    def __init__(self, client: "KodexaClient"):
+        self.client = client
+
+    def get_model_costs(self, filters: Optional[List[str]] = None) -> List[AggregatedModelCost]:
+        """
+        Get aggregated model costs filtered by the provided query context.
+        This endpoint aggregates the model costs by modelId.
+
+        Args:
+            filters (Optional[List[str]]): The filters to apply to the model costs.
+
+        Returns:
+            List[AggregatedModelCost]: A list of aggregated model costs.
+        """
+        params = {}
+        if filters is not None:
+            params["filter"] = filters
+            
+        response = self.client.get("/api/modelCosts", params=params)
+        return [
+            AggregatedModelCost.model_validate(item)
+            for item in response.json()
+        ]
+        
 class KodexaClient:
     """
     A class to represent a Kodexa client.
@@ -6725,6 +6815,7 @@ class KodexaClient:
         tasks (TasksEndpoint): An endpoint for tasks.
         users (UsersEndpoint): An endpoint for users.
         workspaces (WorkspacesEndpoint): An endpoint for workspaces.
+        notes (NotesEndpoint): An endpoint for notes.
     """
 
     def __init__(self, url=None, access_token=None, profile=None):
@@ -6754,6 +6845,9 @@ class KodexaClient:
         self.tasks = TasksEndpoint(self)
         self.users = UsersEndpoint(self)
         self.workspaces = WorkspacesEndpoint(self)
+        self.data_exceptions = DataExceptionsEndpoint(self)
+        self.notes = NotesEndpoint(self)
+        self.model_costs = ModelCostsEndpoint(self)
 
     @staticmethod
     def login(url, token):
@@ -7354,6 +7448,8 @@ class KodexaClient:
                 "taxonomy": TaxonomyEndpoint,
                 "user": UserEndpoint,
                 "workspace": WorkspaceEndpoint,
+                "note": NoteEndpoint,
+                "notes": NoteEndpoint,
             }
 
             if component_type in known_components:

@@ -5,7 +5,7 @@ use squawk_syntax::{
     ast::{self, AstNode},
 };
 
-use crate::{Linter, Rule, Violation, text::trim_quotes};
+use crate::{Linter, Rule, Violation, identifier::Identifier};
 
 use crate::visitors::check_not_allowed_types;
 
@@ -35,10 +35,12 @@ fn is_not_allowed_varchar(ty: &ast::Type) -> bool {
                 return false;
             };
             // if we don't have any args, then it's the same as `text`
-            trim_quotes(ty_name.as_str()) == "varchar" && path_type.arg_list().is_some()
+            Identifier::new(ty_name.as_str()) == Identifier::new("varchar")
+                && path_type.arg_list().is_some()
         }
         ast::Type::CharType(char_type) => {
-            trim_quotes(&char_type.text()) == "varchar" && char_type.arg_list().is_some()
+            Identifier::new(&char_type.text()) == Identifier::new("varchar")
+                && char_type.arg_list().is_some()
         }
         ast::Type::BitType(_) => false,
         ast::Type::DoubleType(_) => false,
@@ -69,7 +71,8 @@ pub(crate) fn prefer_text_field(ctx: &mut Linter, parse: &Parse<SourceFile>) {
 mod test {
     use insta::assert_debug_snapshot;
 
-    use crate::{Linter, Rule};
+    use crate::Rule;
+    use crate::test_utils::lint;
 
     /// Changing a column of varchar(255) to varchar(1000) requires an ACCESS
     /// EXCLUSIVE lock
@@ -83,9 +86,7 @@ BEGIN;
 ALTER TABLE "core_foo" ALTER COLUMN "kind" TYPE varchar(1000) USING "kind"::varchar(1000);
 COMMIT;
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTextField]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTextField);
         assert_ne!(errors.len(), 0);
         assert_debug_snapshot!(errors);
     }
@@ -103,9 +104,7 @@ CREATE TABLE "core_bar" (
 );
 COMMIT;
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTextField]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTextField);
         assert_ne!(errors.len(), 0);
         assert_debug_snapshot!(errors);
     }
@@ -118,9 +117,7 @@ create table t (
     "alpha" pg_catalog.varchar(100) NOT NULL
 );
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTextField]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTextField);
         assert_ne!(errors.len(), 0);
         assert_debug_snapshot!(errors);
     }
@@ -132,9 +129,7 @@ BEGIN;
 ALTER TABLE "foo_table" ADD COLUMN "foo_column" varchar(256) NULL;
 COMMIT;
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTextField]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTextField);
         assert_ne!(errors.len(), 0);
         assert_debug_snapshot!(errors);
     }
@@ -144,9 +139,7 @@ COMMIT;
         let sql = r#"
 CREATE TABLE IF NOT EXISTS foo_table(bar_col varchar);
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTextField]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTextField);
         assert_eq!(errors.len(), 0);
     }
 
@@ -167,9 +160,7 @@ CREATE TABLE "core_bar" (
 ALTER TABLE "core_bar" ADD CONSTRAINT "text_size" CHECK (LENGTH("bravo") <= 100);
 COMMIT;
         "#;
-        let file = squawk_syntax::SourceFile::parse(sql);
-        let mut linter = Linter::from([Rule::PreferTextField]);
-        let errors = linter.lint(file, sql);
+        let errors = lint(sql, Rule::PreferTextField);
         assert_eq!(errors.len(), 0);
     }
 }

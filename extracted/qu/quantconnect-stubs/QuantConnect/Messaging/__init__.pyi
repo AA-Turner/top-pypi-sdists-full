@@ -120,59 +120,59 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         ...
 
     @property
-    def debug_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.DebugPacket], None], None]:
+    def debug_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.DebugPacket], typing.Any], typing.Any]:
         ...
 
     @debug_event.setter
-    def debug_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.DebugPacket], None], None]) -> None:
+    def debug_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.DebugPacket], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def system_debug_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.SystemDebugPacket], None], None]:
+    def system_debug_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.SystemDebugPacket], typing.Any], typing.Any]:
         ...
 
     @system_debug_event.setter
-    def system_debug_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.SystemDebugPacket], None], None]) -> None:
+    def system_debug_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.SystemDebugPacket], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def log_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.LogPacket], None], None]:
+    def log_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.LogPacket], typing.Any], typing.Any]:
         ...
 
     @log_event.setter
-    def log_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.LogPacket], None], None]) -> None:
+    def log_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.LogPacket], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def runtime_error_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.RuntimeErrorPacket], None], None]:
+    def runtime_error_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.RuntimeErrorPacket], typing.Any], typing.Any]:
         ...
 
     @runtime_error_event.setter
-    def runtime_error_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.RuntimeErrorPacket], None], None]) -> None:
+    def runtime_error_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.RuntimeErrorPacket], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def handled_error_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.HandledErrorPacket], None], None]:
+    def handled_error_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.HandledErrorPacket], typing.Any], typing.Any]:
         ...
 
     @handled_error_event.setter
-    def handled_error_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.HandledErrorPacket], None], None]) -> None:
+    def handled_error_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.HandledErrorPacket], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def backtest_result_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.BacktestResultPacket], None], None]:
+    def backtest_result_event(self) -> _EventContainer[typing.Callable[[QuantConnect.Packets.BacktestResultPacket], typing.Any], typing.Any]:
         ...
 
     @backtest_result_event.setter
-    def backtest_result_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.BacktestResultPacket], None], None]) -> None:
+    def backtest_result_event(self, value: _EventContainer[typing.Callable[[QuantConnect.Packets.BacktestResultPacket], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def consumer_ready_event(self) -> _EventContainer[typing.Callable[[], None], None]:
+    def consumer_ready_event(self) -> _EventContainer[typing.Callable[[], typing.Any], typing.Any]:
         ...
 
     @consumer_ready_event.setter
-    def consumer_ready_event(self, value: _EventContainer[typing.Callable[[], None], None]) -> None:
+    def consumer_ready_event(self, value: _EventContainer[typing.Callable[[], typing.Any], typing.Any]) -> None:
         ...
 
     def backtest_result_event_raised(self, packet: QuantConnect.Packets.BacktestResultPacket) -> None:

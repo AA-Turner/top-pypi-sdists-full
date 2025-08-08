@@ -106,7 +106,7 @@ def sync_detailed(
         cache_ttl (Union[Unset, None, str]):
         job_id (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
-        json_body (RunScriptByPathJsonBody):
+        json_body (RunScriptByPathJsonBody): The arguments to pass to the script or flow
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -165,7 +165,7 @@ async def asyncio_detailed(
         cache_ttl (Union[Unset, None, str]):
         job_id (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
-        json_body (RunScriptByPathJsonBody):
+        json_body (RunScriptByPathJsonBody): The arguments to pass to the script or flow
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

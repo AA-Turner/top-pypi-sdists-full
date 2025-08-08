@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: kodexa
-Version: 8.0.14958192442
+Version: 7.4.416807352183
 Summary: Python SDK for the Kodexa Platform
 Author: Austin Redenbaugh
 Author-email: austin@kodexa.com
@@ -14,13 +14,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: addict (>=2.4.0,<3.0.0)
-Requires-Dist: antlr4-python3-runtime (>=4.13.2,<5.0.0)
 Requires-Dist: appdirs (>=1.4.4,<2.0.0)
 Requires-Dist: better-exceptions (>=0.3.3,<0.4.0)
 Requires-Dist: certifi (>=2025.0.0,<2026.0.0)
 Requires-Dist: chevron (>=0.14.0,<0.15.0)
 Requires-Dist: deepdiff (>=8.0.1,<9.0.0)
-Requires-Dist: kodexa-document (>=8.0.0,<9.0.0)
 Requires-Dist: msgpack (>=1.0.6,<2.0.0)
 Requires-Dist: ply (>=3.11,<4.0)
 Requires-Dist: pydantic (>=2.5.3,<3.0.0)

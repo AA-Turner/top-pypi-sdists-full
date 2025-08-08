@@ -380,6 +380,8 @@ class LiteLLMRoutes(enum.Enum):
         "/health",
         "/key/list",
         "/user/filter/ui",
+        "/models",
+        "/v1/models",
     ]
 
     # NOTE: ROUTES ONLY FOR MASTER KEY - only the Master Key should be able to Reset Spend
@@ -2208,7 +2210,7 @@ class AllCallbacks(LiteLLMPydanticObjectBase):
 
     braintrust: CallbackOnUI = CallbackOnUI(
         litellm_callback_name="braintrust",
-        litellm_callback_params=["BRAINTRUST_API_KEY"],
+        litellm_callback_params=["BRAINTRUST_API_KEY","BRAINTRUST_API_BASE"],
         ui_callback_name="Braintrust",
     )
 
@@ -2262,6 +2264,7 @@ class SpendLogsMetadata(TypedDict):
     error_information: Optional[StandardLoggingPayloadErrorInformation]
     usage_object: Optional[dict]
     model_map_information: Optional[StandardLoggingModelInformation]
+    cold_storage_object_key: Optional[str]  # S3/GCS object key for cold storage retrieval
 
 
 class SpendLogsPayload(TypedDict):

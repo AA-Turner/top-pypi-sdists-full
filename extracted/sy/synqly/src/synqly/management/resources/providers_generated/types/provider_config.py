@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import typing
 
-from .appsec_open_text_application_security import AppsecOpenTextApplicationSecurity
+from .appsec_hcl_app_scan_on_cloud import AppsecHclAppScanOnCloud
+from .appsec_open_text_core_application_security import AppsecOpenTextCoreApplicationSecurity
 from .assets_armis_centrix import AssetsArmisCentrix
 from .assets_armis_centrix_mock import AssetsArmisCentrixMock
 from .assets_axonius import AssetsAxonius
@@ -63,6 +64,7 @@ from .storage_mock import StorageMock
 from .ticketing_autotask import TicketingAutotask
 from .ticketing_freshdesk import TicketingFreshdesk
 from .ticketing_jira import TicketingJira
+from .ticketing_jira_service_management import TicketingJiraServiceManagement
 from .ticketing_mock import TicketingMock
 from .ticketing_pager_duty import TicketingPagerDuty
 from .ticketing_service_now import TicketingServiceNow
@@ -81,8 +83,17 @@ from .vulnerabilities_tanium_cloud_mock import VulnerabilitiesTaniumCloudMock
 from .vulnerabilities_tenable_cloud import VulnerabilitiesTenableCloud
 
 
-class ProviderConfig_AppsecOpentextApplicationSecurity(AppsecOpenTextApplicationSecurity):
-    type: typing.Literal["appsec_opentext_application_security"]
+class ProviderConfig_AppsecHclAppscanOnCloud(AppsecHclAppScanOnCloud):
+    type: typing.Literal["appsec_hcl_appscan_on_cloud"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
+class ProviderConfig_AppsecOpentextCoreApplicationSecurity(AppsecOpenTextCoreApplicationSecurity):
+    type: typing.Literal["appsec_opentext_core_application_security"]
 
     class Config:
         frozen = True
@@ -612,6 +623,15 @@ class ProviderConfig_TicketingJira(TicketingJira):
         allow_population_by_field_name = True
 
 
+class ProviderConfig_TicketingJiraServiceManagement(TicketingJiraServiceManagement):
+    type: typing.Literal["ticketing_jira_service_management"]
+
+    class Config:
+        frozen = True
+        smart_union = True
+        allow_population_by_field_name = True
+
+
 class ProviderConfig_TicketingMockTicketing(TicketingMock):
     type: typing.Literal["ticketing_mock_ticketing"]
 
@@ -757,7 +777,8 @@ class ProviderConfig_VulnerabilitiesTenableCloud(VulnerabilitiesTenableCloud):
 
 
 ProviderConfig = typing.Union[
-    ProviderConfig_AppsecOpentextApplicationSecurity,
+    ProviderConfig_AppsecHclAppscanOnCloud,
+    ProviderConfig_AppsecOpentextCoreApplicationSecurity,
     ProviderConfig_AssetsArmisCentrix,
     ProviderConfig_AssetsArmisCentrixMock,
     ProviderConfig_AssetsAxonius,
@@ -816,6 +837,7 @@ ProviderConfig = typing.Union[
     ProviderConfig_TicketingAutotask,
     ProviderConfig_TicketingFreshdesk,
     ProviderConfig_TicketingJira,
+    ProviderConfig_TicketingJiraServiceManagement,
     ProviderConfig_TicketingMockTicketing,
     ProviderConfig_TicketingPagerduty,
     ProviderConfig_TicketingServicenow,

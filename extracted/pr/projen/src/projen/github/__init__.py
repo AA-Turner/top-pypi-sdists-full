@@ -7073,6 +7073,7 @@ class TaskWorkflow(
         container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        environment: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
         job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
         outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7095,6 +7096,7 @@ class TaskWorkflow(
         :param container: Default: - default image
         :param download_lfs: (experimental) Whether to download files from Git LFS for this workflow. Default: - Use the setting on the corresponding GitHub project
         :param env: (experimental) Workflow environment variables. Default: {}
+        :param environment: (experimental) The GitHub Actions environment used for the job. Default: - no environment used
         :param git_identity: (experimental) The git identity to use in this workflow.
         :param job_defaults: (experimental) Default settings for all steps in the TaskWorkflow Job.
         :param outputs: (experimental) Mapping of job output names to values/expressions. Default: {}
@@ -7121,6 +7123,7 @@ class TaskWorkflow(
             container=container,
             download_lfs=download_lfs,
             env=env,
+            environment=environment,
             git_identity=git_identity,
             job_defaults=job_defaults,
             outputs=outputs,
@@ -7173,6 +7176,7 @@ class TaskWorkflowJob(
         container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        environment: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
         job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
         outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7192,6 +7196,7 @@ class TaskWorkflowJob(
         :param container: Default: - default image
         :param download_lfs: (experimental) Whether to download files from Git LFS for this workflow. Default: - Use the setting on the corresponding GitHub project
         :param env: (experimental) Workflow environment variables. Default: {}
+        :param environment: (experimental) The GitHub Actions environment used for the job. Default: - no environment used
         :param git_identity: (experimental) The git identity to use in this workflow.
         :param job_defaults: (experimental) Default settings for all steps in the TaskWorkflow Job.
         :param outputs: (experimental) Mapping of job output names to values/expressions. Default: {}
@@ -7215,6 +7220,7 @@ class TaskWorkflowJob(
             container=container,
             download_lfs=download_lfs,
             env=env,
+            environment=environment,
             git_identity=git_identity,
             job_defaults=job_defaults,
             outputs=outputs,
@@ -7285,11 +7291,11 @@ class TaskWorkflowJob(
 
     @builtins.property
     @jsii.member(jsii_name="environment")
-    def environment(self) -> typing.Any:
+    def environment(self) -> typing.Optional[builtins.str]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Any, jsii.get(self, "environment"))
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "environment"))
 
     @builtins.property
     @jsii.member(jsii_name="if")
@@ -7387,6 +7393,7 @@ class TaskWorkflowJob(
         "container": "container",
         "download_lfs": "downloadLfs",
         "env": "env",
+        "environment": "environment",
         "git_identity": "gitIdentity",
         "job_defaults": "jobDefaults",
         "outputs": "outputs",
@@ -7408,6 +7415,7 @@ class TaskWorkflowJobOptions:
         container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        environment: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
         job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
         outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7426,6 +7434,7 @@ class TaskWorkflowJobOptions:
         :param container: Default: - default image
         :param download_lfs: (experimental) Whether to download files from Git LFS for this workflow. Default: - Use the setting on the corresponding GitHub project
         :param env: (experimental) Workflow environment variables. Default: {}
+        :param environment: (experimental) The GitHub Actions environment used for the job. Default: - no environment used
         :param git_identity: (experimental) The git identity to use in this workflow.
         :param job_defaults: (experimental) Default settings for all steps in the TaskWorkflow Job.
         :param outputs: (experimental) Mapping of job output names to values/expressions. Default: {}
@@ -7458,6 +7467,7 @@ class TaskWorkflowJobOptions:
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
             check_type(argname="argument download_lfs", value=download_lfs, expected_type=type_hints["download_lfs"])
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument job_defaults", value=job_defaults, expected_type=type_hints["job_defaults"])
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
@@ -7481,6 +7491,8 @@ class TaskWorkflowJobOptions:
             self._values["download_lfs"] = download_lfs
         if env is not None:
             self._values["env"] = env
+        if environment is not None:
+            self._values["environment"] = environment
         if git_identity is not None:
             self._values["git_identity"] = git_identity
         if job_defaults is not None:
@@ -7570,6 +7582,17 @@ class TaskWorkflowJobOptions:
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the job.
+
+        :default: - no environment used
+
+        :stability: experimental
+        '''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def git_identity(self) -> typing.Optional[GitIdentity]:
@@ -7682,6 +7705,7 @@ class TaskWorkflowJobOptions:
         "container": "container",
         "download_lfs": "downloadLfs",
         "env": "env",
+        "environment": "environment",
         "git_identity": "gitIdentity",
         "job_defaults": "jobDefaults",
         "outputs": "outputs",
@@ -7707,6 +7731,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
         download_lfs: typing.Optional[builtins.bool] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        environment: typing.Optional[builtins.str] = None,
         git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
         job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
         outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -7729,6 +7754,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         :param container: Default: - default image
         :param download_lfs: (experimental) Whether to download files from Git LFS for this workflow. Default: - Use the setting on the corresponding GitHub project
         :param env: (experimental) Workflow environment variables. Default: {}
+        :param environment: (experimental) The GitHub Actions environment used for the job. Default: - no environment used
         :param git_identity: (experimental) The git identity to use in this workflow.
         :param job_defaults: (experimental) Default settings for all steps in the TaskWorkflow Job.
         :param outputs: (experimental) Mapping of job output names to values/expressions. Default: {}
@@ -7767,6 +7793,7 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
             check_type(argname="argument download_lfs", value=download_lfs, expected_type=type_hints["download_lfs"])
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument git_identity", value=git_identity, expected_type=type_hints["git_identity"])
             check_type(argname="argument job_defaults", value=job_defaults, expected_type=type_hints["job_defaults"])
             check_type(argname="argument outputs", value=outputs, expected_type=type_hints["outputs"])
@@ -7796,6 +7823,8 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
             self._values["download_lfs"] = download_lfs
         if env is not None:
             self._values["env"] = env
+        if environment is not None:
+            self._values["environment"] = environment
         if git_identity is not None:
             self._values["git_identity"] = git_identity
         if job_defaults is not None:
@@ -7889,6 +7918,17 @@ class TaskWorkflowOptions(TaskWorkflowJobOptions):
         '''
         result = self._values.get("env")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the job.
+
+        :default: - no environment used
+
+        :stability: experimental
+        '''
+        result = self._values.get("environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def git_identity(self) -> typing.Optional[GitIdentity]:
@@ -9831,6 +9871,7 @@ def _typecheckingstub__8d4fb3030e96a87b921aa6bfb0d4ccf7a90d4c2affbcb8eeca2d5a24c
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    environment: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
     outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9854,6 +9895,7 @@ def _typecheckingstub__8e35b96aa7e4fe84c59cac8c7e3f4c146c780c7b09807f610b1aaf727
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    environment: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
     outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9875,6 +9917,7 @@ def _typecheckingstub__4f2039f9f0120fa5bcc0261afed5aa5fd2be59874413018ee781d5e75
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    environment: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
     outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9896,6 +9939,7 @@ def _typecheckingstub__15e1c594f5876baf2e105789fcb541bcb5e71cea5ad4320fb67052a9c
     container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
     download_lfs: typing.Optional[builtins.bool] = None,
     env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    environment: typing.Optional[builtins.str] = None,
     git_identity: typing.Optional[typing.Union[GitIdentity, typing.Dict[builtins.str, typing.Any]]] = None,
     job_defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
     outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,

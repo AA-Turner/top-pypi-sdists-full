@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.35.1
+Version: 1.35.2
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -25,7 +25,7 @@ Requires-Dist: defusedxml ~= 0.7
 Requires-Dist: azure-identity >= 1.13
 Requires-Dist: numpy >= 1.25.0; python_version < '3.12'
 Requires-Dist: numpy >= 1.26.0; python_version >= '3.12'
-Requires-Dist: openai >= 1.91.1
+Requires-Dist: openai >= 1.98.0
 Requires-Dist: openapi_core >= 0.18,<0.20
 Requires-Dist: websockets >= 13, < 16
 Requires-Dist: aiortc>=1.9.0
@@ -42,7 +42,7 @@ Requires-Dist: protobuf
 Requires-Dist: typing-extensions>=4.13
 Requires-Dist: anthropic ~= 0.32 ; extra == "anthropic"
 Requires-Dist: autogen-agentchat >= 0.2, <0.4 ; extra == "autogen"
-Requires-Dist: boto3>=1.36.4,<1.40.0 ; extra == "aws"
+Requires-Dist: boto3>=1.36.4,<1.41.0 ; extra == "aws"
 Requires-Dist: azure-ai-inference >= 1.0.0b6 ; extra == "azure"
 Requires-Dist: azure-core-tracing-opentelemetry >= 1.0.0b11 ; extra == "azure"
 Requires-Dist: azure-search-documents >= 11.6.0b4 ; extra == "azure"

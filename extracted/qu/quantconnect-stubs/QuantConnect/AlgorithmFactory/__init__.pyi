@@ -121,7 +121,7 @@ class DebuggerHelper(System.Object):
             ...
 
     @staticmethod
-    def initialize(language: QuantConnect.Language, workers_initialization_callback: typing.Optional[typing.Callable[[], None]]) -> typing.Tuple[None, typing.Callable[[], None]]:
+    def initialize(language: QuantConnect.Language, workers_initialization_callback: typing.Optional[typing.Callable[[], typing.Any]]) -> typing.Tuple[None, typing.Callable[[], typing.Any]]:
         """
         Will start a new debugging session
         

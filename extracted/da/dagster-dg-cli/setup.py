@@ -35,18 +35,15 @@ setup(
     packages=find_packages(exclude=["dagster_dg_cli_tests*"]),
     include_package_data=True,
     install_requires=[
-        "dagster-dg-core==1.11.4",
-        "dagster==1.11.4",
+        "dagster-dg-core==1.11.5",
+        "dagster==1.11.5",
+        "mcp; python_version>='3.10'",  # mcp not available for 3.9
+        "typer",
     ],
     entry_points={
         "console_scripts": [
             "dg = dagster_dg_cli.cli:main",
         ]
-    },
-    extras_require={
-        "mcp": [
-            "mcp",
-        ],
     },
     zip_safe=False,
 )

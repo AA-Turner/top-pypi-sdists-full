@@ -14,7 +14,7 @@ T = TypeVar("T", bound="RunCodeWorkflowTaskJsonBody")
 class RunCodeWorkflowTaskJsonBody:
     """
     Attributes:
-        args (RunCodeWorkflowTaskJsonBodyArgs):
+        args (RunCodeWorkflowTaskJsonBodyArgs): The arguments to pass to the script or flow
     """
 
     args: "RunCodeWorkflowTaskJsonBodyArgs"

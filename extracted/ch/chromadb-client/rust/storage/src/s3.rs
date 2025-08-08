@@ -13,28 +13,31 @@ use super::stream::ByteStreamItem;
 use super::stream::S3ByteStream;
 use super::StorageConfigError;
 use super::{DeleteOptions, PutOptions};
-use crate::{ETag, StorageError};
+use crate::{ETag, GetOptions, StorageError};
 use async_trait::async_trait;
 use aws_config::retry::RetryConfig;
 use aws_config::timeout::TimeoutConfigBuilder;
 use aws_sdk_s3;
+use aws_sdk_s3::config::StalledStreamProtectionConfig;
 use aws_sdk_s3::error::ProvideErrorMetadata;
 use aws_sdk_s3::error::SdkError;
 use aws_sdk_s3::operation::create_bucket::CreateBucketError;
 use aws_sdk_s3::operation::get_object::GetObjectOutput;
 use aws_sdk_s3::primitives::ByteStream;
-use aws_sdk_s3::types::CompletedMultipartUpload;
-use aws_sdk_s3::types::CompletedPart;
+use aws_sdk_s3::types::{CompletedMultipartUpload, CompletedPart, Delete, ObjectIdentifier};
 use aws_smithy_types::byte_stream::Length;
 use bytes::Bytes;
 use chroma_config::registry::Registry;
 use chroma_config::Configurable;
 use chroma_error::ChromaError;
+use chroma_tracing::util::Stopwatch;
 use futures::future::BoxFuture;
 use futures::stream;
 use futures::FutureExt;
 use futures::Stream;
 use futures::StreamExt;
+use opentelemetry::metrics::{Counter, Histogram};
+use opentelemetry::KeyValue;
 use rand::Rng;
 use std::clone::Clone;
 use std::ops::Range;
@@ -43,12 +46,60 @@ use std::time::Duration;
 use tokio::io::AsyncReadExt;
 use tracing::Instrument;
 
+#[derive(Clone, Debug, Default)]
+pub struct DeletedObjects {
+    pub deleted: Vec<String>,
+    pub errors: Vec<StorageError>,
+}
+#[derive(Clone)]
+pub struct StorageMetrics {
+    s3_get_count: Counter<u64>,
+    s3_put_count: Counter<u64>,
+    s3_delete_count: Counter<u64>,
+    s3_delete_many_count: Counter<u64>,
+    s3_get_latency_ms: Histogram<u64>,
+    hostname_attribute: [KeyValue; 1],
+}
+
+impl Default for StorageMetrics {
+    fn default() -> Self {
+        Self {
+            s3_get_count: opentelemetry::global::meter("chroma.storage")
+                .u64_counter("s3_get_count")
+                .with_description("Number of S3 get operations")
+                .build(),
+            s3_put_count: opentelemetry::global::meter("chroma.storage")
+                .u64_counter("s3_put_count")
+                .with_description("Number of S3 put operations")
+                .build(),
+            s3_delete_count: opentelemetry::global::meter("chroma.storage")
+                .u64_counter("s3_delete_count")
+                .with_description("Number of S3 delete operations")
+                .build(),
+            s3_delete_many_count: opentelemetry::global::meter("chroma.storage")
+                .u64_counter("s3_delete_many_count")
+                .with_description("Number of S3 delete many operations")
+                .build(),
+            s3_get_latency_ms: opentelemetry::global::meter("chroma.storage")
+                .u64_histogram("s3_get_latency_ms")
+                .with_description("Latency of S3 get operations in milliseconds")
+                .with_unit("ms")
+                .build(),
+            hostname_attribute: [KeyValue::new(
+                "hostname",
+                std::env::var("HOSTNAME").unwrap_or_else(|_| "unknown".to_string()),
+            )],
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct S3Storage {
     pub(super) bucket: String,
     pub(super) client: aws_sdk_s3::Client,
     pub(super) upload_part_size_bytes: usize,
     pub(super) download_part_size_bytes: usize,
+    pub(super) metrics: StorageMetrics,
 }
 
 impl S3Storage {
@@ -63,6 +114,7 @@ impl S3Storage {
             client,
             upload_part_size_bytes,
             download_part_size_bytes,
+            metrics: StorageMetrics::default(),
         }
     }
 
@@ -104,7 +156,6 @@ impl S3Storage {
         }
     }
 
-    #[tracing::instrument(skip(self), level = "trace")]
     #[allow(clippy::type_complexity)]
     async fn get_stream_and_e_tag(
         &self,
@@ -122,6 +173,7 @@ impl S3Storage {
             .bucket(self.bucket.clone())
             .key(key)
             .send()
+            .instrument(tracing::trace_span!("cold S3 get"))
             .await;
         match res {
             Ok(res) => {
@@ -221,6 +273,7 @@ impl S3Storage {
             .key(&key)
             .range(range_str)
             .send()
+            .instrument(tracing::trace_span!("cold S3 get"))
             .await;
         match res {
             Ok(output) => Ok(output),
@@ -257,10 +310,7 @@ impl S3Storage {
     }
 
     #[tracing::instrument(skip(self), level = "trace")]
-    pub(super) async fn get_parallel(
-        &self,
-        key: &str,
-    ) -> Result<(Arc<Vec<u8>>, Option<ETag>), StorageError> {
+    async fn get_parallel(&self, key: &str) -> Result<(Arc<Vec<u8>>, Option<ETag>), StorageError> {
         let (content_length, ranges, e_tag) = self.get_key_ranges(key).await?;
 
         // .buffer_unordered() below will hang if the range is empty (https://github.com/rust-lang/futures-rs/issues/2740), so we short-circuit here
@@ -274,7 +324,15 @@ impl S3Storage {
         let range_and_output_slices = ranges.iter().zip(output_slices.drain(..));
         let mut get_futures = Vec::new();
         let num_parts = range_and_output_slices.len();
+        self.metrics
+            .s3_get_count
+            .add(num_parts as u64, &self.metrics.hostname_attribute);
         for (range, output_slice) in range_and_output_slices {
+            let _stopwatch = Stopwatch::new(
+                &self.metrics.s3_get_latency_ms,
+                &self.metrics.hostname_attribute,
+                chroma_tracing::util::StopWatchUnit::Millis,
+            );
             let range_str = format!("bytes={}-{}", range.0, range.1);
             let fut = self
                 .fetch_range(key.to_string(), range_str)
@@ -307,7 +365,10 @@ impl S3Storage {
     }
 
     #[tracing::instrument(skip(self), level = "trace")]
-    pub async fn get(&self, key: &str) -> Result<Arc<Vec<u8>>, StorageError> {
+    pub async fn get(&self, key: &str, options: GetOptions) -> Result<Arc<Vec<u8>>, StorageError> {
+        if options.request_parallelism {
+            return self.get_parallel(key).await.map(|(buf, _)| buf);
+        }
         self.get_with_e_tag(key).await.map(|(buf, _)| buf)
     }
 
@@ -317,11 +378,15 @@ impl S3Storage {
         &self,
         key: &str,
     ) -> Result<(Arc<Vec<u8>>, Option<ETag>), StorageError> {
-        let (mut stream, e_tag) = self
-            .get_stream_and_e_tag(key)
-            .instrument(tracing::trace_span!("S3 get stream"))
-            .await?;
-        let read_block_span = tracing::trace_span!("S3 read bytes to end");
+        self.metrics
+            .s3_get_count
+            .add(1, &self.metrics.hostname_attribute);
+        let _stopwatch = Stopwatch::new(
+            &self.metrics.s3_get_latency_ms,
+            &self.metrics.hostname_attribute,
+            chroma_tracing::util::StopWatchUnit::Millis,
+        );
+        let (mut stream, e_tag) = self.get_stream_and_e_tag(key).await?;
         let buf = async {
             let mut buf: Vec<u8> = Vec::new();
             while let Some(res) = stream.next().await {
@@ -337,7 +402,6 @@ impl S3Storage {
             }
             Ok(Some(buf))
         }
-        .instrument(read_block_span)
         .await?;
         match buf {
             Some(buf) => Ok((Arc::new(buf), e_tag)),
@@ -423,6 +487,10 @@ impl S3Storage {
         ) -> BoxFuture<'static, Result<ByteStream, StorageError>>,
         options: PutOptions,
     ) -> Result<Option<ETag>, StorageError> {
+        self.metrics
+            .s3_put_count
+            .add(1, &self.metrics.hostname_attribute);
+
         if self.is_oneshot_upload(total_size_bytes) {
             return self
                 .oneshot_upload(key, total_size_bytes, create_bytestream_fn, options)
@@ -626,7 +694,9 @@ impl S3Storage {
 
     #[tracing::instrument(skip(self), level = "trace")]
     pub async fn delete(&self, key: &str, options: DeleteOptions) -> Result<(), StorageError> {
-        tracing::trace!(key = %key, "Deleting object from S3");
+        self.metrics
+            .s3_delete_count
+            .add(1, &self.metrics.hostname_attribute);
 
         let req = self.client.delete_object().bucket(&self.bucket).key(key);
 
@@ -660,6 +730,70 @@ impl S3Storage {
                     source: Arc::new(e),
                 }),
             },
+        }
+    }
+
+    #[tracing::instrument(skip(self, keys), level = "trace")]
+    pub async fn delete_many<S: AsRef<str> + std::fmt::Debug, I: IntoIterator<Item = S>>(
+        &self,
+        keys: I,
+    ) -> Result<DeletedObjects, StorageError> {
+        self.metrics
+            .s3_delete_many_count
+            .add(1, &self.metrics.hostname_attribute);
+
+        let mut objects = vec![];
+        for key in keys {
+            objects.push(
+                ObjectIdentifier::builder()
+                    .key(key.as_ref())
+                    .build()
+                    .map_err(|err| StorageError::Generic {
+                        source: Arc::new(err),
+                    })?,
+            );
+        }
+        let delete = Delete::builder()
+            .set_objects(Some(objects))
+            .build()
+            .map_err(|err| StorageError::Generic {
+                source: Arc::new(err),
+            })?;
+
+        let req = self
+            .client
+            .delete_objects()
+            .bucket(&self.bucket)
+            .delete(delete);
+
+        match req.send().await {
+            Ok(resp) => {
+                let mut out = DeletedObjects::default();
+                for deleted in resp.deleted() {
+                    if let Some(key) = deleted.key.clone() {
+                        out.deleted.push(key);
+                    }
+                }
+                for error in resp.errors() {
+                    out.errors.push(if Some("NoSuchKey") == error.code() {
+                        StorageError::NotFound {
+                            path: error.key.clone().unwrap_or(String::new()),
+                            source: Arc::new(StorageError::Message {
+                                message: format!("{error:#?}"),
+                            }),
+                        }
+                    } else {
+                        StorageError::Message {
+                            message: format!("{error:#?}"),
+                        }
+                    });
+                }
+                tracing::trace!("Successfully deleted objects from S3");
+                Ok(out)
+            }
+            Err(e) => Err(StorageError::Generic {
+                source: Arc::new(e),
+            }),
         }
     }
 
@@ -783,6 +917,7 @@ impl Configurable<StorageConfig> for S3Storage {
                             .to_builder()
                             .timeout_config(timeout_config_builder.build())
                             .retry_config(retry_config)
+                            .stalled_stream_protection(StalledStreamProtectionConfig::disabled())
                             .build();
                         aws_sdk_s3::Client::new(&config)
                     }
@@ -892,6 +1027,7 @@ mod tests {
             client,
             upload_part_size_bytes: 1024 * 1024 * 8,
             download_part_size_bytes: 1024 * 1024 * 8,
+            metrics: Default::default(),
         };
         storage.create_bucket().await.unwrap();
 
@@ -901,7 +1037,7 @@ mod tests {
             .await
             .unwrap();
 
-        let buf = storage.get("test").await.unwrap();
+        let buf = storage.get("test", GetOptions::default()).await.unwrap();
         let buf = String::from_utf8(buf.to_vec()).unwrap();
         assert_eq!(buf, test_data);
     }
@@ -917,6 +1053,7 @@ mod tests {
             client,
             upload_part_size_bytes,
             download_part_size_bytes,
+            metrics: Default::default(),
         };
         storage.create_bucket().await.unwrap();
         storage
@@ -951,7 +1088,7 @@ mod tests {
             .await
             .unwrap();
 
-        let buf = storage.get("test").await.unwrap();
+        let buf = storage.get("test", GetOptions::default()).await.unwrap();
         let file_contents = std::fs::read(temp_file.path()).unwrap();
         assert_eq!(buf, file_contents.into());
     }
@@ -964,6 +1101,7 @@ mod tests {
             client,
             upload_part_size_bytes: 1024 * 1024 * 8,
             download_part_size_bytes: 1024 * 1024 * 8,
+            metrics: Default::default(),
         };
         storage.create_bucket().await.unwrap();
 
@@ -1187,7 +1325,10 @@ mod tests {
             .await
             .unwrap();
         storage.copy("test/00", "test2/00").await.unwrap();
-        let bytes = storage.get("test2/00").await.unwrap();
+        let bytes = storage
+            .get("test2/00", GetOptions::default())
+            .await
+            .unwrap();
         assert_eq!("ABC123XYZ".as_bytes(), bytes.as_slice());
     }
 
@@ -1217,5 +1358,51 @@ mod tests {
         for (i, result) in results.iter().enumerate() {
             assert_eq!(format!("test/{:02x}", i), *result, "index = {}", i);
         }
+    }
+
+    #[tokio::test]
+    async fn test_k8s_integration_delete_many() {
+        let storage = setup_with_bucket(1024 * 1024 * 8, 1024 * 1024 * 8).await;
+
+        // Create every other file (0, 2, 4, 6, 8, 10, 12, 14)
+        let mut created_files = Vec::new();
+        for i in (0..16).step_by(2) {
+            let key = format!("test/{:02x}", i);
+            storage
+                .oneshot_upload(
+                    &key,
+                    0,
+                    |_| Box::pin(ready(Ok(ByteStream::from(Bytes::new())))) as _,
+                    PutOptions {
+                        if_not_exists: true,
+                        if_match: None,
+                        priority: StorageRequestPriority::P0,
+                    },
+                )
+                .await
+                .unwrap();
+            created_files.push(key);
+        }
+
+        // Try to delete all files (0-15), including ones that don't exist
+        let mut all_keys = Vec::new();
+        for i in 0..16 {
+            all_keys.push(format!("test/{:02x}", i));
+        }
+        let all_key_refs: Vec<&str> = all_keys.iter().map(|s| s.as_str()).collect();
+
+        let delete_result = storage.delete_many(&all_key_refs).await.unwrap();
+
+        // Verify that every created file appears in the deleted files
+        for created_file in &created_files {
+            assert!(
+                delete_result.deleted.contains(created_file),
+                "Created file {} should be in deleted files",
+                created_file
+            );
+        }
+
+        eprintln!("Successfully deleted: {:#?}", delete_result.deleted);
+        eprintln!("Errors for non-existent files: {:#?}", delete_result.errors);
     }
 }

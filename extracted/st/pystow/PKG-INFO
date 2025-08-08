@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pystow
-Version: 0.7.3
+Version: 0.7.4
 Summary: Easily pick a place to store data for your Python code
 Keywords: snekpack,cookiecutter,caching,file management
 Author: Charles Tapley Hoyt
@@ -33,6 +33,7 @@ Requires-Dist: sphinx-rtd-theme>=3.0 ; extra == 'docs'
 Requires-Dist: sphinx-click ; extra == 'docs'
 Requires-Dist: sphinx-automodapi ; extra == 'docs'
 Requires-Dist: pandas ; extra == 'pandas'
+Requires-Dist: ratelimit ; extra == 'ratelimit'
 Requires-Dist: rdflib ; extra == 'rdf'
 Requires-Dist: pytest ; extra == 'tests'
 Requires-Dist: coverage[toml] ; extra == 'tests'
@@ -49,6 +50,7 @@ Project-URL: Repository, https://github.com/cthoyt/pystow.git
 Provides-Extra: aws
 Provides-Extra: docs
 Provides-Extra: pandas
+Provides-Extra: ratelimit
 Provides-Extra: rdf
 Provides-Extra: tests
 Provides-Extra: xml

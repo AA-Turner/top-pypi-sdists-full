@@ -24,7 +24,7 @@ class EditKafkaTrigger:
         script_path (str):
         is_flow (bool):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, EditKafkaTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, EditKafkaTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, EditKafkaTriggerRetry]):
     """
 

@@ -59,6 +59,7 @@ class CloudWithCloudResourceGCP(object):
         'customer_aggregated_logs_config_id': 'str',
         'additional_instance_types': 'list[UXInstance]',
         'is_aggregated_logs_enabled': 'bool',
+        'system_cluster_config_id': 'str',
         'cloud_resource': 'CloudResourceGCP'
     }
 
@@ -89,10 +90,11 @@ class CloudWithCloudResourceGCP(object):
         'customer_aggregated_logs_config_id': 'customer_aggregated_logs_config_id',
         'additional_instance_types': 'additional_instance_types',
         'is_aggregated_logs_enabled': 'is_aggregated_logs_enabled',
+        'system_cluster_config_id': 'system_cluster_config_id',
         'cloud_resource': 'cloud_resource'
     }
 
-    def __init__(self, name=None, provider=None, compute_stack=None, region=None, credentials=None, config=None, is_k8s=False, is_aioa=False, availability_zones=None, is_bring_your_own_resource=None, is_private_cloud=False, cluster_management_stack_version=None, is_private_service_cloud=None, auto_add_user=False, external_id=None, id=None, type=None, creator_id=None, created_at=None, status=None, state=None, version=None, is_default=None, customer_aggregated_logs_config_id=None, additional_instance_types=None, is_aggregated_logs_enabled=None, cloud_resource=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, provider=None, compute_stack=None, region=None, credentials=None, config=None, is_k8s=False, is_aioa=False, availability_zones=None, is_bring_your_own_resource=None, is_private_cloud=False, cluster_management_stack_version=None, is_private_service_cloud=None, auto_add_user=False, external_id=None, id=None, type=None, creator_id=None, created_at=None, status=None, state=None, version=None, is_default=None, customer_aggregated_logs_config_id=None, additional_instance_types=None, is_aggregated_logs_enabled=None, system_cluster_config_id=None, cloud_resource=None, local_vars_configuration=None):  # noqa: E501
         """CloudWithCloudResourceGCP - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -124,6 +126,7 @@ class CloudWithCloudResourceGCP(object):
         self._customer_aggregated_logs_config_id = None
         self._additional_instance_types = None
         self._is_aggregated_logs_enabled = None
+        self._system_cluster_config_id = None
         self._cloud_resource = None
         self.discriminator = None
 
@@ -169,6 +172,8 @@ class CloudWithCloudResourceGCP(object):
             self.additional_instance_types = additional_instance_types
         if is_aggregated_logs_enabled is not None:
             self.is_aggregated_logs_enabled = is_aggregated_logs_enabled
+        if system_cluster_config_id is not None:
+            self.system_cluster_config_id = system_cluster_config_id
         if cloud_resource is not None:
             self.cloud_resource = cloud_resource
 
@@ -787,6 +792,29 @@ class CloudWithCloudResourceGCP(object):
         """
 
         self._is_aggregated_logs_enabled = is_aggregated_logs_enabled
+
+    @property
+    def system_cluster_config_id(self):
+        """Gets the system_cluster_config_id of this CloudWithCloudResourceGCP.  # noqa: E501
+
+        the id of the system cluster config associated with this cloud.  # noqa: E501
+
+        :return: The system_cluster_config_id of this CloudWithCloudResourceGCP.  # noqa: E501
+        :rtype: str
+        """
+        return self._system_cluster_config_id
+
+    @system_cluster_config_id.setter
+    def system_cluster_config_id(self, system_cluster_config_id):
+        """Sets the system_cluster_config_id of this CloudWithCloudResourceGCP.
+
+        the id of the system cluster config associated with this cloud.  # noqa: E501
+
+        :param system_cluster_config_id: The system_cluster_config_id of this CloudWithCloudResourceGCP.  # noqa: E501
+        :type: str
+        """
+
+        self._system_cluster_config_id = system_cluster_config_id
 
     @property
     def cloud_resource(self):

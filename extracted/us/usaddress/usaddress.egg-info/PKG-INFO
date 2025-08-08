@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: usaddress
-Version: 0.5.15
+Version: 0.5.16
 Summary: Parse US addresses using conditional random fields
 License: MIT License
 Project-URL: Homepage, https://github.com/datamade/usaddress

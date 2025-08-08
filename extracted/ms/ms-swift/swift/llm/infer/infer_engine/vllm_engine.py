@@ -14,9 +14,10 @@ from transformers.utils import is_torch_npu_available
 
 from swift.llm import InferRequest, Template, TemplateMeta, get_model_tokenizer
 from swift.plugin import Metric
-from swift.utils import get_dist_setting, get_logger, is_dist
+from swift.utils import get_device, get_dist_setting, get_logger, is_dist
 from ..protocol import (ChatCompletionResponse, ChatCompletionResponseChoice, ChatCompletionResponseStreamChoice,
-                        ChatCompletionStreamResponse, ChatMessage, DeltaMessage, RequestConfig, random_uuid)
+                        ChatCompletionStreamResponse, ChatMessage, DeltaMessage, EmbeddingResponse,
+                        EmbeddingResponseData, RequestConfig, random_uuid)
 from .infer_engine import InferEngine
 from .patch import patch_auto_config, patch_auto_tokenizer
 from .utils import AdapterRequest, InferStreamer, patch_npu_vllm, patch_vllm_memory_leak
@@ -50,13 +51,14 @@ class VllmEngine(InferEngine):
         gpu_memory_utilization: float = 0.9,
         tensor_parallel_size: int = 1,
         pipeline_parallel_size: int = 1,
+        enable_expert_parallel: bool = False,
         max_model_len: Optional[int] = None,
         max_num_seqs: int = 256,
         disable_custom_all_reduce: bool = True,
         enforce_eager: bool = False,
         limit_mm_per_prompt: Optional[Dict[str, Any]] = None,
-        device: str = 'auto',
         seed: Optional[int] = None,
+        task_type: Optional[str] = None,  # embedding
         # lora
         enable_lora: bool = False,
         max_loras: int = 1,
@@ -80,13 +82,15 @@ class VllmEngine(InferEngine):
             model_type=model_type,
             use_hf=use_hf,
             hub_token=hub_token,
-            revision=revision)[1]
+            revision=revision,
+            task_type=task_type)[1]
         self._post_init(template)
 
         self._prepare_engine_kwargs(
             gpu_memory_utilization=gpu_memory_utilization,
             tensor_parallel_size=tensor_parallel_size,
             pipeline_parallel_size=pipeline_parallel_size,
+            enable_expert_parallel=enable_expert_parallel,
             max_model_len=max_model_len,
             max_num_seqs=max_num_seqs,
             disable_custom_all_reduce=disable_custom_all_reduce,
@@ -96,16 +100,16 @@ class VllmEngine(InferEngine):
             max_loras=max_loras,
             max_lora_rank=max_lora_rank,
             enable_prefix_caching=enable_prefix_caching,
-            device=device,
             seed=seed,
             distributed_executor_backend=distributed_executor_backend,
             enable_sleep_mode=enable_sleep_mode,
             quantization=quantization,
+            task=task_type,
             **engine_kwargs,
         )
         context = nullcontext()
         if is_torch_npu_available() and (tensor_parallel_size == 1 or pipeline_parallel_size == 1):
-            context = patch_npu_vllm(self.engine_args.device)
+            context = patch_npu_vllm(get_device())
         with context:
             self._prepare_engine()
         self._load_generation_config()
@@ -124,12 +128,12 @@ class VllmEngine(InferEngine):
         gpu_memory_utilization: float = 0.9,
         tensor_parallel_size: int = 1,
         pipeline_parallel_size: int = 1,
+        enable_expert_parallel: bool = False,
         max_model_len: Optional[int] = None,
         max_num_seqs: int = 256,
         disable_custom_all_reduce: bool = True,
         enforce_eager: bool = False,
         limit_mm_per_prompt: Optional[Dict[str, Any]] = None,
-        device: str = 'auto',
         seed: Optional[int] = None,
         enable_lora: bool = False,
         max_loras: int = 1,
@@ -137,8 +141,11 @@ class VllmEngine(InferEngine):
         enable_prefix_caching: bool = False,
         distributed_executor_backend: Optional[str] = None,
         enable_sleep_mode: bool = False,
+        task: Optional[str] = None,
         **engine_kwargs,
     ) -> None:
+        if task == 'embedding':
+            task = 'embed'
         disable_log_stats = engine_kwargs.pop('disable_log_stats', True)
         if self.use_async_engine:
             engine_cls = AsyncEngineArgs
@@ -158,9 +165,10 @@ class VllmEngine(InferEngine):
         else:
             assert not limit_mm_per_prompt, (
                 'The current version of VLLM does not support `limit_mm_per_prompt`. Please upgrade VLLM.')
-        if 'enable_sleep_mode' in parameters:
-            engine_kwargs['enable_sleep_mode'] = enable_sleep_mode
-        for key in ['seed']:
+        for key in ['enable_expert_parallel', 'enable_sleep_mode']:
+            if key in parameters:
+                engine_kwargs[key] = locals()[key]
+        for key in ['task', 'seed']:
             val = locals()[key]
             if val is not None:
                 engine_kwargs[key] = val
@@ -184,7 +192,6 @@ class VllmEngine(InferEngine):
             trust_remote_code=True,
             enable_prefix_caching=enable_prefix_caching,
             distributed_executor_backend=distributed_executor_backend,
-            device=device,
             **engine_kwargs,
         )
         self.engine_args = engine_args
@@ -273,7 +280,10 @@ class VllmEngine(InferEngine):
                         mm_data = {key.rstrip('s'): media_data[0]}
             if mm_data:
                 llm_inputs['multi_modal_data'] = mm_data
-            if self.use_async_engine:
+            if self.task_type == 'embedding':
+                from vllm.pooling_params import PoolingParams
+                return self.engine.encode(llm_inputs, PoolingParams(), request_id)
+            elif self.use_async_engine:
                 return self.engine.generate(llm_inputs, generation_config, request_id, **kwargs)
             else:
                 return self.engine.add_request(request_id, llm_inputs, generation_config, **kwargs)
@@ -320,8 +330,6 @@ class VllmEngine(InferEngine):
             # fix n > 1 in V1 Engine
             from vllm.sampling_params import RequestOutputKind
             res.output_kind = RequestOutputKind.FINAL_ONLY
-
-        res.top_logprobs = request_config.top_logprobs
         return res
 
     @property
@@ -332,20 +340,26 @@ class VllmEngine(InferEngine):
     def inner_model_executor(self):
         return self.engine.model_executor
 
-    async def _infer_stream_async(self, template: Template, inputs: Dict[str, Any], generation_config: SamplingParams,
-                                  **kwargs) -> AsyncIterator[ChatCompletionStreamResponse]:
+    async def _infer_stream_async(
+        self,
+        template: Template,
+        inputs: Dict[str, Any],
+        generation_config: SamplingParams,
+        adapter_request: Optional[AdapterRequest],
+        request_config: RequestConfig,
+    ) -> AsyncIterator[ChatCompletionStreamResponse]:
         request_id = random_uuid()
-        result_generator = self._add_request(inputs, generation_config, request_id, **kwargs)
+        result_generator = self._add_request(inputs, generation_config, request_id, adapter_request=adapter_request)
         infer_streamers = [InferStreamer(template) for _ in range(generation_config.n)]
         token_idxs = [0 for _ in range(generation_config.n)]
         async for result in result_generator:
-            res = self._create_chat_completion_stream_response(result, template, generation_config, request_id,
+            res = self._create_chat_completion_stream_response(result, template, request_config, request_id,
                                                                infer_streamers, token_idxs)
             if res is None:
                 continue
             yield res
 
-    def _create_chat_completion_stream_response(self, result, template, generation_config, request_id, infer_streamers,
+    def _create_chat_completion_stream_response(self, result, template, request_config, request_id, infer_streamers,
                                                 token_idxs) -> Optional[ChatCompletionStreamResponse]:
         is_diff = False
         is_finished = False
@@ -363,7 +377,7 @@ class VllmEngine(InferEngine):
         choices = []
         for output in result.outputs:
             logprobs = self._get_logprobs(output.logprobs, output.token_ids[token_idxs[output.index]:],
-                                          generation_config.top_logprobs)
+                                          request_config.top_logprobs)
             token_idxs[output.index] = len(output.token_ids)
             toolcall = None
             if output.is_finished:
@@ -376,8 +390,20 @@ class VllmEngine(InferEngine):
             choices.append(choice)
         return ChatCompletionStreamResponse(model=self.model_name, choices=choices, usage=usage_info, id=request_id)
 
-    def _create_chat_completion_response(self, result, template, generation_config,
-                                         request_id) -> ChatCompletionResponse:
+    def _create_embedding_response(self, result, template, generation_config, request_id) -> EmbeddingResponse:
+        assert result is not None
+        embedding = result.outputs.data.cpu().numpy().tolist()
+        usage_info = self._get_usage_info(len(result.prompt_token_ids), 0)
+        return EmbeddingResponse(
+            model=self.model_name, data=[EmbeddingResponseData(embedding=embedding)], usage=usage_info, id=request_id)
+
+    def _create_chat_completion_response(
+        self,
+        result,
+        template,
+        request_config,
+        request_id,
+    ) -> ChatCompletionResponse:
         assert result is not None
         num_generated_tokens = sum(len(output.token_ids) for output in result.outputs)
         usage_info = self._get_usage_info(len(result.prompt_token_ids), num_generated_tokens)
@@ -385,29 +411,37 @@ class VllmEngine(InferEngine):
         for output in result.outputs:
             output.token_ids = list(output.token_ids)
             response = template.decode(output.token_ids)
-            logprobs = self._get_logprobs(output.logprobs, output.token_ids, generation_config.top_logprobs)
+            logprobs = self._get_logprobs(output.logprobs, output.token_ids, request_config.top_logprobs)
             toolcall = self._get_toolcall(response, template)
+            token_ids = template.skip_stop_tokens(output.token_ids) if request_config.return_details else None
             choice = ChatCompletionResponseChoice(
                 index=output.index,
                 message=ChatMessage(role='assistant', content=response, tool_calls=toolcall),
                 finish_reason=output.finish_reason,
-                logprobs=logprobs)
+                logprobs=logprobs,
+                token_ids=token_ids)
             choices.append(choice)
-        return ChatCompletionResponse(model=self.model_name, choices=choices, usage=usage_info, id=request_id)
+        prompt_token_ids = result.prompt_token_ids if request_config.return_details else None
+        return ChatCompletionResponse(
+            model=self.model_name, choices=choices, usage=usage_info, id=request_id, prompt_token_ids=prompt_token_ids)
 
     async def _infer_full_async(
         self,
         template: Template,
         inputs: Dict[str, Any],
         generation_config: SamplingParams,
-        adapter_request: Optional[AdapterRequest] = None,
-    ) -> ChatCompletionResponse:
+        adapter_request: Optional[AdapterRequest],
+        request_config: RequestConfig,
+    ) -> Union[ChatCompletionResponse, EmbeddingResponse]:
         request_id = random_uuid()
         result_generator = self._add_request(inputs, generation_config, request_id, adapter_request=adapter_request)
         result = None
         async for result in result_generator:
             pass
-        return self._create_chat_completion_response(result, template, generation_config, request_id)
+        if self.task_type == 'embedding':
+            return self._create_embedding_response(result, template, generation_config, request_id)
+        else:
+            return self._create_chat_completion_response(result, template, request_config, request_id)
 
     def _batch_infer_stream(self, *args, **kwargs):
         if hasattr(self.engine, 'engine'):
@@ -471,8 +505,8 @@ class VllmEngine(InferEngine):
                         if not result:
                             continue
                         result = result[0]
-                        res = self._create_chat_completion_stream_response(result, template, generation_config,
-                                                                           request_id, infer_streamers, token_idxs)
+                        res = self._create_chat_completion_stream_response(result, template, request_config, request_id,
+                                                                           infer_streamers, token_idxs)
                         if res is None:
                             continue
                         yield res
@@ -492,7 +526,7 @@ class VllmEngine(InferEngine):
                 prog_bar.close()
                 outputs = [outputs[request_id] for request_id in request_id_list]
                 res = [
-                    self._create_chat_completion_response(result, template, generation_config, request_id)
+                    self._create_chat_completion_response(result, template, request_config, request_id)
                     for request_id, result in zip(request_id_list, outputs)
                 ]
                 self._update_metrics(res, metrics)
@@ -525,6 +559,7 @@ class VllmEngine(InferEngine):
             'inputs': inputs,
             'generation_config': generation_config,
             'adapter_request': adapter_request,
+            'request_config': request_config,
         }
         if pre_infer_hook:
             kwargs = pre_infer_hook(kwargs)

@@ -24,7 +24,6 @@ from anyscale.commands.image_commands import image_cli
 from anyscale.commands.job_commands import job_cli
 from anyscale.commands.job_queue_commands import job_queue_cli
 from anyscale.commands.list_commands import list_cli
-from anyscale.commands.llm.group import llm_cli
 from anyscale.commands.login_commands import anyscale_login, anyscale_logout
 from anyscale.commands.logs_commands import log_cli
 from anyscale.commands.machine_commands import machine_cli
@@ -130,7 +129,6 @@ cli.add_command(workspace_cli)
 cli.add_command(workspace_cli_v2)
 cli.add_command(experimental_integrations_cli)
 cli.add_command(auth_cli)
-cli.add_command(llm_cli)
 
 cli.add_command(anyscale_init)
 cli.add_command(anyscale_exec)

@@ -16,6 +16,7 @@ from anyscale.cluster_compute import parse_cluster_compute_name_version
 from anyscale.compute_config.models import (
     CloudDeployment,
     ComputeConfig,
+    ComputeConfigType,
     ComputeConfigVersion,
     HeadNodeConfig,
     MarketType,
@@ -121,7 +122,7 @@ class PrivateComputeConfigSDK(BaseSDK):
 
         return api_models
 
-    def _convert_compute_config_to_api_model(
+    def _convert_single_deployment_compute_config_to_api_model(
         self, compute_config: ComputeConfig
     ) -> CloudDeploymentComputeConfig:
         # We should only make the head node schedulable when it's the *only* node in the cluster.
@@ -167,7 +168,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         )
 
     def create_compute_config(
-        self, compute_config: ComputeConfig, *, name: Optional[str] = None
+        self, compute_config: ComputeConfigType, *, name: Optional[str] = None
     ) -> Tuple[str, str]:
         """Register the provided compute config and return its internal ID."""
 
@@ -179,10 +180,27 @@ class PrivateComputeConfigSDK(BaseSDK):
                     "The latest version tag will be generated and returned."
                 )
 
+        if isinstance(compute_config, MultiDeploymentComputeConfig):
+            return self.create_multi_deployment_compute_config(
+                compute_config, name=name
+            )
+        else:
+            assert isinstance(compute_config, ComputeConfig)
+            return self.create_single_deployment_compute_config(
+                compute_config, name=name
+            )
+
+    def create_single_deployment_compute_config(
+        self, compute_config: ComputeConfig, *, name: Optional[str] = None,
+    ) -> Tuple[str, str]:
+        """Register the provided single-deployment compute config and return its internal ID."""
+
         # Returns the default cloud if user-provided cloud is not specified (`None`).
         cloud_id = self.client.get_cloud_id(cloud_name=compute_config.cloud)  # type: ignore
 
-        deployment_config = self._convert_compute_config_to_api_model(compute_config)
+        deployment_config = self._convert_single_deployment_compute_config_to_api_model(
+            compute_config
+        )
 
         compute_config_api_model = ComputeTemplateConfig(
             cloud_id=cloud_id,
@@ -214,14 +232,6 @@ class PrivateComputeConfigSDK(BaseSDK):
         name: Optional[str] = None,
     ) -> Tuple[str, str]:
         """Register the provided multi-deployment compute config and return its internal ID."""
-        if name is not None:
-            _, version = parse_cluster_compute_name_version(name)
-            if version is not None:
-                raise ValueError(
-                    "A version tag cannot be provided when creating a compute config. "
-                    "The latest version tag will be generated and returned."
-                )
-
         # Returns the default cloud if user-provided cloud is not specified (`None`).
         cloud_id = self.client.get_cloud_id(cloud_name=compute_config.cloud)  # type: ignore
 
@@ -230,7 +240,9 @@ class PrivateComputeConfigSDK(BaseSDK):
         deployment_configs = []
         for config in compute_config.configs:
             assert isinstance(config, ComputeConfig)
-            deployment_configs.append(self._convert_compute_config_to_api_model(config))
+            deployment_configs.append(
+                self._convert_single_deployment_compute_config_to_api_model(config)
+            )
         default_config = deployment_configs[0]
 
         compute_config_api_model = ComputeTemplateConfig(
@@ -369,7 +381,7 @@ class PrivateComputeConfigSDK(BaseSDK):
 
         return configs
 
-    def _convert_cloud_deployment_compute_config_api_model_to_compute_config(
+    def _convert_cloud_deployment_compute_config_api_model_to_single_deployment_compute_config(
         self, cloud_name: str, api_model: CloudDeploymentComputeConfig,
     ) -> ComputeConfig:
         worker_nodes = None
@@ -431,7 +443,7 @@ class PrivateComputeConfigSDK(BaseSDK):
         configs = None
         if api_model_config.deployment_configs:
             configs = [
-                self._convert_cloud_deployment_compute_config_api_model_to_compute_config(
+                self._convert_cloud_deployment_compute_config_api_model_to_single_deployment_compute_config(
                     cloud.name, config
                 )
                 for config in api_model_config.deployment_configs
@@ -446,9 +458,7 @@ class PrivateComputeConfigSDK(BaseSDK):
             return ComputeConfigVersion(
                 name=f"{api_model.name}:{api_model.version}",
                 id=api_model.id,
-                multi_deployment_config=MultiDeploymentComputeConfig(
-                    cloud=cloud.name, configs=configs,
-                ),
+                config=MultiDeploymentComputeConfig(cloud=cloud.name, configs=configs),
             )
 
         # If there are no deployment configs, this is a compute config for a single cloud deployment - parse the top-level fields.

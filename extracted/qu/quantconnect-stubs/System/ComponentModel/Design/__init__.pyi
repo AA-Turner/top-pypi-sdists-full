@@ -215,12 +215,12 @@ class MenuCommand(System.Object):
         ...
 
     @property
-    def command_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def command_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Occurs when the menu command changes."""
         ...
 
     @command_changed.setter
-    def command_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def command_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -233,7 +233,7 @@ class MenuCommand(System.Object):
         """Gets the OLE command status code for this menu item."""
         ...
 
-    def __init__(self, handler: typing.Callable[[System.Object, System.EventArgs], None], command: System.ComponentModel.Design.CommandID) -> None:
+    def __init__(self, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any], command: System.ComponentModel.Design.CommandID) -> None:
         """Initializes a new instance of System.ComponentModel.Design.MenuCommand."""
         ...
 
@@ -282,12 +282,12 @@ class DesignerVerb(System.ComponentModel.Design.MenuCommand):
         ...
 
     @overload
-    def __init__(self, text: str, handler: typing.Callable[[System.Object, System.EventArgs], None]) -> None:
+    def __init__(self, text: str, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> None:
         """Initializes a new instance of the System.ComponentModel.Design.DesignerVerb class."""
         ...
 
     @overload
-    def __init__(self, text: str, handler: typing.Callable[[System.Object, System.EventArgs], None], start_command_id: System.ComponentModel.Design.CommandID) -> None:
+    def __init__(self, text: str, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any], start_command_id: System.ComponentModel.Design.CommandID) -> None:
         """
         Initializes a new instance of the System.ComponentModel.Design.DesignerVerb
         class.
@@ -452,72 +452,72 @@ class IDesignerHost(System.ComponentModel.Design.IServiceContainer, metaclass=ab
 
     @property
     @abc.abstractmethod
-    def activated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def activated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IDesignerHost.Activated event."""
         ...
 
     @activated.setter
-    def activated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def activated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def deactivated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def deactivated(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IDesignerHost.Deactivated event."""
         ...
 
     @deactivated.setter
-    def deactivated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def deactivated(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def load_complete(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def load_complete(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IDesignerHost.LoadComplete event."""
         ...
 
     @load_complete.setter
-    def load_complete(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def load_complete(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def transaction_closed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerTransactionCloseEventArgs], None], None]:
+    def transaction_closed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerTransactionCloseEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IDesignerHost.TransactionClosed event."""
         ...
 
     @transaction_closed.setter
-    def transaction_closed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerTransactionCloseEventArgs], None], None]) -> None:
+    def transaction_closed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerTransactionCloseEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def transaction_closing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerTransactionCloseEventArgs], None], None]:
+    def transaction_closing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerTransactionCloseEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IDesignerHost.TransactionClosing event."""
         ...
 
     @transaction_closing.setter
-    def transaction_closing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerTransactionCloseEventArgs], None], None]) -> None:
+    def transaction_closing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerTransactionCloseEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def transaction_opened(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def transaction_opened(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IDesignerHost.TransactionOpened event."""
         ...
 
     @transaction_opened.setter
-    def transaction_opened(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def transaction_opened(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def transaction_opening(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def transaction_opening(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IDesignerHost.TransactionOpening event."""
         ...
 
     @transaction_opening.setter
-    def transaction_opening(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def transaction_opening(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def activate(self) -> None:
@@ -1265,42 +1265,42 @@ class IDesignerEventService(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def active_designer_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ActiveDesignerEventArgs], None], None]:
+    def active_designer_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ActiveDesignerEventArgs], typing.Any], typing.Any]:
         """Adds an event that will be raised when the currently active designer changes."""
         ...
 
     @active_designer_changed.setter
-    def active_designer_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ActiveDesignerEventArgs], None], None]) -> None:
+    def active_designer_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ActiveDesignerEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def designer_created(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], None], None]:
+    def designer_created(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]:
         """Adds an event that will be raised when a designer is created."""
         ...
 
     @designer_created.setter
-    def designer_created(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], None], None]) -> None:
+    def designer_created(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def designer_disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], None], None]:
+    def designer_disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]:
         """Adds an event that will be raised when a designer is disposed."""
         ...
 
     @designer_disposed.setter
-    def designer_disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], None], None]) -> None:
+    def designer_disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.DesignerEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds an event that will be raised when the global selection changes."""
         ...
 
     @selection_changed.setter
-    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
 
@@ -1421,22 +1421,22 @@ class ISelectionService(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def selection_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds a System.ComponentModel.Design.ISelectionService.SelectionChanged event handler to the selection service."""
         ...
 
     @selection_changed.setter
-    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def selection_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def selection_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def selection_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Adds an event handler to the selection service."""
         ...
 
     @selection_changing.setter
-    def selection_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def selection_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def get_component_selected(self, component: typing.Any) -> bool:
@@ -1968,72 +1968,72 @@ class IComponentChangeService(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def component_added(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], None], None]:
+    def component_added(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IComponentChangeService.ComponentAdded event."""
         ...
 
     @component_added.setter
-    def component_added(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], None], None]) -> None:
+    def component_added(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def component_adding(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], None], None]:
+    def component_adding(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IComponentChangeService.ComponentAdding event."""
         ...
 
     @component_adding.setter
-    def component_adding(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], None], None]) -> None:
+    def component_adding(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def component_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentChangedEventArgs], None], None]:
+    def component_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentChangedEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IComponentChangeService.ComponentChanged event."""
         ...
 
     @component_changed.setter
-    def component_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentChangedEventArgs], None], None]) -> None:
+    def component_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentChangedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def component_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentChangingEventArgs], None], None]:
+    def component_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentChangingEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IComponentChangeService.ComponentChanging event."""
         ...
 
     @component_changing.setter
-    def component_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentChangingEventArgs], None], None]) -> None:
+    def component_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentChangingEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def component_removed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], None], None]:
+    def component_removed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IComponentChangeService.OnComponentRemoved event."""
         ...
 
     @component_removed.setter
-    def component_removed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], None], None]) -> None:
+    def component_removed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def component_removing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], None], None]:
+    def component_removing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IComponentChangeService.OnComponentRemoving event."""
         ...
 
     @component_removing.setter
-    def component_removing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], None], None]) -> None:
+    def component_removing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
     @abc.abstractmethod
-    def component_rename(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentRenameEventArgs], None], None]:
+    def component_rename(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentRenameEventArgs], typing.Any], typing.Any]:
         """Adds an event handler for the System.ComponentModel.Design.IComponentChangeService.OnComponentRename event."""
         ...
 
     @component_rename.setter
-    def component_rename(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentRenameEventArgs], None], None]) -> None:
+    def component_rename(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.Design.ComponentRenameEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def on_component_changed(self, component: typing.Any, member: System.ComponentModel.MemberDescriptor, old_value: typing.Any, new_value: typing.Any) -> None:

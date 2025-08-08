@@ -36,7 +36,7 @@ class PostgresTrigger:
         error (Union[Unset, str]):
         last_server_ping (Union[Unset, datetime.datetime]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, PostgresTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, PostgresTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, PostgresTriggerRetry]):
     """
 

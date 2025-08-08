@@ -57,10 +57,7 @@ def apply_gamut_map(amount, p, gamut):
     if amount:
         color.set('oklch.c', lambda c: c * amount)
     # Fit the color back into the color gamut and return the results
-    return tuple(
-        int(x * 255)
-        for x in color.convert('srgb').fit(**GMAP)[:4 if has_alpha else -1]
-    )
+    return tuple(round(x * 255) for x in color.convert('srgb').fit(**GMAP)[:4 if has_alpha else -1])
 
 
 def process_image(img, output, amount, gamut):
@@ -104,13 +101,14 @@ def main():
     parser.add_argument('--output', '-o', help='Output name and location.')
     parser.add_argument('--amount', '-a', type=float, help='Amount to increase chroma.')
     parser.add_argument('--gamut', default='srgb', help="Photo's current gamut.")
-    parser.add_argument('--gamut-map', '-g', default="clip", help="Specify GMA method to use (default is clip).")
-    parser.add_argument('--gamut-options', '-G', default="{}", help="Define gamut mapping options.")
+    parser.add_argument('--gmap', '-g', default="clip", help="Specify GMA method to use (default is clip).")
     args = parser.parse_args()
 
     global GMAP
-    GMAP = {'method': args.gamut_map}
-    GMAP.update(json.loads(args.gamut_options))
+    parts = [p.strip() if not e else json.loads(p) for e, p in enumerate(args.gmap.split(':', 1))]
+    GMAP = {'method': parts[0]}
+    if len(parts) == 2:
+        GMAP.update(parts[1])
 
     process_image(
         args.input,

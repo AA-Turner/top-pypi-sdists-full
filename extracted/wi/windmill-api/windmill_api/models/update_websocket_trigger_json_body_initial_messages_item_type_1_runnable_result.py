@@ -17,7 +17,8 @@ class UpdateWebsocketTriggerJsonBodyInitialMessagesItemType1RunnableResult:
     """
     Attributes:
         path (str):
-        args (UpdateWebsocketTriggerJsonBodyInitialMessagesItemType1RunnableResultArgs):
+        args (UpdateWebsocketTriggerJsonBodyInitialMessagesItemType1RunnableResultArgs): The arguments to pass to the
+            script or flow
         is_flow (bool):
     """
 

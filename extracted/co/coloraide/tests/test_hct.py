@@ -85,7 +85,9 @@ class TestHCTPoperties(util.ColorAsserts, unittest.TestCase):
     def test_names(self):
         """Test LCh-ish names."""
 
-        self.assertEqual(Color('color(--hct 111.05 75.504 97.139)')._space.names(), ('t', 'c', 'h'))
+        c = Color('color(--hct 111.05 75.504 97.139)')
+        self.assertEqual(c._space.names(), ('t', 'c', 'h'))
+        self.assertEqual(c._space.lightness_name(), 't')
 
     def test_h(self):
         """Test `h`."""
@@ -118,6 +120,18 @@ class TestHCTPoperties(util.ColorAsserts, unittest.TestCase):
         self.assertEqual(c['alpha'], 1)
         c['alpha'] = 0.5
         self.assertEqual(c['alpha'], 0.5)
+
+
+class TestSpecialCases(util.ColorAsserts, unittest.TestCase):
+    """Test special cases."""
+
+    def test_zero_lightness_high_chroma(self):
+        """Test cases of zero lightness and high chroma."""
+
+        c = Color('color(--hct 30 20 0)')
+        c2 = c.convert('srgb')
+        self.assertEqual(c2.in_gamut(tolerance=0), False)
+        self.assertColorEqual(c2, Color('rgb(0.12248 0.01215 -0.47841)'))
 
 
 class TestNull(util.ColorAsserts, unittest.TestCase):
@@ -154,8 +168,8 @@ class TestsAchromatic(util.ColorAsserts, unittest.TestCase):
         )
         self.assertEqual(Color('hct', [270, 0.00001, NaN]).is_achromatic(), True)
         self.assertEqual(Color('hct', [270, NaN, 0]).is_achromatic(), True)
-        self.assertEqual(Color('hct', [270, 50, 0]).is_achromatic(), True)
-        self.assertEqual(Color('hct', [270, 50, NaN]).is_achromatic(), True)
+        self.assertEqual(Color('hct', [270, 50, 0]).is_achromatic(), False)
+        self.assertEqual(Color('hct', [270, 50, NaN]).is_achromatic(), False)
         self.assertEqual(Color('hct', [270, NaN, 20]).is_achromatic(), True)
         self.assertEqual(Color('hct', [270, NaN, NaN]).is_achromatic(), True)
         self.assertEqual(Color('hct', [29.546, 0.60569, -9.0536]).is_achromatic(), False),

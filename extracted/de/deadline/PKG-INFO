@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deadline
-Version: 0.51.0
+Version: 0.51.1
 Summary: Multi-purpose library and command line tool that implements functionality to support applications using AWS Deadline Cloud.
 Project-URL: Homepage, https://github.com/aws-deadline/deadline-cloud
 Project-URL: Source, https://github.com/aws-deadline/deadline-cloud

@@ -11,7 +11,12 @@ class ProviderConfigId(str, enum.Enum):
     List of supported providers.
     """
 
-    APPSEC_OPEN_TEXT_APPLICATION_SECURITY = "appsec_opentext_application_security"
+    APPSEC_HCL_APP_SCAN_ON_CLOUD = "appsec_hcl_appscan_on_cloud"
+    """
+    HCL AppScan on Cloud
+    """
+
+    APPSEC_OPEN_TEXT_CORE_APPLICATION_SECURITY = "appsec_opentext_core_application_security"
     """
     OpenText Core Application Security
     """
@@ -306,6 +311,11 @@ class ProviderConfigId(str, enum.Enum):
     Atlassian Jira
     """
 
+    TICKETING_JIRA_SERVICE_MANAGEMENT = "ticketing_jira_service_management"
+    """
+    Jira Service Management
+    """
+
     TICKETING_MOCK = "ticketing_mock_ticketing"
     """
     Synqly Test Provider
@@ -393,7 +403,8 @@ class ProviderConfigId(str, enum.Enum):
 
     def visit(
         self,
-        appsec_open_text_application_security: typing.Callable[[], T_Result],
+        appsec_hcl_app_scan_on_cloud: typing.Callable[[], T_Result],
+        appsec_open_text_core_application_security: typing.Callable[[], T_Result],
         assets_armis_centrix: typing.Callable[[], T_Result],
         assets_armis_centrix_mock: typing.Callable[[], T_Result],
         assets_axonius: typing.Callable[[], T_Result],
@@ -452,6 +463,7 @@ class ProviderConfigId(str, enum.Enum):
         ticketing_autotask: typing.Callable[[], T_Result],
         ticketing_freshdesk: typing.Callable[[], T_Result],
         ticketing_jira: typing.Callable[[], T_Result],
+        ticketing_jira_service_management: typing.Callable[[], T_Result],
         ticketing_mock: typing.Callable[[], T_Result],
         ticketing_pager_duty: typing.Callable[[], T_Result],
         ticketing_service_now: typing.Callable[[], T_Result],
@@ -470,8 +482,10 @@ class ProviderConfigId(str, enum.Enum):
         vulnerabilities_tenable_cloud: typing.Callable[[], T_Result],
         all_: typing.Callable[[], T_Result],
     ) -> T_Result:
-        if self is ProviderConfigId.APPSEC_OPEN_TEXT_APPLICATION_SECURITY:
-            return appsec_open_text_application_security()
+        if self is ProviderConfigId.APPSEC_HCL_APP_SCAN_ON_CLOUD:
+            return appsec_hcl_app_scan_on_cloud()
+        if self is ProviderConfigId.APPSEC_OPEN_TEXT_CORE_APPLICATION_SECURITY:
+            return appsec_open_text_core_application_security()
         if self is ProviderConfigId.ASSETS_ARMIS_CENTRIX:
             return assets_armis_centrix()
         if self is ProviderConfigId.ASSETS_ARMIS_CENTRIX_MOCK:
@@ -588,6 +602,8 @@ class ProviderConfigId(str, enum.Enum):
             return ticketing_freshdesk()
         if self is ProviderConfigId.TICKETING_JIRA:
             return ticketing_jira()
+        if self is ProviderConfigId.TICKETING_JIRA_SERVICE_MANAGEMENT:
+            return ticketing_jira_service_management()
         if self is ProviderConfigId.TICKETING_MOCK:
             return ticketing_mock()
         if self is ProviderConfigId.TICKETING_PAGER_DUTY:

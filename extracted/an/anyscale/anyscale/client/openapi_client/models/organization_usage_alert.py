@@ -33,60 +33,60 @@ class OrganizationUsageAlert(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'type': 'AlertType',
+        'issue_type': 'AlertIssueType',
         'severity': 'OrganizationUsageAlertSeverity',
         'status': 'CustomerAlertStatus',
         'permission_level': 'OrganizationPermissionLevel'
     }
 
     attribute_map = {
-        'type': 'type',
+        'issue_type': 'issueType',
         'severity': 'severity',
         'status': 'status',
         'permission_level': 'permission_level'
     }
 
-    def __init__(self, type=None, severity=None, status=None, permission_level=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, issue_type=None, severity=None, status=None, permission_level=None, local_vars_configuration=None):  # noqa: E501
         """OrganizationUsageAlert - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._type = None
+        self._issue_type = None
         self._severity = None
         self._status = None
         self._permission_level = None
         self.discriminator = None
 
-        self.type = type
+        self.issue_type = issue_type
         self.severity = severity
         self.status = status
         self.permission_level = permission_level
 
     @property
-    def type(self):
-        """Gets the type of this OrganizationUsageAlert.  # noqa: E501
+    def issue_type(self):
+        """Gets the issue_type of this OrganizationUsageAlert.  # noqa: E501
 
-        Type of the alert  # noqa: E501
+        Type of the issue for the alert  # noqa: E501
 
-        :return: The type of this OrganizationUsageAlert.  # noqa: E501
-        :rtype: AlertType
+        :return: The issue_type of this OrganizationUsageAlert.  # noqa: E501
+        :rtype: AlertIssueType
         """
-        return self._type
+        return self._issue_type
 
-    @type.setter
-    def type(self, type):
-        """Sets the type of this OrganizationUsageAlert.
+    @issue_type.setter
+    def issue_type(self, issue_type):
+        """Sets the issue_type of this OrganizationUsageAlert.
 
-        Type of the alert  # noqa: E501
+        Type of the issue for the alert  # noqa: E501
 
-        :param type: The type of this OrganizationUsageAlert.  # noqa: E501
-        :type: AlertType
+        :param issue_type: The issue_type of this OrganizationUsageAlert.  # noqa: E501
+        :type: AlertIssueType
         """
-        if self.local_vars_configuration.client_side_validation and type is None:  # noqa: E501
-            raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and issue_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `issue_type`, must not be `None`")  # noqa: E501
 
-        self._type = type
+        self._issue_type = issue_type
 
     @property
     def severity(self):

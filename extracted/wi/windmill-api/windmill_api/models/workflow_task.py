@@ -14,7 +14,7 @@ T = TypeVar("T", bound="WorkflowTask")
 class WorkflowTask:
     """
     Attributes:
-        args (WorkflowTaskArgs):
+        args (WorkflowTaskArgs): The arguments to pass to the script or flow
     """
 
     args: "WorkflowTaskArgs"

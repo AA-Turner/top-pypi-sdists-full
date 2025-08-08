@@ -30,9 +30,11 @@ class NewWebsocketTrigger:
         enabled (Union[Unset, bool]):
         initial_messages (Union[Unset, List[Union['NewWebsocketTriggerInitialMessagesItemType0',
             'NewWebsocketTriggerInitialMessagesItemType1']]]):
-        url_runnable_args (Union[Unset, NewWebsocketTriggerUrlRunnableArgs]):
+        url_runnable_args (Union[Unset, NewWebsocketTriggerUrlRunnableArgs]): The arguments to pass to the script or
+            flow
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, NewWebsocketTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, NewWebsocketTriggerErrorHandlerArgs]): The arguments to pass to the script or
+            flow
         retry (Union[Unset, NewWebsocketTriggerRetry]):
     """
 

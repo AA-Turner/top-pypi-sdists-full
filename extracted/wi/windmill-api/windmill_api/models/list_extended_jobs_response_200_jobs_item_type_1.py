@@ -54,7 +54,7 @@ class ListExtendedJobsResponse200JobsItemType1:
         scheduled_for (Union[Unset, datetime.datetime]):
         script_path (Union[Unset, str]):
         script_hash (Union[Unset, str]):
-        args (Union[Unset, ListExtendedJobsResponse200JobsItemType1Args]):
+        args (Union[Unset, ListExtendedJobsResponse200JobsItemType1Args]): The arguments to pass to the script or flow
         logs (Union[Unset, str]):
         raw_code (Union[Unset, str]):
         canceled_by (Union[Unset, str]):

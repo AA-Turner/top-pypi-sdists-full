@@ -45,7 +45,7 @@ pub enum Log {
 }
 
 impl Log {
-    #[tracing::instrument(skip(self), err(Display))]
+    #[tracing::instrument(skip(self))]
     pub async fn read(
         &mut self,
         tenant: &str,
@@ -169,6 +169,23 @@ impl Log {
                     .await;
                 Ok(())
             }
+        }
+    }
+
+    /// Only supported in distributed.
+    #[tracing::instrument(skip(self), err(Display))]
+    pub async fn update_collection_log_offset_on_every_node(
+        &mut self,
+        collection_id: CollectionUuid,
+        new_offset: i64,
+    ) -> Result<(), Box<dyn ChromaError>> {
+        match self {
+            Log::Sqlite(_) => Ok(()),
+            Log::Grpc(log) => log
+                .update_collection_log_offset_on_every_node(collection_id, new_offset)
+                .await
+                .map_err(|e| Box::new(e) as Box<dyn ChromaError>),
+            Log::InMemory(_) => Ok(()),
         }
     }
 

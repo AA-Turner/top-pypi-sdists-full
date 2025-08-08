@@ -28,7 +28,7 @@ class NotifiedSecurityChanges(System.Object):
     """Provides convenience methods for updating collections in responses to securities changed events"""
 
     @staticmethod
-    def update(changes: QuantConnect.Data.UniverseSelection.SecurityChanges, add: typing.Callable[[QuantConnect.Securities.Security], None], remove: typing.Callable[[QuantConnect.Securities.Security], None]) -> None:
+    def update(changes: QuantConnect.Data.UniverseSelection.SecurityChanges, add: typing.Callable[[QuantConnect.Securities.Security], typing.Any], remove: typing.Callable[[QuantConnect.Securities.Security], typing.Any]) -> None:
         """
         Invokes the provided  and  functions for each
         

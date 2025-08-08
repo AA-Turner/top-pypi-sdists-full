@@ -72,7 +72,7 @@ template <class T, class Options>
 auto vectorize_index(int (bh::axis::category<T, metadata_t, Options>::*pindex)(const T&)
                          const BHP_NOEXCEPT_17) {
     return [pindex](const bh::axis::category<T, metadata_t, Options>& self,
-                    py::object arg) -> py::object {
+                    const py::object& arg) -> py::object {
         auto index = std::mem_fn(pindex);
 
         if(detail::is_value<T>(arg)) {
@@ -85,8 +85,8 @@ auto vectorize_index(int (bh::axis::category<T, metadata_t, Options>::*pindex)(c
         auto indices = array_like<int>(arg);
         auto values  = detail::special_cast<detail::c_array_t<T>>(arg);
 
-        auto ip = indices.mutable_data();
-        auto vp = values.data();
+        auto* ip = indices.mutable_data();
+        auto vp  = values.data();
         for(std::size_t i = 0, n = values.size(); i < n; ++i) {
             ip[i] = index(self, vp[i]);
             if(ip[i] >= self.size())
@@ -107,7 +107,7 @@ template <class R, class U, class Options>
 auto vectorize_value(R (bh::axis::category<U, metadata_t, Options>::*pvalue)(int)
                          const) {
     return [pvalue](const bh::axis::category<U, metadata_t, Options>& self,
-                    py::object arg) -> py::object {
+                    const py::object& arg) -> py::object {
         auto value = std::mem_fn(pvalue);
 
         if(detail::is_value<int>(arg)) {
@@ -124,7 +124,7 @@ auto vectorize_value(R (bh::axis::category<U, metadata_t, Options>::*pvalue)(int
         const auto n = static_cast<std::size_t>(indices.size());
         py::tuple values(n);
 
-        auto pi = indices.data();
+        const auto* pi = indices.data();
         for(std::size_t k = 0; k < n; ++k) {
             const auto i = pi[k];
             unchecked_set(
@@ -189,10 +189,10 @@ py::class_<A> register_axis(py::module& m, Args&&... args) {
             [](const A& self) { return bh::axis::traits::ordered(self); })
 
         .def_property(
-            "metadata",
+            "raw_metadata",
             [](const A& self) { return self.metadata(); },
             [](A& self, const metadata_t& label) { self.metadata() = label; },
-            "Set the axis label")
+            "Set the metadata")
 
         .def_property_readonly(
             "size",
@@ -206,10 +206,10 @@ py::class_<A> register_axis(py::module& m, Args&&... args) {
 
         .def("__copy__", [](const A& self) { return A(self); })
         .def("__deepcopy__",
-             [](const A& self, py::object memo) {
-                 A* a            = new A(self);
-                 py::module copy = py::module::import("copy");
-                 a->metadata()   = copy.attr("deepcopy")(a->metadata(), memo);
+             [](const A& self, const py::object& memo) {
+                 A* a                  = new A(self);
+                 py::module const copy = py::module::import("copy");
+                 a->metadata()         = copy.attr("deepcopy")(a->metadata(), memo);
                  return a;
              })
 
@@ -247,7 +247,8 @@ py::class_<A> register_axis(py::module& m, Args&&... args) {
                     }
                 };
 
-                iterator begin(ax, 0), end(ax, ax.size());
+                iterator begin(ax, 0);
+                iterator end(ax, ax.size());
                 return py::make_iterator(std::move(begin), std::move(end));
             },
             py::keep_alive<0, 1>())

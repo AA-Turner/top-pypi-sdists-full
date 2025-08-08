@@ -47,9 +47,9 @@ use crate::semantic_index::symbol::{ScopedSymbolId, Symbol};
 use crate::semantic_index::use_def::{
     EnclosingSnapshotKey, FlowSnapshot, ScopedEnclosingSnapshotId, UseDefMapBuilder,
 };
-use crate::semantic_index::{ArcUseDefMap, ExpressionsScopeMap, SemanticIndex};
+use crate::semantic_index::{ExpressionsScopeMap, SemanticIndex};
 use crate::semantic_model::HasTrackedScope;
-use crate::unpack::{Unpack, UnpackKind, UnpackPosition, UnpackValue};
+use crate::unpack::{EvaluationMode, Unpack, UnpackKind, UnpackPosition, UnpackValue};
 use crate::{Db, Program};
 
 mod except_handlers;
@@ -356,7 +356,9 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             for nested_symbol in self.place_tables[popped_scope_id].symbols() {
                 // For the same reason, symbols declared as nonlocal or global are not recorded.
                 // Also, if the enclosing scope allows its members to be modified from elsewhere, the snapshot will not be recorded.
-                if self.scopes[enclosing_scope_id].visibility().is_public() {
+                // (In the case of class scopes, class variables can be modified from elsewhere, but this has no effect in nested scopes,
+                // as class variables are not visible to them)
+                if self.scopes[enclosing_scope_id].kind().is_module() {
                     continue;
                 }
 
@@ -838,6 +840,13 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                     .collect();
                 PatternPredicateKind::Or(predicates)
             }
+            ast::Pattern::MatchAs(pattern) => PatternPredicateKind::As(
+                pattern
+                    .pattern
+                    .as_ref()
+                    .map(|p| Box::new(self.predicate_kind(p))),
+                pattern.name.as_ref().map(|name| name.id.clone()),
+            ),
             _ => PatternPredicateKind::Unsupported,
         }
     }
@@ -1175,7 +1184,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         let mut use_def_maps: IndexVec<_, _> = self
             .use_def_maps
             .into_iter()
-            .map(|builder| ArcUseDefMap::new(builder.finish()))
+            .map(|builder| Arc::new(builder.finish()))
             .collect();
 
         let mut ast_ids: IndexVec<_, _> = self
@@ -2804,8 +2813,18 @@ impl<'ast> Unpackable<'ast> {
     const fn kind(&self) -> UnpackKind {
         match self {
             Unpackable::Assign(_) => UnpackKind::Assign,
-            Unpackable::For(_) | Unpackable::Comprehension { .. } => UnpackKind::Iterable,
-            Unpackable::WithItem { .. } => UnpackKind::ContextManager,
+            Unpackable::For(ast::StmtFor { is_async, .. }) => UnpackKind::Iterable {
+                mode: EvaluationMode::from_is_async(*is_async),
+            },
+            Unpackable::Comprehension {
+                node: ast::Comprehension { is_async, .. },
+                ..
+            } => UnpackKind::Iterable {
+                mode: EvaluationMode::from_is_async(*is_async),
+            },
+            Unpackable::WithItem { is_async, .. } => UnpackKind::ContextManager {
+                mode: EvaluationMode::from_is_async(*is_async),
+            },
         }
     }
 

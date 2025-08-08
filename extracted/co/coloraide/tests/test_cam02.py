@@ -49,7 +49,10 @@ class TestCAM02JMhPoperties(util.ColorAsserts, unittest.TestCase):
     def test_names(self):
         """Test LCh-ish names."""
 
-        self.assertEqual(Color('color(--cam02-jmh 97.139 75.504 111.05)')._space.names(), ('j', 'm', 'h'))
+        c = Color('color(--cam02-jmh 97.139 75.504 111.05)')
+        self.assertEqual(c._space.names(), ('j', 'm', 'h'))
+        self.assertEqual(c._space.radial_name(), 'm')
+        self.assertEqual(c._space.lightness_name(), 'j')
 
     def test_h(self):
         """Test `h`."""
@@ -112,6 +115,18 @@ class TestNull(util.ColorAsserts, unittest.TestCase):
         self.assertTrue(c.get('hue'), 270 + 180)
 
 
+class TestSpecialCases(util.ColorAsserts, unittest.TestCase):
+    """Test special cases."""
+
+    def test_zero_lightness_high_chroma(self):
+        """Test cases of zero lightness and high chroma."""
+
+        c = Color('color(--cam02-jmh 0 20 30)')
+        c2 = c.convert('srgb')
+        self.assertEqual(c2.in_gamut(tolerance=0), False)
+        self.assertColorEqual(c2, Color('rgb(0.09155 0.03446 -0.94032)'))
+
+
 class TestsAchromatic(util.ColorAsserts, unittest.TestCase):
     """Test achromatic."""
 
@@ -124,8 +139,8 @@ class TestsAchromatic(util.ColorAsserts, unittest.TestCase):
         )
         self.assertEqual(Color('cam02-jmh', [NaN, 0.00001, 270]).is_achromatic(), True)
         self.assertEqual(Color('cam02-jmh', [0, NaN, 270]).is_achromatic(), True)
-        self.assertEqual(Color('cam02-jmh', [0, 50, 270]).is_achromatic(), True)
-        self.assertEqual(Color('cam02-jmh', [NaN, 50, 270]).is_achromatic(), True)
+        self.assertEqual(Color('cam02-jmh', [0, 50, 270]).is_achromatic(), False)
+        self.assertEqual(Color('cam02-jmh', [NaN, 50, 270]).is_achromatic(), False)
         self.assertEqual(Color('cam02-jmh', [20, NaN, 270]).is_achromatic(), True)
         self.assertEqual(Color('cam02-jmh', [NaN, NaN, 270]).is_achromatic(), True)
         self.assertEqual(Color('cam02-jmh', [20, -1.3, 90]).is_achromatic(), False)
@@ -184,6 +199,24 @@ class TestCAM02ApperanceModel(util.ColorAsserts, unittest.TestCase):
         for a, b in zip(
             cam_to_xyz(J=self.COORDS.J, C=self.COORDS.C, h=self.COORDS.h, env=CAM02JMh.ENV),
             cam_to_xyz(Q=self.COORDS.Q, M=self.COORDS.M, h=self.COORDS.h, env=CAM02JMh.ENV)
+        ):
+            self.assertCompare(a, b, 14)
+
+    def test_Q_zero_high_colorfulness(self):
+        """Test Q as zero with high colorfulness."""
+
+        for a, b in zip(
+            cam_to_xyz(Q=0, M=self.COORDS.M, h=self.COORDS.h, env=CAM02JMh.ENV),
+            [-3.960080148e-05, -6.36245037e-06, -0.00027447009634]
+        ):
+            self.assertCompare(a, b, 14)
+
+    def test_Q_zero_low_colorfulness(self):
+        """Test Q as zero with zero colorfulness."""
+
+        for a, b in zip(
+            cam_to_xyz(Q=0, M=0, h=self.COORDS.h, env=CAM02JMh.ENV),
+            [0, 0, 0]
         ):
             self.assertCompare(a, b, 14)
 

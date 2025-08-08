@@ -25,7 +25,8 @@ class CreateKafkaTriggerJsonBody:
         topics (List[str]):
         enabled (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, CreateKafkaTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, CreateKafkaTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, CreateKafkaTriggerJsonBodyRetry]):
     """
 

@@ -8,7 +8,7 @@ T = TypeVar("T", bound="GetJobResponse200Type0Args")
 
 @_attrs_define
 class GetJobResponse200Type0Args:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

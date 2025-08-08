@@ -32,7 +32,7 @@ class EditMqttTrigger:
         v5_config (Union[Unset, EditMqttTriggerV5Config]):
         client_version (Union[Unset, EditMqttTriggerClientVersion]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, EditMqttTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, EditMqttTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, EditMqttTriggerRetry]):
     """
 

@@ -22,7 +22,7 @@ pub use batch_manager::BatchManager;
 pub use copy::copy;
 pub use cursors::{Cursor, CursorName, CursorStore, Witness};
 pub use destroy::destroy;
-pub use gc::Garbage;
+pub use gc::{Garbage, GarbageCollector};
 pub use manifest::{unprefixed_snapshot_path, Manifest, Snapshot, SnapshotPointer};
 pub use manifest_manager::ManifestManager;
 pub use reader::{Limits, LogReader};
@@ -88,6 +88,8 @@ pub enum Error {
     NoSuchCursor(String),
     #[error("garbage collection: {0}")]
     GarbageCollection(String),
+    #[error("garbage collection precondition failed: manifest missing this: {0}")]
+    GarbageCollectionPrecondition(SnapshotPointerOrFragmentSeqNo),
     #[error("scrub error: {0}")]
     ScrubError(#[from] Box<ScrubError>),
     #[error("parquet error: {0}")]
@@ -118,9 +120,41 @@ impl chroma_error::ChromaError for Error {
             Self::CorruptGarbage(_) => chroma_error::ErrorCodes::DataLoss,
             Self::NoSuchCursor(_) => chroma_error::ErrorCodes::Unknown,
             Self::GarbageCollection(_) => chroma_error::ErrorCodes::Unknown,
+            Self::GarbageCollectionPrecondition(_) => chroma_error::ErrorCodes::FailedPrecondition,
             Self::ScrubError(_) => chroma_error::ErrorCodes::DataLoss,
             Self::ParquetError(_) => chroma_error::ErrorCodes::Unknown,
             Self::StorageError(storage) => storage.code(),
+        }
+    }
+}
+
+///////////////////////////////////// SnapshotPointerOrFragment ////////////////////////////////////
+
+#[derive(Clone, Debug)]
+pub enum SnapshotPointerOrFragmentSeqNo {
+    SnapshotPointer(SnapshotPointer),
+    FragmentSeqNo(u64),
+    Stringy(String),
+}
+
+impl From<SnapshotPointer> for SnapshotPointerOrFragmentSeqNo {
+    fn from(inner: SnapshotPointer) -> Self {
+        Self::SnapshotPointer(inner)
+    }
+}
+
+impl From<u64> for SnapshotPointerOrFragmentSeqNo {
+    fn from(inner: u64) -> Self {
+        Self::FragmentSeqNo(inner)
+    }
+}
+
+impl std::fmt::Display for SnapshotPointerOrFragmentSeqNo {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::SnapshotPointer(ptr) => write!(f, "Snapshot({:?})", ptr.path_to_snapshot),
+            Self::FragmentSeqNo(seq) => write!(f, "Fragment({})", *seq),
+            Self::Stringy(s) => write!(f, "Stringy({s})"),
         }
     }
 }
@@ -305,7 +339,7 @@ impl std::ops::AddAssign<usize> for LogPosition {
 /// for different prefixes.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct ThrottleOptions {
-    /// The maximum number of bytes to batch.  Defaults to 8MB.
+    /// The maximum number of bytes to batch.  Defaults to 64MB (2 * GRPC max payload size).
     #[serde(default = "ThrottleOptions::default_batch_size_bytes")]
     pub batch_size_bytes: usize,
     /// The maximum number of microseconds to batch.  Defaults to 100ms or 100_000us.
@@ -321,7 +355,7 @@ pub struct ThrottleOptions {
 
 impl ThrottleOptions {
     fn default_batch_size_bytes() -> usize {
-        8 * 1_000_000
+        64_000_000
     }
 
     fn default_batch_interval_us() -> usize {

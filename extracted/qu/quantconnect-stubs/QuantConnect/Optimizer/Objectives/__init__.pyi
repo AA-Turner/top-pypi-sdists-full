@@ -110,12 +110,12 @@ class Target(QuantConnect.Optimizer.Objectives.Objective):
         ...
 
     @property
-    def reached(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def reached(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Fires when target complies specified value"""
         ...
 
     @reached.setter
-    def reached(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def reached(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @overload

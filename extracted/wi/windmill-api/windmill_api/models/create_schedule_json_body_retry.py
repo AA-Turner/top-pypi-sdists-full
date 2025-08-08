@@ -15,7 +15,8 @@ T = TypeVar("T", bound="CreateScheduleJsonBodyRetry")
 
 @_attrs_define
 class CreateScheduleJsonBodyRetry:
-    """
+    """The retry configuration for the schedule
+
     Attributes:
         constant (Union[Unset, CreateScheduleJsonBodyRetryConstant]):
         exponential (Union[Unset, CreateScheduleJsonBodyRetryExponential]):

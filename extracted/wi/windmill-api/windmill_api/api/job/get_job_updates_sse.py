@@ -14,6 +14,7 @@ def _get_kwargs(
     *,
     running: Union[Unset, None, bool] = UNSET,
     log_offset: Union[Unset, None, int] = UNSET,
+    stream_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
     only_result: Union[Unset, None, bool] = UNSET,
     no_logs: Union[Unset, None, bool] = UNSET,
@@ -24,6 +25,8 @@ def _get_kwargs(
     params["running"] = running
 
     params["log_offset"] = log_offset
+
+    params["stream_offset"] = stream_offset
 
     params["get_progress"] = get_progress
 
@@ -66,6 +69,7 @@ def sync_detailed(
     client: Union[AuthenticatedClient, Client],
     running: Union[Unset, None, bool] = UNSET,
     log_offset: Union[Unset, None, int] = UNSET,
+    stream_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
     only_result: Union[Unset, None, bool] = UNSET,
     no_logs: Union[Unset, None, bool] = UNSET,
@@ -77,6 +81,7 @@ def sync_detailed(
         id (str):
         running (Union[Unset, None, bool]):
         log_offset (Union[Unset, None, int]):
+        stream_offset (Union[Unset, None, int]):
         get_progress (Union[Unset, None, bool]):
         only_result (Union[Unset, None, bool]):
         no_logs (Union[Unset, None, bool]):
@@ -94,6 +99,7 @@ def sync_detailed(
         id=id,
         running=running,
         log_offset=log_offset,
+        stream_offset=stream_offset,
         get_progress=get_progress,
         only_result=only_result,
         no_logs=no_logs,
@@ -113,6 +119,7 @@ async def asyncio_detailed(
     client: Union[AuthenticatedClient, Client],
     running: Union[Unset, None, bool] = UNSET,
     log_offset: Union[Unset, None, int] = UNSET,
+    stream_offset: Union[Unset, None, int] = UNSET,
     get_progress: Union[Unset, None, bool] = UNSET,
     only_result: Union[Unset, None, bool] = UNSET,
     no_logs: Union[Unset, None, bool] = UNSET,
@@ -124,6 +131,7 @@ async def asyncio_detailed(
         id (str):
         running (Union[Unset, None, bool]):
         log_offset (Union[Unset, None, int]):
+        stream_offset (Union[Unset, None, int]):
         get_progress (Union[Unset, None, bool]):
         only_result (Union[Unset, None, bool]):
         no_logs (Union[Unset, None, bool]):
@@ -141,6 +149,7 @@ async def asyncio_detailed(
         id=id,
         running=running,
         log_offset=log_offset,
+        stream_offset=stream_offset,
         get_progress=get_progress,
         only_result=only_result,
         no_logs=no_logs,

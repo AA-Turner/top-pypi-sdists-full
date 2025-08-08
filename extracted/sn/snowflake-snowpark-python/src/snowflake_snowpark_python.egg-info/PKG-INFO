@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.35.0
+Version: 1.36.0
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -337,6 +337,34 @@ Please refer to [CONTRIBUTING.md][contributing].
 
 # Release History
 
+## 1.36.0 (2025-08-05)
+
+### Snowpark Python API Updates
+
+#### New Features
+
+- `Session.create_dataframe` now accepts keyword arguments that are forwarded to the internal call to `Session.write_pandas` or `Session.write_arrow` when creating a DataFrame from a pandas DataFrame or a pyarrow Table.
+- Added new APIs for `AsyncJob`:
+  - `AsyncJob.is_failed()` returns a `bool` indicating if a job has failed. Can be used in combination with `AsyncJob.is_done()` to determine if a job is finished and errored.
+  - `AsyncJob.status()` returns a string representing the current query status (e.g., "RUNNING", "SUCCESS", "FAILED_WITH_ERROR") for detailed monitoring without calling `result()`.
+- Added a dataframe profiler. To use, you can call get_execution_profile() on your desired dataframe. This profiler reports the queries executed to evaluate a dataframe, and statistics about each of the query operators. Currently an experimental feature
+- Added support for the following functions in `functions.py`:
+  - `ai_sentiment`
+- Updated the interface for experimental feature `context.configure_development_features`. All development features are disabled by default unless explicitly enabled by the user.
+
+### Snowpark pandas API Updates
+
+#### New Features
+
+#### Improvements
+- Hybrid execution row estimate improvements and a reduction of eager calls.
+- Add a new configuration variable to control transfer costs out of Snowflake when using hybrid execution.
+- Added support for creating permanent and immutable UDFs/UDTFs with `DataFrame/Series/GroupBy.apply`, `map`, and `transform` by passing the `snowflake_udf_params` keyword argument. See documentation for details.
+
+#### Bug Fixes
+
+- Fixed an issue where Snowpark pandas plugin would unconditionally disable `AutoSwitchBackend` even when users had explicitly configured it via environment variables or programmatically.
+
 ## 1.35.0 (2025-07-24)
 
 ### Snowpark Python API Updates
@@ -375,6 +403,7 @@ Please refer to [CONTRIBUTING.md][contributing].
 #### Improvements
 
 - Reduced the number of UDFs/UDTFs created by repeated calls to `apply` or `map` with the same arguments on Snowpark pandas objects.
+- Added an example for reading a file from a stage in the docstring for `pd.read_excel`.
 
 #### Bug Fixes
 
@@ -392,8 +421,7 @@ Please refer to [CONTRIBUTING.md][contributing].
 - Added debuggability improvements to eagerly validate dataframe schema metadata. Enable it using `snowflake.snowpark.context.configure_development_features()`.
 - Added a new function `snowflake.snowpark.dataframe.map_in_pandas` that allows users map a function across a dataframe. The mapping function takes an iterator of pandas dataframes as input and provides one as output.
 - Added a ttl cache to describe queries. Repeated queries in a 15 second interval will use the cached value rather than requery Snowflake.
-- Added a parameter `fetch_with_process` to `DataFrameReader.dbapi` (PrPr) to enable multiprocessing for parallel data fetching in
-local ingestion. By default, local ingestion uses multithreading. Multiprocessing may improve performance for CPU-bound tasks like Parquet file generation.
+- Added a parameter `fetch_with_process` to `DataFrameReader.dbapi` (PrPr) to enable multiprocessing for parallel data fetching in local ingestion. By default, local ingestion uses multithreading. Multiprocessing may improve performance for CPU-bound tasks like Parquet file generation.
 - Added a new function `snowflake.snowpark.functions.model` that allows users to call methods of a model.
 
 #### Improvements

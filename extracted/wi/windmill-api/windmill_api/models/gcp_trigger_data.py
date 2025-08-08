@@ -33,7 +33,7 @@ class GcpTriggerData:
         delivery_config (Union[Unset, GcpTriggerDataDeliveryConfig]):
         enabled (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, GcpTriggerDataErrorHandlerArgs]):
+        error_handler_args (Union[Unset, GcpTriggerDataErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, GcpTriggerDataRetry]):
     """
 

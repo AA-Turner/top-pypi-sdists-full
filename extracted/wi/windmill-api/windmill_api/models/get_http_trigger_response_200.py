@@ -44,7 +44,8 @@ class GetHttpTriggerResponse200:
         summary (Union[Unset, str]):
         description (Union[Unset, str]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, GetHttpTriggerResponse200ErrorHandlerArgs]):
+        error_handler_args (Union[Unset, GetHttpTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
+            script or flow
         retry (Union[Unset, GetHttpTriggerResponse200Retry]):
     """
 

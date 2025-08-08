@@ -123,11 +123,11 @@ def _log_io_metrics(
       humanize.naturaldelta(time_elapsed, minimum_unit='microseconds'),
   )
   jax.monitoring.record_event(
-      gbytes_per_sec_metric, gbytes_per_sec=int(gbytes_per_sec)
+      gbytes_per_sec_metric, gbytes_per_sec=f'{gbytes_per_sec:.3f}'
   )
   if gbytes_metric is not None:
     jax.monitoring.record_event(
-        gbytes_metric, gbytes=int(size / (1024 ** 3))
+        gbytes_metric, gbytes=f'{size / (1024 ** 3):.3f}'
     )
 
 
@@ -288,6 +288,14 @@ def _fill_missing_save_or_restore_args(
 
 
 
+def _format_bytes(bytes_value: Optional[int]) -> str:
+  return (
+      'None'
+      if bytes_value is None
+      else f'{bytes_value} ({humanize.naturalsize(bytes_value, binary=True)})'
+  )
+
+
 class BasePyTreeCheckpointHandler(
     async_checkpoint_handler.AsyncCheckpointHandler
 ):
@@ -364,16 +372,18 @@ class BasePyTreeCheckpointHandler(
     jax.monitoring.record_event(
         '/jax/orbax/pytree_checkpoint_handler/init/ocdbt'
     )
-    logging.vlog(
-        1,
+    logging.info(
         'Created BasePyTreeCheckpointHandler: use_ocdbt=%s, use_zarr3=%s,'
         ' pytree_metadata_options=%s, array_metadata_store=%s,'
-        ' enable_pinned_host_transfer=%s',
+        ' enable_pinned_host_transfer=%s, save_concurrent_bytes: %s,'
+        ' restore_concurrent_bytes: %s',
         self._use_ocdbt,
         self._use_zarr3,
         self._pytree_metadata_options,
         self._array_metadata_store,
         self._enable_pinned_host_transfer,
+        _format_bytes(self._save_concurrent_bytes),
+        _format_bytes(self._restore_concurrent_bytes),
     )
 
   def get_param_names(self, item: PyTree) -> PyTree:

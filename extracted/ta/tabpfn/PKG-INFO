@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabpfn
-Version: 2.1.1
+Version: 2.1.2
 Summary: TabPFN: Foundation model for tabular data
 Author: Noah Hollmann, Samuel Müller, Lennart Purucker, Arjun Krishnakumar, Max Körfer, Shi Bin Hoo, Robin Tibor Schirrmeister, Frank Hutter, Eddie Bergman, Leo Grinsztajn, Felix Jabloski, Klemens Flöge, Oscar Key, Felix Birkel, Philipp Jund
 License: 
@@ -237,7 +237,7 @@ Requires-Dist: eval-type-backport>=0.2.2
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: ruff==0.8.6; extra == "dev"
-Requires-Dist: mypy==1.17.0; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: onnx; extra == "dev"

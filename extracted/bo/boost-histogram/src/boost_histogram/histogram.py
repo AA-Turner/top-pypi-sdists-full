@@ -7,6 +7,7 @@ import sys
 import threading
 import typing
 import warnings
+from collections.abc import Iterable, Mapping
 from enum import Enum
 from os import cpu_count
 from typing import (
@@ -14,12 +15,8 @@ from typing import (
     Any,
     Callable,
     ClassVar,
-    Iterable,
-    List,
-    Mapping,
     NewType,
     SupportsIndex,
-    Tuple,
     TypeVar,
     Union,
 )
@@ -29,6 +26,8 @@ import numpy as np
 import boost_histogram
 from boost_histogram import _core
 
+from . import serialization
+from ._compat.typing import Self
 from ._utils import cast, register
 from .axis import AxesTuple, Axis, Variable
 from .storage import Double, Storage
@@ -37,6 +36,7 @@ from .view import MeanView, WeightedMeanView, WeightedSumView, _to_view
 
 if TYPE_CHECKING:
     from builtins import ellipsis
+
 
 try:
     from . import _core
@@ -60,13 +60,7 @@ class Kind(str, Enum):
     COUNT = "COUNT"
     MEAN = "MEAN"
 
-    # This cast + type ignore is really odd, so it deserves a quick
-    # explanation. If we just set this like StrEnum does, then mypy complains
-    # that the type is changing (str -> Kind). If we type: ignore, then
-    # MyPy claims that the type: ignore is not needed. If we cast, we get the
-    # same error as before. But if we cast and type: ignore, it now works.
-    # Will report to MyPy. Tested on 0.800.
-    __str__ = typing.cast(Callable[["Kind"], str], str.__str__)  # type: ignore[assignment]
+    __str__ = str.__str__
 
 
 __all__ = [
@@ -110,9 +104,9 @@ CppAxis = NewType("CppAxis", object)
 
 SimpleIndexing = Union[SupportsIndex, slice, RebinProtocol]
 InnerIndexing = Union[SimpleIndexing, Callable[[Axis], int]]
-FullInnerIndexing = Union[InnerIndexing, List[InnerIndexing]]
+FullInnerIndexing = Union[InnerIndexing, list[InnerIndexing]]
 IndexingWithMapping = Union[FullInnerIndexing, Mapping[int, FullInnerIndexing]]
-IndexingExpr = Union[IndexingWithMapping, Tuple[IndexingWithMapping, ...], "ellipsis"]
+IndexingExpr = Union[IndexingWithMapping, tuple[IndexingWithMapping, ...], "ellipsis"]
 
 T = TypeVar("T")
 
@@ -229,10 +223,13 @@ class Histogram:
         cls._family = family if family is not None else object()
 
     @typing.overload
-    def __init__(self, *args: Histogram) -> None: ...
+    def __init__(self, arg: Histogram, /, *, metadata: Any = ...) -> None: ...
 
     @typing.overload
-    def __init__(self, *args: CppHistogram, metadata: Any = ...) -> None: ...
+    def __init__(self, arg: dict[str, Any], /, *, metadata: Any = ...) -> None: ...
+
+    @typing.overload
+    def __init__(self, arg: CppHistogram, /, *, metadata: Any = ...) -> None: ...
 
     @typing.overload
     def __init__(
@@ -244,8 +241,8 @@ class Histogram:
 
     def __init__(
         self,
-        *axes: Axis | CppAxis | Histogram | CppHistogram,
-        storage: Storage = Double(),  # noqa: B008
+        *axes: Axis | CppAxis | Histogram | CppHistogram | dict[str, Any],
+        storage: Storage | None = None,
         metadata: Any = None,
     ) -> None:
         """
@@ -265,31 +262,44 @@ class Histogram:
             Data that is passed along if a new histogram is created
         """
         self._variance_known = True
+        storage_err_msg = "storage= is not allowed with conversion constructor"
 
         # Allow construction from a raw histogram object (internal)
         if len(axes) == 1 and isinstance(axes[0], tuple(_histograms)):
+            if storage is not None:
+                raise TypeError(storage_err_msg)
             cpp_hist: CppHistogram = axes[0]  # type: ignore[assignment]
-            self._from_histogram_cpp(cpp_hist)
-            if metadata is not None:
-                self.metadata = metadata
+            self._from_histogram_cpp(cpp_hist, metadata=None)
             return
 
         # If we construct with another Histogram as the only positional argument,
         # support that too
         if len(axes) == 1 and isinstance(axes[0], Histogram):
-            normal_hist: Histogram = axes[0]
-            self._from_histogram_object(normal_hist)
-            if metadata is not None:
-                self.metadata = metadata
+            if storage is not None:
+                raise TypeError(storage_err_msg)
+            self._from_histogram_object(axes[0], metadata=metadata)
             return
 
         # Support objects that provide a to_boost method, like Uproot
         if len(axes) == 1 and hasattr(axes[0], "_to_boost_histogram_"):
-            self._from_histogram_object(axes[0]._to_boost_histogram_())
+            if storage is not None:
+                raise TypeError(storage_err_msg)
+            self._from_histogram_object(
+                axes[0]._to_boost_histogram_(), metadata=metadata
+            )
+            return
+
+        # Support UHI
+        if len(axes) == 1 and isinstance(axes[0], dict) and "uhi_schema" in axes[0]:
+            if storage is not None:
+                raise TypeError(storage_err_msg)
+            self._from_histogram_object(
+                serialization.from_uhi(axes[0]), metadata=metadata
+            )
             return
 
         if storage is None:
-            storage = Double()  # type: ignore[unreachable]
+            storage = Double()
 
         self.metadata = metadata
 
@@ -319,12 +329,12 @@ class Histogram:
 
     @classmethod
     def _clone(
-        cls: type[H],
+        cls,
         _hist: Histogram | CppHistogram,
         *,
         other: Histogram | None = None,
         memo: Any = NOTHING,
-    ) -> H:
+    ) -> Self:
         """
         Clone a histogram (possibly of a different base). Does not trigger __init__.
         This will copy data from `other=` if non-None, otherwise metadata gets copied from the input.
@@ -351,27 +361,27 @@ class Histogram:
 
         for ax in self.axes:
             if memo is NOTHING:
-                ax.__dict__ = copy.copy(ax._ax.metadata)
+                ax.__dict__ = copy.copy(ax._ax.raw_metadata)
             else:
-                ax.__dict__ = copy.deepcopy(ax._ax.metadata, memo)
+                ax.__dict__ = copy.deepcopy(ax._ax.raw_metadata, memo)
         return self
 
-    def _new_hist(self: H, _hist: CppHistogram, memo: Any = NOTHING) -> H:
+    def _new_hist(self, _hist: CppHistogram, memo: Any = NOTHING) -> Self:
         """
         Return a new histogram given a new _hist, copying current metadata.
         """
         return self.__class__._clone(_hist, other=self, memo=memo)
 
-    def _from_histogram_cpp(self, other: CppHistogram) -> None:
+    def _from_histogram_cpp(self, other: CppHistogram, *, metadata: Any = None) -> None:
         """
         Import a Cpp histogram.
         """
         self._variance_known = True
         self._hist = other
-        self.metadata = None
+        self.metadata = metadata
         self.axes = self._generate_axes_()
 
-    def _from_histogram_object(self, other: Histogram) -> None:
+    def _from_histogram_object(self, other: Histogram, *, metadata: Any = None) -> None:
         """
         Convert self into a new histogram object based on another, possibly
         converting from a different subclass.
@@ -380,7 +390,8 @@ class Histogram:
         self.__dict__ = copy.copy(other.__dict__)
         self.axes = self._generate_axes_()
         for ax in self.axes:
-            ax.__dict__ = copy.copy(ax._ax.metadata)
+            ax.__dict__ = copy.copy(ax._ax.raw_metadata)
+        self.metadata = other.metadata if metadata is None else metadata
 
         # Allow custom behavior on either "from" or "to"
         other._export_bh_(self)
@@ -408,6 +419,19 @@ class Histogram:
         """
 
         return AxesTuple(self._axis(i) for i in range(self.ndim))
+
+    def _to_uhi_(self) -> dict[str, Any]:
+        """
+        Convert to a UHI histogram.
+        """
+        return serialization.to_uhi(self)
+
+    @classmethod
+    def _from_uhi_(cls, inp: dict[str, Any], /) -> Self:
+        """
+        Convert from a UHI histogram.
+        """
+        return cls(serialization.from_uhi(inp))
 
     @property
     def ndim(self) -> int:
@@ -437,17 +461,19 @@ class Histogram:
             kwargs["copy"] = copy
         return np.asarray(self.view(False), dtype=dtype, **kwargs)  # type: ignore[call-overload]
 
+    __hash__ = None  # type: ignore[assignment]
+
     def __eq__(self, other: object) -> bool:
         return hasattr(other, "_hist") and self._hist == other._hist
 
     def __ne__(self, other: object) -> bool:
         return (not hasattr(other, "_hist")) or self._hist != other._hist
 
-    def __add__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __add__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         result = self.copy(deep=False)
         return result.__iadd__(other)
 
-    def __iadd__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __iadd__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         if isinstance(other, (int, float)) and other == 0:
             return self
         self._compute_inplace_op("__iadd__", other)
@@ -457,14 +483,14 @@ class Histogram:
 
         return self
 
-    def __radd__(self: H, other: np.typing.NDArray[Any] | float) -> H:
+    def __radd__(self, other: np.typing.NDArray[Any] | float) -> Self:
         return self + other
 
-    def __sub__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __sub__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         result = self.copy(deep=False)
         return result.__isub__(other)
 
-    def __isub__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __isub__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         if isinstance(other, (int, float)) and other == 0:
             return self
         self._compute_inplace_op("__isub__", other)
@@ -474,33 +500,33 @@ class Histogram:
         return self
 
     # If these fail, the underlying object throws the correct error
-    def __mul__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __mul__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         result = self.copy(deep=False)
         return result._compute_inplace_op("__imul__", other)
 
-    def __rmul__(self: H, other: np.typing.NDArray[Any] | float) -> H:
+    def __rmul__(self, other: np.typing.NDArray[Any] | float) -> Self:
         return self * other
 
-    def __truediv__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __truediv__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         result = self.copy(deep=False)
         return result._compute_inplace_op("__itruediv__", other)
 
-    def __div__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __div__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         result = self.copy(deep=False)
         return result._compute_inplace_op("__idiv__", other)
 
-    def __idiv__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __idiv__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         return self._compute_inplace_op("__idiv__", other)
 
-    def __itruediv__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __itruediv__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         return self._compute_inplace_op("__itruediv__", other)
 
-    def __imul__(self: H, other: Histogram | np.typing.NDArray[Any] | float) -> H:
+    def __imul__(self, other: Histogram | np.typing.NDArray[Any] | float) -> Self:
         return self._compute_inplace_op("__imul__", other)
 
     def _compute_inplace_op(
-        self: H, name: str, other: Histogram | np.typing.NDArray[Any] | float
-    ) -> H:
+        self, name: str, other: Histogram | np.typing.NDArray[Any] | float
+    ) -> Self:
         # Also takes CppHistogram, but that confuses mypy because it's hard to pick out
         if isinstance(other, Histogram):
             getattr(self._hist, name)(other._hist)
@@ -531,12 +557,12 @@ class Histogram:
 
     # TODO: Marked as too complex by flake8. Should be factored out a bit.
     def fill(
-        self: H,
+        self,
         *args: ArrayLike | str,
         weight: ArrayLike | None = None,
         sample: ArrayLike | None = None,
         threads: int | None = None,
-    ) -> H:
+    ) -> Self:
         """
         Insert data into the histogram.
 
@@ -544,9 +570,9 @@ class Histogram:
         ----------
         *args : Union[Array[float], Array[int], Array[str], float, int, str]
             Provide one value or array per dimension.
-        weight : List[Union[Array[float], Array[int], float, int, str]]]
+        weight : list[Union[Array[float], Array[int], float, int, str]]]
             Provide weights (only if the histogram storage supports it)
-        sample : List[Union[Array[float], Array[int], Array[str], float, int, str]]]
+        sample : list[Union[Array[float], Array[int], Array[str], float, int, str]]]
             Provide samples (only if the histogram storage supports it)
         threads : Optional[int]
             Fill with threads. Defaults to None, which does not activate
@@ -674,13 +700,13 @@ class Histogram:
         )
         return cast(self, self._hist._storage_type, Storage)  # type: ignore[return-value]
 
-    def _reduce(self: H, *args: Any) -> H:
+    def _reduce(self, *args: Any) -> Self:
         return self._new_hist(self._hist.reduce(*args))
 
-    def __copy__(self: H) -> H:
+    def __copy__(self) -> Self:
         return self._new_hist(copy.copy(self._hist))
 
-    def __deepcopy__(self: H, memo: Any) -> H:
+    def __deepcopy__(self, memo: Any) -> Self:
         return self._new_hist(copy.deepcopy(self._hist), memo=memo)
 
     def __getstate__(self) -> tuple[int, dict[str, Any]]:
@@ -714,7 +740,9 @@ class Histogram:
             self._variance_known = True
             self.metadata = state.get("metadata", None)
             for i in range(self._hist.rank()):
-                self._hist.axis(i).metadata = {"metadata": self._hist.axis(i).metadata}
+                self._hist.axis(i).raw_metadata = {
+                    "metadata": self._hist.axis(i).raw_metadata
+                }
 
         self.axes = self._generate_axes_()
 
@@ -838,7 +866,7 @@ class Histogram:
 
         return (hist, edges) if dd else (hist, *edges)
 
-    def copy(self: H, *, deep: bool = True) -> H:
+    def copy(self, *, deep: bool = True) -> Self:
         """
         Make a copy of the histogram. Defaults to making a
         deep copy (axis metadata copied); use deep=False
@@ -847,7 +875,7 @@ class Histogram:
 
         return copy.deepcopy(self) if deep else copy.copy(self)
 
-    def reset(self: H) -> H:
+    def reset(self) -> Self:
         """
         Clear the bin counters.
         """
@@ -882,7 +910,7 @@ class Histogram:
         return self.axes.size
 
     # TODO: Marked as too complex by flake8. Should be factored out a bit.
-    def __getitem__(self: H, index: IndexingExpr) -> H | float | Accumulator:
+    def __getitem__(self, index: IndexingExpr) -> Self | float | Accumulator:
         indexes = self._compute_commonindex(index)
 
         # If this is (now) all integers, return the bin contents
@@ -986,7 +1014,7 @@ class Histogram:
                     if new_axis is None:
                         new_axis = Variable(
                             new_axes_indices,
-                            __dict__=axes[i].metadata,
+                            __dict__=axes[i].raw_metadata,
                             underflow=axes[i].traits_underflow,
                             overflow=axes[i].traits_overflow,
                         )
@@ -1072,7 +1100,7 @@ class Histogram:
                     selection.append(ax.size)
 
                 new_axis = axes[i].__class__([axes[i].value(j) for j in pick_set[i]])  # type: ignore[call-arg]
-                new_axis.metadata = axes[i].metadata
+                new_axis.raw_metadata = axes[i].raw_metadata
                 axes[i] = new_axis
                 reduced_view = np.take(reduced_view, selection, axis=i)
 
@@ -1100,37 +1128,33 @@ class Histogram:
         If an array is given that does not match, if it does match the
         with-overflow size, it fills that.
 
-        PLANNED (not yet supported):
-
             h[a:] = h2
 
         If another histogram is given, that must either match with or without
         overflow, where the overflow bins must be overflow bins (that is,
         you cannot set a histogram's flow bins from another histogram that
-        is 2 larger). Bin edges must be a close match, as well. If you don't
-        want this level of type safety, just use ``h[...] = h2.view()``.
+        is 2 larger). If you don't want this level of type safety, just use
+        ``h[...] = h2.view()``.
         """
         indexes = self._compute_commonindex(index)
 
-        if isinstance(value, Histogram):
-            raise TypeError("Not supported yet")
-
-        value = np.asarray(value)
-        view = self.view(flow=True)
+        in_array = np.asarray(value)
+        view: Any = self.view(flow=True)
 
         value_shape: tuple[int, ...]
+
         # Support raw arrays for accumulators, the final dimension is the constructor values
         if (
-            value.ndim > 0
+            in_array.ndim > 0
             and len(view.dtype) > 0
-            and len(value.dtype) == 0
-            and len(view.dtype) == value.shape[-1]
+            and len(in_array.dtype) == 0
+            and len(view.dtype) == in_array.shape[-1]
         ):
-            value_shape = value.shape[:-1]
-            value_ndim = value.ndim - 1
+            value_shape = in_array.shape[:-1]
+            value_ndim = in_array.ndim - 1
         else:
-            value_shape = value.shape
-            value_ndim = value.ndim
+            value_shape = in_array.shape
+            value_ndim = in_array.ndim
 
         # NumPy does not broadcast partial slices, but we would need
         # to allow it (because we do allow broadcasting up dimensions)
@@ -1146,34 +1170,46 @@ class Histogram:
             has_overflow = self.axes[n].traits.overflow
 
             if isinstance(request, slice):
-                # Only consider underflow/overflow if the endpoints are not given
-                use_underflow = has_underflow and request.start is None
-                use_overflow = has_overflow and request.stop is None
+                # This ensures that callable start/stop are handled
+                start, stop = self.axes[n]._process_loc(request.start, request.stop)
 
-                # Make the limits explicit since we may need to shift them
-                start = 0 if request.start is None else request.start
-                stop = len(self.axes[n]) if request.stop is None else request.stop
-                request_len = stop - start
+                # Only consider underflow/overflow if the endpoints are not given
+                use_underflow = has_underflow and start < 0
+                use_overflow = has_overflow and stop > len(self.axes[n])
+
+                # If the input is a histogram, we need to exactly match underflow/overflow
+                if isinstance(value, Histogram):
+                    in_underflow = value.axes[n].traits.underflow
+                    in_overflow = value.axes[n].traits.overflow
+
+                    if use_underflow != in_underflow or use_overflow != in_overflow:
+                        msg = (
+                            f"Cannot set histogram with underflow={in_underflow} and overflow={in_overflow} "
+                            f"to a histogram slice with underflow={use_underflow} and overflow={use_overflow}"
+                        )
+                        raise ValueError(msg)
+
+                # Convert to non-flow coordinates
+                start_real = start + 1 if has_underflow else start
+                stop_real = stop + 1 if has_underflow else stop
+
+                # This is the total requested length without flow bins
+                request_len = min(stop, len(self.axes[n])) - max(start, 0)
 
                 # If set to a scalar, then treat it like broadcasting without flow bins
-                if value_ndim == 0:
-                    start = 0 + has_overflow
-                    stop = len(self.axes[n]) + has_underflow
-
-                # Normal setting
-                elif request_len == value_shape[value_n]:
-                    start += has_underflow
-                    stop += has_underflow
+                # Normal requests here too
+                # Also single element broadcasting
+                if (
+                    value_ndim == 0
+                    or request_len == value_shape[value_n]
+                    or value_shape[value_n] == 1
+                ):
+                    start_real += 1 if start < 0 else 0
+                    stop_real -= 1 if stop > len(self.axes[n]) else 0
 
                 # Expanded setting
                 elif request_len + use_underflow + use_overflow == value_shape[value_n]:
-                    start += has_underflow and not use_underflow
-                    stop += has_underflow + (has_overflow and use_overflow)
-
-                # Single element broadcasting
-                elif value_shape[value_n] == 1:
-                    start += has_underflow
-                    stop += has_underflow
+                    pass
 
                 else:
                     msg = f"Mismatched shapes in dimension {n}"
@@ -1181,14 +1217,22 @@ class Histogram:
                     if use_underflow or use_overflow:
                         msg += f" or {request_len + use_underflow + use_overflow}"
                     raise ValueError(msg)
-                indexes[n] = slice(start, stop, request.step)
+                logger.debug(
+                    "__setitem__: axis %i, start: %i (actual %i), stop: %i (actual %i)",
+                    n,
+                    start,
+                    start_real,
+                    stop,
+                    stop_real,
+                )
+                indexes[n] = slice(start_real, stop_real, request.step)
                 value_n += 1
             else:
                 indexes[n] = request + has_underflow
 
-        view[tuple(indexes)] = value  # type: ignore[arg-type]
+        view[tuple(indexes)] = in_array
 
-    def project(self: H, *args: int) -> H | float | Accumulator:
+    def project(self, *args: int) -> Self | float | Accumulator:
         """
         Project to a single axis or several axes on a multidimensional histogram.
         Provided a list of axis numbers, this will produce the histogram over
@@ -1233,7 +1277,7 @@ class Histogram:
         :return: "np.typing.NDArray[Any]"[np.float64]
         """
 
-        view = self.view(flow)
+        view: Any = self.view(flow)
         # TODO: Might be a NumPy typing bug
         if len(view.dtype) == 0:
             return view
@@ -1263,12 +1307,12 @@ class Histogram:
         :return: "np.typing.NDArray[Any]"[np.float64]
         """
 
-        view = self.view(flow)
+        view: Any = self.view(flow)
         if len(view.dtype) == 0:
             return view if self._variance_known else None
 
         if hasattr(view, "sum_of_weights"):
-            valid = view.sum_of_weights**2 > view.sum_of_weights_squared  # type: ignore[union-attr]
+            valid = view.sum_of_weights**2 > view.sum_of_weights_squared
             return np.divide(
                 view.variance,
                 view.sum_of_weights,
@@ -1309,7 +1353,7 @@ class Histogram:
         :return: "np.typing.NDArray[Any]"[np.float64]
         """
 
-        view = self.view(flow)
+        view: Any = self.view(flow)
 
         if len(view.dtype) == 0:
             return view
@@ -1317,9 +1361,9 @@ class Histogram:
         if hasattr(view, "sum_of_weights"):
             return np.divide(
                 view.sum_of_weights**2,
-                view.sum_of_weights_squared,  # type: ignore[union-attr]
+                view.sum_of_weights_squared,
                 out=np.zeros_like(view.sum_of_weights, dtype=np.float64),
-                where=view.sum_of_weights_squared != 0,  # type: ignore[union-attr]
+                where=view.sum_of_weights_squared != 0,
             )
 
         if hasattr(view, "count"):

@@ -128,9 +128,15 @@ def cam_to_xyz(
     if env is None:
         raise ValueError("No viewing conditions/environment provided")
 
-    # Black
-    if J == 0.0 or Q == 0.0:
-        return [0.0, 0.0, 0.0]
+    # Black?
+    if J == 0.0:
+        J = alg.EPS
+        if not any((C, M, s)):
+            return [0.0, 0.0, 0.0]
+    if Q == 0.0:
+        Q = alg.EPS
+        if not any((C, M, s)):
+            return [0.0, 0.0, 0.0]
 
     # Break hue into Cartesian components
     h_rad = 0.0
@@ -278,6 +284,16 @@ class CAM02JMh(LCh):
         Channel("h", 0.0, 360.0, flags=FLG_ANGLE)
     )
 
+    def lightness_name(self) -> str:
+        """Get lightness name."""
+
+        return "j"
+
+    def radial_name(self) -> str:
+        """Get radial name."""
+
+        return "m"
+
     def normalize(self, coords: Vector) -> Vector:
         """Normalize."""
 
@@ -285,12 +301,6 @@ class CAM02JMh(LCh):
             return self.from_base(self.to_base(coords))
         coords[2] %= 360.0
         return coords
-
-    def is_achromatic(self, coords: Vector) -> bool | None:
-        """Check if color is achromatic."""
-
-        # Account for both positive and negative chroma
-        return coords[0] == 0 or abs(coords[1]) < self.achromatic_threshold
 
     def to_base(self, coords: Vector) -> Vector:
         """From CAM02 JMh to XYZ."""

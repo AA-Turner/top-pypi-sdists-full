@@ -21,6 +21,7 @@ import json
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from cdp.openapi_client.models.spend_permission_network import SpendPermissionNetwork
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -28,10 +29,9 @@ class CreateSpendPermissionRequest(BaseModel):
     """
     CreateSpendPermissionRequest
     """ # noqa: E501
-    network: StrictStr = Field(description="The network of the spend permission.")
-    account: Annotated[str, Field(strict=True)] = Field(description="Smart account this spend permission is valid for.")
-    spender: Annotated[str, Field(strict=True)] = Field(description="Entity that can spend account's tokens.")
-    token: Annotated[str, Field(strict=True)] = Field(description="Token address (ERC-7528 native token address or ERC-20 contract).")
+    network: SpendPermissionNetwork
+    spender: Annotated[str, Field(strict=True)] = Field(description="Entity that can spend account's tokens. Can be either a Smart Account or an EOA.")
+    token: Annotated[str, Field(strict=True)] = Field(description="ERC-7528 native token address (e.g. \"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE\" for native ETH), or an  ERC-20 contract address.")
     allowance: StrictStr = Field(description="Maximum allowed value to spend, in atomic units for the specified token, within each period.")
     period: StrictStr = Field(description="Time duration for resetting used allowance on a recurring basis (seconds).")
     start: StrictStr = Field(description="The start time for this spend permission, in Unix seconds.")
@@ -39,14 +39,7 @@ class CreateSpendPermissionRequest(BaseModel):
     salt: Optional[StrictStr] = Field(default=None, description="An arbitrary salt to differentiate unique spend permissions with otherwise identical data.")
     extra_data: Optional[StrictStr] = Field(default=None, description="Arbitrary data to include in the permission.", alias="extraData")
     paymaster_url: Optional[StrictStr] = Field(default=None, description="The paymaster URL of the spend permission.", alias="paymasterUrl")
-    __properties: ClassVar[List[str]] = ["network", "account", "spender", "token", "allowance", "period", "start", "end", "salt", "extraData", "paymasterUrl"]
-
-    @field_validator('account')
-    def account_validate_regular_expression(cls, value):
-        """Validates the regular expression"""
-        if not re.match(r"^0x[a-fA-F0-9]{40}$", value):
-            raise ValueError(r"must validate the regular expression /^0x[a-fA-F0-9]{40}$/")
-        return value
+    __properties: ClassVar[List[str]] = ["network", "spender", "token", "allowance", "period", "start", "end", "salt", "extraData", "paymasterUrl"]
 
     @field_validator('spender')
     def spender_validate_regular_expression(cls, value):
@@ -114,7 +107,6 @@ class CreateSpendPermissionRequest(BaseModel):
 
         _obj = cls.model_validate({
             "network": obj.get("network"),
-            "account": obj.get("account"),
             "spender": obj.get("spender"),
             "token": obj.get("token"),
             "allowance": obj.get("allowance"),

@@ -12,10 +12,10 @@ T = TypeVar("T", bound="UpdateVariableJsonBody")
 class UpdateVariableJsonBody:
     """
     Attributes:
-        path (Union[Unset, str]):
-        value (Union[Unset, str]):
-        is_secret (Union[Unset, bool]):
-        description (Union[Unset, str]):
+        path (Union[Unset, str]): The path to the variable
+        value (Union[Unset, str]): The new value of the variable
+        is_secret (Union[Unset, bool]): Whether the variable is a secret
+        description (Union[Unset, str]): The new description of the variable
     """
 
     path: Union[Unset, str] = UNSET

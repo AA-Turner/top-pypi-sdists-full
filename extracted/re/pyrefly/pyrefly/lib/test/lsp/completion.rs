@@ -1224,3 +1224,26 @@ Completion Results:
         report.trim(),
     );
 }
+
+#[test]
+fn redeclaration() {
+    let code = r#"
+fff = 1
+fff = fff + 1
+ff
+#^
+"#;
+    let report =
+        get_batched_lsp_operations_report_allow_error(&[("main", code)], get_default_test_report());
+    assert_eq!(
+        r#"
+# main.py
+4 | ff
+     ^
+Completion Results:
+- (Variable) fff: int
+"#
+        .trim(),
+        report.trim(),
+    );
+}

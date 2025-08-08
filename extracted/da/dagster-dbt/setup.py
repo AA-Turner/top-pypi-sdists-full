@@ -40,9 +40,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.9,<3.14",
     install_requires=[
-        "dagster==1.11.4",
-        # Follow the version support constraints for dbt Core: https://docs.getdbt.com/docs/dbt-versions/core
-        f"dbt-core>=1.7,<{DBT_CORE_VERSION_UPPER_BOUND}",
+        "dagster==1.11.5",
         "Jinja2",
         "networkx",
         "orjson",
@@ -53,13 +51,18 @@ setup(
         "packaging",
     ],
     extras_require={
+        "test-bare": [
+            # used for dbtfusion tests that don't use adapters
+            "pytest-rerunfailures",
+            "pytest-order",
+        ],
         "test": [
             "pytest-rerunfailures",
             "pytest-order",
-            "dbt-duckdb<1.9.2",  # concurrency issues
             "dagster-duckdb",
             "dagster-duckdb-pandas",
-        ]
+            "dbt-duckdb<1.9.2",  # concurrency issues
+        ],
     },
     entry_points={
         "console_scripts": [

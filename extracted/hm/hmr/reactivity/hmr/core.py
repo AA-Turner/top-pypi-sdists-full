@@ -154,8 +154,8 @@ class ReactiveModuleLoader(Loader):
 _loader = ReactiveModuleLoader()  # This is a singleton loader instance used by the finder
 
 
-def _deduplicate(input_paths: Iterable[str | Path]):
-    paths = [*{Path(p).resolve(): None for p in input_paths}]  # dicts preserve insertion order
+def _deduplicate(input_paths: Iterable[str | Path | None]):
+    paths = [*{Path(p).resolve(): None for p in input_paths if p is not None}]  # dicts preserve insertion order
     for i, p in enumerate(s := sorted(paths, reverse=True), start=1):
         if is_relative_to_any(p, s[i:]):
             paths.remove(p)
@@ -167,7 +167,7 @@ class ReactiveModuleFinder(MetaPathFinder):
         super().__init__()
         builtins = map(get_paths().__getitem__, ("stdlib", "platstdlib", "platlib", "purelib"))
         self.includes = _deduplicate(includes)
-        self.excludes = _deduplicate((*([venv] if (venv := getenv("VIRTUAL_ENV")) else ()), *getsitepackages(), getusersitepackages(), *builtins, *excludes))
+        self.excludes = _deduplicate((getenv("VIRTUAL_ENV"), *getsitepackages(), getusersitepackages(), *builtins, *excludes))
 
         self._last_sys_path: list[str] = []
         self._last_cwd: Path = Path()
@@ -183,21 +183,25 @@ class ReactiveModuleFinder(MetaPathFinder):
         if sys.path == self._last_sys_path and self._last_cwd.exists() and Path.cwd().samefile(self._last_cwd):
             return self._cached_search_paths
 
-        res = [path for path in (Path(p).resolve() for p in sys.path) if not is_relative_to_any(path, self.excludes) and any(i.is_relative_to(path) or path.is_relative_to(i) for i in self.includes)]
+        res = [
+            path
+            for path in (Path(p).resolve() for p in sys.path)
+            if not path.is_file() and not is_relative_to_any(path, self.excludes) and any(i.is_relative_to(path) or path.is_relative_to(i) for i in self.includes)
+        ]
 
         self._cached_search_paths = res
         self._last_cwd = Path.cwd()
         self._last_sys_path = [*sys.path]
         return res
 
-    def find_spec(self, fullname: str, paths: Sequence[str] | None, _=None):
+    def find_spec(self, fullname: str, paths: Sequence[str | Path] | None, _=None):
         if fullname in sys.modules:
             return None
 
-        for directory in self.search_paths:
-            if directory.is_file():
-                continue
+        if paths is not None:
+            paths = [path.resolve() for path in (Path(p) for p in paths) if path.is_dir()]
 
+        for directory in self.search_paths:
             file = directory / f"{fullname.replace('.', '/')}.py"
             if self._accept(file) and (paths is None or is_relative_to_any(file, paths)):
                 return spec_from_loader(fullname, _loader, origin=str(file))
@@ -372,4 +376,4 @@ def cli():
     reloader.keep_watching_until_interrupt()
 
 
-__version__ = "0.6.4.4"
+__version__ = "0.6.4.6"

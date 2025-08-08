@@ -19,11 +19,11 @@ use chroma_types::{
         literal_expr::{LiteralExpr, NgramLiteralProvider},
         ChromaRegex, ChromaRegexError,
     },
-    BooleanOperator, Chunk, CompositeExpression, DocumentExpression, DocumentOperator, LogRecord,
-    MaterializedLogOperation, MetadataComparison, MetadataExpression, MetadataSetValue,
+    BooleanOperator, Chunk, CompositeExpression, DataRecord, DocumentExpression, DocumentOperator,
+    LogRecord, MaterializedLogOperation, MetadataComparison, MetadataExpression, MetadataSetValue,
     MetadataValue, PrimitiveOperator, Segment, SetOperator, SignedRoaringBitmap, Where,
 };
-use futures::TryStreamExt;
+use futures::future::try_join_all;
 use roaring::RoaringBitmap;
 use thiserror::Error;
 use tracing::{Instrument, Span};
@@ -245,22 +245,33 @@ impl<'me> MetadataProvider<'me> {
                             Some(offset_ids)
                                 if offset_ids.len() < rec_reader.count().await? as u64 / 10 =>
                             {
-                                for id in offset_ids {
-                                    if rec_reader.get_data_for_offset_id(id).await?.is_some_and(
-                                        |rec| rec.document.is_some_and(|doc| regex.is_match(doc)),
-                                    ) {
+                                let fetch_futures: Vec<_> =
+                                    offset_ids
+                                        .into_iter()
+                                        .map(|id| {
+                                            async move {
+                                        let data = rec_reader.get_data_for_offset_id(id).await?;
+                                        Ok::<(u32, Option<DataRecord>), Box<dyn ChromaError>>((
+                                            id, data,
+                                        ))
+                                    }.instrument(tracing::trace_span!(parent: Span::current(),
+                                        "DataRecord fetch for offset id",
+                                        offset_id = %id
+                                    ))
+                                        })
+                                        .collect();
+                                let data_results = try_join_all(fetch_futures).await?;
+                                for (id, data_opt) in data_results {
+                                    if data_opt.is_some_and(|rec| {
+                                        rec.document.is_some_and(|doc| regex.is_match(doc))
+                                    }) {
                                         exact_matching_offset_ids.insert(id);
                                     }
                                 }
                             }
                             // Perform range scan of all documents
                             candidate_offsets => {
-                                for (offset, record) in rec_reader
-                                    .get_data_stream(..)
-                                    .await
-                                    .try_collect::<Vec<_>>()
-                                    .await?
-                                {
+                                for (offset, record) in rec_reader.get_all_data().await? {
                                     if (candidate_offsets.is_none()
                                         || candidate_offsets
                                             .as_ref()
@@ -496,11 +507,9 @@ impl Operator<FilterInput, FilterOutput> for Filter {
 
     async fn run(&self, input: &FilterInput) -> Result<FilterOutput, FilterError> {
         tracing::debug!(
-            "[{}]: Num log entries {:?}, metadata segment {:?}, record segment {:?}",
+            "[{}]: Num log entries {:?}",
             self.get_name(),
             input.logs.len(),
-            input.metadata_segment,
-            input.record_segment
         );
 
         let record_segment_reader = match RecordSegmentReader::from_segment(
@@ -640,7 +649,7 @@ mod tests {
     /// - Log: Delete [11..=20], add [51..=100]
     /// - Compacted: Delete [1..=10] deletion, add [11..=50]
     async fn setup_filter_input() -> (TestDistributedSegment, FilterInput) {
-        let mut test_segment = TestDistributedSegment::default();
+        let mut test_segment = TestDistributedSegment::new().await;
         test_segment
             .populate_with_generator(60, add_delete_generator)
             .await;

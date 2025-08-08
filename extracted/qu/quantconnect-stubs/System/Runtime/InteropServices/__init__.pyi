@@ -2430,7 +2430,7 @@ class PosixSignalRegistration(System.Object, System.IDisposable):
     """Handles a PosixSignal."""
 
     @staticmethod
-    def create(signal: System.Runtime.InteropServices.PosixSignal, handler: typing.Callable[[System.Runtime.InteropServices.PosixSignalContext], None]) -> System.Runtime.InteropServices.PosixSignalRegistration:
+    def create(signal: System.Runtime.InteropServices.PosixSignal, handler: typing.Callable[[System.Runtime.InteropServices.PosixSignalContext], typing.Any]) -> System.Runtime.InteropServices.PosixSignalRegistration:
         """
         Registers a  that is invoked when the  occurs.
         

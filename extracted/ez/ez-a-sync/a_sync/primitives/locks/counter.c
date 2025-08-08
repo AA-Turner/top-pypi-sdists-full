@@ -8525,7 +8525,7 @@ __Pyx_RefNannySetupContext("PyInit_counter", 0);
   (void)__Pyx_modinit_variable_import_code(__pyx_mstate);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
-  __Pyx_TraceStartFunc("PyInit_counter", __pyx_f[0], 1, 0, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceStartFunc("PyInit_counter", __pyx_f[0], 1, 1, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
 
   /* "a_sync/primitives/locks/counter.pyx":7
  * """
@@ -8667,7 +8667,7 @@ __Pyx_RefNannySetupContext("PyInit_counter", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,0,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_7counter_11CounterLock_19__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_CounterLock___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_counter, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[12])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -8763,7 +8763,7 @@ __Pyx_RefNannySetupContext("PyInit_counter", 0);
  * This module provides two specialized async flow management classes, :class:`CounterLock` and :class:`CounterLockCluster`.
  * 
 */
-  __Pyx_TraceLine(1,0,0,__PYX_ERR(0, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,1,0,__PYX_ERR(0, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_PyDict_NewPresized(8); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_CounterLock___init___line_41, __pyx_mstate_global->__pyx_kp_u_Initializes_the_class_CounterLo) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
@@ -8776,7 +8776,7 @@ __Pyx_RefNannySetupContext("PyInit_counter", 0);
   if (PyDict_SetItem(__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_CounterLockCluster_wait_for_line, __pyx_mstate_global->__pyx_kp_u_Waits_until_the_value_of_all_cl) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_3) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 1, 0, __PYX_ERR(0, 1, __pyx_L1_error));
   __Pyx_PyMonitoring_ExitScope(0);
 
   /*--- Wrapped vars code ---*/
@@ -8787,7 +8787,7 @@ __Pyx_RefNannySetupContext("PyInit_counter", 0);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_TraceException(__pyx_lineno, 0, 0);
-  __Pyx_TraceExceptionUnwind(0, 0);
+  __Pyx_TraceExceptionUnwind(1, 0);
   if (__pyx_m) {
     if (__pyx_mstate->__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init a_sync.primitives.locks.counter", __pyx_clineno, __pyx_lineno, __pyx_filename);

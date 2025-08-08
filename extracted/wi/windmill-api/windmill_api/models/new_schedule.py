@@ -22,30 +22,31 @@ T = TypeVar("T", bound="NewSchedule")
 class NewSchedule:
     """
     Attributes:
-        path (str):
-        schedule (str):
-        timezone (str):
-        script_path (str):
-        is_flow (bool):
-        args (NewScheduleArgs):
-        enabled (Union[Unset, bool]):
-        on_failure (Union[Unset, str]):
-        on_failure_times (Union[Unset, float]):
-        on_failure_exact (Union[Unset, bool]):
-        on_failure_extra_args (Union[Unset, NewScheduleOnFailureExtraArgs]):
-        on_recovery (Union[Unset, str]):
-        on_recovery_times (Union[Unset, float]):
-        on_recovery_extra_args (Union[Unset, NewScheduleOnRecoveryExtraArgs]):
-        on_success (Union[Unset, str]):
-        on_success_extra_args (Union[Unset, NewScheduleOnSuccessExtraArgs]):
-        ws_error_handler_muted (Union[Unset, bool]):
-        retry (Union[Unset, NewScheduleRetry]):
-        no_flow_overlap (Union[Unset, bool]):
-        summary (Union[Unset, str]):
-        description (Union[Unset, str]):
-        tag (Union[Unset, str]):
-        paused_until (Union[Unset, datetime.datetime]):
-        cron_version (Union[Unset, str]):
+        path (str): The path where the schedule will be created
+        schedule (str): The cron schedule to trigger the script or flow. Should include seconds.
+        timezone (str): The timezone to use for the cron schedule
+        script_path (str): The path to the script or flow to trigger
+        is_flow (bool): Whether the schedule is for a flow
+        args (NewScheduleArgs): The arguments to pass to the script or flow
+        enabled (Union[Unset, bool]): Whether the schedule is enabled
+        on_failure (Union[Unset, str]): The path to the script or flow to trigger on failure
+        on_failure_times (Union[Unset, float]): The number of times to retry on failure
+        on_failure_exact (Union[Unset, bool]): Whether the schedule should only run on the exact time
+        on_failure_extra_args (Union[Unset, NewScheduleOnFailureExtraArgs]): The arguments to pass to the script or flow
+        on_recovery (Union[Unset, str]): The path to the script or flow to trigger on recovery
+        on_recovery_times (Union[Unset, float]): The number of times to retry on recovery
+        on_recovery_extra_args (Union[Unset, NewScheduleOnRecoveryExtraArgs]): The arguments to pass to the script or
+            flow
+        on_success (Union[Unset, str]): The path to the script or flow to trigger on success
+        on_success_extra_args (Union[Unset, NewScheduleOnSuccessExtraArgs]): The arguments to pass to the script or flow
+        ws_error_handler_muted (Union[Unset, bool]): Whether the WebSocket error handler is muted
+        retry (Union[Unset, NewScheduleRetry]): The retry configuration for the schedule
+        no_flow_overlap (Union[Unset, bool]): Whether the schedule should not run if a flow is already running
+        summary (Union[Unset, str]): The summary of the schedule
+        description (Union[Unset, str]): The description of the schedule
+        tag (Union[Unset, str]): The tag of the schedule
+        paused_until (Union[Unset, datetime.datetime]): The date and time the schedule will be paused until
+        cron_version (Union[Unset, str]): The version of the cron schedule to use (last is v2)
     """
 
     path: str

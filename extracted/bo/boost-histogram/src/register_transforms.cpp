@@ -13,6 +13,7 @@
 #include <bh_python/transform.hpp>
 #include <boost/histogram/axis/regular.hpp>
 
+namespace {
 template <class T, class... Args>
 py::class_<T> register_transform(py::module& mod, Args&&... args) {
     py::class_<T> transform(mod, std::forward<Args>(args)...);
@@ -30,6 +31,7 @@ py::class_<T> register_transform(py::module& mod, Args&&... args) {
 
     return transform;
 }
+} // namespace
 
 extern "C" {
 double _log_fn(double v) { return std::log(v); }
@@ -38,6 +40,7 @@ double _sqrt_fn(double v) { return std::sqrt(v); }
 double _sq_fn(double v) { return v * v; }
 }
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 void register_transforms(py::module& mod) {
     mod.def("_log_fn", &_log_fn);
     mod.def("_exp_fn", &_exp_fn);
@@ -47,7 +50,7 @@ void register_transforms(py::module& mod) {
     register_transform<bh::axis::transform::id>(mod, "id")
         .def(py::init<>())
         .def("__repr__",
-             [](py::object self) {
+             [](const py::object& self) {
                  return py::str("{}()").format(self.attr("__class__").attr("__name__"));
              })
 
@@ -56,7 +59,7 @@ void register_transforms(py::module& mod) {
     register_transform<bh::axis::transform::sqrt>(mod, "sqrt")
         .def(py::init<>())
         .def("__repr__",
-             [](py::object self) {
+             [](const py::object& self) {
                  return py::str("{}()").format(self.attr("__class__").attr("__name__"));
              })
 
@@ -65,7 +68,7 @@ void register_transforms(py::module& mod) {
     register_transform<bh::axis::transform::log>(mod, "log")
         .def(py::init<>())
         .def("__repr__",
-             [](py::object self) {
+             [](const py::object& self) {
                  return py::str("{}()").format(self.attr("__class__").attr("__name__"));
              })
 
@@ -75,8 +78,8 @@ void register_transforms(py::module& mod) {
         .def(py::init<double>(), "power"_a)
         .def_readonly("power", &bh::axis::transform::pow::power)
         .def("__repr__",
-             [](py::object self) {
-                 double power = py::cast<bh::axis::transform::pow>(self).power;
+             [](const py::object& self) {
+                 double const power = py::cast<bh::axis::transform::pow>(self).power;
                  return py::str("{}({:g})")
                      .format(self.attr("__class__").attr("__name__"), power);
              })
@@ -90,15 +93,15 @@ void register_transforms(py::module& mod) {
              "convert"_a,
              "name"_a)
         .def("__repr__",
-             [](py::object self) {
+             [](const py::object& self) {
                  auto& s = py::cast<func_transform&>(self);
                  if(s._name.equal(py::str(""))) {
                      return py::str("{}({}, {})")
                          .format(self.attr("__class__").attr("__name__"),
                                  s._forward_ob,
                                  s._inverse_ob);
-                 } else
-                     return s._name;
+                 }
+                 return s._name;
              })
 
         ;

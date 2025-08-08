@@ -5,8 +5,9 @@ use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::sync::{Arc, Mutex, atomic::{AtomicUsize, Ordering}};
+use std::time::{Instant, Duration};
+use std::thread;
 use arrow::array::{Array, Float64Array, Int32Array, Int64Array, StringArray};
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use std::fs::File;
@@ -310,7 +311,7 @@ fn compute_regression_matrix_io_optimized(style_matrix: &DMatrix<f64>) -> PyResu
 }
 
 /// I/O优化的因子文件加载
-fn load_factor_file_io_optimized(file_path: &Path) -> PyResult<IOOptimizedFactorData> {
+fn load_factor_file_io_optimized(file_path: &Path, log_detailed: bool) -> PyResult<IOOptimizedFactorData> {
     let start_time = Instant::now();
     
     // 获取文件元数据
@@ -438,9 +439,12 @@ fn load_factor_file_io_optimized(file_path: &Path) -> PyResult<IOOptimizedFactor
     let load_time = start_time.elapsed();
     let mb_per_sec = (file_size as f64 / 1024.0 / 1024.0) / load_time.as_secs_f64();
     
-    println!("✅ I/O优化因子文件加载: {}, {}行x{}列, {:.3}s, {:.1}MB/s", 
-             file_path.file_name().unwrap().to_string_lossy(),
-             n_dates, n_stocks, load_time.as_secs_f64(), mb_per_sec);
+    // 根据log_detailed参数决定是否输出详细日志
+    if log_detailed {
+        println!("✅ I/O优化因子文件加载: {}, {}行x{}列, {:.3}s, {:.1}MB/s", 
+                 file_path.file_name().unwrap().to_string_lossy(),
+                 n_dates, n_stocks, load_time.as_secs_f64(), mb_per_sec);
+    }
 
     Ok(IOOptimizedFactorData {
         dates,
@@ -530,6 +534,21 @@ fn cross_section_rank_io_optimized(values: &[f64]) -> Vec<f64> {
     ranks
 }
 
+/// 格式化持续时间为"几小时几分钟几秒"格式
+fn format_duration(total_seconds: u64) -> String {
+    let hours = total_seconds / 3600;
+    let minutes = (total_seconds % 3600) / 60;
+    let seconds = total_seconds % 60;
+    
+    if hours > 0 {
+        format!("{}小时{}分钟{}秒", hours, minutes, seconds)
+    } else if minutes > 0 {
+        format!("{}分钟{}秒", minutes, seconds)
+    } else {
+        format!("{}秒", seconds)
+    }
+}
+
 /// I/O优化的批量因子中性化函数
 #[pyfunction]
 pub fn batch_factor_neutralization_io_optimized(
@@ -537,6 +556,7 @@ pub fn batch_factor_neutralization_io_optimized(
     factor_files_dir: &str,
     output_dir: &str,
     num_threads: Option<usize>,
+    log_detailed: Option<bool>,
 ) -> PyResult<()> {
     let start_time = Instant::now();
     println!("🚀 开始I/O优化版批量因子中性化处理...");
@@ -575,6 +595,53 @@ pub fn batch_factor_neutralization_io_optimized(
         return Err(PyRuntimeError::new_err("未找到任何parquet因子文件"));
     }
 
+    // 创建进度计数器
+    let processed_files = Arc::new(AtomicUsize::new(0));
+    let error_files = Arc::new(AtomicUsize::new(0));
+    
+    // 启动进度监控线程
+    let progress_counter = Arc::clone(&processed_files);
+    let error_counter = Arc::clone(&error_files);
+    let monitor_start_time = start_time;
+    let progress_handle = thread::spawn(move || {
+        loop {
+            thread::sleep(Duration::from_secs(60));
+            let processed = progress_counter.load(Ordering::Relaxed);
+            let errors = error_counter.load(Ordering::Relaxed);
+            let elapsed = monitor_start_time.elapsed();
+            
+            if processed >= total_files {
+                break;
+            }
+            
+            let success_count = processed - errors;
+            let progress_percent = (processed as f64 / total_files as f64) * 100.0;
+            let elapsed_minutes = elapsed.as_secs_f64() / 60.0;
+            
+            let estimated_total_minutes = if progress_percent > 0.0 {
+                elapsed_minutes * 100.0 / progress_percent
+            } else {
+                0.0
+            };
+            let estimated_remaining_minutes = estimated_total_minutes - elapsed_minutes;
+            
+            // 格式化已用时间
+            let elapsed_seconds = elapsed.as_secs();
+            let elapsed_time_str = format_duration(elapsed_seconds);
+            
+            // 格式化预计剩余时间
+            let remaining_seconds = (estimated_remaining_minutes.max(0.0) * 60.0) as u64;
+            let remaining_time_str = format_duration(remaining_seconds);
+            
+            // 显示进度：有处理进展或者已经运行超过5秒
+            if processed > 0 || elapsed.as_secs() >= 5 {
+                println!("📊 处理进度: {}/{} ({:.1}%) - 成功: {}, 失败: {} - 已用时间: {} - 预计剩余: {}", 
+                         processed, total_files, progress_percent, 
+                         success_count, errors, elapsed_time_str, remaining_time_str);
+            }
+        }
+    });
+
     // 创建输出目录
     fs::create_dir_all(output_dir)
         .map_err(|e| PyRuntimeError::new_err(format!("创建输出目录失败: {}", e)))?;
@@ -604,17 +671,22 @@ pub fn batch_factor_neutralization_io_optimized(
         .map_err(|e| PyRuntimeError::new_err(format!("创建线程池失败: {}", e)))?;
 
     // 使用I/O优化版本并行处理所有文件
+    let processed_counter = Arc::clone(&processed_files);
+    let error_counter = Arc::clone(&error_files);
+    
     let results: Vec<_> = pool.install(|| {
         factor_files
             .into_par_iter()
             .map(|file_path| {
                 let style_data = Arc::clone(&style_data);
                 let output_dir = Path::new(output_dir);
-                let file_start_time = Instant::now();
+                let processed_counter = Arc::clone(&processed_counter);
+                let error_counter = Arc::clone(&error_counter);
 
+                let file_start_time = Instant::now();
                 let result = (|| -> PyResult<()> {
                     // 使用I/O优化版本加载因子数据
-                    let factor_data = load_factor_file_io_optimized(&file_path)?;
+                    let factor_data = load_factor_file_io_optimized(&file_path, log_detailed.unwrap_or(false))?;
 
                     // 执行中性化处理
                     let neutralized_result = neutralize_single_factor_io_optimized(factor_data, &style_data)?;
@@ -630,15 +702,24 @@ pub fn batch_factor_neutralization_io_optimized(
                     Ok(())
                 })();
 
-                let file_time = file_start_time.elapsed();
-                if let Err(e) = &result {
-                    eprintln!("❌ I/O优化处理失败: {} ({:.3}s) - {}", 
-                             file_path.file_name().unwrap().to_string_lossy(),
-                             file_time.as_secs_f64(), e);
-                } else {
-                    println!("✅ I/O优化完成: {} ({:.3}s)", 
-                            file_path.file_name().unwrap().to_string_lossy(),
-                            file_time.as_secs_f64());
+                // 条件化详细日志输出
+                if log_detailed.unwrap_or(false) {
+                    let file_time = file_start_time.elapsed();
+                    if let Err(e) = &result {
+                        eprintln!("❌ I/O优化处理失败: {} ({:.3}s) - {}", 
+                                 file_path.file_name().unwrap().to_string_lossy(),
+                                 file_time.as_secs_f64(), e);
+                    } else {
+                        println!("✅ I/O优化完成: {} ({:.3}s)", 
+                                file_path.file_name().unwrap().to_string_lossy(),
+                                file_time.as_secs_f64());
+                    }
+                }
+
+                // 更新计数器
+                processed_counter.fetch_add(1, Ordering::Relaxed);
+                if result.is_err() {
+                    error_counter.fetch_add(1, Ordering::Relaxed);
                 }
 
                 result
@@ -646,6 +727,9 @@ pub fn batch_factor_neutralization_io_optimized(
             .collect()
     });
 
+    // 等待监控线程结束
+    progress_handle.join().expect("进度监控线程异常结束");
+    
     // 统计处理结果
     let success_count = results.iter().filter(|r| r.is_ok()).count();
     let error_count = results.len() - success_count;

@@ -40,8 +40,8 @@ class DatasetMetrics(object):
         'state': 'DatasetState',
         'progress': 'int',
         'total': 'int',
-        'start_time': 'int',
-        'end_time': 'int',
+        'start_time': 'float',
+        'end_time': 'float',
         'operator_metrics': 'list[OperatorMetrics]',
         'metrics': 'dict(str, Metric)'
     }
@@ -258,7 +258,7 @@ class DatasetMetrics(object):
 
 
         :return: The start_time of this DatasetMetrics.  # noqa: E501
-        :rtype: int
+        :rtype: float
         """
         return self._start_time
 
@@ -268,7 +268,7 @@ class DatasetMetrics(object):
 
 
         :param start_time: The start_time of this DatasetMetrics.  # noqa: E501
-        :type: int
+        :type: float
         """
         if self.local_vars_configuration.client_side_validation and start_time is None:  # noqa: E501
             raise ValueError("Invalid value for `start_time`, must not be `None`")  # noqa: E501
@@ -281,7 +281,7 @@ class DatasetMetrics(object):
 
 
         :return: The end_time of this DatasetMetrics.  # noqa: E501
-        :rtype: int
+        :rtype: float
         """
         return self._end_time
 
@@ -291,7 +291,7 @@ class DatasetMetrics(object):
 
 
         :param end_time: The end_time of this DatasetMetrics.  # noqa: E501
-        :type: int
+        :type: float
         """
 
         self._end_time = end_time

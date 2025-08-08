@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flexget
-Version: 3.17.4
+Version: 3.17.5
 Summary: FlexGet is a program aimed to automate downloading or processing content (torrents, podcasts, etc.) from different sources like RSS-feeds, html-pages, various sites and more.
 Project-URL: Forum, https://github.com/Flexget/Flexget/discussions
 Project-URL: Homepage, https://flexget.com
@@ -55,7 +55,7 @@ Requires-Dist: sqlalchemy~=2.0
 Requires-Dist: werkzeug~=3.1
 Requires-Dist: zxcvbn~=4.4
 Provides-Extra: all
-Requires-Dist: anyio==4.9.0; extra == 'all'
+Requires-Dist: anyio==4.10.0; extra == 'all'
 Requires-Dist: certifi==2025.8.3; extra == 'all'
 Requires-Dist: charset-normalizer==3.4.2; extra == 'all'
 Requires-Dist: deluge-client==1.10.2; extra == 'all'
@@ -98,7 +98,7 @@ Requires-Dist: cheroot==10.0.1; extra == 'locked'
 Requires-Dist: cherrypy==18.10.0; extra == 'locked'
 Requires-Dist: click==8.2.1; extra == 'locked'
 Requires-Dist: colorama==0.4.6; (sys_platform == 'win32') and extra == 'locked'
-Requires-Dist: coverage==7.10.1; extra == 'locked'
+Requires-Dist: coverage==7.10.2; extra == 'locked'
 Requires-Dist: distlib==0.4.0; extra == 'locked'
 Requires-Dist: exceptiongroup==1.3.0; (python_full_version < '3.11') and extra == 'locked'
 Requires-Dist: execnet==2.1.1; extra == 'locked'
@@ -159,6 +159,7 @@ Requires-Dist: requests==2.32.4; extra == 'locked'
 Requires-Dist: rich==14.1.0; extra == 'locked'
 Requires-Dist: rpds-py==0.26.0; extra == 'locked'
 Requires-Dist: rpyc==6.0.2; extra == 'locked'
+Requires-Dist: ruff==0.12.7; extra == 'locked'
 Requires-Dist: setuptools==80.9.0; extra == 'locked'
 Requires-Dist: sgmllib3k==1.0.0; extra == 'locked'
 Requires-Dist: six==1.17.0; extra == 'locked'
@@ -172,7 +173,7 @@ Requires-Dist: tzlocal==5.3.1; extra == 'locked'
 Requires-Dist: urllib3==1.26.20; (platform_python_implementation == 'PyPy') and extra == 'locked'
 Requires-Dist: urllib3==2.5.0; (platform_python_implementation != 'PyPy') and extra == 'locked'
 Requires-Dist: vcrpy==7.0.0; extra == 'locked'
-Requires-Dist: virtualenv==20.33.0; extra == 'locked'
+Requires-Dist: virtualenv==20.33.1; extra == 'locked'
 Requires-Dist: webencodings==0.5.1; extra == 'locked'
 Requires-Dist: werkzeug==3.1.3; extra == 'locked'
 Requires-Dist: win32-setctime==1.2.0; (sys_platform == 'win32') and extra == 'locked'
@@ -190,7 +191,7 @@ Requires-Dist: requests==2.32.4; extra == 'qbittorrent'
 Requires-Dist: urllib3==1.26.20; (platform_python_implementation == 'PyPy') and extra == 'qbittorrent'
 Requires-Dist: urllib3==2.5.0; (platform_python_implementation != 'PyPy') and extra == 'qbittorrent'
 Provides-Extra: telegram
-Requires-Dist: anyio==4.9.0; extra == 'telegram'
+Requires-Dist: anyio==4.10.0; extra == 'telegram'
 Requires-Dist: certifi==2025.8.3; extra == 'telegram'
 Requires-Dist: exceptiongroup==1.3.0; (python_full_version < '3.11') and extra == 'telegram'
 Requires-Dist: h11==0.16.0; extra == 'telegram'

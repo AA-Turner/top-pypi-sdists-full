@@ -129,12 +129,12 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         ...
 
     @property
-    def new_order_event(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], None], None]:
+    def new_order_event(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]:
         """Event fired when there is a new OrderEvent"""
         ...
 
     @new_order_event.setter
-    def new_order_event(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], None], None]) -> None:
+    def new_order_event(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Orders.OrderEvent], typing.Any], typing.Any]) -> None:
         ...
 
     @property

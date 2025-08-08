@@ -33,9 +33,11 @@ class EditWebsocketTrigger:
         can_return_message (bool):
         initial_messages (Union[Unset, List[Union['EditWebsocketTriggerInitialMessagesItemType0',
             'EditWebsocketTriggerInitialMessagesItemType1']]]):
-        url_runnable_args (Union[Unset, EditWebsocketTriggerUrlRunnableArgs]):
+        url_runnable_args (Union[Unset, EditWebsocketTriggerUrlRunnableArgs]): The arguments to pass to the script or
+            flow
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, EditWebsocketTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, EditWebsocketTriggerErrorHandlerArgs]): The arguments to pass to the script or
+            flow
         retry (Union[Unset, EditWebsocketTriggerRetry]):
     """
 

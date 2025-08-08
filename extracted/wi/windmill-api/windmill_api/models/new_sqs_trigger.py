@@ -27,7 +27,7 @@ class NewSqsTrigger:
         message_attributes (Union[Unset, List[str]]):
         enabled (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, NewSqsTriggerErrorHandlerArgs]):
+        error_handler_args (Union[Unset, NewSqsTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, NewSqsTriggerRetry]):
     """
 

@@ -304,11 +304,11 @@ class GeminiCLIProvider():
                 if isinstance(media_data, str):
                     if not filename:
                         filename = media_data
-                    extension = filename.split(".")[-1].replace("jpeg", "jpg")
+                    extension = filename.split(".")[-1].replace("jpg", "jpeg")
                     format_messages[-1]["parts"].append(
                         {
                             "fileData": {
-                                "mimeType": "image/" + extension,
+                                "mimeType": f"image/{extension}",
                                 "fileUri": image_url,
                             }
                         }
@@ -497,7 +497,7 @@ class GeminiCLI(AsyncGeneratorProvider, ProviderModelMixin):
     login_url = "https://github.com/GewoonJaap/gemini-cli-openai"
 
     default_model = "gemini-2.5-pro"
-    fallback_models = [
+    models = [
         "gemini-2.5-pro",
         "gemini-2.5-flash",
     ]

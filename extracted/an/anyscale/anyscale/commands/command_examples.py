@@ -322,135 +322,6 @@ $ anyscale machine-pool detach --name can-testing --cloud my-cloud
 Detached machine pool 'can-testing' from cloud 'my-cloud'.
 """
 
-LLM_MODELS_GET_EXAMPLE = """
-$ anyscale llm model get --model-id my-model-id
-Output
-{
-    'id': 'my-model-id',
-    'base_model_id': 'meta-llama/Meta-Llama-3-8B',
-    'storage_uri': 'gs://my_bucket/my_folder',
-    'ft_type': 'LORA',
-    'cloud_id': 'cld_tffbxe9ia5phqr1unxhz4f7e1e',
-    'project_id': 'prj_dqb6ha67zubz3gdlvn2tmmglb8',
-    'created_at': 1725563985,
-    'creator': 'test@anyscale.com',
-    'job_id': 'N/A',
-    'workspace_id': 'expwrk_yje3t8twim18iuta9r45gwcgcn',
-    'generation_config': {
-        'prompt_format': {
-            'system': '<|start_header_id|>system<|end_header_id|>\\n\\n{instruction}<|eot_id|>',
-            'assistant': '<|start_header_id|>assistant<|end_header_id|>\\n\\n{instruction}<|eot_id|>',
-            'trailing_assistant': '<|start_header_id|>assistant<|end_header_id|>\\n\\n',
-            'user': '<|start_header_id|>user<|end_header_id|>\\n\\n{instruction}<|eot_id|>',
-            'bos': '<|begin_of_text|>',
-            'default_system_message': '',
-            'add_system_tags_even_if_message_is_empty': False,
-            'system_in_user': False,
-            'system_in_last_user': False,
-            'strip_whitespace': True
-        },
-        'stopping_sequences': None
-    }
-}
-"""
-
-LLM_MODELS_LIST_EXAMPLE = """
-$ anyscale llm model list --cloud-id cld_1j41ls4gwkga4pwp8nbql6f239 --project_id prj_i4wy1t442cbe2sthxp61dmtkbh --max-items 2
-Output
-[
-    {
-        'id': 'meta-llama/Meta-Llama-3-8B-Instruct:test:bnkve',
-        'base_model_id': 'meta-llama/Meta-Llama-3-8B-Instruct',
-        'storage_uri': 's3://anyscale-production-data-cld-1j41ls4gwkga4pwp...',
-        'ft_type': 'LORA',
-        'cloud_id': 'cld_1j41ls4gwkga4pwp8nbql6f239',
-        'project_id': 'prj_i4wy1t442cbe2sthxp61dmtkbh',
-        'created_at': 1725572462,
-        'creator': 'test@anyscale.com',
-        'job_id': 'N/A',
-        'workspace_id': 'expwrk_bqld1y579g3clukr49rsnd7i5m',
-        'generation_config': '{"prompt_format": {"system": "<|start_header_id|>s...'
-    },
-    {
-        'id': 'neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8:test:czcal',
-        'base_model_id': 'neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8',
-        'storage_uri': 'gs://storage-bucket-cld-tffbxe9ia5phqr1unxhz4f7e1e...',
-        'ft_type': 'LORA',
-        'cloud_id': 'cld_1j41ls4gwkga4pwp8nbql6f239',
-        'project_id': 'prj_i4wy1t442cbe2sthxp61dmtkbh',
-        'created_at': 1725563985,
-        'creator': 'test@anyscale.com',
-        'job_id': 'N/A',
-        'workspace_id': 'expwrk_yje3t8twim18iuta9r45gwcgcn',
-        'generation_config': '{"prompt_format": {"system": "<|start_header_id|>s...'
-    }
-]
-"""
-
-LLM_MODELS_DELETE_EXAMPLE = """
-$ anyscale llm model delete --model-id my-model-id
-Output
-{'id': 'my-model-id', 'deleted_at': 1725572462}
-"""
-
-LLM_DATASET_GET_EXAMPLE = """
-$ anyscale llm dataset get john_doe/viggo/train.jsonl
-Dataset(
-    id='dataset_123',
-    name='john_doe/viggo/train.jsonl',
-    filename='train.jsonl',
-    storage_uri='s3://anyscale-test-data-cld-123/org_123/cld_123/datasets/dataset_123/3/john_doe/viggo/train.jsonl',
-    version=3,
-    num_versions=3,
-    created_at=datetime.datetime(2024, 1, 1, 0, 0, tzinfo=tzutc()),
-    creator_id='usr_123',
-    project_id='prj_123',
-    cloud_id='cld_123',
-    description=None
-)
-"""
-
-LLM_DATASET_UPLOAD_EXAMPLE = """
-$ anyscale llm dataset upload path/to/my_dataset.jsonl -n my_first_dataset
-
-0:00:00 100% ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1 MB / 5.1 MB Uploading '/path/to/my_dataset.jsonl'
-
-Upload complete!
-
-Dataset(
-    id='dataset_123',
-    name='my_first_dataset',
-    filename='my_dataset.jsonl',
-    storage_uri='s3://anyscale-test-data-cld-123/org_123/cld_123/datasets/dataset_123/1/my_dataset.jsonl',
-    version=1,
-    num_versions=1,
-    created_at=datetime.datetime(2024, 1, 1, 0, 0, tzinfo=tzutc()),
-    creator_id='usr_123',
-    project_id='prj_123',
-    cloud_id='cld_123',
-    description=None
-)
-"""
-
-LLM_DATASET_DOWNLOAD_EXAMPLE = """
-$ anyscale llm dataset download train.jsonl
-0:00:00 100% ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 711.0 kB / 711.0 kB Downloading 'train.jsonl'
-
-Download complete!
-
-{"messages":[{"content":"hi","role":"user"},{"content":"Hi! How can I help?","role":"assistant"}]}
-...
-{"messages":[{"content":"bye","role":"user"},{"content":"Goodbye!","role":"assistant"}]}
-"""
-
-LLM_DATASET_LIST_EXAMPLE = """
-$ anyscale llm dataset list
-ID         Name                   Description                       Created At             Num Versions
----------  ---------------------  --------------------------------  -------------------  --------------
-dataset_2  second                 second upload                     1/2/2024 12:00 PM              23
-dataset_1  first                  first upload                      1/1/2024 12:00 PM              13
-"""
-
 RESOURCE_QUOTAS_CREATE_EXAMPLE = """
 $ anyscale resource-quota create -n my-resource-quota --cloud my-cloud --project my-project --user-email someone@myorg.com --num-instances 100 --num-cpus 1000 --num-gpus 50 --num-accelerators A10G 10 --num-accelerators A100-80G 0
 (anyscale +2.5s) Name: my-resource-quota
@@ -651,9 +522,9 @@ collaborators:
     permission_level: "readonly"
 """
 
-CLOUD_ADD_DEPLOYMENT_EXAMPLE = """\
-$ anyscale cloud add-deployment --cloud my-cloud --file new-cloud-deployment.yaml
-Successfully added deployment my-new-deployment to cloud my-cloud.
+CLOUD_DEPLOYMENT_CREATE_EXAMPLE = """\
+$ anyscale cloud deployment create --cloud my-cloud --file new-cloud-deployment.yaml
+Successfully created cloud deployment my-new-deployment in cloud my-cloud.
 
 $ cat new-cloud-deployment.yaml
 name: my-new-deployment
@@ -676,9 +547,48 @@ aws_config:
   memorydb_cluster_name: my-memorydb-cluster
 """
 
+CLOUD_DEPLOYMENT_GET_EXAMPLE = """\
+$ anyscale cloud deployment get --cloud my-cloud --deployment my-deployment
+name: my-deployment
+provider: AWS
+compute_stack: VM
+region: us-west-2
+networking_mode: PUBLIC
+object_storage:
+  bucket_name: s3://my-bucket
+file_storage:
+  file_storage_id: fs-123
+aws_config:
+  vpc_id: vpc-123
+  subnet_ids:
+  - subnet-123
+  security_group_ids:
+  - sg-123
+  anyscale_iam_role_id: arn:aws:iam::123456789012:role/anyscale-role-123
+  cluster_iam_role_id: arn:aws:iam::123456789012:role/cluster-role-123
+  memorydb_cluster_name: my-memorydb-cluster
+"""
 
-CLOUD_REMOVE_DEPLOYMENT_EXAMPLE = """\
-$ anyscale cloud remove-deployment --cloud my-cloud --deployment my-deployment
+
+CLOUD_DEPLOYMENT_UPDATE_EXAMPLE = """\
+$ anyscale cloud deployment update --cloud my-cloud --file updated-cloud-deployment.yaml
+Output
+(anyscale +3.7s) Detected the following changes:
+--- +++ @@ -15,9 +15,9 @@   file_storage_id: fs-123
+-name: my-cloud-deployment
++name: my-updated-cloud-deployment
+ networking_mode: PUBLIC
+ object_storage:
+-  bucket_name: s3://my-bucket
++  bucket_name: s3://my-updated-bucket
+ provider: AWS
+Would you like to proceed with updating this cloud deployment? [y/N]: y
+(anyscale +10.2s) Successfully updated cloud deployment my-updated-cloud-deployment in cloud my-cloud.
+"""
+
+
+CLOUD_DEPLOYMENT_DELETE_EXAMPLE = """\
+$ anyscale cloud deployment delete --cloud my-cloud --deployment my-deployment
 Output
 Please confirm that you would like to remove deployment my-deployment from cloud my-cloud. [y/N]: y
 (anyscale +3.5s) Successfully removed deployment my-deployment from cloud my-cloud!
@@ -721,6 +631,16 @@ region: us-west-2
 created_at: 2022-10-18 05:12:13.335803+00:00
 is_default: true
 compute_stack: VM
+"""
+
+CLOUD_CONFIG_UPDATE_EXAMPLE = """\
+$ anyscale cloud config update --cloud-id cloud_id --enable-log-ingestion --enable-system-cluster
+--enable-log-ingestion is specified. [...] If you are sure you want to enable this feature, please type "consent": consent
+Output
+(anyscale +7.3s) Successfully updated log ingestion configuration for cloud, cloud_id to True
+--enable-system-cluster is specified. [...] Are you sure you want to enable system cluster? [y/N]: y
+Output
+(anyscale +11.4s) Successfully enabled system cluster for cloud cloud_id
 """
 
 CLOUD_TERMINATE_SYSTEM_CLUSTER_EXAMPLE = """\

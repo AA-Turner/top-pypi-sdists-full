@@ -8,7 +8,7 @@ T = TypeVar("T", bound="GcpTriggerErrorHandlerArgs")
 
 @_attrs_define
 class GcpTriggerErrorHandlerArgs:
-    """ """
+    """The arguments to pass to the script or flow"""
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

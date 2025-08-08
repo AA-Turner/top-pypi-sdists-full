@@ -33,6 +33,7 @@ from orbax.checkpoint._src.path.snapshot import snapshot as snapshot_lib
 from orbax.checkpoint._src.serialization import type_handlers
 
 
+
 PyTree = Any
 STANDARD_ARRAY_TYPES = (int, float, np.ndarray, jax.Array)
 _SNAPSHOTS = '_SNAPSHOTS'
@@ -64,11 +65,28 @@ def get_snapshot_dir_from_step_dir(
   return new_path
 
 
+@contextlib.contextmanager
+def _manage_snapshot_file_not_found(
+    ignore_errors: bool, formatted_message: str
+) -> Iterator[None]:
+  """Context manager to optionally suppress FileNotFoundError."""
+  try:
+    yield
+  except FileNotFoundError:
+    if ignore_errors:
+      logging.warning(formatted_message, exc_info=True)
+    else:
+      raise
+
+
 def _snapshot_checkpoint(
     checkpoint_dir: epath.Path,
     step: int,
     step_name_format: step_lib.NameFormat[step_lib.Metadata],
     snapshot_dir: Optional[epath.Path] = None,
+    *,
+    set_immutable: bool | None = None,
+    ignore_file_not_found_error: bool | None = None,
 ):
   """Uses `Snapshot` class to create a cheap "copy" of the checkpoint."""
   if multihost.process_index() != 0:
@@ -93,8 +111,16 @@ def _snapshot_checkpoint(
   snapshot_path = get_snapshot_dir_from_step_dir(step_dir, snapshot_dir)
   if epath.Path(snapshot_path).exists():
     return True
-  snapshot_impl = snapshot_lib.create_instance(step_dir, snapshot_path)
-  asyncio.run(snapshot_impl.create_snapshot())
+  snapshot_impl = snapshot_lib.create_instance(
+      step_dir, snapshot_path, set_immutable=set_immutable
+  )
+  with _manage_snapshot_file_not_found(
+      ignore_errors=ignore_file_not_found_error,
+      formatted_message=(
+          f'Ignoring error when snapshotting checkpoint for step: {step}'
+      ),
+  ):
+    asyncio.run(snapshot_impl.create_snapshot())
   return True
 
 
@@ -103,6 +129,8 @@ def _release_snapshot(
     step: int,
     step_name_format: step_lib.NameFormat[step_lib.Metadata],
     snapshot_dir: Optional[epath.Path] = None,
+    *,
+    ignore_file_not_found_error: bool | None = None,
 ):
   """Releases snapshot by deleting the snapshot of the checkpoint."""
   if multihost.process_index() == 0:
@@ -111,7 +139,13 @@ def _release_snapshot(
       snapshot_dir = checkpoint_dir / _SNAPSHOTS
     snapshot_path = snapshot_dir / step_name_format.build_name(step)
     snapshot_impl = snapshot_lib.create_instance(checkpoint_dir, snapshot_path)
-    asyncio.run(snapshot_impl.release_snapshot())
+    with _manage_snapshot_file_not_found(
+        ignore_errors=ignore_file_not_found_error,
+        formatted_message=(
+            f'Ignoring error when releasing snapshot for step: {step}'
+        ),
+    ):
+      asyncio.run(snapshot_impl.release_snapshot())
 
 
 def _reached_desired_step(step: int, until_step: Optional[int]) -> bool:
@@ -133,6 +167,8 @@ def _wait_for_new_checkpoint(
     timeout: Optional[int] = None,
     timeout_fn: Optional[Callable[[], bool]] = None,
     snapshot_dir: Optional[epath.Path] = None,
+    set_immutable: bool | None = None,
+    ignore_snapshot_errors: bool | None = None,
 ) -> int:
   """See documentation for wait_for_new_checkpoint."""
   start = time.time()
@@ -167,7 +203,12 @@ def _wait_for_new_checkpoint(
       checkpoint_step = max(steps) if steps else None
       if _reached_desired_step(checkpoint_step, until_step):
         if not _snapshot_checkpoint(
-            checkpoint_dir, checkpoint_step, step_name_format, snapshot_dir
+            checkpoint_dir,
+            checkpoint_step,
+            step_name_format,
+            snapshot_dir,
+            set_immutable=set_immutable,
+            ignore_file_not_found_error=ignore_snapshot_errors,
         ):
           continue
         result = checkpoint_step
@@ -200,6 +241,8 @@ def wait_for_new_checkpoint(
     step_format_fixed_length: Optional[int] = None,
     step_name_format: Optional[step_lib.NameFormat[step_lib.Metadata]] = None,
     snapshot_dir: Optional[epath.Path] = None,
+    set_immutable: bool | None = None,
+    ignore_snapshot_errors: bool | None = True,
 ):
   """Waits until a new checkpoint file is found.
 
@@ -226,6 +269,10 @@ def wait_for_new_checkpoint(
       ignored.
     snapshot_dir: The directory in which snapshots are saved. If not provided,
       the snapshot directory is created as `checkpoint_dir / _SNAPSHOTS`.
+    set_immutable: If True and applicable, sets the files in the snapshot to be
+      immutable.
+    ignore_snapshot_errors: If True, ignore errors when creating/releasing
+      snapshots.
 
   Yields:
     a new checkpoint step, or -1 if the timeout was reached.
@@ -243,6 +290,8 @@ def wait_for_new_checkpoint(
       timeout=timeout,
       timeout_fn=timeout_fn,
       snapshot_dir=snapshot_dir,
+      set_immutable=set_immutable,
+      ignore_snapshot_errors=ignore_snapshot_errors,
   )
   try:
     yield step
@@ -252,7 +301,13 @@ def wait_for_new_checkpoint(
       logging.info(
           'Releasing snapshot for step: %d after releasing control.', step
       )
-      _release_snapshot(checkpoint_dir, step, step_name_format, snapshot_dir)
+      _release_snapshot(
+          checkpoint_dir,
+          step,
+          step_name_format,
+          snapshot_dir,
+          ignore_file_not_found_error=ignore_snapshot_errors,
+      )
 
 
 def checkpoints_iterator(
@@ -266,6 +321,8 @@ def checkpoints_iterator(
     step_format_fixed_length: Optional[int] = None,
     step_name_format: Optional[step_lib.NameFormat[step_lib.Metadata]] = None,
     snapshot_dir: Optional[epath.Path] = None,
+    set_immutable: bool | None = None,
+    ignore_snapshot_errors: bool | None = True,
 ) -> Iterator[int]:
   """Continuously yield new checkpoint files as they appear.
 
@@ -325,6 +382,10 @@ def checkpoints_iterator(
       ignored.
     snapshot_dir: The directory in which snapshots are saved. If not provided,
       the snapshot directory is created as `checkpoint_dir / _SNAPSHOTS`.
+    set_immutable: If True and applicable, sets the files in the snapshot to be
+      immutable.
+    ignore_snapshot_errors: If True, ignore errors when creating/releasing
+      snapshots.
 
   Yields:
     Integer step numbers of the latest checkpoints as they arrive.
@@ -340,7 +401,14 @@ def checkpoints_iterator(
   if snapshot_dir.exists():
     for step_dir in snapshot_dir.iterdir():
       snapshot_impl = snapshot_lib.create_instance(checkpoint_dir, step_dir)
-      asyncio.run(snapshot_impl.release_snapshot())
+      with _manage_snapshot_file_not_found(
+          ignore_errors=ignore_snapshot_errors,
+          formatted_message=(
+              'Ignoring error when cleaning up leftover snapshot:'
+              f' {step_dir.name}'
+          ),
+      ):
+        asyncio.run(snapshot_impl.release_snapshot())
   checkpoint_step = None
   while True:
     until_step = checkpoint_step + 1 if checkpoint_step is not None else None
@@ -352,6 +420,8 @@ def checkpoints_iterator(
         timeout_fn=timeout_fn,
         step_name_format=step_name_format,
         snapshot_dir=snapshot_dir,
+        set_immutable=set_immutable,
+        ignore_snapshot_errors=ignore_snapshot_errors,
     ) as new_checkpoint_step:
       if new_checkpoint_step == -1:
         if not timeout_fn:

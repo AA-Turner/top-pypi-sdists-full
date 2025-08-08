@@ -17,12 +17,12 @@ class ICurrencyConversion(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def conversion_rate_updated(self) -> _EventContainer[typing.Callable[[System.Object, float], None], None]:
+    def conversion_rate_updated(self) -> _EventContainer[typing.Callable[[System.Object, float], typing.Any], typing.Any]:
         """Event fired when the conversion rate is updated"""
         ...
 
     @conversion_rate_updated.setter
-    def conversion_rate_updated(self, value: _EventContainer[typing.Callable[[System.Object, float], None], None]) -> None:
+    def conversion_rate_updated(self, value: _EventContainer[typing.Callable[[System.Object, float], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -66,12 +66,12 @@ class ConstantCurrencyConversion(System.Object, QuantConnect.Securities.Currency
     """Provides an implementation of ICurrencyConversion with a fixed conversion rate"""
 
     @property
-    def conversion_rate_updated(self) -> _EventContainer[typing.Callable[[System.Object, float], None], None]:
+    def conversion_rate_updated(self) -> _EventContainer[typing.Callable[[System.Object, float], typing.Any], typing.Any]:
         """Event fired when the conversion rate is updated"""
         ...
 
     @conversion_rate_updated.setter
-    def conversion_rate_updated(self, value: _EventContainer[typing.Callable[[System.Object, float], None], None]) -> None:
+    def conversion_rate_updated(self, value: _EventContainer[typing.Callable[[System.Object, float], typing.Any], typing.Any]) -> None:
         ...
 
     @property
@@ -133,12 +133,12 @@ class SecurityCurrencyConversion(System.Object, QuantConnect.Securities.Currency
     """Provides an implementation of ICurrencyConversion to find and use multi-leg currency conversions"""
 
     @property
-    def conversion_rate_updated(self) -> _EventContainer[typing.Callable[[System.Object, float], None], None]:
+    def conversion_rate_updated(self) -> _EventContainer[typing.Callable[[System.Object, float], typing.Any], typing.Any]:
         """Event fired when the conversion rate is updated"""
         ...
 
     @conversion_rate_updated.setter
-    def conversion_rate_updated(self, value: _EventContainer[typing.Callable[[System.Object, float], None], None]) -> None:
+    def conversion_rate_updated(self, value: _EventContainer[typing.Callable[[System.Object, float], typing.Any], typing.Any]) -> None:
         ...
 
     @property

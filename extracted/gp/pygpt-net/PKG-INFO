@@ -1,9 +1,9 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.5.89
-Summary: Desktop AI Assistant powered by: OpenAI o1, o3, GPT-4o, GPT-4 Vision, DALL-E 3, Llama 3, Mistral, Gemini, Claude, Grok, DeepSeek, Bielik, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
+Version: 2.5.93
+Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
-Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
+Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
 Author: Marcin Szczyglinski
 Author-email: info@pygpt.net
 Requires-Python: >=3.10,<3.14
@@ -104,7 +104,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.5.89** | build: **2025-08-07** | Python: **>=3.10, <3.14**
+Release: **2.5.93** | build: **2025-08-08** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -116,7 +116,7 @@ Release: **2.5.89** | build: **2025-08-07** | Python: **>=3.10, <3.14**
 
 ## Overview
 
-**PyGPT** is **all-in-one** Desktop AI Assistant that provides direct interaction with OpenAI language models, including `o1`, `o3`, `gpt-4o`, `gpt-4`, `gpt-4 Vision`, and `gpt-3.5`, through the `OpenAI API`. By utilizing `LlamaIndex`, the application also supports alternative LLMs, like those available on `HuggingFace`, locally available models via `Ollama` (like `Llama 3`,`Mistral`, `DeepSeek V3/R1` or `Bielik`), `Google Gemini`, `Anthropic Claude`, `Perplexity Sonar`, and `xAI Grok`.
+**PyGPT** is **all-in-one** Desktop AI Assistant that provides direct interaction with OpenAI language models, including `gpt-5`, `o1`, `o3`, `gpt-4o`, `gpt-4`, `gpt-4 Vision`, and `gpt-3.5`, through the `OpenAI API`. By utilizing `LlamaIndex`, the application also supports alternative LLMs, like those available on `HuggingFace`, locally available models via `Ollama` (like `Llama 3`,`Mistral`, `DeepSeek V3/R1` or `Bielik`), `Google Gemini`, `Anthropic Claude`, `Perplexity Sonar`, and `xAI Grok`.
 
 This assistant offers multiple modes of operation such as chat, assistants, completions, and image-related tasks using `DALL-E 3` for generation and `gpt-4 Vision` for image analysis. **PyGPT** has filesystem capabilities for file I/O, can generate and run Python code, execute system commands, execute custom commands and manage file transfers. It also allows models to perform web searches with the `Google` and `Microsoft Bing`.
 
@@ -145,7 +145,7 @@ You can download compiled 64-bit versions for Windows and Linux here: https://py
 - Desktop AI Assistant for `Linux`, `Windows` and `Mac`, written in Python.
 - Works similarly to `ChatGPT`, but locally (on a desktop computer).
 - 12 modes of operation: Chat, Chat with Files, Chat with Audio, Research (Perplexity), Completion, Image generation, Vision, Assistants, Experts, Computer use, Agents and Autonomous Mode.
-- Supports multiple models: `o1`, `o3`, `GPT-4o`, `GPT-4`, `GPT-3.5`, and any model accessible through `LlamaIndex` and `Ollama` such as `Llama 3`, `Mistral`, `Google Gemini`, `Anthropic Claude`, `xAI Grok`, `DeepSeek V3/R1`, `Perplexity Sonar`, `Bielik`, etc.
+- Supports multiple models: `gpt-5`, `o1`, `o3`, `GPT-4o`, `GPT-4`, `GPT-3.5`, and any model accessible through `LlamaIndex` and `Ollama` such as `Llama 3`, `Mistral`, `Google Gemini`, `Anthropic Claude`, `xAI Grok`, `DeepSeek V3/R1`, `Perplexity Sonar`, `Bielik`, etc.
 - Chat with your own Files: integrated `LlamaIndex` support: chat with data such as: `txt`, `pdf`, `csv`, `html`, `md`, `docx`, `json`, `epub`, `xlsx`, `xml`, webpages, `Google`, `GitHub`, video/audio, images and other data types, or use conversation history as additional context provided to the model.
 - Built-in vector databases support and automated files and data embedding.
 - Included support features for individuals with disabilities: customizable keyboard shortcuts, voice control, and translation of on-screen actions into audio via speech synthesis.
@@ -1181,6 +1181,9 @@ PyGPT has built-in support for models (as of 2025-07-26):
 - `gpt-4o-2024-11-20` (OpenAI)
 - `gpt-4o-audio-preview` (OpenAI)
 - `gpt-4o-mini` (OpenAI)
+- `gpt-5` (OpenAI)
+- `gpt-5-mini` (OpenAI)
+- `gpt-5-nano` (OpenAI)
 - `gpt-image-1` (OpenAI)
 - `grok-2-vision` (xAI)
 - `grok-3` (xAI)
@@ -3292,6 +3295,10 @@ Enable/disable remote tools, like Web Search or Image generation to use in OpenA
 
 - `Sampling Rate`: Sampling rate, default: 44100
 
+- `Use cache`: Use cache for generating audio files.
+
+- `Max files to store`: Max files to store on disk for audio cache.
+
 **Indexes / LlamaIndex**
 
 **General**
@@ -4350,6 +4357,25 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.5.93 (2025-08-08)**
+
+- Added a new tool: Translate - in menu Tools - feature #123.
+
+**2.5.92 (2025-08-08)**
+
+- Added max files to store config option in Audio -> Cache.
+
+**2.5.91 (2025-08-08)**
+
+- Added GPT-5.
+- Added audio cache - #118.
+
+**2.5.90 (2025-08-07)**
+
+- Fix: Initialize context summary if a conversation starts with a tool call.
+- Fix: Store splitter positions even if the object is deleted from memory.
+- Update: CSS improvements.
 
 **2.5.89 (2025-08-07)**
 

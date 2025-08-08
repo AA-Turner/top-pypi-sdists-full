@@ -159,6 +159,13 @@ class TestCAM16SCDSerialize(util.ColorAssertsPyTest):
 class TestCAM16SCDPoperties(util.ColorAsserts, unittest.TestCase):
     """Test CAM16 SCD."""
 
+    def test_names(self):
+        """Test Lab-ish names."""
+
+        c = Color('color(--cam16-scd 0.51332 0.92781 1.076)')
+        self.assertEqual(c._space.names(), ('j', 'a', 'b'))
+        self.assertEqual(c._space.lightness_name(), 'j')
+
     def test_j(self):
         """Test `j`."""
 
@@ -284,8 +291,22 @@ class TestCAM16LCDPoperties(util.ColorAsserts, unittest.TestCase):
         self.assertEqual(c['alpha'], 0.5)
 
 
-class TestsMisc(util.ColorAsserts, unittest.TestCase):
-    """Test miscellaneous cases."""
+class TestSpecialCases(util.ColorAsserts, unittest.TestCase):
+    """Test special cases."""
+
+    def test_zero_lightness_high_chroma(self):
+        """Test cases of zero lightness and high chroma."""
+
+        c = Color('color(--cam02-ucs 0 20 30)')
+        c2 = c.convert('srgb')
+        self.assertEqual(c2.in_gamut(tolerance=0), False)
+        self.assertColorEqual(c2, Color('rgb(-0.10218 0.13047 -1.0947)'))
+
+        c = Color('color(--cam16-jmh 0 20 30)')
+        self.assertColorEqual(
+            Color('color(--cam16-jmh 0 20 30)').convert('cam16-ucs').convert('cam16-jmh'),
+            c
+        )
 
     def test_from_negative_lightness(self):
         """Test conversion from negative lightness."""
@@ -302,8 +323,8 @@ class TestsAchromatic(util.ColorAsserts, unittest.TestCase):
         self.assertEqual(Color('srgb', [0.000000001] * 3).convert('cam16-ucs').set('j', NaN).is_achromatic(), True)
         self.assertEqual(Color('cam16-ucs', [0, NaN, NaN]).is_achromatic(), True)
         self.assertEqual(Color('cam16-ucs', [0, NaN, NaN]).is_achromatic(), True)
-        self.assertEqual(Color('cam16-ucs', [0, 3, -4]).is_achromatic(), True)
-        self.assertEqual(Color('cam16-ucs', [NaN, 0, -3]).is_achromatic(), True)
+        self.assertEqual(Color('cam16-ucs', [0, 3, -4]).is_achromatic(), False)
+        self.assertEqual(Color('cam16-ucs', [NaN, 0, -3]).is_achromatic(), False)
         self.assertEqual(Color('cam16-ucs', [30, NaN, 0]).is_achromatic(), True)
         self.assertEqual(Color('cam16-ucs', [NaN, NaN, 0]).is_achromatic(), True)
         self.assertEqual(Color('cam16-ucs', [-12.625, 0.40666, 0.23042]).is_achromatic(), False)

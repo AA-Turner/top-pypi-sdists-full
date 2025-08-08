@@ -46,6 +46,20 @@ CUSTOMER_HOSTED_QUALIFIER = (
 )
 
 
+def _escape_mdx_content(text: str) -> str:
+    """Escape content for MDX compatibility.
+    
+    This function escapes angle brackets that could be interpreted as HTML tags
+    by MDX, converting them to escaped versions.
+    """
+    import re
+
+    # Escape angle brackets that look like HTML tags but are meant as literal text
+    # This pattern matches <word> or <word-with-hyphens> but not actual markdown/HTML
+    text = re.sub(r"<([a-zA-Z][a-zA-Z0-9\-]*?)>", r"\\<\1\\>", text)
+    return text
+
+
 @dataclass
 class Module:
     title: str
@@ -276,12 +290,13 @@ class MarkdownGenerator:
             - __doc_py_example__ (required in sdks)
             - __doc_cli_example__ (required for models and cli commands)
         """
+        skip_py_example: bool = getattr(t, "__skip_py_example__", False)
         yaml_example: Optional[str] = getattr(t, "__doc_yaml_example__", None)
         py_example: Optional[str] = getattr(t, "__doc_py_example__", None)
         cli_example: Optional[str] = getattr(t, "__doc_cli_example__", None)
 
         if isinstance(t, ModelBaseType):
-            if not py_example:
+            if not skip_py_example and not py_example:
                 raise ValueError(
                     f"Model '{t.__name__}' is missing a '__doc_py_example__'."
                 )
@@ -370,24 +385,25 @@ class MarkdownGenerator:
                         f"Model '{t.__name__}' is missing a docstring for field '{field.name}'"
                     )
 
-                md += f"- **`{field.name}` ({self._model_type_to_string(field.type)})**: {docstring}\n"
+                md += f"- **`{field.name}` ({self._model_type_to_string(field.type)})**: {_escape_mdx_content(docstring)}\n"
 
                 customer_hosted_only = field.metadata.get("customer_hosted_only", False)
                 if customer_hosted_only:
                     md += f"  - {CUSTOMER_HOSTED_QUALIFIER}\n"
             md += "\n\n"
 
-            md += "#### Python Methods\n\n"
-            md += "```python\n"
-            if t.__name__.endswith("Config"):
-                # Only include constructor docs for config models.
-                md += f"def __init__(self, **fields) -> {t.__name__}\n"
-                md += '    """Construct a model with the provided field values set."""\n\n'
-                md += f"def options(self, **fields) -> {t.__name__}\n"
-                md += '    """Return a copy of the model with the provided field values overwritten."""\n\n'
-            md += "def to_dict(self) -> Dict[str, Any]\n"
-            md += '    """Return a dictionary representation of the model."""\n'
-            md += "```\n"
+            if not getattr(t, "__skip_py_example__", False):
+                md += "#### Python Methods\n\n"
+                md += "```python\n"
+                if t.__name__.endswith("Config"):
+                    # Only include constructor docs for config models.
+                    md += f"def __init__(self, **fields) -> {t.__name__}\n"
+                    md += '    """Construct a model with the provided field values set."""\n\n'
+                    md += f"def options(self, **fields) -> {t.__name__}\n"
+                    md += '    """Return a copy of the model with the provided field values overwritten."""\n\n'
+                md += "def to_dict(self) -> Dict[str, Any]\n"
+                md += '    """Return a dictionary representation of the model."""\n'
+                md += "```\n"
 
             md += self._gen_example_tabs(t)
         elif isinstance(t, ModelEnumType):
@@ -545,7 +561,7 @@ class MarkdownGenerator:
             md += ":::warning[Limited support]\n"
             md += "This command is not actively maintained. Use with caution.\n"
         md += ":::\n"
-        md += legacy_sdk.docstring + "\n"
+        md += _escape_mdx_content(legacy_sdk.docstring) + "\n"
 
         return md
 
@@ -555,7 +571,7 @@ class MarkdownGenerator:
         The sections will be:
             - All fields and their types
         """
-        md = f"### `{legacy_model.name}` <span class='label-h3 label-legacy'>Legacy</span>\n"
-        md += legacy_model.docstring + "\n"
+        md = f"### `{legacy_model.name}` <span class='label-h3 label-legacy'>Legacy</span> {{#{legacy_model.name.lower()}-legacy}}\n"
+        md += _escape_mdx_content(legacy_model.docstring) + "\n"
 
         return md

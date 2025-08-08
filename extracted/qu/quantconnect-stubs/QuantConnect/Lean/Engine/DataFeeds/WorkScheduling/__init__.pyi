@@ -44,7 +44,7 @@ class WeightedWorkScheduler(QuantConnect.Lean.Engine.DataFeeds.WorkScheduling.Wo
     INSTANCE: QuantConnect.Lean.Engine.DataFeeds.WorkScheduling.WeightedWorkScheduler
     """Singleton instance"""
 
-    def add_single_call_for_all(self, action: typing.Callable[[], None]) -> None:
+    def add_single_call_for_all(self, action: typing.Callable[[], typing.Any]) -> None:
         """Execute the given action in all workers once"""
         ...
 

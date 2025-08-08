@@ -71,6 +71,8 @@ __all__ = (
     "PlatformTypeType",
     "ProjectSortByTypeType",
     "ProjectVisibilityTypeType",
+    "PullRequestBuildApproverRoleType",
+    "PullRequestBuildCommentApprovalType",
     "RegionName",
     "ReportCodeCoverageSortByTypeType",
     "ReportExportConfigTypeType",
@@ -203,6 +205,23 @@ MachineTypeType = Literal["GENERAL", "NVME"]
 PlatformTypeType = Literal["AMAZON_LINUX", "DEBIAN", "UBUNTU", "WINDOWS_SERVER"]
 ProjectSortByTypeType = Literal["CREATED_TIME", "LAST_MODIFIED_TIME", "NAME"]
 ProjectVisibilityTypeType = Literal["PRIVATE", "PUBLIC_READ"]
+PullRequestBuildApproverRoleType = Literal[
+    "BITBUCKET_ADMIN",
+    "BITBUCKET_READ",
+    "BITBUCKET_WRITE",
+    "GITHUB_ADMIN",
+    "GITHUB_MAINTAIN",
+    "GITHUB_READ",
+    "GITHUB_TRIAGE",
+    "GITHUB_WRITE",
+    "GITLAB_DEVELOPER",
+    "GITLAB_GUEST",
+    "GITLAB_MAINTAINER",
+    "GITLAB_OWNER",
+    "GITLAB_PLANNER",
+    "GITLAB_REPORTER",
+]
+PullRequestBuildCommentApprovalType = Literal["ALL_PULL_REQUESTS", "DISABLED", "FORK_PULL_REQUESTS"]
 ReportCodeCoverageSortByTypeType = Literal["FILE_PATH", "LINE_COVERAGE_PERCENTAGE"]
 ReportExportConfigTypeType = Literal["NO_EXPORT", "S3"]
 ReportGroupSortByTypeType = Literal["CREATED_TIME", "LAST_MODIFIED_TIME", "NAME"]
@@ -284,6 +303,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",

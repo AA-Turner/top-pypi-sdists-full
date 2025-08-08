@@ -2639,6 +2639,7 @@ class Cdk8sTypeScriptApp(
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -2805,6 +2806,7 @@ class Cdk8sTypeScriptApp(
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -2973,6 +2975,7 @@ class Cdk8sTypeScriptApp(
             publish_tasks=publish_tasks,
             releasable_commits=releasable_commits,
             release_branches=release_branches,
+            release_environment=release_environment,
             release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
@@ -3102,6 +3105,7 @@ class Cdk8sTypeScriptApp(
         "publish_tasks": "publishTasks",
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
+        "release_environment": "releaseEnvironment",
         "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
@@ -3275,6 +3279,7 @@ class Cdk8sTypeScriptAppOptions(
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -3441,6 +3446,7 @@ class Cdk8sTypeScriptAppOptions(
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -3674,6 +3680,7 @@ class Cdk8sTypeScriptAppOptions(
             check_type(argname="argument publish_tasks", value=publish_tasks, expected_type=type_hints["publish_tasks"])
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
+            check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
             check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
@@ -3920,6 +3927,8 @@ class Cdk8sTypeScriptAppOptions(
             self._values["releasable_commits"] = releasable_commits
         if release_branches is not None:
             self._values["release_branches"] = release_branches
+        if release_environment is not None:
+            self._values["release_environment"] = release_environment
         if release_every_commit is not None:
             self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
@@ -5122,6 +5131,23 @@ class Cdk8sTypeScriptAppOptions(
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
 
     @builtins.property
+    def release_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the release.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        When multiple artifacts are released, the environment can be overwritten
+        on a per artifact basis.
+
+        :default: - no environment used, unless set at the artifact level
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def release_every_commit(self) -> typing.Optional[builtins.bool]:
         '''(deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``.
 
@@ -6291,6 +6317,7 @@ class ConstructLibraryCdk8s(
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -6466,6 +6493,7 @@ class ConstructLibraryCdk8s(
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -6643,6 +6671,7 @@ class ConstructLibraryCdk8s(
             publish_tasks=publish_tasks,
             releasable_commits=releasable_commits,
             release_branches=release_branches,
+            release_environment=release_environment,
             release_every_commit=release_every_commit,
             release_failure_issue=release_failure_issue,
             release_failure_issue_label=release_failure_issue_label,
@@ -6773,6 +6802,7 @@ class ConstructLibraryCdk8s(
         "publish_tasks": "publishTasks",
         "releasable_commits": "releasableCommits",
         "release_branches": "releaseBranches",
+        "release_environment": "releaseEnvironment",
         "release_every_commit": "releaseEveryCommit",
         "release_failure_issue": "releaseFailureIssue",
         "release_failure_issue_label": "releaseFailureIssueLabel",
@@ -6952,6 +6982,7 @@ class ConstructLibraryCdk8sOptions(_ConstructLibraryOptions_dcd2adc0):
         publish_tasks: typing.Optional[builtins.bool] = None,
         releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
         release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -7127,6 +7158,7 @@ class ConstructLibraryCdk8sOptions(_ConstructLibraryOptions_dcd2adc0):
         :param publish_tasks: (experimental) Define publishing tasks that can be executed manually as well as workflows. Normally, publishing only happens within automated workflows. Enable this in order to create a publishing task for each publishing activity. Default: false
         :param releasable_commits: (experimental) Find commits that should be considered releasable Used to decide if a release is required. Default: ReleasableCommits.everyCommit()
         :param release_branches: (experimental) Defines additional release branches. A workflow will be created for each release branch which will publish releases from commits in this branch. Each release branch *must* be assigned a major version number which is used to enforce that versions published from that branch always use that major version. If multiple branches are used, the ``majorVersion`` field must also be provided for the default branch. Default: - no additional branches are used for release. you can use ``addBranch()`` to add additional branches.
+        :param release_environment: (experimental) The GitHub Actions environment used for the release. This can be used to add an explicit approval step to the release or limit who can initiate a release through environment protection rules. When multiple artifacts are released, the environment can be overwritten on a per artifact basis. Default: - no environment used, unless set at the artifact level
         :param release_every_commit: (deprecated) Automatically release new versions every commit to one of branches in ``releaseBranches``. Default: true
         :param release_failure_issue: (experimental) Create a github issue on every failed publishing task. Default: false
         :param release_failure_issue_label: (experimental) The label to apply to issues indicating publish failures. Only applies if ``releaseFailureIssue`` is true. Default: "failed-release"
@@ -7383,6 +7415,7 @@ class ConstructLibraryCdk8sOptions(_ConstructLibraryOptions_dcd2adc0):
             check_type(argname="argument publish_tasks", value=publish_tasks, expected_type=type_hints["publish_tasks"])
             check_type(argname="argument releasable_commits", value=releasable_commits, expected_type=type_hints["releasable_commits"])
             check_type(argname="argument release_branches", value=release_branches, expected_type=type_hints["release_branches"])
+            check_type(argname="argument release_environment", value=release_environment, expected_type=type_hints["release_environment"])
             check_type(argname="argument release_every_commit", value=release_every_commit, expected_type=type_hints["release_every_commit"])
             check_type(argname="argument release_failure_issue", value=release_failure_issue, expected_type=type_hints["release_failure_issue"])
             check_type(argname="argument release_failure_issue_label", value=release_failure_issue_label, expected_type=type_hints["release_failure_issue_label"])
@@ -7641,6 +7674,8 @@ class ConstructLibraryCdk8sOptions(_ConstructLibraryOptions_dcd2adc0):
             self._values["releasable_commits"] = releasable_commits
         if release_branches is not None:
             self._values["release_branches"] = release_branches
+        if release_environment is not None:
+            self._values["release_environment"] = release_environment
         if release_every_commit is not None:
             self._values["release_every_commit"] = release_every_commit
         if release_failure_issue is not None:
@@ -8853,6 +8888,23 @@ class ConstructLibraryCdk8sOptions(_ConstructLibraryOptions_dcd2adc0):
         '''
         result = self._values.get("release_branches")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
+
+    @builtins.property
+    def release_environment(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The GitHub Actions environment used for the release.
+
+        This can be used to add an explicit approval step to the release
+        or limit who can initiate a release through environment protection rules.
+
+        When multiple artifacts are released, the environment can be overwritten
+        on a per artifact basis.
+
+        :default: - no environment used, unless set at the artifact level
+
+        :stability: experimental
+        '''
+        result = self._values.get("release_environment")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def release_every_commit(self) -> typing.Optional[builtins.bool]:
@@ -10543,6 +10595,7 @@ def _typecheckingstub__38d5838b3dba3e0494a1842bc0bf0513fd0a9baecf03b52c6bb2ef53e
     publish_tasks: typing.Optional[builtins.bool] = None,
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_environment: typing.Optional[builtins.str] = None,
     release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,
@@ -10713,6 +10766,7 @@ def _typecheckingstub__af97c045aa0635813d6575f726d794c22aabe3eb1e51bf1ae61d8f28b
     publish_tasks: typing.Optional[builtins.bool] = None,
     releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
     release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+    release_environment: typing.Optional[builtins.str] = None,
     release_every_commit: typing.Optional[builtins.bool] = None,
     release_failure_issue: typing.Optional[builtins.bool] = None,
     release_failure_issue_label: typing.Optional[builtins.str] = None,

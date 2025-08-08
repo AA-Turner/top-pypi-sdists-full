@@ -1,4 +1,5 @@
-from typing import Any, Iterable, Iterator, Tuple, TypeVar
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -26,9 +27,9 @@ class _BaseAxis:
     @property
     def traits_ordered(self) -> bool: ...
     @property
-    def metadata(self) -> Any: ...
-    @metadata.setter
-    def metadata(self, item: Any) -> None: ...
+    def raw_metadata(self) -> Any: ...
+    @raw_metadata.setter
+    def raw_metadata(self, item: Any) -> None: ...
     @property
     def size(self) -> int: ...
     @property

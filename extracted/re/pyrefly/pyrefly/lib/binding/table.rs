@@ -26,10 +26,12 @@ macro_rules! table {
         pub struct $name {
             $($vis)* types: $t<$crate::binding::binding::Key>,
             $($vis)* expectations: $t<$crate::binding::binding::KeyExpect>,
+            $($vis)* consistent_override_checks: $t<$crate::binding::binding::KeyConsistentOverrideCheck>,
             $($vis)* exports: $t<$crate::binding::binding::KeyExport>,
             $($vis)* functions: $t<$crate::binding::binding::KeyFunction>,
             $($vis)* classes: $t<$crate::binding::binding::KeyClass>,
             $($vis)* tparams: $t<$crate::binding::binding::KeyTParams>,
+            $($vis)* class_base_types: $t<$crate::binding::binding::KeyClassBaseType>,
             $($vis)* class_fields: $t<$crate::binding::binding::KeyClassField>,
             $($vis)* class_synthesized_fields: $t<$crate::binding::binding::KeyClassSynthesizedFields>,
             $($vis)* variance: $t<$crate::binding::binding::KeyVariance>,
@@ -51,6 +53,12 @@ macro_rules! table {
             type Value = $t<$crate::binding::binding::KeyExpect>;
             fn get(&self) -> &Self::Value { &self.expectations }
             fn get_mut(&mut self) -> &mut Self::Value { &mut self.expectations }
+        }
+
+        impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyConsistentOverrideCheck> for $name {
+            type Value = $t<$crate::binding::binding::KeyConsistentOverrideCheck>;
+            fn get(&self) -> &Self::Value { &self.consistent_override_checks }
+            fn get_mut(&mut self) -> &mut Self::Value { &mut self.consistent_override_checks }
         }
 
         impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyExport> for $name {
@@ -75,6 +83,12 @@ macro_rules! table {
             type Value = $t<$crate::binding::binding::KeyTParams>;
             fn get(&self) -> &Self::Value { &self.tparams }
             fn get_mut(&mut self) -> &mut Self::Value { &mut self.tparams }
+        }
+
+        impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyClassBaseType> for $name {
+            type Value = $t<$crate::binding::binding::KeyClassBaseType>;
+            fn get(&self) -> &Self::Value { &self.class_base_types }
+            fn get_mut(&mut self) -> &mut Self::Value { &mut self.class_base_types }
         }
 
         impl $crate::binding::table::TableKeyed<$crate::binding::binding::KeyClassField> for $name {
@@ -156,10 +170,12 @@ macro_rules! table_for_each(
     ($e:expr, $f:expr) => {
         $f(&($e).types);
         $f(&($e).expectations);
+        $f(&($e).consistent_override_checks);
         $f(&($e).exports);
         $f(&($e).functions);
         $f(&($e).classes);
         $f(&($e).tparams);
+        $f(&($e).class_base_types);
         $f(&($e).class_fields);
         $f(&($e).class_synthesized_fields);
         $f(&($e).variance);
@@ -177,10 +193,12 @@ macro_rules! table_mut_for_each(
     ($e:expr, $f:expr) => {
         $f(&mut ($e).types);
         $f(&mut ($e).expectations);
+        $f(&mut ($e).consistent_override_checks);
         $f(&mut ($e).exports);
         $f(&mut ($e).functions);
         $f(&mut ($e).classes);
         $f(&mut ($e).tparams);
+        $f(&mut ($e).class_base_types);
         $f(&mut ($e).class_fields);
         $f(&mut ($e).class_synthesized_fields);
         $f(&mut ($e).variance);
@@ -198,10 +216,12 @@ macro_rules! table_try_for_each(
     ($e:expr, $f:expr) => {
         $f(&($e).types)?;
         $f(&($e).expectations)?;
+        $f(&($e).consistent_override_checks)?;
         $f(&($e).exports)?;
         $f(&($e).functions)?;
         $f(&($e).classes)?;
         $f(&($e).tparams)?;
+        $f(&($e).class_base_types)?;
         $f(&($e).class_fields)?;
         $f(&($e).class_synthesized_fields)?;
         $f(&($e).variance)?;

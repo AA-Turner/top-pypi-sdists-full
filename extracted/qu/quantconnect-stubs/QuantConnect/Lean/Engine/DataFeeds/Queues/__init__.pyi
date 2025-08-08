@@ -66,7 +66,7 @@ class FakeDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler, Qu
         """
         ...
 
-    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
         Subscribe to the specified configuration
         
@@ -105,7 +105,7 @@ class LiveDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler):
         """
         ...
 
-    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], None]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """Desktop/Local doesn't support live data from this handler"""
         ...
 

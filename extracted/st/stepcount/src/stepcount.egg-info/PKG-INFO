@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: stepcount
-Version: 3.12.0
+Version: 3.13.0
 Summary: Step counter for wrist-worn accelerometers compatible with the UK Biobank Accelerometer Dataset
 Home-page: https://github.com/OxWearables/stepcount
 Download-URL: https://github.com/OxWearables/stepcount
@@ -21,9 +21,12 @@ License-File: LICENSE.md
 
 # stepcount
 
-A step-counting model based on self-supervised learning for wrist-worn accelerometer data.
+[![Github all releases](https://img.shields.io/github/release/OxWearables/stepcount.svg)](https://github.com/OxWearables/stepcount/releases/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14535974.svg)](https://doi.org/10.5281/zenodo.14535974)
 
-The SSL model was pre-trained using the large-scale [UK Biobank Accelerometer Dataset](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0169649), and fine-tuned on the [OxWalk Dataset](https://ora.ox.ac.uk/objects/uuid:19d3cb34-e2b3-4177-91b6-1bad0e0163e7).
+Improved step counting based on a foundation model for wrist-worn accelerometers.
+
+The foundation model was trained using self-supervised learning on the large-scale [UK Biobank Accelerometer Dataset](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0169649), and fine-tuned on the [OxWalk Dataset](https://ora.ox.ac.uk/objects/uuid:19d3cb34-e2b3-4177-91b6-1bad0e0163e7).
 
 The command-line tool can process Axivity AX3 files (UK Biobank, China Kadoorie Biobank) directly. For consumer devices like Fitbit and Apple Watch, convert them to raw CSV first.
 
@@ -207,11 +210,6 @@ A utility script is provided to collate outputs from multiple runs:
 $ stepcount-collate-outputs outputs/
 ```
 This will collate all *-Info.json files found in outputs/ and generate a CSV file.
-
-
-## Validation
-
-Validation for this algorithm is presented in a preprint on medRxiv at: [https://www.medrxiv.org/content/10.1101/2023.02.20.23285750v1](https://www.medrxiv.org/content/10.1101/2023.02.20.23285750v1). 
 
 
 ## Contributing

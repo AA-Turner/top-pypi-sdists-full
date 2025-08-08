@@ -13,7 +13,7 @@ class TestGamut(util.ColorAsserts, unittest.TestCase):
     def test_hue_clipping(self):
         """Test hue clipping."""
 
-        self.assertEqual(Color('hsl(-120 50% 75% / 1)').clip().to_string(), 'hsl(240 50% 75%)')
+        self.assertEqual(Color('hsl(-120 50% 75% / 1)').clip().to_string(), 'hsl(240 50 75)')
 
     def test_in_gamut(self):
         """Test in gamut check."""
@@ -415,6 +415,15 @@ class TestRayTrace(util.ColorAsserts, unittest.TestCase):
         # represent a point already on the surface which require no further work.
         # Therefore, this case is a miss.
         self.assertEqual(raytrace_box([1, 0, 0], [1, 0, 0]), [])
+
+    def test_ray_trace_no_intersect(self):
+        """Test a scenario where an intersect cannot be found in an iteration."""
+
+        # When the intersect is not found, the last good intersect will be selected.
+        self.assertColorEqual(
+            Color('lch-d65', [0.1, 50, 270]).fit('srgb', method='raytrace', pspace='hct', adaptive=0.05),
+            Color('color(--lch-d65 0.08441 0.22909 34.545 / 1)')
+        )
 
 
 class TestHCTGamut(util.ColorAsserts, unittest.TestCase):

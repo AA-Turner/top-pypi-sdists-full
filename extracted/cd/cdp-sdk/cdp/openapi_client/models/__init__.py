@@ -20,6 +20,7 @@ from cdp.openapi_client.models.abi_inner import AbiInner
 from cdp.openapi_client.models.abi_input import AbiInput
 from cdp.openapi_client.models.abi_parameter import AbiParameter
 from cdp.openapi_client.models.abi_state_mutability import AbiStateMutability
+from cdp.openapi_client.models.account_token_addresses_response import AccountTokenAddressesResponse
 from cdp.openapi_client.models.common_swap_response import CommonSwapResponse
 from cdp.openapi_client.models.common_swap_response_fees import CommonSwapResponseFees
 from cdp.openapi_client.models.common_swap_response_issues import CommonSwapResponseIssues
@@ -87,6 +88,11 @@ from cdp.openapi_client.models.list_solana_token_balances_network import ListSol
 from cdp.openapi_client.models.list_spend_permissions200_response import ListSpendPermissions200Response
 from cdp.openapi_client.models.mint_address_criterion import MintAddressCriterion
 from cdp.openapi_client.models.net_usd_change_criterion import NetUSDChangeCriterion
+from cdp.openapi_client.models.onchain_data_query import OnchainDataQuery
+from cdp.openapi_client.models.onchain_data_result import OnchainDataResult
+from cdp.openapi_client.models.onchain_data_result_metadata import OnchainDataResultMetadata
+from cdp.openapi_client.models.onchain_data_result_schema import OnchainDataResultSchema
+from cdp.openapi_client.models.onchain_data_result_schema_columns_inner import OnchainDataResultSchemaColumnsInner
 from cdp.openapi_client.models.onramp_order import OnrampOrder
 from cdp.openapi_client.models.onramp_order_fee import OnrampOrderFee
 from cdp.openapi_client.models.onramp_order_status import OnrampOrderStatus
@@ -151,6 +157,7 @@ from cdp.openapi_client.models.solana_token import SolanaToken
 from cdp.openapi_client.models.solana_token_amount import SolanaTokenAmount
 from cdp.openapi_client.models.solana_token_balance import SolanaTokenBalance
 from cdp.openapi_client.models.spend_permission import SpendPermission
+from cdp.openapi_client.models.spend_permission_network import SpendPermissionNetwork
 from cdp.openapi_client.models.spend_permission_response_object import SpendPermissionResponseObject
 from cdp.openapi_client.models.spl_address_criterion import SplAddressCriterion
 from cdp.openapi_client.models.spl_value_criterion import SplValueCriterion

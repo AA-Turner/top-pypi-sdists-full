@@ -15,12 +15,12 @@ class ICommand(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def can_execute_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]:
+    def can_execute_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
         """Raised when the ability of the command to execute has changed."""
         ...
 
     @can_execute_changed.setter
-    def can_execute_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], None], None]) -> None:
+    def can_execute_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     def can_execute(self, parameter: typing.Any) -> bool:

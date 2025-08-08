@@ -27,7 +27,8 @@ class UpdateSqsTriggerJsonBody:
         enabled (bool):
         message_attributes (Union[Unset, List[str]]):
         error_handler_path (Union[Unset, str]):
-        error_handler_args (Union[Unset, UpdateSqsTriggerJsonBodyErrorHandlerArgs]):
+        error_handler_args (Union[Unset, UpdateSqsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the script
+            or flow
         retry (Union[Unset, UpdateSqsTriggerJsonBodyRetry]):
     """
 

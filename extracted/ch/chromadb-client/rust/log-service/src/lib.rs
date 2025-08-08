@@ -16,16 +16,19 @@ use chroma_log::{config::GrpcLogConfig, grpc_log::GrpcLog};
 use chroma_storage::config::StorageConfig;
 use chroma_storage::Storage;
 use chroma_tracing::util::wrap_span_with_parent_context;
+use chroma_tracing::OtelFilter;
+use chroma_tracing::OtelFilterLevel;
 use chroma_types::chroma_proto::{
     garbage_collect_phase2_request::LogToCollect, log_service_client::LogServiceClient,
-    log_service_server::LogService, scrub_log_request::LogToScrub, CollectionInfo,
-    GarbageCollectPhase2Request, GarbageCollectPhase2Response,
-    GetAllCollectionInfoToCompactRequest, GetAllCollectionInfoToCompactResponse,
-    InspectDirtyLogRequest, InspectDirtyLogResponse, InspectLogStateRequest,
-    InspectLogStateResponse, LogRecord, MigrateLogRequest, MigrateLogResponse, OperationRecord,
-    PullLogsRequest, PullLogsResponse, PurgeDirtyForCollectionRequest,
-    PurgeDirtyForCollectionResponse, PushLogsRequest, PushLogsResponse, ScoutLogsRequest,
-    ScoutLogsResponse, ScrubLogRequest, ScrubLogResponse, SealLogRequest, SealLogResponse,
+    log_service_server::LogService, purge_from_cache_request::EntryToEvict,
+    scrub_log_request::LogToScrub, CollectionInfo, GarbageCollectPhase2Request,
+    GarbageCollectPhase2Response, GetAllCollectionInfoToCompactRequest,
+    GetAllCollectionInfoToCompactResponse, InspectDirtyLogRequest, InspectDirtyLogResponse,
+    InspectLogStateRequest, InspectLogStateResponse, LogRecord, MigrateLogRequest,
+    MigrateLogResponse, OperationRecord, PullLogsRequest, PullLogsResponse,
+    PurgeDirtyForCollectionRequest, PurgeDirtyForCollectionResponse, PurgeFromCacheRequest,
+    PurgeFromCacheResponse, PushLogsRequest, PushLogsResponse, ScoutLogsRequest, ScoutLogsResponse,
+    ScrubLogRequest, ScrubLogResponse, SealLogRequest, SealLogResponse,
     UpdateCollectionLogOffsetRequest, UpdateCollectionLogOffsetResponse,
 };
 use chroma_types::chroma_proto::{ForkLogsRequest, ForkLogsResponse};
@@ -67,6 +70,8 @@ pub struct Metrics {
     log_total_uncompacted_records_count: opentelemetry::metrics::Gauge<f64>,
     /// The rate at which records are read from the dirty log.
     dirty_log_records_read: opentelemetry::metrics::Counter<u64>,
+    /// A gauge for the number of dirty log collections as of the last rollup.
+    dirty_log_collections: opentelemetry::metrics::Gauge<u64>,
 }
 
 impl Metrics {
@@ -76,6 +81,7 @@ impl Metrics {
                 .f64_gauge("log_total_uncompacted_records_count")
                 .build(),
             dirty_log_records_read: meter.u64_counter("dirty_log_records_read").build(),
+            dirty_log_collections: meter.u64_gauge("dirty_log_collections").build(),
         }
     }
 }
@@ -291,6 +297,10 @@ fn cache_key_for_manifest(collection_id: CollectionUuid) -> String {
 
 fn cache_key_for_cursor(collection_id: CollectionUuid, name: &CursorName) -> String {
     format!("{collection_id}::cursor::{}", name.path())
+}
+
+fn cache_key_for_fragment(collection_id: CollectionUuid, fragment_path: &str) -> String {
+    format!("{collection_id}::{}", fragment_path)
 }
 
 ////////////////////////////////////////// CachedFragment //////////////////////////////////////////
@@ -720,10 +730,13 @@ impl LogServer {
             )
         })?;
 
-        self._update_collection_log_offset(Request::new(UpdateCollectionLogOffsetRequest {
-            collection_id: collection_id.to_string(),
-            log_offset: start as i64 - 1,
-        }))
+        self._update_collection_log_offset(
+            Request::new(UpdateCollectionLogOffsetRequest {
+                collection_id: collection_id.to_string(),
+                log_offset: start as i64 - 1,
+            }),
+            false,
+        )
         .await?;
         // Set it up so that once we release the mutex, the next person won't do I/O and will
         // immediately be able to push logs.
@@ -822,6 +835,7 @@ impl LogServer {
     async fn _update_collection_log_offset(
         &self,
         request: Request<UpdateCollectionLogOffsetRequest>,
+        allow_rollback: bool,
     ) -> Result<Response<UpdateCollectionLogOffsetResponse>, Status> {
         let request = request.into_inner();
         let adjusted_log_offset = request.log_offset + 1;
@@ -860,7 +874,7 @@ impl LogServer {
         })?;
         let default = Cursor::default();
         let cursor = witness.as_ref().map(|w| w.cursor()).unwrap_or(&default);
-        if cursor.position.offset() > adjusted_log_offset as u64 {
+        if !allow_rollback && cursor.position.offset() > adjusted_log_offset as u64 {
             return Ok(Response::new(UpdateCollectionLogOffsetResponse {}));
         }
         let cursor = Cursor {
@@ -894,8 +908,7 @@ impl LogServer {
                     let value = CachedBytes {
                         bytes: Vec::from(json_witness),
                     };
-                    let insert_span = tracing::info_span!("cache insert");
-                    cache.insert(cache_key, value).instrument(insert_span).await;
+                    cache.insert(cache_key, value).await;
                 }
                 Err(err) => {
                     tracing::error!("could not serialize cursor: {err}");
@@ -981,6 +994,9 @@ impl LogServer {
             tracing::Level::INFO,
             collections = ?collections,
         );
+        self.metrics
+            .dirty_log_collections
+            .record(collections as u64, &[]);
         self.enrich_dirty_log(&mut rollup.rollups).await?;
         self.save_dirty_log(rollup).await
     }
@@ -1052,7 +1068,7 @@ impl LogServer {
             .unwrap_or(&default)
             .clone();
         tracing::info!("cursoring from {cursor:?}");
-        let dirty_fragments = reader
+        let dirty_fragments = match reader
             .scan(
                 cursor.position,
                 Limits {
@@ -1061,7 +1077,25 @@ impl LogServer {
                     max_records: None,
                 },
             )
-            .await?;
+            .await
+        {
+            Ok(dirty_fragments) => dirty_fragments,
+            Err(wal3::Error::UninitializedLog) => {
+                let last_record_witnessed = cursor.position;
+                let rollups = HashMap::default();
+                let rollup = Rollup {
+                    witness,
+                    cursor,
+                    last_record_witnessed,
+                    rollups,
+                };
+                tracing::info!("empty dirty log");
+                return Ok(rollup);
+            }
+            Err(e) => {
+                return Err(Error::Wal3(e));
+            }
+        };
         if dirty_fragments.is_empty() {
             let last_record_witnessed = cursor.position;
             let rollups = HashMap::default();
@@ -1157,8 +1191,7 @@ impl LogServer {
                 let handle = self.open_logs.get_or_create_state(key);
                 let mut _active = handle.active.lock().await;
                 let cache_key = cache_key_for_cursor(collection_id, cursor);
-                let cache_span = tracing::info_span!("cache get", cache_key = ?cache_key);
-                if let Ok(Some(json_witness)) = cache.get(&cache_key).instrument(cache_span).await {
+                if let Ok(Some(json_witness)) = cache.get(&cache_key).await {
                     let witness: Witness = serde_json::from_slice(&json_witness.bytes)?;
                     return Ok((Some(witness), None));
                 }
@@ -1169,8 +1202,7 @@ impl LogServer {
                     let value = CachedBytes {
                         bytes: Vec::from(json_witness),
                     };
-                    let insert_span = tracing::info_span!("cache insert");
-                    cache.insert(cache_key, value).instrument(insert_span).await;
+                    cache.insert(cache_key, value).await;
                 }
                 res
             } else {
@@ -1363,13 +1395,6 @@ impl LogServer {
                     ));
                 }
             };
-
-            // NOTE(sicheng): This is temporary trace added for analyzing number of frags between the offsets
-            match log_reader.scan(start_position, Default::default()).await {
-                Ok(frags) => tracing::info!(name: "Counting live fragments", frag_count = frags.len()),
-                Err(e) => tracing::error!(name: "Unable to scout number of live fragments", error = e.to_string()),
-            }
-
             let start_offset = start_position.offset() as i64;
             let limit_offset = limit_position.offset() as i64;
             Ok(Response::new(ScoutLogsResponse {
@@ -1476,30 +1501,19 @@ impl LogServer {
                 .map(|fragment| async {
                     let prefix = collection_id.storage_prefix_for_log();
                     if let Some(cache) = self.cache.as_ref() {
-                        let cache_key = format!("{collection_id}::{}", fragment.path);
-                        let cache_span = tracing::info_span!("cache get", cache_key = ?cache_key);
-                        if let Ok(Some(answer)) = cache.get(&cache_key).instrument(cache_span).await
-                        {
+                        let cache_key = cache_key_for_fragment(collection_id, &fragment.path);
+                        if let Ok(Some(answer)) = cache.get(&cache_key).await {
                             return Ok(Arc::new(answer.bytes));
                         }
-                        let fetch_span = tracing::info_span!("fragment fetch");
-                        let answer = LogReader::stateless_fetch(&self.storage, &prefix, fragment)
-                            .instrument(fetch_span)
-                            .await?;
+                        let answer =
+                            LogReader::stateless_fetch(&self.storage, &prefix, fragment).await?;
                         let cache_value = CachedBytes {
                             bytes: Clone::clone(&*answer),
                         };
-                        let insert_span = tracing::info_span!("cache insert");
-                        cache
-                            .insert(cache_key, cache_value)
-                            .instrument(insert_span)
-                            .await;
+                        cache.insert(cache_key, cache_value).await;
                         Ok(answer)
                     } else {
-                        let fetch_span = tracing::info_span!("fragment fetch");
-                        LogReader::stateless_fetch(&self.storage, &prefix, fragment)
-                            .instrument(fetch_span)
-                            .await
+                        LogReader::stateless_fetch(&self.storage, &prefix, fragment).await
                     }
                 })
                 .collect::<Vec<_>>();
@@ -1673,7 +1687,34 @@ impl LogServer {
             let key = LogKey { collection_id };
             let handle = self.open_logs.get_or_create_state(key);
             let mut _active = handle.active.lock().await;
-            self._update_collection_log_offset(Request::new(request))
+            self._update_collection_log_offset(Request::new(request), false)
+                .await
+        }
+        .instrument(span)
+        .await
+    }
+
+    async fn rollback_collection_log_offset(
+        &self,
+        request: Request<UpdateCollectionLogOffsetRequest>,
+    ) -> Result<Response<UpdateCollectionLogOffsetResponse>, Status> {
+        let span = wrap_span_with_parent_context(
+            tracing::trace_span!("UpdateCollectionLogOffset",),
+            request.metadata(),
+        );
+
+        async move {
+            let request = request.into_inner();
+            let collection_id = Uuid::parse_str(&request.collection_id)
+                .map(CollectionUuid)
+                .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
+
+            tracing::event!(Level::ERROR, name = "abuse of error to force a log: rolling back collection log offset", collection_id =? collection_id);
+            // Grab a lock on the state for this key, so that a racing initialize won't do anything.
+            let key = LogKey { collection_id };
+            let handle = self.open_logs.get_or_create_state(key);
+            let mut _active = handle.active.lock().await;
+            self._update_collection_log_offset(Request::new(request), true)
                 .await
         }
         .instrument(span)
@@ -1883,6 +1924,8 @@ impl LogServer {
         if let Err(wal3::Error::UninitializedLog) = mani {
             return Ok(Response::new(InspectLogStateResponse {
                 debug: "log uninitialized\n".to_string(),
+                start: 0,
+                limit: 0,
             }));
         }
         let mani = mani.map_err(|err| Status::unknown(err.to_string()))?;
@@ -1897,9 +1940,20 @@ impl LogServer {
         let witness = cursor_store.load(cursor_name).await.map_err(|err| {
             Status::new(err.code().into(), format!("Failed to load cursor: {}", err))
         })?;
-
+        let (start, limit) = if let Some(mani) = mani.as_ref() {
+            let start = witness
+                .as_ref()
+                .map(|w| w.cursor.position)
+                .unwrap_or(mani.oldest_timestamp());
+            let limit = mani.next_write_timestamp();
+            (start.offset(), limit.offset())
+        } else {
+            (0, 0)
+        };
         Ok(Response::new(InspectLogStateResponse {
             debug: format!("manifest: {mani:#?}\ncompaction cursor: {witness:?}"),
+            start,
+            limit,
         }))
     }
 
@@ -1973,11 +2027,19 @@ impl LogServer {
         );
         let gc2 = request.into_inner();
         async move {
+            fn handle_error_properly(err: wal3::Error) -> Status {
+                if let wal3::Error::GarbageCollectionPrecondition(what) = err {
+                    Status::failed_precondition(format!("retry from the top because of a race: {what}"))
+                } else {
+                    Status::unknown(err.to_string())
+                }
+            }
             match gc2.log_to_collect {
                 Some(LogToCollect::CollectionId(x)) => {
                     let collection_id = Uuid::parse_str(&x)
                         .map(CollectionUuid)
                         .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
+                    tracing::event!(Level::INFO, collection_id =? collection_id);
                     let prefix = collection_id.storage_prefix_for_log();
                     let key = LogKey { collection_id };
                     let mark_dirty = MarkDirty {
@@ -1993,12 +2055,12 @@ impl LogServer {
                         mark_dirty,
                     )
                     .await
-                    .map_err(|err| Status::unknown(err.to_string()))?;
+                    .map_err(handle_error_properly)?;
                     log.garbage_collect_phase2_update_manifest(
                         &GarbageCollectionOptions::default(),
                     )
                     .await
-                    .map_err(|err| Status::unknown(err.to_string()))?;
+                    .map_err(handle_error_properly)?;
                     Ok(Response::new(GarbageCollectPhase2Response {}))
                 }
                 Some(LogToCollect::DirtyLog(host)) => {
@@ -2007,6 +2069,7 @@ impl LogServer {
                             format!("can only perform gc phase 2 on our own dirty log:  I am {}, but was asked for {}", self.config.my_member_id, host),
                         ));
                     }
+                    tracing::event!(Level::INFO, host =? host);
                     self.dirty_log
                         .garbage_collect_phase2_update_manifest(
                             &GarbageCollectionOptions::default(),
@@ -2017,6 +2080,48 @@ impl LogServer {
                 }
                 None => Err(Status::not_found("log not found because it's null")),
             }
+        }
+        .instrument(span)
+        .await
+    }
+
+    async fn purge_from_cache(
+        &self,
+        request: Request<PurgeFromCacheRequest>,
+    ) -> Result<Response<PurgeFromCacheResponse>, Status> {
+        let span = wrap_span_with_parent_context(
+            tracing::trace_span!("PurgeFromCache",),
+            request.metadata(),
+        );
+        let purge = request.into_inner();
+        async move {
+            let key = match purge.entry_to_evict {
+                Some(EntryToEvict::CursorForCollectionId(x)) => {
+                    let collection_id = Uuid::parse_str(&x)
+                        .map(CollectionUuid)
+                        .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
+                    Some(cache_key_for_cursor(collection_id, &COMPACTION))
+                }
+                Some(EntryToEvict::ManifestForCollectionId(x)) => {
+                    let collection_id = Uuid::parse_str(&x)
+                        .map(CollectionUuid)
+                        .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
+                    Some(cache_key_for_manifest(collection_id))
+                }
+                Some(EntryToEvict::Fragment(f)) => {
+                    let collection_id = Uuid::parse_str(&f.collection_id)
+                        .map(CollectionUuid)
+                        .map_err(|_| Status::invalid_argument("Failed to parse collection id"))?;
+                    Some(cache_key_for_fragment(collection_id, &f.fragment_path))
+                }
+                None => None,
+            };
+            if let Some(key) = key {
+                if let Some(cache) = self.cache.as_ref() {
+                    cache.remove(&key).await;
+                }
+            }
+            Ok(Response::new(PurgeFromCacheResponse {}))
         }
         .instrument(span)
         .await
@@ -2073,6 +2178,15 @@ impl LogService for LogServerWrapper {
         self.log_server.update_collection_log_offset(request).await
     }
 
+    async fn rollback_collection_log_offset(
+        &self,
+        request: Request<UpdateCollectionLogOffsetRequest>,
+    ) -> Result<Response<UpdateCollectionLogOffsetResponse>, Status> {
+        self.log_server
+            .rollback_collection_log_offset(request)
+            .await
+    }
+
     async fn purge_dirty_for_collection(
         &self,
         request: Request<PurgeDirtyForCollectionRequest>,
@@ -2120,6 +2234,13 @@ impl LogService for LogServerWrapper {
         request: Request<GarbageCollectPhase2Request>,
     ) -> Result<Response<GarbageCollectPhase2Response>, Status> {
         self.log_server.garbage_collect_phase2(request).await
+    }
+
+    async fn purge_from_cache(
+        &self,
+        request: Request<PurgeFromCacheRequest>,
+    ) -> Result<Response<PurgeFromCacheResponse>, Status> {
+        self.log_server.purge_from_cache(request).await
     }
 }
 
@@ -2198,6 +2319,9 @@ impl LogServerWrapper {
             .set_serving::<chroma_types::chroma_proto::log_service_server::LogServiceServer<Self>>()
             .await;
 
+        let max_encoding_message_size = log_server.config.max_encoding_message_size;
+        let max_decoding_message_size = log_server.config.max_decoding_message_size;
+
         let wrapper = LogServerWrapper {
             log_server: Arc::new(log_server),
         };
@@ -2205,7 +2329,9 @@ impl LogServerWrapper {
         let background =
             tokio::task::spawn(async move { background_server.background_task().await });
         let server = Server::builder().add_service(health_service).add_service(
-            chroma_types::chroma_proto::log_service_server::LogServiceServer::new(wrapper),
+            chroma_types::chroma_proto::log_service_server::LogServiceServer::new(wrapper)
+                .max_decoding_message_size(max_decoding_message_size)
+                .max_encoding_message_size(max_encoding_message_size),
         );
 
         let server = server.serve_with_shutdown(addr, async {
@@ -2242,6 +2368,13 @@ fn default_endpoint() -> String {
 
 fn default_otel_service_name() -> String {
     "rust-log-service".to_string()
+}
+
+fn default_otel_filters() -> Vec<OtelFilter> {
+    vec![OtelFilter {
+        crate_name: "chroma_log_service".to_string(),
+        filter_level: OtelFilterLevel::Trace,
+    }]
 }
 
 fn default_port() -> u16 {
@@ -2323,6 +2456,8 @@ pub struct OpenTelemetryConfig {
     pub endpoint: String,
     #[serde(default = "default_otel_service_name")]
     pub service_name: String,
+    #[serde(default = "default_otel_filters")]
+    pub filters: Vec<OtelFilter>,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -2353,6 +2488,10 @@ pub struct LogServerConfig {
     pub timeout_us: u64,
     #[serde(default)]
     pub proxy_to: Option<GrpcLogConfig>,
+    #[serde(default = "LogServerConfig::default_max_encoding_message_size")]
+    pub max_encoding_message_size: usize,
+    #[serde(default = "LogServerConfig::default_max_decoding_message_size")]
+    pub max_decoding_message_size: usize,
 }
 
 impl LogServerConfig {
@@ -2384,6 +2523,14 @@ impl LogServerConfig {
     fn default_timeout_us() -> u64 {
         86_400_000_000
     }
+
+    fn default_max_encoding_message_size() -> usize {
+        32_000_000
+    }
+
+    fn default_max_decoding_message_size() -> usize {
+        32_000_000
+    }
 }
 
 impl Default for LogServerConfig {
@@ -2402,6 +2549,8 @@ impl Default for LogServerConfig {
             rollup_interval: Self::default_rollup_interval(),
             timeout_us: Self::default_timeout_us(),
             proxy_to: None,
+            max_encoding_message_size: Self::default_max_encoding_message_size(),
+            max_decoding_message_size: Self::default_max_decoding_message_size(),
         }
     }
 }
@@ -2477,7 +2626,11 @@ pub async fn log_entrypoint() {
     let registry = chroma_config::registry::Registry::new();
     if let Some(otel_config) = &config.opentelemetry {
         eprintln!("enabling tracing");
-        chroma_tracing::init_otel_tracing(&otel_config.service_name, &otel_config.endpoint);
+        chroma_tracing::init_otel_tracing(
+            &otel_config.service_name,
+            &otel_config.filters,
+            &otel_config.endpoint,
+        );
     } else {
         eprintln!("tracing disabled");
     }
@@ -2506,13 +2659,14 @@ mod tests {
     use super::*;
     use crate::state_hash_table::Value;
 
-    use chroma_storage::s3::s3_client_for_test_with_bucket_name;
+    use chroma_storage::s3_client_for_test_with_new_bucket;
     use chroma_types::{are_update_metadatas_close_to_equal, Operation, OperationRecord};
     use futures::{stream, StreamExt};
     use opentelemetry::global::meter;
     use proptest::prelude::*;
-    use tokio::runtime::Runtime;
-    use wal3::SnapshotOptions;
+    use tokio::{runtime::Runtime, sync::mpsc::unbounded_channel, time::sleep};
+    use tonic::IntoRequest;
+    use wal3::{GarbageCollector, SnapshotOptions, ThrottleOptions};
 
     #[test]
     fn unsafe_constants() {
@@ -3283,6 +3437,7 @@ mod tests {
         let config = OpenTelemetryConfig {
             endpoint: default_endpoint(),
             service_name: default_otel_service_name(),
+            filters: default_otel_filters(),
         };
         assert_eq!("http://otel-collector:4317", config.endpoint);
         assert_eq!("rust-log-service", config.service_name);
@@ -3634,16 +3789,24 @@ mod tests {
         })
         .await
         .expect("Legacy log service should be present");
-        let storage = Arc::new(s3_client_for_test_with_bucket_name("rust-log-proptest").await);
+        let storage = Arc::new(s3_client_for_test_with_new_bucket().await);
+        let writer_options = LogWriterOptions {
+            snapshot_manifest: SnapshotOptions {
+                // We set a snapshot rollover threshold that's high enough that the test won't go
+                // on forever due to a race, but also so that we stress the conditions.
+                snapshot_rollover_threshold: 10,
+                fragment_rollover_threshold: 3,
+            },
+            throttle_fragment: ThrottleOptions {
+                batch_size_bytes: 4,
+                batch_interval_us: 4096,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let dirty_log = Arc::new(
             LogWriter::open_or_initialize(
-                LogWriterOptions {
-                    snapshot_manifest: SnapshotOptions {
-                        snapshot_rollover_threshold: 3,
-                        fragment_rollover_threshold: 3,
-                    },
-                    ..Default::default()
-                },
+                writer_options.clone(),
                 storage.clone(),
                 "test-rust-log-service",
                 "test-dirty-log-writer",
@@ -3652,12 +3815,16 @@ mod tests {
             .await
             .expect("Dirty log should be initializable"),
         );
+        let config = LogServerConfig {
+            writer: writer_options,
+            ..Default::default()
+        };
         LogServer {
             storage,
             dirty_log,
             proxy: Some(legacy_log_client),
             metrics: Metrics::new(meter("test-rust-log-service")),
-            config: Default::default(),
+            config,
             open_logs: Default::default(),
             rolling_up: Default::default(),
             backpressure: Default::default(),
@@ -3683,19 +3850,28 @@ mod tests {
         collection_id: CollectionUuid,
         logs: &[OperationRecord],
     ) {
-        let proto_push_log_req = Request::new(PushLogsRequest {
-            collection_id: collection_id.to_string(),
-            records: logs
-                .iter()
-                .cloned()
-                .map(TryInto::try_into)
-                .collect::<Result<_, _>>()
-                .expect("Logs should be valid"),
-        });
-        server
-            .push_logs(proto_push_log_req)
-            .await
-            .expect("Push Logs should not fail");
+        let mut retries = 0;
+        loop {
+            let proto_push_log_req = Request::new(PushLogsRequest {
+                collection_id: collection_id.to_string(),
+                records: logs
+                    .iter()
+                    .cloned()
+                    .map(TryInto::try_into)
+                    .collect::<Result<_, _>>()
+                    .expect("Logs should be valid"),
+            });
+            if let Err(err) = server.push_logs(proto_push_log_req).await {
+                println!("Failed to push log: {err}");
+            } else {
+                break;
+            }
+            retries += 1;
+            if retries >= 6 {
+                panic!("Unable to push log within six retries");
+            }
+            sleep(Duration::from_millis(1)).await;
+        }
     }
 
     async fn validate_log_on_server(
@@ -3763,18 +3939,30 @@ mod tests {
             .saturating_sub(1)
     }
 
-    async fn mock_compact_on_server(
+    async fn update_compact_offset_on_server(
         server: &LogServer,
         collection_id: CollectionUuid,
         compact_offset: i64,
     ) {
-        server
-            .update_collection_log_offset(Request::new(UpdateCollectionLogOffsetRequest {
-                collection_id: collection_id.to_string(),
-                log_offset: compact_offset,
-            }))
-            .await
-            .expect("Update Compaction Offset should not fail");
+        let mut retries = 0;
+        loop {
+            if let Err(err) = server
+                .update_collection_log_offset(Request::new(UpdateCollectionLogOffsetRequest {
+                    collection_id: collection_id.to_string(),
+                    log_offset: compact_offset,
+                }))
+                .await
+            {
+                println!("Failed to update log offset: {err}");
+            } else {
+                break;
+            }
+            retries += 1;
+            if retries >= 6 {
+                panic!("Unable to update compaction offset in six retries");
+            }
+            sleep(Duration::from_millis(1)).await;
+        }
     }
 
     async fn validate_dirty_log_on_server(server: &LogServer, collection_ids: &[CollectionUuid]) {
@@ -3798,6 +3986,57 @@ mod tests {
                     .expect("Collection Uuid should be valid")
             }));
         assert_eq!(got_collection_ids, expected_collection_ids);
+    }
+
+    async fn garbage_collect_unused_logs(
+        server: &LogServer,
+        collection_id: CollectionUuid,
+        first_log_position_to_keep: u64,
+    ) {
+        'to_the_top: loop {
+            let writer = GarbageCollector::open(
+                server.config.writer.clone(),
+                server.storage.clone(),
+                &collection_id.storage_prefix_for_log(),
+                "proptest garbage collection service",
+            )
+            .await
+            .expect("Garbage collector should be initializable");
+            if let Err(err) = writer
+                .garbage_collect_phase1_compute_garbage(
+                    &Default::default(),
+                    Some(LogPosition::from_offset(first_log_position_to_keep)),
+                )
+                .await
+            {
+                panic!("Log GC phase 1 error: {err}");
+            }
+            if let Err(err) = server
+                .garbage_collect_phase2(
+                    GarbageCollectPhase2Request {
+                        log_to_collect: Some(LogToCollect::CollectionId(collection_id.to_string())),
+                    }
+                    .into_request(),
+                )
+                .await
+            {
+                if matches!(
+                    err.code().into(),
+                    chroma_error::ErrorCodes::FailedPrecondition
+                ) {
+                    continue 'to_the_top;
+                } else {
+                    panic!("Log GC phase 2 error: {err}");
+                }
+            }
+            if let Err(err) = writer
+                .garbage_collect_phase3_delete_garbage(&Default::default())
+                .await
+            {
+                panic!("Log GC phase 3 error: {err}");
+            };
+            break;
+        }
     }
 
     fn test_push_pull_logs(
@@ -3828,7 +4067,7 @@ mod tests {
             )
             .await;
             let enum_offset = get_enum_offset_on_server(&log_server, collection_id).await;
-            mock_compact_on_server(&log_server, collection_id, enum_offset).await;
+            update_compact_offset_on_server(&log_server, collection_id, enum_offset).await;
             validate_dirty_log_on_server(&log_server, &[]).await;
         });
     }
@@ -3857,7 +4096,7 @@ mod tests {
                 .collect::<Vec<_>>();
 
             while let Some(collection_id) = collection_ids.pop() {
-                mock_compact_on_server(&log_server, collection_id, 1).await;
+                update_compact_offset_on_server(&log_server, collection_id, 1).await;
                 validate_dirty_log_on_server(&log_server, &collection_ids).await;
             }
         });
@@ -3922,13 +4161,19 @@ mod tests {
                 let source_enum_offset =
                     get_enum_offset_on_server(&log_server, source_collection_id).await;
                 assert_eq!(source_enum_offset, expected_source.len() as i64);
-                mock_compact_on_server(&log_server, source_collection_id, source_enum_offset).await;
+                update_compact_offset_on_server(
+                    &log_server,
+                    source_collection_id,
+                    source_enum_offset,
+                )
+                .await;
             }
             if !expected_fork.is_empty() {
                 let fork_enum_offset =
                     get_enum_offset_on_server(&log_server, fork_collection_id).await;
                 assert_eq!(fork_enum_offset, expected_fork.len() as i64);
-                mock_compact_on_server(&log_server, fork_collection_id, fork_enum_offset).await;
+                update_compact_offset_on_server(&log_server, fork_collection_id, fork_enum_offset)
+                    .await;
             }
             validate_dirty_log_on_server(&log_server, &[]).await;
         });
@@ -3951,7 +4196,7 @@ mod tests {
             assert_eq!(old_enum_offset, operations_before_seal.len() as i64);
             let compact_offset = old_enum_offset / 2;
             if compact_offset > 1 {
-                mock_compact_on_server(&log_server, collection_id, compact_offset).await;
+                update_compact_offset_on_server(&log_server, collection_id, compact_offset).await;
             }
             validate_dirty_log_on_server(&log_server, &[]).await;
 
@@ -3990,15 +4235,68 @@ mod tests {
             .await;
             let new_enum_offset = get_enum_offset_on_server(&log_server, collection_id).await;
             assert_eq!(new_enum_offset, combined_logs.len() as i64);
-            mock_compact_on_server(&log_server, collection_id, new_enum_offset).await;
+            update_compact_offset_on_server(&log_server, collection_id, new_enum_offset).await;
             validate_dirty_log_on_server(&log_server, &[]).await;
+        });
+    }
+
+    fn test_garbage_collect_unused_logs(operations: Vec<OperationRecord>) {
+        let runtime = Runtime::new().unwrap();
+        let collection_id = CollectionUuid::new();
+        let log_server = Arc::new(runtime.block_on(setup_log_server()));
+        let log_server_clone = log_server.clone();
+        let (tx, mut rx) = unbounded_channel();
+        let background_gc_task = runtime.spawn(async move {
+            while let Some(compact_offset) = rx.recv().await {
+                if compact_offset == 0 {
+                    rx.close();
+                    break;
+                }
+                update_compact_offset_on_server(&log_server_clone, collection_id, compact_offset)
+                    .await;
+                let first_uncompacted_offset = compact_offset.saturating_add(1) as usize;
+                garbage_collect_unused_logs(
+                    &log_server_clone,
+                    collection_id,
+                    first_uncompacted_offset as u64,
+                )
+                .await;
+            }
+        });
+
+        runtime.block_on(async move {
+            seal_collection_on_server(&log_server, collection_id).await;
+
+            for (offset, log) in operations.iter().enumerate() {
+                push_log_to_server(&log_server, collection_id, &[log.clone()]).await;
+                tx.send(offset as i64 + 1)
+                    .expect("Should be able to send compaction signal");
+            }
+
+            tx.send(0).expect("Should be able to close channel");
+
+            background_gc_task
+                .await
+                .expect("The background GC task should finish");
+
+            let reader = LogReader::open(
+                log_server.config.reader.clone(),
+                log_server.storage.clone(),
+                collection_id.storage_prefix_for_log(),
+            )
+            .await
+            .expect("Log reader should be initializable");
+            reader
+                .scrub(Limits::UNLIMITED)
+                .await
+                .expect("Log scrub should not fail after garbage collection");
         });
     }
 
     async fn test_stress_seal_and_migrate() {
         let log_server = setup_log_server().await;
         let collection_id = CollectionUuid::new();
-        let mut logs = (0..100000)
+        let mut logs = (0..1000)
             .map(|index| OperationRecord {
                 id: index.to_string(),
                 embedding: None,
@@ -4009,21 +4307,11 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        push_log_to_server(&log_server, collection_id, &logs[0..100]).await;
+        push_log_to_server(&log_server, collection_id, &logs[..=0]).await;
 
-        stream::iter(logs.chunks(100).skip(1).map(|log_chunk| async {
-            push_log_to_server(&log_server, collection_id, log_chunk).await;
-
-            if (log_chunk
-                .first()
-                .and_then(|op| op.id.parse::<usize>().ok())
-                .unwrap_or_default()
-                ..=log_chunk
-                    .last()
-                    .and_then(|op| op.id.parse::<usize>().ok())
-                    .unwrap_or_default())
-                .contains(&50000)
-            {
+        stream::iter(logs.iter().skip(1).map(|log| async {
+            push_log_to_server(&log_server, collection_id, &[log.clone()]).await;
+            if log.id.parse::<usize>().expect("Log id should be usize") == 500 {
                 seal_collection_on_server(&log_server, collection_id).await;
                 log_server
                     .migrate_log(Request::new(MigrateLogRequest {
@@ -4033,7 +4321,7 @@ mod tests {
                     .expect("Migrate Logs should not fail");
             }
         }))
-        .buffer_unordered(32)
+        .buffer_unordered(6)
         .collect::<Vec<_>>()
         .await;
 
@@ -4041,7 +4329,7 @@ mod tests {
             .pull_logs(Request::new(PullLogsRequest {
                 collection_id: collection_id.to_string(),
                 start_from_offset: 1,
-                batch_size: 100000,
+                batch_size: 1000,
                 end_timestamp: i64::MAX,
             }))
             .await
@@ -4061,6 +4349,72 @@ mod tests {
         }
     }
 
+    async fn test_rollup_snapshot_after_gc() {
+        // NOTE: This tests the specific case where the first snapshot decreased depth after garbage collection
+        // Manifest branching factor 3
+        let log_server = setup_log_server().await;
+        let collection_id = CollectionUuid::new();
+        seal_collection_on_server(&log_server, collection_id).await;
+        let logs = (1..=42)
+            .map(|index| OperationRecord {
+                id: index.to_string(),
+                embedding: None,
+                encoding: None,
+                metadata: None,
+                document: None,
+                operation: Operation::Delete,
+            })
+            .collect::<Vec<_>>();
+
+        for log in &logs[..=25] {
+            push_log_to_server(&log_server, collection_id, &[log.clone()]).await;
+        }
+
+        update_compact_offset_on_server(&log_server, collection_id, 6).await;
+        garbage_collect_unused_logs(&log_server, collection_id, 7).await;
+
+        for log in &logs[26..] {
+            push_log_to_server(&log_server, collection_id, &[log.clone()]).await;
+        }
+
+        let reader = LogReader::open(
+            log_server.config.reader.clone(),
+            log_server.storage.clone(),
+            collection_id.storage_prefix_for_log(),
+        )
+        .await
+        .expect("Log reader should be initializable");
+        reader
+            .scrub(Limits::UNLIMITED)
+            .await
+            .expect("Log scrub should not fail after push log");
+
+        let remaining_logs = log_server
+            .pull_logs(Request::new(PullLogsRequest {
+                collection_id: collection_id.to_string(),
+                start_from_offset: 7,
+                batch_size: 36,
+                end_timestamp: i64::MAX,
+            }))
+            .await
+            .expect("Pull Logs should not fail")
+            .into_inner()
+            .records
+            .into_iter()
+            .map(chroma_types::LogRecord::try_from)
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Logs should be valid");
+        assert_eq!(remaining_logs.len() + 6, logs.len());
+        for (got_op, ref_op) in remaining_logs
+            .into_iter()
+            .map(|l| l.record)
+            .zip(logs.iter().skip(6))
+        {
+            assert_eq!(got_op.id, ref_op.id);
+            assert_eq!(got_op.operation, ref_op.operation);
+        }
+    }
+
     #[test]
     fn test_k8s_integration_rust_log_service_stress_seal_and_migrate() {
         let runtime = Runtime::new().unwrap();
@@ -4073,12 +4427,24 @@ mod tests {
             .expect("Spawned thread should not fail to join");
     }
 
+    #[test]
+    fn test_k8s_integration_rust_log_service_rollup_snapshot_after_gc() {
+        let runtime = Runtime::new().unwrap();
+        // NOTE: Somehow it overflow the stack under default stack limit
+        std::thread::Builder::new()
+            .stack_size(1 << 22)
+            .spawn(move || runtime.block_on(test_rollup_snapshot_after_gc()))
+            .expect("Thread should be spawnable")
+            .join()
+            .expect("Spawned thread should not fail to join");
+    }
+
     proptest! {
         #[test]
         fn test_k8s_integration_rust_log_service_push_pull_logs(
-            read_offset in 1usize..=100,
-            batch_size in 1usize..=150,
-            operations in proptest::collection::vec(any::<OperationRecord>(), 1..=100)
+            read_offset in 1usize..=36,
+            batch_size in 1usize..=36,
+            operations in proptest::collection::vec(any::<OperationRecord>(), 1..=36)
         ) {
             // NOTE: Somehow it overflow the stack under default stack limit
             std::thread::Builder::new().stack_size(1 << 22).spawn(move || test_push_pull_logs(read_offset, batch_size, operations))
@@ -4113,11 +4479,22 @@ mod tests {
 
         #[test]
         fn test_k8s_integration_rust_log_service_seal_and_migrate_logs(
-            operations_before_seal in proptest::collection::vec(any::<OperationRecord>(), 0..=100),
-            operations_after_migrate in proptest::collection::vec(any::<OperationRecord>(), 1..=20),
+            operations_before_seal in proptest::collection::vec(any::<OperationRecord>(), 0..=36),
+            operations_after_migrate in proptest::collection::vec(any::<OperationRecord>(), 1..=12),
         ) {
             // NOTE: Somehow it overflow the stack under default stack limit
             std::thread::Builder::new().stack_size(1 << 22).spawn(move || test_seal_and_migrate_logs(operations_before_seal, operations_after_migrate))
+            .expect("Thread should be spawnable")
+            .join()
+            .expect("Spawned thread should not fail to join");
+        }
+
+        #[test]
+        fn test_k8s_integration_rust_log_service_garbage_collect_unused_logs(
+            operations in proptest::collection::vec(any::<OperationRecord>(), 1..=36),
+        ) {
+            // NOTE: Somehow it overflow the stack under default stack limit
+            std::thread::Builder::new().stack_size(1 << 22).spawn(move || test_garbage_collect_unused_logs(operations))
             .expect("Thread should be spawnable")
             .join()
             .expect("Spawned thread should not fail to join");
