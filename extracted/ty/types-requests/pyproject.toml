@@ -4,21 +4,16 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-requests"
-version = "2.32.4.20250611"
+version = "2.32.4.20250809"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for requests"
 readme = { text = """\
 ## Typing stubs for requests
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`requests`](https://github.com/psf/requests) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `requests`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`requests`](https://github.com/psf/requests) package. It can be used by type checkers
+to check code that uses `requests`. This version of
 `types-requests` aims to provide accurate annotations for
 `requests~=2.32.4`.
 
@@ -31,12 +26,12 @@ for more details. The source for this package can be found in the
 [`stubs/requests`](https://github.com/python/typeshed/tree/main/stubs/requests)
 directory.
 
-This package was tested with
-mypy 1.16.0,
-pyright 1.1.400,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
+
 It was generated from typeshed commit
-[`0db0486fe6a0eb6b4ebf1256fe0afe0b95e2dc36`](https://github.com/python/typeshed/commit/0db0486fe6a0eb6b4ebf1256fe0afe0b95e2dc36).
+[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

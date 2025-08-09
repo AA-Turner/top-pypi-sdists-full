@@ -5,18 +5,11 @@ class PathResolver(Facade):
     @classmethod
     def getFacadeAccessor(cls):
         """
-        Returns the service container binding key used to resolve the path resolver component.
-
-        This method provides the unique string identifier that the service container uses
-        to locate and retrieve the path resolver service. It is typically used internally
-        by the facade mechanism to delegate calls to the appropriate underlying implementation.
+        Returns the binding key for the path resolver service in the container.
 
         Returns
         -------
         str
-            The string key "core.orionis.path_resolver" that identifies the path resolver
-            service in the container.
+            The unique string identifier for the path resolver service, used by the service container.
         """
-
-        # Return the binding key for the path resolver service in the container
         return "core.orionis.path_resolver"

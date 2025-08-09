@@ -19,16 +19,16 @@ import json
 
 from pydantic import BaseModel, ConfigDict
 from typing import Any, ClassVar, Dict, List, Optional
-from connector_sdk_types.generated.models.found_account_data import FoundAccountData
 from connector_sdk_types.generated.models.page import Page
+from connector_sdk_types.generated.models.updated_accounts import UpdatedAccounts
 from typing import Optional, Set
 from typing_extensions import Self
 
 class ListUpdatedAccountsResponse(BaseModel):
     """
-    Response containing information about the updated accounts
+    Response containing updated accounts information with delta synchronization support.  This response model wraps the UpdatedAccounts data and provides standard response metadata including success status and any error information.
     """ # noqa: E501
-    response: List[FoundAccountData]
+    response: UpdatedAccounts
     raw_data: Optional[Any] = None
     page: Optional[Page] = None
     __properties: ClassVar[List[str]] = ["response", "raw_data", "page"]
@@ -72,13 +72,9 @@ class ListUpdatedAccountsResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in response (list)
-        _items = []
+        # override the default output from pydantic by calling `to_dict()` of response
         if self.response:
-            for _item_response in self.response:
-                if _item_response:
-                    _items.append(_item_response.to_dict())
-            _dict['response'] = _items
+            _dict['response'] = self.response.to_dict()
         # override the default output from pydantic by calling `to_dict()` of page
         if self.page:
             _dict['page'] = self.page.to_dict()
@@ -99,7 +95,7 @@ class ListUpdatedAccountsResponse(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "response": [FoundAccountData.from_dict(_item) for _item in obj["response"]] if obj.get("response") is not None else None,
+            "response": UpdatedAccounts.from_dict(obj["response"]) if obj.get("response") is not None else None,
             "raw_data": obj.get("raw_data"),
             "page": Page.from_dict(obj["page"]) if obj.get("page") is not None else None
         })

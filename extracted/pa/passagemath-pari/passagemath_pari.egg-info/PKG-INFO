@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-pari
-Version: 10.6.1
+Version: 10.6.2
 Summary: passagemath: Computational Number Theory with PARI/GP
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -8,7 +8,7 @@ License-Expression: GPL-2.0-or-later
 Project-URL: release notes, https://github.com/passagemath/passagemath/releases
 Project-URL: repo (upstream), https://github.com/sagemath/sage
 Project-URL: repo, https://github.com/passagemath/passagemath
-Project-URL: documentation, https://doc.sagemath.org
+Project-URL: documentation, https://passagemath.org/docs/latest
 Project-URL: homepage (upstream), https://www.sagemath.org
 Project-URL: discourse, https://passagemath.discourse.group
 Project-URL: tracker (upstream), https://github.com/sagemath/sage/issues
@@ -31,13 +31,25 @@ Description-Content-Type: text/x-rst
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator
-Requires-Dist: passagemath-environment~=10.6.1.0
-Requires-Dist: passagemath-categories~=10.6.1.0
+Requires-Dist: passagemath-environment~=10.6.2.0
+Requires-Dist: passagemath-categories~=10.6.2.0
 Requires-Dist: conway-polynomials>=0.8
 Provides-Extra: test
 Requires-Dist: passagemath-repl; extra == "test"
+Provides-Extra: elldata
+Requires-Dist: passagemath-pari-elldata; extra == "elldata"
 Provides-Extra: galdata
 Requires-Dist: passagemath-pari-galdata; extra == "galdata"
+Provides-Extra: galpol
+Requires-Dist: passagemath-pari-galpol; extra == "galpol"
+Provides-Extra: nflistdata
+Requires-Dist: passagemath-pari-nflistdata; extra == "nflistdata"
+Provides-Extra: nftables
+Requires-Dist: passagemath-pari-nftables; extra == "nftables"
+Provides-Extra: seadata
+Requires-Dist: passagemath-pari-seadata; extra == "seadata"
+Provides-Extra: seadata-big
+Requires-Dist: passagemath-pari-seadata-big; extra == "seadata-big"
 Provides-Extra: seadata-small
 Requires-Dist: passagemath-pari-seadata-small; extra == "seadata-small"
 Provides-Extra: standard
@@ -72,8 +84,8 @@ It was created in October 2024 with the following goals:
 -  inviting collaborations with upstream projects,
 -  `building a professional, respectful, inclusive
    community <https://groups.google.com/g/sage-devel/c/xBzaINHWwUQ>`__,
--  `[empowering Sage users to participate in the scientific Python ecosystem
-   <https://github.com/passagemath/passagemath/issues/248](https://github.com/passagemath/passagemath/issues/248)https://github.com/passagemath/passagemath/issues/248>`__ by publishing packages,
+-  `empowering Sage users to participate in the scientific Python ecosystem
+   <https://github.com/passagemath/passagemath/issues/248>`__ by publishing packages,
 -  developing a port to `Pyodide <https://pyodide.org/en/stable/>`__ for
    serverless deployment with Javascript,
 -  developing a native Windows port.
@@ -84,21 +96,106 @@ available online.
 passagemath attempts to support and provides binary wheels suitable for
 all major Linux distributions and recent versions of macOS.
 
-For the Linux aarch64 (ARM) platform, some third-party packages are still missing wheels;
-see ` <https://github.com/passagemath/passagemath?tab=readme-ov-file#full-installation-of-passagemath-from-binary-wheels-on-pypi>`__
-for instructions for building them from source.
+For the Linux aarch64 (ARM) platform, some third-party packages are still missing
+wheels; see the `instructions for building them from source <https://github.com/passagemath/passagemath?tab=readme-ov-file#full-installation-of-passagemath-from-binary-wheels-on-pypi>`__.
 
 Binary wheels for native Windows (x86_64) are are available for a subset of
 the passagemath distributions. Use of the full functionality of passagemath
 on Windows currently requires the use of Windows Subsystem for Linux (WSL)
 or virtualization.
 
-The supported Python versions in the passagemath 10.6.x series are 3.9.x-3.13.x.
+The supported Python versions in the passagemath 10.6.x series are 3.10.x-3.13.x.
 
 
 About this pip-installable distribution package
 -----------------------------------------------
 
-This pip-installable source distribution ``passagemath-pari`` is a small
-distribution that provides modules that depend on the computer algebra
-system PARI/GP.
+This pip-installable distribution ``passagemath-pari`` is a small
+distribution that provides modules that depend on
+`PARI/GP <https://pari.math.u-bordeaux.fr/>`__, the computer algebra
+system designed for fast computations in number theory: factorizations,
+algebraic number theory, elliptic curves, modular forms, L-functions...
+
+
+What is included
+----------------
+
+- `integer factorization <https://passagemath.org/docs/10.6/html/en/reference/rings_standard/sage/rings/factorint_pari.html#module-sage.rings.factorint_pari>`__
+
+- `finite fields <https://passagemath.org/docs/10.6/html/en/reference/finite_rings/sage/rings/finite_rings/finite_field_pari_ffelt.html#module-sage.rings.finite_rings.finite_field_pari_ffelt>`__
+
+- much of the `p-adics functionality of the Sage library <https://passagemath.org/docs/10.6/html/en/reference/padics/index.html>`__
+
+- `discrete valuations <https://passagemath.org/docs/10.6/html/en/reference/valuations/index.html>`__
+
+- parts of the `quadratic forms functionality of the Sage library <https://passagemath.org/docs/10.6/html/en/reference/quadratic_forms/index.html>`__
+
+- various other modules with dependencies on PARI/GP, see `MANIFEST <https://github.com/passagemath/passagemath/blob/main/pkgs/sagemath-pari/MANIFEST.in>`_
+
+- the ``cypari2`` API
+
+- the binary wheels on PyPI ship a prebuilt copy of PARI/GP
+
+- the binary wheels on PyPI ship XEUS-GP, a Jupyter kernel for PARI/GP
+
+
+Examples
+--------
+
+Starting the GP calculator from the command line::
+
+    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-pari" sage -gp
+    GP/PARI CALCULATOR Version 2.17.2 (released)
+    ...
+
+Using the pexpect interface to the GP calculator::
+
+    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-pari[test]" ipython
+
+    In [1]: from sage.interfaces.gp import gp
+
+    In [2]: E = gp.ellinit([1,2,3,4,5])
+
+    In [3]: E.ellglobalred()
+    Out[3]: [10351, [1, -1, 0, -1], 1, [11, 1; 941, 1], [[1, 5, 0, 1], [1, 5, 0, 1]]]
+
+Using the ``cypari2`` library interface::
+
+    $ pipx run --pip-args="--prefer-binary" --spec "passagemath-pari" python
+
+    >>> import cypari2
+    >>> pari = cypari2.Pari()
+
+    >>> pari(2).zeta()
+    1.64493406684823
+
+    >>> p = pari("x^3 + x^2 + x - 1")
+    >>> modulus = pari("t^3 + t^2 + t - 1")
+    >>> fq = p.factorff(3, modulus)
+    >>> fq.lift().centerlift()
+    [x - t, 1; x + (t^2 + t - 1), 1; x + (-t^2 - 1), 1]
+
+
+Available as extras, from other distributions
+---------------------------------------------
+
+PARI/GP data packages
+~~~~~~~~~~~~~~~~~~~~~
+
+See https://pari.math.u-bordeaux.fr/packages.html for detailed descriptions.
+
+``pip install "passagemath-pari[elldata]"``
+
+``pip install "passagemath-pari[galdata]"``
+
+``pip install "passagemath-pari[galpol]"``
+
+``pip install "passagemath-pari[nflistdata]"``
+
+``pip install "passagemath-pari[nftables]"``
+
+``pip install "passagemath-pari[seadata]"``
+
+``pip install "passagemath-pari[seadata-big]"``
+
+``pip install "passagemath-pari[seadata-small]"``

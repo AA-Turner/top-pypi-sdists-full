@@ -2223,7 +2223,7 @@ def online(
 
         Read more at https://docs.chalk.ai/docs/timeout.
     resource_hint
-        Whether this resolver is bound by CPU or I/O. Chalk uses
+        Whether this resolver is bound by CPU, I/O, or GPU. Chalk uses
         the resource hint to optimize resolver execution.
     static
         Whether this resolver should be invoked once during planning time

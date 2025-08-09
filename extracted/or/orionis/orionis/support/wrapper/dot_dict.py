@@ -8,9 +8,6 @@ class DotDict(dict):
         """
         Retrieve the value associated with the given key as an attribute.
 
-        If the value is a dictionary (but not already a DotDict), it is converted
-        to a DotDict and updated in-place. If the key does not exist, returns None.
-
         Parameters
         ----------
         key : str
@@ -24,8 +21,8 @@ class DotDict(dict):
 
         Notes
         -----
-        This method allows attribute-style access to dictionary keys. If the value
-        is a plain dictionary, it is automatically wrapped as a DotDict for consistency.
+        Allows attribute-style access to dictionary keys. If the value is a plain
+        dictionary, it is automatically wrapped as a DotDict for consistency.
         """
         try:
             value = self[key]  # Attempt to retrieve the value by key
@@ -42,10 +39,6 @@ class DotDict(dict):
         """
         Assign a value to an attribute of the DotDict instance.
 
-        This method enables attribute-style assignment for dictionary keys. If the
-        assigned value is a plain dictionary (not a DotDict), it is automatically
-        converted to a DotDict for consistency and recursive attribute access.
-
         Parameters
         ----------
         key : str
@@ -57,14 +50,13 @@ class DotDict(dict):
         Returns
         -------
         None
-            This method does not return a value.
 
         Notes
         -----
-        The attribute is stored as a key-value pair in the underlying dictionary.
-        This allows seamless attribute-style access and assignment for dictionary keys.
+        Enables attribute-style assignment for dictionary keys. If the assigned value
+        is a plain dictionary (not a DotDict), it is automatically converted to a
+        DotDict for consistency and recursive attribute access.
         """
-
         # Convert plain dicts to DotDict for recursive attribute access
         if isinstance(value, dict) and not isinstance(value, DotDict):
             value = DotDict(value)
@@ -76,9 +68,6 @@ class DotDict(dict):
         """
         Remove an attribute from the DotDict instance.
 
-        This method deletes the key-value pair corresponding to the given attribute name
-        from the underlying dictionary. If the key does not exist, an AttributeError is raised.
-
         Parameters
         ----------
         key : str
@@ -87,7 +76,6 @@ class DotDict(dict):
         Returns
         -------
         None
-            This method does not return a value.
 
         Raises
         ------
@@ -96,7 +84,7 @@ class DotDict(dict):
 
         Notes
         -----
-        This method enables attribute-style deletion for dictionary keys, allowing
+        Enables attribute-style deletion for dictionary keys, allowing
         seamless removal of items using dot notation.
         """
         try:
@@ -109,10 +97,6 @@ class DotDict(dict):
     def get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
         """
         Retrieve the value associated with the given key, returning a default value if the key is not found.
-
-        If the retrieved value is a plain dictionary (not a DotDict), it is converted to a DotDict,
-        stored back in the dictionary, and then returned. This ensures consistent attribute-style access
-        for nested dictionaries.
 
         Parameters
         ----------
@@ -129,7 +113,7 @@ class DotDict(dict):
 
         Notes
         -----
-        This method overrides the standard dict.get() to provide automatic conversion of nested
+        Overrides the standard dict.get() to provide automatic conversion of nested
         dictionaries to DotDict instances, enabling recursive attribute-style access.
         """
         # Retrieve the value using the base dict's get method
@@ -144,27 +128,17 @@ class DotDict(dict):
         """
         Recursively export the contents of the DotDict as a standard Python dictionary.
 
-        This method traverses the DotDict and converts all nested DotDict instances
-        into regular dictionaries by recursively calling their `export` method.
-        Non-DotDict values are included as-is. This ensures that the returned object
-        is composed entirely of built-in Python types, making it suitable for serialization
-        or interoperability with code expecting standard dictionaries.
-
-        Parameters
-        ----------
-        None
-
         Returns
         -------
-        result : dict
+        dict
             A dictionary representation of the DotDict, where all nested DotDict instances
             are recursively converted to dictionaries. Non-DotDict values are returned unchanged.
 
         Notes
         -----
-        This method is useful for converting a DotDict (which supports attribute-style access)
-        into a plain dictionary for use with APIs, serialization, or other libraries that
-        require standard dict objects.
+        Converts all nested DotDict instances into regular dictionaries by recursively
+        calling their `export` method. Useful for serialization or interoperability
+        with code expecting standard dictionaries.
         """
         result = {}
         # Iterate through all key-value pairs in the DotDict
@@ -181,10 +155,6 @@ class DotDict(dict):
         """
         Create a deep copy of the DotDict instance, recursively copying all nested DotDict and dict objects.
 
-        This method traverses the DotDict and ensures that all nested DotDict and dict instances are
-        copied recursively, so that the returned DotDict is fully independent of the original. Non-dict
-        values are copied by reference.
-
         Returns
         -------
         DotDict
@@ -193,8 +163,8 @@ class DotDict(dict):
 
         Notes
         -----
-        This method is useful when you need a completely independent copy of a DotDict, including all
-        nested structures, to avoid unintended side effects from shared references.
+        Ensures that all nested DotDict and dict instances are copied recursively,
+        so that the returned DotDict is fully independent of the original.
         """
         copied = {}
         # Iterate through all key-value pairs in the DotDict
@@ -215,11 +185,6 @@ class DotDict(dict):
         """
         Return a string representation of the DotDict instance.
 
-        This method overrides the default `__repr__` implementation to provide a concise
-        and informative string that displays the class name (`DotDict`) and the contents
-        of the underlying dictionary. This is useful for debugging and logging, as it
-        clearly distinguishes DotDict objects from regular dictionaries.
-
         Returns
         -------
         str
@@ -228,8 +193,8 @@ class DotDict(dict):
 
         Notes
         -----
-        The returned string uses the base dictionary's representation, but is prefixed
-        with the DotDict class name for clarity.
+        Uses the base dict's __repr__ for the contents, but keeps the DotDict class name
+        for clarity and distinction from regular dictionaries.
         """
         # Use the base dict's __repr__ for the contents, but keep DotDict class name
         return super().__repr__()

@@ -7,11 +7,16 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testDefaultInitialization(self):
         """
-        Test that Session instance is initialized with correct default values.
+        Test default initialization of the Session instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies default values for all attributes including secret_key generation.
+        Checks that all attributes of the Session instance are set to their correct default values,
+        including the generation of the secret_key.
         """
         session = Session()
         self.assertIsInstance(session.secret_key, str)
@@ -24,11 +29,15 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testSecretKeyValidation(self):
         """
-        Test validation for secret_key attribute.
+        Test validation of the secret_key attribute.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies that invalid secret keys raise OrionisIntegrityException.
+        Ensures that providing an invalid secret_key raises an OrionisIntegrityException.
         """
         with self.assertRaises(OrionisIntegrityException):
             Session(secret_key="")  # Empty string
@@ -37,11 +46,15 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testSessionCookieValidation(self):
         """
-        Test validation for session_cookie attribute.
+        Test validation of the session_cookie attribute.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies invalid cookie names raise OrionisIntegrityException.
+        Ensures that invalid session_cookie values raise an OrionisIntegrityException.
         """
         with self.assertRaises(OrionisIntegrityException):
             Session(session_cookie="")  # Empty string
@@ -52,11 +65,16 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testMaxAgeValidation(self):
         """
-        Test validation for max_age attribute.
+        Test validation of the max_age attribute.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies invalid max_age values raise OrionisIntegrityException.
+        Ensures that invalid max_age values raise an OrionisIntegrityException.
+        Also verifies that None is accepted as a valid value.
         """
         with self.assertRaises(OrionisIntegrityException):
             Session(max_age="3600")  # String instead of int
@@ -68,11 +86,16 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testSameSiteValidation(self):
         """
-        Test validation and normalization for same_site attribute.
+        Test validation and normalization of the same_site attribute.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies both string and enum inputs are properly handled.
+        Ensures that both string and enum inputs for same_site are handled correctly.
+        Also checks that invalid values raise an OrionisIntegrityException.
         """
         # Test string inputs (case-insensitive)
         session1 = Session(same_site="strict")
@@ -92,11 +115,15 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testPathValidation(self):
         """
-        Test validation for path attribute.
+        Test validation of the path attribute.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies invalid paths raise OrionisIntegrityException.
+        Ensures that invalid path values raise an OrionisIntegrityException.
         """
         with self.assertRaises(OrionisIntegrityException):
             Session(path="")  # Empty string
@@ -107,11 +134,15 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testHttpsOnlyValidation(self):
         """
-        Test validation for https_only attribute.
+        Test validation of the https_only attribute.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies non-boolean values raise OrionisIntegrityException.
+        Ensures that non-boolean values for https_only raise an OrionisIntegrityException.
         """
         with self.assertRaises(OrionisIntegrityException):
             Session(https_only="true")  # String instead of bool
@@ -120,11 +151,16 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testDomainValidation(self):
         """
-        Test validation for domain attribute.
+        Test validation of the domain attribute.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies invalid domains raise OrionisIntegrityException.
+        Ensures that invalid domain values raise an OrionisIntegrityException.
+        Also verifies that None is accepted as a valid value.
         """
         with self.assertRaises(OrionisIntegrityException):
             Session(domain=".example.com")  # Starts with dot
@@ -139,11 +175,15 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testToDictMethod(self):
         """
-        Test the toDict method returns proper dictionary representation.
+        Test the toDict method of the Session instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies all fields are included with correct values.
+        Ensures that the toDict method returns a dictionary containing all fields with correct values.
         """
         session = Session()
         result = session.toDict()
@@ -158,11 +198,16 @@ class TestFoundationConfigSession(AsyncTestCase):
 
     async def testKwOnlyInitialization(self):
         """
-        Test that Session requires keyword arguments for initialization.
+        Test enforcement of keyword-only initialization for Session.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies the class enforces kw_only=True in its dataclass decorator.
+        Ensures that the Session class enforces keyword-only arguments during initialization
+        by raising a TypeError when positional arguments are provided.
         """
         with self.assertRaises(TypeError):
             Session("key", "session")

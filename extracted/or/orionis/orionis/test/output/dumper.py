@@ -6,34 +6,16 @@ from orionis.test.contracts.dumper import ITestDumper
 
 class TestDumper(ITestDumper):
     """
-    TestDumper provides utility methods for debugging and outputting information during test execution.
+    Utility class for debugging and outputting information during test execution.
 
-    This class implements methods to:
-        - Determine if an object is a test case instance.
-        - Output debugging information using the Debug class.
-        - Manage standard output and error streams during debugging dumps.
-        - Capture the caller's file and line number for context.
-
-    Attributes
-    ----------
-    None
-
-    Methods
-    -------
-    __isTestCaseClass(value)
-        Determines if the given value is an instance of a test case class.
-    dd(*args)
-        Dumps debugging information using the Debug class.
-    dump(*args)
-        Dumps debugging information using the Debug class.
+    Provides methods to determine if an object is a test case instance, output debugging
+    information using the Debug class, manage standard output and error streams, and
+    capture the caller's file and line number for context.
     """
 
     def __isTestCaseClass(self, value) -> bool:
         """
-        Determines whether the provided value is an instance of a recognized test case class.
-
-        This method checks if the given object is an instance of either AsyncTestCase or SyncTestCase,
-        which are the supported test case base classes in the Orionis testing framework.
+        Check if the provided value is an instance of a recognized test case class.
 
         Parameters
         ----------
@@ -43,8 +25,8 @@ class TestDumper(ITestDumper):
         Returns
         -------
         bool
-            Returns True if `value` is an instance of AsyncTestCase or SyncTestCase.
-            Returns False if `value` is None, not an instance of these classes, or if any import error occurs.
+            True if `value` is an instance of AsyncTestCase, SyncTestCase, unittest.TestCase,
+            or unittest.IsolatedAsyncioTestCase. False otherwise or if an import error occurs.
         """
 
         # If the value is None, it cannot be a test case instance.
@@ -76,23 +58,21 @@ class TestDumper(ITestDumper):
 
     def dd(self, *args) -> None:
         """
-        Outputs debugging information using the Debug class and halts further execution.
+        Output debugging information and halt further execution.
 
-        This method captures the caller's file and line number to provide context for the debug output.
-        It temporarily redirects standard output and error streams to ensure the debug information is
-        displayed correctly. If the first argument is a recognized test case instance, it is skipped
-        in the output to avoid redundant information. The method raises an exception if any error
-        occurs during the dumping process.
+        Captures the caller's file and line number for context. Temporarily redirects
+        standard output and error streams to ensure correct display. If the first argument
+        is a recognized test case instance, it is skipped in the output. Raises a custom
+        runtime error if dumping fails.
 
         Parameters
         ----------
         *args : tuple
-            Variable length argument list containing the objects to be dumped.
+            Objects to be dumped.
 
         Returns
         -------
         None
-            This method does not return any value. It outputs debug information and may halt execution.
         """
 
         # If no arguments are provided, exit the method early.
@@ -136,23 +116,21 @@ class TestDumper(ITestDumper):
 
     def dump(self, *args) -> None:
         """
-        Outputs debugging information using the Debug class.
+        Output debugging information.
 
-        This method captures the caller's file and line number to provide context for the debug output.
-        It temporarily redirects standard output and error streams to ensure the debug information is
-        displayed correctly. If the first argument is a recognized test case instance, it is skipped
-        in the output to avoid redundant information. The method raises an exception if any error
-        occurs during the dumping process.
+        Captures the caller's file and line number for context. Temporarily redirects
+        standard output and error streams to ensure correct display. If the first argument
+        is a recognized test case instance, it is skipped in the output. Raises a custom
+        runtime error if dumping fails.
 
         Parameters
         ----------
         *args : tuple
-            Variable length argument list containing the objects to be dumped.
+            Objects to be dumped.
 
         Returns
         -------
         None
-            This method does not return any value. It outputs debug information.
         """
 
         # If no arguments are provided, exit the method early.

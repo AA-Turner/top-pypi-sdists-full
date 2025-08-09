@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+import gzip
+import json
 import logging
 import os
 import re
@@ -8,7 +10,7 @@ import shlex
 
 import click
 import dask.config
-from dask.utils import format_time, parse_timedelta
+from dask.utils import format_bytes, format_time, parse_timedelta
 from rich.console import Console
 from rich.panel import Panel
 
@@ -776,13 +778,19 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
     with coiled.Cloud(workspace=kwargs["workspace"]) as cloud:
         job_spec["workspace"] = cloud.default_workspace
 
-        url = f"{cloud.server}/api/v2/jobs/"
+        compressed_data = gzip.compress(json.dumps(job_spec).encode())
+        if len(compressed_data) > 2_400_000:
+            raise ValueError(
+                f"Cannot submit job because data is too large "
+                f"({format_bytes(len(compressed_data))} is over 2.4 MiB limit)"
+            )
+
+        url = f"{cloud.server}/api/v2/jobs/compressed"
         response = sync_request(
             cloud=cloud,
             url=url,
             method="post",
-            data=job_spec,
-            json=True,
+            data=compressed_data,
             json_output=True,
         )
 

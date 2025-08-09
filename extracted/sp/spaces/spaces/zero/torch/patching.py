@@ -96,7 +96,7 @@ class ZeroGPUFunctionMode(TorchFunctionMode):
 
         kwargs = {} if kwargs is None else kwargs
 
-        if func == torch._C._nn._parse_to:
+        if func == torch._C._nn._parse_to: # pyright: ignore [reportAttributeAccessIssue]
             args, kwargs = no_int_device(*args, **kwargs)
             return func(*args, **kwargs)
 
@@ -111,7 +111,7 @@ class ZeroGPUFunctionMode(TorchFunctionMode):
         # Redispatch: tensor.to('cuda') -> tensor.to(device='cuda')
         if func == torch.Tensor.to and len(args) > 1:
             parse_to_args, parse_to_kwargs = no_int_device(*args[1:], **kwargs)
-            device, dtype, _, memory_format = torch._C._nn._parse_to(*parse_to_args, **parse_to_kwargs) # pyright: ignore [reportCallIssue, reportArgumentType]
+            device, dtype, _, memory_format = torch._C._nn._parse_to(*parse_to_args, **parse_to_kwargs) # pyright: ignore [reportAttributeAccessIssue]
             return self.__torch_function__(torch.Tensor.to, types, (args[0],), {
                 'device': device,
                 'dtype': dtype,

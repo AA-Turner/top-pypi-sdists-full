@@ -4,36 +4,41 @@ from orionis.services.log.log_service import LoggerService
 
 class LoggerProvider(ServiceProvider):
     """
-    LoggerProvider
-    ==============
+    Provides and registers the logging service within the application container.
 
-    Registers the logging service in the application container.
-    Provides a `LoggerService` instance for application-wide logging.
+    This provider binds an implementation of `ILoggerService` to the application,
+    making a `LoggerService` instance available for application-wide logging.
 
-    Methods
-    -------
-    register()
-        Registers the logging service in the application container.
-    boot()
-        Performs post-registration initialization if needed.
+    Attributes
+    ----------
+    app : Application
+        The application container instance where services are registered.
     """
 
     def register(self) -> None:
         """
-        Registers the logging service in the application container.
+        Register the logging service in the application container.
+
+        This method binds the `LoggerService` implementation to the `ILoggerService`
+        contract in the application container, using the application's logging configuration.
 
         Returns
         -------
         None
         """
+
         self.app.instance(ILoggerService, LoggerService(self.app.config('logging')), alias="core.orionis.logger")
 
     def boot(self) -> None:
         """
-        Performs post-registration initialization if needed.
+        Perform post-registration initialization for the logging service.
+
+        This method is a placeholder for any additional setup required after
+        the logging service has been registered.
 
         Returns
         -------
         None
         """
+
         pass

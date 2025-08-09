@@ -138,20 +138,21 @@ class EMSys:
         
         try:
             while index_item_atual < index_ultimo_item:
+                
                 send_keys("^({HOME})")
                 await worker_sleep(1)
 
                 if index_item_atual > 0:
                     send_keys("{DOWN " + str(index_item_atual) + "}")
-
                 await worker_sleep(2)
                 send_keys("+{F10}")
                 await worker_sleep(1)
                 send_keys("{DOWN 2}")
                 await worker_sleep(1)
                 send_keys("{ENTER}")
-
+                
                 await worker_sleep(2)
+                
                 app = Application().connect(title="Alteração de Item")
                 main_window = app["Alteração de Item"]
 
@@ -160,7 +161,25 @@ class EMSys:
                 edit = main_window.child_window(
                     class_name="TDBIEditCode", found_index=0
                 )
-                
+                 # Caminho da imagem
+                caminho_imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\entrada_de_notas_16\ipi_0.png"
+                # Verifica se o arquivo existe
+                if os.path.exists(caminho_imagem):
+                    print("Imagem já existe. Clicando em 'Cancelar'...")
+                                        
+                    # Conectando à janela do app 
+                    app = Application().connect(class_name="TFrmAlteraItemNFE", timeout=60)
+                    janela_cancelar = app["TFrmAlteraItemNFE"]
+
+                    # Encontra o botão pelo texto
+                    try:
+                        cancelar_btn = janela_cancelar.child_window(class_name ="TDBIBitBtn", found_index=2)
+                        cancelar_btn.click_input()
+                        print("Clicou em 'Cancelar'.")
+                        index_item_atual += 1
+                        continue
+                    except:
+                        pass
                 #seta IPI 0%
                 ipi_combobox = main_window.child_window(
                     class_name="TDBIComboBox", found_index=4

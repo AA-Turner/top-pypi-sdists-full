@@ -1,14 +1,28 @@
+import json
 import logging
 from copy import deepcopy
+from dataclasses import asdict
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, List, Optional
 
+import airflow
 from pycarlo.common.utils import truncate_string
-from airflow.models import TaskInstance, SlaMiss, DagRun, DAG
-from attr import asdict
-from datetime import datetime, timezone
 
-from airflow_mcd.callbacks.client import DagResult, DagTaskResult, AirflowEventsClient, DagTaskInstanceResult, \
-    SlaMissesResult, TaskSlaMiss
-from typing import Dict, List, Any, Optional
+from airflow_mcd import airflow_major_version
+from airflow_mcd.callbacks.client import (
+    AirflowEventsClient,
+    DagResult,
+    DagTaskInstanceResult,
+    DagTaskResult,
+    SlaMissesResult,
+    TaskSlaMiss,
+)
+from airflow.models import DAG, DagRun, TaskInstance
+
+if airflow_major_version() < 3:
+    from airflow.models import SlaMiss
+else:
+    SlaMiss = None
 
 
 logger = logging.getLogger(__name__)
@@ -27,13 +41,37 @@ class AirflowEventsClientUtils:
             cls,
             context: Dict,
     ):
-        if not cls._validate_dag_callback_context(context=context):
+        dag_run: DagRun = context['dag_run']
+
+        # Create a context dictionary that includes all required fields for validation
+        validation_context = {
+            'dag': context['dag'],
+            'run_id': context['run_id'],
+            'dag_run': dag_run,
+            'reason': context['reason'],
+        }
+        
+        if not cls._validate_dag_callback_context(context=validation_context):
+            logger.error("DAG callback validation failed")
             return
 
         dag: DAG = context['dag']
-        dag_run: DagRun = context['dag_run']
         dag_tags = [tag for tag in dag.tags]
-        task_instances = dag_run.get_task_instances()
+
+        # In Airflow 3 the task instances are not available in the context
+        # and we cannot use dag_run.get_task_instances() as it is no longer allowed
+        task_instances = dag_run.get_task_instances() if airflow_major_version() < 3 else []
+
+        # In Airflow 3 the execution_date was replaced by logical_date
+        # Check here for more details: https://airflow.apache.org/docs/apache-airflow/stable/faq.html#what-does-execution-date-mean
+        execution_date = (
+            getattr(dag_run, 'execution_date', None) or
+            getattr(dag_run, 'logical_date', None) or
+            datetime.now(tz=timezone.utc)
+        )
+        
+        
+        # Create result with actual task instances
         result = DagResult(
             dag_id=dag.dag_id,
             run_id=context['run_id'],
@@ -41,10 +79,10 @@ class AirflowEventsClientUtils:
             reason=context['reason'],
             tasks=[cls._get_task_instance_result(ti) for ti in task_instances],
             state=dag_run.state,
-            execution_date=cls._get_datetime_isoformat(dag_run.execution_date),
+            execution_date=cls._get_datetime_isoformat(execution_date),
             start_date=cls._get_datetime_isoformat(dag_run.start_date),
             end_date=cls._get_datetime_isoformat(dag_run.end_date),
-            original_dates=cls._get_original_dates(dag_run.execution_date, dag_run.start_date, dag_run.end_date),
+            original_dates=cls._get_original_dates(execution_date, dag_run.start_date, dag_run.end_date),
             tags=dag_tags,
         )
         cls._get_events_client(dag).upload_dag_result(result)
@@ -76,6 +114,7 @@ class AirflowEventsClientUtils:
         dag = context['dag']
         dag_tags = [tag for tag in dag.tags]
         ti = context['task_instance']
+        
         exception_message = truncate_string(
             str(context['exception']),
             _EXCEPTION_MSG_LIMIT,
@@ -92,18 +131,9 @@ class AirflowEventsClientUtils:
         cls._get_events_client(dag).upload_task_result(result)
 
     @classmethod
-    def mcd_post_sla_misses(cls, dag: DAG, sla_misses: List[SlaMiss]):
-        result = SlaMissesResult(
-            dag_id=dag.dag_id,
-            sla_misses=[
-                TaskSlaMiss(
-                    task_id=sla_miss.task_id,
-                    execution_date=cls._get_datetime_isoformat(sla_miss.execution_date),
-                    timestamp=cls._get_datetime_isoformat(sla_miss.timestamp),
-                ) for sla_miss in sla_misses
-            ]
-        )
-        cls._get_events_client(dag).upload_sla_misses(result)
+    def mcd_post_sla_misses(cls, dag: DAG, sla_misses: List):
+        # Do nothing we are removing the support for SLA Miss
+        return 
 
     @classmethod
     def _get_task_instance_result(
@@ -111,22 +141,58 @@ class AirflowEventsClientUtils:
             ti: TaskInstance,
             exception_message: Optional[str] = None
     ) -> DagTaskInstanceResult:
+        # Check Airflow version once for all compatibility handling
+        if airflow_major_version() >= 3:
+            # In Airflow 3, RuntimeTaskInstance doesn't have prev_attempted_tries
+            # Use try_number - 1 as a reasonable approximation
+            prev_attempted_tries = getattr(ti, 'try_number', 1) - 1
+            date_now = datetime.now(tz=timezone.utc)
+            
+            # In Airflow 3, RuntimeTaskInstance doesn't have duration attribute
+            # Calculate duration from start_date and end_date if available
+            # This is being fixed in this PR: 
+            # https://github.com/apache/airflow/pull/52729
+            duration = 0
+            # Get start_date and end_date for duration calculation
+            start_date = getattr(ti, 'start_date', None)
+            end_date = getattr(ti, 'end_date', date_now)
+            
+            if getattr(ti, 'duration', None) is not None and ti.duration > 0:
+                duration = ti.duration
+            elif start_date and end_date:
+                duration = (end_date - start_date).total_seconds()
+            # In Airflow 3, RuntimeTaskInstance might not have execution_date
+            # Use start_date as a fallback, or current time if start_date is not available
+            execution_date = (
+                getattr(ti, 'execution_date', None) or
+                getattr(ti, 'logical_date', None) or
+                start_date or
+                date_now
+            )
+        else:
+            # In Airflow 1 and 2, all attributes are available
+            prev_attempted_tries = ti.prev_attempted_tries
+            duration = ti.duration or 0
+            execution_date = ti.execution_date
+            start_date = ti.start_date
+            end_date = ti.end_date
+            
         return DagTaskInstanceResult(
             task_id=ti.task_id,
             state=ti.state,
             log_url=ti.log_url,
-            prev_attempted_tries=ti.prev_attempted_tries,
-            duration=ti.duration or 0,
-            execution_date=cls._get_datetime_isoformat(ti.execution_date),
-            start_date=cls._get_datetime_isoformat(ti.start_date),
-            end_date=cls._get_datetime_isoformat(ti.end_date),
+            prev_attempted_tries=prev_attempted_tries,
+            duration=duration,
+            execution_date=cls._get_datetime_isoformat(execution_date),
+            start_date=cls._get_datetime_isoformat(start_date),
+            end_date=cls._get_datetime_isoformat(end_date),
             next_retry_datetime=cls._get_next_retry_datetime(ti),
             max_tries=ti.max_tries,
             try_number=ti.try_number,
             exception_message=exception_message,
             inlets=cls._get_lineage_list(ti, 'inlets'),
             outlets=cls._get_lineage_list(ti, 'outlets'),
-            original_dates=cls._get_original_dates(ti.execution_date, ti.start_date, ti.end_date),
+            original_dates=cls._get_original_dates(execution_date, start_date, end_date),
         )
 
     @staticmethod
@@ -154,9 +220,9 @@ class AirflowEventsClientUtils:
         param_value = dag_params.get('mcd_connection_id')
         # in Airflow 2.2.x we're getting a Param object while in Airflow 2.6.x we're getting a string object
         # but we cannot import Param as it was added in Airflow v2 and not present in Airflow v1
-        if hasattr(param_value, "value") and isinstance(param_value.value, str):
+        if param_value is not None and hasattr(param_value, "value") and isinstance(param_value.value, str):
             mcd_session_conn_id = param_value.value
-        elif isinstance(param_value, str):
+        elif param_value is not None and isinstance(param_value, str):
             mcd_session_conn_id = param_value
         elif param_value is not None:  # don't log a warning when the parameter was not specified at all
             logger.warning(f"Ignoring mcd_connection_id parameter value: {param_value}, using {mcd_session_conn_id}")
@@ -184,12 +250,12 @@ class AirflowEventsClientUtils:
         return attrs
 
     @classmethod
-    def _get_lineage_list(cls, ti: TaskInstance, attr: str) -> Optional[List[Dict]]:
+    def _get_lineage_list(cls, ti: TaskInstance, attr: str) -> List[Dict]:
         if not hasattr(ti, "task") or not ti.task:
-            return None
-        lineage_list = getattr(ti.task, attr)
+            return []
+        lineage_list = getattr(ti.task, attr, None)
         if not lineage_list:
-            return None
+            return []
         return [
             cls._get_lineage_dict(lineage_object) for lineage_object in lineage_list
         ]

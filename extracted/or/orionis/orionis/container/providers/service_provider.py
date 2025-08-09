@@ -3,26 +3,20 @@ from orionis.foundation.contracts.application import IApplication
 
 class ServiceProvider(IServiceProvider):
     """
-    Base service provider class for the Orionis framework.
+    Base class for service providers in the Orionis framework.
 
-    This class serves as a base for all service providers in the application.
-    Service providers are responsible for registering components and services
-    into the application container, and initializing them when needed.
+    Service providers are responsible for registering and bootstrapping
+    services and components into the application container.
 
     Parameters
     ----------
     app : IApplication
         The application container instance to which services will be registered.
-
-    Notes
-    -----
-    All concrete service providers should inherit from this class and implement
-    the `register` method at minimum.
     """
 
     def __init__(self, app: IApplication) -> None:
         """
-        Initialize the service provider with the application container.
+        Initialize the ServiceProvider with the application container.
 
         Parameters
         ----------
@@ -33,11 +27,10 @@ class ServiceProvider(IServiceProvider):
 
     async def register(self) -> None:
         """
-        Register services into the application container.
+        Register services and components into the application container.
 
-        This method must be implemented by all concrete service providers.
-        It should bind services, configurations, or other components
-        to the application container.
+        This method must be implemented by subclasses to bind services,
+        configurations, or other components to the application container.
 
         Raises
         ------
@@ -48,7 +41,7 @@ class ServiceProvider(IServiceProvider):
 
     async def boot(self) -> None:
         """
-        Perform any post-registration bootstrapping or initialization.
+        Perform post-registration initialization or bootstrapping.
 
         This method is called after all services have been registered.
         Override this method to initialize services, set up event listeners,

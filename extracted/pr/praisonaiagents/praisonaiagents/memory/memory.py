@@ -109,7 +109,7 @@ class Memory:
         },
         "llm": {
           "provider": "openai",
-          "config": {"model": "gpt-4o", "api_key": "..."}
+          "config": {"model": "gpt-5-nano", "api_key": "..."}
         },
         "embedder": {
           "provider": "openai",
@@ -1442,7 +1442,7 @@ class Memory:
                 import litellm
                 
                 # Convert model name if it's in litellm format
-                model_name = llm or "gpt-4o-mini"
+                model_name = llm or "gpt-5-nano"
                 
                 response = litellm.completion(
                     model=model_name,
@@ -1459,7 +1459,7 @@ class Memory:
                 client = OpenAI()
                 
                 response = client.chat.completions.create(
-                    model=llm or "gpt-4o-mini",
+                    model=llm or "gpt-5-nano",
                     messages=[{
                         "role": "user", 
                         "content": custom_prompt or default_prompt

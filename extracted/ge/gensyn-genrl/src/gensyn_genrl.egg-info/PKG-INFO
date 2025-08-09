@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gensyn-genrl
-Version: 0.1.5
+Version: 0.1.6
 Summary: A General RL framerwork in a swarm environment
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -15,6 +15,7 @@ Requires-Dist: requests
 Requires-Dist: eth-account
 Requires-Dist: web3
 Requires-Dist: hivemind
+Requires-Dist: psutil
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: isort; extra == "dev"

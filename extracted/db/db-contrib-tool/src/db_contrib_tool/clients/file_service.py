@@ -1,8 +1,10 @@
 """A service for interacting with the filesystem."""
 
-import json
 import os
-from typing import List
+from pydantic import TypeAdapter
+
+from db_contrib_tool.setup_repro_env.request_models import DownloadRequest
+from typing import List, Set
 
 import structlog
 
@@ -37,24 +39,34 @@ class FileService:
         os.remove(file_name)
 
     @staticmethod
-    def append_dict_to_json_file(file_name: str, content_to_append: dict) -> None:
+    def append_downloads_to_json_file(file_name: str, downloads: Set[DownloadRequest]) -> None:
         """
-        Append the given dict to the specified file in json format.
+        Append DownloadRequest's the specified file in json format.
 
         :param file_name: File to append to.
-        :param content_to_append: Content to append to file.
+        :param downloads: DownloadRequest's to append to file.
         """
+
+        adapter = TypeAdapter(Set[DownloadRequest])
+
+        all_downloads = FileService.load_downloads_from_json_file(file_name)
+        all_downloads.update(downloads)
+        with open(file_name, "wb") as file:
+            file.write(adapter.dump_json(all_downloads, indent=2, round_trip=True))
+
+    @staticmethod
+    def load_downloads_from_json_file(file_name: str) -> Set[DownloadRequest]:
+        """
+        Load DownloadRequest's from specified file in json format.
+
+        :param file_name: File to load from.
+        """
+
+        adapter = TypeAdapter(Set[DownloadRequest])
         try:
             with open(file_name, "r") as file:
-                content_json = json.load(file)
-        except Exception:
-            content_json = None
-
-        try:
-            content_dict = dict(content_json)
-            content_dict.update(content_to_append)
-        except Exception:
-            content_dict = content_to_append
-
-        with open(file_name, "w") as file:
-            json.dump(content_dict, file, indent=2)
+                downloads = adapter.validate_json(file.read())
+        except Exception as e:
+            LOGGER.error("Failed to load download URLS from existing versions file", reason=str(e))
+            downloads = set()
+        return downloads

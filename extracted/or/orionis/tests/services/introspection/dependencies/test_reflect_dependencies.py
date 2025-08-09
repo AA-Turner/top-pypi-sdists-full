@@ -13,21 +13,52 @@ from tests.services.introspection.dependencies.mocks.mock_users_permissions impo
 
 class TestReflectDependencies(AsyncTestCase):
     """
-    Test suite for verifying the functionality of the ReflectDependencies class in resolving and reflecting dependencies for class constructors and methods.
-    This test class covers:
-        - Retrieval and resolution of constructor dependencies for the UserController class.
-        - Validation that constructor dependencies are correctly identified as instances of ClassDependency.
-        - Verification that resolved dependencies (such as 'user_repository') are instances of KnownDependency and have the expected module name, class name, full class path, and type.
-        - Reflection and resolution of method dependencies for specific methods (e.g., 'createUserWithPermissions').
-        - Validation that method dependencies are correctly identified as instances of MethodDependency.
-        - Verification that resolved method dependencies (such as 'user_permissions' and 'permissions') are instances of KnownDependency and have the expected attributes.
-        - Ensuring that unresolved dependencies lists are empty where appropriate.
+    Test suite for the ReflectDependencies class, which provides utilities for introspecting and resolving dependencies
+    in class constructors, methods, and callables.
+
+    This class contains asynchronous test cases that validate:
+        - The correct retrieval and resolution of constructor dependencies for the UserController class.
+        - The identification of constructor dependencies as instances of ClassDependency.
+        - The resolution of dependencies such as 'user_repository' as KnownDependency instances, including validation
+          of their module name, class name, full class path, and type.
+        - The reflection and resolution of method dependencies for specific methods (e.g., 'createUserWithPermissions'),
+          ensuring they are identified as MethodDependency instances.
+        - The resolution of method dependencies such as 'user_permissions' and 'permissions' as KnownDependency instances,
+          with correct attributes.
+        - That unresolved dependency lists are empty when all dependencies are resolved.
+
+    Attributes
+    ----------
+    Inherits from AsyncTestCase.
+
+    Methods
+    -------
+    testReflectionDependenciesGetConstructorDependencies()
+        Tests retrieval and validation of constructor dependencies for UserController.
+
+    testReflectionDependenciesGetMethodDependencies()
+        Tests retrieval and validation of method dependencies for the 'createUserWithPermissions' method.
+
+    testReflectionDependenciesGetCallableDependencies()
+        Tests retrieval and validation of dependencies for a sample asynchronous callable.
     """
 
     async def testReflectionDependenciesGetConstructorDependencies(self):
         """
-        Test that ReflectDependencies correctly retrieves and resolves constructor dependencies for the UserController class.
-        This test verifies:
+        Retrieves and validates the constructor dependencies for the UserController class using the ReflectDependencies utility.
+
+        Parameters
+        ----------
+        self : TestReflectDependencies
+            The test case instance.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This test ensures that:
             - The returned constructor dependencies are an instance of ClassDependency.
             - The list of unresolved dependencies is empty.
             - The 'user_repository' dependency is resolved as an instance of KnownDependency.
@@ -55,15 +86,25 @@ class TestReflectDependencies(AsyncTestCase):
 
     async def testReflectionDependenciesGetMethodDependencies(self):
         """
-        Tests the `getMethodDependencies` method of the `ReflectDependencies` class for the 'createUserWithPermissions' method
-        of the `UserController`.
-        This test verifies:
-            - The returned object is an instance of `MethodDependency`.
-            - There are no unresolved dependencies.
-            - The 'user_permissions' dependency is correctly resolved as an instance of `KnownDependency` with the expected
-              module name, class name, full class path, and type (`FakeUserWithPermissions`).
-            - The 'permissions' dependency is correctly resolved as an instance of `KnownDependency` with the expected
-              module name, class name, full class path, and type (`list[str]`).
+        Retrieves and validates the dependencies for the 'createUserWithPermissions' method of the UserController class
+        using the ReflectDependencies utility.
+
+        This test ensures that:
+            - The returned object is an instance of MethodDependency.
+            - The unresolved dependencies list is empty.
+            - The 'user_permissions' dependency is resolved as a KnownDependency with the expected module name,
+              class name, full class path, and type (FakeUserWithPermissions).
+            - The 'permissions' dependency is resolved as a KnownDependency with the expected module name,
+              class name, full class path, and type (list[str]).
+
+        Parameters
+        ----------
+        self : TestReflectDependencies
+            The test case instance.
+
+        Returns
+        -------
+        None
         """
 
         depend = ReflectDependencies(UserController)
@@ -97,12 +138,23 @@ class TestReflectDependencies(AsyncTestCase):
 
     async def testReflectionDependenciesGetCallableDependencies(self):
         """
-        Tests the `getCallableDependencies` method of the `ReflectDependencies` class for a callable function.
-        This test verifies:
-            - The returned dependencies are an instance of `MethodDependency`.
+        Tests the `getCallableDependencies` method of the `ReflectDependencies` class for a given asynchronous function.
+
+        Parameters
+        ----------
+        self : TestReflectDependencies
+            The test case instance.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This test checks that:
+            - The returned dependencies are an instance of `CallableDependency`.
             - There are no unresolved dependencies.
-            - The 'x' and 'y' parameters are correctly resolved as instances of `KnownDependency` with the expected
-              module name, class name, full class path, and type (`int`).
+            - The 'x' and 'y' parameters are resolved to their default integer values (3 and 4, respectively).
         """
 
         async def fake_function(x: int = 3, y: int = 4) -> int:

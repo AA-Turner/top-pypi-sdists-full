@@ -5,29 +5,57 @@ from orionis.test.enums import TestStatus
 @dataclass(frozen=True, kw_only=True)
 class TestResult:
     """
-    Data class representing the outcome of a test execution.
+    Represents the outcome of a test execution.
 
-    This class encapsulates all relevant information about a test's execution,
-    including its unique identifier, name, execution status, timing, and any
-    error details if the test did not pass. It also stores optional metadata
-    such as the class, method, module, file path, and docstring associated
-    with the test, if applicable.
+    Parameters
+    ----------
+    id : Any
+        Unique identifier for the test result.
+    name : str
+        Name of the test.
+    status : TestStatus
+        Status of the test execution (e.g., passed, failed).
+    execution_time : float
+        Time taken to execute the test, in seconds.
+    error_message : Optional[str], optional
+        Error message if the test failed, otherwise None.
+    traceback : Optional[str], optional
+        Traceback information if an error occurred, otherwise None.
+    class_name : Optional[str], optional
+        Name of the class containing the test, if applicable.
+    method : Optional[str], optional
+        Name of the method representing the test, if applicable.
+    module : Optional[str], optional
+        Name of the module containing the test, if applicable.
+    file_path : Optional[str], optional
+        Path to the file containing the test, if applicable.
+    doc_string : Optional[str], optional
+        Docstring of the test, if applicable.
 
-    Attributes:
-        id (Any): Unique identifier for the test result.
-        name (str): Name of the test.
-        status (TestStatus): Status of the test execution (e.g., passed, failed).
-        execution_time (float): Time taken to execute the test, in seconds.
-        error_message (Optional[str]): Error message if the test failed, otherwise None.
-        traceback (Optional[str]): Traceback information if an error occurred, otherwise None.
-        class_name (Optional[str]): Name of the class containing the test, if applicable.
-        method (Optional[str]): Name of the method representing the test, if applicable.
-        module (Optional[str]): Name of the module containing the test, if applicable.
-        file_path (Optional[str]): Path to the file containing the test, if applicable.
-        doc_string (Optional[str]): Docstring of the test, if applicable.
-
-    Returns:
-        TestResult: An immutable instance containing all details about a single test execution.
+    Attributes
+    ----------
+    id : Any
+        Unique identifier for the test result.
+    name : str
+        Name of the test.
+    status : TestStatus
+        Status of the test execution.
+    execution_time : float
+        Time taken to execute the test.
+    error_message : Optional[str]
+        Error message if the test failed.
+    traceback : Optional[str]
+        Traceback information if an error occurred.
+    class_name : Optional[str]
+        Name of the class containing the test.
+    method : Optional[str]
+        Name of the method representing the test.
+    module : Optional[str]
+        Name of the module containing the test.
+    file_path : Optional[str]
+        Path to the file containing the test.
+    doc_string : Optional[str]
+        Docstring of the test.
     """
 
     # Unique identifier for the test result

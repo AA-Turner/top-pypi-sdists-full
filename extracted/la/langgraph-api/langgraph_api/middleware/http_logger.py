@@ -6,6 +6,7 @@ from starlette.requests import ClientDisconnect
 from starlette.types import Message, Receive, Scope, Send
 
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
+from langgraph_api.utils.headers import should_include_header
 
 asgi = structlog.stdlib.get_logger("asgi")
 
@@ -99,12 +100,24 @@ class AccessLoggerMiddleware:
             )
 
 
-HEADERS_IGNORE = {b"authorization", b"cookie", b"set-cookie", b"x-api-key"}
+IGNORE_HEADERS = {
+    b"authorization",
+    b"cookie",
+    b"set-cookie",
+    b"x-api-key",
+}
 
 
 def _headers_to_dict(headers: list[tuple[bytes, bytes]] | None) -> dict[str, str]:
     if headers is None:
         return {}
-    return {
-        k.decode(): v.decode() for k, v in headers if k.lower() not in HEADERS_IGNORE
-    }
+
+    result = {}
+    for k, v in headers:
+        if k in IGNORE_HEADERS:
+            continue
+        key = k.decode()
+        if should_include_header(key):
+            result[key] = v.decode()
+
+    return result

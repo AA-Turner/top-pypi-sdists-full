@@ -17,7 +17,7 @@ from chalk.features.dataframe import DataFrame
 from chalk.features.feature_field import Feature
 from chalk.features.feature_set import Features
 from chalk.features.feature_wrapper import FeatureWrapper, unwrap_feature
-from chalk.features.resolver import RESOLVER_REGISTRY, OnlineResolver
+from chalk.features.resolver import RESOLVER_REGISTRY, OnlineResolver, ResourceHint
 from chalk.features.underscore import Underscore, UnderscoreFunction
 from chalk.serialization.parsed_annotation import ParsedAnnotation
 from chalk.utils.collections import ensure_tuple
@@ -70,6 +70,7 @@ def embed(
     default: Any = None,
     dimensions: int | None = None,
     resource_group: str | None = None,
+    resource_hint: ResourceHint | None = None,
 ) -> Any:
     """Specify an embedding feature.
 
@@ -180,6 +181,9 @@ def embed(
         The resource group for the embed resolver: this is used to isolate execution of
         the resolver onto a separate pod (or set of nodes), allowing model inference
         to be run in a separate environment, such as on a GPU-enabled node.
+    resource_hint
+        The resource hint for the embed resolver: Can be either CPU, GPU, or IO.
+        Chalk uses the resource hint to optimize resolver execution.
 
     Examples
     --------
@@ -263,7 +267,7 @@ def embed(
                         source_line=None,
                         lsp_builder=get_resolver_error_builder(fn),
                         parse=None,
-                        resource_hint=None,
+                        resource_hint=resource_hint,
                         resource_group=resource_group,
                         static=False,
                         total=False,
@@ -394,7 +398,7 @@ def embed(
                 source_line=None,
                 lsp_builder=get_resolver_error_builder(fn),
                 parse=None,
-                resource_hint=None,
+                resource_hint=resource_hint,
                 resource_group=resource_group,
                 static=False,
                 total=False,

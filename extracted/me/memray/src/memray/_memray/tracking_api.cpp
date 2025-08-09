@@ -49,6 +49,28 @@ starts_with(const std::string& haystack, const std::string_view& needle)
 }
 #endif
 
+class StopTheWorldGuard
+{
+  public:
+    StopTheWorldGuard()
+    : d_interp(PyGILState_GetThisThreadState()->interp)
+    {
+        memray::compat::stopTheWorld(d_interp);
+    }
+
+    ~StopTheWorldGuard()
+    {
+        memray::compat::startTheWorld(d_interp);
+    }
+
+  private:
+    StopTheWorldGuard(const StopTheWorldGuard&) = delete;
+    StopTheWorldGuard& operator=(const StopTheWorldGuard&) = delete;
+    StopTheWorldGuard(StopTheWorldGuard&&) = delete;
+
+    PyInterpreterState* d_interp;
+};
+
 }  // namespace
 
 namespace memray::tracking_api {
@@ -76,15 +98,33 @@ thread_id()
 
 // Tracker interface
 
-// This class must have a trivial destructor (and therefore all its instance
-// attributes must be POD). This is required because the libc implementation
-// can perform allocations even after the thread local variables for a thread
-// have been destroyed. If a TLS variable that is not trivially destructable is
-// accessed after that point by our allocation hooks, it will be resurrected,
-// and then it will be freed when the thread dies, but its destructor either
-// won't be called at all, or will be called on freed memory when some
-// arbitrary future thread is destroyed (if the pthread struct is reused for
-// another thread).
+// If a TLS variable has not been constructed, accessing it will cause it to be
+// constructed. That's normally great, but we need to prevent that from
+// happening unexpectedly for the TLS vector owned by this class.
+//
+// Methods of this class can be called during thread teardown. It's possible
+// that, after the TLS vector for a dying thread has already been destroyed,
+// libpthread makes a call to free() that calls into our Tracker, and if it
+// does, we must prevent it touching the vector again and re-constructing it.
+// Otherwise, it would be re-constructed immediately but its destructor would
+// be added to this thread's list of finalizers after all the finalizers for
+// the thread already ran.  If that happens, the vector will be free()d before
+// its destructor runs. Worse, its destructor will remain on the list of
+// finalizers for the current thread's pthread struct, and its destructor will
+// later be run on that already free()d memory if this thread's pthread struct
+// is ever reused. When that happens it tends to cause heap corruption, because
+// another vector is placed at the same location as the original one, and the
+// vector destructor runs twice on it (once for the newly created vector, and
+// once for the vector that had been created before the thread died and the
+// pthread struct was reused).
+//
+// To prevent that, we create the vector in one method, pushLazilyEmittedFrame.
+// All other methods access a pointer called `d_stack` that is set to the TLS
+// stack when it is created by pushLazilyEmittedFrame, and set to a null
+// pointer when the TLS stack is destroyed.
+//
+// This can result in this class being constructed during thread teardown, but
+// that doesn't cause the same problem because it has a trivial destructor.
 class PythonStackTracker
 {
   private:
@@ -108,6 +148,7 @@ class PythonStackTracker
     static bool s_native_tracking_enabled;
 
     static void installProfileHooks();
+    static void recordAllStacks();
     static void removeProfileHooks();
 
     void clear();
@@ -126,7 +167,6 @@ class PythonStackTracker
     static PythonStackTracker& getUnsafe();
 
     static std::vector<LazilyEmittedFrame> pythonFrameToStack(PyFrameObject* current_frame);
-    static void recordAllStacks();
     void reloadStackIfTrackerChanged();
 
     void pushLazilyEmittedFrame(const LazilyEmittedFrame& frame);
@@ -171,6 +211,17 @@ PythonStackTracker::emitPendingPushesAndPops()
 {
     if (!d_stack) {
         return;
+    }
+
+    if (!d_stack->empty()) {
+        PyThreadState* ts = PyGILState_GetThisThreadState();
+        if (!ts || ts->c_profilefunc != PyTraceFunction) {
+            // Note: clear() will call back into emitPendingPushesAndPops() to
+            //       emit the pops, but we won't call back into clear() because
+            //       the stack has already been emptied.
+            clear();
+            return;
+        }
     }
 
     // At any time, the stack contains (in this order):
@@ -298,11 +349,35 @@ void
 PythonStackTracker::pushLazilyEmittedFrame(const LazilyEmittedFrame& frame)
 {
     // Note: this function does not require the GIL.
-    if (!d_stack) {
-        d_stack = new std::vector<LazilyEmittedFrame>;
-        d_stack->reserve(1024);
+    if (d_stack) {
+        // This frame may already be on the stack if another thread installed
+        // a Tracker and captured our stack while this frame was being pushed.
+        // Avoid duplicating it.
+        if (d_stack->empty() || d_stack->back().frame != frame.frame) {
+            d_stack->push_back(frame);
+        }
+        return;
     }
-    d_stack->push_back(frame);
+
+    struct StackCreator
+    {
+        std::vector<LazilyEmittedFrame> stack;
+
+        StackCreator()
+        {
+            const size_t INITIAL_PYTHON_STACK_FRAMES = 1024;
+            stack.reserve(INITIAL_PYTHON_STACK_FRAMES);
+            PythonStackTracker::getUnsafe().d_stack = &stack;
+        }
+        ~StackCreator()
+        {
+            PythonStackTracker::getUnsafe().d_stack = nullptr;
+        }
+    };
+
+    MEMRAY_FAST_TLS static thread_local StackCreator t_stack_creator;
+    t_stack_creator.stack.push_back(frame);
+    assert(d_stack);  // The above call sets d_stack if it wasn't already set.
 }
 
 void
@@ -469,6 +544,13 @@ PythonStackTracker::pythonFrameToStack(PyFrameObject* current_frame)
 void
 PythonStackTracker::recordAllStacks()
 {
+    // We need to ensure that stacks are captured atomically with respect to
+    // incrementing s_tracker_generation and to setting Tracker::isActive().
+    // The caller must use the GIL for this in with-GIL builds, and call
+    // _PyEval_StopTheWorld in free-threaded builds. Otherwise, the shadow
+    // stack may become inconsistent with the true stack for a thread, which
+    // leads to frames being used after they've been freed.
+
     assert(PyGILState_Check());
 
     // Record the current Python stack of every thread
@@ -502,22 +584,9 @@ PythonStackTracker::recordAllStacks()
 void
 PythonStackTracker::installProfileHooks()
 {
-    assert(PyGILState_Check());
-
-    // Uninstall any existing profile function in all threads. Do this before
-    // installing ours, since we could lose the GIL if the existing profile arg
-    // has a __del__ that gets called. We must hold the GIL for the entire time
-    // we capture threads' stacks and install our trace function into them, so
-    // their stacks can't change after we've captured them and before we've
-    // installed our profile function that utilizes the captured stacks, and so
-    // they can't start profiling before we capture their stack and miss it.
-    compat::setprofileAllThreads(nullptr, nullptr);
-
-    // Find and record the Python stack for all existing threads.
-    recordAllStacks();
-
-    // Install our profile trampoline in all existing threads.
-    compat::setprofileAllThreads(PyTraceTrampoline, nullptr);
+    // Install our profile function in all existing threads. Note that the
+    // profile function may begin executing before recordAllStacks is called.
+    compat::setprofileAllThreads(PyTraceFunction, nullptr);
 }
 
 void
@@ -541,8 +610,6 @@ PythonStackTracker::clear()
         d_stack->pop_back();
     }
     emitPendingPushesAndPops();
-    delete d_stack;
-    d_stack = nullptr;
 }
 
 Tracker::Tracker(
@@ -805,7 +872,11 @@ Tracker::childFork()
             old_tracker->d_memory_interval,
             old_tracker->d_follow_fork,
             old_tracker->d_trace_python_allocators));
-    Tracker::activate();
+
+    StopTheWorldGuard stop_the_world;
+    PythonStackTracker::recordAllStacks();
+    std::unique_lock<std::mutex> lock(*s_mutex);
+    tracking_api::Tracker::activate();
     RecursionGuard::setValue(false);
 }
 
@@ -1064,7 +1135,6 @@ Tracker::createTracker(
         bool follow_fork,
         bool trace_python_allocators)
 {
-    // Note: the GIL is used for synchronization of the singleton
     s_instance_owner.reset(new Tracker(
             std::move(record_writer),
             native_traces,
@@ -1072,6 +1142,8 @@ Tracker::createTracker(
             follow_fork,
             trace_python_allocators));
 
+    StopTheWorldGuard stop_the_world;
+    PythonStackTracker::recordAllStacks();
     std::unique_lock<std::mutex> lock(*s_mutex);
     tracking_api::Tracker::activate();
     Py_RETURN_NONE;
@@ -1136,35 +1208,6 @@ Tracker::unregisterPymallocHooks() const noexcept
 
 // Trace Function interface
 
-PyObject*
-create_profile_arg()
-{
-    // Borrowed reference
-    PyObject* memray_ext = PyDict_GetItemString(PyImport_GetModuleDict(), "memray._memray");
-    if (!memray_ext) {
-        return nullptr;
-    }
-
-    return PyObject_CallMethod(memray_ext, "ProfileFunctionGuard", nullptr);
-}
-
-// Called when profiling is initially enabled in each thread.
-int
-PyTraceTrampoline(PyObject* obj, PyFrameObject* frame, int what, [[maybe_unused]] PyObject* arg)
-{
-    assert(PyGILState_Check());
-    RecursionGuard guard;
-
-    PyObject* profileobj = create_profile_arg();
-    if (!profileobj) {
-        return -1;
-    }
-    PyEval_SetProfile(PyTraceFunction, profileobj);
-    Py_DECREF(profileobj);
-
-    return PyTraceFunction(obj, frame, what, profileobj);
-}
-
 int
 PyTraceFunction(
         [[maybe_unused]] PyObject* obj,
@@ -1195,19 +1238,6 @@ PyTraceFunction(
             break;
     }
     return 0;
-}
-
-void
-Tracker::forgetPythonStack()
-{
-    if (!Tracker::isActive()) {
-        return;
-    }
-
-    // Grab the Tracker lock, as this may need to write pushes/pops.
-    std::unique_lock<std::mutex> lock(*s_mutex);
-    RecursionGuard guard;
-    PythonStackTracker::get().clear();
 }
 
 void
@@ -1259,13 +1289,7 @@ install_trace_function()
         return;
     }
 
-    PyObject* profileobj = create_profile_arg();
-    if (!profileobj) {
-        return;
-    }
-    PyEval_SetProfile(PyTraceFunction, profileobj);
-    Py_DECREF(profileobj);
-
+    PyEval_SetProfile(PyTraceFunction, nullptr);
     PyFrameObject* frame = PyEval_GetFrame();
 
     // Push all of our Python frames, most recent last.  If we reached here

@@ -134,6 +134,7 @@ __all__ = (
     "ImageScanFindingsTypeDef",
     "ImageScanStatusTypeDef",
     "ImageScanningConfigurationTypeDef",
+    "ImageTagMutabilityExclusionFilterTypeDef",
     "ImageTypeDef",
     "InitiateLayerUploadRequestTypeDef",
     "InitiateLayerUploadResponseTypeDef",
@@ -301,6 +302,15 @@ class CreatePullThroughCacheRuleRequestTypeDef(TypedDict):
 class EncryptionConfigurationForRepositoryCreationTemplateTypeDef(TypedDict):
     encryptionType: EncryptionTypeType
     kmsKey: NotRequired[str]
+
+
+ImageTagMutabilityExclusionFilterTypeDef = TypedDict(
+    "ImageTagMutabilityExclusionFilterTypeDef",
+    {
+        "filterType": Literal["WILDCARD"],
+        "filter": str,
+    },
+)
 
 
 class TagTypeDef(TypedDict):
@@ -498,12 +508,6 @@ class PutImageRequestTypeDef(TypedDict):
     imageDigest: NotRequired[str]
 
 
-class PutImageTagMutabilityRequestTypeDef(TypedDict):
-    repositoryName: str
-    imageTagMutability: ImageTagMutabilityType
-    registryId: NotRequired[str]
-
-
 class PutLifecyclePolicyRequestTypeDef(TypedDict):
     repositoryName: str
     lifecyclePolicyText: str
@@ -692,13 +696,6 @@ class PutAccountSettingResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class PutImageTagMutabilityResponseTypeDef(TypedDict):
-    registryId: str
-    repositoryName: str
-    imageTagMutability: ImageTagMutabilityType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class PutLifecyclePolicyResponseTypeDef(TypedDict):
     registryId: str
     repositoryName: str
@@ -819,6 +816,23 @@ class UploadLayerPartRequestTypeDef(TypedDict):
     registryId: NotRequired[str]
 
 
+class PutImageTagMutabilityRequestTypeDef(TypedDict):
+    repositoryName: str
+    imageTagMutability: ImageTagMutabilityType
+    registryId: NotRequired[str]
+    imageTagMutabilityExclusionFilters: NotRequired[
+        Sequence[ImageTagMutabilityExclusionFilterTypeDef]
+    ]
+
+
+class PutImageTagMutabilityResponseTypeDef(TypedDict):
+    registryId: str
+    repositoryName: str
+    imageTagMutability: ImageTagMutabilityType
+    imageTagMutabilityExclusionFilters: List[ImageTagMutabilityExclusionFilterTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateRepositoryCreationTemplateRequestTypeDef(TypedDict):
     prefix: str
     appliedFor: Sequence[RCTAppliedForType]
@@ -828,6 +842,9 @@ class CreateRepositoryCreationTemplateRequestTypeDef(TypedDict):
     ]
     resourceTags: NotRequired[Sequence[TagTypeDef]]
     imageTagMutability: NotRequired[ImageTagMutabilityType]
+    imageTagMutabilityExclusionFilters: NotRequired[
+        Sequence[ImageTagMutabilityExclusionFilterTypeDef]
+    ]
     repositoryPolicy: NotRequired[str]
     lifecyclePolicy: NotRequired[str]
     customRoleArn: NotRequired[str]
@@ -846,6 +863,7 @@ class RepositoryCreationTemplateTypeDef(TypedDict):
     ]
     resourceTags: NotRequired[List[TagTypeDef]]
     imageTagMutability: NotRequired[ImageTagMutabilityType]
+    imageTagMutabilityExclusionFilters: NotRequired[List[ImageTagMutabilityExclusionFilterTypeDef]]
     repositoryPolicy: NotRequired[str]
     lifecyclePolicy: NotRequired[str]
     appliedFor: NotRequired[List[RCTAppliedForType]]
@@ -867,6 +885,9 @@ class UpdateRepositoryCreationTemplateRequestTypeDef(TypedDict):
     ]
     resourceTags: NotRequired[Sequence[TagTypeDef]]
     imageTagMutability: NotRequired[ImageTagMutabilityType]
+    imageTagMutabilityExclusionFilters: NotRequired[
+        Sequence[ImageTagMutabilityExclusionFilterTypeDef]
+    ]
     repositoryPolicy: NotRequired[str]
     lifecyclePolicy: NotRequired[str]
     appliedFor: NotRequired[Sequence[RCTAppliedForType]]
@@ -878,6 +899,9 @@ class CreateRepositoryRequestTypeDef(TypedDict):
     registryId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     imageTagMutability: NotRequired[ImageTagMutabilityType]
+    imageTagMutabilityExclusionFilters: NotRequired[
+        Sequence[ImageTagMutabilityExclusionFilterTypeDef]
+    ]
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationTypeDef]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
@@ -902,6 +926,7 @@ class RepositoryTypeDef(TypedDict):
     repositoryUri: NotRequired[str]
     createdAt: NotRequired[datetime]
     imageTagMutability: NotRequired[ImageTagMutabilityType]
+    imageTagMutabilityExclusionFilters: NotRequired[List[ImageTagMutabilityExclusionFilterTypeDef]]
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationTypeDef]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 

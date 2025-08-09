@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 10.3.0
+Version: 10.3.1
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -278,27 +278,9 @@ Roadmap
 Current Release Changes
 =======================
 
-* Site.articlepathmay raise a ValueError
-  instead of AttributeError if ``$1`` placeholder is missing from API
-* Refactor the throttle.Throttleclass (T289318)
-* L10N-Updates: add language aliases for ``gsw``, ``sgs``, ``vro``, ``rup`` and ``lzh``
-  to family.WikimediaFamilyfamily class
-  (T399411, T399438, T399444, T399693, T399697)
-* Refactor HTML removal logic in textlib.removeHTMLPartsusing textlib.GetDataHTML
-  parser; *removetags* parameter was introduced to remove specified tag blocks (T399378)
-* Refactor echo.Notificationand fix mark_as_read()
-  method (T398770)
-* Update beta domains in family files from beta.wmflabs.org to beta.wmcloud.org (T289318)
-* ``textlib.to_latin_digits()`` was renamed to textlib.to_ascii_digits(T398146#10958283),
-  ``NON_LATIN_DIGITS`` of userinterfaces.transliterationwas renamed to ``NON_ASCII_DIGITS``
-* Add -cookies option to the loginscript to log in with cookies
-  files only
-* Create a Site using the pywikibot.Siteconstructor with a given url even if the URL, even
-  if it ends with a slash (T396592)
-* Remove hard-coded error messages from login.LoginManager.loginand use API response instead
-* Add additional information to Site.login()
-  error message (T395670)
+* Add support for tlwikisource (T388656)
 * i18n updates
+
 
 Deprecations
 ============

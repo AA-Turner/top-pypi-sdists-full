@@ -3,56 +3,59 @@ from orionis.support.standard.exceptions import OrionisStdValueException
 
 class StdClass(IStdClass):
     """
-    A dynamic class that allows setting arbitrary attributes,
-    similar to PHP's stdClass.
+    A dynamic class for storing arbitrary attributes, similar to PHP's stdClass.
+
+    Attributes
+    ----------
+    Any attribute can be dynamically set via keyword arguments or the `update` method.
     """
 
     def __init__(self, **kwargs):
         """
-        Initializes the StdClass with optional keyword arguments.
+        Initialize a StdClass instance with optional attributes.
 
         Parameters
         ----------
-        kwargs : dict
-            Key-value pairs to set as attributes.
+        **kwargs : dict, optional
+            Arbitrary keyword arguments to set as attributes.
         """
         self.update(**kwargs)
 
     def __repr__(self):
         """
-        Returns an unambiguous string representation of the object.
+        Return an unambiguous string representation of the object.
 
         Returns
         -------
         str
-            A string that could be used to recreate the object.
+            String representation suitable for debugging.
         """
         return f"{self.__class__.__name__}({self.__dict__})"
 
     def __str__(self):
         """
-        Returns a readable string representation of the object.
+        Return a readable string representation of the object.
 
         Returns
         -------
         str
-            A user-friendly string showing the object's attributes.
+            String showing the object's attributes.
         """
         return str(self.__dict__)
 
     def __eq__(self, other):
         """
-        Compares two StdClass objects for equality based on their attributes.
+        Compare two StdClass objects for equality based on their attributes.
 
         Parameters
         ----------
         other : object
-            The object to compare with.
+            Object to compare with.
 
         Returns
         -------
         bool
-            True if both objects have the same attributes and values.
+            True if both objects have the same attributes and values, False otherwise.
         """
         if not isinstance(other, StdClass):
             return False
@@ -60,30 +63,29 @@ class StdClass(IStdClass):
 
     def toDict(self):
         """
-        Converts the object's attributes to a dictionary.
+        Convert the object's attributes to a dictionary.
 
         Returns
         -------
         dict
-            A dictionary representation of the object's attributes.
+            A shallow copy of the object's attributes.
         """
-
         # Return a copy to avoid external modifications
         return self.__dict__.copy()
 
     def update(self, **kwargs):
         """
-        Updates the object's attributes dynamically.
+        Update the object's attributes dynamically.
 
         Parameters
         ----------
-        kwargs : dict
-            Key-value pairs to update attributes.
+        **kwargs : dict
+            Key-value pairs to update or add as attributes.
 
         Raises
         ------
         OrionisStdValueException
-            If an attribute name is invalid or conflicts with existing methods.
+            If an attribute name is reserved or conflicts with a class method.
         """
         for key, value in kwargs.items():
             if key.startswith('__') and key.endswith('__'):
@@ -94,7 +96,7 @@ class StdClass(IStdClass):
 
     def remove(self, *attributes):
         """
-        Removes one or more attributes from the object.
+        Remove one or more attributes from the object.
 
         Parameters
         ----------
@@ -104,7 +106,7 @@ class StdClass(IStdClass):
         Raises
         ------
         AttributeError
-            If any of the attributes doesn't exist.
+            If any of the specified attributes do not exist.
         """
         for attr in attributes:
             if not hasattr(self, attr):
@@ -114,16 +116,16 @@ class StdClass(IStdClass):
     @classmethod
     def fromDict(cls, dictionary):
         """
-        Creates a StdClass instance from a dictionary.
+        Create a StdClass instance from a dictionary.
 
         Parameters
         ----------
         dictionary : dict
-            Dictionary to create the object from.
+            Dictionary containing attribute names and values.
 
         Returns
         -------
         StdClass
-            A new StdClass instance with the dictionary's key-value pairs as attributes.
+            A new StdClass instance with attributes set from the dictionary.
         """
         return cls(**dictionary)

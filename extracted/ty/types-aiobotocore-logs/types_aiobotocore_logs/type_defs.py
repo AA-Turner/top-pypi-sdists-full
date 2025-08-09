@@ -169,6 +169,7 @@ __all__ = (
     "ExportTaskStatusTypeDef",
     "ExportTaskTypeDef",
     "FieldIndexTypeDef",
+    "FieldsDataTypeDef",
     "FilterLogEventsRequestPaginateTypeDef",
     "FilterLogEventsRequestTypeDef",
     "FilterLogEventsResponseTypeDef",
@@ -191,6 +192,9 @@ __all__ = (
     "GetLogEventsResponseTypeDef",
     "GetLogGroupFieldsRequestTypeDef",
     "GetLogGroupFieldsResponseTypeDef",
+    "GetLogObjectRequestTypeDef",
+    "GetLogObjectResponseStreamTypeDef",
+    "GetLogObjectResponseTypeDef",
     "GetLogRecordRequestTypeDef",
     "GetLogRecordResponseTypeDef",
     "GetQueryResultsRequestTypeDef",
@@ -202,6 +206,7 @@ __all__ = (
     "InputLogEventTypeDef",
     "IntegrationDetailsTypeDef",
     "IntegrationSummaryTypeDef",
+    "InternalStreamingExceptionTypeDef",
     "ListAnomaliesRequestPaginateTypeDef",
     "ListAnomaliesRequestTypeDef",
     "ListAnomaliesResponseTypeDef",
@@ -827,6 +832,10 @@ class ExportTaskStatusTypeDef(TypedDict):
     message: NotRequired[str]
 
 
+class FieldsDataTypeDef(TypedDict):
+    data: NotRequired[bytes]
+
+
 class FilterLogEventsRequestTypeDef(TypedDict):
     logGroupName: NotRequired[str]
     logGroupIdentifier: NotRequired[str]
@@ -917,6 +926,15 @@ class GetLogGroupFieldsRequestTypeDef(TypedDict):
 class LogGroupFieldTypeDef(TypedDict):
     name: NotRequired[str]
     percent: NotRequired[int]
+
+
+class GetLogObjectRequestTypeDef(TypedDict):
+    logObjectPointer: str
+    unmask: NotRequired[bool]
+
+
+class InternalStreamingExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
 
 
 class GetLogRecordRequestTypeDef(TypedDict):
@@ -1780,6 +1798,11 @@ class GetLogGroupFieldsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetLogObjectResponseStreamTypeDef(TypedDict):
+    fields: NotRequired[FieldsDataTypeDef]
+    InternalStreamingException: NotRequired[InternalStreamingExceptionTypeDef]
+
+
 class GetQueryResultsResponseTypeDef(TypedDict):
     queryLanguage: QueryLanguageType
     results: List[List[ResultFieldTypeDef]]
@@ -2008,6 +2031,11 @@ class DescribeExportTasksResponseTypeDef(TypedDict):
     exportTasks: List[ExportTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class GetLogObjectResponseTypeDef(TypedDict):
+    fieldStream: AioEventStream[GetLogObjectResponseStreamTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class StartLiveTailResponseStreamTypeDef(TypedDict):

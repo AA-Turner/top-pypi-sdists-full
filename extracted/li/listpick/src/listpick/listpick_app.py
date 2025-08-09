@@ -140,6 +140,7 @@ class Picker:
         footer_string_refresh_function: Optional[Callable] = None,
         footer_timer: float=1,
         get_footer_string_startup=False,
+        unicode_char_width: bool = True,
 
         colours_start: int =0,
         colours_end: int =-1,
@@ -256,6 +257,7 @@ class Picker:
         self.footer_string_refresh_function = footer_string_refresh_function
         self.footer_timer = footer_timer
         self.get_footer_string_startup = get_footer_string_startup,
+        self.unicode_char_width = unicode_char_width
 
 
 
@@ -318,7 +320,6 @@ class Picker:
 
 
         # Note: We have to set the footer after initialising the picker state so that the footer can use the get_function_data method
-        self.get_function_data()
         self.footer_options = [StandardFooter(self.stdscr, colours_start, self.get_function_data), CompactFooter(self.stdscr, colours_start, self.get_function_data), NoFooter(self.stdscr, colours_start, self.get_function_data)]
         self.footer = self.footer_options[self.footer_style]
 
@@ -662,12 +663,13 @@ class Picker:
         self.stdscr.refresh()
 
     def draw_screen(self, indexed_items: list[Tuple[int, list[str]]], highlights: list[dict] = [{}], clear: bool = True) -> None:
+        """ Try-except wrapper for the draw_screen_() method to prevent crashes when rapidly resizing the terminal. """
         try:
-            self.draw_screen2(self.indexed_items, self.highlights)
+            self.draw_screen_(self.indexed_items, self.highlights, clear=clear)
         except:
             self.logger.warning(f"draw_screen function error")
-            pass
-    def draw_screen2(self, indexed_items: list[Tuple[int, list[str]]], highlights: list[dict] = [{}], clear: bool = True) -> None:
+
+    def draw_screen_(self, indexed_items: list[Tuple[int, list[str]]], highlights: list[dict] = [{}], clear: bool = True) -> None:
         """ Draw Picker screen. """
         self.logger.debug("Draw screen.")
 
@@ -696,7 +698,7 @@ class Picker:
         # rows = [v[1] for v in self.indexed_items] if len(self.indexed_items) else self.items
         # Determine widths based only on the currently displayed indexed rows
         rows = [v[1] for v in self.indexed_items[start_index:end_index]] if len(self.indexed_items) else self.items
-        self.column_widths = get_column_widths(rows, header=self.header, max_column_width=self.max_column_width, number_columns=self.number_columns, max_total_width=w)
+        self.column_widths = get_column_widths(rows, header=self.header, max_column_width=self.max_column_width, number_columns=self.number_columns, max_total_width=w, unicode_char_width=self.unicode_char_width)
         visible_column_widths = [c for i,c in enumerate(self.column_widths) if i not in self.hidden_columns]
         visible_columns_total_width = sum(visible_column_widths) + len(self.separator)*(len(visible_column_widths)-1)
 
@@ -795,10 +797,10 @@ class Picker:
                     else:
                         cell_value = self.indexed_items[row][1][col] + self.separator
                     # cell_value = cell_value[:min(cell_width, cell_max_width)-len(self.separator)]
-                    cell_value = truncate_to_display_width(cell_value, min(cell_width, cell_max_width)-len(self.separator))
+                    cell_value = truncate_to_display_width(cell_value, min(cell_width, cell_max_width)-len(self.separator), self.unicode_char_width)
                     cell_value = cell_value + self.separator
                     # cell_value = cell_value
-                    cell_value = truncate_to_display_width(cell_value, min(cell_width, cell_max_width))
+                    cell_value = truncate_to_display_width(cell_value, min(cell_width, cell_max_width), self.unicode_char_width)
                     # row_str = truncate_to_display_width(row_str_left_adj, min(w-self.startx, visible_columns_total_width))
                     self.stdscr.addstr(y, cell_pos, cell_value, curses.color_pair(self.colours_start+colour_pair_number) | curses.A_BOLD)
                 # Part of the cell is on screen
@@ -840,7 +842,7 @@ class Picker:
         def draw_highlights(highlights: list[dict], idx: int, y: int, item: tuple[int, list[str]]):
             self.logger.debug(f"function: draw_highlights()")
             if len(highlights) == 0: return None
-            full_row_str = format_row(item[1], self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols)
+            full_row_str = format_row(item[1], self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols, self.unicode_char_width)
             row_str = full_row_str[self.leftmost_char:]
             for highlight in highlights:
                 if "row" in highlight:
@@ -856,13 +858,13 @@ class Picker:
                             continue
 
                     elif type(highlight["field"]) == type(0) and highlight["field"] not in self.hidden_columns:
-                        match = re.search(highlight["match"], truncate_to_display_width(item[1][highlight["field"]], self.column_widths[highlight["field"]], centre=False), re.IGNORECASE)
+                        match = re.search(highlight["match"], truncate_to_display_width(item[1][highlight["field"]], self.column_widths[highlight["field"]], centre=False, unicode_char_width=self.unicode_char_width), re.IGNORECASE)
                         if not match: continue
                         field_start = sum([width for i, width in enumerate(self.column_widths[:highlight["field"]]) if i not in self.hidden_columns]) + sum([1 for i in range(highlight["field"]) if i not in self.hidden_columns])*wcswidth(self.separator)
 
                         ## We want to search the non-centred values but highlight the centred values.
                         if self.centre_in_cols:
-                            tmp = truncate_to_display_width(item[1][highlight["field"]], self.column_widths[highlight["field"]], self.centre_in_cols)
+                            tmp = truncate_to_display_width(item[1][highlight["field"]], self.column_widths[highlight["field"]], self.centre_in_cols, self.unicode_char_width)
                             field_start += (len(tmp) - len(tmp.lstrip()))
 
                         highlight_start = field_start + match.start()
@@ -884,11 +886,11 @@ class Picker:
             item = self.indexed_items[idx]
             y = idx - start_index + self.top_space
 
-            row_str = format_row(item[1], self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols)[self.leftmost_char:]
+            # row_str = format_row(item[1], self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols)[self.leftmost_char:]
             # row_str = truncate_to_display_width(row_str, min(w-self.startx, visible_columns_total_width))
-            row_str_orig = format_row(item[1], self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols)
+            row_str_orig = format_row(item[1], self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols, self.unicode_char_width)
             row_str_left_adj = clip_left(row_str_orig, self.leftmost_char)
-            row_str = truncate_to_display_width(row_str_left_adj, min(w-self.startx, visible_columns_total_width))
+            row_str = truncate_to_display_width(row_str_left_adj, min(w-self.startx, visible_columns_total_width), self.unicode_char_width)
             # row_str = truncate_to_display_width(row_str, min(w-self.startx, visible_columns_total_width))[self.leftmost_char:]
 
             ## Display the standard row
@@ -1005,13 +1007,16 @@ class Picker:
             self.infobox_picker.stdscr.mvwin(infobox_y, infobox_x)
             self.infobox_picker.stdscr.resize(infobox_height, infobox_width)
             self.infobox_picker.run()
-            self.infobox_picker.stdscr.noutrefresh()
-        else:
-            self.stdscr.noutrefresh()
-
-
-        if not self.display_only:
-            curses.doupdate()
+        #     self.infobox_picker.stdscr.noutrefresh()
+        # else:
+        #     # self.stdscr.noutrefresh()
+        #     pass
+        #
+        #
+        # if not self.display_only:
+        #     curses.doupdate()
+        #     self.stdscr.refresh()
+        #     pass
 
 
     def infobox(self, stdscr: curses.window, message: list =[], title: str ="Infobox",  colours_end: int = 0, duration: int = 4):
@@ -1153,6 +1158,7 @@ class Picker:
             "debug":                            self.debug,
             "debug_level":                      self.debug_level,
             "reset_colours":                    self.reset_colours,
+            "unicode_char_width":               self.unicode_char_width,
         }
         return function_data
 
@@ -1250,7 +1256,7 @@ class Picker:
         while True:
             h, w = stdscr.getmaxyx()
 
-            choose_opts_widths = get_column_widths(options)
+            choose_opts_widths = get_column_widths(options, unicode_char_width=self.unicode_char_width)
             window_width = min(max(sum(choose_opts_widths) + 6, 50) + 6, w)
             window_height = min(h//2, max(6, len(options)+3))
 
@@ -1405,6 +1411,8 @@ class Picker:
                     self.initialise_variables()
                 elif setting == "pc":
                     self.pin_cursor = not self.pin_cursor
+                elif setting == "unicode":
+                    self.unicode_char_width = not self.unicode_char_width
 
                 elif setting.startswith("ft"):
                     if len(setting) > 2 and setting[2:].isnumeric():
@@ -1467,7 +1475,6 @@ class Picker:
                         set_colours(self.colour_theme_number)
                         self.draw_screen(self.indexed_items, self.highlights)
                         self.notification(self.stdscr, message=f"Theme {self.colour_theme_number} applied.")
-
 
                 else:
                     self.user_settings = ""
@@ -1702,12 +1709,10 @@ class Picker:
                     if not acceptable_data_type:
                         break
                 if not acceptable_data_type:
-                    self.draw_screen(self.indexed_items, self.highlights)
                     self.notification(self.stdscr, message="Error pasting data.")
                     return None
 
         except:
-            self.draw_screen(self.indexed_items, self.highlights)
             self.notification(self.stdscr, message="Error pasting data.")
             return None
         if type(pasta) == type([]) and len(pasta) > 0 and type(pasta[0]) == type([]):
@@ -1813,6 +1818,7 @@ class Picker:
         with self.data_lock:
             self.items, self.header = tmp_items, tmp_header
             self.data_ready = True
+            self.draw_screen(self.indexed_items, self.highlights)
 
     def save_input_history(self, file_path: str) -> bool:
         """ Save input field history. Returns True if successful save. """
@@ -1939,13 +1945,15 @@ class Picker:
         # curses.curs_set(0)
         # stdscr.nodelay(1)  # Non-blocking input
         # stdscr.timeout(2000)  # Set a timeout for getch() to ensure it does not block indefinitely
-        # self.stdscr.timeout(max(min(2000, int(self.timer*1000)//2, int(self.footer_timer*1000))//2, 20))  # Set a timeout for getch() to ensure it does not block indefinitely
+        self.stdscr.timeout(max(min(2000, int(self.timer*1000)//2, int(self.footer_timer*1000))//2, 20))  # Set a timeout for getch() to ensure it does not block indefinitely
         
         if self.clear_on_start:
             self.stdscr.clear()
             self.clear_on_start = False
         else:
             self.stdscr.erase()
+
+        self.stdscr.refresh()
 
 
         # Initialize colours
@@ -1976,18 +1984,14 @@ class Picker:
 
                         initial_time = time.time()
 
-                        try:
-                            self.draw_screen(self.indexed_items, self.highlights, clear=False)
-                        except:
-                            pass
-
+                        self.draw_screen(self.indexed_items, self.highlights, clear=False)
                         self.refreshing_data = False
                         self.data_ready = False
 
             elif self.check_key("refresh", key, self.keys_dict) or self.remapped_key(key, curses.KEY_F5, self.key_remappings) or (self.auto_refresh and (time.time() - initial_time) >= self.timer):
                 self.logger.debug(f"Get new data (refresh).")
-                # self.stdscr.addstr(0,w-3,"  ", curses.color_pair(self.colours_start+21) | curses.A_BOLD)
-                # self.stdscr.refresh()
+                self.stdscr.addstr(0,w-3,"  ", curses.color_pair(self.colours_start+21) | curses.A_BOLD)
+                self.stdscr.refresh()
                 if self.get_new_data and self.refresh_function:
                     self.refreshing_data = True
 
@@ -2015,6 +2019,7 @@ class Picker:
                 self.logger.debug(f"footer_string_auto_refresh")
                 self.footer_string = self.footer_string_refresh_function()
                 initial_time_footer = time.time()
+                self.draw_screen(self.indexed_items, self.highlights)
 
             if self.check_key("help", key, self.keys_dict):
                 self.logger.info(f"key_function help")
@@ -2099,6 +2104,7 @@ class Picker:
                     options += [["rh", "Toggle row header"]]
                     options += [["modes", "Toggle modes"]]
                     options += [["ft", "Cycle through footer styles (accepts ft#)"]]
+                    options += [["unicode", "Toggle b/w using len and wcwidth to calculate char width."]]
                     options += [[f"s{i}", f"Select col. {i}"] for i in range(len(self.items[0]))]
                     options += [[f"!{i}", f"Toggle col. {i}"] for i in range(len(self.items[0]))]
                     options += [["ara", "Add empty row after cursor."]]
@@ -2203,8 +2209,6 @@ class Picker:
                 if new_pos < len(self.indexed_items):
                     self.cursor_pos = new_pos
 
-                self.draw_screen(self.indexed_items, self.highlights)
-
             elif self.check_key("cursor_bottom", key, self.keys_dict):
                 new_pos = len(self.indexed_items)-1
                 while True:
@@ -2212,12 +2216,7 @@ class Picker:
                     else: break
                 if new_pos < len(self.items) and new_pos >= 0:
                     self.cursor_pos = new_pos
-                self.draw_screen(self.indexed_items, self.highlights)
-                # current_row = items_per_page - 1
-                # if current_page + 1 == (len(self.indexed_items) + items_per_page - 1) // items_per_page:
-                #
-                #     current_row = (len(self.indexed_items) +items_per_page - 1) % items_per_page
-                # self.draw_screen(self.indexed_items, self.highlights)
+
             elif self.check_key("enter", key, self.keys_dict):
                 self.logger.info(f"key_function enter")
                 # Print the selected indices if any, otherwise print the current index
@@ -2297,7 +2296,6 @@ class Picker:
                 if len(self.indexed_items) > 0:
                     current_index = self.indexed_items[self.cursor_pos][0]
                     sort_items(self.indexed_items, sort_method=self.columns_sort_method[self.sort_column], sort_column=self.sort_column, sort_reverse=self.sort_reverse[self.sort_column])  # Re-sort self.items based on new column
-                    self.draw_screen(self.indexed_items, self.highlights)
                     self.cursor_pos = [row[0] for row in self.indexed_items].index(current_index)
                 self.logger.info(f"key_function cycle_sort_order. (sort_column, sort_method, sort_reverse) = ({self.sort_column}, {self.columns_sort_method[self.sort_column]}, {self.sort_reverse[self.sort_column]})")
             elif self.check_key("col_select", key, self.keys_dict):
@@ -2321,7 +2319,7 @@ class Picker:
 
                 ## Scroll with column select
                 rows = self.get_visible_rows()
-                self.column_widths = get_column_widths(rows, header=self.header, max_column_width=self.max_column_width, number_columns=self.number_columns, max_total_width=w)
+                self.column_widths = get_column_widths(rows, header=self.header, max_column_width=self.max_column_width, number_columns=self.number_columns, max_total_width=w, unicode_char_width=self.unicode_char_width)
                 visible_column_widths = [c for i,c in enumerate(self.column_widths) if i not in self.hidden_columns]
                 column_set_width = sum(visible_column_widths)+len(self.separator)*len(visible_column_widths)
                 start_of_cell = sum(visible_column_widths[:self.selected_column])+len(self.separator)*self.selected_column
@@ -2348,7 +2346,7 @@ class Picker:
 
                 ## Scroll with column select
                 rows = self.get_visible_rows()
-                self.column_widths = get_column_widths(rows, header=self.header, max_column_width=self.max_column_width, number_columns=self.number_columns, max_total_width=w)
+                self.column_widths = get_column_widths(rows, header=self.header, max_column_width=self.max_column_width, number_columns=self.number_columns, max_total_width=w, unicode_char_width=self.unicode_char_width)
 
                 visible_column_widths = [c for i,c in enumerate(self.column_widths) if i not in self.hidden_columns]
                 column_set_width = sum(visible_column_widths)+len(self.separator)*len(visible_column_widths)
@@ -2367,15 +2365,11 @@ class Picker:
                 #
             elif self.check_key("scroll_right", key, self.keys_dict):
                 self.logger.info(f"key_function scroll_right")
-                rows = self.get_visible_rows()
-                longest_row_str_len = 0
-                for i in range(len(rows)):
-                    item = rows[i]
-                    row_str = format_row(item, self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols)[self.leftmost_char:]
-                    if len(row_str) > longest_row_str_len: longest_row_str_len=len(row_str)
+                if len(self.indexed_items):
+                    row_width = sum(self.column_widths) + len(self.separator)*(len(self.column_widths)-1)
+                    if row_width-self.leftmost_char >= w-self.startx:
+                        self.leftmost_char = self.leftmost_char+5
 
-                if longest_row_str_len >= w-self.startx:
-                    self.leftmost_char = self.leftmost_char+5
 
             elif self.check_key("scroll_left", key, self.keys_dict):
                 self.logger.info(f"key_function scroll_left")
@@ -2392,7 +2386,7 @@ class Picker:
                 rows = self.get_visible_rows()
                 for i in range(len(rows)):
                     item = rows[i]
-                    row_str = format_row(item, self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols)
+                    row_str = format_row(item, self.hidden_columns, self.column_widths, self.separator, self.centre_in_cols, self.unicode_char_width)
                     if len(row_str) > longest_row_str_len: longest_row_str_len=len(row_str)
                 # for i in range(len(self.indexed_items)):
                 #     item = self.indexed_items[i]
@@ -2463,11 +2457,10 @@ class Picker:
 
             # elif self.check_key("increase_lines_per_page", key, self.keys_dict):
             #     self.items_per_page += 1
-            #     self.draw_screen(self.indexed_items, self.highlights)
             # elif self.check_key("decrease_lines_per_page", key, self.keys_dict):
             #     if self.items_per_page > 1:
             #         self.items_per_page -= 1
-            #     self.draw_screen(self.indexed_items, self.highlights)
+
             elif self.check_key("decrease_column_width", key, self.keys_dict):
                 self.logger.info(f"key_function decrease_column_width")
                 if self.max_column_width > 10:
@@ -2489,7 +2482,7 @@ class Picker:
             elif key == curses.KEY_RESIZE:  # Terminal resize signal
 
                 self.calculate_section_sizes()
-                self.column_widths = get_column_widths(self.items, header=self.header, max_column_width=self.max_column_width, number_columns=self.number_columns, max_total_width=w)
+                self.column_widths = get_column_widths(self.items, header=self.header, max_column_width=self.max_column_width, number_columns=self.number_columns, max_total_width=w, unicode_char_width=self.unicode_char_width)
 
 
 
@@ -2884,8 +2877,11 @@ class Picker:
                 self.stdscr.clear()
                 self.stdscr.refresh()
                 self.initialise_variables()
-                # self.draw_screen(self.indexed_items, self.highlights)
 
+
+            # The refresh symbol colour is not updated when the data is retrieved so remains white until a key is pressed.
+            # if key != -1:
+            #     self.draw_screen(self.indexed_items, self.highlights, clear=clear_screen)
 
 
             self.draw_screen(self.indexed_items, self.highlights, clear=clear_screen)
@@ -3128,21 +3124,28 @@ def main() -> None:
         pass
         
     function_data["colour_theme_number"] = 3
-    # function_data["modes"]  = [ 
-    #     {
-    #         'filter': '',
-    #         'sort': 0,
-    #         'name': 'All',
-    #     },
-    #     {
-    #         'filter': '--2 miss',
-    #         'name': 'miss',
-    #     },
-    #     {
-    #         'filter': '--2 mp4',
-    #         'name': 'mp4',
-    #     },
-    # ]
+    function_data["modes"]  = [ 
+        {
+            'filter': '',
+            'sort': 0,
+            'name': 'All',
+        },
+        {
+            'filter': '--2 miss',
+            'name': 'miss',
+        },
+        {
+            'filter': '--2 mp4',
+            'name': 'mp4',
+        },
+    ]
+    highlights = [
+        {
+            "field": 1,
+            "match": "a",
+            "color": 8,
+        }
+    ]
     function_data["cell_cursor"] = True
     function_data["display_modes"] = True
     function_data["centre_in_cols"] = True
@@ -3153,15 +3156,18 @@ def main() -> None:
     function_data["centre_in_terminal_vertical"] = True
     function_data["highlight_full_row"] = True
     function_data["pin_cursor"] = True
-    function_data["display_infobox"] = True
-    function_data["infobox_items"] = [["1"], ["2"], ["3"]]
-    function_data["infobox_title"] = "Title"
+    # function_data["display_infobox"] = True
+    # function_data["infobox_items"] = [["1"], ["2"], ["3"]]
+    # function_data["infobox_title"] = "Title"
     function_data["footer_string"] = "Title"
+    function_data["highlights"] = highlights
 
 
     # function_data["debug"] = True
     # function_data["debug_level"] = 1
     stdscr = start_curses()
+    # h, w = stdscr.getmaxyx()
+    # win = stdscr.derwin(h, w//2, 0, 0)
     try:
         # Run the Picker
         # h, w = stdscr.getmaxyx()

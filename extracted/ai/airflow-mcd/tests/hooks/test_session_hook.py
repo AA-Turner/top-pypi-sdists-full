@@ -5,6 +5,7 @@ from unittest.mock import patch, ANY, Mock
 from airflow import AirflowException
 from airflow.models import Connection
 from pycarlo.core import Session, Client
+import json
 
 from airflow_mcd.hooks import SessionHook
 
@@ -23,10 +24,10 @@ class SessionHookTest(TestCase):
     @patch('airflow_mcd.hooks.session_hook.Session')
     @patch.object(SessionHook, 'get_connection')
     def test_get_conn_with_extra(self, get_connection_mock, session_mock):
-        get_connection_mock.return_value = Connection(extra={
+        get_connection_mock.return_value = Connection(extra=json.dumps({
             'mcd_id': SAMPLE_ID,
             'mcd_token': SAMPLE_TOKEN
-        })
+        }))
         expected_session = Session(mcd_id=SAMPLE_ID, mcd_token=SAMPLE_TOKEN)
         session_mock.return_value = expected_session
 

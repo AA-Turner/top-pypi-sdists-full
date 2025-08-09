@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: llguidance
-Version: 1.1.1
+Version: 1.1.2
 License-File: LICENSE
 Summary: Bindings for the Low-level Guidance (llguidance) Rust library for use within Guidance
 Author: Michal Moskal
-License: MIT
+License-Expression: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: repository, https://github.com/microsoft/llguidance

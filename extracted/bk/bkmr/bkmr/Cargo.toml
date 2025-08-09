@@ -1,10 +1,10 @@
 [package]
 name = "bkmr"
-version = "4.29.1"
+version = "4.30.0"
 edition = "2021"
 description = "A Unified CLI Tool for Bookmark, Snippet, and Knowledge Management"
 repository = "https://github.com/sysid/bkmr"
-readme = "../README.md"
+readme = "README.md"
 license = "BSD-3-Clause"
 authors = ["sysid <sysid@gmx.de>"]
 homepage = "https://github.com/sysid/bkmr"

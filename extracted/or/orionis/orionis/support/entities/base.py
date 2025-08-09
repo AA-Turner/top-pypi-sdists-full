@@ -5,11 +5,10 @@ class BaseEntity:
 
     def __post_init__(self):
         """
-        Post-initialization hook for dataclass instances.
+        Called automatically after the dataclass instance is initialized.
 
-        This method is automatically called after the dataclass `__init__` method.
-        It is intended to be overridden by subclasses to perform additional initialization
-        or validation logic after all fields have been set.
+        This method is intended to be overridden by subclasses to perform additional
+        initialization or validation after all fields have been set.
 
         Parameters
         ----------
@@ -18,60 +17,42 @@ class BaseEntity:
         Returns
         -------
         None
-            This method does not return any value.
-
-        Notes
-        -----
-        By default, this method does nothing. Subclasses can override it to implement
-        custom post-initialization behavior.
         """
-
         pass
 
     def toDict(self) -> dict:
         """
-        Converts the current dataclass instance into a dictionary.
-
-        Parameters
-        ----------
-        None
+        Convert the dataclass instance to a dictionary.
 
         Returns
         -------
         dict
-            A dictionary containing all fields of the instance, with field names as keys and their corresponding values.
-
-        Notes
-        -----
-        This method uses `dataclasses.asdict` to recursively convert the dataclass instance and any nested dataclasses into dictionaries.
-        Enum values are preserved as their actual values.
+            Dictionary representation of the dataclass instance, including nested dataclasses.
         """
-
-        # Use asdict to convert the dataclass instance to a dictionary, including nested dataclasses
         return asdict(self)
 
     def getFields(self):
         """
-        Retrieves detailed information about each field in the current dataclass instance.
-
-        Parameters
-        ----------
-        None
+        Get detailed information about each field in the dataclass instance.
 
         Returns
         -------
         list of dict
-            Each dictionary in the returned list contains:
-                - name (str): The name of the field.
-                - types (list of str): The type(s) of the field, represented as a list of type names.
-                - default: The default value of the field, resolved from the field definition, default factory, or metadata.
-                - metadata (dict): The metadata associated with the field.
+            A list where each element is a dictionary containing:
+            - name : str
+                The name of the field.
+            - types : list of str
+                The type(s) of the field as a list of type names.
+            - default : Any
+                The default value of the field, resolved from the field definition, default factory, or metadata.
+            - metadata : dict
+                The metadata associated with the field.
 
         Notes
         -----
-        - Handles complex field types, including unions and generics, by representing them as lists of type names.
-        - Resolves default values from direct assignment, default factories, or metadata, and normalizes dataclass and Enum values.
-        - Metadata defaults are normalized if present and callable or dataclass/Enum types.
+        Handles complex field types, including unions and generics, by representing them as lists of type names.
+        Resolves default values from direct assignment, default factories, or metadata, and normalizes dataclass and Enum values.
+        Metadata defaults are normalized if present and callable or dataclass/Enum types.
         """
 
         # List to hold field information dictionaries

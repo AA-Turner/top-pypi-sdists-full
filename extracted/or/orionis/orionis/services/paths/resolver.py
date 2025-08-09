@@ -7,9 +7,6 @@ from orionis.services.paths.exceptions import (
 )
 
 class Resolver(IResolver):
-    """
-    A utility class for resolving file and directory paths relative to the project's root directory.
-    """
 
     def __init__(self, root_path: str = None):
         """

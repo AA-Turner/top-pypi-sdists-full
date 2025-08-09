@@ -20,7 +20,7 @@ from langgraph_api.config import (
 from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
-from langgraph_api.schema import Run
+from langgraph_api.schema import Run, StreamMode
 from langgraph_api.state import state_snapshot_to_thread_state
 from langgraph_api.stream import AnyStream, astream_state, consume
 from langgraph_api.utils import with_user
@@ -54,6 +54,7 @@ async def set_auth_ctx_for_run(
         user = normalize_user(user)
         # Reapply normalization to the kwargs
         run_kwargs["config"]["configurable"]["langgraph_auth_user"] = user
+        run_kwargs["context"]["langgraph_auth_user"] = user
     except Exception:
         user = SimpleUser(user_id) if user_id is not None else None
         permissions = None
@@ -130,9 +131,11 @@ async def worker(
                     break
 
     # Wrap the graph execution to separate user errors from server errors
-    async def wrap_user_errors(stream: AnyStream, run_id: str, resumable: bool):
+    async def wrap_user_errors(
+        stream: AnyStream, run_id: str, resumable: bool, stream_modes: set[StreamMode]
+    ):
         try:
-            await consume(stream, run_id, resumable)
+            await consume(stream, run_id, resumable, stream_modes)
         except Exception as e:
             if not isinstance(e, UserRollback | UserInterrupt):
                 logger.error(
@@ -184,8 +187,11 @@ async def worker(
                         on_checkpoint=on_checkpoint,
                         on_task_result=on_task_result,
                     )
+                stream_modes: set[StreamMode] = set(
+                    run["kwargs"].get("stream_mode", [])
+                )
                 await asyncio.wait_for(
-                    wrap_user_errors(stream, run_id, resumable),
+                    wrap_user_errors(stream, run_id, resumable, stream_modes),
                     BG_JOB_TIMEOUT_SECS,
                 )
         except (Exception, asyncio.CancelledError) as ee:

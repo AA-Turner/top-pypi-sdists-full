@@ -309,6 +309,7 @@ from .literals import (
     VariantStatusType,
     VendorGuidanceType,
     WarmPoolResourceStatusType,
+    WorkforceIpAddressTypeType,
     WorkforceStatusType,
 )
 
@@ -1670,6 +1671,8 @@ __all__ = (
     "S3DataSourceOutputTypeDef",
     "S3DataSourceTypeDef",
     "S3DataSourceUnionTypeDef",
+    "S3FileSystemConfigTypeDef",
+    "S3FileSystemTypeDef",
     "S3ModelDataSourceTypeDef",
     "S3PresignTypeDef",
     "S3StorageConfigTypeDef",
@@ -2362,7 +2365,7 @@ class ClarifyTextConfigTypeDef(TypedDict):
     Granularity: ClarifyTextGranularityType
 
 class ClusterEbsVolumeConfigTypeDef(TypedDict):
-    VolumeSizeInGB: int
+    VolumeSizeInGB: NotRequired[int]
 
 class ClusterLifeCycleConfigTypeDef(TypedDict):
     SourceS3Uri: str
@@ -2459,7 +2462,7 @@ class CompilationJobSummaryTypeDef(TypedDict):
 
 class ComputeQuotaResourceConfigTypeDef(TypedDict):
     InstanceType: ClusterInstanceTypeType
-    Count: int
+    Count: NotRequired[int]
 
 class ResourceSharingConfigTypeDef(TypedDict):
     Strategy: ResourceSharingStrategyType
@@ -2742,11 +2745,18 @@ class FSxLustreFileSystemConfigTypeDef(TypedDict):
     FileSystemId: str
     FileSystemPath: NotRequired[str]
 
+class S3FileSystemConfigTypeDef(TypedDict):
+    MountPath: NotRequired[str]
+    S3Uri: NotRequired[str]
+
 class EFSFileSystemTypeDef(TypedDict):
     FileSystemId: str
 
 class FSxLustreFileSystemTypeDef(TypedDict):
     FileSystemId: str
+
+class S3FileSystemTypeDef(TypedDict):
+    S3Uri: NotRequired[str]
 
 class CustomPosixUserConfigTypeDef(TypedDict):
     Uid: int
@@ -7687,10 +7697,12 @@ class UpdateTrialComponentRequestTypeDef(TypedDict):
 class CustomFileSystemConfigTypeDef(TypedDict):
     EFSFileSystemConfig: NotRequired[EFSFileSystemConfigTypeDef]
     FSxLustreFileSystemConfig: NotRequired[FSxLustreFileSystemConfigTypeDef]
+    S3FileSystemConfig: NotRequired[S3FileSystemConfigTypeDef]
 
 class CustomFileSystemTypeDef(TypedDict):
     EFSFileSystem: NotRequired[EFSFileSystemTypeDef]
     FSxLustreFileSystem: NotRequired[FSxLustreFileSystemTypeDef]
+    S3FileSystem: NotRequired[S3FileSystemTypeDef]
 
 DataQualityAppSpecificationUnionTypeDef = Union[
     DataQualityAppSpecificationTypeDef, DataQualityAppSpecificationOutputTypeDef
@@ -8878,6 +8890,7 @@ class WorkforceTypeDef(TypedDict):
     WorkforceVpcConfig: NotRequired[WorkforceVpcConfigResponseTypeDef]
     Status: NotRequired[WorkforceStatusType]
     FailureReason: NotRequired[str]
+    IpAddressType: NotRequired[WorkforceIpAddressTypeType]
 
 class ListActionsResponseTypeDef(TypedDict):
     ActionSummaries: List[ActionSummaryTypeDef]
@@ -10084,12 +10097,14 @@ class CreateWorkforceRequestTypeDef(TypedDict):
     SourceIpConfig: NotRequired[SourceIpConfigUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     WorkforceVpcConfig: NotRequired[WorkforceVpcConfigRequestTypeDef]
+    IpAddressType: NotRequired[WorkforceIpAddressTypeType]
 
 class UpdateWorkforceRequestTypeDef(TypedDict):
     WorkforceName: str
     SourceIpConfig: NotRequired[SourceIpConfigUnionTypeDef]
     OidcConfig: NotRequired[OidcConfigTypeDef]
     WorkforceVpcConfig: NotRequired[WorkforceVpcConfigRequestTypeDef]
+    IpAddressType: NotRequired[WorkforceIpAddressTypeType]
 
 class SpaceCodeEditorAppSettingsTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]

@@ -4,36 +4,37 @@ from orionis.container.providers.service_provider import ServiceProvider
 
 class ProgressBarProvider(ServiceProvider):
     """
-    ProgressBarProvider
-    ===================
+    Service provider for registering the dynamic progress bar.
 
-    Registers the dynamic progress bar service in the application container.
-    Provides a console progress bar for visual feedback during operations.
-
-    Methods
-    -------
-    register()
-        Registers the progress bar service in the application container.
-    boot()
-        Performs post-registration initialization if needed.
+    This provider registers the `IProgressBar` interface with the `ProgressBar`
+    implementation in the application container, allowing for dependency injection
+    and usage of a console-based progress bar for visual feedback during operations.
     """
 
     def register(self) -> None:
         """
-        Registers the progress bar service in the application container.
+        Register the progress bar service in the application container.
+
+        Registers the `IProgressBar` interface to resolve to the `ProgressBar`
+        implementation, with the alias "core.orionis.progress_bar".
 
         Returns
         -------
         None
         """
+
         self.app.transient(IProgressBar, ProgressBar, alias="core.orionis.progress_bar")
 
     def boot(self) -> None:
         """
-        Performs post-registration initialization if needed.
+        Perform post-registration initialization.
+
+        This method is called after all providers have been registered. No additional
+        initialization is required for the progress bar service.
 
         Returns
         -------
         None
         """
+
         pass

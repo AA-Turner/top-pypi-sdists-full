@@ -8,7 +8,7 @@ default:
 	@echo "Read the readme"
 
 clean:
-	rm -rf $(ENVIRONMENT_NAME) build dist *.egg-info .coverage nosetests.xml
+	rm -rf $(ENVIRONMENT_NAME) build dist *.egg-info .coverage .tox coverage.xml
 
 pip-install:
 	pip install --editable .
@@ -22,10 +22,10 @@ install: clean
 	pip show $(PACKAGE_NAME)
 
 test:
-	@# Requires activating the virtualenv created in `install` if running locally.
+	@# Run tests using tox for multiple Python and Airflow version combinations
 	@# These suppressed warnings are all from the Airflow package :/.
 	export DEBUG=True; PYTHONWARNINGS="ignore::DeprecationWarning" PYTHONWARNINGS="ignore::FutureWarning" \
-		nosetests ./tests --with-coverage --cover-package=$(PY_FRIENDLY_PACKAGE_NAME) --with-xunit
+		tox
 
 install-with-tests: install
 	. $(ENVIRONMENT_NAME)/bin/activate; $(MAKE) test

@@ -8,17 +8,15 @@ class TestTestingRecords(AsyncTestCase):
 
     async def testCreateAndGetReport(self):
         """
-        Tests the creation of a test report and retrieval of the most recent report.
+        Test the creation and retrieval of a test report.
 
-        This method creates a test report with all required fields, stores it using
-        the `TestLogs` class, and then retrieves the most recent report to verify
-        its contents.
+        Creates a test report with all required fields, stores it using the
+        TestLogs class, and retrieves the most recent report to verify its
+        contents.
 
         Returns
         -------
         None
-            This is a test method and does not return any value. Assertions are used
-            to validate expected behavior.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             logs = TestLogs(tmpdir)
@@ -51,16 +49,14 @@ class TestTestingRecords(AsyncTestCase):
 
     async def testCreateMissingFields(self):
         """
-        Tests error handling when creating a report with missing required fields.
+        Test error handling for missing required fields in report creation.
 
-        This method attempts to create a report without the required 'timestamp'
-        field and expects an `OrionisTestValueError` to be raised.
+        Attempts to create a report without the required 'timestamp' field and
+        expects an OrionisTestValueError to be raised.
 
         Returns
         -------
         None
-            This is a test method and does not return any value. Assertions are used
-            to validate expected behavior.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             logs = TestLogs(tmpdir)
@@ -83,16 +79,14 @@ class TestTestingRecords(AsyncTestCase):
 
     async def testResetDatabase(self):
         """
-        Tests the reset functionality of the test logs database.
+        Test the reset functionality of the test logs database.
 
-        This method creates a report, stores it, and then resets the logs database.
-        It verifies that the reset operation returns True.
+        Creates a report, stores it, and then resets the logs database.
+        Verifies that the reset operation returns True.
 
         Returns
         -------
         None
-            This is a test method and does not return any value. Assertions are used
-            to validate expected behavior.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             logs = TestLogs(tmpdir)
@@ -116,16 +110,14 @@ class TestTestingRecords(AsyncTestCase):
 
     async def testGetReportsInvalidParams(self):
         """
-        Tests error handling for invalid parameters passed to `TestLogs.get()`.
+        Test error handling for invalid parameters in TestLogs.get().
 
-        This method checks that passing mutually exclusive or invalid values to
-        `get()` raises an `OrionisTestValueError`.
+        Checks that passing mutually exclusive or invalid values to get()
+        raises an OrionisTestValueError.
 
         Returns
         -------
         None
-            This is a test method and does not return any value. Assertions are used
-            to validate expected behavior.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             logs = TestLogs(tmpdir)
@@ -144,16 +136,14 @@ class TestTestingRecords(AsyncTestCase):
 
     async def testGetLastReports(self):
         """
-        Tests retrieval of the last N reports and verifies their order.
+        Test retrieval of the last N reports and their order.
 
-        This method creates multiple reports, retrieves the last two, and checks
-        that the reports are returned in descending order by their identifier.
+        Creates multiple reports, retrieves the last two, and checks that the
+        reports are returned in descending order by their identifier.
 
         Returns
         -------
         None
-            This is a test method and does not return any value. Assertions are used
-            to validate expected behavior.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             logs = TestLogs(tmpdir)

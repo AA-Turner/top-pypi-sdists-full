@@ -77,6 +77,7 @@ dirac = {metadata = "CTADIRAC:extension_metadata"}
  cta-prod-remove-corrupted-dl2 = "CTADIRAC.Core.scripts.cta_prod_remove_corrupted_dl2:main"
  cta-prod-remove-dataset = "CTADIRAC.Core.scripts.cta_prod_remove_dataset:main"
  cta-prod-remove-file = "CTADIRAC.Core.scripts.cta_prod_remove_file:main"
+ cta-prod-remove-replica = "CTADIRAC.Core.scripts.cta_prod_remove_replica:main"
  cta-prod-replicate-lfn = "CTADIRAC.Core.scripts.cta_prod_replicate_lfn:main"
  cta-prod-set-metadata = "CTADIRAC.Core.scripts.cta_prod_set_metadata:main"
  cta-prod-setup-software = "CTADIRAC.Core.scripts.cta_prod_setup_software:main"

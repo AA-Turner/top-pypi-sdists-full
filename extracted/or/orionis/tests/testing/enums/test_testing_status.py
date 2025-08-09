@@ -6,15 +6,13 @@ class TestTestStatus(AsyncTestCase):
 
     async def testHasEnumMembers(self):
         """
-        Checks that the TestStatus enum contains the expected members.
+        Test that the TestStatus enum contains the expected members.
 
-        This test verifies the presence of the following enum members:
-        'PASSED', 'FAILED', 'ERRORED', and 'SKIPPED'.
+        Checks for the presence of the 'PASSED', 'FAILED', 'ERRORED', and 'SKIPPED' members in the TestStatus enum.
 
         Returns
         -------
         None
-            This method does not return a value. It asserts the existence of enum members.
         """
         # Assert that each expected member exists in TestStatus
         self.assertTrue(hasattr(TestStatus, "PASSED"))
@@ -24,14 +22,13 @@ class TestTestStatus(AsyncTestCase):
 
     async def testEnumValuesAreUnique(self):
         """
-        Ensures that all TestStatus enum member values are unique.
+        Test that all TestStatus enum member values are unique.
 
-        This test collects all values from the TestStatus enum and checks for uniqueness.
+        Collects all values from the TestStatus enum and asserts that there are no duplicate values.
 
         Returns
         -------
         None
-            This method does not return a value. It asserts the uniqueness of enum values.
         """
         # Gather all enum values
         values = [status.value for status in TestStatus]
@@ -40,28 +37,26 @@ class TestTestStatus(AsyncTestCase):
 
     async def testEnumIsInstanceOfEnum(self):
         """
-        Validates that TestStatus is a subclass of Enum.
+        Test that TestStatus is a subclass of Enum.
 
-        This test checks the inheritance of TestStatus from the Enum base class.
+        Asserts that TestStatus inherits from the Enum base class.
 
         Returns
         -------
         None
-            This method does not return a value. It asserts the subclass relationship.
         """
         # Assert that TestStatus inherits from Enum
         self.assertTrue(issubclass(TestStatus, Enum))
 
     async def testEnumMembersType(self):
         """
-        Confirms that each member of TestStatus is an instance of TestStatus.
+        Test that each member of TestStatus is an instance of TestStatus.
 
-        This test iterates through all members of TestStatus and checks their type.
+        Iterates through all members of TestStatus and asserts their type.
 
         Returns
         -------
         None
-            This method does not return a value. It asserts the type of each enum member.
         """
         # Assert that each enum member is an instance of TestStatus
         for status in TestStatus:

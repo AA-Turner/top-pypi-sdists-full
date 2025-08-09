@@ -29,6 +29,7 @@ def scan(csv: bool, verbose: bool):
     table.add_column("Conda Name", style="cyan", no_wrap=True)
     table.add_column("Version", style="magenta")
     table.add_column("Source", style="magenta")
+    table.add_column("Requested", style="cyan", no_wrap=True)
     table.add_column("Channel", style="magenta", overflow="fold")
     table.add_column("Channel URL", style="magenta", overflow="fold")
     table.add_column("Wheel target", style="green", overflow="fold")
@@ -42,6 +43,7 @@ def scan(csv: bool, verbose: bool):
             pkg["conda_name"],
             pkg["version"],
             pkg["source"],
+            "✅" if pkg["requested"] else "",
             pkg["channel"] or "",
             pkg["channel_url"] or "",
             pkg["wheel_target"] or "",

@@ -68,7 +68,7 @@ class OAuthCredentials(BaseModel):
     expires_in: int
     access_token: str
     created_time: datetime
-    user_name: str
+    user_name: Optional[str]
 
     def are_expired(self) -> bool:
         """

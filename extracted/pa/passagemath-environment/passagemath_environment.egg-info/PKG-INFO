@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-environment
-Version: 10.6.1
+Version: 10.6.2
 Summary: passagemath: System and software environment
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -8,7 +8,7 @@ License-Expression: GPL-2.0-or-later
 Project-URL: release notes, https://github.com/passagemath/passagemath/releases
 Project-URL: repo (upstream), https://github.com/sagemath/sage
 Project-URL: repo, https://github.com/passagemath/passagemath
-Project-URL: documentation, https://doc.sagemath.org
+Project-URL: documentation, https://passagemath.org/docs/latest
 Project-URL: homepage (upstream), https://www.sagemath.org
 Project-URL: discourse, https://passagemath.discourse.group
 Project-URL: tracker (upstream), https://github.com/sagemath/sage/issues
@@ -31,11 +31,11 @@ Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
 Requires-Dist: platformdirs
 Provides-Extra: conf
-Requires-Dist: passagemath-conf~=10.6.1.0; sys_platform != "win32" and extra == "conf"
+Requires-Dist: passagemath-conf~=10.6.2.0; sys_platform != "win32" and extra == "conf"
 Provides-Extra: docbuild
-Requires-Dist: passagemath-docbuild~=10.6.1.0; extra == "docbuild"
+Requires-Dist: passagemath-docbuild~=10.6.2.0; extra == "docbuild"
 Provides-Extra: sage
-Requires-Dist: passagemath-standard~=10.6.1.0; extra == "sage"
+Requires-Dist: passagemath-standard~=10.6.2.0; extra == "sage"
 Provides-Extra: cython
 Requires-Dist: cython!=3.0.3,<4.0,>=3.0; extra == "cython"
 Requires-Dist: cython<3.1.0,>=3.0.8; extra == "cython"
@@ -46,7 +46,7 @@ Requires-Dist: rst2ipynb>=0.2.2; extra == "rst2ipynb"
 Provides-Extra: tox
 Requires-Dist: tox>=4.11; extra == "tox"
 Provides-Extra: sws2rst
-Requires-Dist: passagemath-sws2rst~=10.6.1.0; extra == "sws2rst"
+Requires-Dist: passagemath-sws2rst~=10.6.2.0; extra == "sws2rst"
 
 =========================================================================
  passagemath: System and software environment
@@ -77,8 +77,8 @@ It was created in October 2024 with the following goals:
 -  inviting collaborations with upstream projects,
 -  `building a professional, respectful, inclusive
    community <https://groups.google.com/g/sage-devel/c/xBzaINHWwUQ>`__,
--  `[empowering Sage users to participate in the scientific Python ecosystem
-   <https://github.com/passagemath/passagemath/issues/248](https://github.com/passagemath/passagemath/issues/248)https://github.com/passagemath/passagemath/issues/248>`__ by publishing packages,
+-  `empowering Sage users to participate in the scientific Python ecosystem
+   <https://github.com/passagemath/passagemath/issues/248>`__ by publishing packages,
 -  developing a port to `Pyodide <https://pyodide.org/en/stable/>`__ for
    serverless deployment with Javascript,
 -  developing a native Windows port.
@@ -89,43 +89,42 @@ available online.
 passagemath attempts to support and provides binary wheels suitable for
 all major Linux distributions and recent versions of macOS.
 
-For the Linux aarch64 (ARM) platform, some third-party packages are still missing wheels;
-see ` <https://github.com/passagemath/passagemath?tab=readme-ov-file#full-installation-of-passagemath-from-binary-wheels-on-pypi>`__
-for instructions for building them from source.
+For the Linux aarch64 (ARM) platform, some third-party packages are still missing
+wheels; see the `instructions for building them from source <https://github.com/passagemath/passagemath?tab=readme-ov-file#full-installation-of-passagemath-from-binary-wheels-on-pypi>`__.
 
 Binary wheels for native Windows (x86_64) are are available for a subset of
 the passagemath distributions. Use of the full functionality of passagemath
 on Windows currently requires the use of Windows Subsystem for Linux (WSL)
 or virtualization.
 
-The supported Python versions in the passagemath 10.6.x series are 3.9.x-3.13.x.
+The supported Python versions in the passagemath 10.6.x series are 3.10.x-3.13.x.
 
 
 About this pip-installable distribution package
 -----------------------------------------------
 
-The pip-installable distribution package `sagemath-environment` is a
+The pip-installable distribution package ``passagemath-environment`` is a
 distribution of a small part of the Sage Library.
 
 It provides a small, fundamental subset of the modules of the Sage
-library ("sagelib", `sagemath-standard`), providing the connection to the
+library ("sagelib", ``passagemath-standard``), providing the connection to the
 system and software environment.
 
 
 What is included
 ----------------
 
-* `sage` script for launching the Sage REPL and accessing various developer tools
-  (see `sage --help`, `Invoking Sage <https://doc.sagemath.org/html/en/reference/repl/options.html>`_).
+* ``sage`` script for launching the Sage REPL and accessing various developer tools
+  (see ``sage --help``, `Invoking Sage <https://passagemath.org/docs/latest/html/en/reference/repl/options.html>`_).
 
 * sage.env
 
-* `sage.features <https://doc.sagemath.org/html/en/reference/misc/sage/features.html>`_: Testing for features of the environment at runtime
+* `sage.features <https://passagemath.org/docs/latest/html/en/reference/misc/sage/features.html>`_: Testing for features of the environment at runtime
 
-* `sage.misc.package <https://doc.sagemath.org/html/en/reference/misc/sage/misc/package.html>`_: Listing packages of the Sage distribution
+* `sage.misc.package <https://passagemath.org/docs/latest/html/en/reference/misc/sage/misc/package.html>`_: Listing packages of the Sage distribution
 
-* `sage.misc.package_dir <https://doc.sagemath.org/html/en/reference/misc/sage/misc/package_dir.html>`_
+* `sage.misc.package_dir <https://passagemath.org/docs/latest/html/en/reference/misc/sage/misc/package_dir.html>`_
 
-* `sage.misc.temporary_file <https://doc.sagemath.org/html/en/reference/misc/sage/misc/temporary_file.html>`_
+* `sage.misc.temporary_file <https://passagemath.org/docs/latest/html/en/reference/misc/sage/misc/temporary_file.html>`_
 
-* `sage.misc.viewer <https://doc.sagemath.org/html/en/reference/misc/sage/misc/viewer.html>`_
+* `sage.misc.viewer <https://passagemath.org/docs/latest/html/en/reference/misc/sage/misc/viewer.html>`_

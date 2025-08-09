@@ -5,23 +5,24 @@ from orionis.test.cases.asynchronous import AsyncTestCase
 
 class TestFoundationConfigDatabase(AsyncTestCase):
     """
-    Test cases for the Database configuration class.
+    Unit tests for the Database configuration class.
 
-    This class contains unit tests for the `Database` configuration class,
-    ensuring correct default values, validation, dictionary representation,
-    custom values, hashability, and keyword-only initialization.
-
-    Attributes
-    ----------
-    None
+    This class provides asynchronous test cases to verify the behavior,
+    validation, and integrity of the `Database` configuration class,
+    including default values, attribute validation, dictionary conversion,
+    custom values, hashability, and keyword-only initialization enforcement.
     """
 
     async def testDefaultValues(self):
         """
-        Test creation of Database instance with default values.
+        Test that a Database instance initializes with correct default values.
 
-        Ensures that the default connection is set to 'sqlite' and the
-        connections attribute is properly initialized as a Connections instance.
+        Ensures that the `default` attribute is set to 'sqlite' and the
+        `connections` attribute is an instance of Connections.
+
+        Returns
+        -------
+        None
         """
         db = Database()
         self.assertEqual(db.default, 'sqlite')
@@ -29,11 +30,15 @@ class TestFoundationConfigDatabase(AsyncTestCase):
 
     async def testDefaultConnectionValidation(self):
         """
-        Validate the default connection attribute.
+        Validate the `default` connection attribute for allowed values.
 
-        Checks that only valid connection types are accepted as default.
-        Also verifies that invalid, empty, or non-string defaults raise
+        Checks that only valid connection types are accepted for the `default`
+        attribute. Verifies that invalid, empty, or non-string values raise
         OrionisIntegrityException.
+
+        Returns
+        -------
+        None
         """
         # Test valid connection types
         valid_connections = ['sqlite', 'mysql', 'pgsql', 'oracle']
@@ -57,11 +62,15 @@ class TestFoundationConfigDatabase(AsyncTestCase):
 
     async def testConnectionsValidation(self):
         """
-        Validate the connections attribute.
+        Validate the `connections` attribute for correct type.
 
         Ensures that only instances of Connections are accepted for the
-        connections attribute. Invalid types or None should raise
+        `connections` attribute. Invalid types or None should raise
         OrionisIntegrityException.
+
+        Returns
+        -------
+        None
         """
         # Test invalid connections type
         with self.assertRaises(OrionisIntegrityException):
@@ -79,10 +88,15 @@ class TestFoundationConfigDatabase(AsyncTestCase):
 
     async def testToDictMethod(self):
         """
-        Test the toDict method of Database.
+        Test the `toDict` method for dictionary representation.
 
-        Ensures that the toDict method returns a dictionary representation
-        of the Database instance, including all attributes.
+        Ensures that the `toDict` method returns a dictionary containing
+        all attributes of the Database instance, including `default` and
+        `connections`.
+
+        Returns
+        -------
+        None
         """
         db = Database()
         db_dict = db.toDict()
@@ -92,10 +106,14 @@ class TestFoundationConfigDatabase(AsyncTestCase):
 
     async def testCustomValues(self):
         """
-        Test storage and validation of custom values.
+        Test handling and validation of custom attribute values.
 
-        Ensures that custom configurations for default and connections
-        are correctly handled and validated.
+        Ensures that custom values for `default` and `connections` are
+        correctly stored and validated in the Database instance.
+
+        Returns
+        -------
+        None
         """
         custom_connections = Connections()
         custom_db = Database(
@@ -107,10 +125,14 @@ class TestFoundationConfigDatabase(AsyncTestCase):
 
     async def testHashability(self):
         """
-        Test hashability of Database instances.
+        Test that Database instances are hashable.
 
-        Ensures that Database instances are hashable (due to unsafe_hash=True)
-        and can be used in sets and as dictionary keys.
+        Verifies that Database instances can be used in sets and as dictionary
+        keys, and that identical instances are considered equal.
+
+        Returns
+        -------
+        None
         """
         db1 = Database()
         db2 = Database()
@@ -123,10 +145,14 @@ class TestFoundationConfigDatabase(AsyncTestCase):
 
     async def testKwOnlyInitialization(self):
         """
-        Test keyword-only initialization enforcement.
+        Test enforcement of keyword-only initialization.
 
-        Ensures that Database enforces keyword-only initialization and
-        raises TypeError when positional arguments are used.
+        Ensures that Database raises TypeError when positional arguments are
+        used instead of keyword arguments during initialization.
+
+        Returns
+        -------
+        None
         """
         with self.assertRaises(TypeError):
             Database('sqlite', Connections())

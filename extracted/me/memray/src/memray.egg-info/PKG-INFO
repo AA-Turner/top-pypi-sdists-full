@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: memray
-Version: 1.17.2
+Version: 1.18.0
 Summary: A memory profiler for Python applications
 Home-page: https://github.com/bloomberg/memray
 Author: Pablo Galindo Salgado
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Debuggers
 Requires-Python: >=3.7.0
@@ -31,7 +32,7 @@ Requires-Dist: greenlet; python_version < "3.14" and extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: ipython; extra == "test"
-Requires-Dist: setuptools; python_version >= "3.12" and extra == "test"
+Requires-Dist: setuptools; extra == "test"
 Requires-Dist: pytest-textual-snapshot; extra == "test"
 Requires-Dist: textual!=0.65.2,!=0.66,>=0.43; extra == "test"
 Requires-Dist: packaging; extra == "test"
@@ -56,7 +57,7 @@ Requires-Dist: greenlet; python_version < "3.14" and extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
-Requires-Dist: setuptools; python_version >= "3.12" and extra == "dev"
+Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: pytest-textual-snapshot; extra == "dev"
 Requires-Dist: textual!=0.65.2,!=0.66,>=0.43; extra == "dev"
 Requires-Dist: packaging; extra == "dev"
@@ -98,6 +99,8 @@ Dynamic: summary
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/memray)](https://pypistats.org/packages/memray)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/memray.svg)](https://anaconda.org/conda-forge/memray)
 [![Tests](https://github.com/bloomberg/memray/actions/workflows/build.yml/badge.svg)](https://github.com/bloomberg/memray/actions/workflows/build.yml)
+[![Wheels](https://github.com/bloomberg/memray/actions/workflows/build_wheels.yml/badge.svg?branch=main)](https://github.com/bloomberg/memray/actions/workflows/build_wheels.yml)
+[![Coverage](https://github.com/bloomberg/memray/actions/workflows/coverage.yml/badge.svg?branch=main)](https://github.com/bloomberg/memray/actions/workflows/coverage.yml)
 [![Code Style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 <p align="center"><img src="https://raw.githubusercontent.com/bloomberg/memray/main/docs/_static/images/output.png" alt="Memray output"></p>
@@ -299,6 +302,7 @@ Allocations results for tests/test_package.py::some_test_that_allocates
 
 	 📦 Total memory allocated: 24.4MiB
 	 📏 Total allocations: 33929
+	 📈 Peak memory usage: 10.431MB
 	 📊 Histogram of allocation sizes: |▂   █    |
 	 🥇 Biggest allocating functions:
 		- parse:/opt/bb/lib/python3.8/ast.py:47 -> 3.0MiB

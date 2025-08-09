@@ -119,7 +119,7 @@ FAILEDOPERATION_FINDMETRICSEXCLUSIVEERROR = 'FailedOperation.FindMetricsExclusiv
 # 网关通用异常:%s。
 FAILEDOPERATION_GATEWAYCOMMONERROR = 'FailedOperation.GatewayCommonError'
 
-# 远端访问错误: %s。
+# 远端访问错误。
 FAILEDOPERATION_GATEWAYREMOTECALLERROR = 'FailedOperation.GatewayRemoteCallError'
 
 # 命名空间下存在部署组。
@@ -221,7 +221,7 @@ FAILEDOPERATION_TASKDELETEERROR = 'FailedOperation.TaskDeleteError'
 # 操作失败。
 FAILEDOPERATION_TASKOPERATIONFAILED = 'FailedOperation.TaskOperationFailed'
 
-# 禁止操作。
+# 操作不允许。
 FAILEDOPERATION_TASKOPERATIONFORBIDDEN = 'FailedOperation.TaskOperationForbidden'
 
 # 任务下发异常。
@@ -317,7 +317,7 @@ FAILEDOPERATION_TSFMSERROR = 'FailedOperation.TsfMsError'
 # 调用ms server失败。
 FAILEDOPERATION_TSFMSSERVERERROR = 'FailedOperation.TsfMsServerError'
 
-# TSF权限模块异常，请联系系统管理员。。
+# TSF权限模块异常，请联系系统管理员。
 FAILEDOPERATION_TSFPRIVILEGEERROR = 'FailedOperation.TsfPrivilegeError'
 
 # 未授权。
@@ -374,7 +374,7 @@ INTERNALERROR_CONTAINERGROUPKUBERNETEDEPLOYMENTNOTFOUND = 'InternalError.Contain
 # 容器应用SQL错误。
 INTERNALERROR_CONTAINERGROUPSQLFAILED = 'InternalError.ContainergroupSqlFailed'
 
-# 容器平台集群不可用，当前状态 %s。
+# 容器平台集群不可用，当前状态。有 Idling、Notinit等。
 INTERNALERROR_CPCLUSTERUNAVAILABLE = 'InternalError.CpClusterUnavailable'
 
 # 命令下放失败。
@@ -389,7 +389,7 @@ INTERNALERROR_CVMCAEMASTERNONALIVE = 'InternalError.CvmCaeMasterNonAlive'
 # 数据查询失败。
 INTERNALERROR_CVMCAEMASTERQUERYERROR = 'InternalError.CvmCaeMasterQueryError'
 
-# TSF暂时不能响应请求。。
+# TSF暂时不能响应请求。
 INTERNALERROR_DISPATCHCOMMONERROR = 'InternalError.DispatchCommonError'
 
 # 网关通用异常:%s。
@@ -464,7 +464,7 @@ INTERNALERROR_TSFMONITORINTERNALERROR = 'InternalError.TsfMonitorInternalError'
 # TSF服务管理通用异常。
 INTERNALERROR_TSFMSERROR = 'InternalError.TsfMsError'
 
-# [%s]模块未处理异常。。
+# 模块未处理异常。
 INTERNALERROR_UNHANDLEDEXCEPTION = 'InternalError.UnhandledException'
 
 # 参数错误。
@@ -473,7 +473,7 @@ INVALIDPARAMETER = 'InvalidParameter'
 # 删除应用失败。
 INVALIDPARAMETER_APPLICATIONDELETEFAILED = 'InvalidParameter.ApplicationDeleteFailed'
 
-# [%s]模块接口[%s]请求不正确（400 BAD REQUEST）。。
+# 示例：serviceId模块接口action请求不正确（400 BAD REQUEST）。
 INVALIDPARAMETER_BADREQUEST = 'InvalidParameter.BadRequest'
 
 # 配置模板名称不符合规范。
@@ -590,7 +590,7 @@ INVALIDPARAMETER_TSFAPMSTDOUTSEARCHREQUESTPARAMERROR = 'InvalidParameter.TsfApmS
 # TSF应用性能管理调用链搜索请求参数错误。
 INVALIDPARAMETER_TSFAPMTRACESEARCHREQUESTPARAMERROR = 'InvalidParameter.TsfApmTraceSearchRequestParamError'
 
-# TSF监控统计请求参数[%s]非法。
+# TSF监控统计请求参数非法。
 INVALIDPARAMETER_TSFMONITORREQUESTPARAMILLEGAL = 'InvalidParameter.TsfMonitorRequestParamIllegal'
 
 # 仓库批量删除包数量超过单次允许上限。
@@ -764,7 +764,7 @@ INVALIDPARAMETERVALUE_CONTAINERGROUPPROTOCOLPORTSNULL = 'InvalidParameterValue.C
 # 镜像仓库名与应用名不匹配。
 INVALIDPARAMETERVALUE_CONTAINERGROUPREPONAMEINVALID = 'InvalidParameterValue.ContainergroupReponameInvalid'
 
-# agent 容器资源值非法 , %s。
+# 示例：agent 容器资源值非法 , cpu。
 INVALIDPARAMETERVALUE_CONTAINERGROUPRESOURCEAGENTVALUEINVALID = 'InvalidParameterValue.ContainergroupResourceAgentValueInvalid'
 
 # 容器端口不允许重复映射。
@@ -899,7 +899,7 @@ INVALIDPARAMETERVALUE_IMAGEREPOTAGNAMENULL = 'InvalidParameterValue.ImagerepoTag
 # 重装系统，无效的镜像id。
 INVALIDPARAMETERVALUE_INSTANCEINVALIDIMAGE = 'InvalidParameterValue.InstanceInvalidImage'
 
-# 参数 %s 取值错误。
+# 示例：参数 Region 取值错误。
 INVALIDPARAMETERVALUE_INVALIDPARAMETER = 'InvalidParameterValue.InvalidParameter'
 
 # 参数格式异常。
@@ -1004,7 +1004,7 @@ INVALIDPARAMETERVALUE_RELEASEDCONFIGCANNOTBEDELETED = 'InvalidParameterValue.Rel
 # 文件配置项已经发布，不允许删除。
 INVALIDPARAMETERVALUE_RELEASEDFILECONFIGCANNOTBEDELETED = 'InvalidParameterValue.ReleasedFileConfigCanNotBeDeleted'
 
-# 无权限操作资源%s。
+# 无权限操作资源[%s]。
 INVALIDPARAMETERVALUE_RESOURCEPERMISSIONDENIED = 'InvalidParameterValue.ResourcePermissionDenied'
 
 # ResourceType 不支持。
@@ -1016,7 +1016,7 @@ INVALIDPARAMETERVALUE_SERVICEDESCLENGTH = 'InvalidParameterValue.ServiceDescLeng
 # 服务名称重复。
 INVALIDPARAMETERVALUE_SERVICENAMEREPEATED = 'InvalidParameterValue.ServiceNameRepeated'
 
-# 服务不存在或权限不足。
+# 无法获取微服务列表或无访问权限。
 INVALIDPARAMETERVALUE_SERVICENOTEXISTSORPERMISSIONDENIED = 'InvalidParameterValue.ServiceNotExistsOrPermissionDenied'
 
 # 无效请求参数。
@@ -1112,13 +1112,13 @@ MISSINGPARAMETER_NAMESPACEIDREQUIRED = 'MissingParameter.NamespaceIdRequired'
 # 命名空间名称未填写。
 MISSINGPARAMETER_NAMESPACENAMEREQUIRED = 'MissingParameter.NamespaceNameRequired'
 
-# %s缺失。
+# [%s]缺失。
 MISSINGPARAMETER_REQUIREDPARAMETERMISSING = 'MissingParameter.RequiredParameterMissing'
 
 # 未填写服务Id。
 MISSINGPARAMETER_SERVICEIDREQUIRED = 'MissingParameter.ServiceIdRequired'
 
-# 未指定%s。。
+# 未指定%s。
 MISSINGPARAMETER_SYSTEMPARAMETERREQUIRED = 'MissingParameter.SystemParameterRequired'
 
 # 缺少必填参数。
@@ -1211,10 +1211,10 @@ RESOURCENOTFOUND_INTERFACENOTFOUND = 'ResourceNotFound.InterfaceNotFound'
 # 无法找到License服务器。
 RESOURCENOTFOUND_LICENSESERVERNOTFOUND = 'ResourceNotFound.LicenseServerNotFound'
 
-# 目标微服务已离线[%s]。
+# 目标微服务已离线。
 RESOURCENOTFOUND_MICROSERVICEOFFLINE = 'ResourceNotFound.MicroserviceOffline'
 
-# 无法获取命名空间。
+# 命名空间不存在,或相应权限不足。
 RESOURCENOTFOUND_NAMESPACENOTEXIST = 'ResourceNotFound.NamespaceNotExist'
 
 # 资源对象不存在。
@@ -1223,19 +1223,19 @@ RESOURCENOTFOUND_OBJECTNOEXIST = 'ResourceNotFound.ObjectNoExist'
 # 无法获取服务，无法执行该操作。
 RESOURCENOTFOUND_SERVICENOTEXIST = 'ResourceNotFound.ServiceNotExist'
 
-# 任务不存在。
+# 资源不存在。
 RESOURCENOTFOUND_TASKNOTFOUND = 'ResourceNotFound.TaskNotFound'
 
 # TKE 中不存在该集群。
 RESOURCENOTFOUND_TKECLUSTERNOTEXISTS = 'ResourceNotFound.TkeClusterNotExists'
 
-# 访问 CAM 系统出错，%s。
+# 示例：访问 CAM 系统出错，[报错信息]。
 UNAUTHORIZEDOPERATION_CAMGENERALERROR = 'UnauthorizedOperation.CamGeneralError'
 
-# 协作者身份未授权，需要主账号授予协作者权限，参考 TSF 官网文档「快速入门/准备工作」。
+# 协作者身份未授权，需要主账号授予协作者权限，参考 TSF 官网文档[子账号获取访问授权](https://cloud.tencent.com/document/product/649/55570)。
 UNAUTHORIZEDOPERATION_CAMTSFROLENOPERMISSION = 'UnauthorizedOperation.CamTsfRoleNoPermission'
 
-# 当前主账号未创建TSF_QCSRole或未对子账号授予预设策略QcloudCamSubaccountsAuthorizeRoleFullAccess。请参考产品文档主账号协作者使用说明。。
+# 当前主账号未创建TSF_QCSRole或未对子账号授予预设策略QcloudCamSubaccountsAuthorizeRoleFullAccess。请参考产品文档[主账号获取访问授权](https://cloud.tencent.com/document/product/649/16869)。
 UNAUTHORIZEDOPERATION_CAMTSFROLENOTEXIST = 'UnauthorizedOperation.CamTsfRoleNotExist'
 
 # License未激活。
@@ -1244,7 +1244,7 @@ UNAUTHORIZEDOPERATION_LICENSEINACTIVE = 'UnauthorizedOperation.LicenseInactive'
 # 您所购买的服务不支持该操作。
 UNAUTHORIZEDOPERATION_LICENSEUNAUTHORIZED = 'UnauthorizedOperation.LicenseUnauthorized'
 
-# 缺少License。。
+# 缺少License。
 UNAUTHORIZEDOPERATION_NOLICENSE = 'UnauthorizedOperation.NoLicense'
 
 # 用户无权限访问该接口。

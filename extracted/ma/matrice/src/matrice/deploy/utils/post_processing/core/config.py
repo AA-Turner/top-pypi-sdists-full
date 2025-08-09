@@ -328,8 +328,8 @@ class PeopleCountingConfig(BaseConfig):
         return errors
 
 @dataclass
-class ProximityConfig(BaseConfig):
-    """Configuration for Proximity identification use case."""
+class IntrusionConfig(BaseConfig):
+    """Configuration for intrusion detection use case."""
     
     # Smoothing configuration
     enable_smoothing: bool = True
@@ -346,14 +346,14 @@ class ProximityConfig(BaseConfig):
     time_window_minutes: int = 60
     
     # Category mapping
-    person_categories: List[str] = field(default_factory=lambda: ["person", "people"])
+    person_categories: List[str] = field(default_factory=lambda: ["person", "people", "human"])
     index_to_category: Optional[Dict[int, str]] = None
     
     # Alert configuration
     alert_config: Optional[AlertConfig] = None
     
     def validate(self) -> List[str]:
-        """Validate people counting configuration."""
+        """Validate intrusion detection configuration."""
         errors = super().validate()
         
         if self.time_window_minutes <= 0:
@@ -449,6 +449,7 @@ class ConfigManager:
             "people_counting": PeopleCountingConfig,
             "customer_service": CustomerServiceConfig,
             "advanced_customer_service": CustomerServiceConfig,
+            "intrusion_detection": IntrusionConfig,
             "basic_counting_tracking": None,  # Will be set later to avoid circular import
             "license_plate_detection": None,  # Will be set later to avoid circular import
             "ppe_compliance_detection": None,
@@ -497,6 +498,8 @@ class ConfigManager:
             'face_recognition': None,
             'drowsy_driver_detection': None,
             'waterbody_segmentation': None,
+            'litter_detection' :None,
+            'abandoned_object_detection' : None,
             'litter_detection':None,
             'leak_detection': None,
             'human_activity_recognition': None,
@@ -905,6 +908,15 @@ class ConfigManager:
         except ImportError:
             return None
         
+
+    def abandoned_object_detection_config_class(self):
+        """Get monitoring class to avoid circular imports."""
+        try:
+            from ..usecases.abandoned_object_detection import AbandonedObjectConfig
+            return AbandonedObjectConfig
+        except ImportError:
+            return None
+        
     def leak_detection_config_class(self):
         """Get Leak detection class to avoid circular imports."""
         try:
@@ -997,6 +1009,24 @@ class ConfigManager:
 
             config = PeopleCountingConfig(
                 category=category or "general",
+                usecase=usecase,
+                zone_config=zone_config,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "intrusion_detection":
+            # Handle nested configurations
+            zone_config = kwargs.pop("zone_config", None)
+            if zone_config and isinstance(zone_config, dict):
+                zone_config = ZoneConfig(**zone_config)
+
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = IntrusionConfig(
+                category=category or "security",
                 usecase=usecase,
                 zone_config=zone_config,
                 alert_config=alert_config,
@@ -1286,6 +1316,21 @@ class ConfigManager:
 
             config = BananaMonitoringConfig(
                 category=category or "agriculture",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "abandoned_object_detection":
+            # Import here to avoid circular import
+            from ..usecases.abandoned_object_detection import AbandonedObjectConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = AbandonedObjectConfig(
+                category=category or "security",
                 usecase=usecase,
                 alert_config=alert_config,
                 **kwargs
@@ -1909,7 +1954,6 @@ class ConfigManager:
             config = HumanActivityConfig(
                 category=category or "general",
                 usecase=usecase,
-                zone_config=zone_config,
                 alert_config=alert_config,
                 **kwargs
             )
@@ -2380,6 +2424,11 @@ class ConfigManager:
             default_config = LitterDetectionConfig()
             return default_config.to_dict()
         
+        elif usecase == "abandoned_object_detection":
+            # Import here to avoid circular import
+            from ..usecases.abandoned_object_detection import AbandonedObjectConfig
+            default_config = AbandonedObjectConfig()
+            return default_config.to_dict()
         elif usecase == "leak_detection":
             # Import here to avoid circular import
             from ..usecases.leak_detection import LeakDetectionConfig

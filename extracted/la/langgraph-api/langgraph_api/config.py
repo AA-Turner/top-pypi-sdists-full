@@ -180,6 +180,7 @@ REDIS_MAX_CONNECTIONS = env("REDIS_MAX_CONNECTIONS", cast=int, default=2000)
 REDIS_CONNECT_TIMEOUT = env("REDIS_CONNECT_TIMEOUT", cast=float, default=10.0)
 REDIS_MAX_IDLE_TIME = env("REDIS_MAX_IDLE_TIME", cast=float, default=120.0)
 REDIS_KEY_PREFIX = env("REDIS_KEY_PREFIX", cast=str, default="")
+RUN_STATS_CACHE_SECONDS = env("RUN_STATS_CACHE_SECONDS", cast=int, default=60)
 
 # server
 ALLOW_PRIVATE_NETWORK = env("ALLOW_PRIVATE_NETWORK", cast=bool, default=False)

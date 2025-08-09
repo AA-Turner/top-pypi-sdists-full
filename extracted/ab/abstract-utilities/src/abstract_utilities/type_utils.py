@@ -88,6 +88,8 @@ MIME_TYPES = {
         '.wmv':   'video/x-ms-wmv',
         '.3gp':   'video/3gpp',
         '.ts':    'video/mp2t',
+        '.mpeg':  'video/mpeg',
+        '.mpg':   'video/mpg'
     },
     'audio': {
         '.mp3':   'audio/mpeg',

@@ -5,32 +5,27 @@ class TestBaseEntity(AsyncTestCase):
 
     async def asyncSetUp(self):
         """
-        Set up the test case asynchronously by initializing an ExampleEntity instance.
+        Asynchronously initializes the test environment before each test.
 
-        This method is called before each test coroutine to prepare the test environment.
-        It creates an ExampleEntity with predefined attributes.
+        Initializes an ExampleEntity instance with predefined attributes and assigns it to self.entity.
 
         Returns
         -------
         None
-            This method does not return any value.
         """
         # Create an ExampleEntity instance for use in tests
         self.entity = ExampleEntity(id=42, name="test", color=Color.GREEN, tags=["a", "b"])
 
     async def testToDict(self):
         """
-        Test the toDict method of ExampleEntity.
+        Tests the toDict method of ExampleEntity.
 
-        Verifies that the toDict method returns a dictionary representation of the entity
-        with correct field values.
+        Verifies that toDict returns a dictionary with correct field values for the entity.
 
         Returns
         -------
         None
-            This method does not return any value.
         """
-
         # Convert entity to dictionary
         result = self.entity.toDict()
         self.assertIsInstance(result, dict)
@@ -43,17 +38,14 @@ class TestBaseEntity(AsyncTestCase):
 
     async def testGetFields(self):
         """
-        Test the getFields method of ExampleEntity.
+        Tests the getFields method of ExampleEntity.
 
-        Ensures that getFields returns a list of field information dictionaries,
-        each containing field name, types, default value, and metadata.
+        Ensures getFields returns a list of dictionaries, each containing field name, types, default value, and metadata.
 
         Returns
         -------
         None
-            This method does not return any value.
         """
-
         # Retrieve field information from entity
         fields_info = self.entity.getFields()
         self.assertIsInstance(fields_info, list)

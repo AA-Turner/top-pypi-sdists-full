@@ -854,6 +854,7 @@ SupportedInstanceTypeTypeDef = TypedDict(
 class ModifyClusterInputTypeDef(TypedDict):
     ClusterId: str
     StepConcurrencyLevel: NotRequired[int]
+    ExtendedSupport: NotRequired[bool]
 
 
 class NotebookS3LocationForOutputTypeDef(TypedDict):
@@ -1053,6 +1054,7 @@ class ListReleaseLabelsOutputTypeDef(TypedDict):
 
 class ModifyClusterOutputTypeDef(TypedDict):
     StepConcurrencyLevel: int
+    ExtendedSupport: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1591,6 +1593,7 @@ class ClusterTypeDef(TypedDict):
     OSReleaseLabel: NotRequired[str]
     EbsRootVolumeIops: NotRequired[int]
     EbsRootVolumeThroughput: NotRequired[int]
+    ExtendedSupport: NotRequired[bool]
 
 
 class GetManagedScalingPolicyOutputTypeDef(TypedDict):
@@ -2066,3 +2069,4 @@ class RunJobFlowInputTypeDef(TypedDict):
     OSReleaseLabel: NotRequired[str]
     EbsRootVolumeIops: NotRequired[int]
     EbsRootVolumeThroughput: NotRequired[int]
+    ExtendedSupport: NotRequired[bool]

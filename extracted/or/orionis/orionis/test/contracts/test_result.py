@@ -5,23 +5,24 @@ from orionis.test.entities.result import TestResult
 
 class IOrionisTestResult(ABC):
     """
-    Interface for OrionisTestResult, a custom test result collector that extends
-    unittest's TextTestResult to include rich execution metadata such as
-    execution time, error tracebacks, and reflection-based information.
+    Interface for a custom test result collector that extends unittest's TextTestResult,
+    providing detailed execution metadata for each test case.
 
-    Classes implementing this interface are responsible for capturing detailed
-    information about each test case execution, including success, failure,
-    error, and skip states.
+    This interface defines properties and methods for capturing test outcomes,
+    execution times, error tracebacks, and related metadata for each test case.
     """
 
     @property
     @abstractmethod
     def test_results(self) -> List[TestResult]:
         """
-        A list containing the detailed results of each executed test case.
+        List of detailed results for each executed test case.
 
-        Each entry is an instance of `TestResult`, storing metadata such as
-        status, execution time, method name, module, file, and optional error info.
+        Returns
+        -------
+        List[TestResult]
+            Each element contains metadata such as status, execution time, method name,
+            module, file, and optional error information.
         """
         pass
 
@@ -29,8 +30,12 @@ class IOrionisTestResult(ABC):
     @abstractmethod
     def _test_timings(self) -> Dict[unittest.case.TestCase, float]:
         """
-        Internal mapping from each test case to its execution duration in seconds.
-        Used to compute elapsed time between `startTest()` and `stopTest()`.
+        Mapping of test cases to their execution durations in seconds.
+
+        Returns
+        -------
+        Dict[unittest.case.TestCase, float]
+            Keys are test case instances, values are elapsed times in seconds.
         """
         pass
 
@@ -38,63 +43,89 @@ class IOrionisTestResult(ABC):
     @abstractmethod
     def _current_test_start(self) -> Optional[float]:
         """
-        Timestamp (in seconds) marking the beginning of the currently running test.
-        Used internally to calculate duration.
+        Timestamp marking the start of the currently running test.
+
+        Returns
+        -------
+        Optional[float]
+            Start time in seconds, or None if no test is running.
         """
         pass
 
     @abstractmethod
     def startTest(self, test: unittest.case.TestCase) -> None:
         """
-        Called before the test is run.
+        Record the start time for a test case before execution.
 
-        Records the current start time for the test case in `_current_test_start`.
+        Parameters
+        ----------
+        test : unittest.case.TestCase
+            The test case about to be executed.
         """
         pass
 
     @abstractmethod
     def stopTest(self, test: unittest.case.TestCase) -> None:
         """
-        Called after the test has run.
+        Calculate and store the execution time for a test case after execution.
 
-        Calculates and stores the execution time for the test in `_test_timings`.
+        Parameters
+        ----------
+        test : unittest.case.TestCase
+            The test case that has finished execution.
         """
         pass
 
     @abstractmethod
     def addSuccess(self, test: unittest.case.TestCase) -> None:
         """
-        Called when a test case completes successfully.
+        Append a successful test result to the results list.
 
-        Appends a `TestResult` instance with status `PASSED` to `test_results`.
+        Parameters
+        ----------
+        test : unittest.case.TestCase
+            The test case that completed successfully.
         """
         pass
 
     @abstractmethod
     def addFailure(self, test: unittest.case.TestCase, err: Tuple[BaseException, BaseException, object]) -> None:
         """
-        Called when a test case fails due to an assertion failure.
+        Append a failed test result, including traceback and error message.
 
-        Captures and appends a `TestResult` instance with status `FAILED`, along
-        with traceback and error message.
+        Parameters
+        ----------
+        test : unittest.case.TestCase
+            The test case that failed.
+        err : tuple
+            Tuple containing exception type, exception instance, and traceback object.
         """
         pass
 
     @abstractmethod
     def addError(self, test: unittest.case.TestCase, err: Tuple[BaseException, BaseException, object]) -> None:
         """
-        Called when a test case encounters an unexpected error or exception.
+        Append an errored test result, including traceback and error message.
 
-        Captures and appends a `TestResult` instance with status `ERRORED`, along
-        with traceback and error message.
+        Parameters
+        ----------
+        test : unittest.case.TestCase
+            The test case that encountered an error.
+        err : tuple
+            Tuple containing exception type, exception instance, and traceback object.
         """
         pass
 
     @abstractmethod
     def addSkip(self, test: unittest.case.TestCase, reason: str) -> None:
         """
-        Called when a test case is skipped.
+        Append a skipped test result with the provided reason.
 
-        Appends a `TestResult` instance with status `SKIPPED` and reason to `test_results`.
+        Parameters
+        ----------
+        test : unittest.case.TestCase
+            The test case that was skipped.
+        reason : str
+            Reason for skipping the test.
         """
         pass

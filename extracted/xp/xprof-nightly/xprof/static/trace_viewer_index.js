@@ -14340,11 +14340,13 @@ var tf_component_traceviewer;
         });
     },
 
-    createStackTraceSnippetLink: function(hloModule, hloOp, stackTrace) {
-      if (!stackTrace || !this._sourceCodeServiceIsAvailable) return;
+    createStackTraceSnippetLink: function(hloModule, hloOp, sourceFileAndLineNumber, stackTrace) {
+      if (!this._sourceCodeServiceIsAvailable) return;
+      if (!sourceFileAndLineNumber && !stackTrace) return;
       // LINT.IfChange(stack_trace_page_keys)
       const hloModuleKey = 'hlo_module';
       const hloOpKey = 'hlo_op';
+      const sourceKey = 'source';
       const stackTraceKey = 'stack_trace';
       // LINT.ThenChange(//depot/google3/third_party/xprof/frontend/app/components/stack_trace_page/stack_trace_page.ts:keys)
       this.createCrossToolLink(
@@ -14353,7 +14355,8 @@ var tf_component_traceviewer;
           {
             [hloModuleKey]: hloModule,
             [hloOpKey]: hloOp,
-            [stackTraceKey]: stackTrace,
+            [sourceKey]: sourceFileAndLineNumber || '',
+            [stackTraceKey]: stackTrace || '',
           },
           'Open in a new page');
     },
@@ -14479,8 +14482,12 @@ var tf_component_traceviewer;
           if (event.args?.source && this._codeLink) {
             this.createCodeSearchLink(event.args?.source);
           }
-          if (event.args?.source_stack) {
-            this.createStackTraceSnippetLink(hloModule, hloOp,event.args?.source_stack);
+          if (event.args?.source || event.args?.source_stack) {
+            this.createStackTraceSnippetLink(
+                hloModule,
+                hloOp,
+                event.args?.source,
+                event.args?.source_stack);
           }
         } else if ('Source code' === event.parentContainer.name && event.title && this._codeLink) {
           this.createCodeSearchLink(event.title);

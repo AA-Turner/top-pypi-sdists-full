@@ -1,8 +1,9 @@
-/* eslint-disable global-require,import/no-extraneous-dependencies */
+const path = require('path');
+
 const { config } = require('@apify/docs-theme');
+
 const { externalLinkProcessor } = require('./tools/utils/externalLink');
 const { groupSort } = require('./transformDocs.js');
-const path = require('path');
 
 const { absoluteUrl } = config;
 
@@ -29,8 +30,8 @@ module.exports = {
     trailingSlash: false,
     organizationName: 'apify',
     projectName: 'apify-client-python',
-    scripts: ['/js/custom.js'],
     favicon: 'img/favicon.ico',
+    scripts: ['/js/custom.js', ...(config.scripts ?? [])],
     onBrokenLinks:
     /** @type {import('@docusaurus/types').ReportingSeverity} */ ('warn'),
     onBrokenMarkdownLinks:
@@ -105,6 +106,19 @@ module.exports = {
                 },
             },
         ],
+        [
+            '@signalwire/docusaurus-plugin-llms-txt',
+            {
+                content: {
+                    includeVersionedDocs: false,
+                    enableLlmsFullTxt: true,
+                    includeBlog: true,
+                    includeGeneratedIndex: false,
+                    includePages: true,
+                    relativePaths: false,
+                },
+            },
+        ],
         ...config.plugins,
     ],
     themeConfig: {
@@ -115,4 +129,7 @@ module.exports = {
         },
     },
     staticDirectories: ['node_modules/@apify/docs-theme/static', 'static'],
+    customFields: {
+        ...(config.customFields ?? []),
+    },
 };

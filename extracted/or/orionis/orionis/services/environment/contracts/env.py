@@ -7,19 +7,19 @@ class IEnv(ABC):
     @abstractmethod
     def get(key: str, default: Any = None) -> Any:
         """
-        Retrieve the value of an environment variable by key.
+        Retrieves the value of the specified environment variable.
 
         Parameters
         ----------
         key : str
             The name of the environment variable to retrieve.
         default : Any, optional
-            The value to return if the key is not found. Default is None.
+            The value to return if the environment variable is not found. Defaults to None.
 
         Returns
         -------
         Any
-            The value of the environment variable if found, otherwise the default value.
+            The value of the environment variable if it exists, otherwise the default value.
         """
         pass
 
@@ -27,7 +27,7 @@ class IEnv(ABC):
     @abstractmethod
     def set(key: str, value: str, type: str = None) -> bool:
         """
-        Set an environment variable in the .env file.
+        Sets the value of an environment variable in the .env file.
 
         Parameters
         ----------
@@ -36,12 +36,12 @@ class IEnv(ABC):
         value : str
             The value to assign to the environment variable.
         type : str, optional
-            The type of the environment variable (e.g., 'str', 'int'). Default is None.
+            The type of the environment variable (e.g., 'str', 'int'). Defaults to None.
 
         Returns
         -------
         bool
-            True if the variable was set successfully, False otherwise.
+            True if the environment variable was set successfully, False otherwise.
         """
         pass
 
@@ -49,7 +49,7 @@ class IEnv(ABC):
     @abstractmethod
     def unset(key: str) -> bool:
         """
-        Remove the specified environment variable from the .env file.
+        Removes the specified environment variable from the .env file.
 
         Parameters
         ----------
@@ -59,7 +59,7 @@ class IEnv(ABC):
         Returns
         -------
         bool
-            True if the variable was successfully removed, False otherwise.
+            True if the environment variable was removed successfully, False otherwise.
         """
         pass
 
@@ -67,7 +67,7 @@ class IEnv(ABC):
     @abstractmethod
     def all() -> Dict[str, Any]:
         """
-        Retrieve all environment variables as a dictionary.
+        Retrieves all environment variables as a dictionary.
 
         Returns
         -------

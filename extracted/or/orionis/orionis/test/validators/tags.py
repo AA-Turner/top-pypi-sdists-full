@@ -4,24 +4,23 @@ class __ValidTags:
 
     def __call__(self, tags):
         """
-        Validator that ensures the `tags` parameter is a non-empty list of non-empty strings.
+        Validates that the input is a non-empty list of non-empty strings.
 
         Parameters
         ----------
         tags : Any
-            The value to be validated as a list of non-empty strings.
+            The value to validate as a list of non-empty strings.
 
         Returns
         -------
-        list
-            The validated and stripped list of tags.
+        list or None
+            The validated and stripped list of tags if valid, otherwise None if input is None.
 
         Raises
         ------
         OrionisTestValueError
-            If `tags` is not a non-empty list of non-empty strings.
+            If the input is not a non-empty list of non-empty strings.
         """
-
         if tags is not None:
 
             if (not isinstance(tags, list) or not tags or not all(isinstance(tag, str) and tag.strip() for tag in tags)):

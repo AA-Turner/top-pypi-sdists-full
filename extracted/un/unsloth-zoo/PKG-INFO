@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unsloth_zoo
-Version: 2025.8.1
+Version: 2025.8.3
 Summary: Utils for Unsloth
 Author: Unsloth AI team
 Author-email: info@unsloth.ai
@@ -37,6 +37,29 @@ Requires-Dist: pillow
 Requires-Dist: regex
 Requires-Dist: msgspec
 Requires-Dist: typing_extensions
+Provides-Extra: huggingface
+Requires-Dist: packaging>=24.1; extra == "huggingface"
+Requires-Dist: tyro; extra == "huggingface"
+Requires-Dist: transformers!=4.47.0,!=4.52.0,!=4.52.1,!=4.52.2,!=4.52.3,>=4.51.3; extra == "huggingface"
+Requires-Dist: datasets<4.0.0,>=3.4.1; extra == "huggingface"
+Requires-Dist: sentencepiece>=0.2.0; extra == "huggingface"
+Requires-Dist: tqdm; extra == "huggingface"
+Requires-Dist: psutil; extra == "huggingface"
+Requires-Dist: wheel>=0.42.0; extra == "huggingface"
+Requires-Dist: numpy; extra == "huggingface"
+Requires-Dist: accelerate>=0.34.1; extra == "huggingface"
+Requires-Dist: trl!=0.15.0,!=0.19.0,!=0.9.0,!=0.9.1,!=0.9.2,!=0.9.3,>=0.7.9; extra == "huggingface"
+Requires-Dist: peft!=0.11.0,>=0.7.1; extra == "huggingface"
+Requires-Dist: protobuf; extra == "huggingface"
+Requires-Dist: huggingface_hub>=0.34.0; extra == "huggingface"
+Requires-Dist: hf_transfer; extra == "huggingface"
+Requires-Dist: cut_cross_entropy; extra == "huggingface"
+Requires-Dist: pillow; extra == "huggingface"
+Requires-Dist: regex; extra == "huggingface"
+Requires-Dist: msgspec; extra == "huggingface"
+Requires-Dist: typing_extensions; extra == "huggingface"
+Provides-Extra: base
+Requires-Dist: unsloth_zoo[huggingface]; extra == "base"
 Dynamic: license-file
 
 <div align="center">

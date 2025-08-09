@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiobotocore
-Version: 2.23.2
+Version: 2.24.0
 Summary: Async client for aws services using botocore and aiohttp
 Author-email: Nikolay Novik <nickolainovik@gmail.com>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Environment :: Web Environment
 Classifier: Framework :: AsyncIO
 Requires-Python: >=3.9
@@ -24,15 +25,15 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aiohttp<4.0.0,>=3.9.2
 Requires-Dist: aioitertools<1.0.0,>=0.5.1
-Requires-Dist: botocore<1.39.9,>=1.39.7
+Requires-Dist: botocore<1.39.12,>=1.39.9
 Requires-Dist: python-dateutil<3.0.0,>=2.1
 Requires-Dist: jmespath<2.0.0,>=0.7.1
 Requires-Dist: multidict<7.0.0,>=6.0.0
 Requires-Dist: wrapt<2.0.0,>=1.10.10
 Provides-Extra: awscli
-Requires-Dist: awscli<1.41.9,>=1.41.7; extra == "awscli"
+Requires-Dist: awscli<1.41.12,>=1.41.9; extra == "awscli"
 Provides-Extra: boto3
-Requires-Dist: boto3<1.39.9,>=1.39.7; extra == "boto3"
+Requires-Dist: boto3<1.39.12,>=1.39.9; extra == "boto3"
 Provides-Extra: httpx
 Requires-Dist: httpx<0.29,>=0.25.1; extra == "httpx"
 Dynamic: license-file
@@ -271,6 +272,10 @@ the other.
 
 Changes
 -------
+
+2.24.0 (2025-07-31)
+^^^^^^^^^^^^^^^^^^^
+* bump botocore dependency specification
 
 2.23.2 (2025-07-24)
 ^^^^^^^^^^^^^^^^^^^

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-appconfiguration-provider
-Version: 2.1.0
+Version: 2.2.0
 Summary: Microsoft App Configuration Provider Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/appconfiguration/azure-appconfiguration-provider
 Author: Microsoft Corporation
@@ -24,6 +24,18 @@ Requires-Dist: azure-core>=1.30.0
 Requires-Dist: azure-appconfiguration>=1.6.1
 Requires-Dist: azure-keyvault-secrets>=4.3.0
 Requires-Dist: dnspython>=2.6.1
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Azure App Configuration Python Provider client library for Python
 
@@ -273,11 +285,24 @@ additional questions or comments.
 
 # Release History
 
+## 2.2.0 (2025-08-08)
+
+### Features Added
+
+- Added `tag_filters` in `SettingSelector` to filter settings by tags.
+- Added support for JSON comments in the `load` method, when a configuration setting has the json content type.
+
 ## 2.1.0 (2025-04-28)
 
 ### Features Added
 
 * Added AllocationId to the feature flag telemetry metadata when the feature flag has telemetry enabled.
+
+## 2.0.2 (2025-04-17)
+
+### Other Changes
+
+* Updates telemetry for JSON usage.
 
 ## 2.1.0b1 (2025-04-10)
 
@@ -285,12 +310,6 @@ additional questions or comments.
 
 * Updates the feature flag telemetry to use the provided endpoint instead of the endpoint of the store the feature flag was loaded from.
 * Removes FeatureFlagId from feature flag telemetry.
-
-## 2.0.2 (2025-04-17)
-
-### Other Changes
-
-* Updates telemetry for JSON usage.
 
 ## 2.0.1 (2025-03-07)
 

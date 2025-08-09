@@ -22,17 +22,21 @@ from typing_extensions import Self
 
 class ListUpdatedAccounts(BaseModel):
     """
-    Request parameters for listing accounts that have been updated since a given date
+    Request parameters for listing updated accounts with delta query support.  This model extends the Delta model to provide both traditional date-based filtering and efficient delta cursor-based incremental synchronization.  ## Parameter Priority  When both `delta_cursor` and `since_date` are provided: - The `delta_cursor` takes precedence for delta-based synchronization - The `since_date` is ignored in favor of the cursor's timestamp  ## Best Practices  - Use `delta_cursor` for ongoing synchronization to minimize data transfer - Use `since_date` for initial syncs or when resuming after a long gap - Include only necessary `custom_attributes` to optimize response size - Store the returned `delta_cursor` persistently for reliable sync state  ## Error Scenarios  - **Invalid Delta Cursor**: May return an error or fall back to full data fetch - **Expired Cursor**: Connector may return all data since the cursor's timestamp - **Unsupported Attributes**: Custom attributes not available in the connector may be ignored or cause errors depending on the connector implementation
     """
 
     since_date: datetime = Field(
-        description='Only include accounts that have been updated since this date.  Must be a valid ISO 8601 datetime string with timezone information. Examples: "2024-01-15T10:30:00Z", "2024-01-15T10:30:00+05:00"  This is a "best effort" on a per-connector basis, each connector could limit how far in the past they can go.'
+        description='Only include accounts updated since this specific date and time.  This parameter defines the cutoff point for account updates. Only accounts that have been modified since this timestamp will be included in the response.  ## Format Requirements  Must be a valid ISO 8601 datetime string with timezone information: - **UTC**: "2024-01-15T10:30:00Z" - **With Offset**: "2024-01-15T10:30:00+05:00" - **With Timezone**: "2024-01-15T10:30:00-08:00"  ## Connector Limitations  Each connector may have different limitations on how far back in time they can reliably track updates: - Some connectors may limit to 30 days - Others may support up to 1 year - Enterprise connectors might support longer periods  ## Usage Guidelines  - Use for initial synchronization or when resuming after a long gap - Consider the connector\'s data retention policies when setting this value - For ongoing syncs, prefer using `delta_cursor` instead'
+    )
+    delta_cursor: Optional[StrictStr] = Field(
+        default=None,
+        description="Cursor token for delta synchronization.  This token represents a point in time and should be included in subsequent requests to receive only the changes that occurred since that point.  - **First request**: Omit this parameter to get all available data - **Subsequent requests**: Include the `delta_cursor` from the previous response  The cursor is typically a base64-encoded string containing timestamp and other metadata needed for the delta synchronization.",
     )
     custom_attributes: Optional[List[StrictStr]] = Field(
         default=None,
-        description="Optional array of custom attribute names to include in the account data. Each string in this array represents a specific custom attribute to retrieve.",
+        description="Optional array of custom attribute names to include in account data.  This parameter allows you to specify which additional account attributes should be included in the response beyond the standard account information.  ## Attribute Availability  Available attributes vary by connector and may include: - **User Profile**: department, title, manager, location - **Organizational**: cost_center, employee_id, hire_date - **Custom Fields**: custom_1, custom_2, custom_role - **System-Specific**: salesforce_user_type, okta_group_membership  ## Performance Considerations  - Requesting many custom attributes may increase response time - Some attributes may require additional API calls by the connector - Unsupported attributes are typically ignored rather than causing errors  ## Best Practices  - Only request attributes you actually need - Test with small attribute lists first - Consider the connector's rate limits when requesting many attributes - Cache attribute availability information when possible",
     )
-    __properties: ClassVar[List[str]] = ["since_date", "custom_attributes"]
+    __properties: ClassVar[List[str]] = ["since_date", "delta_cursor", "custom_attributes"]
     model_config = ConfigDict(
         populate_by_name=True,
         validate_assignment=True,
@@ -75,6 +79,10 @@ class ListUpdatedAccounts(BaseModel):
         if not isinstance(obj, dict):
             return cls.model_validate(obj)
         _obj = cls.model_validate(
-            {"since_date": obj.get("since_date"), "custom_attributes": obj.get("custom_attributes")}
+            {
+                "since_date": obj.get("since_date"),
+                "delta_cursor": obj.get("delta_cursor"),
+                "custom_attributes": obj.get("custom_attributes"),
+            }
         )
         return _obj

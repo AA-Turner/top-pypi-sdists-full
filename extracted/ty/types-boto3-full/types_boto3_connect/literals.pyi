@@ -39,6 +39,7 @@ __all__ = (
     "ContactFlowStatusType",
     "ContactFlowTypeType",
     "ContactInitiationMethodType",
+    "ContactMetricNameType",
     "ContactRecordingTypeType",
     "ContactStateType",
     "CurrentMetricNameType",
@@ -269,6 +270,7 @@ ContactInitiationMethodType = Literal[
     "TRANSFER",
     "WEBRTC_API",
 ]
+ContactMetricNameType = Literal["POSITION_IN_QUEUE"]
 ContactRecordingTypeType = Literal["AGENT", "IVR", "SCREEN"]
 ContactStateType = Literal[
     "CONNECTED",

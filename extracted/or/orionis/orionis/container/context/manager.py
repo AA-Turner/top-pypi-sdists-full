@@ -2,33 +2,41 @@ from orionis.container.context.scope import ScopedContext
 
 class ScopeManager:
     """
-    A context manager to manage scoped lifetimes in the container.
+    Manages scoped lifetimes for instances within a container context.
+
+    This class acts as a context manager to handle the storage, retrieval,
+    and cleanup of instances associated with a specific scope. It provides
+    dictionary-like access to instances and ensures proper scope activation
+    and cleanup when used in a context.
     """
+
     def __init__(self):
         """
-        Initialize a new ScopeManager with an empty instances dictionary.
+        Initialize the ScopeManager.
+
+        Initializes an empty dictionary to store scoped instances.
         """
         self._instances = {}
 
     def __getitem__(self, key):
         """
-        Get an instance by key.
+        Retrieve an instance associated with the given key.
 
         Parameters
         ----------
         key : hashable
-            The key of the instance to retrieve.
+            The key identifying the instance.
 
         Returns
         -------
         object or None
-            The instance associated with the key or None if not found.
+            The instance associated with the key, or None if not found.
         """
         return self._instances.get(key)
 
     def __setitem__(self, key, value):
         """
-        Store an instance by key.
+        Store an instance under the specified key.
 
         Parameters
         ----------
@@ -41,12 +49,12 @@ class ScopeManager:
 
     def __contains__(self, key):
         """
-        Check if a key exists in this scope.
+        Check if an instance exists for the given key.
 
         Parameters
         ----------
         key : hashable
-            The key to check.
+            The key to check for existence.
 
         Returns
         -------
@@ -57,38 +65,40 @@ class ScopeManager:
 
     def clear(self):
         """
-        Clear all instances from this scope.
+        Remove all instances from the current scope.
+
+        Clears the internal dictionary of all stored instances.
         """
         self._instances.clear()
 
     def __enter__(self):
         """
-        Enter the scope context.
+        Activate this scope as the current context.
 
-        Sets this scope as the current active scope.
+        Sets this ScopeManager as the active scope in ScopedContext.
 
         Returns
         -------
         ScopeManager
-            This scope manager instance.
+            The current ScopeManager instance.
         """
         ScopedContext.setCurrentScope(self)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
-        Exit the scope context.
+        Deactivate the current scope and perform cleanup.
 
-        Clears this scope and the active scope reference.
+        Clears all stored instances and resets the active scope in ScopedContext.
 
         Parameters
         ----------
         exc_type : type or None
-            The exception type if an exception was raised, None otherwise.
+            The exception type if an exception was raised, otherwise None.
         exc_val : Exception or None
-            The exception instance if an exception was raised, None otherwise.
+            The exception instance if an exception was raised, otherwise None.
         exc_tb : traceback or None
-            The exception traceback if an exception was raised, None otherwise.
+            The traceback if an exception was raised, otherwise None.
         """
         self.clear()
         ScopedContext.clear()

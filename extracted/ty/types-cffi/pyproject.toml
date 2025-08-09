@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-cffi"
-version = "1.17.0.20250805"
+version = "1.17.0.20250809"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for cffi"
@@ -27,8 +27,9 @@ directory.
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 1.16.1
 * [pyright](https://github.com/microsoft/pyright) 1.1.403
+
 It was generated from typeshed commit
-[`084742b431aadc6f368313971a39b5dab5623e47`](https://github.com/python/typeshed/commit/084742b431aadc6f368313971a39b5dab5623e47).
+[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -45,5 +46,5 @@ dependencies = ['types-setuptools']
 "Chat" = "https://gitter.im/python/typing"
 
 [tool.setuptools]
-packages = ['cffi-stubs', '_cffi_backend-stubs']
+packages = ['_cffi_backend-stubs', 'cffi-stubs']
 include-package-data = false

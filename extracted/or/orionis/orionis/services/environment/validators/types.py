@@ -1,4 +1,3 @@
-import re
 from typing import Union
 from orionis.services.environment.enums.value_type import EnvironmentValueType
 from orionis.services.environment.exceptions.value import OrionisEnvironmentValueError
@@ -6,7 +5,26 @@ from orionis.services.environment.exceptions.value import OrionisEnvironmentValu
 class __ValidateTypes:
 
     def __call__(self, value: Union[str, int, float, bool, list, dict, tuple, set], type_hint: str | EnvironmentValueType = None) -> str:
+        """
+        Validates and determines the type of a given value, optionally using a provided type hint.
 
+        Parameters
+        ----------
+        value : str, int, float, bool, list, dict, tuple, or set
+            The value whose type is to be validated and determined.
+        type_hint : str or EnvironmentValueType, optional
+            An optional type hint specifying the expected type. Can be a string or an EnvironmentValueType.
+
+        Returns
+        -------
+        str
+            The determined type as a string, either from the type hint or inferred from the value.
+
+        Raises
+        ------
+        OrionisEnvironmentValueError
+            If the value is not of a supported type or if the type hint is invalid.
+        """
         # Ensure the value is a valid type.
         if not isinstance(value, (str, int, float, bool, list, dict, tuple, set)):
             raise OrionisEnvironmentValueError(
@@ -23,15 +41,17 @@ class __ValidateTypes:
         if type_hint:
 
             # If type_hint is a string, convert it to EnvironmentValueType if valid.
-            if isinstance(type_hint, str):
-                try:
+            try:
+                if isinstance(type_hint, str):
                     type_hint = EnvironmentValueType[type_hint.upper()].value
-                except KeyError:
-                    raise OrionisEnvironmentValueError(
-                        f"Invalid type hint: {type_hint}. Allowed types are: {[e.value for e in EnvironmentValueType]}"
-                    )
-            elif isinstance(type_hint, EnvironmentValueType):
-                type_hint = type_hint.value
+                elif isinstance(type_hint, EnvironmentValueType):
+                    type_hint = type_hint.value
+
+            # If type_hint is not a valid EnvironmentValueType, raise an error.
+            except KeyError:
+                raise OrionisEnvironmentValueError(
+                    f"Invalid type hint: {type_hint}. Allowed types are: {[e.value for e in EnvironmentValueType]}"
+                )
 
         # If no type hint is provided, use the type of the value.
         else:

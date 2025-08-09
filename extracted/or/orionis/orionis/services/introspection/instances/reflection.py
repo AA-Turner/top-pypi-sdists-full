@@ -524,6 +524,7 @@ class ReflectionInstance(IReflectionInstance):
         ReflectionAttributeError
             If the attribute is not callable or already exists as a method
         """
+
         # Ensure the name is a valid method name with regular expression
         if not isinstance(name, str) or not name.isidentifier() or keyword.iskeyword(name):
             raise ReflectionAttributeError(f"Invalid method name '{name}'. Must be a valid Python identifier and not a keyword.")
@@ -577,8 +578,12 @@ class ReflectionInstance(IReflectionInstance):
         ReflectionAttributeError
             If the method does not exist or is not callable
         """
+
+        # Handle private method name mangling
         if not self.hasMethod(name):
             raise ReflectionAttributeError(f"Method '{name}' does not exist on '{self.getClassName()}'.")
+
+        # Delete the method from the instance's class
         delattr(self._instance.__class__, name)
 
     def getMethodSignature(self, name: str) -> inspect.Signature:
@@ -1558,16 +1563,21 @@ class ReflectionInstance(IReflectionInstance):
 
     def getConstructorDependencies(self) -> ClassDependency:
         """
-        Get the resolved and unresolved dependencies from the constructor of the instance's class.
-
-
+        Retrieves the resolved and unresolved dependencies from the constructor (__init__) of the instance's class.
 
         Returns
         -------
         ClassDependency
-            A structured representation of the constructor dependencies, containing:
-            - resolved: Dictionary of resolved dependencies with their names and values.
-            - unresolved: List of unresolved dependencies (parameter names without default values or annotations).
+            An object representing the constructor dependencies, including:
+            - resolved : dict
+                Dictionary of resolved dependencies with their names and values.
+            - unresolved : list
+                List of unresolved dependencies (parameter names without default values or annotations).
+
+        Notes
+        -----
+        This method uses the ReflectDependencies utility to analyze the constructor of the class
+        associated with the current instance and extract its dependencies.
         """
         return ReflectDependencies(self._instance.__class__).getConstructorDependencies()
 

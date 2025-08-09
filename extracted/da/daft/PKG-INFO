@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daft
-Version: 0.5.17
+Version: 0.5.18
 Requires-Dist: pyarrow>=8.0.0
 Requires-Dist: fsspec
 Requires-Dist: tqdm
@@ -51,7 +51,7 @@ Author-email: Eventual Inc <daft@eventualcomputing.com>
 Maintainer-email: Sammy Sidhu <sammy@eventualcomputing.com>, Jay Chia <jay@eventualcomputing.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst; charset=UTF-8
-Project-URL: homepage, https://www.getdaft.io
+Project-URL: homepage, https://www.daft.ai
 Project-URL: repository, https://github.com/Eventual-Inc/Daft
 
 |Banner|

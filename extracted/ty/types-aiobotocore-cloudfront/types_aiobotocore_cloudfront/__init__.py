@@ -25,6 +25,7 @@ Usage::
         ListInvalidationsForDistributionTenantPaginator,
         ListInvalidationsPaginator,
         ListKeyValueStoresPaginator,
+        ListOriginAccessControlsPaginator,
         ListPublicKeysPaginator,
         ListStreamingDistributionsPaginator,
         StreamingDistributionDeployedWaiter,
@@ -51,6 +52,7 @@ Usage::
     list_invalidations_for_distribution_tenant_paginator: ListInvalidationsForDistributionTenantPaginator = client.get_paginator("list_invalidations_for_distribution_tenant")
     list_invalidations_paginator: ListInvalidationsPaginator = client.get_paginator("list_invalidations")
     list_key_value_stores_paginator: ListKeyValueStoresPaginator = client.get_paginator("list_key_value_stores")
+    list_origin_access_controls_paginator: ListOriginAccessControlsPaginator = client.get_paginator("list_origin_access_controls")
     list_public_keys_paginator: ListPublicKeysPaginator = client.get_paginator("list_public_keys")
     list_streaming_distributions_paginator: ListStreamingDistributionsPaginator = client.get_paginator("list_streaming_distributions")
     ```
@@ -68,6 +70,7 @@ from .paginator import (
     ListInvalidationsForDistributionTenantPaginator,
     ListInvalidationsPaginator,
     ListKeyValueStoresPaginator,
+    ListOriginAccessControlsPaginator,
     ListPublicKeysPaginator,
     ListStreamingDistributionsPaginator,
 )
@@ -97,6 +100,7 @@ __all__ = (
     "ListInvalidationsForDistributionTenantPaginator",
     "ListInvalidationsPaginator",
     "ListKeyValueStoresPaginator",
+    "ListOriginAccessControlsPaginator",
     "ListPublicKeysPaginator",
     "ListStreamingDistributionsPaginator",
     "StreamingDistributionDeployedWaiter",

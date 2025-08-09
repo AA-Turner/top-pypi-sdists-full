@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-aiobotocore-full",
-    version="2.23.2",
+    version="2.24.0",
     packages=[
         "types_aiobotocore_accessanalyzer",
         "types_aiobotocore_account",
@@ -431,7 +431,7 @@ setup(
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="All-in-one type annotations for aiobotocore 2.23.2 generated with mypy-boto3-builder 8.11.0",
+    description="All-in-one type annotations for aiobotocore 2.24.0 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

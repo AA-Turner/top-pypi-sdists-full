@@ -251,6 +251,7 @@ __all__ = (
     "ListTransformJobsPaginatorName",
     "ListTrialComponentsPaginatorName",
     "ListTrialsPaginatorName",
+    "ListUltraServersByReservedCapacityPaginatorName",
     "ListUserProfilesPaginatorName",
     "ListWorkforcesPaginatorName",
     "ListWorkforcesSortByOptionsType",
@@ -345,6 +346,7 @@ __all__ = (
     "RepositoryAccessModeType",
     "ReservedCapacityInstanceTypeType",
     "ReservedCapacityStatusType",
+    "ReservedCapacityTypeType",
     "ResourceCatalogSortByType",
     "ResourceCatalogSortOrderType",
     "ResourceServiceName",
@@ -423,6 +425,7 @@ __all__ = (
     "TransformJobStatusType",
     "TrialComponentPrimaryStatusType",
     "TtlDurationUnitType",
+    "UltraServerHealthStatusType",
     "UserProfileSortKeyType",
     "UserProfileStatusType",
     "VariantPropertyTypeType",
@@ -1344,6 +1347,7 @@ ListTrainingPlansPaginatorName = Literal["list_training_plans"]
 ListTransformJobsPaginatorName = Literal["list_transform_jobs"]
 ListTrialComponentsPaginatorName = Literal["list_trial_components"]
 ListTrialsPaginatorName = Literal["list_trials"]
+ListUltraServersByReservedCapacityPaginatorName = Literal["list_ultra_servers_by_reserved_capacity"]
 ListUserProfilesPaginatorName = Literal["list_user_profiles"]
 ListWorkforcesPaginatorName = Literal["list_workforces"]
 ListWorkforcesSortByOptionsType = Literal["CreateDate", "Name"]
@@ -1942,10 +1946,12 @@ ReservedCapacityInstanceTypeType = Literal[
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6e-gb200.36xlarge",
     "ml.trn1.32xlarge",
     "ml.trn2.48xlarge",
 ]
 ReservedCapacityStatusType = Literal["Active", "Expired", "Failed", "Pending", "Scheduled"]
+ReservedCapacityTypeType = Literal["Instance", "UltraServer"]
 ResourceCatalogSortByType = Literal["CreationTime"]
 ResourceCatalogSortOrderType = Literal["Ascending", "Descending"]
 ResourceSharingStrategyType = Literal["DontLend", "Lend", "LendAndBorrow"]
@@ -2235,6 +2241,7 @@ TrainingInstanceTypeType = Literal[
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
     "ml.p6-b200.48xlarge",
+    "ml.p6e-gb200.36xlarge",
     "ml.r5.12xlarge",
     "ml.r5.16xlarge",
     "ml.r5.24xlarge",
@@ -2388,6 +2395,7 @@ TrialComponentPrimaryStatusType = Literal[
     "Completed", "Failed", "InProgress", "Stopped", "Stopping"
 ]
 TtlDurationUnitType = Literal["Days", "Hours", "Minutes", "Seconds", "Weeks"]
+UltraServerHealthStatusType = Literal["Impaired", "Insufficient-Data", "OK"]
 UserProfileSortKeyType = Literal["CreationTime", "LastModifiedTime"]
 UserProfileStatusType = Literal[
     "Delete_Failed", "Deleting", "Failed", "InService", "Pending", "Update_Failed", "Updating"
@@ -2905,6 +2913,7 @@ PaginatorName = Literal[
     "list_transform_jobs",
     "list_trial_components",
     "list_trials",
+    "list_ultra_servers_by_reserved_capacity",
     "list_user_profiles",
     "list_workforces",
     "list_workteams",

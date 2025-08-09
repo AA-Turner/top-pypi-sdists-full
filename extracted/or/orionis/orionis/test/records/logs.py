@@ -12,24 +12,18 @@ class TestLogs(ITestLogs):
         storage_path: str
     ) -> None:
         """
-        Initialize a new instance of the TestLogs class, configuring the SQLite database path and connection.
-
-        This constructor sets up the database file and table names, ensures the storage directory exists,
-        and prepares the absolute path for the SQLite database file. The database connection is initialized
-        as None and will be established when needed.
+        Initialize the TestLogs instance, setting up the SQLite database path and connection.
 
         Parameters
         ----------
         storage_path : str
-            The directory path where the SQLite database file ('tests.sqlite') will be stored. If the directory
-            does not exist, it will be created automatically.
+            Directory path where the SQLite database file ('tests.sqlite') will be stored. The directory
+            will be created if it does not exist.
 
         Returns
         -------
         None
-            This method does not return a value.
         """
-
         # Set the database file and table names
         self.__db_name = 'tests.sqlite'
         self.__table_name = 'reports'
@@ -51,11 +45,7 @@ class TestLogs(ITestLogs):
         self
     ) -> None:
         """
-        Establishes a connection to the SQLite database if not already connected.
-
-        This method checks if a database connection is already established. If not, it attempts to create a new
-        SQLite connection using the absolute path specified during initialization. If the connection attempt fails,
-        it raises an OrionisTestPersistenceError with the error details.
+        Establish a connection to the SQLite database if not already connected.
 
         Raises
         ------
@@ -65,10 +55,7 @@ class TestLogs(ITestLogs):
         Returns
         -------
         None
-            This method does not return a value. It sets the self._conn attribute to an active SQLite connection
-            if successful, or raises an exception if the connection fails.
         """
-
         # Only connect if there is no existing connection
         if self._conn is None:
 
@@ -96,26 +83,18 @@ class TestLogs(ITestLogs):
         self
     ) -> bool:
         """
-        Ensures the existence of the test history table in the SQLite database.
-
-        This method establishes a connection to the database and attempts to create the table
-        specified by `self.__table_name` with the required schema if it does not already exist.
-        The table includes columns for the report JSON, test statistics, and a timestamp.
-        If a database error occurs during table creation, the transaction is rolled back and
-        an OrionisTestPersistenceError is raised.
-
-        Raises
-        ------
-        OrionisTestPersistenceError
-            If the table creation fails due to a database error.
+        Ensure the reports table exists in the SQLite database.
 
         Returns
         -------
         bool
-            Returns True if the table was created successfully or already exists.
-            Returns False only if an unexpected error occurs (which will typically raise an exception).
-        """
+            True if the table was created or already exists.
 
+        Raises
+        ------
+        OrionisTestPersistenceError
+            If table creation fails due to a database error.
+        """
         # Establish a connection to the database
         self.__connect()
 
@@ -167,24 +146,18 @@ class TestLogs(ITestLogs):
         report: Dict
     ) -> bool:
         """
-        Inserts a test report into the history database table.
-
-        This method validates the provided report dictionary to ensure all required fields are present,
-        serializes the report as JSON, and inserts it into the database table. If any required field is missing,
-        or if a database error occurs during insertion, an appropriate exception is raised.
+        Insert a test report into the reports table.
 
         Parameters
         ----------
-        report : Dict
-            A dictionary containing the report data. The dictionary must include the following keys:
-            - total_tests
-            - passed
-            - failed
-            - errors
-            - skipped
-            - total_time
-            - success_rate
-            - timestamp
+        report : dict
+            Dictionary containing the report data. Must include keys:
+            'total_tests', 'passed', 'failed', 'errors', 'skipped', 'total_time', 'success_rate', 'timestamp'.
+
+        Returns
+        -------
+        bool
+            True if the report was successfully inserted.
 
         Raises
         ------
@@ -192,14 +165,7 @@ class TestLogs(ITestLogs):
             If there is an error inserting the report into the database.
         OrionisTestValueError
             If required fields are missing from the report.
-
-        Returns
-        -------
-        bool
-            Returns True if the report was successfully inserted into the database.
-            Returns False only if an unexpected error occurs (which will typically raise an exception).
         """
-
         # List of required fields for the report
         fields = [
             "json", "total_tests", "passed", "failed", "errors",
@@ -267,26 +233,19 @@ class TestLogs(ITestLogs):
         last: Optional[int] = None
     ) -> List[Tuple]:
         """
-        Retrieves a specified number of report records from the database, ordered by their ID.
-
-        This method allows fetching either the earliest or latest test reports from the database,
-        depending on the parameters provided. If `first` is specified, it retrieves the earliest
-        reports in ascending order by ID. If `last` is specified, it retrieves the latest reports
-        in descending order by ID. Only one of `first` or `last` can be provided at a time.
+        Retrieve a specified number of report records from the database.
 
         Parameters
         ----------
-        first : Optional[int], default=None
-            The number of earliest reports to retrieve, ordered ascending by ID.
-        last : Optional[int], default=None
-            The number of latest reports to retrieve, ordered descending by ID.
+        first : int or None, optional
+            Number of earliest reports to retrieve, ordered by ascending ID.
+        last : int or None, optional
+            Number of latest reports to retrieve, ordered by descending ID.
 
         Returns
         -------
-        List[Tuple]
-            A list of tuples, where each tuple represents a report record retrieved from the database.
-            Each tuple contains all columns from the reports table, including the serialized JSON report
-            and associated statistics.
+        list of tuple
+            List of tuples representing report records.
 
         Raises
         ------
@@ -295,7 +254,6 @@ class TestLogs(ITestLogs):
         OrionisTestPersistenceError
             If there is an error retrieving reports from the database.
         """
-
         # Ensure that only one of 'first' or 'last' is specified
         if first is not None and last is not None:
             raise OrionisTestValueError(
@@ -350,24 +308,18 @@ class TestLogs(ITestLogs):
         self
     ) -> bool:
         """
-        Drops the reports table from the SQLite database, effectively resetting the test history.
+        Drop the reports table from the SQLite database.
 
-        This method establishes a connection to the database and attempts to drop the table specified
-        by `self.__table_name` if it exists. After dropping the table, it commits the changes and closes
-        the connection. If an error occurs during the operation, an OrionisTestPersistenceError is raised.
+        Returns
+        -------
+        bool
+            True if the table was successfully dropped or did not exist.
 
         Raises
         ------
         OrionisTestPersistenceError
             If an SQLite error occurs while attempting to drop the table.
-
-        Returns
-        -------
-        bool
-            Returns True if the table was successfully dropped or did not exist.
-            Returns False only if an unexpected error occurs (which will typically raise an exception).
         """
-
         # Establish a connection to the database
         self.__connect()
 
@@ -399,18 +351,12 @@ class TestLogs(ITestLogs):
         self
     ) -> None:
         """
-        Closes the active SQLite database connection if it exists.
-
-        This method checks whether a database connection is currently open. If so, it closes the connection
-        to release any associated resources and sets the connection attribute to None to indicate that
-        there is no active connection.
+        Close the active SQLite database connection if it exists.
 
         Returns
         -------
         None
-            This method does not return a value. It ensures that the database connection is properly closed.
         """
-
         # If a database connection exists, close it and set the connection attribute to None
         if self._conn:
             self._conn.close()
@@ -421,25 +367,25 @@ class TestLogs(ITestLogs):
         report: Dict
     ) -> bool:
         """
-        Inserts a new test report into the history database after ensuring the reports table exists.
-
-        This method first checks for the existence of the reports table in the SQLite database,
-        creating it if necessary. It then attempts to insert the provided report dictionary into
-        the table. The report must contain all required fields as defined by the schema.
+        Insert a new test report into the database after ensuring the reports table exists.
 
         Parameters
         ----------
-        report : Dict
-            A dictionary containing the test report data. The dictionary must include all required
-            fields such as total_tests, passed, failed, errors, skipped, total_time, success_rate, and timestamp.
+        report : dict
+            Dictionary containing the test report data. Must include all required fields.
 
         Returns
         -------
         bool
-            Returns True if the report was successfully inserted into the database.
-            Raises an exception if the operation fails due to missing fields or database errors.
-        """
+            True if the report was successfully inserted.
 
+        Raises
+        ------
+        OrionisTestPersistenceError
+            If the operation fails due to database errors.
+        OrionisTestValueError
+            If required fields are missing from the report.
+        """
         # Ensure the reports table exists before inserting the report
         self.__createTableIfNotExists()
 
@@ -450,20 +396,18 @@ class TestLogs(ITestLogs):
         self
     ) -> bool:
         """
-        Drops the reports table from the SQLite database, effectively clearing all test history records.
-
-        This method establishes a connection to the database and attempts to drop the table specified
-        by `self.__table_name` if it exists. This operation removes all stored test reports, resetting
-        the database to an empty state. If the table does not exist, the method completes without error.
-        If an error occurs during the operation, an OrionisTestPersistenceError is raised.
+        Drop the reports table from the SQLite database, clearing all test history records.
 
         Returns
         -------
         bool
-            Returns True if the reports table was successfully dropped or did not exist.
-            Raises an exception if the operation fails due to a database error.
-        """
+            True if the reports table was successfully dropped or did not exist.
 
+        Raises
+        ------
+        OrionisTestPersistenceError
+            If the operation fails due to a database error.
+        """
         # Attempt to drop the reports table and reset the database
         return self.__resetDatabase()
 
@@ -473,26 +417,19 @@ class TestLogs(ITestLogs):
         last: Optional[int] = None
     ) -> List[Tuple]:
         """
-        Retrieves test reports from the history database based on the specified parameters.
-
-        This method allows fetching either the earliest or latest test reports from the database.
-        If `first` is provided, it retrieves the earliest reports in ascending order by ID.
-        If `last` is provided, it retrieves the latest reports in descending order by ID.
-        Only one of `first` or `last` can be specified at a time; providing both will result in an error.
+        Retrieve test reports from the database.
 
         Parameters
         ----------
-        first : Optional[int], default=None
-            The number of earliest reports to retrieve, ordered ascending by ID.
-        last : Optional[int], default=None
-            The number of latest reports to retrieve, ordered descending by ID.
+        first : int or None, optional
+            Number of earliest reports to retrieve, ordered by ascending ID.
+        last : int or None, optional
+            Number of latest reports to retrieve, ordered by descending ID.
 
         Returns
         -------
-        List[Tuple]
-            A list of tuples, where each tuple represents a report record retrieved from the database.
-            Each tuple contains all columns from the reports table, including the serialized JSON report
-            and associated statistics.
+        list of tuple
+            List of tuples representing report records.
 
         Raises
         ------
@@ -501,6 +438,5 @@ class TestLogs(ITestLogs):
         OrionisTestPersistenceError
             If there is an error retrieving reports from the database.
         """
-
         # Delegate the retrieval logic to the internal __getReports method
         return self.__getReports(first, last)

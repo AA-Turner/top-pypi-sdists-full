@@ -1,6 +1,6 @@
 [project]
 name = "aleph-alpha-client"
-version = "11.0.0"
+version = "11.1.0"
 description = "python client to interact with Aleph Alpha api endpoints"
 authors = [{ name = "Aleph Alpha", email = "support@aleph-alpha.com" }]
 requires-python = ">=3.9,<3.14"
@@ -16,7 +16,7 @@ dependencies = [
     "typing-extensions>=4.5.0",
     "Pillow>=9.2.0",
     "tqdm>=4.62.0",
-    "python-liquid>=1.9.4",
+    "python-liquid>=1.9.4,!=2.0.2",
     "packaging>=23.2",
 ]
 

@@ -43,10 +43,15 @@ You can run `-h` in every level of the command to get help. E.g. `tb -h`, `tb da
 When you need to access Tinybird Cloud, add the `--cloud` flag. E.g. `tb --cloud datasource ls`.
 Available commands:
 {available_commands}
-IMPORTANT: Do NOT use any command that is not in the list above. 
-IMPORTANT: If you don't have the proper command to solve the task, just answer that you cannot solve the task.
 Token and host are not required to add to the commands.
 Always run first help commands to be sure that the commands you are running is not interactive.
+IMPORTANT: Do NOT use any command that is not in the list above. 
+IMPORTANT: If you are asked to run a command that is not in the list above, return that you are not able to run that command and needs to use the Tinybird CLI manually and that user should run `tb --help` to get the list of available commands.
+IMPORTANT: If you are not able to run a command, do not recommend any command to be run by the user. Just `tb --help` to get the list of available commands.
+<example_command_not_found>
+User: switch to another workspace
+Assistant: I'm sorry, but I cannot switch to another workspace. You can use the Tinybird CLI to switch workspaces. Run `tb --help` to get the list of available commands.
+</example_command_not_found>
 """,
             ],
             tools=[

@@ -872,6 +872,46 @@ IMPORTANT: Every time you finish a plan and start a new resource creation or upd
 {datasource_instructions}
 {datasource_example}
 
+## Updating a datasource schema already deployed in Cloud
+If you make changes to a .datasource file that are incompatible with the Cloud version, you must use a forward query to transform the data from the cloud schema to the new one. Otherwise, your deployment fails due to a schema mismatch.
+The `FORWARD_QUERY` instruction is a SELECT query executed on the cloud data source. 
+The query must include the column selection part of the query. 
+`FROM` and `WHERE` clauses aren't supported.
+
+<example_datasource_file_with_forward_query>
+DESCRIPTION >
+    Analytics events landing data source
+
+SCHEMA >
+    `timestamp` DateTime `json:$.timestamp`,
+    `session_id` UUID `json:$.session_id`,
+    `action` String `json:$.action`,
+    `version` String `json:$.version`,
+    `payload` String `json:$.payload`
+
+ENGINE "MergeTree"
+ENGINE_PARTITION_KEY "toYYYYMM(timestamp)"
+ENGINE_SORTING_KEY "timestamp"
+ENGINE_TTL "timestamp + toIntervalDay(60)"
+
+FORWARD_QUERY >
+    SELECT timestamp, CAST(session_id, 'UUID') as session_id, action, version, payload
+</example_datasource_file_with_forward_query>
+
+Tinybird runs a backfill to migrate the data to the new schema. These backfills are logged in `tinybird.datasources_ops_log` with the `event_type` set to `deployment_backfill`.
+If the existing data is incompatible with the schema change, the staging deployment fails and is discarded. For example, if you change a data type from String to UUID, but the existing da
+If you're willing to accept data loss or default values for incompatible records, you can make the deployment succeed by using the accurateCastOrDefault function in your forward query:
+
+```
+FORWARD_QUERY >
+    SELECT timestamp, accurateCastOrDefault(session_id, 'UUID') as session_id, action, version, payload
+```
+After changes have been deployed and promoted, if you want to deploy other changes that don't affect that data source, you can remove the forward query.
+
+<dev_notes>
+If after running a deployment, the error contains a recommended forward query, use it to update the .datasource file.
+</dev_notes>
+
 # Working with any type of pipe file:
 {pipe_instructions}
 {pipe_example}
@@ -930,6 +970,7 @@ They can be run on a schedule, or executed on demand.
 - Use append if user explicitly asks for it
 - Do not append data if user requests to test an endpoint or call an endpoint.
 - Do not append data as consequence of an empty response from the endpoint or a query.
+- If the external url provided is not valid or the format is not supported, tell the user to provide a valid remote file url.
 
 # How to use `mock` tool:
 - Use `mock` tool as part of the creation of a new landing datasource if the user did not provided a file or an external url

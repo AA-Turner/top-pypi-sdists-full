@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: llama-index-retrievers-bm25
-Version: 0.6.1
+Version: 0.6.2
 Summary: llama-index retrievers bm25 integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <4.0,>=3.9
 Requires-Dist: bm25s>=0.2.7.post1
-Requires-Dist: llama-index-core<0.14,>=0.13.0
+Requires-Dist: llama-index-core<0.14,>=0.13.1
 Requires-Dist: pystemmer<3,>=2.2.0.1
 Description-Content-Type: text/markdown
 

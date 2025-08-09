@@ -50,10 +50,12 @@ from whenever import (
     ZonedDateTime,
 )
 
-from utilities.functions import ensure_int, ensure_str
+from utilities.functions import ensure_int, ensure_str, max_nullable, min_nullable
 from utilities.math import (
     MAX_FLOAT32,
     MAX_FLOAT64,
+    MAX_INT8,
+    MAX_INT16,
     MAX_INT32,
     MAX_INT64,
     MAX_UINT8,
@@ -62,6 +64,8 @@ from utilities.math import (
     MAX_UINT64,
     MIN_FLOAT32,
     MIN_FLOAT64,
+    MIN_INT8,
+    MIN_INT16,
     MIN_INT32,
     MIN_INT64,
     MIN_UINT8,
@@ -90,6 +94,9 @@ from utilities.whenever import (
     DAY,
     TIME_DELTA_MAX,
     TIME_DELTA_MIN,
+    DatePeriod,
+    TimePeriod,
+    ZonedDateTimePeriod,
     to_date_time_delta,
     to_days,
     to_nanoseconds,
@@ -202,6 +209,26 @@ def date_deltas(
 
 
 @composite
+def date_periods(
+    draw: DrawFn,
+    /,
+    *,
+    min_value: MaybeSearchStrategy[Date | None] = None,
+    max_value: MaybeSearchStrategy[Date | None] = None,
+    two_digit: MaybeSearchStrategy[bool] = False,
+) -> DatePeriod:
+    """Strategy for generating date periods."""
+    min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
+    two_digit_ = draw2(draw, two_digit)
+    strategy = dates(min_value=min_value_, max_value=max_value_, two_digit=two_digit_)
+    start, end = draw(pairs(strategy, sorted=True))
+    return DatePeriod(start, end)
+
+
+##
+
+
+@composite
 def date_time_deltas(
     draw: DrawFn,
     /,
@@ -209,6 +236,7 @@ def date_time_deltas(
     min_value: MaybeSearchStrategy[DateTimeDelta | None] = None,
     max_value: MaybeSearchStrategy[DateTimeDelta | None] = None,
     parsable: MaybeSearchStrategy[bool] = False,
+    nativable: MaybeSearchStrategy[bool] = False,
 ) -> DateTimeDelta:
     """Strategy for generating date deltas."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
@@ -230,7 +258,13 @@ def date_time_deltas(
     if draw2(draw, parsable):
         min_nanos = max(min_nanos, to_nanoseconds(DATE_TIME_DELTA_PARSABLE_MIN))
         max_nanos = min(max_nanos, to_nanoseconds(DATE_TIME_DELTA_PARSABLE_MAX))
-    nanos = draw(integers(min_value=min_nanos, max_value=max_nanos))
+    if draw2(draw, nativable):
+        min_micros, _ = divmod(min_nanos, 1000)
+        max_micros, _ = divmod(max_nanos, 1000)
+        micros = draw(integers(min_value=min_micros + 1, max_value=max_micros))
+        nanos = 1000 * micros
+    else:
+        nanos = draw(integers(min_value=min_nanos, max_value=max_nanos))
     return to_date_time_delta(nanos)
 
 
@@ -373,13 +407,13 @@ def float32s(
     draw: DrawFn,
     /,
     *,
-    min_value: MaybeSearchStrategy[float] = MIN_FLOAT32,
-    max_value: MaybeSearchStrategy[float] = MAX_FLOAT32,
+    min_value: MaybeSearchStrategy[float | None] = None,
+    max_value: MaybeSearchStrategy[float | None] = None,
 ) -> float:
     """Strategy for generating float32s."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
-    min_value_ = max(min_value_, MIN_FLOAT32)
-    max_value_ = min(max_value_, MAX_FLOAT32)
+    min_value_ = max_nullable([min_value_, MIN_FLOAT32])
+    max_value_ = min_nullable([max_value_, MAX_FLOAT32])
     if is_zero(min_value_) and is_zero(max_value_):
         min_value_ = max_value_ = 0.0
     return draw(floats(min_value_, max_value_, width=32))
@@ -390,13 +424,13 @@ def float64s(
     draw: DrawFn,
     /,
     *,
-    min_value: MaybeSearchStrategy[float] = MIN_FLOAT64,
-    max_value: MaybeSearchStrategy[float] = MAX_FLOAT64,
+    min_value: MaybeSearchStrategy[float | None] = None,
+    max_value: MaybeSearchStrategy[float | None] = None,
 ) -> float:
     """Strategy for generating float64s."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
-    min_value_ = max(min_value_, MIN_FLOAT64)
-    max_value_ = min(max_value_, MAX_FLOAT64)
+    min_value_ = max_nullable([min_value_, MIN_FLOAT64])
+    max_value_ = min_nullable([max_value_, MAX_FLOAT64])
     if is_zero(min_value_) and is_zero(max_value_):
         min_value_ = max_value_ = 0.0
     return draw(floats(min_value_, max_value_, width=64))
@@ -602,17 +636,47 @@ def int_arrays(
 
 
 @composite
+def int8s(
+    draw: DrawFn,
+    /,
+    *,
+    min_value: MaybeSearchStrategy[int | None] = None,
+    max_value: MaybeSearchStrategy[int | None] = None,
+) -> int:
+    """Strategy for generating int8s."""
+    min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
+    min_value_ = max_nullable([min_value_, MIN_INT8])
+    max_value_ = min_nullable([max_value_, MAX_INT8])
+    return draw(integers(min_value=min_value_, max_value=max_value_))
+
+
+@composite
+def int16s(
+    draw: DrawFn,
+    /,
+    *,
+    min_value: MaybeSearchStrategy[int | None] = None,
+    max_value: MaybeSearchStrategy[int | None] = None,
+) -> int:
+    """Strategy for generating int16s."""
+    min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
+    min_value_ = max_nullable([min_value_, MIN_INT16])
+    max_value_ = min_nullable([max_value_, MAX_INT16])
+    return draw(integers(min_value=min_value_, max_value=max_value_))
+
+
+@composite
 def int32s(
     draw: DrawFn,
     /,
     *,
-    min_value: MaybeSearchStrategy[int] = MIN_INT32,
-    max_value: MaybeSearchStrategy[int] = MAX_INT32,
+    min_value: MaybeSearchStrategy[int | None] = None,
+    max_value: MaybeSearchStrategy[int | None] = None,
 ) -> int:
     """Strategy for generating int32s."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
-    min_value_ = max(min_value_, MIN_INT32)
-    max_value_ = min(max_value_, MAX_INT32)
+    min_value_ = max_nullable([min_value_, MIN_INT32])
+    max_value_ = min_nullable([max_value_, MAX_INT32])
     return draw(integers(min_value_, max_value_))
 
 
@@ -621,13 +685,13 @@ def int64s(
     draw: DrawFn,
     /,
     *,
-    min_value: MaybeSearchStrategy[int] = MIN_INT64,
-    max_value: MaybeSearchStrategy[int] = MAX_INT64,
+    min_value: MaybeSearchStrategy[int | None] = None,
+    max_value: MaybeSearchStrategy[int | None] = None,
 ) -> int:
     """Strategy for generating int64s."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
-    min_value_ = max(min_value_, MIN_INT64)
-    max_value_ = min(max_value_, MAX_INT64)
+    min_value_ = max_nullable([min_value_, MIN_INT64])
+    max_value_ = min_nullable([max_value_, MAX_INT64])
     return draw(integers(min_value_, max_value_))
 
 
@@ -780,7 +844,7 @@ def _path_parts(draw: DrawFn, /) -> str:
 
 
 @composite
-def plain_datetimes(
+def plain_date_times(
     draw: DrawFn,
     /,
     *,
@@ -1175,6 +1239,24 @@ def time_deltas(
 
 
 @composite
+def time_periods(
+    draw: DrawFn,
+    /,
+    *,
+    min_value: MaybeSearchStrategy[Time | None] = None,
+    max_value: MaybeSearchStrategy[Time | None] = None,
+) -> TimePeriod:
+    """Strategy for generating time periods."""
+    min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
+    strategy = times(min_value=min_value_, max_value=max_value_)
+    start, end = draw(pairs(strategy, sorted=True))
+    return TimePeriod(start, end)
+
+
+##
+
+
+@composite
 def times(
     draw: DrawFn,
     /,
@@ -1235,13 +1317,13 @@ def uint8s(
     draw: DrawFn,
     /,
     *,
-    min_value: MaybeSearchStrategy[int] = MIN_UINT8,
-    max_value: MaybeSearchStrategy[int] = MAX_UINT8,
+    min_value: MaybeSearchStrategy[int | None] = None,
+    max_value: MaybeSearchStrategy[int | None] = None,
 ) -> int:
     """Strategy for generating uint8s."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
-    min_value_ = max(min_value_, MIN_UINT8)
-    max_value_ = min(max_value_, MAX_UINT8)
+    min_value_ = max_nullable([min_value_, MIN_UINT8])
+    max_value_ = min_nullable([max_value_, MAX_UINT8])
     return draw(integers(min_value=min_value_, max_value=max_value_))
 
 
@@ -1250,13 +1332,13 @@ def uint16s(
     draw: DrawFn,
     /,
     *,
-    min_value: MaybeSearchStrategy[int] = MIN_UINT16,
-    max_value: MaybeSearchStrategy[int] = MAX_UINT16,
+    min_value: MaybeSearchStrategy[int | None] = None,
+    max_value: MaybeSearchStrategy[int | None] = None,
 ) -> int:
     """Strategy for generating uint16s."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
-    min_value_ = max(min_value_, MIN_UINT16)
-    max_value_ = min(max_value_, MAX_UINT16)
+    min_value_ = max_nullable([min_value_, MIN_UINT16])
+    max_value_ = min_nullable([max_value_, MAX_UINT16])
     return draw(integers(min_value=min_value_, max_value=max_value_))
 
 
@@ -1265,13 +1347,13 @@ def uint32s(
     draw: DrawFn,
     /,
     *,
-    min_value: MaybeSearchStrategy[int] = MIN_UINT32,
-    max_value: MaybeSearchStrategy[int] = MAX_UINT32,
+    min_value: MaybeSearchStrategy[int | None] = None,
+    max_value: MaybeSearchStrategy[int | None] = None,
 ) -> int:
     """Strategy for generating uint32s."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
-    min_value_ = max(min_value_, MIN_UINT32)
-    max_value_ = min(max_value_, MAX_UINT32)
+    min_value_ = max_nullable([min_value_, MIN_UINT32])
+    max_value_ = min_nullable([max_value_, MAX_UINT32])
     return draw(integers(min_value=min_value_, max_value=max_value_))
 
 
@@ -1280,13 +1362,13 @@ def uint64s(
     draw: DrawFn,
     /,
     *,
-    min_value: MaybeSearchStrategy[int] = MIN_UINT64,
-    max_value: MaybeSearchStrategy[int] = MAX_UINT64,
+    min_value: MaybeSearchStrategy[int | None] = None,
+    max_value: MaybeSearchStrategy[int | None] = None,
 ) -> int:
     """Strategy for generating uint64s."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
-    min_value_ = max(min_value_, MIN_UINT64)
-    max_value_ = min(max_value_, MAX_UINT64)
+    min_value_ = max_nullable([min_value_, MIN_UINT64])
+    max_value_ = min_nullable([max_value_, MAX_UINT64])
     return draw(integers(min_value=min_value_, max_value=max_value_))
 
 
@@ -1374,7 +1456,29 @@ def year_months(
 
 
 @composite
-def zoned_datetimes(
+def zoned_date_time_periods(
+    draw: DrawFn,
+    /,
+    *,
+    min_value: MaybeSearchStrategy[PlainDateTime | ZonedDateTime | None] = None,
+    max_value: MaybeSearchStrategy[PlainDateTime | ZonedDateTime | None] = None,
+    time_zone: MaybeSearchStrategy[TimeZoneLike] = UTC,
+) -> ZonedDateTimePeriod:
+    """Strategy for generating zoned date-time periods."""
+    min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
+    time_zone_: TimeZoneLike = draw2(draw, time_zone)
+    strategy = zoned_date_times(
+        min_value=min_value_, max_value=max_value_, time_zone=time_zone_
+    )
+    start, end = draw(pairs(strategy, sorted=True))
+    return ZonedDateTimePeriod(start, end)
+
+
+##
+
+
+@composite
+def zoned_date_times(
     draw: DrawFn,
     /,
     *,
@@ -1382,7 +1486,7 @@ def zoned_datetimes(
     max_value: MaybeSearchStrategy[PlainDateTime | ZonedDateTime | None] = None,
     time_zone: MaybeSearchStrategy[TimeZoneLike] = UTC,
 ) -> ZonedDateTime:
-    """Strategy for generating zoned datetimes."""
+    """Strategy for generating zoned date-times."""
     min_value_, max_value_ = [draw2(draw, v) for v in [min_value, max_value]]
     time_zone_ = ensure_time_zone(draw2(draw, time_zone))
     match min_value_:
@@ -1401,7 +1505,7 @@ def zoned_datetimes(
                 max_value_ = max_value_.to_tz(time_zone_.key).to_plain()
         case never:
             assert_never(never)
-    plain = draw(plain_datetimes(min_value=min_value_, max_value=max_value_))
+    plain = draw(plain_date_times(min_value=min_value_, max_value=max_value_))
     with (
         assume_does_not_raise(RepeatedTime),
         assume_does_not_raise(SkippedTime),
@@ -1415,7 +1519,7 @@ def zoned_datetimes(
     return zoned
 
 
-zoned_datetimes_2000 = zoned_datetimes(
+zoned_date_times_2000 = zoned_date_times(
     min_value=ZonedDateTime(2000, 1, 1, tz=UTC.key),
     max_value=ZonedDateTime(2000, 12, 31, tz=UTC.key),
 )
@@ -1427,6 +1531,7 @@ __all__ = [
     "assume_does_not_raise",
     "bool_arrays",
     "date_deltas",
+    "date_periods",
     "date_time_deltas",
     "dates",
     "draw2",
@@ -1438,6 +1543,8 @@ __all__ = [
     "hashables",
     "import_froms",
     "imports",
+    "int8s",
+    "int16s",
     "int32s",
     "int64s",
     "int_arrays",
@@ -1446,7 +1553,7 @@ __all__ = [
     "numbers",
     "pairs",
     "paths",
-    "plain_datetimes",
+    "plain_date_times",
     "py_datetimes",
     "random_states",
     "sentinels",
@@ -1463,6 +1570,7 @@ __all__ = [
     "text_digits",
     "text_printable",
     "time_deltas",
+    "time_periods",
     "times",
     "triples",
     "uint8s",
@@ -1472,6 +1580,7 @@ __all__ = [
     "urls",
     "versions",
     "year_months",
-    "zoned_datetimes",
-    "zoned_datetimes_2000",
+    "zoned_date_time_periods",
+    "zoned_date_times",
+    "zoned_date_times_2000",
 ]

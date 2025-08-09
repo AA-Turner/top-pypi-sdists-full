@@ -95,6 +95,7 @@ Usage::
         ListTransformJobsPaginator,
         ListTrialComponentsPaginator,
         ListTrialsPaginator,
+        ListUltraServersByReservedCapacityPaginator,
         ListUserProfilesPaginator,
         ListWorkforcesPaginator,
         ListWorkteamsPaginator,
@@ -202,6 +203,7 @@ Usage::
     list_transform_jobs_paginator: ListTransformJobsPaginator = client.get_paginator("list_transform_jobs")
     list_trial_components_paginator: ListTrialComponentsPaginator = client.get_paginator("list_trial_components")
     list_trials_paginator: ListTrialsPaginator = client.get_paginator("list_trials")
+    list_ultra_servers_by_reserved_capacity_paginator: ListUltraServersByReservedCapacityPaginator = client.get_paginator("list_ultra_servers_by_reserved_capacity")
     list_user_profiles_paginator: ListUserProfilesPaginator = client.get_paginator("list_user_profiles")
     list_workforces_paginator: ListWorkforcesPaginator = client.get_paginator("list_workforces")
     list_workteams_paginator: ListWorkteamsPaginator = client.get_paginator("list_workteams")
@@ -288,6 +290,7 @@ from .paginator import (
     ListTransformJobsPaginator,
     ListTrialComponentsPaginator,
     ListTrialsPaginator,
+    ListUltraServersByReservedCapacityPaginator,
     ListUserProfilesPaginator,
     ListWorkforcesPaginator,
     ListWorkteamsPaginator,
@@ -398,6 +401,7 @@ __all__ = (
     "ListTransformJobsPaginator",
     "ListTrialComponentsPaginator",
     "ListTrialsPaginator",
+    "ListUltraServersByReservedCapacityPaginator",
     "ListUserProfilesPaginator",
     "ListWorkforcesPaginator",
     "ListWorkteamsPaginator",

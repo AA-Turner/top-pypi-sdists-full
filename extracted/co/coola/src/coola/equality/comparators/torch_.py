@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class TorchPackedSequenceEqualityComparator(
+class TorchPackedSequenceEqualityComparator(  # noqa: PLW1641
     BaseEqualityComparator[torch.nn.utils.rnn.PackedSequence]
 ):
     r"""Implement an equality comparator for ``torch.Tensor``.
@@ -70,9 +70,7 @@ class TorchPackedSequenceEqualityComparator(
             SameAttributeHandler(name="batch_sizes")
         ).chain(SameAttributeHandler(name="sorted_indices")).chain(
             SameAttributeHandler(name="unsorted_indices")
-        ).chain(
-            TrueHandler()
-        )
+        ).chain(TrueHandler())  # fmt: skip
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, self.__class__)
@@ -86,7 +84,7 @@ class TorchPackedSequenceEqualityComparator(
         return self._handler.handle(actual, expected, config=config)
 
 
-class TorchTensorEqualityComparator(BaseEqualityComparator[torch.Tensor]):
+class TorchTensorEqualityComparator(BaseEqualityComparator[torch.Tensor]):  # noqa: PLW1641
     r"""Implement an equality comparator for ``torch.Tensor``.
 
     Example usage:

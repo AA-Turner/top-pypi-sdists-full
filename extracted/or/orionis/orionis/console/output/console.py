@@ -245,12 +245,20 @@ class Console(IConsole):
     def clear(self) -> None:
         """
         Clears the console screen.
+
+        Notes
+        -----
+        Uses the appropriate system command to clear the terminal screen based on the operating system.
         """
         os.system('cls' if os.name == 'nt' else 'clear')
 
     def clearLine(self) -> None:
         """
         Clears the current line in the console.
+
+        Notes
+        -----
+        Moves the cursor to the beginning of the line and overwrites it with a space, then returns the cursor to the start.
         """
         sys.stdout.write("\r \r")
         sys.stdout.flush()
@@ -258,6 +266,10 @@ class Console(IConsole):
     def line(self) -> None:
         """
         Prints a horizontal line in the console.
+
+        Notes
+        -----
+        Outputs a newline character without advancing to a new line, effectively creating a visual separator.
         """
         print("\n", end="")
 

@@ -7,72 +7,88 @@ class Env(IEnv):
     @staticmethod
     def get(key: str, default: Any = None) -> Any:
         """
-        Retrieve the value of an environment variable by key.
+        Retrieve the value of an environment variable by its key.
 
         Parameters
         ----------
         key : str
-            The name of the environment variable to retrieve.
+            The environment variable name to look up.
         default : Any, optional
-            The value to return if the key is not found. Default is None.
+            Value to return if the key is not found. Defaults to None.
 
         Returns
         -------
         Any
-            The value of the environment variable if found, otherwise the default value.
+            The value of the environment variable if present, otherwise `default`.
         """
+
+        # Create a new DotEnv instance to access environment variables
         dotenv = DotEnv()
+
+        # Retrieve the value for the given key, or return default if not found
         return dotenv.get(key, default)
 
     @staticmethod
     def set(key: str, value: str, type_hint: str = None) -> bool:
         """
-        Set an environment variable in the .env file.
+        Set or update an environment variable in the .env file.
 
         Parameters
         ----------
         key : str
-            The name of the environment variable to set.
+            The environment variable name to set.
         value : str
             The value to assign to the environment variable.
         type_hint : str, optional
-            The type of the environment variable (e.g., 'str', 'int'). Default is None.
+            Optional type hint for the variable (e.g., 'str', 'int'). Defaults to None.
 
         Returns
         -------
         bool
             True if the variable was set successfully, False otherwise.
         """
+
+        # Create a new DotEnv instance to modify environment variables
         dotenv = DotEnv()
+
+        # Set the environment variable with the specified key, value, and optional type hint
         return dotenv.set(key, value, type_hint)
 
     @staticmethod
     def unset(key: str) -> bool:
         """
-        Remove the specified environment variable from the .env file.
+        Remove an environment variable from the .env file.
 
         Parameters
         ----------
         key : str
-            The name of the environment variable to remove.
+            The environment variable name to remove.
 
         Returns
         -------
         bool
-            True if the variable was successfully removed, False otherwise.
+            True if the variable was removed successfully, False otherwise.
         """
+
+        # Create a new DotEnv instance to remove environment variables
         dotenv = DotEnv()
+
+        # Remove the environment variable with the specified key
         return dotenv.unset(key)
 
     @staticmethod
     def all() -> Dict[str, Any]:
         """
-        Retrieve all environment variables as a dictionary.
+        Get all environment variables as a dictionary.
 
         Returns
         -------
         dict of str to Any
-            A dictionary containing all environment variables loaded by DotEnv.
+            Dictionary containing all environment variables loaded by DotEnv.
         """
+
+        # Create a new DotEnv instance to access all environment variables
         dotenv = DotEnv()
+
+        # Return all environment variables as a dictionary
         return dotenv.all()

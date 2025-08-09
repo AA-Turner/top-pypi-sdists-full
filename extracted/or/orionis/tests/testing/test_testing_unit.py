@@ -9,22 +9,11 @@ class TestTestingUnit(AsyncTestCase):
 
     async def testDefaultConfiguration(self) -> None:
         """
-        Tests the initialization of the `UnitTest` class to ensure it sets up
-        the default configuration values and internal attributes correctly.
-
-        Parameters
-        ----------
-        self : TestTestingUnit
-            The test case instance.
+        Test that the `UnitTest` class initializes with the correct default configuration values and internal attributes.
 
         Returns
         -------
         None
-            This method does not return any value.
-
-        Notes
-        -----
-        Verifies that the loader and suite attributes are instances of their expected classes.
         """
         unit_test = UnitTest()
         # Assert that the loader is correctly initialized as a TestLoader
@@ -34,23 +23,11 @@ class TestTestingUnit(AsyncTestCase):
 
     async def testConfigureMethod(self) -> None:
         """
-        Tests the `configure` method of the `UnitTest` class to ensure it correctly updates
-        the internal configuration attributes based on the provided arguments.
-
-        Parameters
-        ----------
-        self : TestTestingUnit
-            The test case instance.
+        Test that the `configure` method of `UnitTest` updates internal configuration attributes as expected.
 
         Returns
         -------
         None
-            This method does not return any value.
-
-        Notes
-        -----
-        - Verifies that each configuration parameter is set to the expected value.
-        - Ensures the `configure` method returns the same `UnitTest` instance for chaining.
         """
         unit_test = UnitTest()
         # Configure the UnitTest instance with custom parameters
@@ -79,23 +56,11 @@ class TestTestingUnit(AsyncTestCase):
 
     async def testFlattenTestSuite(self) -> None:
         """
-        Tests the `_flattenTestSuite` method of the `UnitTest` class to ensure it correctly flattens
-        nested `TestSuite` instances into a single list of test cases.
-
-        Parameters
-        ----------
-        self : TestTestingUnit
-            The test case instance.
+        Test that the `_flattenTestSuite` method of `UnitTest` flattens nested `TestSuite` instances into a list of test cases.
 
         Returns
         -------
         None
-            This method does not return any value.
-
-        Notes
-        -----
-        - Verifies that all test cases within nested suites are extracted and returned in a flat list.
-        - Ensures that the flattened list contains all individual test cases from the nested structure.
         """
         unit_test = UnitTest()
         # Create mock test cases
@@ -117,24 +82,11 @@ class TestTestingUnit(AsyncTestCase):
 
     async def testMergeTestResults(self) -> None:
         """
-        Tests the `_mergeTestResults` method of the `UnitTest` class to ensure it correctly aggregates
-        the results from an individual `TestResult` into a combined `TestResult`.
-
-        Parameters
-        ----------
-        self : TestTestingUnit
-            The test case instance.
+        Test that the `_mergeTestResults` method of `UnitTest` correctly aggregates results from an individual `TestResult` into a combined `TestResult`.
 
         Returns
         -------
         None
-            This method does not return any value.
-
-        Notes
-        -----
-        - Verifies that the number of tests run, failures, and errors are correctly merged.
-        - Ensures that skipped, expected failures, and unexpected successes are also handled.
-        - The method under test does not return a value; it modifies the `combined` result in place.
         """
         unit_test = UnitTest()
         # Create a combined TestResult to aggregate results into
@@ -156,23 +108,11 @@ class TestTestingUnit(AsyncTestCase):
 
     async def testClearTests(self) -> None:
         """
-        Tests the `clearTests` method of the `UnitTest` class to verify that it correctly resets the test suite,
-        removing all previously added test cases and leaving the suite empty.
-
-        Parameters
-        ----------
-        self : TestTestingUnit
-            The test case instance.
+        Test that the `clearTests` method of `UnitTest` resets the test suite, removing all test cases.
 
         Returns
         -------
         None
-            This method does not return any value.
-
-        Notes
-        -----
-        - Ensures that after calling `clearTests`, the internal test suite contains no test cases.
-        - Validates that the suite is properly cleared regardless of its previous state.
         """
         unit_test = UnitTest()
         # Add a mock test case to the suite
@@ -185,24 +125,11 @@ class TestTestingUnit(AsyncTestCase):
 
     async def testGetTestNames(self) -> None:
         """
-        Tests the `getTestNames` method of the `UnitTest` class to ensure it accurately retrieves
-        the identifiers of all test cases present in the internal test suite.
-
-        Parameters
-        ----------
-        self : TestTestingUnit
-            The test case instance.
+        Test that the `getTestNames` method of `UnitTest` returns a list of identifiers for all test cases in the suite.
 
         Returns
         -------
         None
-            This method does not return any value.
-
-        Notes
-        -----
-        - Verifies that the method returns a list of test identifiers corresponding to each test case in the suite.
-        - Ensures that the returned list contains the expected test IDs as provided by the test case's `id()` method.
-        - The expected return value of `getTestNames` is a list of strings, where each string is the identifier of a test case.
         """
         unit_test = UnitTest()
         # Create a mock test case and set its id() method to return a specific identifier
@@ -217,24 +144,11 @@ class TestTestingUnit(AsyncTestCase):
 
     async def testGetTestCount(self) -> None:
         """
-        Tests the `getTestCount` method of the `UnitTest` class to ensure it accurately returns
-        the total number of test cases present in the internal test suite.
-
-        Parameters
-        ----------
-        self : TestTestingUnit
-            The test case instance.
+        Test that the `getTestCount` method of `UnitTest` returns the correct number of test cases in the suite.
 
         Returns
         -------
         None
-            This method does not return any value.
-
-        Notes
-        -----
-        - Verifies that the method returns the correct count of test cases added to the suite.
-        - Ensures that the count matches the number of test cases present in the suite at the time of invocation.
-        - The expected return value of `getTestCount` is an integer representing the number of test cases in the suite.
         """
         unit_test = UnitTest()
         # Create two mock test cases

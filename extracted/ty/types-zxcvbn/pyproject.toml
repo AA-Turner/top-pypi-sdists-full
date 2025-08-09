@@ -1,0 +1,50 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77.0.3"]
+
+[project]
+name = "types-zxcvbn"
+version = "4.5.0.20250809"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+description = "Typing stubs for zxcvbn"
+readme = { text = """\
+## Typing stubs for zxcvbn
+
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`zxcvbn`](https://github.com/dwolfhub/zxcvbn-python) package. It can be used by type checkers
+to check code that uses `zxcvbn`. This version of
+`types-zxcvbn` aims to provide accurate annotations for
+`zxcvbn==4.5.*`.
+
+This package is part of the [typeshed project](https://github.com/python/typeshed).
+All fixes for types and metadata should be contributed there.
+See [the README](https://github.com/python/typeshed/blob/main/README.md)
+for more details. The source for this package can be found in the
+[`stubs/zxcvbn`](https://github.com/python/typeshed/tree/main/stubs/zxcvbn)
+directory.
+
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
+
+It was generated from typeshed commit
+[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+""", content-type = "text/markdown" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Typing :: Stubs Only",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/python/typeshed"
+"GitHub" = "https://github.com/python/typeshed"
+"Changes" = "https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/zxcvbn.md"
+"Issue tracker" = "https://github.com/python/typeshed/issues"
+"Chat" = "https://gitter.im/python/typing"
+
+[tool.setuptools]
+packages = ['zxcvbn-stubs']
+include-package-data = false

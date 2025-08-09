@@ -57,6 +57,40 @@ export function initMemoryGraph(memory_records) {
   };
   var config = {
     responsive: true,
+    displayModeBar: true,
+    modeBarButtonsToAdd: [
+      {
+        name: "downloadDataAsCsv",
+        title: "Download data as CSV",
+        icon: Plotly.Icons.disk,
+        click: function (gd) {
+          var rows = [];
+          rows.push("trace,timestamp,memory_size_bytes");
+
+          gd.data.forEach((trace, index) => {
+            const x = trace.x || [];
+            const y = trace.y || [];
+            for (var i = 0; i < Math.min(x.length, y.length); i++) {
+              const traceId = trace.name || "trace" + index;
+              const timestamp = x[i].getTime();
+              rows.push(`${traceId},${timestamp},${y[i]}`);
+            }
+          });
+
+          const csvContent = rows.join("\r\n");
+          const blob = new Blob([csvContent], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "usage_over_time.csv";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        },
+      },
+    ],
   };
   var config_small = {
     responsive: true,
@@ -79,18 +113,18 @@ export function resizeMemoryGraph() {
 }
 
 export function humanFileSize(bytes, dp = 1) {
-  if (Math.abs(bytes) < 1024) {
+  if (Math.abs(bytes) < 1000) {
     return bytes + " B";
   }
 
-  const units = ["KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB"];
+  const units = ["kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
   let u = -1;
   const r = 10 ** dp;
 
   do {
-    bytes /= 1024;
+    bytes /= 1000;
     ++u;
-  } while (Math.round(Math.abs(bytes) * r) / r >= 1024 && u < units.length - 1);
+  } while (Math.round(Math.abs(bytes) * r) / r >= 1000 && u < units.length - 1);
 
   return bytes.toFixed(dp) + " " + units[u];
 }

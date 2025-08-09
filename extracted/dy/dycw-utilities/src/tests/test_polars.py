@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 from enum import auto
 from itertools import chain, repeat
 from math import isfinite, nan
-from pathlib import Path
 from random import Random
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, assert_never, cast
 from uuid import UUID, uuid4
@@ -15,6 +14,7 @@ from uuid import UUID, uuid4
 import hypothesis.strategies
 import numpy as np
 import polars as pl
+import whenever
 from hypothesis import given
 from hypothesis.strategies import (
     DataObject,
@@ -27,15 +27,14 @@ from hypothesis.strategies import (
     lists,
     none,
     sampled_from,
-    timezones,
 )
 from numpy import allclose, linspace, pi
 from polars import (
     Boolean,
     DataFrame,
     DataType,
-    Date,
     Datetime,
+    Duration,
     Expr,
     Float64,
     Int32,
@@ -49,29 +48,34 @@ from polars import (
     col,
     concat,
     date_range,
-    datetime_range,
     int_range,
     lit,
     struct,
 )
 from polars._typing import IntoExprColumn, SchemaDict
-from polars.exceptions import ComputeError
 from polars.schema import Schema
 from polars.testing import assert_frame_equal, assert_series_equal
 from pytest import mark, param, raises
-from whenever import Time, TimeZoneNotFoundError, ZonedDateTime
+from whenever import DateDelta, DateTimeDelta, PlainDateTime, TimeDelta, ZonedDateTime
 
 import tests.test_math
 import utilities.polars
 from utilities.hypothesis import (
-    assume_does_not_raise,
+    date_deltas,
+    date_periods,
+    date_time_deltas,
+    dates,
     float64s,
     int64s,
     pairs,
     py_datetimes,
     temp_paths,
     text_ascii,
-    zoned_datetimes,
+    time_deltas,
+    time_periods,
+    times,
+    zoned_date_time_periods,
+    zoned_date_times,
 )
 from utilities.math import number_of_decimals
 from utilities.numpy import DEFAULT_RNG
@@ -80,6 +84,7 @@ from utilities.polars import (
     AppendDataClassError,
     BooleanValueCountsError,
     ColumnsToDictError,
+    DatePeriodDType,
     DatetimeHongKong,
     DatetimeTokyo,
     DatetimeUSCentral,
@@ -93,7 +98,7 @@ from utilities.polars import (
     IsNotNullStructSeriesError,
     IsNullStructSeriesError,
     SetFirstRowAsColumnsError,
-    StructFromDataClassError,
+    TimePeriodDType,
     _check_polars_dataframe_predicates,
     _check_polars_dataframe_schema_list,
     _check_polars_dataframe_schema_set,
@@ -132,6 +137,8 @@ from utilities.polars import (
     _reconstruct_schema,
     _ReifyExprsEmptyError,
     _ReifyExprsSeriesNonUniqueError,
+    _StructFromDataClassNotADataclassError,
+    _StructFromDataClassTypeError,
     ac_halflife,
     acf,
     adjust_frequencies,
@@ -143,7 +150,6 @@ from utilities.polars import (
     are_frames_equal,
     bernoulli,
     boolean_value_counts,
-    ceil_datetime,
     check_polars_dataframe,
     choice,
     collect_series,
@@ -162,7 +168,6 @@ from utilities.polars import (
     ensure_expr_or_series,
     ensure_expr_or_series_many,
     finite_ewm_mean,
-    floor_datetime,
     get_data_type_or_series_time_zone,
     get_expr_name,
     get_frequency_spectrum,
@@ -200,16 +205,26 @@ from utilities.polars import (
     week_num,
     write_dataframe,
     write_series,
-    zoned_datetime_dtype,
-    zoned_datetime_period_dtype,
+    zoned_date_time_dtype,
+    zoned_date_time_period_dtype,
 )
 from utilities.sentinel import Sentinel, sentinel
 from utilities.tzdata import HongKong, Tokyo, USCentral, USEastern
-from utilities.whenever import get_now, get_today
+from utilities.whenever import (
+    NOW_UTC,
+    TODAY_UTC,
+    DatePeriod,
+    TimePeriod,
+    ZonedDateTimePeriod,
+    get_now,
+    get_now_plain,
+    get_today,
+)
 from utilities.zoneinfo import UTC, get_time_zone_name
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
+    from pathlib import Path
     from zoneinfo import ZoneInfo
 
     from _pytest.mark import ParameterSet
@@ -390,17 +405,13 @@ class TestAppendDataClass:
         height = 0 if (row.a is None) and (row.b is None) else 1
         check_polars_dataframe(result, height=height, schema_list=df.schema)
 
-    @given(
-        data=fixed_dictionaries({
-            "datetime": zoned_datetimes().map(lambda d: d.py_datetime())
-        })
-    )
+    @given(data=fixed_dictionaries({"datetime": zoned_date_times()}))
     def test_zoned_datetime(self, *, data: StrMapping) -> None:
         df = DataFrame(schema={"datetime": DatetimeUTC})
 
         @dataclass(kw_only=True, slots=True)
         class Row:
-            datetime: dt.datetime
+            datetime: ZonedDateTime
 
         row = Row(**data)
         result = append_dataclass(df, row)
@@ -522,44 +533,6 @@ class TestBooleanValueCounts:
             BooleanValueCountsError, match="Column 'z' must be Boolean; got Int64"
         ):
             _ = boolean_value_counts(self.df, col("x").cast(Int64).alias("z"))
-
-
-class TestCeilDateTime:
-    start: ClassVar[dt.datetime] = dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC)
-    end: ClassVar[dt.datetime] = dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC)
-    expected: ClassVar[Series] = Series(
-        values=[
-            dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC),
-        ]
-    )
-
-    def test_expr(self) -> None:
-        data = datetime_range(self.start, self.end, interval="10s")
-        result = collect_series(ceil_datetime(data, "1m"))
-        assert_series_equal(result, self.expected, check_names=False)
-
-    def test_series(self) -> None:
-        data = datetime_range(self.start, self.end, interval="10s", eager=True)
-        result = ceil_datetime(data, "1m")
-        assert_series_equal(result, self.expected, check_names=False)
 
 
 class TestCheckPolarsDataFrame:
@@ -1012,7 +985,6 @@ class TestDataClassToDataFrame:
             int_field: int
             float_field: float
             str_field: str
-            date_field: dt.date
 
         objs = data.draw(lists(builds(Example, int_field=int64s()), min_size=1))
         df = dataclass_to_dataframe(objs)
@@ -1024,8 +996,66 @@ class TestDataClassToDataFrame:
                 "int_field": Int64,
                 "float_field": Float64,
                 "str_field": String,
-                "date_field": Date,
             },
+        )
+
+    @given(data=data())
+    def test_date(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: whenever.Date
+
+        objs = data.draw(lists(builds(Example, x=dates()), min_size=1))
+        df = dataclass_to_dataframe(objs)
+        check_polars_dataframe(df, height=len(objs), schema_list={"x": pl.Date})
+
+    @given(data=data())
+    def test_date_delta(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: DateDelta
+
+        objs = data.draw(lists(builds(Example, x=date_deltas()), min_size=1))
+        df = dataclass_to_dataframe(objs)
+        check_polars_dataframe(df, height=len(objs), schema_list={"x": Duration})
+
+    @given(data=data())
+    def test_date_period(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: DatePeriod
+
+        objs = data.draw(lists(builds(Example, x=date_periods()), min_size=1))
+        df = dataclass_to_dataframe(objs, globalns=globals())
+        check_polars_dataframe(df, height=len(objs), schema_list={"x": DatePeriodDType})
+
+    @given(data=data())
+    def test_date_time_delta(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: DateTimeDelta
+
+        objs = data.draw(
+            lists(builds(Example, x=date_time_deltas(nativable=True)), min_size=1)
+        )
+        df = dataclass_to_dataframe(objs)
+        check_polars_dataframe(df, height=len(objs), schema_list={"x": Duration})
+
+    @given(data=data())
+    def test_multiple_periods(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: DatePeriod
+            y: DatePeriod
+
+        objs = data.draw(
+            lists(builds(Example, x=date_periods(), y=date_periods()), min_size=1)
+        )
+        df = dataclass_to_dataframe(objs, globalns=globals())
+        check_polars_dataframe(
+            df,
+            height=len(objs),
+            schema_list={"x": DatePeriodDType, "y": DatePeriodDType},
         )
 
     @given(data=data())
@@ -1055,6 +1085,36 @@ class TestDataClassToDataFrame:
         check_polars_dataframe(df, height=len(df), schema_list={"x": String})
 
     @given(data=data())
+    def test_time(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: whenever.Time
+
+        objs = data.draw(lists(builds(Example, x=times()), min_size=1))
+        df = dataclass_to_dataframe(objs)
+        check_polars_dataframe(df, height=len(objs), schema_list={"x": pl.Time})
+
+    @given(data=data())
+    def test_time_delta(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: TimeDelta
+
+        objs = data.draw(lists(builds(Example, x=time_deltas()), min_size=1))
+        df = dataclass_to_dataframe(objs)
+        check_polars_dataframe(df, height=len(objs), schema_list={"x": Duration})
+
+    @given(data=data())
+    def test_time_period(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: TimePeriod
+
+        objs = data.draw(lists(builds(Example, x=time_periods()), min_size=1))
+        df = dataclass_to_dataframe(objs, globalns=globals())
+        check_polars_dataframe(df, height=len(objs), schema_list={"x": TimePeriodDType})
+
+    @given(data=data())
     def test_uuid(self, *, data: DataObject) -> None:
         @dataclass(kw_only=True, slots=True)
         class Example:
@@ -1064,32 +1124,30 @@ class TestDataClassToDataFrame:
         df = dataclass_to_dataframe(obj, localns=locals())
         check_polars_dataframe(df, height=len(df), schema_list={"x": String})
 
-    @given(data=data(), time_zone=timezones())
-    def test_zoned_datetime(self, *, data: DataObject, time_zone: ZoneInfo) -> None:
+    @given(data=data())
+    def test_zoned_datetime(self, *, data: DataObject) -> None:
         @dataclass(kw_only=True, slots=True)
         class Example:
-            x: dt.datetime
+            x: ZonedDateTime
+
+        objs = data.draw(lists(builds(Example, x=zoned_date_times()), min_size=1))
+        df = dataclass_to_dataframe(objs, localns=locals())
+        check_polars_dataframe(
+            df, height=len(objs), schema_list={"x": zoned_date_time_dtype()}
+        )
+
+    @given(data=data())
+    def test_zoned_datetime_period(self, *, data: DataObject) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: ZonedDateTimePeriod
 
         objs = data.draw(
-            lists(
-                builds(
-                    Example,
-                    x=zoned_datetimes(time_zone=time_zone).map(
-                        lambda d: d.py_datetime()
-                    ),
-                ),
-                min_size=1,
-            )
+            lists(builds(Example, x=zoned_date_time_periods()), min_size=1)
         )
-        with assume_does_not_raise(
-            ComputeError,  # unable to parse time zone
-            ValueError,  # failed to parse timezone
-        ):
-            df = dataclass_to_dataframe(objs, localns=locals())
+        df = dataclass_to_dataframe(objs, globalns=globals())
         check_polars_dataframe(
-            df,
-            height=len(objs),
-            schema_list={"x": zoned_datetime_dtype(time_zone=time_zone)},
+            df, height=len(objs), schema_list={"x": zoned_date_time_period_dtype()}
         )
 
     def test_error_empty(self) -> None:
@@ -1117,15 +1175,12 @@ class TestDataClassToDataFrame:
 
 class TestDataClassToSchema:
     def test_basic(self) -> None:
-        today = get_today().py_date()
-
         @dataclass(kw_only=True, slots=True)
         class Example:
             bool_field: bool = False
             int_field: int = 0
             float_field: float = 0.0
             str_field: str = ""
-            date_field: dt.date = today
 
         obj = Example()
         result = dataclass_to_schema(obj)
@@ -1134,7 +1189,6 @@ class TestDataClassToSchema:
             "int_field": Int64,
             "float_field": Float64,
             "str_field": String,
-            "date_field": Date,
         }
         assert result == expected
 
@@ -1148,42 +1202,60 @@ class TestDataClassToSchema:
         expected = {"x": Int64}
         assert result == expected
 
-    def test_date_or_datetime_as_date(self) -> None:
-        today = get_today().py_date()
-
+    def test_containers(self) -> None:
         @dataclass(kw_only=True, slots=True)
         class Example:
-            x: dt.date | dt.datetime = today
+            frozenset_field: frozenset[int] = field(default_factory=frozenset)
+            list_field: list[int] = field(default_factory=list)
+            set_field: set[int] = field(default_factory=set)
 
         obj = Example()
         result = dataclass_to_schema(obj)
-        expected = {"x": Date}
+        expected = {
+            "frozenset_field": List(Int64),
+            "list_field": List(Int64),
+            "set_field": List(Int64),
+        }
         assert result == expected
 
-    def test_date_or_datetime_as_local_datetime(self) -> None:
-        now = get_now().to_plain().py_datetime()
-
+    def test_date(self) -> None:
         @dataclass(kw_only=True, slots=True)
         class Example:
-            x: dt.date | dt.datetime = now
+            x: whenever.Date = field(default_factory=get_today)
 
         obj = Example()
         result = dataclass_to_schema(obj)
-        expected = {"x": Datetime()}
+        expected = {"x": Object}
         assert result == expected
 
-    @given(time_zone=timezones())
-    def test_date_or_datetime_as_zoned_datetime(self, *, time_zone: ZoneInfo) -> None:
-        with assume_does_not_raise(TimeZoneNotFoundError):
-            now = get_now(time_zone).py_datetime()
-
+    def test_date_period(self) -> None:
         @dataclass(kw_only=True, slots=True)
         class Example:
-            x: dt.date | dt.datetime = now
+            x: DatePeriod
+
+        obj = Example(x=DatePeriod(TODAY_UTC, TODAY_UTC))
+        result = dataclass_to_schema(obj, globalns=globals())
+        expected = {"x": Object}
+        assert result == expected
+
+    def test_date_delta(self) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: DateDelta = field(default_factory=DateDelta)
 
         obj = Example()
         result = dataclass_to_schema(obj)
-        expected = {"x": zoned_datetime_dtype(time_zone=time_zone)}
+        expected = {"x": Object}
+        assert result == expected
+
+    def test_date_time_delta(self) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: DateTimeDelta = field(default_factory=DateTimeDelta)
+
+        obj = Example()
+        result = dataclass_to_schema(obj)
+        expected = {"x": Object}
         assert result == expected
 
     def test_enum(self) -> None:
@@ -1210,16 +1282,14 @@ class TestDataClassToSchema:
         expected = {"x": pl.Enum(["true", "false"])}
         assert result == expected
 
-    def test_local_datetime(self) -> None:
-        now = get_now().to_plain().py_datetime()
-
+    def test_plain_date_time(self) -> None:
         @dataclass(kw_only=True, slots=True)
         class Example:
-            x: dt.datetime = now
+            x: PlainDateTime = field(default_factory=get_now_plain)
 
         obj = Example()
         result = dataclass_to_schema(obj)
-        expected = {"x": Datetime()}
+        expected = {"x": Object}
         assert result == expected
 
     def test_nested_once(self) -> None:
@@ -1287,9 +1357,38 @@ class TestDataClassToSchema:
         class Example:
             x: Path = PWD
 
-        _ = Path  # add to locals
         obj = Example()
-        result = dataclass_to_schema(obj, localns=locals())
+        result = dataclass_to_schema(obj)
+        expected = {"x": Object}
+        assert result == expected
+
+    def test_time(self) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: whenever.Time = field(default_factory=whenever.Time)
+
+        obj = Example()
+        result = dataclass_to_schema(obj)
+        expected = {"x": Object}
+        assert result == expected
+
+    def test_time_delta(self) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: TimeDelta = field(default_factory=TimeDelta)
+
+        obj = Example()
+        result = dataclass_to_schema(obj)
+        expected = {"x": Object}
+        assert result == expected
+
+    def test_time_period(self) -> None:
+        @dataclass(kw_only=True, slots=True)
+        class Example:
+            x: TimePeriod
+
+        obj = Example(x=TimePeriod(whenever.Time(), whenever.Time()))
+        result = dataclass_to_schema(obj, globalns=globals())
         expected = {"x": Object}
         assert result == expected
 
@@ -1298,60 +1397,29 @@ class TestDataClassToSchema:
         class Example:
             x: UUID = field(default_factory=uuid4)
 
-        _ = UUID  # add to locals
         obj = Example()
-        result = dataclass_to_schema(obj, localns=locals())
+        result = dataclass_to_schema(obj)
         expected = {"x": Object}
         assert result == expected
 
-    @given(time_zone=timezones())
-    def test_zoned_datetime(self, *, time_zone: ZoneInfo) -> None:
-        with assume_does_not_raise(TimeZoneNotFoundError):
-            now = get_now(time_zone).py_datetime()
-
+    def test_zoned_date_time(self) -> None:
         @dataclass(kw_only=True, slots=True)
         class Example:
-            x: dt.datetime = now
+            x: ZonedDateTime = field(default_factory=get_now)
 
         obj = Example()
         result = dataclass_to_schema(obj)
-        expected = {"x": zoned_datetime_dtype(time_zone=time_zone)}
+        expected = {"x": Object}
         assert result == expected
 
-    @given(start=timezones(), end=timezones())
-    def test_zoned_datetime_nested(self, *, start: ZoneInfo, end: ZoneInfo) -> None:
-        with assume_does_not_raise(TimeZoneNotFoundError):
-            now_start = get_now(start).py_datetime()
-            now_end = get_now(end).py_datetime()
-
-        @dataclass(kw_only=True, slots=True)
-        class Inner:
-            start: dt.datetime = now_start
-            end: dt.datetime = now_end
-
-        @dataclass(kw_only=True, slots=True)
-        class Outer:
-            inner: Inner = field(default_factory=Inner)
-
-        obj = Outer()
-        result = dataclass_to_schema(obj, localns=locals())
-        expected = {"inner": zoned_datetime_period_dtype(time_zone=(start, end))}
-        assert result == expected
-
-    def test_containers(self) -> None:
+    def test_zoned_date_time_period(self) -> None:
         @dataclass(kw_only=True, slots=True)
         class Example:
-            frozenset_field: frozenset[int] = field(default_factory=frozenset)
-            list_field: list[int] = field(default_factory=list)
-            set_field: set[int] = field(default_factory=set)
+            x: ZonedDateTimePeriod
 
-        obj = Example()
-        result = dataclass_to_schema(obj)
-        expected = {
-            "frozenset_field": List(Int64),
-            "list_field": List(Int64),
-            "set_field": List(Int64),
-        }
+        obj = Example(x=ZonedDateTimePeriod(NOW_UTC, NOW_UTC))
+        result = dataclass_to_schema(obj, globalns=globals())
+        expected = {"x": Object}
         assert result == expected
 
     def test_error(self) -> None:
@@ -1513,44 +1581,6 @@ class TestFiniteEWMWeights:
             _ = _finite_ewm_weights(min_weight=1.0)
 
 
-class TestFloorDateTime:
-    start: ClassVar[dt.datetime] = dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC)
-    end: ClassVar[dt.datetime] = dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC)
-    expected: ClassVar[Series] = Series(
-        values=[
-            dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 0, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 1, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 2, tzinfo=UTC),
-            dt.datetime(2000, 1, 1, 0, 3, tzinfo=UTC),
-        ]
-    )
-
-    def test_expr(self) -> None:
-        data = datetime_range(self.start, self.end, interval="10s")
-        result = collect_series(floor_datetime(data, "1m"))
-        assert_series_equal(result, self.expected, check_names=False)
-
-    def test_series(self) -> None:
-        data = datetime_range(self.start, self.end, interval="10s", eager=True)
-        result = floor_datetime(data, "1m")
-        assert_series_equal(result, self.expected, check_names=False)
-
-
 class TestGetDataTypeOrSeriesTimeZone:
     @given(
         time_zone=sampled_from([HongKong, UTC]),
@@ -1566,9 +1596,9 @@ class TestGetDataTypeOrSeriesTimeZone:
     ) -> None:
         match flat_or_struct:
             case "flat":
-                dtype = zoned_datetime_dtype(time_zone=time_zone)
+                dtype = zoned_date_time_dtype(time_zone=time_zone)
             case "struct":
-                dtype = zoned_datetime_period_dtype(time_zone=time_zone)
+                dtype = zoned_date_time_period_dtype(time_zone=time_zone)
             case never:
                 assert_never(never)
         match dtype_or_series:
@@ -2273,8 +2303,10 @@ class TestNormal:
 
 
 class TestOffsetDateTime:
-    @mark.parametrize(("n", "time"), [param(1, Time(13, 30)), param(2, Time(15))])
-    def test_main(self, *, n: int, time: Time) -> None:
+    @mark.parametrize(
+        ("n", "time"), [param(1, whenever.Time(13, 30)), param(2, whenever.Time(15))]
+    )
+    def test_main(self, *, n: int, time: whenever.Time) -> None:
         datetime = ZonedDateTime(2000, 1, 1, 12, tz=UTC.key)
         result = offset_datetime(datetime, "1h30m", n=n)
         expected = datetime.replace_time(time)
@@ -2315,7 +2347,7 @@ class TestPeriodRange:
     def test_main(self, *, end_or_length: ZonedDateTime | int) -> None:
         rng = period_range(self.start, end_or_length, interval="1h", eager=True)
         assert len(rng) == 3
-        assert rng.dtype == zoned_datetime_period_dtype()
+        assert rng.dtype == zoned_date_time_period_dtype()
         assert rng[0]["start"] == self.start.py_datetime()
         assert rng[-1]["end"] == self.end.py_datetime()
 
@@ -2448,8 +2480,8 @@ class TestSerializeAndDeserializeDataFrame:
     cases: ClassVar[list[tuple[PolarsDataType, SearchStrategy[Any]]]] = [
         (Boolean, booleans()),
         (Boolean(), booleans()),
-        (Date, hypothesis.strategies.dates()),
-        (Date(), hypothesis.strategies.dates()),
+        (pl.Date, hypothesis.strategies.dates()),
+        (pl.Date(), hypothesis.strategies.dates()),
         (Datetime(), py_datetimes(zoned=False)),
         (Datetime(time_zone=UTC.key), py_datetimes(zoned=True)),
         (Int64, int64s()),
@@ -2548,8 +2580,8 @@ class TestStructFromDataClass:
         class Example:
             bool_: bool
             bool_maybe: bool | None = None
-            date: dt.date
-            date_maybe: dt.date | None = None
+            date: whenever.Date
+            date_maybe: whenever.Date | None = None
             float_: float
             float_maybe: float | None = None
             int_: int
@@ -2561,8 +2593,8 @@ class TestStructFromDataClass:
         expected = Struct({
             "bool_": Boolean,
             "bool_maybe": Boolean,
-            "date": Date,
-            "date_maybe": Date,
+            "date": pl.Date,
+            "date_maybe": pl.Date,
             "float_": Float64,
             "float_maybe": Float64,
             "int_": Int64,
@@ -2570,15 +2602,6 @@ class TestStructFromDataClass:
             "str_": String,
             "str_maybe": String,
         })
-        assert result == expected
-
-    def test_datetime(self) -> None:
-        @dataclass(kw_only=True, slots=True)
-        class Example:
-            field: dt.datetime
-
-        result = struct_from_dataclass(Example, time_zone=UTC, globalns=globals())
-        expected = Struct({"field": DatetimeUTC})
         assert result == expected
 
     def test_enum(self) -> None:
@@ -2661,17 +2684,10 @@ class TestStructFromDataClass:
 
     def test_not_a_dataclass_error(self) -> None:
         with raises(
-            StructFromDataClassError, match="Object must be a dataclass; got None"
+            _StructFromDataClassNotADataclassError,
+            match="Object must be a dataclass; got None",
         ):
             _ = struct_from_dataclass(cast("Any", None))
-
-    def test_missing_time_zone_error(self) -> None:
-        @dataclass(kw_only=True, slots=True)
-        class Example:
-            field: dt.datetime
-
-        with raises(StructFromDataClassError, match="Time-zone must be given"):
-            _ = struct_from_dataclass(Example, globalns=globals())
 
     def test_missing_type_error(self) -> None:
         @dataclass(kw_only=True, slots=True)
@@ -2679,7 +2695,7 @@ class TestStructFromDataClass:
             field: None
 
         with raises(
-            StructFromDataClassError, match="Unsupported type: <class 'NoneType'>"
+            _StructFromDataClassTypeError, match="Unsupported type: <class 'NoneType'>"
         ):
             _ = struct_from_dataclass(Example)
 
@@ -2989,7 +3005,7 @@ class TestWeekNum:
 
 class TestZonedDateTimeDType:
     def test_main(self) -> None:
-        dtype = zoned_datetime_dtype(time_zone=UTC)
+        dtype = zoned_date_time_dtype(time_zone=UTC)
         assert isinstance(dtype, Datetime)
         assert dtype.time_zone is not None
 
@@ -2997,5 +3013,5 @@ class TestZonedDateTimeDType:
 class TestZonedDateTimePeriodDType:
     @given(time_zone=sampled_from([UTC, (UTC, UTC)]))
     def test_main(self, *, time_zone: ZoneInfo | tuple[ZoneInfo, ZoneInfo]) -> None:
-        dtype = zoned_datetime_period_dtype(time_zone=time_zone)
+        dtype = zoned_date_time_period_dtype(time_zone=time_zone)
         assert isinstance(dtype, Struct)

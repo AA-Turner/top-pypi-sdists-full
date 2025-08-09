@@ -94,15 +94,16 @@ source = ["deltalake"]
 [dependency-groups]
 dev = [
     "pytest",
-    "pytest-mock",
-    "pytest-cov",
-    "pytest-timeout",
     "pytest-benchmark",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-timeout",
+    "pytest-xdist",
     "mypy==1.10.1",
     "ruff>=0.11.2,<0.11.12",
     "types-deprecated>=1.2.15.20250304",
 ]
-polars = ["polars==1.17.1"]
+polars = ["polars==1.32"]
 lakefs = ["lakefs==0.8.0"]
 pyspark = [
     "pyspark",

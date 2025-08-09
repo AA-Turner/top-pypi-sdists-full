@@ -126,7 +126,7 @@ def _tensor_dtype_property(self: torch.Tensor):
         torch.Tensor.dtype = _tensor_dtype_property # type: ignore
 
 def _to_op_register(self: torch.Tensor, *args, **kwargs):
-    parsed = torch._C._nn._parse_to(*args, **kwargs)
+    parsed = torch._C._nn._parse_to(*args, **kwargs) # pyright: ignore [reportAttributeAccessIssue]
     device, dtype, *_ = parsed
     try:
         to_args = to_ops.pop(self)

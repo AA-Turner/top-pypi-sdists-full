@@ -9,23 +9,31 @@ deploy_filter: &deploy_filter
       ignore: /.*/
 
 jobs:
-  run-test:
+  test:
+    parameters:
+      python_version:
+        type: string
+      tox_env:
+        type: string
     docker:
-      - image: python:3.8.6
-
+      - image: cimg/python:<< parameters.python_version >>
     steps:
       - checkout
       - run:
-          name: Install dependencies
-          command: pip install virtualenv==20.13.0
+          name: Install system dependencies for Airflow 1.x
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y build-essential pkg-config libssl-dev
       - run:
-          name: Run unit tests
-          command: make install-with-tests
+          name: Install tox
+          command: pip install tox
+      - run:
+          name: Run tox tests
+          command: tox -e << parameters.tox_env >>
 
   deploy:
     docker:
-      - image: python:3.8.6
-
+      - image: cimg/python:3.8
     steps:
       - checkout
       - run:
@@ -37,16 +45,94 @@ jobs:
 
 workflows:
   version: 2
-
-  build:
+  test-matrix:
     jobs:
-      - run-test
+      # Airflow 1
+      - test:
+          name: test-airflow1-py38
+          python_version: "3.8"
+          tox_env: "py38-airflow1"
+      # Airflow 2
+      - test:
+          name: test-airflow2-py39
+          python_version: "3.9"
+          tox_env: "py39-airflow2"
+      - test:
+          name: test-airflow2-py310
+          python_version: "3.10"
+          tox_env: "py310-airflow2"
+      - test:
+          name: test-airflow2-py311
+          python_version: "3.11"
+          tox_env: "py311-airflow2"
+      - test:
+          name: test-airflow2-py312
+          python_version: "3.12"
+          tox_env: "py312-airflow2"
+      # Airflow 3
+      - test:
+          name: test-airflow3-py310
+          python_version: "3.10"
+          tox_env: "py310-airflow3"
+      - test:
+          name: test-airflow3-py311
+          python_version: "3.11"
+          tox_env: "py311-airflow3"
+      - test:
+          name: test-airflow3-py312
+          python_version: "3.12"
+          tox_env: "py312-airflow3"
 
   deploy:
     jobs:
-      - run-test:
+      - test:
+          name: test-airflow1-py38
+          python_version: "3.8"
+          tox_env: "py38-airflow1"
+          <<: *deploy_filter
+      - test:
+          name: test-airflow2-py39
+          python_version: "3.9"
+          tox_env: "py39-airflow2"
+          <<: *deploy_filter
+      - test:
+          name: test-airflow2-py310
+          python_version: "3.10"
+          tox_env: "py310-airflow2"
+          <<: *deploy_filter
+      - test:
+          name: test-airflow2-py311
+          python_version: "3.11"
+          tox_env: "py311-airflow2"
+          <<: *deploy_filter
+      - test:
+          name: test-airflow2-py312
+          python_version: "3.12"
+          tox_env: "py312-airflow2"
+          <<: *deploy_filter
+      - test:
+          name: test-airflow3-py310
+          python_version: "3.10"
+          tox_env: "py310-airflow3"
+          <<: *deploy_filter
+      - test:
+          name: test-airflow3-py311
+          python_version: "3.11"
+          tox_env: "py311-airflow3"
+          <<: *deploy_filter
+      - test:
+          name: test-airflow3-py312
+          python_version: "3.12"
+          tox_env: "py312-airflow3"
           <<: *deploy_filter
       - deploy:
           requires:
-            - run-test
+            - test-airflow1-py38
+            - test-airflow2-py39
+            - test-airflow2-py310
+            - test-airflow2-py311
+            - test-airflow2-py312
+            - test-airflow3-py310
+            - test-airflow3-py311
+            - test-airflow3-py312
           <<: *deploy_filter

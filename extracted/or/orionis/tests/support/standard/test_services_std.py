@@ -6,13 +6,21 @@ class TestSupportStd(AsyncTestCase):
 
     async def testInitializationAndAccess(self):
         """
-        Test the initialization of StdClass and access to its attributes.
+        Test initialization and attribute access of StdClass.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies that an instance of StdClass can be created with the given
-        first name, last name, and age, and that these attributes can be accessed
-        correctly after initialization.
+        Verifies that StdClass can be instantiated with specific attributes and
+        that those attributes are accessible after initialization.
         """
         obj = StdClass(
             first_name='Raul',
@@ -24,12 +32,20 @@ class TestSupportStd(AsyncTestCase):
 
     async def testToDictReturnsCorrectData(self):
         """
-        Test that the toDict method of StdClass returns a dictionary with the correct data.
+        Test that StdClass.toDict returns a dictionary with correct attribute data.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Creates an instance of StdClass with specific attributes and verifies
-        that calling toDict() returns a dictionary containing those attributes and their values.
+        Ensures that toDict() returns a dictionary containing all attributes and their values.
         """
         obj = StdClass(a=1, b=2)
         expected = {'a': 1, 'b': 2}
@@ -37,12 +53,20 @@ class TestSupportStd(AsyncTestCase):
 
     async def testUpdateAttributes(self):
         """
-        Test that the `update` method of `StdClass` correctly sets multiple attributes.
+        Test updating multiple attributes using StdClass.update.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Creates an instance of `StdClass`, updates its attributes using the `update` method,
-        and asserts that the attributes `foo` and `number` are set to the expected values.
+        Verifies that update() sets multiple attributes as expected.
         """
         obj = StdClass()
         obj.update(foo='bar', number=42)
@@ -51,12 +75,21 @@ class TestSupportStd(AsyncTestCase):
 
     async def testUpdateReservedAttributeRaisesError(self):
         """
-        Test that updating a reserved attribute (such as '__init__') on a StdClass instance
-        raises a ValueError exception.
+        Test that updating a reserved attribute raises OrionisStdValueException.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Ensures that updating a reserved attribute raises an OrionisStdValueException.
+        Ensures that attempting to update a reserved attribute (e.g., '__init__')
+        raises the appropriate exception.
         """
         obj = StdClass()
         with self.assertRaises(OrionisStdValueException):
@@ -64,13 +97,21 @@ class TestSupportStd(AsyncTestCase):
 
     async def testUpdateConflictingAttributeRaisesError(self):
         """
-        Test that updating an object with a conflicting attribute name ('toDict') raises a ValueError.
+        Test that updating with a conflicting attribute name raises OrionisStdValueException.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Ensures that attempting to update the StdClass instance with a keyword argument
-        that conflicts with an existing method or reserved attribute ('toDict') correctly triggers
-        an OrionisStdValueException, enforcing attribute safety.
+        Ensures that updating with a name that conflicts with an existing method
+        or reserved attribute (e.g., 'toDict') raises an exception.
         """
         obj = StdClass()
         with self.assertRaises(OrionisStdValueException):
@@ -78,11 +119,20 @@ class TestSupportStd(AsyncTestCase):
 
     async def testRemoveExistingAttributes(self):
         """
-        Test that the `remove` method of `StdClass` successfully removes an existing attribute.
+        Test removal of an existing attribute using StdClass.remove.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Removes attribute 'x' from the object and checks that 'y' remains.
+        Removes an attribute and checks that it no longer exists, while others remain.
         """
         obj = StdClass(x=1, y=2)
         obj.remove('x')
@@ -91,12 +141,20 @@ class TestSupportStd(AsyncTestCase):
 
     async def testRemoveNonExistingAttributeRaisesError(self):
         """
-        Test that attempting to remove a non-existing attribute from a StdClass instance raises an AttributeError.
+        Test that removing a non-existing attribute raises AttributeError.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies that the `remove` method of `StdClass` raises an AttributeError
-        when called with the name of an attribute that does not exist on the object.
+        Ensures that attempting to remove an attribute that does not exist raises an error.
         """
         obj = StdClass()
         with self.assertRaises(AttributeError):
@@ -104,12 +162,20 @@ class TestSupportStd(AsyncTestCase):
 
     async def testFromDictCreatesEquivalentInstance(self):
         """
-        Test that StdClass.from_dict creates an instance equivalent to the original data.
+        Test creation of StdClass instance from a dictionary using fromDict.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Verifies that when a dictionary is passed to StdClass.from_dict,
-        the resulting object's toDict() method returns a dictionary equal to the original input.
+        Verifies that fromDict creates an instance whose attributes match the input dictionary.
         """
         data = {'a': 10, 'b': 20}
         obj = StdClass.fromDict(data)
@@ -117,12 +183,20 @@ class TestSupportStd(AsyncTestCase):
 
     async def testReprAndStr(self):
         """
-        Test that the __repr__ and __str__ methods of StdClass include the class name and the value of 'x' respectively.
+        Test __repr__ and __str__ methods of StdClass for expected output.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        - Checks that repr(obj) contains the class name 'StdClass'.
-        - Checks that str(obj) contains the key-value pair "'x': 5".
+        Checks that __repr__ includes the class name and __str__ includes attribute key-value pairs.
         """
         obj = StdClass(x=5)
         self.assertIn("StdClass", repr(obj))
@@ -130,18 +204,20 @@ class TestSupportStd(AsyncTestCase):
 
     async def testEquality(self):
         """
-        Test the equality and inequality operations for StdClass instances.
+        Test equality and inequality operations for StdClass instances.
+
+        Parameters
+        ----------
+        self : TestSupportStd
+            The test case instance.
+
+        Returns
+        -------
+        None
 
         Notes
         -----
-        Creates three instances of StdClass:
-        - 'a' and 'b' with identical attributes (x=1, y=2), which should be considered equal.
-        - 'c' with a different attribute (x=3), which should not be equal to 'a'.
-
-        Asserts
-        -------
-        - 'a' and 'b' are equal.
-        - 'a' and 'c' are not equal.
+        Verifies that instances with identical attributes are equal and those with different attributes are not.
         """
         a = StdClass(x=1, y=2)
         b = StdClass(x=1, y=2)

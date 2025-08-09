@@ -138,7 +138,7 @@ class EqualityTester(BaseEqualityTester):
         return LocalEqualityTester({key: value.clone() for key, value in cls.registry.items()})
 
 
-class LocalEqualityTester(BaseEqualityTester):
+class LocalEqualityTester(BaseEqualityTester):  # noqa: PLW1641
     """Implement an equality tester that can be easily customized.
 
     Args:
@@ -290,7 +290,7 @@ def register_equality() -> None:
     ```
     """
     # Local import to avoid cyclic dependency
-    from coola.equality.comparators import get_type_comparator_mapping
+    from coola.equality.comparators import get_type_comparator_mapping  # noqa: PLC0415
 
     for typ, op in get_type_comparator_mapping().items():
         if not EqualityTester.has_comparator(typ):  # pragma: no cover

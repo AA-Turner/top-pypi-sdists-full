@@ -5,16 +5,15 @@ class TestTestingRender(AsyncTestCase):
 
     async def testMethodsExist(self):
         """
-        Checks if the required methods exist in the TestingResultRender class.
+        Test that required methods exist in the TestingResultRender class.
 
-        This test verifies the presence of specific methods in the TestingResultRender class
-        and asserts that each required method exists. It is important for ensuring that the
-        class interface meets expectations.
+        This asynchronous test checks whether the specified methods are present
+        in the TestingResultRender class by asserting their existence using hasattr.
 
         Returns
         -------
         None
-            This method does not return any value. It performs assertions to validate method existence.
+            This method does not return any value.
         """
         # List of method names that must exist in TestingResultRender
         required_methods = [

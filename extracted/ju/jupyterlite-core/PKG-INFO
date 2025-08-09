@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyterlite-core
-Version: 0.6.3
+Version: 0.6.4
 Dynamic: Summary
 Project-URL: Source, https://github.com/jupyterlite/jupyterlite
 Author: JupyterLite Contributors
@@ -60,9 +60,9 @@ Provides-Extra: all
 Requires-Dist: jsonschema>=3; extra == 'all'
 Requires-Dist: jupyter-server; extra == 'all'
 Requires-Dist: jupyterlab-server<3,>=2.8.1; extra == 'all'
-Requires-Dist: jupyterlab<4.5,>=4.4.4; extra == 'all'
+Requires-Dist: jupyterlab<4.5,>=4.4.5; extra == 'all'
 Requires-Dist: libarchive-c>=4.0; extra == 'all'
-Requires-Dist: notebook<7.5,>=7.4.4; extra == 'all'
+Requires-Dist: notebook<7.5,>=7.4.5; extra == 'all'
 Requires-Dist: pkginfo; extra == 'all'
 Requires-Dist: tornado>=6.1; extra == 'all'
 Provides-Extra: check
@@ -70,8 +70,8 @@ Requires-Dist: jsonschema[format-nongpl]>=3; extra == 'check'
 Provides-Extra: contents
 Requires-Dist: jupyter-server; extra == 'contents'
 Provides-Extra: lab
-Requires-Dist: jupyterlab<4.5,>=4.4.4; extra == 'lab'
-Requires-Dist: notebook<7.5,>=7.4.4; extra == 'lab'
+Requires-Dist: jupyterlab<4.5,>=4.4.5; extra == 'lab'
+Requires-Dist: notebook<7.5,>=7.4.5; extra == 'lab'
 Provides-Extra: libarchive
 Requires-Dist: libarchive-c>=4.0; extra == 'libarchive'
 Provides-Extra: serve

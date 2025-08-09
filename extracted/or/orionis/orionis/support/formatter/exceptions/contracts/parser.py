@@ -3,36 +3,39 @@ from typing import Any, Dict
 
 class IExceptionParser(ABC):
     """
-    Abstract base interface for classes that parse exceptions
-    into a structured dictionary format.
+    Interface for parsing exceptions into structured dictionary representations.
+
+    This abstract base class defines the contract for classes that convert
+    exception objects into a standardized dictionary format, which may include
+    details such as error type, message, code, stack trace, and cause.
     """
 
     @property
     @abstractmethod
     def raw_exception(self) -> Exception:
         """
-        Get the original exception object.
+        Returns the original exception instance.
 
         Returns
         -------
         Exception
-            The raw exception instance.
+            The exception object to be parsed.
         """
         pass
 
     @abstractmethod
     def toDict(self) -> Dict[str, Any]:
         """
-        Serialize the exception into a dictionary.
+        Converts the exception into a structured dictionary.
 
         Returns
         -------
         dict
-            A structured representation of the exception including details such as:
+            A dictionary containing details about the exception, such as:
             - error_type
             - error_message
             - error_code
             - stack_trace
-            - cause (if any)
+            - cause (if present)
         """
         pass

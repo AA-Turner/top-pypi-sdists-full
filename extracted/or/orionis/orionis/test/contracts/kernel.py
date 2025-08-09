@@ -3,27 +3,20 @@ from orionis.test.contracts.unit_test import IUnitTest
 
 class ITestKernel(ABC):
     """
-    Abstract interface for test kernel implementations.
+    Interface for test kernel implementations in the Orionis testing framework.
 
-    This contract defines the required methods that any test kernel implementation
-    must provide for the Orionis testing framework. It ensures consistent behavior
-    across different test kernel implementations.
-
-    The test kernel is responsible for:
-    - Managing application context for testing
-    - Validating and handling test configuration
-    - Orchestrating test discovery and execution
-    - Providing a unified interface for test operations
+    The test kernel manages the application context, validates and handles test configuration,
+    orchestrates test discovery and execution, and provides a unified interface for test operations.
     """
 
     @abstractmethod
     def handle(self) -> IUnitTest:
         """
-        Configure and execute the unit tests based on the current configuration.
+        Configure and execute unit tests according to the current configuration.
 
         Returns
         -------
         IUnitTest
-            The configured and executed unit test instance.
+            An instance representing the configured and executed unit test.
         """
         pass

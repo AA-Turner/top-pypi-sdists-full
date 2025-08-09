@@ -13,28 +13,20 @@ class TestingResultRender(ITestingResultRender):
         persist: bool = False
     ) -> None:
         """
-        Initialize a TestingResultRender instance for rendering test results.
-
-        This constructor sets up the renderer with the provided test result data,
-        determines the storage location for the generated report, and configures
-        whether persistent storage (e.g., SQLite) should be used for storing and
-        retrieving test reports.
+        Initializes the TestingResultRender instance.
 
         Parameters
         ----------
         result : Any
-            The test result data to be rendered and included in the report.
+            The test result data to be rendered in the report.
         storage_path : str
-            The directory path where the HTML report will be saved. If the directory
-            does not exist, it will be created automatically.
+            Directory path where the HTML report will be saved. The directory is created if it does not exist.
         persist : bool, optional
             If True, enables persistent storage for test reports (default is False).
 
         Returns
         -------
         None
-            This constructor does not return a value. It initializes internal state
-            and prepares the report path for future rendering.
         """
         self.__filename = 'orionis-test-results.html'
         self.__result = result
@@ -52,27 +44,18 @@ class TestingResultRender(ITestingResultRender):
         self
     ) -> str:
         """
-        Otherwise, uses the current test result stored in memory. The method replaces placeholders in a
-        template file with the test results and the persistence mode, then writes the rendered content
-        to a report file.
+        Renders the test results into an HTML report file.
 
-        Parameters
-        ----------
-        None
+        If persistence is enabled, retrieves the last 10 reports from the database and includes them in the report.
+        Otherwise, only the current in-memory test result is used. The method reads a template file, replaces
+        placeholders with the test results and persistence mode, writes the rendered content to a report file,
+        and attempts to open the report in the default web browser on supported platforms.
 
         Returns
         -------
         str
-            The full path to the generated report file.
-
-        Notes
-        -----
-        - If persistence is enabled, the last 10 reports are fetched from the SQLite database.
-        - If persistence is not enabled, only the current test result in memory is used.
-        - The method reads a template file, replaces placeholders with the test results and persistence mode,
-          and writes the final content to the report file.
+            The absolute path to the generated HTML report file.
         """
-
         # Determine the source of test results based on persistence mode
         if self.__persist:
 

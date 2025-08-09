@@ -23,10 +23,6 @@ class TestPrinter(ITestPrinter):
         """
         Initialize a TestPrinter instance for formatted test output.
 
-        This constructor sets up the Rich Console for rendering output, configures
-        the panel title and width for display, and defines keywords used to detect
-        debugging calls in test code.
-
         Parameters
         ----------
         print_result : bool, optional
@@ -39,16 +35,6 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         None
-            This method does not return a value. It initializes instance attributes for output formatting.
-
-        Notes
-        -----
-        - Initializes the following attributes:
-          - __rich_console: Rich Console instance for formatted terminal output.
-          - __panel_title: Title string for the output panel.
-          - __panel_width: Width of the output panel, calculated as a percentage of the console width.
-          - __debbug_keywords: List of keywords for identifying debug calls in test code.
-          - __print_result: Flag indicating whether to print results.
         """
         # Create a Rich Console instance for output rendering
         self.__rich_console = Console()
@@ -70,11 +56,7 @@ class TestPrinter(ITestPrinter):
         value: Any
     ) -> None:
         """
-        Print a value to the console using the Rich library's console.
-
-        This method provides a unified way to output various types of values to the console,
-        leveraging Rich's formatting capabilities. It handles strings, objects, and lists,
-        ensuring each is displayed appropriately.
+        Print a value to the console using the Rich library.
 
         Parameters
         ----------
@@ -84,15 +66,7 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         None
-            This method does not return any value. It outputs the provided value(s) to the console.
-
-        Notes
-        -----
-        - If the value is a string, it is printed directly.
-        - If the value is a list, each item in the list is printed on a new line.
-        - For any other object, its string representation is printed.
         """
-
         # If not printing results, return early
         if self.__print_result is False:
             return
@@ -120,11 +94,6 @@ class TestPrinter(ITestPrinter):
         """
         Display a formatted start message for the test execution session.
 
-        This method prints a styled panel to the console at the beginning of a test run,
-        providing key information about the test session such as the total number of tests,
-        the execution mode (parallel or sequential), and the start time. The output is
-        rendered using the Rich library for enhanced readability.
-
         Parameters
         ----------
         length_tests : int
@@ -137,14 +106,7 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         None
-            This method does not return any value. It only prints formatted output to the console.
-
-        Notes
-        -----
-        - The message is only printed if the `print_result` flag is set to True.
-        - The panel includes the total number of tests, execution mode, and the current timestamp.
         """
-
         # If not printing results, return early
         if self.__print_result is False:
             return
@@ -185,11 +147,6 @@ class TestPrinter(ITestPrinter):
         """
         Display a final summary message for the test suite execution in a styled panel.
 
-        This method prints a completion message at the end of the test run, summarizing the overall
-        status and total execution time. The message includes a status icon (✅ for success, ❌ for failure)
-        based on whether any tests failed or errored. The output is formatted using the Rich library
-        for enhanced readability.
-
         Parameters
         ----------
         summary : dict
@@ -201,15 +158,7 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         None
-            This method does not return any value. It outputs a formatted completion message to the console.
-
-        Notes
-        -----
-        - If `self.__print_result` is False, the method returns without displaying anything.
-        - The status icon reflects the presence of failures or errors in the test suite.
-        - The message is displayed within a styled Rich panel for clarity.
         """
-
         # If not printing results, return early
         if self.__print_result is False:
             return
@@ -244,12 +193,6 @@ class TestPrinter(ITestPrinter):
         """
         Execute a test suite panel with optional live console output and debugging detection.
 
-        This method manages the display of a running message panel using the Rich library,
-        adapting its behavior based on whether debugging or dump calls are detected in the test suite
-        and whether result printing is enabled. If debugging or dump calls are present in the test code,
-        a static panel is shown before executing the test suite. Otherwise, a live panel is displayed
-        during execution for a more dynamic user experience.
-
         Parameters
         ----------
         flatten_test_suite : list
@@ -260,16 +203,8 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         Any
-            Returns the result produced by the provided callable after execution, which typically
-            contains the outcome of the test suite run (such as a summary or result object).
-
-        Notes
-        -----
-        - If debugging or dump calls are detected in the test code, a static panel is displayed.
-        - If no debugging or dump calls are found and result printing is enabled, a live panel is shown.
-        - If result printing is disabled, the test suite is executed without any panel display.
+            Returns the result produced by the provided callable after execution.
         """
-
         # Determine if the test suite contains active debugging or dump calls
         use_debugger = self.__withDebugger(
             flatten_test_suite=flatten_test_suite
@@ -311,10 +246,6 @@ class TestPrinter(ITestPrinter):
         """
         Display a styled message inviting the user to view the test results report.
 
-        This method prints an elegant invitation to the console, indicating that the test results
-        have been saved and providing a clickable or visually distinct path to the report. The output
-        uses Rich's Text styling to highlight the message and underline the report path for emphasis.
-
         Parameters
         ----------
         path : str
@@ -323,14 +254,7 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         None
-            This method does not return any value. It outputs a formatted message to the console.
-
-        Notes
-        -----
-        - The invitation message is styled with green text for success and an underlined blue path for visibility.
-        - Intended to be called after test execution to direct users to the generated report.
         """
-
         # If not printing results, do not display the link
         if self.__print_result is False:
             return
@@ -354,11 +278,6 @@ class TestPrinter(ITestPrinter):
         """
         Display a summary table of test results using the Rich library.
 
-        This method prints a formatted table summarizing the results of a test suite execution.
-        The table includes the total number of tests, counts of passed, failed, errored, and skipped tests,
-        the total execution duration, and the overall success rate. The output is styled for readability
-        and is only displayed if result printing is enabled.
-
         Parameters
         ----------
         summary : dict
@@ -374,15 +293,7 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         None
-            This method does not return any value. It outputs a formatted summary table to the console
-            if result printing is enabled.
-
-        Notes
-        -----
-        - The table is only displayed if the `print_result` flag is set to True.
-        - The table uses Rich's styling features for enhanced readability.
         """
-
         # If result printing is disabled, do not display the summary table
         if self.__print_result is False:
             return
@@ -429,12 +340,6 @@ class TestPrinter(ITestPrinter):
         Display a detailed summary of test execution results, including a summary table and
         grouped panels for failed or errored tests.
 
-        This method prints a summary table of the test results and, if there are any failed or
-        errored tests, displays them grouped by their test class. For each failed or errored test,
-        a syntax-highlighted traceback panel is shown, along with metadata such as the test method
-        name and execution time. Different icons and border colors are used to distinguish between
-        failed and errored tests.
-
         Parameters
         ----------
         summary : dict
@@ -445,20 +350,7 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         None
-            This method does not return any value. It outputs the formatted summary table and
-            detailed panels for failed or errored tests to the console.
-
-        Notes
-        -----
-        - The summary table provides an overview of the test results.
-        - Failed and errored tests are grouped and displayed by their test class.
-        - Each failed or errored test is shown in a panel with a syntax-highlighted traceback,
-          test method name, and execution time.
-        - Icons and border colors visually distinguish between failed (❌, yellow) and errored
-          (💥, red) tests.
-        - No output is produced if result printing is disabled.
         """
-
         # If result printing is disabled, do not display results
         if not self.__print_result:
             return
@@ -532,14 +424,9 @@ class TestPrinter(ITestPrinter):
         """
         Display the result of a single unit test in a formatted manner using the Rich library.
 
-        This method prints the outcome of an individual unit test to the console, showing a status icon
-        (✅ for passed, ❌ for failed) along with the test name. If the test failed, the first line of the
-        error message is also displayed for quick reference. The output is styled for clarity and does not
-        use syntax highlighting.
-
         Parameters
         ----------
-        test_result : Any
+        test_result : TestResult
             An object representing the result of a unit test. It must have the following attributes:
                 - status: An enum or object with a 'name' attribute indicating the test status (e.g., "PASSED", "FAILED").
                 - name: The name of the test.
@@ -548,15 +435,7 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         None
-            This method does not return any value. It outputs the formatted test result to the console.
-
-        Notes
-        -----
-        - If the test passed, only the status and test name are displayed.
-        - If the test failed, the status, test name, and the first line of the error message are shown.
-        - Output is printed using the Rich console without syntax highlighting.
         """
-
         # If result printing is disabled, do not display results
         if not self.__print_result:
             return
@@ -589,11 +468,6 @@ class TestPrinter(ITestPrinter):
         """
         Determine if any test case in the provided flattened test suite contains active debugging or dumping calls.
 
-        This method inspects the source code of each test case instance in the given list to check for the presence
-        of specific debugging or dumping method calls (such as 'self.dd' or 'self.dump'). Only lines that are not
-        commented out are considered. If any such call is found in the source code, the method immediately returns True,
-        indicating that a debugger or dump method is actively used in the test suite.
-
         Parameters
         ----------
         flatten_test_suite : list
@@ -602,16 +476,9 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         bool
-            Returns True if any test case contains an active (non-commented) call to a debugging or dumping method
-            (e.g., 'self.dd' or 'self.dump'). Returns False if no such calls are found or if an exception occurs
-            during inspection.
-
-        Notes
-        -----
-        - Lines that are commented out (i.e., start with '#') are ignored during inspection.
-        - If an exception occurs while retrieving or processing the source code, the method returns False.
+            True if any test case contains an active (non-commented) call to a debugging or dumping method.
+            False if no such calls are found or if an exception occurs during inspection.
         """
-
         try:
 
             # Iterate through each test case in the flattened test suite
@@ -650,12 +517,6 @@ class TestPrinter(ITestPrinter):
         """
         Extract and return the most relevant portion of a traceback string that pertains to a specific test file.
 
-        This method processes a full Python traceback and attempts to isolate the lines that are directly related
-        to the provided test file. It does so by searching for the test file's name within the traceback and collecting
-        all subsequent lines that are relevant, such as those containing 'File' or non-empty lines. If the test file's
-        name cannot be determined or no relevant lines are found, the original traceback is returned. If the traceback
-        is empty, a default message is returned.
-
         Parameters
         ----------
         test_path : str
@@ -666,11 +527,10 @@ class TestPrinter(ITestPrinter):
         Returns
         -------
         str
-            Returns a string containing only the relevant traceback lines associated with the test file.
+            String containing only the relevant traceback lines associated with the test file.
             If no relevant lines are found or the file name cannot be determined, the full traceback is returned.
             If the traceback is empty, returns "No traceback available for this test."
         """
-
         # Return a default message if the traceback is empty
         if not traceback_test:
             return "No traceback available for this test."

@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: pydantic_yaml
-Version: 1.5.1
-Summary: YAML reading/writing for Pydantic models.
+Version: 1.6.0
+Summary: YAML reading/writing for Pydantic models
 Author-email: NowanIlfideme <git@nowan.dev>
 License: MIT License
         
@@ -27,6 +27,8 @@ License: MIT License
         
 Project-URL: github, https://github.com/NowanIlfideme/pydantic-yaml
 Project-URL: docs, https://pydantic-yaml.readthedocs.io/en/latest/
+Project-URL: issues, https://github.com/NowanIlfideme/pydantic-yaml/issues
+Project-URL: releasenotes, https://github.com/NowanIlfideme/pydantic-yaml/releases
 Keywords: pydantic,yaml
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Development Status :: 5 - Production/Stable
@@ -98,7 +100,11 @@ assert m1 == m2
 m3 = parse_yaml_raw_as(MyModel, jsn)
 assert m1 == m3
 
+# You can also auto-generate comments in YAML from the model docstrings and field descriptions
+print(to_yaml_str(m1, add_comments=True))
 ```
+
+See [comment generation docs](docs/comments.md) for more info.
 
 With Pydantic v2, you can also dump dataclasses:
 
@@ -169,4 +175,4 @@ However, this will be availble only for `pydantic<2`.
 ### Versioned Models
 
 This functionality has been removed, as it's questionably useful for most users.
-There is an [example in the docs](versioned.md) that's available.
+There is an [example in the docs](docs/versioned.md) that's available.

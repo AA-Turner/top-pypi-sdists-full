@@ -3,13 +3,27 @@ from orionis.services.introspection.modules.reflection import ReflectionModule
 from orionis.services.introspection.exceptions import ReflectionTypeError, ReflectionValueError
 
 class TestServiceReflectionModule(AsyncTestCase):
+    """
+    Test suite for the ReflectionModule class functionality.
+
+    This test class validates the introspection capabilities of the ReflectionModule
+    which provides reflection functionality for Python modules including class,
+    function, and constant discovery and manipulation.
+    """
 
     module_name = 'tests.services.introspection.reflection.mock.fake_reflect_instance'
 
     async def testGetModule(self):
         """
-        Test that the `getModule` method of the `ReflectionModule` class returns a module object
-        whose `__name__` attribute matches the expected module name.
+        Test retrieval of the underlying module object.
+
+        Validates that the getModule method returns the correct module object
+        and that the module's __name__ attribute matches the expected name.
+
+        Raises
+        ------
+        AssertionError
+            If the module name does not match the expected value.
         """
         reflection = ReflectionModule(self.module_name)
         module = reflection.getModule()
@@ -17,75 +31,102 @@ class TestServiceReflectionModule(AsyncTestCase):
 
     async def testHasClass(self):
         """
-        Tests the hasClass method of the ReflectionModule.
+        Test class existence detection within the module.
 
-        This test verifies that hasClass correctly identifies the presence or absence of a class within the module:
-        - Asserts that hasClass returns True for an existing class ('PublicFakeClass').
-        - Asserts that hasClass returns False for a non-existent class ('NonExistentClass').
+        Verifies that the hasClass method correctly identifies the presence
+        or absence of classes within the reflected module.
+
+        Raises
+        ------
+        AssertionError
+            If the class existence check returns incorrect boolean values.
         """
         reflection = ReflectionModule(self.module_name)
-        self.assertTrue(reflection.hasClass('PublicFakeClass'))
-        self.assertFalse(reflection.hasClass('NonExistentClass'))
+        self.assertTrue(reflection.hasClass('PublicFakeClass'))  # Existing class should return True
+        self.assertFalse(reflection.hasClass('NonExistentClass'))  # Non-existent class should return False
 
     async def testGetClass(self):
         """
-        Test the `getClass` method of the ReflectionModule.
+        Test class object retrieval by name.
 
-        This test verifies that:
-        - The method returns the correct class object when given a valid class name ('PublicFakeClass').
-        - The returned class object has the expected name.
-        - The method returns None when given a non-existent class name ('NonExistentClass').
+        Validates that the getClass method returns the correct class object
+        for existing classes and None for non-existent classes.
+
+        Raises
+        ------
+        AssertionError
+            If the retrieved class object is incorrect or None when it should exist.
         """
         reflection = ReflectionModule(self.module_name)
         cls = reflection.getClass('PublicFakeClass')
-        self.assertIsNotNone(cls)
-        self.assertEqual(cls.__name__, 'PublicFakeClass')
-        self.assertIsNone(reflection.getClass('NonExistentClass'))
+        self.assertIsNotNone(cls)  # Class should exist and be returned
+        self.assertEqual(cls.__name__, 'PublicFakeClass')  # Class name should match
+        self.assertIsNone(reflection.getClass('NonExistentClass'))  # Non-existent class should return None
 
     async def testSetAndRemoveClass(self):
         """
-        Test the functionality of setting, retrieving, and removing a class in the ReflectionModule.
+        Test dynamic class registration and removal operations.
 
-        This test verifies that:
-        - A class can be registered with the ReflectionModule using setClass.
-        - The presence of the class can be checked with hasClass.
-        - The registered class can be retrieved with getClass.
-        - The class can be removed with removeClass.
-        - After removal, hasClass returns False for the class name.
+        Validates the complete lifecycle of dynamically adding and removing
+        classes from the module through the ReflectionModule interface.
+
+        Raises
+        ------
+        AssertionError
+            If class registration, retrieval, or removal operations fail.
         """
         reflection = ReflectionModule(self.module_name)
+
+        # Define a mock class for testing
         class MockClass:
             pass
+
+        # Test class registration
         reflection.setClass('MockClass', MockClass)
-        self.assertTrue(reflection.hasClass('MockClass'))
-        self.assertEqual(reflection.getClass('MockClass'), MockClass)
+        self.assertTrue(reflection.hasClass('MockClass'))  # Class should be registered
+        self.assertEqual(reflection.getClass('MockClass'), MockClass)  # Retrieved class should match
+
+        # Test class removal
         reflection.removeClass('MockClass')
-        self.assertFalse(reflection.hasClass('MockClass'))
+        self.assertFalse(reflection.hasClass('MockClass'))  # Class should be removed
 
     async def testSetClassInvalid(self):
         """
-        Test that the `setClass` method of `ReflectionModule` raises a `ReflectionValueError`
-        when provided with invalid class names or class types.
+        Test error handling for invalid class registration attempts.
 
-        Scenarios tested:
-            - Class name starts with a digit.
-            - Class name is a reserved keyword.
-            - Class type is not a valid type (e.g., passing an integer instead of a class).
+        Validates that the setClass method properly raises ReflectionValueError
+        when provided with invalid class names or non-class objects.
+
+        Raises
+        ------
+        AssertionError
+            If expected ReflectionValueError exceptions are not raised.
         """
         reflection = ReflectionModule(self.module_name)
+
+        # Test invalid class name starting with digit
         with self.assertRaises(ReflectionValueError):
             reflection.setClass('123Invalid', object)
+
+        # Test reserved keyword as class name
         with self.assertRaises(ReflectionValueError):
             reflection.setClass('class', object)
+
+        # Test non-class object registration
         with self.assertRaises(ReflectionValueError):
             reflection.setClass('ValidName', 123)
 
     async def testRemoveClassInvalid(self):
         """
-        Test that attempting to remove a non-existent class from the ReflectionModule raises a ValueError.
+        Test error handling for invalid class removal attempts.
 
-        This test verifies that the `removeClass` method correctly handles the case where the specified class
-        does not exist in the module by raising a `ValueError` exception.
+        Validates that the removeClass method properly raises ValueError
+        when attempting to remove a non-existent class from the module.
+
+        Raises
+        ------
+        AssertionError
+            If the expected ValueError exception is not raised.
         """
         reflection = ReflectionModule(self.module_name)
         with self.assertRaises(ValueError):
@@ -93,304 +134,434 @@ class TestServiceReflectionModule(AsyncTestCase):
 
     async def testInitClass(self):
         """
-        Tests the initialization of a class using the ReflectionModule.
+        Test class instantiation through reflection.
 
-        This test verifies that:
-        - An instance of 'PublicFakeClass' can be successfully created using the initClass method.
-        - The created instance has the correct class name.
-        - Attempting to initialize a non-existent class ('NonExistentClass') raises a ReflectionValueError.
+        Validates that the initClass method can successfully create instances
+        of existing classes and properly handles non-existent class errors.
+
+        Raises
+        ------
+        AssertionError
+            If class instantiation fails or error handling is incorrect.
         """
         reflection = ReflectionModule(self.module_name)
+
+        # Test successful class instantiation
         instance = reflection.initClass('PublicFakeClass')
         self.assertEqual(instance.__class__.__name__, 'PublicFakeClass')
+
+        # Test error handling for non-existent class
         with self.assertRaises(ReflectionValueError):
             reflection.initClass('NonExistentClass')
 
     async def testGetClasses(self):
         """
-        Test that the `getClasses` method of the `ReflectionModule` returns a list of class names
-        defined in the module, including public, protected, and private classes.
+        Test retrieval of all classes defined in the module.
+
+        Validates that the getClasses method returns a complete dictionary
+        of all class definitions including public, protected, and private classes.
+
+        Raises
+        ------
+        AssertionError
+            If expected classes are not found in the returned dictionary.
         """
         reflection = ReflectionModule(self.module_name)
         classes = reflection.getClasses()
-        self.assertIn('PublicFakeClass', classes)
-        self.assertIn('_ProtectedFakeClass', classes)
-        self.assertIn('__PrivateFakeClass', classes)
+        self.assertIn('PublicFakeClass', classes)      # Public class should be included
+        self.assertIn('_ProtectedFakeClass', classes)  # Protected class should be included
+        self.assertIn('__PrivateFakeClass', classes)   # Private class should be included
 
     async def testGetPublicClasses(self):
         """
-        Test that the `getPublicClasses` method of the `ReflectionModule` returns only public class names.
-        Verifies that:
-        - Public class names (e.g., 'PublicFakeClass') are included in the result.
-        - Protected (e.g., '_ProtectedFakeClass') and private (e.g., '__PrivateFakeClass') class names are excluded.
+        Test retrieval of public classes only.
+
+        Validates that the getPublicClasses method returns only classes
+        with public visibility (not prefixed with underscores).
+
+        Raises
+        ------
+        AssertionError
+            If protected or private classes are included or public classes are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         public_classes = reflection.getPublicClasses()
-        self.assertIn('PublicFakeClass', public_classes)
-        self.assertNotIn('_ProtectedFakeClass', public_classes)
-        self.assertNotIn('__PrivateFakeClass', public_classes)
+        self.assertIn('PublicFakeClass', public_classes)        # Public class should be included
+        self.assertNotIn('_ProtectedFakeClass', public_classes) # Protected class should be excluded
+        self.assertNotIn('__PrivateFakeClass', public_classes)  # Private class should be excluded
 
     async def testGetProtectedClasses(self):
         """
-        Test that the ReflectionModule correctly identifies protected classes.
+        Test retrieval of protected classes only.
 
-        This test verifies that the `getProtectedClasses` method returns a list containing
-        the names of protected classes (those prefixed with an underscore) and excludes
-        public class names. Specifically, it checks that '_ProtectedFakeClass' is present
-        in the returned list, while 'PublicFakeClass' is not.
+        Validates that the getProtectedClasses method returns only classes
+        with protected visibility (prefixed with single underscore).
+
+        Raises
+        ------
+        AssertionError
+            If public or private classes are included or protected classes are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         protected_classes = reflection.getProtectedClasses()
-        self.assertIn('_ProtectedFakeClass', protected_classes)
-        self.assertNotIn('PublicFakeClass', protected_classes)
+        self.assertIn('_ProtectedFakeClass', protected_classes)  # Protected class should be included
+        self.assertNotIn('PublicFakeClass', protected_classes)   # Public class should be excluded
 
     async def testGetPrivateClasses(self):
         """
-        Test that the `getPrivateClasses` method of the `ReflectionModule` correctly identifies private classes within the specified module.
+        Test retrieval of private classes only.
 
-        This test verifies that:
-        - The private class '__PrivateFakeClass' is present in the list of private classes returned.
-        - The public class 'PublicFakeClass' is not included in the list of private classes.
+        Validates that the getPrivateClasses method returns only classes
+        with private visibility (prefixed with double underscores, not ending with them).
+
+        Raises
+        ------
+        AssertionError
+            If public or protected classes are included or private classes are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         private_classes = reflection.getPrivateClasses()
-        self.assertIn('__PrivateFakeClass', private_classes)
-        self.assertNotIn('PublicFakeClass', private_classes)
+        self.assertIn('__PrivateFakeClass', private_classes)  # Private class should be included
+        self.assertNotIn('PublicFakeClass', private_classes)  # Public class should be excluded
 
     async def testGetConstants(self):
         """
-        Test that the `getConstants` method of the `ReflectionModule` retrieves all types of constants
-        (public, protected, and private) defined in the module.
+        Test retrieval of all constants defined in the module.
 
-        Asserts:
-            - 'PUBLIC_CONSTANT' is present in the returned constants.
-            - '_PROTECTED_CONSTANT' is present in the returned constants.
-            - '__PRIVATE_CONSTANT' is present in the returned constants.
+        Validates that the getConstants method returns a complete dictionary
+        of all constant definitions including public, protected, and private constants.
+
+        Raises
+        ------
+        AssertionError
+            If expected constants are not found in the returned dictionary.
         """
         reflection = ReflectionModule(self.module_name)
         consts = reflection.getConstants()
-        self.assertIn('PUBLIC_CONSTANT', consts)
-        self.assertIn('_PROTECTED_CONSTANT', consts)
-        self.assertIn('__PRIVATE_CONSTANT', consts)
+        self.assertIn('PUBLIC_CONSTANT', consts)      # Public constant should be included
+        self.assertIn('_PROTECTED_CONSTANT', consts)  # Protected constant should be included
+        self.assertIn('__PRIVATE_CONSTANT', consts)   # Private constant should be included
 
     async def testGetPublicConstants(self):
         """
-        Test that `getPublicConstants` returns only public constants from the module.
+        Test retrieval of public constants only.
 
-        This test verifies that:
-        - 'PUBLIC_CONSTANT' is present in the returned list of public constants.
-        - '_PROTECTED_CONSTANT' and '__PRIVATE_CONSTANT' are not included in the list, ensuring that protected and private constants are excluded.
+        Validates that the getPublicConstants method returns only constants
+        with public visibility (not prefixed with underscores).
+
+        Raises
+        ------
+        AssertionError
+            If protected or private constants are included or public constants are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         public_consts = reflection.getPublicConstants()
-        self.assertIn('PUBLIC_CONSTANT', public_consts)
-        self.assertNotIn('_PROTECTED_CONSTANT', public_consts)
-        self.assertNotIn('__PRIVATE_CONSTANT', public_consts)
+        self.assertIn('PUBLIC_CONSTANT', public_consts)        # Public constant should be included
+        self.assertNotIn('_PROTECTED_CONSTANT', public_consts) # Protected constant should be excluded
+        self.assertNotIn('__PRIVATE_CONSTANT', public_consts)  # Private constant should be excluded
 
     async def testGetProtectedConstants(self):
         """
-        Tests that the `getProtectedConstants` method of the `ReflectionModule` class
-        correctly retrieves protected constants (those prefixed with an underscore) from the module.
+        Test retrieval of protected constants only.
 
-        Asserts that '_PROTECTED_CONSTANT' is present in the returned list of protected constants,
-        and that 'PUBLIC_CONSTANT' is not included.
+        Validates that the getProtectedConstants method returns only constants
+        with protected visibility (prefixed with single underscore).
+
+        Raises
+        ------
+        AssertionError
+            If public or private constants are included or protected constants are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         protected_consts = reflection.getProtectedConstants()
-        self.assertIn('_PROTECTED_CONSTANT', protected_consts)
-        self.assertNotIn('PUBLIC_CONSTANT', protected_consts)
+        self.assertIn('_PROTECTED_CONSTANT', protected_consts)  # Protected constant should be included
+        self.assertNotIn('PUBLIC_CONSTANT', protected_consts)   # Public constant should be excluded
 
     async def testGetPrivateConstants(self):
         """
-        Test that the getPrivateConstants method of the ReflectionModule correctly retrieves private constants.
+        Test retrieval of private constants only.
 
-        This test verifies that:
-        - The private constant '__PRIVATE_CONSTANT' is present in the list of private constants.
-        - The public constant 'PUBLIC_CONSTANT' is not included in the list of private constants.
+        Validates that the getPrivateConstants method returns only constants
+        with private visibility (prefixed with double underscores, not ending with them).
+
+        Raises
+        ------
+        AssertionError
+            If public or protected constants are included or private constants are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         private_consts = reflection.getPrivateConstants()
-        self.assertIn('__PRIVATE_CONSTANT', private_consts)
-        self.assertNotIn('PUBLIC_CONSTANT', private_consts)
+        self.assertIn('__PRIVATE_CONSTANT', private_consts)  # Private constant should be included
+        self.assertNotIn('PUBLIC_CONSTANT', private_consts)  # Public constant should be excluded
 
     async def testGetConstant(self):
         """
-        Test the `getConstant` method of the ReflectionModule.
+        Test individual constant value retrieval by name.
 
-        This test verifies that:
-        - Retrieving an existing constant ('PUBLIC_CONSTANT') returns its expected value ('public constant').
-        - Retrieving a non-existent constant ('NON_EXISTENT_CONST') returns None.
+        Validates that the getConstant method returns the correct value
+        for existing constants and None for non-existent constants.
+
+        Raises
+        ------
+        AssertionError
+            If the retrieved constant value is incorrect or None when it should exist.
         """
         reflection = ReflectionModule(self.module_name)
         value = reflection.getConstant('PUBLIC_CONSTANT')
-        self.assertEqual(value, 'public constant')
-        self.assertIsNone(reflection.getConstant('NON_EXISTENT_CONST'))
+        self.assertEqual(value, 'public constant')  # Constant value should match expected
+        self.assertIsNone(reflection.getConstant('NON_EXISTENT_CONST'))  # Non-existent constant should return None
 
     async def testGetFunctions(self):
         """
-        Test that the ReflectionModule correctly retrieves all function names, including public, protected, and private methods, from the specified module.
+        Test retrieval of all functions defined in the module.
+
+        Validates that the getFunctions method returns a complete dictionary
+        of all function definitions including public, protected, and private functions
+        of both synchronous and asynchronous types.
+
+        Raises
+        ------
+        AssertionError
+            If expected functions are not found in the returned dictionary.
         """
         reflection = ReflectionModule(self.module_name)
         funcs = reflection.getFunctions()
-        self.assertIn('publicSyncFunction', funcs)
-        self.assertIn('publicAsyncFunction', funcs)
-        self.assertIn('_protectedSyncFunction', funcs)
-        self.assertIn('_protectedAsyncFunction', funcs)
-        self.assertIn('__privateSyncFunction', funcs)
-        self.assertIn('__privateAsyncFunction', funcs)
+        # Test public functions
+        self.assertIn('publicSyncFunction', funcs)      # Public sync function should be included
+        self.assertIn('publicAsyncFunction', funcs)     # Public async function should be included
+        # Test protected functions
+        self.assertIn('_protectedSyncFunction', funcs)  # Protected sync function should be included
+        self.assertIn('_protectedAsyncFunction', funcs) # Protected async function should be included
+        # Test private functions
+        self.assertIn('__privateSyncFunction', funcs)   # Private sync function should be included
+        self.assertIn('__privateAsyncFunction', funcs)  # Private async function should be included
 
     async def testGetPublicFunctions(self):
         """
-        Test that ReflectionModule.getPublicFunctions() returns only public functions.
+        Test retrieval of public functions only.
 
-        This test verifies that:
-        - Public synchronous and asynchronous functions are included in the returned list.
-        - Protected (prefixed with a single underscore) and private (prefixed with double underscores) functions are not included.
+        Validates that the getPublicFunctions method returns only functions
+        with public visibility (not prefixed with underscores) including
+        both synchronous and asynchronous functions.
+
+        Raises
+        ------
+        AssertionError
+            If protected or private functions are included or public functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         public_funcs = reflection.getPublicFunctions()
-        self.assertIn('publicSyncFunction', public_funcs)
-        self.assertIn('publicAsyncFunction', public_funcs)
-        self.assertNotIn('_protectedSyncFunction', public_funcs)
-        self.assertNotIn('__privateSyncFunction', public_funcs)
+        self.assertIn('publicSyncFunction', public_funcs)        # Public sync function should be included
+        self.assertIn('publicAsyncFunction', public_funcs)       # Public async function should be included
+        self.assertNotIn('_protectedSyncFunction', public_funcs) # Protected function should be excluded
+        self.assertNotIn('__privateSyncFunction', public_funcs)  # Private function should be excluded
 
     async def testGetPublicSyncFunctions(self):
         """
-        Test that `getPublicSyncFunctions` returns only public synchronous functions.
+        Test retrieval of public synchronous functions only.
 
-        This test verifies that:
-        - The list of public synchronous functions includes 'publicSyncFunction'.
-        - The list does not include 'publicAsyncFunction', ensuring only synchronous functions are returned.
+        Validates that the getPublicSyncFunctions method returns only functions
+        with public visibility that are synchronous (non-async).
+
+        Raises
+        ------
+        AssertionError
+            If asynchronous functions are included or synchronous public functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         sync_funcs = reflection.getPublicSyncFunctions()
-        self.assertIn('publicSyncFunction', sync_funcs)
-        self.assertNotIn('publicAsyncFunction', sync_funcs)
+        self.assertIn('publicSyncFunction', sync_funcs)     # Public sync function should be included
+        self.assertNotIn('publicAsyncFunction', sync_funcs) # Public async function should be excluded
 
     async def testGetPublicAsyncFunctions(self):
         """
-        Test that ReflectionModule.getPublicAsyncFunctions() returns a list containing the names of public asynchronous functions,
-        including 'publicAsyncFunction', and excludes synchronous functions such as 'publicSyncFunction'.
+        Test retrieval of public asynchronous functions only.
+
+        Validates that the getPublicAsyncFunctions method returns only functions
+        with public visibility that are asynchronous (async def).
+
+        Raises
+        ------
+        AssertionError
+            If synchronous functions are included or asynchronous public functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         async_funcs = reflection.getPublicAsyncFunctions()
-        self.assertIn('publicAsyncFunction', async_funcs)
-        self.assertNotIn('publicSyncFunction', async_funcs)
+        self.assertIn('publicAsyncFunction', async_funcs)    # Public async function should be included
+        self.assertNotIn('publicSyncFunction', async_funcs)  # Public sync function should be excluded
 
     async def testGetProtectedFunctions(self):
         """
-        Test that the ReflectionModule correctly identifies protected functions.
+        Test retrieval of protected functions only.
 
-        This test verifies that:
-        - Protected functions (those prefixed with a single underscore) are included in the list returned by getProtectedFunctions().
-        - Public functions (those without a leading underscore) are not included in the list of protected functions.
+        Validates that the getProtectedFunctions method returns only functions
+        with protected visibility (prefixed with single underscore) including
+        both synchronous and asynchronous functions.
+
+        Raises
+        ------
+        AssertionError
+            If public functions are included or protected functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         protected_funcs = reflection.getProtectedFunctions()
-        self.assertIn('_protectedSyncFunction', protected_funcs)
-        self.assertIn('_protectedAsyncFunction', protected_funcs)
-        self.assertNotIn('publicSyncFunction', protected_funcs)
+        self.assertIn('_protectedSyncFunction', protected_funcs)  # Protected sync function should be included
+        self.assertIn('_protectedAsyncFunction', protected_funcs) # Protected async function should be included
+        self.assertNotIn('publicSyncFunction', protected_funcs)   # Public function should be excluded
 
     async def testGetProtectedSyncFunctions(self):
         """
-        Test that the `getProtectedSyncFunctions` method of the `ReflectionModule` class
-        returns a list containing protected synchronous function names, specifically
-        including '_protectedSyncFunction' and excluding '_protectedAsyncFunction'.
+        Test retrieval of protected synchronous functions only.
+
+        Validates that the getProtectedSyncFunctions method returns only functions
+        with protected visibility that are synchronous (non-async).
+
+        Raises
+        ------
+        AssertionError
+            If asynchronous functions are included or synchronous protected functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         sync_funcs = reflection.getProtectedSyncFunctions()
-        self.assertIn('_protectedSyncFunction', sync_funcs)
-        self.assertNotIn('_protectedAsyncFunction', sync_funcs)
+        self.assertIn('_protectedSyncFunction', sync_funcs)     # Protected sync function should be included
+        self.assertNotIn('_protectedAsyncFunction', sync_funcs) # Protected async function should be excluded
 
     async def testGetProtectedAsyncFunctions(self):
         """
-        Test that the ReflectionModule correctly identifies protected asynchronous functions.
+        Test retrieval of protected asynchronous functions only.
 
-        This test verifies that:
-        - The list of protected async functions returned by `getProtectedAsyncFunctions()` includes '_protectedAsyncFunction'.
-        - The list does not include '_protectedSyncFunction', ensuring only async functions are returned.
+        Validates that the getProtectedAsyncFunctions method returns only functions
+        with protected visibility that are asynchronous (async def).
+
+        Raises
+        ------
+        AssertionError
+            If synchronous functions are included or asynchronous protected functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         async_funcs = reflection.getProtectedAsyncFunctions()
-        self.assertIn('_protectedAsyncFunction', async_funcs)
-        self.assertNotIn('_protectedSyncFunction', async_funcs)
+        self.assertIn('_protectedAsyncFunction', async_funcs)    # Protected async function should be included
+        self.assertNotIn('_protectedSyncFunction', async_funcs)  # Protected sync function should be excluded
 
     async def testGetPrivateFunctions(self):
         """
-        Test that ReflectionModule.getPrivateFunctions correctly identifies private functions.
+        Test retrieval of private functions only.
 
-        This test verifies that:
-        - Private functions (e.g., '__privateSyncFunction', '__privateAsyncFunction') are included in the returned list.
-        - Public functions (e.g., 'publicSyncFunction') are not included in the returned list.
+        Validates that the getPrivateFunctions method returns only functions
+        with private visibility (prefixed with double underscores, not ending with them)
+        including both synchronous and asynchronous functions.
+
+        Raises
+        ------
+        AssertionError
+            If public functions are included or private functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         private_funcs = reflection.getPrivateFunctions()
-        self.assertIn('__privateSyncFunction', private_funcs)
-        self.assertIn('__privateAsyncFunction', private_funcs)
-        self.assertNotIn('publicSyncFunction', private_funcs)
+        self.assertIn('__privateSyncFunction', private_funcs)  # Private sync function should be included
+        self.assertIn('__privateAsyncFunction', private_funcs) # Private async function should be included
+        self.assertNotIn('publicSyncFunction', private_funcs)  # Public function should be excluded
 
     async def testGetPrivateSyncFunctions(self):
         """
-        Test that the getPrivateSyncFunctions method of ReflectionModule returns a list containing
-        the names of private synchronous functions, specifically including '__privateSyncFunction'
-        and excluding '__privateAsyncFunction'.
+        Test retrieval of private synchronous functions only.
+
+        Validates that the getPrivateSyncFunctions method returns only functions
+        with private visibility that are synchronous (non-async).
+
+        Raises
+        ------
+        AssertionError
+            If asynchronous functions are included or synchronous private functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         sync_funcs = reflection.getPrivateSyncFunctions()
-        self.assertIn('__privateSyncFunction', sync_funcs)
-        self.assertNotIn('__privateAsyncFunction', sync_funcs)
+        self.assertIn('__privateSyncFunction', sync_funcs)     # Private sync function should be included
+        self.assertNotIn('__privateAsyncFunction', sync_funcs) # Private async function should be excluded
 
     async def testGetPrivateAsyncFunctions(self):
         """
-        Tests that the ReflectionModule correctly identifies private asynchronous functions.
+        Test retrieval of private asynchronous functions only.
 
-        This test verifies that:
-        - The list of private async functions returned by `getPrivateAsyncFunctions()` includes '__privateAsyncFunction'.
-        - The list does not include '__privateSyncFunction', ensuring only async functions are returned.
+        Validates that the getPrivateAsyncFunctions method returns only functions
+        with private visibility that are asynchronous (async def).
+
+        Raises
+        ------
+        AssertionError
+            If synchronous functions are included or asynchronous private functions are excluded.
         """
         reflection = ReflectionModule(self.module_name)
         async_funcs = reflection.getPrivateAsyncFunctions()
-        self.assertIn('__privateAsyncFunction', async_funcs)
-        self.assertNotIn('__privateSyncFunction', async_funcs)
+        self.assertIn('__privateAsyncFunction', async_funcs)    # Private async function should be included
+        self.assertNotIn('__privateSyncFunction', async_funcs)  # Private sync function should be excluded
 
     async def testGetImports(self):
         """
-        Test that the `getImports` method of the `ReflectionModule` correctly retrieves the list of imported modules.
-        Asserts that 'asyncio' is present in the returned imports.
+        Test retrieval of imported modules within the reflected module.
+
+        Validates that the getImports method correctly identifies and returns
+        all imported module objects from the module's namespace.
+
+        Raises
+        ------
+        AssertionError
+            If expected imported modules are not found in the returned dictionary.
         """
         reflection = ReflectionModule(self.module_name)
         imports = reflection.getImports()
-        self.assertIn('asyncio', imports)
+        self.assertIn('asyncio', imports)  # asyncio module should be imported
 
     async def testGetFile(self):
         """
-        Tests that the `getFile` method of the `ReflectionModule` returns the correct file path.
+        Test retrieval of the module's file path.
 
-        This test creates an instance of `ReflectionModule` with the specified module name,
-        retrieves the file path using `getFile`, and asserts that the returned path ends with
-        'fake_reflect_instance.py', indicating the correct file is being referenced.
+        Validates that the getFile method returns the correct absolute path
+        to the module's source file.
+
+        Raises
+        ------
+        AssertionError
+            If the returned file path does not end with the expected filename.
         """
         reflection = ReflectionModule(self.module_name)
         file_path = reflection.getFile()
-        self.assertTrue(file_path.endswith('fake_reflect_instance.py'))
+        self.assertTrue(file_path.endswith('fake_reflect_instance.py'))  # Path should end with expected filename
 
     async def testGetSourceCode(self):
         """
-        Tests that the `getSourceCode` method of the ReflectionModule retrieves the source code
-        containing specific elements such as 'PUBLIC_CONSTANT' and the function definition
-        'def publicSyncFunction'. Asserts that these elements are present in the returned code.
+        Test retrieval of the module's complete source code.
+
+        Validates that the getSourceCode method returns the entire source code
+        content of the module file and contains expected code elements.
+
+        Raises
+        ------
+        AssertionError
+            If expected code elements are not found in the returned source code.
         """
         reflection = ReflectionModule(self.module_name)
         code = reflection.getSourceCode()
-        self.assertIn('PUBLIC_CONSTANT', code)
-        self.assertIn('def publicSyncFunction', code)
+        self.assertIn('PUBLIC_CONSTANT', code)        # Constant should be present in source
+        self.assertIn('def publicSyncFunction', code) # Function definition should be present in source
 
     async def test_invalid_module_name(self):
         """
-        Test that ReflectionModule raises a ReflectionTypeError when initialized with an invalid module name,
-        such as an empty string or a non-existent module path.
+        Test error handling for invalid module initialization.
+
+        Validates that ReflectionModule properly raises ReflectionTypeError
+        when initialized with invalid module names such as empty strings
+        or non-existent module paths.
+
+        Raises
+        ------
+        AssertionError
+            If expected ReflectionTypeError exceptions are not raised.
         """
+        # Test empty string module name
         with self.assertRaises(ReflectionTypeError):
             ReflectionModule('')
+
+        # Test non-existent module path
         with self.assertRaises(ReflectionTypeError):
             ReflectionModule('nonexistent.module.name')

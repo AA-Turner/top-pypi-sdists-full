@@ -4,9 +4,8 @@ import threading
 from pathlib import Path
 from typing import Any, Optional, Union
 from dotenv import dotenv_values, load_dotenv, set_key, unset_key
-from orionis.services.environment.enums.value_type import EnvironmentValueType
-from orionis.services.environment.validators.key_name import ValidateKeyName
-from orionis.services.environment.validators.types import ValidateTypes
+from orionis.services.environment.enums import EnvironmentValueType
+from orionis.services.environment.validators import ValidateKeyName, ValidateTypes
 from orionis.support.patterns.singleton import Singleton
 from orionis.services.environment.dynamic.caster import EnvironmentCaster
 
@@ -22,20 +21,10 @@ class DotEnv(metaclass=Singleton):
         """
         Initialize the DotEnv service and prepare the `.env` file for environment variable management.
 
-        This constructor determines the location of the `.env` file, ensures its existence,
-        and loads its contents into the current process environment. If a custom path is provided,
-        it is resolved and used; otherwise, a `.env` file in the current working directory is used.
-
         Parameters
         ----------
         path : str, optional
-            The path to the `.env` file. If not specified, defaults to a `.env` file
-            in the current working directory.
-
-        Returns
-        -------
-        None
-            This method does not return any value.
+            Path to the `.env` file. If not provided, defaults to `.env` in the current working directory.
 
         Raises
         ------
@@ -44,16 +33,16 @@ class DotEnv(metaclass=Singleton):
 
         Notes
         -----
-        - Ensures thread safety during initialization.
-        - If the specified `.env` file does not exist, it is created automatically.
-        - Loads environment variables from the `.env` file into the process environment.
+        Ensures thread safety during initialization. If the specified `.env` file does not exist, it is created.
+        Loads environment variables from the `.env` file into the process environment.
         """
+
         try:
 
-            # Ensure thread-safe initialization
+            # Ensure thread-safe initialization to avoid race conditions
             with self._lock:
 
-                # Set default .env file path to current working directory
+                # Set the default .env file path to the current working directory
                 self.__resolved_path = Path(os.getcwd()) / ".env"
 
                 # If a custom path is provided, resolve and use it
@@ -72,6 +61,11 @@ class DotEnv(metaclass=Singleton):
             # Raise an error if the .env file cannot be created or accessed
             raise OSError(f"Failed to create or access the .env file at {self.__resolved_path}: {e}")
 
+        except Exception as e:
+
+            # Raise a general error for any other exceptions during initialization
+            raise Exception(f"An unexpected error occurred while initializing DotEnv: {e}")
+
     def set(
         self,
         key: str,
@@ -81,41 +75,49 @@ class DotEnv(metaclass=Singleton):
         """
         Set an environment variable in both the `.env` file and the current process environment.
 
-        This method serializes the provided value (optionally using a type hint), validates the key,
-        and updates the corresponding entry in the `.env` file as well as the process's environment
-        variables. Thread safety is ensured during the operation.
-
         Parameters
         ----------
         key : str
             The name of the environment variable to set. Must be a valid environment variable name.
-        value : Union[str, int, float, bool, list, dict, tuple, set]
-            The value to assign to the environment variable. Supported types include string, integer,
-            float, boolean, list, dictionary, tuple, and set.
+        value : str, int, float, bool, list, dict, tuple, or set
+            The value to assign to the environment variable.
         type_hint : str or EnvironmentValueType, optional
-            An explicit type hint to guide serialization. If provided, the value is serialized
-            according to the specified type.
+            An explicit type hint to guide the serialization of the value.
 
         Returns
         -------
         bool
-            Returns True if the environment variable was successfully set in both the `.env` file
-            and the current process environment.
+            True if the environment variable was successfully set.
 
         Raises
         ------
         OrionisEnvironmentValueError
             If the provided key is not a valid environment variable name.
+
+        Notes
+        -----
+        This method ensures thread safety during the set operation. It validates the key name,
+        serializes the value (optionally using a type hint), writes the variable to the `.env` file,
+        and updates the variable in the current process environment.
         """
+
+        # Ensure thread-safe operation during the set process.
         with self._lock:
+
             # Validate the environment variable key name.
             __key = ValidateKeyName(key)
 
             # If a type hint is provided, validate and serialize the value accordingly.
             if type_hint is not None:
+
+                # Validate the value against the provided type hint.
                 __type = ValidateTypes(value, type_hint)
+
+                # Serialize the value using the validated type.
                 __value = self.__serializeValue(value, __type)
+
             else:
+
                 # Serialize the value without a type hint.
                 __value = self.__serializeValue(value)
 
@@ -134,7 +136,7 @@ class DotEnv(metaclass=Singleton):
         default: Optional[Any] = None
     ) -> Any:
         """
-        Get the value of an environment variable.
+        Retrieve the value of an environment variable.
 
         Parameters
         ----------
@@ -153,6 +155,8 @@ class DotEnv(metaclass=Singleton):
         OrionisEnvironmentValueError
             If `key` is not a string.
         """
+
+        # Ensure thread-safe operation while retrieving the environment variable.
         with self._lock:
 
             # Ensure the key is a string.
@@ -172,20 +176,15 @@ class DotEnv(metaclass=Singleton):
         """
         Remove an environment variable from both the `.env` file and the current process environment.
 
-        This method deletes the specified environment variable from the resolved `.env` file
-        and removes it from the current process's environment variables. The operation is
-        performed in a thread-safe manner. The key is validated before removal.
-
         Parameters
         ----------
         key : str
-            The name of the environment variable to remove. Must be a valid environment variable name.
+            Name of the environment variable to remove.
 
         Returns
         -------
         bool
-            Returns True if the environment variable was successfully removed from both the `.env` file
-            and the process environment. Returns True even if the variable does not exist.
+            True if the environment variable was successfully removed.
 
         Raises
         ------
@@ -194,9 +193,10 @@ class DotEnv(metaclass=Singleton):
 
         Notes
         -----
-        - The method is thread-safe.
-        - If the environment variable does not exist, the method has no effect and returns True.
+        If the environment variable does not exist, the method has no effect and returns True.
         """
+
+        # Ensure thread-safe operation during the unset process.
         with self._lock:
 
             # Validate the environment variable key name.
@@ -215,24 +215,19 @@ class DotEnv(metaclass=Singleton):
         """
         Retrieve all environment variables from the resolved `.env` file as a dictionary.
 
-        This method reads all key-value pairs from the currently resolved `.env` file and
-        parses each value into its appropriate Python type using the internal `__parseValue`
-        method. The returned dictionary contains environment variable names as keys and their
-        parsed values as values.
-
         Returns
         -------
         dict
-            A dictionary where each key is an environment variable name (str) and each value
-            is the parsed Python representation of the variable as determined by `__parseValue`.
-            If the `.env` file is empty, an empty dictionary is returned.
+            Dictionary where each key is an environment variable name (str) and each value
+            is the parsed Python representation of the variable.
 
         Notes
         -----
-        - Thread safety is ensured during the read operation.
-        - Only variables present in the `.env` file are returned; variables set only in the
-          process environment are not included.
+        Only variables present in the `.env` file are returned; variables set only in the
+        process environment are not included.
         """
+
+        # Ensure thread-safe operation while reading and parsing environment variables.
         with self._lock:
 
             # Read all raw key-value pairs from the .env file
@@ -249,24 +244,18 @@ class DotEnv(metaclass=Singleton):
         """
         Serialize a Python value into a string suitable for storage in a .env file.
 
-        This method converts the provided value into a string representation that can be
-        safely written to a .env file. If a type hint is provided, the value is serialized
-        according to the specified type using the EnvTypes utility. Otherwise, the method
-        infers the serialization strategy based on the value's type.
-
         Parameters
         ----------
         value : Any
-            The value to serialize. Supported types include None, str, int, float, bool,
+            Value to serialize. Supported types include None, str, int, float, bool,
             list, dict, tuple, and set.
         type_hint : str or EnvironmentValueType, optional
-            An explicit type hint to guide serialization. If provided, the value is
-            serialized using EnvTypes.
+            Explicit type hint to guide serialization.
 
         Returns
         -------
         str
-            The serialized string representation of the input value, suitable for storage
+            Serialized string representation of the input value, suitable for storage
             in a .env file. Returns "null" for None values.
         """
 
@@ -308,28 +297,24 @@ class DotEnv(metaclass=Singleton):
         """
         Parse a string or raw value from the .env file into its appropriate Python type.
 
-        This method attempts to convert the input value, which may be a string or already a Python object,
-        into its most suitable Python type. It handles common representations of null, booleans, and
-        attempts to parse collections and literals. If parsing fails, the original string is returned.
-
         Parameters
         ----------
         value : Any
-            The value to parse, typically a string read from the .env file, but may also be a Python object.
+            Value to parse, typically a string read from the .env file, but may also be a Python object.
 
         Returns
         -------
         Any
-            The parsed Python value. Returns `None` for recognized null representations, a boolean for
+            Parsed Python value. Returns `None` for recognized null representations, a boolean for
             "true"/"false" strings, a Python literal (list, dict, int, etc.) if possible, or the original
             string if no conversion is possible.
 
         Notes
         -----
-        - Recognizes 'none', 'null', 'nan', 'nil' (case-insensitive) as null values.
-        - Attempts to use `EnvironmentCaster` for advanced type parsing.
-        - Falls back to `ast.literal_eval` for literal evaluation.
-        - Returns the original string if all parsing attempts fail.
+        Recognizes 'none', 'null', 'nan', 'nil' (case-insensitive) as null values.
+        Attempts to use `EnvironmentCaster` for advanced type parsing.
+        Falls back to `ast.literal_eval` for literal evaluation.
+        Returns the original string if all parsing attempts fail.
         """
 
         # Early return for None values

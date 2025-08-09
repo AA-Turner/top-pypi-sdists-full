@@ -16,6 +16,7 @@ class TestScopedContextMethods(AsyncTestCase):
         None
             This method does not return anything. It asserts the existence of methods and fails the test if any are missing.
         """
+
         # List of method names expected to be present in ScopedContext
         expected_methods = [
             "getCurrentScope",

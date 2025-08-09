@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-nested-admin
-Version: 4.1.1
+Version: 4.1.2
 Summary: Django admin classes that allow for nested inlines
 Home-page: https://github.com/theatlantic/django-nested-admin
 Author: The Atlantic
@@ -45,6 +45,18 @@ Requires-Dist: Pillow; extra == "dev"
 Requires-Dist: dj-database-url; extra == "dev"
 Requires-Dist: django-selenosis; extra == "dev"
 Requires-Dist: selenium; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 |build_badge| |coverage_badge| |docs_badge|
 

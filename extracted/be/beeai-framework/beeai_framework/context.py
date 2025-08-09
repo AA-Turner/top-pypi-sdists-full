@@ -93,7 +93,8 @@ class Run(Generic[R]):
         return self
 
     def context(self, context: dict[str, Any]) -> Self:
-        self._tasks.append((self._set_context, [context]))
+        if context:
+            self._tasks.append((self._set_context, [context]))
         return self
 
     def middleware(self, *fns: RunMiddlewareProtocol | RunMiddlewareFn) -> Self:
@@ -158,6 +159,18 @@ class RunContext:
         if signal:
             extra_signals.append(signal)
         register_signals(self._controller, extra_signals)
+
+    @classmethod
+    def get(cls) -> "RunContext":
+        """Get the current run context if invoked from within an execution context.
+
+        Returns:
+            The run context.
+        """
+        context = storage.get(None)
+        if context is None:
+            raise RuntimeError("Called from non-context.")
+        return context
 
     @property
     def signal(self) -> AbortSignal:

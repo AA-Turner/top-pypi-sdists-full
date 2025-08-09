@@ -29,7 +29,7 @@ import argcomplete
 
 from virtme.util import SilentError, get_username
 from virtme_ng.mainline import KernelDownloader
-from virtme_ng.utils import CONF_FILE, spinner_decorator
+from virtme_ng.utils import get_conf, spinner_decorator
 from virtme_ng.version import VERSION
 
 
@@ -556,6 +556,12 @@ virtme-ng is based on virtme, written by Andy Lutomirski <luto@kernel.org>.
         + "or to launch this command instead of a prompt (--client).",
     )
 
+    parser.add_argument(
+        "--systemd",
+        action="store_true",
+        help="Execute systemd as init (EXPERIMENTAL)",
+    )
+
     return parser
 
 
@@ -675,31 +681,8 @@ class KernelSource:
 
     def __init__(self):
         self.virtme_param = {}
-        conf_path = self.get_conf_file_path()
-        self.default_opts = []
-        if conf_path is not None:
-            with open(conf_path, encoding="utf-8") as conf_fd:
-                conf_data = json.loads(conf_fd.read())
-                if "default_opts" in conf_data:
-                    self.default_opts = conf_data["default_opts"]
+        self.default_opts = get_conf("default_opts")
         self.cpus = str(os.cpu_count())
-
-    def get_conf_file_path(self):
-        """Return virtme-ng main configuration file path."""
-
-        # First check if there is a config file in the user's home config
-        # directory, then check for a single config file in ~/.virtme-ng.conf and
-        # finally check for /etc/virtme-ng.conf. If none of them exist, report an
-        # error and exit.
-        configs = (
-            CONF_FILE,
-            Path(Path.home(), ".virtme-ng.conf"),
-            Path("/etc", "virtme-ng.conf"),
-        )
-        for conf in configs:
-            if conf.exists():
-                return conf
-        return None
 
     def _format_cmd(self, cmd):
         return shlex.split(cmd)
@@ -947,6 +930,12 @@ class KernelSource:
             self.virtme_param["root"] = f"--root {args.root}"
         else:
             self.virtme_param["root"] = ""
+
+    def _get_virtme_systemd(self, args):
+        if args.systemd:
+            self.virtme_param["systemd"] = "--systemd"
+        else:
+            self.virtme_param["systemd"] = ""
 
     def _get_virtme_rw(self, args):
         if args.rw:
@@ -1301,6 +1290,7 @@ class KernelSource:
         self._get_virtme_user(args)
         self._get_virtme_arch(args)
         self._get_virtme_root(args)
+        self._get_virtme_systemd(args)
         self._get_virtme_rw(args)
         self._get_virtme_rodir(args)
         self._get_virtme_rwdir(args)
@@ -1349,6 +1339,7 @@ class KernelSource:
             + f"{self.virtme_param['user']} "
             + f"{self.virtme_param['arch']} "
             + f"{self.virtme_param['root']} "
+            + f"{self.virtme_param['systemd']} "
             + f"{self.virtme_param['rw']} "
             + f"{self.virtme_param['rodir']} "
             + f"{self.virtme_param['rwdir']} "
@@ -1397,38 +1388,72 @@ class KernelSource:
         # Use QMP to generate a memory dump
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect(("localhost", 3636))
-        data = sock.recv(1024)
+        sock_f = sock.makefile(encoding="utf-8")
+        data = sock_f.readline()
         if not data:
+            sys.stderr.write("Dump failed")
             sys.exit(1)
         if args.verbose:
-            sys.stdout.write(data.decode("utf-8"))
-        sock.send(b'{ "execute": "qmp_capabilities" }\r')
-        data = sock.recv(1024)
+            sys.stdout.write(data)
+        # Exit "QEMU capabilities negotiation mode"
+        sock.send(json.dumps({"execute": "qmp_capabilities"}).encode("utf-8"))
+        data = sock_f.readline()
         if not data:
+            sys.stderr.write("Dump failed")
             sys.exit(1)
         if args.verbose:
-            sys.stdout.write(data.decode("utf-8"))
+            sys.stdout.write(data)
+        if json.loads(data) != {"return": {}}:
+            sys.stderr.write(f"Dump failed:\n{data}")
+            sys.exit(1)
         dump_file = args.dump
-        with tempfile.NamedTemporaryFile(delete=dump_file is None) as tmp:
-            msg = (
-                '{"execute":"dump-guest-memory",'
-                '"arguments":{"paging":true,'
-                '"protocol":"file:' + tmp.name + '"}}'
-                "\r"
+        with tempfile.NamedTemporaryFile(
+            delete=True, prefix="tmpvirtmedump_", dir=os.path.dirname(dump_file)
+        ) as tmp:
+            msg = json.dumps(
+                {
+                    "execute": "dump-guest-memory",
+                    "arguments": {"paging": True, "protocol": f"file:{tmp.name}"},
+                }
             )
             if args.verbose:
                 sys.stdout.write(msg + "\n")
             sock.send(msg.encode("utf-8"))
-            data = sock.recv(1024)
-            if not data:
-                sys.exit(1)
-            if args.verbose:
-                sys.stdout.write(data.decode("utf-8"))
-            data = sock.recv(1024)
-            if args.verbose:
-                sys.stdout.write(data.decode("utf-8"))
-            # Save memory dump to target file
-            shutil.move(tmp.name, dump_file)
+            while True:
+                data = sock_f.readline()
+                if not data:
+                    sys.stderr.write("Dump failed")
+                    sys.exit(1)
+                if args.verbose:
+                    sys.stdout.write(data)
+                try:
+                    data_json = json.loads(data)
+                except json.decoder.JSONDecodeError:
+                    sys.stderr.write(f"Dump failed:\n{data}")
+                    sys.exit(1)
+
+                # e.g. {"error": {"class": "GenericError", "desc": "Could not create 'bla.elf': Permission denied"}}
+                if "error" in data_json:
+                    sys.stderr.write(f"Dump failed:\n{data}")
+                    sys.exit(1)
+
+                if data_json.get("event", "") != "DUMP_COMPLETED":
+                    continue
+
+                # Save memory dump to target file
+                shutil.move(tmp.name, dump_file)
+
+                # e.g. {"timestamp": {"seconds": 1747057595, "microseconds": 633224}, "event": "DUMP_COMPLETED", "data":
+                # {"result": {"total": 1073741824, "status": "failed", "completed": 305700864}, "error": "dump: failed
+                # to save memory: No space left on device"}}
+                if "error" in data_json["data"]:
+                    sys.stderr.write(f"Dump failed:\n{data}")
+                    sys.exit(1)
+
+                # We're done, e.g. {"timestamp": {"seconds": 1747057073, "microseconds": 930833}, "event":
+                # "DUMP_COMPLETED", "data": {"result": {"total": 1073741824, "status": "completed", "completed":
+                # 1073741824}}}
+                break
 
     def clean(self, args):
         """Clean a local or remote git repository."""

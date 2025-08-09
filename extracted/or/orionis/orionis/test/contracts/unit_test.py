@@ -22,28 +22,28 @@ class IUnitTest(ABC):
         web_report: bool
     ) -> 'IUnitTest':
         """
-        Configure the unit test runner with the specified options.
+        Configure the unit test runner with the provided options.
 
         Parameters
         ----------
         verbosity : int or VerbosityMode
-            Level of verbosity for test output.
+            Verbosity level for test output.
         execution_mode : str or ExecutionMode
-            Mode in which tests are executed (e.g., sequential, parallel).
+            Execution mode for running tests.
         max_workers : int
             Maximum number of worker threads or processes.
         fail_fast : bool
-            If True, stop execution on first failure.
+            Whether to stop on the first test failure.
         print_result : bool
-            If True, print test results to the console.
+            Whether to print test results to the console.
         throw_exception : bool
-            If True, raise exceptions on test failures.
+            Whether to raise exceptions on test failures.
         persistent : bool
-            If True, enable persistent storage for test results.
-        persistent_driver : str | PersistentDrivers
-            Name of the persistent storage driver.
+            Whether to enable persistent storage for test results.
+        persistent_driver : str or PersistentDrivers
+            Persistent storage driver to use.
         web_report : bool
-            If True, generate a web-based test report.
+            Whether to generate a web-based test report.
 
         Returns
         -------
@@ -63,20 +63,20 @@ class IUnitTest(ABC):
         tags: Optional[List[str]] = None
     ) -> 'IUnitTest':
         """
-        Discover test cases in a specified folder.
+        Discover test cases within a specified folder.
 
         Parameters
         ----------
         base_path : str or Path
             Base directory for test discovery.
         folder_path : str
-            Relative or absolute path to the folder containing tests.
+            Path to the folder containing test files.
         pattern : str
-            File pattern to match test files (e.g., 'test_*.py').
+            File pattern to match test files.
         test_name_pattern : str, optional
             Pattern to match test function or class names.
         tags : list of str, optional
-            List of tags to filter discovered tests.
+            Tags to filter discovered tests.
 
         Returns
         -------
@@ -93,7 +93,7 @@ class IUnitTest(ABC):
         test_name_pattern: Optional[str] = None
     ) -> 'IUnitTest':
         """
-        Discover test cases in a specified module.
+        Discover test cases within a specified module.
 
         Parameters
         ----------
@@ -117,14 +117,14 @@ class IUnitTest(ABC):
         Returns
         -------
         dict
-            Dictionary containing the results of the test execution.
+            Results of the test execution.
         """
         pass
 
     @abstractmethod
     def getTestNames(self) -> List[str]:
         """
-        Get the list of discovered test names.
+        Retrieve the list of discovered test names.
 
         Returns
         -------
@@ -160,7 +160,7 @@ class IUnitTest(ABC):
         Returns
         -------
         dict
-            Dictionary containing the results of the last test execution.
+            Results of the last test execution.
         """
         pass
 

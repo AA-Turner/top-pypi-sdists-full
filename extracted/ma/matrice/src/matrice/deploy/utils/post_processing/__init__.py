@@ -82,6 +82,7 @@ from .usecases.chicken_pose_detection import ChickenPoseDetectionConfig
 from .usecases.field_mapping import FieldMappingConfig, FieldMappingUseCase
 from .usecases.leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCase
 from .usecases.parking import ParkingConfig
+from .usecases.abandoned_object_detection import AbandonedObjectConfig
 
 
 from .usecases.weld_defect_detection import WeldDefectConfig
@@ -177,6 +178,8 @@ from .usecases import (
     FlowerUseCase,
     SmokerDetectionUseCase,
     LitterDetectionUseCase,
+    AbandonedObjectDetectionUseCase,
+
     HumanActivityUseCase,
 
     #Put all IMAGE based usecases here
@@ -245,6 +248,7 @@ _flower_segmentation = FlowerUseCase()
 _leaf_det = LeafUseCase()
 _smoker_detection = SmokerDetectionUseCase()
 _litter_detection = LitterDetectionUseCase()
+_abandoned_object_detection  = AbandonedObjectDetectionUseCase()
 _human_activity_recognition = HumanActivityUseCase()
 _gas_leak_detection = GasLeakDetectionUseCase()
 
@@ -255,6 +259,7 @@ _skin_cancer_classification = SkinCancerClassificationUseCase()
 _plaque_segmentation = PlaqueSegmentationUseCase()
 _histopathological_cancer_detection = HistopathologicalCancerDetectionUseCase()
 
+registry.register_use_case(_abandoned_object_detection.category, _abandoned_object_detection.name, AbandonedObjectDetectionUseCase)
 registry.register_use_case(_litter_detection.category, _litter_detection.name, LitterDetectionUseCase)
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
@@ -367,6 +372,7 @@ from .utils import (  # noqa: E402
     
     # New utilities
     create_people_counting_config,
+    create_intrusion_detection_config,
     create_customer_service_config,
     create_advanced_customer_service_config,
     create_basic_counting_tracking_config,
@@ -505,6 +511,7 @@ __all__ = [
     'FlowerConfig',
     'SmokerDetectionConfig',
     'LitterDetectionConfig',
+    'AbandonedObjectConfig',
     'GasLeakDetectionConfig',
     'HumanActivityConfig',
 
@@ -567,6 +574,7 @@ __all__ = [
     'FlowerUseCase',
     'SmokerDetectionUseCase',
     'LitterDetectionUseCase',
+    'AbandonedObjectDetectionUseCase',
     'HumanActivityUseCase',
     'GasLeakDetectionUseCase',
 
@@ -634,6 +642,7 @@ __all__ = [
     
     # New utilities
     'create_people_counting_config',
+    'create_intrusion_detection_config',
     'create_customer_service_config',
     'create_advanced_customer_service_config',
     'create_basic_counting_tracking_config',

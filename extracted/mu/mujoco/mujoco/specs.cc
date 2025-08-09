@@ -221,6 +221,9 @@ PYBIND11_MODULE(_specs, m) {
   DefineArray<char>(m, "MjCharVec");
   DefineArray<std::string>(m, "MjStringVec");
   DefineArray<std::byte>(m, "MjByteVec");
+  DefineArray<double>(m, "MjDoubleVec");
+  DefineArray<float>(m, "MjFloatVec");
+  DefineArray<int>(m, "MjIntVec");
 
   // ============================= MJSPEC =====================================
   mjSpec.def(py::init<>());
@@ -998,6 +1001,75 @@ PYBIND11_MODULE(_specs, m) {
         mjs_setDefault(self.element, &default_);
       },
       py::return_value_policy::reference_internal);
+  mjsMesh.def(
+      "make_wedge",
+      [](raw::MjsMesh* self, std::array<int, 2>& resolution,
+         std::array<double, 2>& fov, double gamma) {
+        double params[5] = {static_cast<double>(resolution[0]),
+                            static_cast<double>(resolution[1]), fov[0], fov[1],
+                            gamma};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_WEDGE, params, 5)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("resolution") = std::array<int, 2>{0, 0},
+      py::arg("fov") = std::array<double, 2>{0, 0}, py::arg("gamma") = 0);
+  mjsMesh.def(
+      "make_sphere",
+      [](raw::MjsMesh* self, int subdivision) {
+        double params[1] = {static_cast<double>(subdivision)};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_SPHERE, params, 1)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("subdivision"));
+  mjsMesh.def(
+      "make_hemisphere",
+      [](raw::MjsMesh* self, int resolution) {
+        double params[1] = {static_cast<double>(resolution)};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_HEMISPHERE, params, 1)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("resolution"));
+  mjsMesh.def(
+      "make_cone",
+      [](raw::MjsMesh* self, int nedge, double radius) {
+        double params[2] = {static_cast<double>(nedge), radius};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_CONE, params, 2)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("nedge"), py::arg("radius"));
+  mjsMesh.def(
+      "make_supersphere",
+      [](raw::MjsMesh* self, int resolution, double e, double n) {
+        double params[3] = {static_cast<double>(resolution), e, n};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_SUPERSPHERE, params, 3)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("resolution"), py::arg("e"), py::arg("n"));
+  mjsMesh.def(
+      "make_supertorus",
+      [](raw::MjsMesh* self, int resolution, double radius, double s,
+         double t) {
+        double params[4] = {static_cast<double>(resolution), radius, s, t};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_SUPERTORUS, params, 4)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("resolution"), py::arg("radius"), py::arg("s"), py::arg("t"));
+  mjsMesh.def(
+      "make_plate",
+      [](raw::MjsMesh* self, std::array<int, 2>& resolution) {
+        double params[2] = {static_cast<double>(resolution[0]),
+                            static_cast<double>(resolution[1])};
+        if (mjs_makeMesh(self, mjMESH_BUILTIN_PLATE, params, 2)) {
+          throw pybind11::value_error(mjs_getError(mjs_getSpec(self->element)));
+        }
+      },
+      py::arg("resolution") = std::array<int, 2>{0, 0});
 
   // ============================= MJSPAIR =====================================
   mjSpec.def("delete", [](MjSpec& self, raw::MjsPair& obj) {
@@ -1168,6 +1240,9 @@ PYBIND11_MODULE(_specs, m) {
   // ============================= MJSSENSOR ===================================
   mjSpec.def("delete", [](MjSpec& self, raw::MjsSensor& obj) {
     mjs_delete(self.ptr, obj.element);
+  });
+  mjsSensor.def("get_data_size", [](raw::MjsSensor& self) -> int {
+    return mjs_sensorDim(&self);
   });
 
   // ============================= MJSFLEX =====================================

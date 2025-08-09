@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Dict, NamedTuple, Optional
+from pydantic import BaseModel
+from typing import Dict, Optional
 
 from db_contrib_tool.setup_repro_env.release_models import ReleaseUrls
 
 BRANCH_FALLBACK = "master"
 
 
-class EvgUrlsInfo(NamedTuple):
+class EvgUrlsInfo(BaseModel):
     """Wrapper around Evergreen URLs with metadata."""
 
     urls: Dict[str, str]
@@ -32,7 +33,7 @@ class EvgUrlsInfo(NamedTuple):
         return self.evg_revision
 
 
-class ReleaseUrlsInfo(NamedTuple):
+class ReleaseUrlsInfo(BaseModel):
     """Wrapper around Release URLs with metadata."""
 
     urls: ReleaseUrls
@@ -64,7 +65,7 @@ class RequestType(Enum):
         return self.value
 
 
-class RequestTarget(NamedTuple):
+class RequestTarget(BaseModel):
     """
     Version of mongo binaries that was requested.
 
@@ -94,7 +95,7 @@ class RequestTarget(NamedTuple):
         return f"{self.request_type}({self.identifier})"
 
 
-class DownloadRequest(NamedTuple):
+class DownloadRequest(BaseModel):
     """Class representing the request to download a repro environment."""
 
     bin_suffix: str

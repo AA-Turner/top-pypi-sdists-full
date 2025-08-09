@@ -4,24 +4,21 @@ from orionis.support.formatter.exceptions.contracts.parser import IExceptionPars
 
 class ExceptionParser(IExceptionParser):
     """
-    A utility class to parse an exception and convert it into a structured dictionary.
+    Parses an exception and converts it into a structured dictionary representation.
+
+    Parameters
+    ----------
+    exception : Exception
+        The exception instance to be parsed.
     """
 
     def __init__(self, exception: Exception) -> None:
-        """
-        Initialize the ExceptionParser with the given exception.
-
-        Parameters
-        ----------
-        exception : Exception
-            The exception to be parsed.
-        """
         self.__exception = exception
 
     @property
     def raw_exception(self) -> Exception:
         """
-        Get the original exception object.
+        Returns the original exception object.
 
         Returns
         -------
@@ -32,21 +29,21 @@ class ExceptionParser(IExceptionParser):
 
     def toDict(self) -> Dict[str, Any]:
         """
-        Serialize the exception into a dictionary format.
+        Serializes the exception into a dictionary containing detailed error information.
 
         Returns
         -------
         dict
-            A dictionary containing:
-            - 'error_type': The type of exception.
-            - 'error_message': The complete traceback string.
-            - 'error_code': Custom error code, if available.
-            - 'stack_trace': A list of frames in the stack trace, each with:
-                - 'filename': File where the error occurred.
-                - 'lineno': Line number.
-                - 'name': Function or method name.
-                - 'line': The source line of code.
-            - 'cause': A nested dictionary representing the original cause (if any).
+            Dictionary with the following keys:
+            - 'error_type': str, the type of the exception.
+            - 'error_message': str, the formatted traceback string.
+            - 'error_code': Any, custom error code if present on the exception.
+            - 'stack_trace': list of dict, each dict contains frame details:
+                - 'filename': str, file where the error occurred.
+                - 'lineno': int, line number in the file.
+                - 'name': str, function or method name.
+                - 'line': str or None, source line of code.
+            - 'cause': dict or None, nested dictionary for the original cause if present.
         """
         tb = traceback.TracebackException.from_exception(self.__exception, capture_locals=False)
 
@@ -60,17 +57,21 @@ class ExceptionParser(IExceptionParser):
 
     def __parse_stack(self, stack: traceback.StackSummary) -> List[Dict[str, Union[str, int, None]]]:
         """
-        Helper method to parse the stack trace.
+        Parses the stack trace summary into a list of frame dictionaries.
 
         Parameters
         ----------
         stack : traceback.StackSummary
-            The summary of the stack.
+            The summary of the stack trace.
 
         Returns
         -------
         list of dict
-            A list of dictionaries with detailed frame information.
+            Each dictionary contains:
+            - 'filename': str, file where the frame is located.
+            - 'lineno': int, line number in the file.
+            - 'name': str, function or method name.
+            - 'line': str or None, source line of code.
         """
         return [
             {
@@ -84,7 +85,7 @@ class ExceptionParser(IExceptionParser):
 
     def __parse_cause(self, cause: Optional[BaseException]) -> Optional[Dict[str, Any]]:
         """
-        Recursively parse the cause of an exception, if available.
+        Recursively parses the cause of an exception, if present.
 
         Parameters
         ----------
@@ -94,7 +95,8 @@ class ExceptionParser(IExceptionParser):
         Returns
         -------
         dict or None
-            A dictionary with the cause information or None if no cause exists.
+            Dictionary with the cause's error type, message, and stack trace,
+            or None if no cause exists.
         """
         if not isinstance(cause, BaseException):
             return None

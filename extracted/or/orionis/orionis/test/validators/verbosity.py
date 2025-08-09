@@ -3,22 +3,32 @@ from orionis.test.exceptions import OrionisTestValueError
 
 class __ValidVerbosity:
     """
-    Validator that ensures the verbosity level is a non-negative integer or a valid VerbosityMode.
+    Validator for verbosity levels, ensuring the input is a non-negative integer corresponding to a valid
+    VerbosityMode value or an instance of VerbosityMode.
+
+    This class is intended to validate verbosity arguments for test configuration.
     """
 
     def __call__(self, verbosity) -> int:
         """
-        Ensures that the provided verbosity is a non-negative integer or a valid VerbosityMode.
+        Validate the verbosity level.
 
         Parameters
         ----------
         verbosity : int or VerbosityMode
-            The verbosity level to validate.
+            The verbosity level to validate. Must be a non-negative integer matching a VerbosityMode value,
+            or an instance of VerbosityMode.
+
+        Returns
+        -------
+        int
+            The validated verbosity level as an integer.
 
         Raises
         ------
         OrionisTestValueError
-            If the verbosity is not a non-negative integer or a valid VerbosityMode.
+            If the verbosity is not a non-negative integer corresponding to a VerbosityMode value,
+            nor an instance of VerbosityMode.
         """
         if isinstance(verbosity, VerbosityMode):
             return verbosity.value

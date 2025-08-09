@@ -907,7 +907,7 @@ def engine_patch_replicated_engine(engine: str, engine_full: Optional[str], new_
         paths = parts[2].split("/")
         paths[-1] = new_table_name
         zoo_path = "/".join(paths)
-        return "".join(parts[:2] + [zoo_path] + parts[3:])
+        return "".join([*parts[:2], zoo_path, *parts[3:]])
     return engine_full
 
 

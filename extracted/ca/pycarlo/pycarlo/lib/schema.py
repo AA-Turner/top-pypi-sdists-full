@@ -62676,6 +62676,7 @@ class TransformFunction(sgqlc.types.Type):
         "response_format",
         "category",
         "standard_prompt",
+        "score_field",
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
 
@@ -62702,6 +62703,8 @@ class TransformFunction(sgqlc.types.Type):
     category = sgqlc.types.Field(String, graphql_name="category")
 
     standard_prompt = sgqlc.types.Field(String, graphql_name="standardPrompt")
+
+    score_field = sgqlc.types.Field(String, graphql_name="scoreField")
 
 
 class TriggerCircuitBreakerRule(sgqlc.types.Type):

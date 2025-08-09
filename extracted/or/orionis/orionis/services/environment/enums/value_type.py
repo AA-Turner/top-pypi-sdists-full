@@ -2,33 +2,30 @@ from enum import Enum
 
 class EnvironmentValueType(Enum):
     """
-    Enum representing supported environment variable cast types.
+    Enum representing the supported types for casting environment variable values.
 
     Attributes
     ----------
-    PATH : EnvCastType
-        Cast to a file system path.
-    STR : EnvCastType
-        Cast to a string.
-    INT : EnvCastType
-        Cast to an integer.
-    FLOAT : EnvCastType
-        Cast to a floating-point number.
-    BOOL : EnvCastType
-        Cast to a boolean value.
-    LIST : EnvCastType
-        Cast to a list.
-    DICT : EnvCastType
-        Cast to a dictionary.
-    TUPLE : EnvCastType
-        Cast to a tuple.
-    SET : EnvCastType
-        Cast to a set.
-
-    Returns
-    -------
-    EnvCastType
-        An enumeration member representing the desired cast type.
+    BASE64 : str
+        Represents a base64 encoded value.
+    PATH : str
+        Represents a file system path.
+    STR : str
+        Represents a string value.
+    INT : str
+        Represents an integer value.
+    FLOAT : str
+        Represents a floating-point value.
+    BOOL : str
+        Represents a boolean value.
+    LIST : str
+        Represents a list value.
+    DICT : str
+        Represents a dictionary value.
+    TUPLE : str
+        Represents a tuple value.
+    SET : str
+        Represents a set value.
     """
 
     BASE64 = 'base64' # Represents a base64 encoded type

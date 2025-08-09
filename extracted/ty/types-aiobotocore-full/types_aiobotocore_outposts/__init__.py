@@ -11,6 +11,7 @@ Usage::
     from aiobotocore.session import get_session
     from types_aiobotocore_outposts import (
         Client,
+        GetOutpostBillingInformationPaginator,
         GetOutpostInstanceTypesPaginator,
         GetOutpostSupportedInstanceTypesPaginator,
         ListAssetInstancesPaginator,
@@ -30,6 +31,7 @@ Usage::
         ...
 
 
+    get_outpost_billing_information_paginator: GetOutpostBillingInformationPaginator = client.get_paginator("get_outpost_billing_information")
     get_outpost_instance_types_paginator: GetOutpostInstanceTypesPaginator = client.get_paginator("get_outpost_instance_types")
     get_outpost_supported_instance_types_paginator: GetOutpostSupportedInstanceTypesPaginator = client.get_paginator("get_outpost_supported_instance_types")
     list_asset_instances_paginator: ListAssetInstancesPaginator = client.get_paginator("list_asset_instances")
@@ -45,6 +47,7 @@ Usage::
 
 from .client import OutpostsClient
 from .paginator import (
+    GetOutpostBillingInformationPaginator,
     GetOutpostInstanceTypesPaginator,
     GetOutpostSupportedInstanceTypesPaginator,
     ListAssetInstancesPaginator,
@@ -62,6 +65,7 @@ Client = OutpostsClient
 
 __all__ = (
     "Client",
+    "GetOutpostBillingInformationPaginator",
     "GetOutpostInstanceTypesPaginator",
     "GetOutpostSupportedInstanceTypesPaginator",
     "ListAssetInstancesPaginator",

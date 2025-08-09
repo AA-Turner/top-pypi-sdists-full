@@ -5,22 +5,22 @@ class TestAsyncTestCase(AsyncTestCase):
 
     async def testMethodsExist(self):
         """
-        Checks if the AsyncTestCase class defines the required asynchronous lifecycle methods.
+        Verify that AsyncTestCase defines the required asynchronous lifecycle methods.
 
         Parameters
         ----------
         self : TestAsyncTestCase
-            The test case instance.
+            Instance of the test case.
 
         Returns
         -------
         None
-            This method does not return anything. It asserts the existence of required methods.
+            This method does not return a value.
 
-        Notes
-        -----
-        This test ensures that the AsyncTestCase class contains all necessary asynchronous lifecycle methods
-        for proper setup and teardown in asynchronous test scenarios.
+        Raises
+        ------
+        AssertionError
+            If any of the required methods do not exist in AsyncTestCase.
         """
         required_methods = [
             "asyncSetUp",
@@ -34,22 +34,22 @@ class TestAsyncTestCase(AsyncTestCase):
 
     async def testMethodsAreCoroutines(self):
         """
-        Checks that all required asynchronous lifecycle methods in AsyncTestCase are coroutine functions.
+        Check that all required asynchronous lifecycle methods in AsyncTestCase are coroutine functions.
 
         Parameters
         ----------
         self : TestAsyncTestCase
-            The test case instance.
+            Instance of the test case.
 
         Returns
         -------
         None
-            This method does not return anything. It asserts that required methods are coroutine functions.
+            This method does not return a value.
 
-        Notes
-        -----
-        This test verifies that the lifecycle methods are implemented as coroutine functions,
-        which is necessary for asynchronous execution in test cases.
+        Raises
+        ------
+        AssertionError
+            If any of the required methods are not coroutine functions.
         """
         required_methods = [
             "asyncSetUp",

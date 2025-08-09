@@ -5,18 +5,15 @@ class TestTestingDumper(AsyncTestCase):
 
     async def testMethodsExist(self):
         """
-        Checks if the required methods are present in the TestDumper class.
+        Verify the presence of required methods in the TestDumper class.
 
-        This test verifies that the `TestDumper` class contains all methods
-        specified in the `required_methods` list. It asserts the existence of
-        each method using `hasattr`.
+        This asynchronous test checks whether the TestDumper class implements all methods listed in `required_methods`. 
+        An assertion error is raised if any required method is missing.
 
         Returns
         -------
         None
-            This method does not return any value. It raises an assertion error if any required method is missing.
         """
-
         required_methods = [
             "dd",
             "dump"

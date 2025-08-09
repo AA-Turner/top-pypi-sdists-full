@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-helpdesk
-Version: 1.7.0
+Version: 1.8.0
 Summary: Django-powered ticket tracker for your helpdesk
 Home-page: https://github.com/django-helpdesk/django-helpdesk
 Author: Ross Poulton

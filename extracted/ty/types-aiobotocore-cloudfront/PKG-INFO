@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore-cloudfront
-Version: 2.23.2
-Summary: Type annotations for aiobotocore CloudFront 2.23.2 service generated with mypy-boto3-builder 8.11.0
+Version: 2.24.0
+Summary: Type annotations for aiobotocore CloudFront 2.24.0 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -57,7 +57,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore CloudFront 2.23.2](https://pypi.org/project/aiobotocore/)
+[aiobotocore CloudFront 2.24.0](https://pypi.org/project/aiobotocore/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -119,7 +119,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.23.2' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.24.0' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Add `CloudFront` service.
 4. Use provided commands to install generated packages.
@@ -358,6 +358,7 @@ from types_aiobotocore_cloudfront.paginator import (
     ListInvalidationsForDistributionTenantPaginator,
     ListInvalidationsPaginator,
     ListKeyValueStoresPaginator,
+    ListOriginAccessControlsPaginator,
     ListPublicKeysPaginator,
     ListStreamingDistributionsPaginator,
 )
@@ -397,6 +398,9 @@ async with session.create_client("cloudfront") as client:
     )
     list_key_value_stores_paginator: ListKeyValueStoresPaginator = client.get_paginator(
         "list_key_value_stores"
+    )
+    list_origin_access_controls_paginator: ListOriginAccessControlsPaginator = client.get_paginator(
+        "list_origin_access_controls"
     )
     list_public_keys_paginator: ListPublicKeysPaginator = client.get_paginator("list_public_keys")
     list_streaming_distributions_paginator: ListStreamingDistributionsPaginator = (

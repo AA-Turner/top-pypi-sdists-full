@@ -17,17 +17,27 @@ from orionis.foundation.config.session.entities.session import Session
 from orionis.foundation.config.testing.entities.testing import Testing
 
 class IApplication(IContainer):
+    """
+    Abstract interface for the core application container.
+
+    This interface defines the contract for application instances that manage
+    service providers, configuration, and application lifecycle. It extends
+    the base container interface to provide application-specific functionality
+    including configuration management, service provider registration, and
+    bootstrap operations.
+    """
 
     @property
     @abstractmethod
     def isBooted(self) -> bool:
         """
-        Indicates whether the application has been booted.
+        Check if the application has completed its bootstrap process.
 
         Returns
         -------
         bool
-            True if the application is booted, False otherwise.
+            True if the application has been successfully booted and is ready
+            for operation, False otherwise.
         """
         pass
 
@@ -35,46 +45,50 @@ class IApplication(IContainer):
     @abstractmethod
     def startAt(self) -> int:
         """
-        Returns the timestamp when the application was started.
+        Get the application startup timestamp.
 
         Returns
         -------
         int
-            The start time as a Unix timestamp.
+            The Unix timestamp representing when the application was started.
         """
         pass
 
     @abstractmethod
     def withProviders(self, providers: List[Type[IServiceProvider]] = []) -> 'IApplication':
         """
-        Add multiple service providers to the application.
+        Register multiple service providers with the application.
 
         Parameters
         ----------
         providers : List[Type[IServiceProvider]], optional
-            List of provider classes to add to the application.
+            A list of service provider classes to register. Each provider will
+            be instantiated and registered with the application container.
+            Defaults to an empty list.
 
         Returns
         -------
         IApplication
-            The application instance for method chaining.
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def addProvider(self, provider: Type[IServiceProvider]) -> 'IApplication':
         """
-        Add a single service provider to the application.
+        Register a single service provider with the application.
 
         Parameters
         ----------
         provider : Type[IServiceProvider]
-            The provider class to add to the application.
+            The service provider class to register with the application.
+            The provider will be instantiated and its services bound to
+            the container.
 
         Returns
         -------
         IApplication
-            The application instance for method chaining.
+            The application instance to enable method chaining.
         """
         pass
 
@@ -96,125 +110,333 @@ class IApplication(IContainer):
         testing : Testing | dict = Testing()
     ) -> 'IApplication':
         """
-        Configure the application with various service configurators.
-        Allows setting up different aspects of the application by providing configurator instances for services like authentication, caching, database, etc.
+        Configure the application with multiple service configuration objects.
+
+        This method allows comprehensive configuration of various application
+        services by providing configuration objects or dictionaries for each
+        service type. All parameters are keyword-only to prevent positional
+        argument confusion.
+
+        Parameters
+        ----------
+        app : App | dict, optional
+            Application-level configuration settings.
+        auth : Auth | dict, optional
+            Authentication service configuration.
+        cache : Cache | dict, optional
+            Caching service configuration.
+        cors : Cors | dict, optional
+            Cross-Origin Resource Sharing configuration.
+        database : Database | dict, optional
+            Database connection and settings configuration.
+        filesystems : Filesystems | dict, optional
+            File storage and filesystem configuration.
+        logging : Logging | dict, optional
+            Logging service configuration.
+        mail : Mail | dict, optional
+            Email service configuration.
+        path : Paths | dict, optional
+            Application directory paths configuration.
+        queue : Queue | dict, optional
+            Job queue service configuration.
+        session : Session | dict, optional
+            Session management configuration.
+        testing : Testing | dict, optional
+            Testing environment configuration.
 
         Returns
         -------
         IApplication
-            Returns self to allow method chaining.
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigApp(self, **app_config) -> 'IApplication':
         """
-        Set the application configuration using keyword arguments.
+        Configure application settings using keyword arguments.
+
+        Parameters
+        ----------
+        **app_config
+            Arbitrary keyword arguments representing application configuration
+            settings. Keys should match the expected application configuration
+            parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigApp(self, app: App | dict) -> 'IApplication':
         """
-        Load the application configuration from an App instance or dictionary.
+        Load application configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        app : App | dict
+            An App configuration object or dictionary containing application
+            settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigAuth(self, **auth_config) -> 'IApplication':
         """
-        Set the authentication configuration using keyword arguments.
+        Configure authentication settings using keyword arguments.
+
+        Parameters
+        ----------
+        **auth_config
+            Arbitrary keyword arguments representing authentication configuration
+            settings. Keys should match the expected authentication parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigAuth(self, auth: Auth | dict) -> 'IApplication':
         """
-        Load the authentication configuration from an Auth instance or dictionary.
+        Load authentication configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        auth : Auth | dict
+            An Auth configuration object or dictionary containing authentication
+            settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigCache(self, **cache_config) -> 'IApplication':
         """
-        Set the cache configuration using keyword arguments.
+        Configure cache settings using keyword arguments.
+
+        Parameters
+        ----------
+        **cache_config
+            Arbitrary keyword arguments representing cache configuration
+            settings. Keys should match the expected cache parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigCache(self, cache: Cache | dict) -> 'IApplication':
         """
-        Load the cache configuration from a Cache instance or dictionary.
+        Load cache configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        cache : Cache | dict
+            A Cache configuration object or dictionary containing cache
+            settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigCors(self, **cors_config) -> 'IApplication':
         """
-        Set the CORS configuration using keyword arguments.
+        Configure CORS settings using keyword arguments.
+
+        Parameters
+        ----------
+        **cors_config
+            Arbitrary keyword arguments representing Cross-Origin Resource Sharing
+            configuration settings. Keys should match the expected CORS parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigCors(self, cors: Cors | dict) -> 'IApplication':
         """
-        Load the CORS configuration from a Cors instance or dictionary.
+        Load CORS configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        cors : Cors | dict
+            A Cors configuration object or dictionary containing CORS
+            settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigDatabase(self, **database_config) -> 'IApplication':
         """
-        Set the database configuration using keyword arguments.
+        Configure database settings using keyword arguments.
+
+        Parameters
+        ----------
+        **database_config
+            Arbitrary keyword arguments representing database configuration
+            settings. Keys should match the expected database parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigDatabase(self, database: Database | dict) -> 'IApplication':
         """
-        Load the database configuration from a Database instance or dictionary.
+        Load database configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        database : Database | dict
+            A Database configuration object or dictionary containing database
+            connection and settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigFilesystems(self, **filesystems_config) -> 'IApplication':
         """
-        Set the filesystems configuration using keyword arguments.
+        Configure filesystem settings using keyword arguments.
+
+        Parameters
+        ----------
+        **filesystems_config
+            Arbitrary keyword arguments representing filesystem configuration
+            settings. Keys should match the expected filesystem parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigFilesystems(self, filesystems: Filesystems | dict) -> 'IApplication':
         """
-        Load the filesystems configuration from a Filesystems instance or dictionary.
+        Load filesystem configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        filesystems : Filesystems | dict
+            A Filesystems configuration object or dictionary containing filesystem
+            settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigLogging(self, **logging_config) -> 'IApplication':
         """
-        Set the logging configuration using keyword arguments.
+        Configure logging settings using keyword arguments.
+
+        Parameters
+        ----------
+        **logging_config
+            Arbitrary keyword arguments representing logging configuration
+            settings. Keys should match the expected logging parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigLogging(self, logging: Logging | dict) -> 'IApplication':
         """
-        Load the logging configuration from a Logging instance or dictionary.
+        Load logging configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        logging : Logging | dict
+            A Logging configuration object or dictionary containing logging
+            settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigMail(self, **mail_config) -> 'IApplication':
         """
-        Set the mail configuration using keyword arguments.
+        Configure mail service settings using keyword arguments.
+
+        Parameters
+        ----------
+        **mail_config
+            Arbitrary keyword arguments representing mail service configuration
+            settings. Keys should match the expected mail parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigMail(self, mail: Mail | dict) -> 'IApplication':
         """
-        Load the mail configuration from a Mail instance or dictionary.
+        Load mail configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        mail : Mail | dict
+            A Mail configuration object or dictionary containing mail service
+            settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
@@ -254,105 +476,273 @@ class IApplication(IContainer):
         storage_views: str | Path = (Path.cwd() / 'storage' / 'framework' / 'views').resolve(),
     ) -> 'IApplication':
         """
-        Set the application paths configuration using keyword arguments.
+        Configure application directory paths using keyword arguments.
+
+        This method allows setting custom paths for various application directories
+        including controllers, models, views, storage locations, and other framework
+        components. All parameters are keyword-only and have sensible defaults based
+        on common MVC framework conventions.
+
+        Parameters
+        ----------
+        console_scheduler : str | Path, optional
+            Path to the console kernel scheduler file.
+        console_commands : str | Path, optional
+            Directory path for console command classes.
+        http_controllers : str | Path, optional
+            Directory path for HTTP controller classes.
+        http_middleware : str | Path, optional
+            Directory path for HTTP middleware classes.
+        http_requests : str | Path, optional
+            Directory path for HTTP request classes.
+        models : str | Path, optional
+            Directory path for model classes.
+        providers : str | Path, optional
+            Directory path for service provider classes.
+        events : str | Path, optional
+            Directory path for event classes.
+        listeners : str | Path, optional
+            Directory path for event listener classes.
+        notifications : str | Path, optional
+            Directory path for notification classes.
+        jobs : str | Path, optional
+            Directory path for job classes.
+        policies : str | Path, optional
+            Directory path for authorization policy classes.
+        exceptions : str | Path, optional
+            Directory path for custom exception classes.
+        services : str | Path, optional
+            Directory path for service classes.
+        views : str | Path, optional
+            Directory path for view templates.
+        lang : str | Path, optional
+            Directory path for language localization files.
+        assets : str | Path, optional
+            Directory path for static assets.
+        routes_web : str | Path, optional
+            File path for web routes definition.
+        routes_api : str | Path, optional
+            File path for API routes definition.
+        routes_console : str | Path, optional
+            File path for console routes definition.
+        routes_channels : str | Path, optional
+            File path for channel routes definition.
+        config : str | Path, optional
+            Directory path for configuration files.
+        migrations : str | Path, optional
+            Directory path for database migration files.
+        seeders : str | Path, optional
+            Directory path for database seeder files.
+        factories : str | Path, optional
+            Directory path for model factory files.
+        storage_logs : str | Path, optional
+            Directory path for log files.
+        storage_framework : str | Path, optional
+            Directory path for framework storage files.
+        storage_sessions : str | Path, optional
+            Directory path for session storage files.
+        storage_cache : str | Path, optional
+            Directory path for cache storage files.
+        storage_views : str | Path, optional
+            Directory path for compiled view cache files.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadPaths(self, paths: Paths | dict) -> 'IApplication':
         """
-        Load the application paths configuration from a Paths instance or dictionary.
+        Load application paths configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        paths : Paths | dict
+            A Paths configuration object or dictionary containing application
+            directory paths to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigQueue(self, **queue_config) -> 'IApplication':
         """
-        Set the queue configuration using keyword arguments.
+        Configure queue service settings using keyword arguments.
+
+        Parameters
+        ----------
+        **queue_config
+            Arbitrary keyword arguments representing queue service configuration
+            settings. Keys should match the expected queue parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigQueue(self, queue: Queue | dict) -> 'IApplication':
         """
-        Load the queue configuration from a Queue instance or dictionary.
+        Load queue configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        queue : Queue | dict
+            A Queue configuration object or dictionary containing queue service
+            settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigSession(self, **session_config) -> 'IApplication':
         """
-        Set the session configuration using keyword arguments.
+        Configure session management settings using keyword arguments.
+
+        Parameters
+        ----------
+        **session_config
+            Arbitrary keyword arguments representing session management configuration
+            settings. Keys should match the expected session parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigSession(self, session: Session | dict) -> 'IApplication':
         """
-        Load the session configuration from a Session instance or dictionary.
+        Load session configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        session : Session | dict
+            A Session configuration object or dictionary containing session
+            management settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def setConfigTesting(self, **testing_config) -> 'IApplication':
         """
-        Set the testing configuration using keyword arguments.
+        Configure testing environment settings using keyword arguments.
+
+        Parameters
+        ----------
+        **testing_config
+            Arbitrary keyword arguments representing testing configuration
+            settings. Keys should match the expected testing parameter names.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def loadConfigTesting(self, testing: Testing | dict) -> 'IApplication':
         """
-        Load the testing configuration from a Testing instance or dictionary.
+        Load testing configuration from a configuration object or dictionary.
+
+        Parameters
+        ----------
+        testing : Testing | dict
+            A Testing configuration object or dictionary containing testing
+            environment settings to be loaded into the application.
+
+        Returns
+        -------
+        IApplication
+            The application instance to enable method chaining.
         """
         pass
 
     @abstractmethod
     def config(self, key: str = None, default: Any = None) -> Any:
         """
-        Retrieve a configuration value using dot notation, or the entire configuration if no key is provided.
+        Retrieve configuration values using dot notation access.
+
+        This method provides access to the application's configuration system,
+        allowing retrieval of specific configuration values by key or the entire
+        configuration object when no key is specified.
 
         Parameters
         ----------
         key : str, optional
-            The configuration key to retrieve.
+            The configuration key to retrieve using dot notation (e.g., 'database.host').
+            If None, returns the entire configuration object.
         default : Any, optional
-            The default value to return if the key is not found.
+            The default value to return if the specified key is not found.
 
         Returns
         -------
         Any
-            The configuration value or the default.
+            The configuration value associated with the key, the entire configuration
+            object if no key is provided, or the default value if the key is not found.
         """
         pass
 
     @abstractmethod
     def path(self, key: str = None, default: Any = None) -> Any:
         """
-        Retrieve a path configuration value using dot notation, or the entire paths configuration if no key is provided.
+        Retrieve path configuration values using dot notation access.
+
+        This method provides access to the application's path configuration system,
+        allowing retrieval of specific path values by key or the entire paths
+        configuration when no key is specified.
 
         Parameters
         ----------
         key : str, optional
-            The path key to retrieve.
+            The path configuration key to retrieve using dot notation (e.g., 'storage.logs').
+            If None, returns the entire paths configuration object.
         default : Any, optional
-            The default value to return if the key is not found.
+            The default value to return if the specified key is not found.
 
         Returns
         -------
         Any
-            The path value or the default.
+            The path value associated with the key, the entire paths configuration
+            object if no key is provided, or the default value if the key is not found.
         """
         pass
 
     @abstractmethod
     def create(self) -> 'IApplication':
         """
-        Bootstrap the application, loading all necessary providers and kernels.
+        Bootstrap and initialize the application.
+
+        This method performs the complete application initialization process,
+        including loading and registering all configured service providers,
+        initializing kernels, and preparing the application for operation.
+        After calling this method, the application should be fully operational
+        and ready to handle requests or commands.
 
         Returns
         -------
         IApplication
-            The initialized application instance.
+            The fully initialized application instance ready for operation.
         """
         pass

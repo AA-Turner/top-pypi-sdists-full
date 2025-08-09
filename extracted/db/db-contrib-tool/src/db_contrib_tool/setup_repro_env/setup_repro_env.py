@@ -1,6 +1,5 @@
 """Setup MongoDB repro environment."""
 
-import json
 import os
 import pathlib
 import re
@@ -33,7 +32,6 @@ from db_contrib_tool.setup_repro_env.request_models import (
     DownloadRequest,
     RequestTarget,
     RequestType,
-    EvgUrlsInfo,
 )
 from db_contrib_tool.utils import is_windows
 
@@ -239,7 +237,6 @@ class SetupReproOrchestrator:
         """
         discovery_request_list = self.interpret_discovery_requests(setup_repro_params.versions)
 
-        downloaded_versions = {}
         failed_requests = []
         link_directories = []
 
@@ -253,14 +250,10 @@ class SetupReproOrchestrator:
 
             if discovery_request.request_type == RequestType.VERSIONS_FILE:
                 LOGGER.info("Using download URLs from provided versions file")
-                with open(discovery_request.identifier, "r") as fh:
-                    versions = json.load(fh)
-                    for bin_suffix, info in versions.items():
-                        evg_urls_info: Optional[EvgUrlsInfo] = EvgUrlsInfo(**info)
-                        download_request = DownloadRequest(
-                            bin_suffix, discovery_request, evg_urls_info, None
-                        )
-                        download_request_set.add(download_request)
+                file_path = discovery_request.identifier
+                download_request_set.update(
+                    self.file_service.load_downloads_from_json_file(file_path)
+                )
                 continue
 
             try:
@@ -286,10 +279,14 @@ class SetupReproOrchestrator:
                 evg_urls_info.project_identifier if evg_urls_info else "",
             )
             download_request = DownloadRequest(
-                bin_suffix, discovery_request, evg_urls_info, release_urls_info
+                bin_suffix=bin_suffix,
+                discovery_request=discovery_request,
+                evg_urls_info=evg_urls_info,
+                release_urls_info=release_urls_info,
             )
             download_request_set.add(download_request)
 
+        downloaded_versions = set()
         for download_request in download_request_set:
             try:
                 linked_dir = self.artifact_download_service.download_and_extract(
@@ -298,11 +295,9 @@ class SetupReproOrchestrator:
                 )
                 if linked_dir:
                     link_directories.append(linked_dir)
-                downloaded_versions[download_request.bin_suffix] = (
-                    download_request.evg_urls_info._asdict()
-                    if download_request.evg_urls_info
-                    else {}
-                )
+
+                downloaded_versions.add(download_request)
+
                 LOGGER.info("Setup request completed", request=download_request.discovery_request)
             except DownloadError:
                 failed_requests.append(download_request.discovery_request)
@@ -316,7 +311,7 @@ class SetupReproOrchestrator:
             self.file_service.write_windows_install_paths(WINDOWS_BIN_PATHS_FILE, link_directories)
 
         if setup_repro_params.evg_versions_file is not None:
-            self.file_service.append_dict_to_json_file(
+            self.file_service.append_downloads_to_json_file(
                 setup_repro_params.evg_versions_file, downloaded_versions
             )
             LOGGER.info(

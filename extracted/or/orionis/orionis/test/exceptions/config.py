@@ -2,26 +2,22 @@ class OrionisTestConfigException(Exception):
 
     def __init__(self, msg: str):
         """
-        Initializes the OrionisTestConfigException with a descriptive error message.
+        Initialize the OrionisTestConfigException.
 
         Parameters
         ----------
         msg : str
-            Descriptive error message explaining the cause of the exception.
+            The error message describing the cause of the exception.
         """
-
-        # Call the base Exception class constructor with the message
         super().__init__(msg)
 
     def __str__(self) -> str:
         """
-        Returns a formatted string representation of the exception message.
+        Return the exception message as a string.
 
         Returns
         -------
         str
-            The error message provided during exception initialization.
+            The error message provided during initialization.
         """
-
-        # Return the first argument as the exception message
         return str(self.args[0])

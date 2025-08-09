@@ -117,7 +117,7 @@ test_requires = [
     "pytest",
     "pytest-cov",
     "ipython",
-    "setuptools; python_version >= '3.12'",
+    "setuptools",
     "pytest-textual-snapshot",
     "textual >= 0.43, != 0.65.2, != 0.66",
     "packaging",
@@ -149,6 +149,7 @@ COMPILER_DIRECTIVES = {
     "linetrace": False,
     "c_string_type": "unicode",
     "c_string_encoding": "utf8",
+    "freethreading_compatible": True,
 }
 EXTRA_COMPILE_ARGS = []
 EXTRA_LINK_ARGS = []
@@ -180,6 +181,7 @@ if TEST_BUILD:
         "infer_types": True,
         "c_string_type": "unicode",
         "c_string_encoding": "utf8",
+        "freethreading_compatible": True,
     }
     EXTRA_COMPILE_ARGS = []
     UNDEF_MACROS = ["NDEBUG"]
@@ -321,6 +323,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
         "Topic :: Software Development :: Debuggers",
     ],
@@ -333,6 +336,7 @@ setup(
         compiler_directives=COMPILER_DIRECTIVES,
     ),
     include_package_data=True,
+    exclude_package_data={"memray": ["_memray/*"]},
     install_requires=install_requires,
     extras_require={
         "test": test_requires,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rapid-router
-Version: 7.5.18
+Version: 7.5.20
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Framework :: Django
@@ -8,7 +8,7 @@ License-File: LICENSE.md
 Requires-Dist: asgiref==3.8.1; python_version >= "3.8"
 Requires-Dist: asttokens==3.0.0; python_version >= "3.8"
 Requires-Dist: certifi==2025.6.15; python_version >= "3.7"
-Requires-Dist: cfl-common==8.7.9
+Requires-Dist: cfl-common==8.8.1
 Requires-Dist: charset-normalizer==3.4.2; python_version >= "3.7"
 Requires-Dist: decorator==5.2.1; python_version >= "3.8"
 Requires-Dist: diff-match-patch==20241021; python_version >= "3.7"
@@ -68,13 +68,13 @@ Requires-Dist: boto3==1.36.14; python_version >= "3.8" and extra == "dev"
 Requires-Dist: botocore==1.36.26; python_version >= "3.8" and extra == "dev"
 Requires-Dist: celery[sqs]==5.4.0; python_version >= "3.8" and extra == "dev"
 Requires-Dist: certifi==2025.6.15; python_version >= "3.7" and extra == "dev"
-Requires-Dist: cfl-common==8.7.9; extra == "dev"
+Requires-Dist: cfl-common==8.8.1; extra == "dev"
 Requires-Dist: charset-normalizer==3.4.2; python_version >= "3.7" and extra == "dev"
 Requires-Dist: click==8.2.1; python_version >= "3.10" and extra == "dev"
 Requires-Dist: click-didyoumean==0.3.1; python_full_version >= "3.6.2" and extra == "dev"
 Requires-Dist: click-plugins==1.1.1.2; extra == "dev"
 Requires-Dist: click-repl==0.3.0; python_version >= "3.6" and extra == "dev"
-Requires-Dist: codeforlife-portal==8.7.9; extra == "dev"
+Requires-Dist: codeforlife-portal==8.8.1; extra == "dev"
 Requires-Dist: diff-match-patch==20241021; python_version >= "3.7" and extra == "dev"
 Requires-Dist: django==5.1.10; python_version >= "3.10" and extra == "dev"
 Requires-Dist: django-classy-tags==4.1.0; python_version >= "3.8" and extra == "dev"

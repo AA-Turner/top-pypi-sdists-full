@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: faster-eth-utils
-Version: 5.3.3
+Version: 5.3.4
 Summary: A fork of eth-utils: Common utility functions for python code that interacts with Ethereum, implemented in C
 Home-page: https://github.com/BobTheBuidler/eth-utils
 Author: The Ethereum Foundation

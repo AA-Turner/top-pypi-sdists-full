@@ -21,6 +21,7 @@ import warnings
 import jax
 import mujoco
 from mujoco.mjx._src.dataclasses import PyTreeNode  # pylint: disable=g-importing-member
+from mujoco.mjx.warp import types as mjxw_types
 import numpy as np
 
 
@@ -86,7 +87,9 @@ class EnableBit(enum.IntFlag):
   """
 
   INVDISCRETE = mujoco.mjtEnableBit.mjENBL_INVDISCRETE
-  # unsupported: OVERRIDE, ENERGY, FWDINV, MULTICCD, ISLAND
+  # unsupported: OVERRIDE, ENERGY, FWDINV, ISLAND
+  # required by the C implementation only, ignored otherwise: MULTICCD
+  MULTICCD = mujoco.mjtEnableBit.mjENBL_MULTICCD
 
 
 class JointType(enum.IntEnum):
@@ -378,6 +381,7 @@ class SensorType(enum.IntEnum):
     SUBTREELINVEL: subtree linear velocity
     SUBTREEANGMOM: subtree angular momentum
     TOUCH: scalar contact normal forces summed over the sensor zone
+    CONTACT: contacts which occurred during the simulation
     ACCELEROMETER: accelerometer
     FORCE: force
     TORQUE: torque
@@ -413,6 +417,7 @@ class SensorType(enum.IntEnum):
   SUBTREELINVEL = mujoco.mjtSensor.mjSENS_SUBTREELINVEL
   SUBTREEANGMOM = mujoco.mjtSensor.mjSENS_SUBTREEANGMOM
   TOUCH = mujoco.mjtSensor.mjSENS_TOUCH
+  CONTACT = mujoco.mjtSensor.mjSENS_CONTACT
   ACCELEROMETER = mujoco.mjtSensor.mjSENS_ACCELEROMETER
   FORCE = mujoco.mjtSensor.mjSENS_FORCE
   TORQUE = mujoco.mjtSensor.mjSENS_TORQUE
@@ -461,48 +466,65 @@ class Statistic(PyTreeNode):
   center: jax.Array
 
 
-class Option(PyTreeNode):
-  """Physics options."""  # fmt: skip
-  timestep: jax.Array
-  impratio: jax.Array
-  tolerance: jax.Array
-  ls_tolerance: jax.Array
-  gravity: jax.Array
-  wind: jax.Array
-  magnetic: jax.Array
-  density: jax.Array
-  viscosity: jax.Array
+class StatisticWarp(mjxw_types.StatisticWarp, Statistic):
+  """Warp-specific model statistics."""
+
+  # NB: StatisticWarp type annotations may not match those on Statistic.
+  pass
+
+
+class OptionJAX(PyTreeNode):
+  """JAX-specific option."""
+
   o_margin: jax.Array
   o_solref: jax.Array
   o_solimp: jax.Array
   o_friction: jax.Array
-  integrator: IntegratorType
-  cone: ConeType
-  jacobian: JacobianType
-  solver: SolverType
-  iterations: int
-  ls_iterations: int
-  disableflags: DisableBit
-  enableflags: int
   disableactuator: int
   sdf_initpoints: int
+  has_fluid_params: bool
 
 
-class OptionC(Option):
+class OptionC(PyTreeNode):
   """C-specific option."""
 
+  o_margin: jax.Array
+  o_solref: jax.Array
+  o_solimp: jax.Array
+  o_friction: jax.Array
+  disableactuator: int
+  sdf_initpoints: int
+  has_fluid_params: bool
   apirate: jax.Array
   noslip_tolerance: jax.Array
   ccd_tolerance: jax.Array
   noslip_iterations: int
   ccd_iterations: int
   sdf_iterations: int
+  sdf_initpoints: int
 
 
-class OptionJAX(Option):
-  """JAX-specific option."""
+class Option(PyTreeNode):
+  """Physics options."""
 
-  has_fluid_params: bool
+  iterations: int
+  ls_iterations: int
+  tolerance: jax.Array
+  ls_tolerance: jax.Array
+  impratio: jax.Array
+  gravity: jax.Array
+  density: jax.Array
+  viscosity: jax.Array
+  magnetic: jax.Array
+  wind: jax.Array
+  jacobian: JacobianType
+  cone: ConeType
+  disableflags: DisableBit
+  enableflags: int
+  integrator: IntegratorType
+  solver: SolverType
+  timestep: jax.Array
+  _impl: Union[OptionJAX, OptionC, mjxw_types.OptionWarp]
 
 
 class ModelC(PyTreeNode):
@@ -527,6 +549,9 @@ class ModelC(PyTreeNode):
   bvh_child: jax.Array
   bvh_nodeid: jax.Array
   bvh_aabb: jax.Array
+  oct_child: jax.Array
+  oct_aabb: jax.Array
+  oct_coeff: jax.Array
   geom_plugin: jax.Array
   light_bodyid: jax.Array
   light_targetbodyid: jax.Array
@@ -573,6 +598,7 @@ class ModelC(PyTreeNode):
   actuator_plugin: jax.Array
   sensor_plugin: jax.Array
   plugin: jax.Array
+  plugin_stateadr: jax.Array
 
 
 class ModelJAX(PyTreeNode):
@@ -630,8 +656,9 @@ class Model(PyTreeNode):
   ngravcomp: int
   nuserdata: int
   nsensordata: int
+  npluginstate: int
   opt: Option
-  stat: Statistic
+  stat: Union[Statistic, StatisticWarp]
   qpos0: jax.Array
   qpos_spring: jax.Array
   body_parentid: np.ndarray
@@ -734,16 +761,21 @@ class Model(PyTreeNode):
   light_pos: jax.Array
   light_dir: jax.Array
   light_poscom0: jax.Array
-  light_pos0: np.ndarray
-  light_dir0: np.ndarray
+  light_pos0: jax.Array
+  light_dir0: jax.Array
   light_cutoff: jax.Array
   mesh_vertadr: np.ndarray
   mesh_vertnum: np.ndarray
   mesh_faceadr: np.ndarray
   mesh_bvhadr: np.ndarray
   mesh_bvhnum: np.ndarray
+  mesh_octadr: np.ndarray
+  mesh_octnum: np.ndarray
+  mesh_normaladr: np.ndarray
+  mesh_normalnum: np.ndarray
   mesh_graphadr: np.ndarray
   mesh_vert: np.ndarray
+  mesh_normal: np.ndarray
   mesh_face: np.ndarray
   mesh_graph: np.ndarray
   mesh_pos: np.ndarray
@@ -833,6 +865,7 @@ class Model(PyTreeNode):
   sensor_objid: np.ndarray
   sensor_reftype: np.ndarray
   sensor_refid: np.ndarray
+  sensor_intprm: np.ndarray
   sensor_dim: np.ndarray
   sensor_adr: np.ndarray
   sensor_cutoff: np.ndarray
@@ -868,13 +901,14 @@ class Model(PyTreeNode):
   names: bytes
   signature: np.uint64
   _sizes: jax.Array
-  _impl: Union[ModelC, ModelJAX]
+  _impl: Union[ModelC, ModelJAX, mjxw_types.ModelWarp]
 
   @property
   def impl(self) -> Impl:
     return {
         ModelC: Impl.C,
         ModelJAX: Impl.JAX,
+        mjxw_types.ModelWarp: Impl.WARP,
     }[type(self._impl)]
 
   def __getattr__(self, name: str):
@@ -1076,6 +1110,7 @@ class Data(PyTreeNode):
   qvel: jax.Array
   act: jax.Array
   qacc_warmstart: jax.Array
+  plugin_state: jax.Array
   # control:
   ctrl: jax.Array
   qfrc_applied: jax.Array
@@ -1116,21 +1151,17 @@ class Data(PyTreeNode):
   qacc_smooth: jax.Array
   qfrc_constraint: jax.Array
   qfrc_inverse: jax.Array
-  _impl: Union[DataC, DataJAX]
+  _impl: Union[DataC, DataJAX, mjxw_types.DataWarp]
 
   @property
   def impl(self) -> Impl:
     return {
         DataC: Impl.C,
         DataJAX: Impl.JAX,
+        mjxw_types.DataWarp: Impl.WARP,
     }[type(self._impl)]
 
   def __getattr__(self, name: str):
-    if name == 'value':
-      # Special case for NNX, the value attribute may not exist on the parent
-      # PyTreeNode, before it exists on the child PyTreeNode. Thanks NNX.
-      return object.__getattribute__(self, 'value')
-
     try:
       impl_instsance = object.__getattribute__(self, '_impl')
       val = getattr(impl_instsance, name)
@@ -1146,3 +1177,23 @@ class Data(PyTreeNode):
           f"'{type(self).__name__}' object has no attribute '{name}'"
       )
     return val
+
+  def __getitem__(self, key):
+    def get_name_from_path(path: jax.tree_util.KeyPath) -> str:
+      if any(isinstance(p, jax.tree_util.SequenceKey) for p in path):
+        is_seq_key = [isinstance(p, jax.tree_util.SequenceKey) for p in path]
+        path = path[: is_seq_key.index(True)]
+      assert all(isinstance(p, jax.tree_util.GetAttrKey) for p in path)
+      path = [p for p in path if p.name != '_impl']
+      attr = '__'.join(p.name for p in path)
+      return attr
+
+    if self.impl == Impl.WARP:
+      return jax.tree.map_with_path(
+          lambda path, x, k=key: x[k]
+          if get_name_from_path(path) not in mjxw_types.DATA_NON_VMAP
+          else x,
+          self,
+      )
+
+    return jax.tree.map(lambda x: x[key], self)

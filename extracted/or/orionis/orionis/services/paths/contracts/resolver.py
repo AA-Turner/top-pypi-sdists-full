@@ -1,9 +1,6 @@
 from abc import ABC, abstractmethod
 
 class IResolver(ABC):
-    """
-    Interface for a utility class that resolves file and directory paths relative to a base path.
-    """
 
     @abstractmethod
     def relativePath(self, relative_path: str) -> 'IResolver':

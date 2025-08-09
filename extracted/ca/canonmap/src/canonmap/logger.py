@@ -1,8 +1,8 @@
 # src/canonmap/logger.py
 
+import json
 import logging
 import os
-import json
 from datetime import datetime
 
 from dotenv import load_dotenv

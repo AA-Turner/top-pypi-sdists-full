@@ -10,7 +10,18 @@ class Color(Enum):
 @dataclass
 class ExampleEntity(BaseEntity):
     """
-    Example entity representing a data structure with id, name, color, and tags.
+    Data structure representing an example entity with an identifier, name, color, and tags.
+
+    Parameters
+    ----------
+    id : int, optional
+        Unique identifier for the entity. Default is 0.
+    name : str, optional
+        Name of the entity. Default is 'default'.
+    color : Color, optional
+        Color associated with the entity. Default is Color.RED.
+    tags : list, optional
+        List of tags associated with the entity. Default is an empty list.
 
     Attributes
     ----------
@@ -22,13 +33,8 @@ class ExampleEntity(BaseEntity):
         Color associated with the entity.
     tags : list
         List of tags associated with the entity.
-
-    Returns
-    -------
-    ExampleEntity
-        An instance of ExampleEntity with specified attributes.
     """
-    id: int = 0  # Default id is 0
-    name: str = "default"  # Default name is 'default'
-    color: Color = Color.RED  # Default color is RED
-    tags: list = field(default_factory=list, metadata={"default": ["tag1", "tag2"]})  # Default tags list
+    id: int = 0                                                                         # Default id is 0
+    name: str = "default"                                                               # Default name is 'default'
+    color: Color = Color.RED                                                            # Default color is RED
+    tags: list = field(default_factory=list, metadata={"default": ["tag1", "tag2"]})    # Default tags list

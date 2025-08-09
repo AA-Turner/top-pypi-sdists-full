@@ -3,86 +3,87 @@ from typing import Any, Dict
 
 class IStdClass(ABC):
     """
-    Interface for a dynamic class that allows setting arbitrary attributes,
+    Abstract base class for a dynamic object that allows arbitrary attribute assignment,
     similar to PHP's stdClass.
 
-    Implementations should provide dynamic attribute access and management.
+    Implementations must support dynamic attribute management and provide methods for
+    representation, comparison, serialization, and attribute manipulation.
     """
 
     @abstractmethod
     def __init__(self, **kwargs: Any) -> None:
         """
-        Initializes the object with optional attributes.
+        Initialize the object with optional attributes.
 
         Parameters
         ----------
-        kwargs : Any
-            Key-value pairs to set as initial attributes.
+        **kwargs : Any
+            Arbitrary keyword arguments to set as initial attributes.
         """
         pass
 
     @abstractmethod
     def __repr__(self) -> str:
         """
-        Returns an unambiguous string representation of the object.
+        Return an unambiguous string representation of the object.
 
         Returns
         -------
         str
-            A string that could be used to recreate the object.
+            String representation suitable for debugging and object recreation.
         """
         pass
 
     @abstractmethod
     def __str__(self) -> str:
         """
-        Returns a readable string representation of the object.
+        Return a readable string representation of the object.
 
         Returns
         -------
         str
-            A user-friendly string showing the object's attributes.
+            Human-readable string displaying the object's attributes.
         """
         pass
 
     @abstractmethod
     def __eq__(self, other: Any) -> bool:
         """
-        Compares two objects for equality based on their attributes.
+        Compare this object with another for equality based on attributes.
 
         Parameters
         ----------
         other : Any
-            The object to compare with.
+            Object to compare against.
 
         Returns
         -------
         bool
-            True if both objects have the same attributes and values.
+            True if both objects have identical attributes and values, False otherwise.
         """
         pass
 
     @abstractmethod
     def toDict(self) -> Dict[str, Any]:
         """
-        Converts the object's attributes to a dictionary.
+        Convert the object's attributes to a dictionary.
 
         Returns
         -------
-        Dict[str, Any]
-            A dictionary representation of the object's attributes.
+        dict of str to Any
+            Dictionary containing the object's attribute names and values.
         """
         pass
 
     @abstractmethod
     def update(self, **kwargs: Any) -> None:
         """
-        Updates the object's attributes dynamically.
+        Update the object's attributes with the provided key-value pairs.
 
         Parameters
         ----------
-        kwargs : Any
-            Key-value pairs to update attributes.
+        **kwargs : Any
+            Arbitrary keyword arguments to update or add as attributes.
 
         Raises
         ------
@@ -94,7 +95,7 @@ class IStdClass(ABC):
     @abstractmethod
     def remove(self, *attributes: str) -> None:
         """
-        Removes one or more attributes from the object.
+        Remove one or more attributes from the object.
 
         Parameters
         ----------
@@ -104,7 +105,7 @@ class IStdClass(ABC):
         Raises
         ------
         AttributeError
-            If any of the attributes doesn't exist.
+            If any specified attribute does not exist.
         """
         pass
 
@@ -112,16 +113,16 @@ class IStdClass(ABC):
     @abstractmethod
     def fromDict(cls, dictionary: Dict[str, Any]) -> 'IStdClass':
         """
-        Creates an instance from a dictionary.
+        Create an instance from a dictionary of attributes.
 
         Parameters
         ----------
-        dictionary : Dict[str, Any]
-            Dictionary to create the object from.
+        dictionary : dict of str to Any
+            Dictionary containing attribute names and values.
 
         Returns
         -------
         IStdClass
-            A new instance with the dictionary's key-value pairs as attributes.
+            New instance with attributes set from the dictionary.
         """
         pass

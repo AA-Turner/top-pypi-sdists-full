@@ -575,6 +575,7 @@ def run_agent(
                 break
 
     except Exception as e:
+        agent.thinking_animation.stop()
         click.echo(FeedbackManager.error(message=f"Error: {e}"))
         sys.exit(1)
 

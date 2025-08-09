@@ -4,36 +4,37 @@ from orionis.container.providers.service_provider import ServiceProvider
 
 class ConsoleProvider(ServiceProvider):
     """
-    ConsoleProvider
-    ===============
+    Provides and registers the console output service within the application container.
 
-    Registers the console output service in the application container.
-    Provides access to various console output features, including information, warnings, errors, debug messages, tables, confirmations, and password prompts.
-
-    Methods
-    -------
-    register()
-        Registers the console service in the application container.
-    boot()
-        Performs post-registration initialization if needed.
+    This provider binds the console output interface to its concrete implementation,
+    enabling access to various console output features such as information, warnings,
+    errors, debug messages, tables, confirmations, and password prompts.
     """
 
     def register(self) -> None:
         """
-        Registers the console service in the application container.
+        Register the console output service in the application container.
+
+        Binds the IConsole interface to the Console implementation as a transient service,
+        with the alias "core.orionis.console".
 
         Returns
         -------
         None
         """
+
         self.app.transient(IConsole, Console, alias="core.orionis.console")
 
     def boot(self) -> None:
         """
-        Performs post-registration initialization if needed.
+        Perform post-registration initialization for the console provider.
+
+        This method is a placeholder for any additional setup required after
+        registration. Currently, it does not perform any actions.
 
         Returns
         -------
         None
         """
+
         pass

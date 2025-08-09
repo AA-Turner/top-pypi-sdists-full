@@ -25,6 +25,7 @@ class StoryLogDBM(SimpleDBM):
         error_in_execute_operation = "error_in_execute_operation"
         error_in_api = "error_in_api"
         error_in_tg_bot = "error_in_tg_bot"
+        error_in_execute_with_story_log = "error_in_execute_with_story_log"
 
     level: Mapped[str] = mapped_column(
         sqlalchemy.TEXT,

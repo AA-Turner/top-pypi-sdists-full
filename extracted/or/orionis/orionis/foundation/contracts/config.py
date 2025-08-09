@@ -2,22 +2,30 @@ from abc import ABC, abstractmethod
 
 class IConfig(ABC):
     """
-    An abstract base class that defines an interface for classes that must have
-    a `config` attribute.
+    Abstract base class for configuration holders.
 
-    The subclass is required to implement the `config` attribute, which should be
-    a dataclass instance representing the configuration data.
+    This interface enforces the presence of a `config` attribute in subclasses,
+    which must return a dataclass instance containing configuration data.
 
     Attributes
     ----------
     config : object
-        A dataclass instance representing the configuration.
+        Dataclass instance representing the configuration data.
     """
 
     @property
     @abstractmethod
     def config(self):
         """
-        Should return a dataclass instance representing the configuration.
+        Get the configuration dataclass instance.
+
+        Returns
+        -------
+        object
+            Dataclass instance containing the configuration data.
+
+        Notes
+        -----
+        Subclasses must implement this property to provide access to their configuration.
         """
         pass

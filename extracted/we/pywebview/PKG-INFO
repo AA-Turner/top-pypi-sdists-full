@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pywebview
-Version: 5.4
+Version: 6.0
 Summary: Build GUI for your Python program with JavaScript, HTML, and CSS
 Author-email: Roman Sirokov <roman@flowrl.com>
 License: BSD 3-Clause License
@@ -69,7 +69,7 @@ Requires-Dist: typing_extensions
 Provides-Extra: cef
 Requires-Dist: cefpython3; extra == "cef"
 Provides-Extra: gtk
-Requires-Dist: PyGObject; extra == "gtk"
+Requires-Dist: PyGObject==3.50.0; extra == "gtk"
 Requires-Dist: PyGObject-stubs; extra == "gtk"
 Provides-Extra: pyside2
 Requires-Dist: QtPy; extra == "pyside2"
@@ -93,4 +93,5 @@ Provides-Extra: android
 Requires-Dist: kivy; extra == "android"
 Requires-Dist: jnius; extra == "android"
 Provides-Extra: ssl
-Requires-Dist: crpytography; extra == "ssl"
+Requires-Dist: cryptography; extra == "ssl"
+Dynamic: license-file

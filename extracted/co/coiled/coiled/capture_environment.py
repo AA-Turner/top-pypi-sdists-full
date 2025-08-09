@@ -55,6 +55,7 @@ async def default_python() -> PackageInfo:
         "conda_name": "python",
         "version": python_version,
         "wheel_target": None,
+        "requested": True,
     }
 
 
@@ -95,6 +96,7 @@ async def approximate_packages(
                 "conda_name": "pip",
                 "version": "22.3.1",
                 "wheel_target": None,
+                "requested": False,
             })
         else:
             # insert the users pip version and hope it exists on conda-forge
@@ -108,6 +110,7 @@ async def approximate_packages(
                 "conda_name": "pip",
                 "version": pip["version"],
                 "wheel_target": None,
+                "requested": True,
             })
     coiled_selected_python = None
     if not user_conda_installed_python:
@@ -151,6 +154,7 @@ async def approximate_packages(
                     "conda_name": pkg["conda_name"],
                     "version": pkg["version"],
                     "wheel_target": pkg["wheel_target"],
+                    "requested": pkg["requested"],
                 }
                 # Send all packages to backend to help with debugging
                 for pkg in packages + local_python_code + local_python_wheel_packages + ignored_packages
@@ -220,6 +224,7 @@ async def create_environment_approximation(
             "conda_name": conda_extra,
             "version": "",
             "wheel_target": None,
+            "requested": True,
         }
         for conda_extra in (conda_extras or [])
     ]

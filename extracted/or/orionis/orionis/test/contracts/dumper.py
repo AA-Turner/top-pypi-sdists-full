@@ -2,51 +2,47 @@ from abc import ABC, abstractmethod
 
 class ITestDumper(ABC):
     """
-    Interface for standard output debugging utilities.
+    Abstract base class for debugging output utilities.
 
-    This interface defines methods for dumping debugging information,
-    capturing the caller's file, method, and line number, and utilizing
-    a Debug class to output the information.
-
-    Implementations
-    --------------
-    Implementations should provide mechanisms to output or log the
-    provided arguments for debugging purposes.
+    This interface specifies methods for outputting debugging information,
+    capturing the caller's file, method, and line number, and utilizing a
+    Debug class to display or log the information.
     """
 
     @abstractmethod
     def dd(self, *args) -> None:
         """
-        Outputs debugging information using the Debug class.
+        Output debugging information using the Debug class.
 
-        This method captures the caller's file and line number, then
-        utilizes the Debug class to display or log the provided arguments
-        for debugging purposes.
+        Captures the caller's file and line number, then uses the Debug class
+        to display or log the provided arguments for debugging purposes.
 
         Parameters
         ----------
         *args : tuple
-            Variable length argument list containing the data to be dumped.
+            Variable length argument list containing the data to be output.
 
         Returns
         -------
         None
-            This method does not return any value. Its purpose is to output
-            or log the debugging information.
         """
         pass
 
     @abstractmethod
     def dump(self, *args) -> None:
         """
-        Dumps debugging information using the Debug class.
+        Output debugging information using the Debug class.
 
-        This method captures the caller's file, method, and line number,
-        and uses the Debug class to output debugging information.
+        Captures the caller's file, method, and line number, and uses the
+        Debug class to output the provided arguments for debugging purposes.
 
         Parameters
         ----------
         *args : tuple
-            Variable length argument list to be dumped.
+            Variable length argument list containing the data to be output.
+
+        Returns
+        -------
+        None
         """
         pass

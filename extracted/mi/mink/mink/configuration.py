@@ -30,6 +30,7 @@ class Configuration:
     * Running forward kinematics to update the state.
     * Checking configuration limits.
     * Computing Jacobians for different frames.
+    * Computing the joint-space inertia matrix.
     * Retrieving frame transforms relative to the world frame.
     * Integrating velocities to update configurations.
     """
@@ -84,6 +85,10 @@ class Configuration:
             safety_break: If True, stop execution and raise an exception if the current
                 configuration is outside limits. If False, print a warning and continue
                 execution.
+
+        Raises:
+            NotWithinConfigurationLimits: If the current configuration is outside
+                the joint limits.
         """
         for jnt in range(self.model.njnt):
             jnt_type = self.model.jnt_type[jnt]
@@ -245,7 +250,10 @@ class Configuration:
         """
         # Run the composite rigid body inertia (CRB) algorithm to populate the joint
         # space inertia matrix data.qM.
-        mujoco.mj_crb(self.model, self.data)
+        if mujoco.mj_version() >= 334:
+            mujoco.mj_makeM(self.model, self.data)
+        else:
+            mujoco.mj_crb(self.model, self.data)
         # data.qM is stored in a custom sparse format and can be converted to dense
         # format using mujoco.mj_fullM.
         M = np.empty((self.nv, self.nv), dtype=np.float64)

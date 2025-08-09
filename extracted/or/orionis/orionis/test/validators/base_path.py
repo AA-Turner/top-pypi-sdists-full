@@ -5,20 +5,22 @@ class __ValidBasePath:
 
     def __call__(self, base_path) -> Path:
         """
-        Callable class to validate and normalize a base path.
-        This validator ensures that the provided `base_path` is either a non-empty string or a `Path` object.
-        If valid, it returns a normalized `Path` object. Otherwise, it raises an `OrionisTestValueError`.
+        Validates and normalizes a base path.
 
         Parameters
         ----------
         base_path : str or Path
-            The base path to validate. Must be a non-empty string or a `Path` object.
+            The base path to validate. Must be a non-empty string or a Path object.
 
         Returns
         -------
         Path
-            A normalized `Path` object corresponding to the provided base path.
-            If `base_path` is not a non-empty string or a valid `Path` object.
+            A normalized Path object corresponding to the provided base path.
+
+        Raises
+        ------
+        OrionisTestValueError
+            If `base_path` is not a non-empty string or a valid Path object.
         """
 
         if isinstance(base_path, str):

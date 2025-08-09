@@ -567,7 +567,7 @@ class OpenAIClient:
         self,
         messages: List[Dict],
         model: str,
-        temperature: float = 0.7,
+        temperature: float = 1.0,
         tools: Optional[List[Dict]] = None,
         start_time: Optional[float] = None,
         console: Optional[Console] = None,
@@ -654,7 +654,7 @@ class OpenAIClient:
         self,
         messages: List[Dict],
         model: str,
-        temperature: float = 0.7,
+        temperature: float = 1.0,
         tools: Optional[List[Dict]] = None,
         start_time: Optional[float] = None,
         console: Optional[Console] = None,
@@ -740,8 +740,8 @@ class OpenAIClient:
     def create_completion(
         self,
         messages: List[Dict[str, Any]],
-        model: str = "gpt-4o",
-        temperature: float = 0.7,
+        model: str = "gpt-5-nano",
+        temperature: float = 1.0,
         stream: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
@@ -785,8 +785,8 @@ class OpenAIClient:
     async def acreate_completion(
         self,
         messages: List[Dict[str, Any]],
-        model: str = "gpt-4o",
-        temperature: float = 0.7,
+        model: str = "gpt-5-nano",
+        temperature: float = 1.0,
         stream: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
@@ -830,8 +830,8 @@ class OpenAIClient:
     def chat_completion_with_tools(
         self,
         messages: List[Dict[str, Any]],
-        model: str = "gpt-4o",
-        temperature: float = 0.7,
+        model: str = "gpt-5-nano",
+        temperature: float = 1.0,
         tools: Optional[List[Any]] = None,
         execute_tool_fn: Optional[Callable] = None,
         stream: bool = True,
@@ -1008,8 +1008,8 @@ class OpenAIClient:
     async def achat_completion_with_tools(
         self,
         messages: List[Dict[str, Any]],
-        model: str = "gpt-4o",
-        temperature: float = 0.7,
+        model: str = "gpt-5-nano",
+        temperature: float = 1.0,
         tools: Optional[List[Any]] = None,
         execute_tool_fn: Optional[Callable] = None,
         stream: bool = True,
@@ -1189,8 +1189,8 @@ class OpenAIClient:
     def chat_completion_with_tools_stream(
         self,
         messages: List[Dict[str, Any]],
-        model: str = "gpt-4o",
-        temperature: float = 0.7,
+        model: str = "gpt-5-nano",
+        temperature: float = 1.0,
         tools: Optional[List[Any]] = None,
         execute_tool_fn: Optional[Callable] = None,
         reasoning_steps: bool = False,
@@ -1334,8 +1334,8 @@ class OpenAIClient:
         self,
         messages: List[Dict[str, Any]],
         response_format: BaseModel,
-        model: str = "gpt-4o",
-        temperature: float = 0.7,
+        model: str = "gpt-5-nano",
+        temperature: float = 1.0,
         **kwargs
     ) -> Any:
         """
@@ -1368,8 +1368,8 @@ class OpenAIClient:
         self,
         messages: List[Dict[str, Any]],
         response_format: BaseModel,
-        model: str = "gpt-4o",
-        temperature: float = 0.7,
+        model: str = "gpt-5-nano",
+        temperature: float = 1.0,
         **kwargs
     ) -> Any:
         """

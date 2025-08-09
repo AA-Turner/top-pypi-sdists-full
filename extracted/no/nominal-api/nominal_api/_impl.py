@@ -31221,15 +31221,19 @@ class scout_chartdefinition_api_ValueTableDefinitionV2(ConjureBeanType):
         return {
             'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
             'show_units': ConjureFieldDefinition('showUnits', OptionalTypeWrapper[bool]),
-            'layout': ConjureFieldDefinition('layout', scout_chartdefinition_api_ValueTableLayout)
+            'show_staleness_indicator': ConjureFieldDefinition('showStalenessIndicator', OptionalTypeWrapper[bool]),
+            'layout': ConjureFieldDefinition('layout', scout_chartdefinition_api_ValueTableLayout),
+            'staleness_indicator': ConjureFieldDefinition('stalenessIndicator', OptionalTypeWrapper[scout_chartdefinition_api_ValueTableStalenessConfig])
         }
 
-    __slots__: List[str] = ['_title', '_show_units', '_layout']
+    __slots__: List[str] = ['_title', '_show_units', '_show_staleness_indicator', '_layout', '_staleness_indicator']
 
-    def __init__(self, layout: "scout_chartdefinition_api_ValueTableLayout", show_units: Optional[bool] = None, title: Optional[str] = None) -> None:
+    def __init__(self, layout: "scout_chartdefinition_api_ValueTableLayout", show_staleness_indicator: Optional[bool] = None, show_units: Optional[bool] = None, staleness_indicator: Optional["scout_chartdefinition_api_ValueTableStalenessConfig"] = None, title: Optional[str] = None) -> None:
         self._title = title
         self._show_units = show_units
+        self._show_staleness_indicator = show_staleness_indicator
         self._layout = layout
+        self._staleness_indicator = staleness_indicator
 
     @builtins.property
     def title(self) -> Optional[str]:
@@ -31244,8 +31248,20 @@ class scout_chartdefinition_api_ValueTableDefinitionV2(ConjureBeanType):
         return self._show_units
 
     @builtins.property
+    def show_staleness_indicator(self) -> Optional[bool]:
+        """If true, display staleness indicator in the cells when available.
+        """
+        return self._show_staleness_indicator
+
+    @builtins.property
     def layout(self) -> "scout_chartdefinition_api_ValueTableLayout":
         return self._layout
+
+    @builtins.property
+    def staleness_indicator(self) -> Optional["scout_chartdefinition_api_ValueTableStalenessConfig"]:
+        """Configuration for showing staleness of values in the value table while streaming.
+        """
+        return self._staleness_indicator
 
 
 scout_chartdefinition_api_ValueTableDefinitionV2.__name__ = "ValueTableDefinitionV2"
@@ -31506,6 +31522,33 @@ for a row, for a column, or for the entire grid.
 scout_chartdefinition_api_ValueTableMultiCellConfig.__name__ = "ValueTableMultiCellConfig"
 scout_chartdefinition_api_ValueTableMultiCellConfig.__qualname__ = "ValueTableMultiCellConfig"
 scout_chartdefinition_api_ValueTableMultiCellConfig.__module__ = "nominal_api.scout_chartdefinition_api"
+
+
+class scout_chartdefinition_api_ValueTableStalenessConfig(ConjureBeanType):
+    """Configuration for showing staleness of values while streaming
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'hide_staleness': ConjureFieldDefinition('hideStaleness', OptionalTypeWrapper[bool])
+        }
+
+    __slots__: List[str] = ['_hide_staleness']
+
+    def __init__(self, hide_staleness: Optional[bool] = None) -> None:
+        self._hide_staleness = hide_staleness
+
+    @builtins.property
+    def hide_staleness(self) -> Optional[bool]:
+        """If true, will not show any indication of staleness. Defaults to false
+        """
+        return self._hide_staleness
+
+
+scout_chartdefinition_api_ValueTableStalenessConfig.__name__ = "ValueTableStalenessConfig"
+scout_chartdefinition_api_ValueTableStalenessConfig.__qualname__ = "ValueTableStalenessConfig"
+scout_chartdefinition_api_ValueTableStalenessConfig.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_ValueToColorMap(ConjureUnionType):
@@ -48288,6 +48331,8 @@ class scout_compute_api_OutputFormat(ConjureEnumType):
 
     ARROW_V1 = 'ARROW_V1'
     '''ARROW_V1'''
+    ARROW_V1_1 = 'ARROW_V1_1'
+    '''ARROW_V1_1'''
     LEGACY = 'LEGACY'
     '''LEGACY'''
     UNKNOWN = 'UNKNOWN'

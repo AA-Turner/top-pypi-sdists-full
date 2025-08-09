@@ -1255,12 +1255,12 @@ STRUCTS: Mapping[str, StructDecl] = dict([
              ),
              StructFieldDecl(
                  name='narena',
-                 type=ValueType(name='size_t'),
+                 type=ValueType(name='mjtSize'),
                  doc='number of bytes in the mjData arena (inclusive of stack)',
              ),
              StructFieldDecl(
                  name='nbuffer',
-                 type=ValueType(name='size_t'),
+                 type=ValueType(name='mjtSize'),
                  doc='number of bytes in buffer',
              ),
              StructFieldDecl(
@@ -1588,6 +1588,14 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                  ),
                  doc='octree node bounding box (center, size)',
                  array_extent=('noct', 6),
+             ),
+             StructFieldDecl(
+                 name='oct_coeff',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjtNum'),
+                 ),
+                 doc='octree interpolation coefficients',
+                 array_extent=('noct', 8),
              ),
              StructFieldDecl(
                  name='jnt_type',
@@ -4150,6 +4158,14 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                  array_extent=('nsensor',),
              ),
              StructFieldDecl(
+                 name='sensor_intprm',
+                 type=PointerType(
+                     inner_type=ValueType(name='int'),
+                 ),
+                 doc='sensor parameters',
+                 array_extent=('nsensor', 'mjNSENS'),
+             ),
+             StructFieldDecl(
                  name='sensor_dim',
                  type=PointerType(
                      inner_type=ValueType(name='int'),
@@ -4850,12 +4866,12 @@ STRUCTS: Mapping[str, StructDecl] = dict([
          fields=(
              StructFieldDecl(
                  name='narena',
-                 type=ValueType(name='size_t'),
+                 type=ValueType(name='mjtSize'),
                  doc='size of the arena in bytes (inclusive of the stack)',
              ),
              StructFieldDecl(
                  name='nbuffer',
-                 type=ValueType(name='size_t'),
+                 type=ValueType(name='mjtSize'),
                  doc='size of main buffer in bytes',
              ),
              StructFieldDecl(
@@ -4880,20 +4896,20 @@ STRUCTS: Mapping[str, StructDecl] = dict([
              ),
              StructFieldDecl(
                  name='maxuse_stack',
-                 type=ValueType(name='size_t'),
+                 type=ValueType(name='mjtSize'),
                  doc='maximum stack allocation in bytes',
              ),
              StructFieldDecl(
                  name='maxuse_threadstack',
                  type=ArrayType(
-                     inner_type=ValueType(name='size_t'),
+                     inner_type=ValueType(name='mjtSize'),
                      extents=(128,),
                  ),
                  doc='maximum stack allocation per thread in bytes',
              ),
              StructFieldDecl(
                  name='maxuse_arena',
-                 type=ValueType(name='size_t'),
+                 type=ValueType(name='mjtSize'),
                  doc='maximum arena allocation in bytes',
              ),
              StructFieldDecl(
@@ -5363,6 +5379,14 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                  array_extent=('nflexedge',),
              ),
              StructFieldDecl(
+                 name='bvh_aabb_dyn',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjtNum'),
+                 ),
+                 doc='global bounding box (center, size)',
+                 array_extent=('nbvhdynamic', 6),
+             ),
+             StructFieldDecl(
                  name='ten_wrapadr',
                  type=PointerType(
                      inner_type=ValueType(name='int'),
@@ -5513,14 +5537,6 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                  ),
                  doc='1/diag(D)',
                  array_extent=('nv',),
-             ),
-             StructFieldDecl(
-                 name='bvh_aabb_dyn',
-                 type=PointerType(
-                     inner_type=ValueType(name='mjtNum'),
-                 ),
-                 doc='global bounding box (center, size)',
-                 array_extent=('nbvhdynamic', 6),
              ),
              StructFieldDecl(
                  name='bvh_active',
@@ -6909,7 +6925,7 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                  name='flags',
                  type=ArrayType(
                      inner_type=ValueType(name='mjtByte'),
-                     extents=(32,),
+                     extents=(31,),
                  ),
                  doc='visualization flags (indexed by mjtVisFlag)',
              ),
@@ -6917,11 +6933,6 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                  name='bvh_depth',
                  type=ValueType(name='int'),
                  doc='depth of the bounding volume hierarchy to be visualized',
-             ),
-             StructFieldDecl(
-                 name='oct_depth',
-                 type=ValueType(name='int'),
-                 doc='depth of the octree to be visualized',
              ),
              StructFieldDecl(
                  name='flex_layer',
@@ -7383,7 +7394,7 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                  name='linedata',
                  type=ArrayType(
                      inner_type=ValueType(name='float'),
-                     extents=(100, 2000),
+                     extents=(100, 2002),
                  ),
                  doc='line data (x,y)',
              ),
@@ -8032,7 +8043,7 @@ STRUCTS: Mapping[str, StructDecl] = dict([
              ),
              StructFieldDecl(
                  name='memory',
-                 type=ValueType(name='size_t'),
+                 type=ValueType(name='mjtSize'),
                  doc='number of bytes in arena+stack memory',
              ),
              StructFieldDecl(
@@ -8102,7 +8113,7 @@ STRUCTS: Mapping[str, StructDecl] = dict([
              ),
              StructFieldDecl(
                  name='nstack',
-                 type=ValueType(name='size_t'),
+                 type=ValueType(name='mjtSize'),
                  doc='(deprecated) number of mjtNums in mjData stack',
              ),
              StructFieldDecl(
@@ -9373,6 +9384,11 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                  doc='do not exclude large-angle faces from normals',
              ),
              StructFieldDecl(
+                 name='needsdf',
+                 type=ValueType(name='mjtByte'),
+                 doc='compute sdf from mesh',
+             ),
+             StructFieldDecl(
                  name='maxhullvert',
                  type=ValueType(name='int'),
                  doc='maximum vertex count for the convex hull',
@@ -10387,6 +10403,14 @@ STRUCTS: Mapping[str, StructDecl] = dict([
                      inner_type=ValueType(name='mjString'),
                  ),
                  doc='name of referenced object',
+             ),
+             StructFieldDecl(
+                 name='intprm',
+                 type=ArrayType(
+                     inner_type=ValueType(name='int'),
+                     extents=(3,),
+                 ),
+                 doc='integer parameters',
              ),
              StructFieldDecl(
                  name='datatype',

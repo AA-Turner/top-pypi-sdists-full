@@ -1,8 +1,7 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: hya
-Version: 0.2.4
+Version: 0.3.0
 Summary: A library of custom OmegaConf resolvers
-Home-page: https://github.com/durandtibo/hya
 License: BSD-3-Clause
 Keywords: omegaconf,resolver
 Author: Thibaut Durand
@@ -24,10 +23,12 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: all
 Requires-Dist: braceexpand (>=0.1.7,<0.2.0) ; extra == "all"
-Requires-Dist: numpy (>=1.21,<3.0) ; extra == "all"
+Requires-Dist: numpy (>=1.24,<3.0) ; extra == "all"
+Requires-Dist: numpy (>=2.1,<3.0) ; (python_version == "3.13") and (extra == "all")
 Requires-Dist: omegaconf (>=2.2,<3.0)
-Requires-Dist: torch (>=1.9.0,<2.3) ; (sys_platform == "darwin" and platform_machine != "arm64" and python_version >= "3.9" and python_version < "3.13") and (extra == "all")
-Requires-Dist: torch (>=1.9.0,<3.0) ; (python_version >= "3.9" and python_version < "3.13") and (extra == "all")
+Requires-Dist: torch (>=2.0,<2.3) ; (sys_platform == "darwin" and platform_machine != "arm64" and python_version >= "3.9" and python_version < "3.13") and (extra == "all")
+Requires-Dist: torch (>=2.0,<3.0) ; (sys_platform == "linux" or sys_platform == "darwin" and platform_machine == "arm64") and (extra == "all")
+Project-URL: Homepage, https://github.com/durandtibo/hya
 Project-URL: Repository, https://github.com/durandtibo/hya
 Description-Content-Type: text/markdown
 
@@ -43,22 +44,15 @@ Description-Content-Type: text/markdown
     <a href="https://github.com/durandtibo/hya/actions">
         <img alt="Nightly Package Tests" src="https://github.com/durandtibo/hya/workflows/Nightly%20Package%20Tests/badge.svg">
     </a>
+    <a href="https://codecov.io/gh/durandtibo/hya">
+        <img alt="Codecov" src="https://codecov.io/gh/durandtibo/hya/branch/main/graph/badge.svg">
+    </a>
     <br/>
     <a href="https://durandtibo.github.io/hya/">
         <img alt="Documentation" src="https://github.com/durandtibo/hya/workflows/Documentation%20(stable)/badge.svg">
     </a>
     <a href="https://durandtibo.github.io/hya/">
         <img alt="Documentation" src="https://github.com/durandtibo/hya/workflows/Documentation%20(unstable)/badge.svg">
-    </a>
-    <br/>
-    <a href="https://codecov.io/gh/durandtibo/hya">
-        <img alt="Codecov" src="https://codecov.io/gh/durandtibo/hya/branch/main/graph/badge.svg">
-    </a>
-    <a href="https://codeclimate.com/github/durandtibo/hya/maintainability">
-        <img src="https://api.codeclimate.com/v1/badges/372b4c4212452ab0b0ad/maintainability" />
-    </a>
-    <a href="https://codeclimate.com/github/durandtibo/hya/test_coverage">
-        <img src="https://api.codeclimate.com/v1/badges/372b4c4212452ab0b0ad/test_coverage" />
     </a>
     <br/>
     <a href="https://github.com/psf/black">
@@ -135,8 +129,9 @@ The following is the corresponding `hya` versions and tested dependencies.
 
 | `hya`   | `omegaconf`  | `braceexpand`<sup>*</sup> | `numpy`<sup>*</sup> | `torch`<sup>*</sup> | `python`      |
 |---------|--------------|---------------------------|---------------------|---------------------|---------------|
-| `main`  | `>=2.2,<3.0` | `>=0.1.7,<0.2.0`          | `>=1.21,<3.0`       | `>=1.11,<3.0`       | `>=3.9,<3.13` |
-| `0.2.4` | `>=2.2,<3.0` | `>=0.1.7,<0.2.0`          | `>=1.21,<3.0`       | `>=1.11,<3.0`       | `>=3.9,<3.13` |
+| `main`  | `>=2.2,<3.0` | `>=0.1.7,<0.2.0`          | `>=1.24,<3.0`       | `>=2.0,<3.0`        | `>=3.9,<3.14` |
+| `0.3.0` | `>=2.2,<3.0` | `>=0.1.7,<0.2.0`          | `>=1.24,<3.0`       | `>=2.0,<3.0`        | `>=3.9,<3.14` |
+| `0.2.4` | `>=2.2,<3.0` | `>=0.1.7,<0.2.0`          | `>=1.21,<3.0`       | `>=1.11,<3.0`       | `>=3.9,<3.14` |
 | `0.2.3` | `>=2.1,<3.0` | `>=0.1.7,<0.2.0`          | `>=1.21,<2.0`       | `>=1.10,<3.0`       | `>=3.9,<3.13` |
 | `0.2.2` | `>=2.1,<3.0` | `>=0.1.7,<0.2.0`          | `>=1.21,<2.0`       | `>=1.10,<3.0`       | `>=3.9,<3.13` |
 | `0.2.1` | `>=2.1,<3.0` | `>=0.1.7,<0.2.0`          | `>=1.21,<2.0`       | `>=1.10,<3.0`       | `>=3.9,<3.13` |

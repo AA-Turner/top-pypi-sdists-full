@@ -9,6 +9,9 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
     void set_up_pthread_fork_handlers() except+
     void install_trace_function() except*
 
+    cdef cppclass RecursionGuard:
+        RecursionGuard()
+
     cdef cppclass Tracker:
         @staticmethod
         object createTracker(
@@ -24,9 +27,6 @@ cdef extern from "tracking_api.h" namespace "memray::tracking_api":
 
         @staticmethod
         Tracker* getTracker()
-
-        @staticmethod
-        void forgetPythonStack() except+
 
         @staticmethod
         void beginTrackingGreenlets() except+

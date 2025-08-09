@@ -44,7 +44,7 @@ class PraisonAIModel:
             base_url (str, optional): The base URL for the OpenAI API. Defaults to None.
             api_key (str, optional): The explicit API key to use. Takes precedence over environment variables. Defaults to None.
         """
-        self.model =  model or os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini")
+        self.model =  model or os.getenv("OPENAI_MODEL_NAME", "gpt-5-nano")
         if self.model.startswith("openai/"):
             self.api_key_var = "OPENAI_API_KEY"
             self.base_url = base_url or "https://api.openai.com/v1"
@@ -138,11 +138,15 @@ class PraisonAIModel:
                     "Please install with 'pip install langchain-anthropic'"
                 )
         elif OPENAI_AVAILABLE:
-            return ChatOpenAI(
-                model=self.model_name,
-                api_key=self.api_key,
-                base_url=self.base_url,
-            )
+            chat_kwargs = {
+                "model": self.model_name,
+                "api_key": self.api_key,
+                "base_url": self.base_url,
+            }
+            # Certain OpenAI models (e.g., gpt-5-* family) only allow temperature=1
+            if isinstance(self.model_name, str) and self.model_name.startswith("gpt-5"):
+                chat_kwargs["temperature"] = 1
+            return ChatOpenAI(**chat_kwargs)
         else:
             raise ImportError(
                 "Required Langchain Integration 'langchain-openai' not found. "

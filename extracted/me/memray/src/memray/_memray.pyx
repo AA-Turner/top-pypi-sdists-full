@@ -53,6 +53,7 @@ from _memray.snapshot cimport TemporaryAllocationsAggregator
 from _memray.socket_reader_thread cimport BackgroundSocketReader
 from _memray.source cimport FileSource
 from _memray.source cimport SocketSource
+from _memray.tracking_api cimport RecursionGuard
 from _memray.tracking_api cimport Tracker as NativeTracker
 from _memray.tracking_api cimport install_trace_function
 from _memray.tracking_api cimport set_up_pthread_fork_handlers
@@ -121,6 +122,8 @@ cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC_DEBUG = 2
     PYTHON_ALLOCATOR_MALLOC = 3
     PYTHON_ALLOCATOR_OTHER = 4
+    PYTHON_ALLOCATOR_MIMALLOC = 5
+    PYTHON_ALLOCATOR_MIMALLOC_DEBUG = 6
 
 cpdef enum FileFormat:
     ALL_ALLOCATIONS = _FileFormat.ALL_ALLOCATIONS
@@ -128,10 +131,10 @@ cpdef enum FileFormat:
 
 
 def size_fmt(num, suffix='B'):
-    for unit in ['','K','M','G','T','P','E','Z']:
-        if abs(num) < 1024.0:
+    for unit in ['','k','M','G','T','P','E','Z']:
+        if abs(num) < 1000.0:
             return f"{num:5.3f}{unit}{suffix}"
-        num /= 1024.0
+        num /= 1000.0
     return f"{num:.1f}Y{suffix}"
 
 # Memray core
@@ -566,18 +569,6 @@ cdef class TemporalAllocationGenerator:
 
 MemorySnapshot = collections.namedtuple("MemorySnapshot", "time rss heap")
 
-cdef class ProfileFunctionGuard:
-    def __dealloc__(self):
-        """When our profile function gets deregistered, drop our cached stack.
-
-        This drops our references to frames that may now be destroyed without
-        us finding out. Note that the profile function is automatically
-        deregistered when the PyThreadState is destroyed, so we can also use
-        this to perform some cleanup when a thread dies.
-        """
-        NativeTracker.forgetPythonStack()
-
-
 tracker_creation_lock = threading.Lock()
 
 
@@ -707,6 +698,14 @@ cdef class Tracker:
                     ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
                 )
 
+            orig_set_os_name = getattr(threading.Thread, "_set_os_name", None)
+            if orig_set_os_name is not None:
+                def set_os_name_wrapper(self):
+                    cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
+                    orig_set_os_name(self)
+
+                setattr(threading.Thread, "_set_os_name", set_os_name_wrapper)
+
             self._previous_profile_func = sys.getprofile()
             self._previous_thread_profile_func = threading._profile_hook
             threading.setprofile(start_thread_trace)
@@ -764,6 +763,8 @@ cdef _create_metadata(header, peak_memory):
     allocator_id_to_name = {
         PythonAllocatorType.PYTHON_ALLOCATOR_PYMALLOC: "pymalloc",
         PythonAllocatorType.PYTHON_ALLOCATOR_PYMALLOC_DEBUG: "pymalloc debug",
+        PythonAllocatorType.PYTHON_ALLOCATOR_MIMALLOC: "mimalloc",
+        PythonAllocatorType.PYTHON_ALLOCATOR_MIMALLOC_DEBUG: "mimalloc debug",
         PythonAllocatorType.PYTHON_ALLOCATOR_MALLOC: "malloc",
         PythonAllocatorType.PYTHON_ALLOCATOR_OTHER: "unknown",
     }

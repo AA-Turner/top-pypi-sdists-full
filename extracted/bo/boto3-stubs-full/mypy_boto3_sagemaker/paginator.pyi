@@ -89,6 +89,7 @@ Usage::
         ListTransformJobsPaginator,
         ListTrialComponentsPaginator,
         ListTrialsPaginator,
+        ListUltraServersByReservedCapacityPaginator,
         ListUserProfilesPaginator,
         ListWorkforcesPaginator,
         ListWorkteamsPaginator,
@@ -175,6 +176,7 @@ Usage::
     list_transform_jobs_paginator: ListTransformJobsPaginator = client.get_paginator("list_transform_jobs")
     list_trial_components_paginator: ListTrialComponentsPaginator = client.get_paginator("list_trial_components")
     list_trials_paginator: ListTrialsPaginator = client.get_paginator("list_trials")
+    list_ultra_servers_by_reserved_capacity_paginator: ListUltraServersByReservedCapacityPaginator = client.get_paginator("list_ultra_servers_by_reserved_capacity")
     list_user_profiles_paginator: ListUserProfilesPaginator = client.get_paginator("list_user_profiles")
     list_workforces_paginator: ListWorkforcesPaginator = client.get_paginator("list_workforces")
     list_workteams_paginator: ListWorkteamsPaginator = client.get_paginator("list_workteams")
@@ -344,6 +346,8 @@ from .type_defs import (
     ListTrialComponentsResponseTypeDef,
     ListTrialsRequestPaginateTypeDef,
     ListTrialsResponseTypeDef,
+    ListUltraServersByReservedCapacityRequestPaginateTypeDef,
+    ListUltraServersByReservedCapacityResponseTypeDef,
     ListUserProfilesRequestPaginateTypeDef,
     ListUserProfilesResponseTypeDef,
     ListWorkforcesRequestPaginateTypeDef,
@@ -437,6 +441,7 @@ __all__ = (
     "ListTransformJobsPaginator",
     "ListTrialComponentsPaginator",
     "ListTrialsPaginator",
+    "ListUltraServersByReservedCapacityPaginator",
     "ListUserProfilesPaginator",
     "ListWorkforcesPaginator",
     "ListWorkteamsPaginator",
@@ -1861,6 +1866,26 @@ class ListTrialsPaginator(_ListTrialsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListTrials.html#SageMaker.Paginator.ListTrials.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listtrialspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListUltraServersByReservedCapacityPaginatorBase = Paginator[
+        ListUltraServersByReservedCapacityResponseTypeDef
+    ]
+else:
+    _ListUltraServersByReservedCapacityPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListUltraServersByReservedCapacityPaginator(_ListUltraServersByReservedCapacityPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListUltraServersByReservedCapacity.html#SageMaker.Paginator.ListUltraServersByReservedCapacity)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listultraserversbyreservedcapacitypaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListUltraServersByReservedCapacityRequestPaginateTypeDef]
+    ) -> PageIterator[ListUltraServersByReservedCapacityResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListUltraServersByReservedCapacity.html#SageMaker.Paginator.ListUltraServersByReservedCapacity.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listultraserversbyreservedcapacitypaginator)
         """
 
 if TYPE_CHECKING:

@@ -449,6 +449,8 @@ __all__ = (
     "UsageTrackingResourceTypeDef",
     "UserJobsFirstTypeDef",
     "VCpuCountRangeTypeDef",
+    "VpcConfigurationOutputTypeDef",
+    "VpcConfigurationTypeDef",
     "WaiterConfigTypeDef",
     "WindowsUserTypeDef",
     "WorkerAmountCapabilityTypeDef",
@@ -1408,6 +1410,12 @@ ServiceManagedEc2InstanceMarketOptionsTypeDef = TypedDict(
     },
 )
 
+class VpcConfigurationOutputTypeDef(TypedDict):
+    resourceConfigurationArns: NotRequired[List[str]]
+
+class VpcConfigurationTypeDef(TypedDict):
+    resourceConfigurationArns: NotRequired[Sequence[str]]
+
 class SyncInputJobAttachmentsSessionActionDefinitionSummaryTypeDef(TypedDict):
     stepId: NotRequired[str]
 
@@ -1572,6 +1580,8 @@ class TaskSearchSummaryTypeDef(TypedDict):
     failureRetryCount: NotRequired[int]
     startedAt: NotRequired[datetime]
     endedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
 
 class TaskSummaryTypeDef(TypedDict):
     taskId: str
@@ -1817,6 +1827,8 @@ class JobSearchSummaryTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     endedAt: NotRequired[datetime]
     startedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
     jobParameters: NotRequired[Dict[str, JobParameterTypeDef]]
     maxWorkerCount: NotRequired[int]
     sourceJobId: NotRequired[str]
@@ -2561,8 +2573,11 @@ class StepSearchSummaryTypeDef(TypedDict):
     taskRunStatusCounts: NotRequired[Dict[TaskRunStatusType, int]]
     taskFailureRetryCount: NotRequired[int]
     createdAt: NotRequired[datetime]
+    createdBy: NotRequired[str]
     startedAt: NotRequired[datetime]
     endedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
     parameterSpace: NotRequired[ParameterSpaceTypeDef]
 
 class GetSessionsStatisticsAggregationResponseTypeDef(TypedDict):
@@ -2602,11 +2617,13 @@ class UpdateWorkerScheduleRequestTypeDef(TypedDict):
 class ServiceManagedEc2FleetConfigurationOutputTypeDef(TypedDict):
     instanceCapabilities: ServiceManagedEc2InstanceCapabilitiesOutputTypeDef
     instanceMarketOptions: ServiceManagedEc2InstanceMarketOptionsTypeDef
+    vpcConfiguration: NotRequired[VpcConfigurationOutputTypeDef]
     storageProfileId: NotRequired[str]
 
 class ServiceManagedEc2FleetConfigurationTypeDef(TypedDict):
     instanceCapabilities: ServiceManagedEc2InstanceCapabilitiesTypeDef
     instanceMarketOptions: ServiceManagedEc2InstanceMarketOptionsTypeDef
+    vpcConfiguration: NotRequired[VpcConfigurationTypeDef]
     storageProfileId: NotRequired[str]
 
 class AssignedSessionActionTypeDef(TypedDict):

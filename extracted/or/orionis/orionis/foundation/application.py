@@ -24,16 +24,24 @@ from orionis.services.log.contracts.log_service import ILoggerService
 
 class Application(Container, IApplication):
     """
-    Application container that manages service providers and application lifecycle.
+    Main application container that manages the complete application lifecycle.
 
-    This class extends Container to provide application-level functionality including
-    service provider management, kernel loading, and application bootstrapping.
-    It implements a fluent interface pattern allowing method chaining.
+    This class extends the Container to provide comprehensive application-level
+    functionality including service provider registration and bootstrapping, kernel
+    management, configuration handling, and application initialization. It implements
+    a fluent interface pattern to enable method chaining for configuration setup.
+
+    The Application class serves as the central orchestrator for the Orionis framework,
+    managing the loading and booting of service providers, framework kernels, and
+    various configuration subsystems such as authentication, caching, database,
+    logging, and more.
 
     Attributes
     ----------
     isBooted : bool
-        Read-only property indicating if the application has been booted
+        Read-only property indicating whether the application providers have been booted.
+    startAt : int
+        Read-only property containing the timestamp when the application was started.
     """
 
     @property
@@ -41,12 +49,13 @@ class Application(Container, IApplication):
         self
     ) -> bool:
         """
-        Check if the application providers have been booted.
+        Determine whether the application service providers have been booted.
 
         Returns
         -------
         bool
-            True if providers are booted, False otherwise
+            True if all service providers have been successfully booted and the
+            application is ready for use, False otherwise.
         """
         return self.__booted
 
@@ -55,12 +64,13 @@ class Application(Container, IApplication):
         self
     ) -> int:
         """
-        Get the timestamp when the application started.
+        Retrieve the application startup timestamp.
 
         Returns
         -------
         int
-            The start time in nanoseconds since epoch
+            The timestamp in nanoseconds since Unix epoch when the application
+            instance was initialized.
         """
         return self.__startAt
 
@@ -68,10 +78,17 @@ class Application(Container, IApplication):
         self
     ) -> None:
         """
-        Initialize the Application container.
+        Initialize the Application container with default configuration.
 
-        Sets up initial state including empty providers list and booted flag.
-        Uses singleton pattern to prevent multiple initializations.
+        Sets up the initial application state including empty service providers list,
+        configuration storage, and boot status. Implements singleton pattern to
+        prevent multiple initializations of the same application instance.
+
+        Notes
+        -----
+        The initialization process records the startup timestamp, initializes internal
+        data structures for providers and configurators, and sets the application
+        boot status to False until explicitly booted via the create() method.
         """
 
         # Initialize base container with application paths
@@ -108,7 +125,18 @@ class Application(Container, IApplication):
         self
     ) -> None:
         """
-        Load and register core framework kernels.
+        Load and register essential framework kernels into the container.
+
+        This method imports and instantiates core framework kernels including the
+        TestKernel for testing functionality and KernelCLI for command-line interface
+        operations. Each kernel is registered as a singleton instance in the
+        application container for later retrieval and use.
+
+        Notes
+        -----
+        This is a private method called during application bootstrapping to ensure
+        core framework functionality is available before user-defined providers
+        are loaded.
         """
 
         # Import core framework kernels
@@ -129,9 +157,19 @@ class Application(Container, IApplication):
         self
     ) -> None:
         """
-        Load core framework service providers.
+        Load and register core framework service providers.
 
-        Registers essential providers required for framework operation
+        This method imports and adds essential service providers required for
+        framework operation including console functionality, dumping utilities,
+        path resolution, progress bars, workers, logging, and testing capabilities.
+        These providers form the foundation layer of the framework's service
+        architecture.
+
+        Notes
+        -----
+        This is a private method executed during application bootstrapping to
+        ensure core framework services are available before any user-defined
+        providers are registered.
         """
         # Import core framework providers
         from orionis.foundation.providers.console_provider import ConsoleProvider
@@ -166,17 +204,29 @@ class Application(Container, IApplication):
         providers: List[Type[IServiceProvider]] = []
     ) -> 'Application':
         """
-        Add multiple service providers to the application.
+        Register multiple service providers with the application.
+
+        This method provides a convenient way to add multiple service provider
+        classes to the application in a single call. Each provider in the list
+        will be validated and added to the internal providers collection.
 
         Parameters
         ----------
         providers : List[Type[IServiceProvider]], optional
-            List of provider classes to add to the application
+            A list of service provider classes that implement IServiceProvider
+            interface. Each provider will be added to the application's provider
+            registry. Default is an empty list.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method iterates through the provided list and calls addProvider()
+        for each provider class, which performs individual validation and
+        registration.
         """
 
         # Add each provider class
@@ -191,22 +241,34 @@ class Application(Container, IApplication):
         provider: Type[IServiceProvider]
     ) -> 'Application':
         """
-        Add a single service provider to the application.
+        Register a single service provider with the application.
+
+        This method validates and adds a service provider class to the application's
+        provider registry. The provider must implement the IServiceProvider interface
+        and will be checked for duplicates before registration.
 
         Parameters
         ----------
         provider : Type[IServiceProvider]
-            The provider class to add to the application
+            A service provider class that implements the IServiceProvider interface.
+            The class will be instantiated and registered during the application
+            bootstrap process.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
 
         Raises
         ------
         OrionisTypeError
-            If provider is not a subclass of IServiceProvider
+            If the provider parameter is not a class type or does not implement
+            the IServiceProvider interface, or if the provider is already registered.
+
+        Notes
+        -----
+        Providers are stored as class references and will be instantiated during
+        the registration phase of the application bootstrap process.
         """
 
         # Validate provider type
@@ -228,10 +290,19 @@ class Application(Container, IApplication):
         self
     ) -> None:
         """
-        Register all added service providers.
+        Instantiate and register all service providers in the container.
 
-        Calls the register method on each provider to bind services
-        into the container.
+        This method iterates through all added provider classes, instantiates them
+        with the current application instance, and calls their register() method
+        to bind services into the dependency injection container. Supports both
+        synchronous and asynchronous registration methods.
+
+        Notes
+        -----
+        This is a private method called during application bootstrapping. After
+        registration, the providers list is updated to contain instantiated provider
+        objects rather than class references. The method handles both coroutine
+        and regular register methods using asyncio when necessary.
         """
 
         # Ensure providers list is empty before registration
@@ -260,10 +331,20 @@ class Application(Container, IApplication):
         self
     ) -> None:
         """
-        Boot all registered service providers.
+        Execute the boot process for all registered service providers.
 
-        Calls the boot method on each provider to initialize services
-        after all providers have been registered.
+        This method calls the boot() method on each instantiated service provider
+        to initialize services after all providers have been registered. This
+        two-phase process ensures all dependencies are available before any
+        provider attempts to use them. Supports both synchronous and asynchronous
+        boot methods.
+
+        Notes
+        -----
+        This is a private method called during application bootstrapping after
+        provider registration is complete. After booting, the providers list is
+        deleted to prevent memory leaks since providers are no longer needed
+        after initialization.
         """
 
         # Iterate over each provider and boot it
@@ -305,38 +386,68 @@ class Application(Container, IApplication):
         testing : Testing | dict = Testing()
     ) -> 'Application':
         """
-        Configure the application with various service configurators.
-        This method allows you to set up different aspects of the application by providing
-        configurator instances for various services like authentication, caching, database,
-        etc. If no configurator is provided for a service, a default instance will be created.
+        Configure the application with comprehensive service configuration objects.
+
+        This method provides a centralized way to configure all major application
+        subsystems using either configuration entity instances or dictionary objects.
+        Each configurator manages settings for a specific aspect of the application
+        such as authentication, caching, database connectivity, logging, and more.
+
         Parameters
         ----------
-        app : App, optional
-            Application configurator instance. If None, creates a default App() instance.
-        auth : Auth, optional
-            Authentication configurator instance. If None, creates a default Auth() instance.
-        cache : Cache, optional
-            Cache configurator instance. If None, creates a default Cache() instance.
-        cors : Cors, optional
-            CORS configurator instance. If None, creates a default Cors() instance.
-        database : Database, optional
-            Database configurator instance. If None, creates a default Database() instance.
-        filesystems : Filesystems, optional
-            Filesystems configurator instance. If None, creates a default Filesystems() instance.
-        logging : Logging, optional
-            Logging configurator instance. If None, creates a default Logging() instance.
-        mail : Mail, optional
-            Mail configurator instance. If None, creates a default Mail() instance.
-        queue : Queue, optional
-            Queue configurator instance. If None, creates a default Queue() instance.
-        session : Session, optional
-            Session configurator instance. If None, creates a default Session() instance.
-        testing : Testing, optional
-            Testing configurator instance. If None, creates a default Testing() instance.
+        app : App or dict, optional
+            Application-level configuration including name, environment, debug settings,
+            and URL configuration. Default creates a new App() instance.
+        auth : Auth or dict, optional
+            Authentication system configuration including guards, providers, and
+            password settings. Default creates a new Auth() instance.
+        cache : Cache or dict, optional
+            Caching system configuration including default store, prefix settings,
+            and driver-specific options. Default creates a new Cache() instance.
+        cors : Cors or dict, optional
+            Cross-Origin Resource Sharing configuration including allowed origins,
+            methods, and headers. Default creates a new Cors() instance.
+        database : Database or dict, optional
+            Database connectivity configuration including default connection, migration
+            settings, and connection definitions. Default creates a new Database() instance.
+        filesystems : Filesystems or dict, optional
+            File storage system configuration including default disk, cloud storage
+            settings, and disk definitions. Default creates a new Filesystems() instance.
+        logging : Logging or dict, optional
+            Logging system configuration including default channel, log levels,
+            and channel definitions. Default creates a new Logging() instance.
+        mail : Mail or dict, optional
+            Email system configuration including default mailer, transport settings,
+            and mailer definitions. Default creates a new Mail() instance.
+        path : Paths or dict, optional
+            Application path configuration including directories for controllers,
+            models, views, and other application components. Default creates a new Paths() instance.
+        queue : Queue or dict, optional
+            Queue system configuration including default connection, worker settings,
+            and connection definitions. Default creates a new Queue() instance.
+        session : Session or dict, optional
+            Session management configuration including driver, lifetime, encryption,
+            and storage settings. Default creates a new Session() instance.
+        testing : Testing or dict, optional
+            Testing framework configuration including database settings, environment
+            variables, and test-specific options. Default creates a new Testing() instance.
+
         Returns
         -------
         Application
-            Returns self to allow method chaining.
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If any configurator parameter is not an instance of its expected type
+            or a dictionary that can be converted to the expected type.
+
+        Notes
+        -----
+        Each configurator is validated for type correctness and then passed to its
+        corresponding load method for processing and storage in the application's
+        configuration system.
         """
 
         # Load app configurator
@@ -407,18 +518,28 @@ class Application(Container, IApplication):
         **app_config
     ) -> 'Application':
         """
-        Configure the application with various settings.
+        Configure the application using keyword arguments.
+
+        This method provides a convenient way to set application configuration
+        by passing individual configuration parameters as keyword arguments.
+        The parameters are used to create an App configuration instance.
 
         Parameters
         ----------
         **app_config : dict
-            Configuration parameters for the application. Must match the fields
-            expected by the App dataclass (orionis.foundation.config.app.entities.app.App).
+            Configuration parameters for the application. These must match the
+            field names and types expected by the App dataclass from
+            orionis.foundation.config.app.entities.app.App.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates an App instance from the provided keyword
+        arguments and then calls loadConfigApp() to store the configuration.
         """
 
         # Create App instance with provided parameters
@@ -435,17 +556,33 @@ class Application(Container, IApplication):
         app: App | dict
     ) -> 'Application':
         """
-        Load the application configuration from an App instance.
+        Load and store application configuration from an App instance or dictionary.
+
+        This method validates and stores the application configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to an App instance before storage.
 
         Parameters
         ----------
-        config : App | dict
-            The App instance or dictionary containing application configuration.
+        app : App or dict
+            The application configuration as either an App instance or a dictionary
+            containing configuration parameters that can be used to construct an
+            App instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the app parameter is not an instance of App or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to App instances using
+        the dictionary unpacking operator (**app).
         """
 
         # Validate app type
@@ -467,18 +604,28 @@ class Application(Container, IApplication):
         **auth_config
     ) -> 'Application':
         """
-        Configure the authentication with various settings.
+        Configure the authentication system using keyword arguments.
+
+        This method provides a convenient way to set authentication configuration
+        by passing individual configuration parameters as keyword arguments.
+        The parameters are used to create an Auth configuration instance.
 
         Parameters
         ----------
         **auth_config : dict
-            Configuration parameters for authentication. Must match the fields
-            expected by the Auth dataclass (orionis.foundation.config.auth.entities.auth.Auth).
+            Configuration parameters for authentication. These must match the
+            field names and types expected by the Auth dataclass from
+            orionis.foundation.config.auth.entities.auth.Auth.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates an Auth instance from the provided keyword
+        arguments and then calls loadConfigAuth() to store the configuration.
         """
 
         # Create Auth instance with provided parameters
@@ -495,17 +642,33 @@ class Application(Container, IApplication):
         auth: Auth | dict
     ) -> 'Application':
         """
-        Load the application authentication configuration from an Auth instance.
+        Load and store authentication configuration from an Auth instance or dictionary.
+
+        This method validates and stores the authentication configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to an Auth instance before storage.
 
         Parameters
         ----------
-        auth : Auth | dict
-            The Auth instance or dictionary containing authentication configuration.
+        auth : Auth or dict
+            The authentication configuration as either an Auth instance or a dictionary
+            containing configuration parameters that can be used to construct an
+            Auth instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the auth parameter is not an instance of Auth or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Auth instances using
+        the dictionary unpacking operator (**auth).
         """
 
         # Validate auth type
@@ -527,18 +690,28 @@ class Application(Container, IApplication):
         **cache_config
     ) -> 'Application':
         """
-        Configure the cache with various settings.
+        Configure the cache system using keyword arguments.
+
+        This method provides a convenient way to set cache configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Cache configuration instance.
 
         Parameters
         ----------
         **cache_config : dict
-            Configuration parameters for cache. Must match the fields
-            expected by the Cache dataclass (orionis.foundation.config.cache.entities.cache.Cache).
+            Configuration parameters for the cache system. These must match the
+            field names and types expected by the Cache dataclass from
+            orionis.foundation.config.cache.entities.cache.Cache.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Cache instance from the provided keyword
+        arguments and then calls loadConfigCache() to store the configuration.
         """
 
         # Create Cache instance with provided parameters
@@ -555,17 +728,33 @@ class Application(Container, IApplication):
         cache: Cache | dict
     ) -> 'Application':
         """
-        Load the application cache configuration from a Cache instance.
+        Load and store cache configuration from a Cache instance or dictionary.
+
+        This method validates and stores the cache configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to a Cache instance before storage.
 
         Parameters
         ----------
-        cache : Cache | dict
-            The Cache instance or dictionary containing cache configuration.
+        cache : Cache or dict
+            The cache configuration as either a Cache instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Cache instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the cache parameter is not an instance of Cache or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Cache instances using
+        the dictionary unpacking operator (**cache).
         """
 
         # Validate cache type
@@ -587,18 +776,28 @@ class Application(Container, IApplication):
         **cors_config
     ) -> 'Application':
         """
-        Configure the CORS with various settings.
+        Configure the CORS (Cross-Origin Resource Sharing) system using keyword arguments.
+
+        This method provides a convenient way to set CORS configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Cors configuration instance.
 
         Parameters
         ----------
         **cors_config : dict
-            Configuration parameters for CORS. Must match the fields
-            expected by the Cors dataclass (orionis.foundation.config.cors.entities.cors.Cors).
+            Configuration parameters for CORS settings. These must match the
+            field names and types expected by the Cors dataclass from
+            orionis.foundation.config.cors.entities.cors.Cors.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Cors instance from the provided keyword
+        arguments and then calls loadConfigCors() to store the configuration.
         """
 
         # Create Cors instance with provided parameters
@@ -615,17 +814,33 @@ class Application(Container, IApplication):
         cors: Cors | dict
     ) -> 'Application':
         """
-        Load the application CORS configuration from a Cors instance.
+        Load and store CORS configuration from a Cors instance or dictionary.
+
+        This method validates and stores the CORS (Cross-Origin Resource Sharing)
+        configuration in the internal configurators storage. If a dictionary is
+        provided, it will be converted to a Cors instance before storage.
 
         Parameters
         ----------
-        cors : Cors | dict
-            The Cors instance or dictionary containing CORS configuration.
+        cors : Cors or dict
+            The CORS configuration as either a Cors instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Cors instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the cors parameter is not an instance of Cors or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Cors instances using
+        the dictionary unpacking operator (**cors).
         """
 
         # Validate cors type
@@ -647,18 +862,28 @@ class Application(Container, IApplication):
         **database_config
     ) -> 'Application':
         """
-        Configure the database with various settings.
+        Configure the database system using keyword arguments.
+
+        This method provides a convenient way to set database configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Database configuration instance.
 
         Parameters
         ----------
         **database_config : dict
-            Configuration parameters for database. Must match the fields
-            expected by the Database dataclass (orionis.foundation.config.database.entities.database.Database).
+            Configuration parameters for the database system. These must match the
+            field names and types expected by the Database dataclass from
+            orionis.foundation.config.database.entities.database.Database.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Database instance from the provided keyword
+        arguments and then calls loadConfigDatabase() to store the configuration.
         """
 
         # Create Database instance with provided parameters
@@ -675,17 +900,33 @@ class Application(Container, IApplication):
         database: Database | dict
     ) -> 'Application':
         """
-        Load the application database configuration from a Database instance.
+        Load and store database configuration from a Database instance or dictionary.
+
+        This method validates and stores the database configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to a Database instance before storage.
 
         Parameters
         ----------
-        database : Database | dict
-            The Database instance or dictionary containing database configuration.
+        database : Database or dict
+            The database configuration as either a Database instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Database instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the database parameter is not an instance of Database or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Database instances using
+        the dictionary unpacking operator (**database).
         """
 
         # Validate database type
@@ -707,18 +948,28 @@ class Application(Container, IApplication):
         **filesystems_config
     ) -> 'Application':
         """
-        Configure the filesystems with various settings.
+        Configure the filesystems using keyword arguments.
+
+        This method provides a convenient way to set filesystem configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Filesystems configuration instance.
 
         Parameters
         ----------
         **filesystems_config : dict
-            Configuration parameters for filesystems. Must match the fields
-            expected by the Filesystems dataclass (orionis.foundation.config.filesystems.entitites.filesystems.Filesystems).
+            Configuration parameters for the filesystems. These must match the
+            field names and types expected by the Filesystems dataclass from
+            orionis.foundation.config.filesystems.entitites.filesystems.Filesystems.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Filesystems instance from the provided keyword
+        arguments and then calls loadConfigFilesystems() to store the configuration.
         """
 
         # Create Filesystems instance with provided parameters
@@ -735,17 +986,33 @@ class Application(Container, IApplication):
         filesystems: Filesystems | dict
     ) -> 'Application':
         """
-        Load the application filesystems configuration from a Filesystems instance.
+        Load and store filesystems configuration from a Filesystems instance or dictionary.
+
+        This method validates and stores the filesystems configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to a Filesystems instance before storage.
 
         Parameters
         ----------
-        filesystems : Filesystems | dict
-            The Filesystems instance or dictionary containing filesystems configuration.
+        filesystems : Filesystems or dict
+            The filesystems configuration as either a Filesystems instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Filesystems instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the filesystems parameter is not an instance of Filesystems or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Filesystems instances using
+        the dictionary unpacking operator (**filesystems).
         """
 
         # Validate filesystems type
@@ -767,18 +1034,28 @@ class Application(Container, IApplication):
         **logging_config
     ) -> 'Application':
         """
-        Configure the logging system with various channel settings.
+        Configure the logging system using keyword arguments.
+
+        This method provides a convenient way to set logging configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Logging configuration instance.
 
         Parameters
         ----------
         **logging_config : dict
-            Configuration parameters for logging. Must match the fields
-            expected by the Logging dataclass (orionis.foundation.config.logging.entities.logging.Logging).
+            Configuration parameters for the logging system. These must match the
+            field names and types expected by the Logging dataclass from
+            orionis.foundation.config.logging.entities.logging.Logging.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Logging instance from the provided keyword
+        arguments and then calls loadConfigLogging() to store the configuration.
         """
 
         # Create Logging instance with provided parameters
@@ -795,17 +1072,33 @@ class Application(Container, IApplication):
         logging: Logging | dict
     ) -> 'Application':
         """
-        Load the application logging configuration from a Logging instance.
+        Load and store logging configuration from a Logging instance or dictionary.
+
+        This method validates and stores the logging configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to a Logging instance before storage.
 
         Parameters
         ----------
-        logging : Logging | dict
-            The Logging instance or dictionary containing logging configuration.
+        logging : Logging or dict
+            The logging configuration as either a Logging instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Logging instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the logging parameter is not an instance of Logging or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Logging instances using
+        the dictionary unpacking operator (**logging).
         """
 
         # Validate logging type
@@ -827,18 +1120,28 @@ class Application(Container, IApplication):
         **mail_config
     ) -> 'Application':
         """
-        Configure the mail system with various settings.
+        Configure the mail system using keyword arguments.
+
+        This method provides a convenient way to set mail configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Mail configuration instance.
 
         Parameters
         ----------
         **mail_config : dict
-            Configuration parameters for mail. Must match the fields
-            expected by the Mail dataclass (orionis.foundation.config.mail.entities.mail.Mail).
+            Configuration parameters for the mail system. These must match the
+            field names and types expected by the Mail dataclass from
+            orionis.foundation.config.mail.entities.mail.Mail.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Mail instance from the provided keyword
+        arguments and then calls loadConfigMail() to store the configuration.
         """
 
         # Create Mail instance with provided parameters
@@ -855,17 +1158,33 @@ class Application(Container, IApplication):
         mail: Mail | dict
     ) -> 'Application':
         """
-        Load the application mail configuration from a Mail instance.
+        Load and store mail configuration from a Mail instance or dictionary.
+
+        This method validates and stores the mail configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to a Mail instance before storage.
 
         Parameters
         ----------
-        mail : Mail | dict
-            The Mail instance or dictionary containing mail configuration.
+        mail : Mail or dict
+            The mail configuration as either a Mail instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Mail instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the mail parameter is not an instance of Mail or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Mail instances using
+        the dictionary unpacking operator (**mail).
         """
 
         # Validate mail type
@@ -918,16 +1237,88 @@ class Application(Container, IApplication):
         storage_testing: str | Path = (Path.cwd() / 'storage' / 'framework' / 'testing').resolve(),
     ) -> 'Application':
         """
-        Set various application paths.
+        Configure application directory paths using keyword arguments.
+
+        This method allows customization of all application directory paths including
+        console components, HTTP components, application layers, resources, routes,
+        database files, and storage locations. All paths are resolved to absolute
+        paths and stored as strings in the configuration.
 
         Parameters
         ----------
-        Each keyword argument sets a specific application path.
+        console_scheduler : str or Path, optional
+            Path to the console kernel/scheduler file. Default is 'app/console/kernel.py'.
+        console_commands : str or Path, optional
+            Directory path for console command classes. Default is 'app/console/commands'.
+        http_controllers : str or Path, optional
+            Directory path for HTTP controller classes. Default is 'app/http/controllers'.
+        http_middleware : str or Path, optional
+            Directory path for HTTP middleware classes. Default is 'app/http/middleware'.
+        http_requests : str or Path, optional
+            Directory path for HTTP request classes. Default is 'app/http/requests'.
+        models : str or Path, optional
+            Directory path for data model classes. Default is 'app/models'.
+        providers : str or Path, optional
+            Directory path for service provider classes. Default is 'app/providers'.
+        events : str or Path, optional
+            Directory path for event classes. Default is 'app/events'.
+        listeners : str or Path, optional
+            Directory path for event listener classes. Default is 'app/listeners'.
+        notifications : str or Path, optional
+            Directory path for notification classes. Default is 'app/notifications'.
+        jobs : str or Path, optional
+            Directory path for queue job classes. Default is 'app/jobs'.
+        policies : str or Path, optional
+            Directory path for authorization policy classes. Default is 'app/policies'.
+        exceptions : str or Path, optional
+            Directory path for custom exception classes. Default is 'app/exceptions'.
+        services : str or Path, optional
+            Directory path for application service classes. Default is 'app/services'.
+        views : str or Path, optional
+            Directory path for view templates. Default is 'resources/views'.
+        lang : str or Path, optional
+            Directory path for language files. Default is 'resources/lang'.
+        assets : str or Path, optional
+            Directory path for asset files. Default is 'resources/assets'.
+        routes_web : str or Path, optional
+            File path for web route definitions. Default is 'routes/web.py'.
+        routes_api : str or Path, optional
+            File path for API route definitions. Default is 'routes/api.py'.
+        routes_console : str or Path, optional
+            File path for console route definitions. Default is 'routes/console.py'.
+        routes_channels : str or Path, optional
+            File path for broadcast channel definitions. Default is 'routes/channels.py'.
+        config : str or Path, optional
+            Directory path for configuration files. Default is 'config'.
+        migrations : str or Path, optional
+            Directory path for database migration files. Default is 'database/migrations'.
+        seeders : str or Path, optional
+            Directory path for database seeder files. Default is 'database/seeders'.
+        factories : str or Path, optional
+            Directory path for model factory files. Default is 'database/factories'.
+        storage_logs : str or Path, optional
+            Directory path for log file storage. Default is 'storage/logs'.
+        storage_framework : str or Path, optional
+            Directory path for framework storage. Default is 'storage/framework'.
+        storage_sessions : str or Path, optional
+            Directory path for session file storage. Default is 'storage/framework/sessions'.
+        storage_cache : str or Path, optional
+            Directory path for cache file storage. Default is 'storage/framework/cache'.
+        storage_views : str or Path, optional
+            Directory path for compiled view storage. Default is 'storage/framework/views'.
+        storage_testing : str or Path, optional
+            Directory path for testing file storage. Default is 'storage/framework/testing'.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        All path parameters accept either string or Path objects and are automatically
+        resolved to absolute paths relative to the current working directory. The
+        resolved paths are stored as strings in the internal configuration system.
         """
 
         # Ensure 'paths' exists in configurators
@@ -973,22 +1364,33 @@ class Application(Container, IApplication):
         paths: Paths | dict
     ) -> 'Application':
         """
-        Load the application paths configuration from a Paths instance or dictionary.
+        Load and store path configuration from a Paths instance or dictionary.
+
+        This method validates and stores the application path configuration in the
+        internal configurators storage. If a dictionary is provided, it will be
+        converted to a Paths instance before storage.
 
         Parameters
         ----------
-        paths : Paths | dict
-            The Paths instance or dictionary containing path configuration.
+        paths : Paths or dict
+            The path configuration as either a Paths instance or a dictionary
+            containing path parameters that can be used to construct a Paths instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
 
         Raises
         ------
         OrionisTypeError
-            If paths is not an instance of Paths or dict.
+            If the paths parameter is not an instance of Paths or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Paths instances using
+        the dictionary unpacking operator (**paths). This method is used internally
+        by withConfigurators() and can be called directly for path configuration.
         """
 
         # Validate paths type
@@ -1010,18 +1412,28 @@ class Application(Container, IApplication):
         **queue_config
     ) -> 'Application':
         """
-        Configure the queue system with various settings.
+        Configure the queue system using keyword arguments.
+
+        This method provides a convenient way to set queue configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Queue configuration instance.
 
         Parameters
         ----------
         **queue_config : dict
-            Configuration parameters for queue. Must match the fields
-            expected by the Queue dataclass (orionis.foundation.config.queue.entities.queue.Queue).
+            Configuration parameters for the queue system. These must match the
+            field names and types expected by the Queue dataclass from
+            orionis.foundation.config.queue.entities.queue.Queue.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Queue instance from the provided keyword
+        arguments and then calls loadConfigQueue() to store the configuration.
         """
 
         # Create Queue instance with provided parameters
@@ -1038,17 +1450,33 @@ class Application(Container, IApplication):
         queue: Queue | dict
     ) -> 'Application':
         """
-        Load the application queue configuration from a Queue instance.
+        Load and store queue configuration from a Queue instance or dictionary.
+
+        This method validates and stores the queue configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to a Queue instance before storage.
 
         Parameters
         ----------
-        queue : Queue
-            The Queue instance containing queue configuration
+        queue : Queue or dict
+            The queue configuration as either a Queue instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Queue instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the queue parameter is not an instance of Queue or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Queue instances using
+        the dictionary unpacking operator (**queue).
         """
 
         # Validate queue type
@@ -1070,18 +1498,28 @@ class Application(Container, IApplication):
         **session_config
     ) -> 'Application':
         """
-        Configure the session with various settings.
+        Configure the session system using keyword arguments.
+
+        This method provides a convenient way to set session configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Session configuration instance.
 
         Parameters
         ----------
         **session_config : dict
-            Configuration parameters for session. Must match the fields
-            expected by the Session dataclass (orionis.foundation.config.session.entities.session.Session).
+            Configuration parameters for the session system. These must match the
+            field names and types expected by the Session dataclass from
+            orionis.foundation.config.session.entities.session.Session.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Session instance from the provided keyword
+        arguments and then calls loadConfigSession() to store the configuration.
         """
 
         # Create Session instance with provided parameters
@@ -1098,17 +1536,33 @@ class Application(Container, IApplication):
         session: Session | dict
     ) -> 'Application':
         """
-        Load the application session configuration from a Session instance.
+        Load and store session configuration from a Session instance or dictionary.
+
+        This method validates and stores the session configuration in the
+        internal configurators storage. If a dictionary is provided, it will
+        be converted to a Session instance before storage.
 
         Parameters
         ----------
-        session : Session | dict
-            The Session instance or dictionary containing session configuration.
+        session : Session or dict
+            The session configuration as either a Session instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Session instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the session parameter is not an instance of Session or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Session instances using
+        the dictionary unpacking operator (**session).
         """
 
         # Validate session type
@@ -1130,18 +1584,28 @@ class Application(Container, IApplication):
         **testing_config
     ) -> 'Application':
         """
-        Configure the testing with various settings.
+        Configure the testing framework using keyword arguments.
+
+        This method provides a convenient way to set testing configuration by
+        passing individual configuration parameters as keyword arguments.
+        The parameters are used to create a Testing configuration instance.
 
         Parameters
         ----------
         **testing_config : dict
-            Configuration parameters for testing. Must match the fields
-            expected by the Testing dataclass (orionis.foundation.config.testing.entities.testing.Testing).
+            Configuration parameters for the testing framework. These must match the
+            field names and types expected by the Testing dataclass from
+            orionis.foundation.config.testing.entities.testing.Testing.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        This method internally creates a Testing instance from the provided keyword
+        arguments and then calls loadConfigTesting() to store the configuration.
         """
 
         # Create Testing instance with provided parameters
@@ -1158,17 +1622,33 @@ class Application(Container, IApplication):
         testing: Testing | dict
     ) -> 'Application':
         """
-        Load the application testing configuration from a Testing instance.
+        Load and store testing configuration from a Testing instance or dictionary.
+
+        This method validates and stores the testing framework configuration in the
+        internal configurators storage. If a dictionary is provided, it will be
+        converted to a Testing instance before storage.
 
         Parameters
         ----------
-        testing : Testing | dict
-            The Testing instance or dictionary containing testing configuration.
+        testing : Testing or dict
+            The testing configuration as either a Testing instance or a dictionary
+            containing configuration parameters that can be used to construct a
+            Testing instance.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Raises
+        ------
+        OrionisTypeError
+            If the testing parameter is not an instance of Testing or a dictionary.
+
+        Notes
+        -----
+        Dictionary inputs are automatically converted to Testing instances using
+        the dictionary unpacking operator (**testing).
         """
 
         # Validate testing type
@@ -1189,12 +1669,25 @@ class Application(Container, IApplication):
         self,
     ) -> None:
         """
-        Retrieve a configuration value by key.
+        Initialize and load the application configuration from configurators.
 
-        Returns
-        -------
-        None
-            Initializes the application configuration if not already set.
+        This private method processes all stored configurators and converts them
+        into a unified configuration dictionary. If no custom configurators have
+        been set, it initializes with default configuration values. The method
+        handles the conversion from individual configurator instances to a flat
+        configuration structure.
+
+        Raises
+        ------
+        OrionisRuntimeError
+            If an error occurs during configuration loading or processing.
+
+        Notes
+        -----
+        This method is called automatically during application bootstrapping.
+        After successful loading, the configurators storage is cleaned up to
+        prevent memory leaks. The resulting configuration is stored in the
+        __config attribute for later retrieval via config() method.
         """
 
         # Try to load the configuration
@@ -1232,22 +1725,43 @@ class Application(Container, IApplication):
         default: Any = None
     ) -> Any:
         """
-        Retrieves a configuration value from the application settings using dot notation.
-        This method allows you to access nested configuration values by specifying a key in dot notation
-        (e.g., "database.host"). If no key is provided, the entire configuration dictionary is returned.
+        Retrieve application configuration values using dot notation.
+
+        This method provides access to the application's configuration settings
+        with support for nested value retrieval using dot notation. It can return
+        either a specific configuration value or the entire configuration dictionary.
+
+        Parameters
+        ----------
         key : str, optional
-            The configuration key to retrieve, using dot notation for nested values (e.g., "app.name").
-            If None, returns the entire configuration dictionary. Default is None.
-            The value to return if the specified key does not exist in the configuration. Default is None.
-            The configuration value associated with the given key, the entire configuration dictionary if
-            key is None, or the default value if the key is not found.
+            The configuration key to retrieve, supporting dot notation for nested
+            values (e.g., "database.default", "app.name"). If None, returns the
+            entire configuration dictionary excluding path configuration. Default is None.
+        default : Any, optional
+            The value to return if the specified key is not found in the configuration.
+            Default is None.
+
+        Returns
+        -------
+        Any
+            The configuration value associated with the given key, the entire
+            configuration dictionary (excluding paths) if key is None, or the
+            default value if the key is not found.
 
         Raises
         ------
         OrionisRuntimeError
-            If the application has not been booted and configuration is not available.
+            If the application configuration has not been initialized. This occurs
+            when config() is called before create().
         OrionisValueError
-            If the provided key is not a string.
+            If the provided key parameter is not a string type.
+
+        Notes
+        -----
+        The method traverses nested configuration structures by splitting the key
+        on dots and navigating through dictionary levels. Path configurations are
+        excluded from full configuration returns and should be accessed via the
+        path() method instead.
         """
 
         # Ensure the application is booted before accessing configuration
@@ -1294,29 +1808,43 @@ class Application(Container, IApplication):
         default: Any = None
     ) -> Any:
         """
-        Retrieve a path configuration value from the application's configuration.
+        Retrieve application path configuration values using dot notation.
+
+        This method provides access to the application's path configuration settings
+        with support for nested value retrieval using dot notation. It can return
+        either a specific path value or the entire paths configuration dictionary.
+
         Parameters
         ----------
         key : str, optional
-            Dot-notated key specifying the path configuration to retrieve.
-            If None, returns the entire 'paths' configuration dictionary.
+            Dot-notated key specifying the path configuration to retrieve (e.g.,
+            "console_commands", "storage.logs"). If None, returns the entire
+            paths configuration dictionary. Default is None.
         default : Any, optional
-            Value to return if the specified key is not found. Defaults to None.
+            Value to return if the specified key is not found in the path
+            configuration. Default is None.
+
         Returns
         -------
         Any
-            The configuration value corresponding to the given key, the entire 'paths'
-            dictionary if key is None, or the default value if the key is not found.
+            The path configuration value corresponding to the given key, the entire
+            paths dictionary if key is None, or the default value if the key is
+            not found.
+
         Raises
         ------
         OrionisRuntimeError
-            If the application configuration is not initialized (not booted).
+            If the application configuration has not been initialized. This occurs
+            when path() is called before create().
         OrionisValueError
-            If the provided key is not a string.
+            If the provided key parameter is not a string type.
+
         Notes
         -----
-        - The method traverses the 'paths' configuration using dot notation for nested keys.
-        - If any part of the key is not found, the default value is returned.
+        The method traverses the paths configuration structure by splitting the key
+        on dots and navigating through dictionary levels. This method is specifically
+        designed for path-related configuration access, separate from general
+        application configuration.
         """
 
         # Ensure the application is booted before accessing configuration
@@ -1360,12 +1888,31 @@ class Application(Container, IApplication):
         self
     ) -> 'Application':
         """
-        Bootstrap the application by loading providers and kernels.
+        Bootstrap and initialize the complete application framework.
+
+        This method orchestrates the entire application startup process including
+        configuration loading, service provider registration and booting, framework
+        kernel initialization, and logging setup. It ensures the application is
+        fully prepared for operation and prevents duplicate initialization.
 
         Returns
         -------
         Application
-            The application instance for method chaining
+            The current application instance to enable method chaining.
+
+        Notes
+        -----
+        The bootstrap process follows this sequence:
+        1. Load and process all configuration from configurators
+        2. Register core framework service providers
+        3. Register and boot all service providers
+        4. Initialize framework kernels (Testing, CLI)
+        5. Log successful startup with timing information
+        6. Mark application as booted to prevent re-initialization
+
+        This method is idempotent - calling it multiple times will not cause
+        duplicate initialization. The startup time is calculated and logged
+        for performance monitoring purposes.
         """
         # Check if already booted
         if not self.__booted:

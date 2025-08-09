@@ -14,37 +14,38 @@ from orionis.foundation.config.queue.entities.queue import Queue
 from orionis.foundation.config.session.entities.session import Session
 from orionis.foundation.config.testing.entities.testing import Testing
 from orionis.test.cases.asynchronous import AsyncTestCase
-from unittest.mock import Mock
 
 class TestFoundationConfigStartup(AsyncTestCase):
     """
-    Test suite for the Configuration dataclass.
+    Test suite for the `Configuration` dataclass, validating its structure, initialization,
+    type enforcement, mutability, equality, and dictionary conversion.
 
     Methods
     -------
-    testConfigurationIsDataclass()
-        Test that Configuration is a dataclass.
-    testDefaultInitialization()
-        Test default initialization of Configuration.
-    testAllSectionsHaveDefaultFactories()
-        Test that all fields have default factories.
-    testTypeValidationInPostInit()
-        Test type validation and dict conversion in __post_init__.
-    testToDictReturnsCompleteDictionary()
-        Test that toDict() returns all configuration sections.
-    testToDictReturnsNestedStructures()
-        Test that toDict() returns nested structures as dicts.
-    testMetadataIsAccessible()
-        Test that field metadata is accessible and correct.
-    testConfigurationIsMutable()
-        Test that Configuration is mutable.
-    testConfigurationEquality()
-        Test equality of Configuration instances.
+    testConfigurationIsDataclass
+        Verify that `Configuration` is a dataclass.
+    testDefaultInitialization
+        Ensure all fields of `Configuration` are initialized with their default factories and correct types.
+    testAllSectionsHaveDefaultFactories
+        Check that every field in `Configuration` has a callable default factory.
+    testTypeValidationInPostInit
+        Confirm that type validation and dictionary conversion occur in `__post_init__`,
+        and that invalid types raise `OrionisIntegrityException`.
+    testToDictReturnsCompleteDictionary
+        Assert that `toDict()` returns a dictionary containing all configuration sections.
+    testToDictReturnsNestedStructures
+        Ensure that nested configuration sections are represented as dictionaries in `toDict()` output.
+    testMetadataIsAccessible
+        Validate that field metadata is accessible and contains required keys and types.
+    testConfigurationIsMutable
+        Check that attributes of `Configuration` can be modified after initialization.
+    testConfigurationEquality
+        Test equality comparison between `Configuration` instances, especially with differing keys.
     """
 
     def testConfigurationIsDataclass(self):
         """
-        Test that Configuration is a dataclass.
+        Verify that `Configuration` is implemented as a dataclass.
 
         Returns
         -------
@@ -54,9 +55,8 @@ class TestFoundationConfigStartup(AsyncTestCase):
 
     def testDefaultInitialization(self):
         """
-        Test default initialization of Configuration.
-
-        Ensures all fields are initialized with their default factories.
+        Ensure all fields of `Configuration` are initialized with their default factories
+        and are instances of their respective entity classes.
 
         Returns
         -------
@@ -79,7 +79,7 @@ class TestFoundationConfigStartup(AsyncTestCase):
 
     def testAllSectionsHaveDefaultFactories(self):
         """
-        Test that all fields have default factories.
+        Check that every field in `Configuration` has a callable default factory.
 
         Returns
         -------
@@ -92,9 +92,9 @@ class TestFoundationConfigStartup(AsyncTestCase):
 
     def testTypeValidationInPostInit(self):
         """
-        Test type validation and dict conversion in __post_init__.
-
-        Ensures that dicts are converted to entities and wrong types raise OrionisIntegrityException.
+        Confirm that type validation and dictionary conversion occur in `__post_init__`.
+        Validates that dictionaries are converted to entity instances and invalid types
+        raise `OrionisIntegrityException`.
 
         Returns
         -------
@@ -104,7 +104,7 @@ class TestFoundationConfigStartup(AsyncTestCase):
         config = Configuration(app={"name": "TestApp"})
         self.assertIsInstance(config.app, App)
 
-        # Invalid types
+        # Invalid types for each section should raise an exception
         sections = [
             ('app', 123),
             ('auth', 123),
@@ -127,7 +127,7 @@ class TestFoundationConfigStartup(AsyncTestCase):
 
     def testToDictReturnsCompleteDictionary(self):
         """
-        Test that toDict() returns all configuration sections.
+        Assert that `toDict()` returns a dictionary containing all configuration sections.
 
         Returns
         -------
@@ -140,7 +140,8 @@ class TestFoundationConfigStartup(AsyncTestCase):
 
     def testToDictReturnsNestedStructures(self):
         """
-        Test that toDict() returns nested structures as dicts.
+        Ensure that nested configuration sections are represented as dictionaries
+        in the output of `toDict()`.
 
         Returns
         -------
@@ -155,7 +156,8 @@ class TestFoundationConfigStartup(AsyncTestCase):
 
     def testMetadataIsAccessible(self):
         """
-        Test that field metadata is accessible and correct.
+        Validate that field metadata is accessible and contains the 'description' key
+        as a string and the 'default' key.
 
         Returns
         -------
@@ -170,7 +172,7 @@ class TestFoundationConfigStartup(AsyncTestCase):
 
     def testConfigurationIsMutable(self):
         """
-        Test that Configuration is mutable.
+        Check that attributes of `Configuration` can be modified after initialization.
 
         Returns
         -------
@@ -185,7 +187,8 @@ class TestFoundationConfigStartup(AsyncTestCase):
 
     def testConfigurationEquality(self):
         """
-        Test equality of Configuration instances.
+        Test equality comparison between `Configuration` instances, ensuring that
+        instances with differing keys are not considered equal.
 
         Returns
         -------

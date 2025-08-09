@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lumibot
-Version: 3.18.1
+Version: 3.18.2
 Summary: Backtesting and Trading Library, Made by Lumiwealth
 Home-page: https://github.com/Lumiwealth/lumibot
 Author: Robert Grzesik
@@ -21,6 +21,7 @@ Requires-Dist: quandl
 Requires-Dist: numpy>=1.20.0
 Requires-Dist: pandas>=2.2.0
 Requires-Dist: pandas_market_calendars>=5.1.0
+Requires-Dist: pandas_ta>=0.3.14b
 Requires-Dist: plotly>=5.18.0
 Requires-Dist: sqlalchemy
 Requires-Dist: bcrypt

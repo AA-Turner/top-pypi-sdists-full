@@ -3,19 +3,15 @@
 import tempfile
 from pathlib import Path
 
-from cwl_utils.pack import pack
-from cwl_utils.parser import load_document, save
+from cwl_utils.parser import save
 from DIRAC.Interfaces.API.Dirac import Dirac
 from DIRAC.Interfaces.API.Job import Job
-from cwl_utils.parser.utils import load_inputfile
 from ruamel.yaml import YAML
 
-from CTADIRAC.Interfaces.Utilities.CWL_utils import (
-    translate_cwl_workflow,
-)
+from CTADIRAC.Interfaces.Utilities.CWLTranslator import CWLTranslator
 
 
-class CWLJob(Job):
+class CWLJob(Job, CWLTranslator):
     """Job class for CWL jobs.
     Submits CommandLineTool using cwltool executable.
 
@@ -28,40 +24,20 @@ class CWLJob(Job):
 
     def __init__(
         self,
-        cwl_workflow: Path,
-        cwl_inputs: Path,
+        cwl_workflow: str,
+        cwl_inputs: str,
         cvmfs_base_path: Path,
         output_se=None,
         apptainer_options: list | None = None,
     ) -> None:
-        super().__init__()
-
-        self.cwl_workflow_path = Path(cwl_workflow)
-        self.cwl_inputs_path = Path(cwl_inputs)
+        Job.__init__(self)
+        CWLTranslator.__init__(self, cwl_workflow, cwl_inputs)
 
         self.cvmfs_base_path = cvmfs_base_path
         self.apptainer_options = apptainer_options if apptainer_options else []
         self._output_se = output_se
 
-        self.original_cwl = load_document(pack(str(self.cwl_workflow_path)))
-        self.original_inputs = load_inputfile(
-            self.original_cwl.cwlVersion, self.cwl_inputs_path.read_text()
-        )
-
-        cwl_dict = translate_cwl_workflow(
-            self.original_cwl,
-            self.original_inputs,
-            self.cvmfs_base_path,
-            self.apptainer_options,
-        )
-
-        self.transformed_cwl = cwl_dict["CWLDesc"]
-        self.output_sandbox = cwl_dict.get("OutputSandbox", [])
-        self.output_data = cwl_dict.get("OutputData", [])
-
-        self.transformed_inputs = cwl_dict["InputDesc"]
-        self.input_data = cwl_dict.get("InputData", [])
-        self.input_sandbox = cwl_dict.get("InputSandbox", [])
+        self.translate(self.cvmfs_base_path, self.apptainer_options)
 
     def submit(self):
         """Submit the CWL job to DIRAC.

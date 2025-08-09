@@ -8,9 +8,6 @@ from orionis.services.introspection.dependencies.entities.known_dependencies imp
 from orionis.services.introspection.exceptions import ReflectionValueError
 
 class ReflectDependencies(IReflectDependencies):
-    """
-    This class is used to reflect dependencies of a given object.
-    """
 
     def __init__(self, target = None):
         """

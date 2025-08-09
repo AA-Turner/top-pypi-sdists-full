@@ -223,7 +223,7 @@ BOT_CADMIN_ = '☐☑'
 BOT_VARS_ = '{"BOT_PROMO": "#911", "BOT_CHANNEL": 0, "BOT_CHANNELTID": 0, "BOT_GROUP": 0, "BOT_GROUPTID": 0, "BOT_CHATGPT": "", "BOT_GEO": 0, "BOT_TZ": "+00:00", "BOT_DT": "", "BOT_LZ": "en", "BOT_LC": "en", "BOT_ISSTARTED": 0, "BOT_ISMENTIONED": 0}'
 BOT_LSTS_ = '{"BOT_ADMINS": [], "BOT_COMMANDS": ["/start"]}'
 USER_VARS_ = '{"USER_TEXT": "", "USER_REACTION": "", "USER_PUSH": "", "USER_EMAIL": "", "USER_PROMO": "", "USER_CONTACT": "", "USER_GEO": "", "USER_UTM": "", "USER_ID": 0, "USER_DT": "", "USER_TZ": "+00:00", "USER_LC": "en", "USER_LZ": "en", "USER_ISADMIN": 0, "USER_ISBLOG": 0, "USER_ISPREMIUM": 0, "USER_BALL": 0, "USER_RAND": 0, "USER_QUIZ": 0, "USER_DICE": 0, "MSGID_PAID": 0, "DATE_TIME": 0}'
-USER_LSTS_ = '{"USER_UTMREF": [], "USER_PAYMENTS": [], "USER_TXS": [], "USER_DAU": [], "USER_MAU": [], "USER_STATUSES": []}'
+USER_LSTS_ = '{"USER_UTMREF": [], "USER_PAYMENTS": [], "USER_TXS": [], "USER_DAU": [], "USER_MAU": [], "USER_STATUSES": [], "USER_TEXTS": []}'
 
 UB_CONFIG_ = '☑☑☑☐☐☑☑☐☐☐☐☐☐'
 UB_CMONITOR_ = '☐'
@@ -16264,57 +16264,60 @@ async def add_water_to_photo(POST_FNAME, POST_FNAME_COPY, POST_WATER, EXTRA_D):
 async def correct_txt_tags_for_tg(txt):
     result = txt
     try:
-        if not txt or txt == str_empty: return result
+        if not txt or txt == str_empty:
+            return result
 
         print(f"correct_txt_tags_for_tg start {txt=}")
-        # txt = re.sub(
-        #     r'<div class="tgui-79024fcb6d81ad79" style="display: inline-block; padding: 0px 4px;">(.*?)</div>',
-        #     r'<blockquote>\1</blockquote>', txt)
 
+        # блоки -> нужные теги
         txt = re.sub(
-            r'<div class="tgui-79024fcb6d81ad79" style="display: inline-block; padding: 0px 4px;">(.*?)</div>',
+            r'<div class="tgui-79024fcb6d81ad79"[^>]*?>(.*?)</div>',
             r'<blockquote>\1</blockquote>',
             txt,
-            flags=re.DOTALL
+            flags=re.DOTALL | re.IGNORECASE
         )
 
-        # txt = re.sub(
-        #     r'<div class="tgui-79024fcb6d81ad79" style="border-left-width: 2px; border-left-style: solid; border-left-color: purple; padding: 0px 4px;">(.*?)</div>',
-        #     r'<blockquote expandable>\1</blockquote>', txt)
-
         txt = re.sub(
-            r'<div class="tgui-79024fcb6d81ad79" style="border-left-width: 2px; border-left-style: solid; border-left-color: purple; padding: 0px 4px;">(.*?)</div>',
+            r'<div class="tgui-79024fcb6d81ad79"[^>]*?border-left[^>]*?>(.*?)</div>',
             r'<blockquote expandable>\1</blockquote>',
             txt,
-            flags=re.DOTALL
+            flags=re.DOTALL | re.IGNORECASE
         )
 
-        # txt = re.sub(
-        #     r'<div class="tgui-86f452d8e92a2075 tgui-aff2a6268e887037" style="display: inline-block; white-space: pre-wrap; cursor: pointer;">(.*?)</div>',
-        #     r'<tg-spoiler>\1</tg-spoiler>', txt
-        # )
-
         txt = re.sub(
-            r'<div class="tgui-86f452d8e92a2075 tgui-aff2a6268e887037" style="display: inline-block; white-space: pre-wrap; cursor: pointer;">(.*?)</div>',
+            r'<div class="tgui-86f452d8e92a2075[^>]*?>(.*?)</div>',
             r'<tg-spoiler>\1</tg-spoiler>',
             txt,
-            flags=re.DOTALL
+            flags=re.DOTALL | re.IGNORECASE
         )
 
+        # хэштеги в span с цветом -> только хэш
         txt = re.sub(
-            r'<div class="tgui-86f452d8e92a2075" style="display: inline-block; white-space: pre-wrap; cursor: pointer;">(.*?)</div>',
-            r'<tg-spoiler>\1</tg-spoiler>', txt)
+            r'<span[^>]*style="[^"]*rgba\([^"]*\)[^"]*"[^>]*>(#[^<]+)</span>',
+            r'\1',
+            txt,
+            flags=re.IGNORECASE
+        )
 
-        txt = re.sub(r'<span style="color: rgba\(0, 123, 247, \.99\);">(#[^<]+)</span>', r'\1', txt)
+        # очистка <a> — оставить только href и внутренний текст (без вложенных функций)
+        txt = re.sub(
+            r'<a\s+[^>]*href=(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))[^>]*>(.*?)</a>',
+            r'<a href="\1\2\3">\4</a>',
+            txt,
+            flags=re.DOTALL | re.IGNORECASE
+        )
+
+        # удалить style и лишние атрибуты у остальных тегов
+        txt = re.sub(r'\sstyle=(?:"[^"]*"|\'[^\']*\')', '', txt, flags=re.IGNORECASE)
+        txt = re.sub(r'\s(?:target|rel|class|id|data-[\w-]+)=(?:"[^"]*"|\'[^\']*\'|\S+)', '', txt, flags=re.IGNORECASE)
+
+        # дальнейшая очистка
         txt = txt.replace('&nbsp;', '').replace('<br>', '')
-        txt = re.sub(r'</div>\s*<div>', '\n', txt)
-        txt = re.sub(r'</?div>', '\n', txt)
-        txt = txt.replace('<span style="caret-color: var(--tg-theme-hint-color);">', '')
+        txt = re.sub(r'</div>\s*<div>', '\n', txt, flags=re.IGNORECASE)
+        txt = re.sub(r'</?div[^>]*>', '\n', txt, flags=re.IGNORECASE)
+        txt = re.sub(r'<span[^>]*>', '', txt, flags=re.IGNORECASE)
         txt = txt.replace('</span>', '')
-        txt = re.sub(r'</?div[^>]*>', '', txt)
 
-        txt = re.sub(r'<span[^>]*>', '', txt)
-        txt = txt.replace('</span>', '')
         result = txt[0:4096].strip()
         print(f"correct_txt_tags_for_tg finish {result=}")
     except Exception as e:

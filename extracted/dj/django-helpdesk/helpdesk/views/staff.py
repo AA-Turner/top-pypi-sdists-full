@@ -1,7 +1,7 @@
 """
 django-helpdesk - A Django powered ticket tracker for small enterprise.
 
-(c) Copyright 2008 Jutda. All Rights Reserved. See LICENSE for details.
+(c) Copyright 2008-2025 Jutda. All Rights Reserved. See LICENSE for details.
 
 views/staff.py - The bulk of the application - provides most business logic and
                  renders all staff-facing views.
@@ -21,7 +21,6 @@ from django.core.exceptions import PermissionDenied
 from django.core.handlers.wsgi import WSGIRequest
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Q, Case, When
-from django.db.models.query import QuerySet
 from django.forms import HiddenInput, inlineformset_factory, TextInput
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -57,7 +56,11 @@ from helpdesk.forms import (
     TicketResolvesForm,
     UserSettingsForm,
 )
-from helpdesk.lib import queue_template_context, safe_template_context
+from helpdesk.lib import (
+    queue_template_context,
+    safe_template_context,
+    get_assignable_users,
+)
 from helpdesk.models import (
     Checklist,
     ChecklistTask,
@@ -96,6 +99,7 @@ from django.utils.timezone import now
 if helpdesk_settings.HELPDESK_KB_ENABLED:
     from helpdesk.models import KBItem
 
+
 DATE_RE: re.Pattern = re.compile(
     r"(?P<month>\d{1,2})/(?P<day>\d{1,2})/(?P<year>\d{4})$"
 )
@@ -127,16 +131,6 @@ def _get_queue_choices(queues):
     return queue_choices
 
 
-def get_active_users() -> QuerySet:
-    if helpdesk_settings.HELPDESK_STAFF_ONLY_TICKET_OWNERS:
-        users = User.objects.filter(is_active=True, is_staff=True).order_by(
-            User.USERNAME_FIELD
-        )
-    else:
-        users = User.objects.filter(is_active=True).order_by(User.USERNAME_FIELD)
-    return users
-
-
 def get_user_queues(user) -> dict[str, str]:
     queues = HelpdeskUser(user).get_queues()
     return _get_queue_choices(queues)
@@ -144,7 +138,9 @@ def get_user_queues(user) -> dict[str, str]:
 
 def get_form_extra_kwargs(user) -> dict[str, object]:
     return {
-        "active_users": get_active_users(),
+        "assignable_users": get_assignable_users(
+            helpdesk_settings.HELPDESK_STAFF_ONLY_TICKET_OWNERS
+        ),
         "queues": get_user_queues(user),
         "priorities": Ticket.PRIORITY_CHOICES,
     }
@@ -488,6 +484,9 @@ def view_ticket(request, ticket_id):
             "SHOW_SUBSCRIBE": show_subscribe,
             "checklist_form": checklist_form,
             "customfields_form": customfields_form,
+            "assignable_users": get_assignable_users(
+                bool(getattr(settings, "HELPDESK_STAFF_ONLY_TICKET_OWNERS", False))
+            ),
             **extra_context_kwargs,
         },
     )
@@ -675,9 +674,9 @@ def save_ticket_update(form, ticket, user):
         comment=comment,
         files=form.files.getlist("attachment"),
         public=form.data.get("public", False),
-        owner=owner or -1,
-        priority=priority or -1,
-        queue=queue or -1,
+        owner=owner,
+        priority=priority,
+        queue=queue,
         new_status=new_status,
         time_spent=get_time_spent_from_form(form),
         due_date=due_date,
@@ -1188,7 +1187,9 @@ def ticket_list(request):
         dict(
             context,
             default_tickets_per_page=request.user.usersettings_helpdesk.tickets_per_page,
-            user_choices=User.objects.filter(is_active=True, is_staff=True),
+            assignable_users=get_assignable_users(
+                helpdesk_settings.HELPDESK_STAFF_ONLY_TICKET_OWNERS
+            ),
             kb_items=kbitem,
             queue_choices=huser.get_queues(),
             status_choices=Ticket.STATUS_CHOICES,

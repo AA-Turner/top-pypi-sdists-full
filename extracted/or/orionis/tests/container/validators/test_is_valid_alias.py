@@ -80,7 +80,7 @@ class TestIsValidAlias(AsyncTestCase):
             This method does not return any value. It passes if the expected exception and message are raised.
         """
         invalid_aliases = [
-            "invalid alias",  # space
+            "invalid alias",   # space
             "invalid\talias",  # tab
             "invalid\nalias",  # newline
             "invalid@alias",   # special character

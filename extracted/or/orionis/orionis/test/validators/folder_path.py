@@ -1,28 +1,26 @@
-from pathlib import Path
 from orionis.test.exceptions import OrionisTestValueError
 
 class __ValidFolderPath:
 
     def __call__(self, folder_path: str) -> str:
         """
-        Validate and clean a folder path string.
+        Validates that the input is a non-empty string representing a folder path.
 
         Parameters
         ----------
         folder_path : str
-            The folder path to validate.
+            The folder path to be validated.
 
         Returns
         -------
         str
-            The cleaned folder path string.
+            The validated and stripped folder path.
 
         Raises
         ------
         OrionisTestValueError
-            If the folder_path is not a non-empty string.
+            If `folder_path` is not a non-empty string.
         """
-
         if not isinstance(folder_path, str) or not folder_path.strip():
             raise OrionisTestValueError(
                 f"Invalid folder_path: Expected a non-empty string, got '{str(folder_path)}' ({type(folder_path).__name__})."

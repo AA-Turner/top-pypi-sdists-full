@@ -12,30 +12,29 @@ from .task import BaseTask, Objective
 
 
 class KineticEnergyRegularizationTask(BaseTask):
-    r"""Kinetic-energy regularization task.
+    r"""Kinetic-energy regularization.
 
-    This low-priority task adds a configuration-dependent quadratic term to the
-    QP objective that penalizes the system's kinetic energy. Formally, it contributes:
+    This task, often used with a low priority in the task stack, penalizes the system's
+    kinetic energy. Formally, it contributes the following term to the quadratic
+    program:
 
     .. math::
         \frac{1}{2}\, \lambda\, \Delta \mathbf{q}^\top M(\mathbf{q})\,\Delta \mathbf{q},
 
     where :math:`\Delta \mathbf{q}\in\mathbb{R}^{n_v}` is the vector of joint
-    displacements, :math:`M(\mathbf{q})` is the joint-space inertia matrix
-    (dependent on the current configuration), and :math:`\lambda` is the scalar
-    strength of the regularization.
+    displacements, :math:`M(\mathbf{q})` is the joint-space inertia matrix, and
+    :math:`\lambda` is the scalar strength of the regularization.
 
     .. note::
 
-        This task penalizes DoFs in proportion to their joint-space inertia, so
-        higher-inertia (i.e., heavier) links will move less. This is in contrast to
-        :class:`~.L2RegularizationTask`, which uniformly damps all DoFs.
+        This task can be seen as an inertia-weighted version of the
+        :class:`~.DampingTask`. Degrees of freedom with higher inertia will move less
+        for the same cost.
 
     .. warning::
 
-        The timestep :math:`\Delta t` must be set via :meth:`set_dt` before use.
-        This task penalizes velocity via displacement, and omitting `dt` will raise
-        a runtime error.
+        The integration timestep :math:`\Delta t` must be set via :meth:`set_dt`
+        before use. This ensures the cost is expressed in units of energy (Joules).
 
     Example:
 

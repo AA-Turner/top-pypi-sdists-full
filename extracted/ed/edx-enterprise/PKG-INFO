@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: edx-enterprise
-Version: 6.2.14
+Version: 6.2.15
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -108,6 +108,10 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[6.2.15]
+--------
+* fix: Added more logs to debug the XAPI transmission issues.
 
 [6.2.14]
 --------

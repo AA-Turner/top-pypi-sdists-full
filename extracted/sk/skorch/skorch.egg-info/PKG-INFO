@@ -1,9 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: skorch
-Version: 1.1.0
+Version: 1.2.0
 Summary: scikit-learn compatible neural network library for pytorch
-Home-page: https://github.com/skorch-dev/skorch
-License: new BSD 3-Clause
+Author: Marian Tietz, Thomas J. Fan, Daniel Nouri, Benjamin Bossan, skorch Developers
+License-Expression: BSD-3-Clause
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -12,35 +23,36 @@ Requires-Dist: scikit-learn>=0.22.0
 Requires-Dist: scipy>=1.1.0
 Requires-Dist: tabulate>=0.7.7
 Requires-Dist: tqdm>=4.14.0
-Provides-Extra: testing
-Requires-Dist: accelerate>=0.22.0; extra == "testing"
-Requires-Dist: fire; extra == "testing"
-Requires-Dist: flaky; extra == "testing"
-Requires-Dist: future>=0.17.1; extra == "testing"
-Requires-Dist: gpytorch>=1.5; extra == "testing"
-Requires-Dist: jupyter; extra == "testing"
-Requires-Dist: matplotlib>=2.0.2; extra == "testing"
-Requires-Dist: neptune; extra == "testing"
-Requires-Dist: numpydoc; extra == "testing"
-Requires-Dist: openpyxl; extra == "testing"
-Requires-Dist: pandas; extra == "testing"
-Requires-Dist: pillow; extra == "testing"
-Requires-Dist: protobuf; extra == "testing"
-Requires-Dist: pylint; extra == "testing"
-Requires-Dist: pytest>=3.4; extra == "testing"
-Requires-Dist: pytest-cov; extra == "testing"
-Requires-Dist: sacred; extra == "testing"
-Requires-Dist: safetensors>=0.3.1; extra == "testing"
-Requires-Dist: sphinx; extra == "testing"
-Requires-Dist: sphinx_rtd_theme; extra == "testing"
-Requires-Dist: tensorboard>=1.14.0; extra == "testing"
-Requires-Dist: tokenizers; extra == "testing"
-Requires-Dist: transformers; extra == "testing"
-Requires-Dist: wandb>=0.12.17; extra == "testing"
+Provides-Extra: dev
+Requires-Dist: pylint; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: future>=0.17.1; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=3.4; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: flaky; extra == "test"
 Provides-Extra: docs
-Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
+Provides-Extra: extended
+Requires-Dist: accelerate>=0.22.0; extra == "extended"
+Requires-Dist: tensorboard>=1.14.0; extra == "extended"
+Requires-Dist: wandb>=0.12.17; extra == "extended"
+Requires-Dist: neptune; extra == "extended"
+Requires-Dist: sacred; extra == "extended"
+Requires-Dist: jupyter; extra == "extended"
+Requires-Dist: matplotlib>=2.0.2; extra == "extended"
+Requires-Dist: pandas; extra == "extended"
+Requires-Dist: openpyxl; extra == "extended"
+Requires-Dist: transformers; extra == "extended"
+Requires-Dist: tokenizers; extra == "extended"
+Requires-Dist: safetensors>=0.3.1; extra == "extended"
+Requires-Dist: protobuf; extra == "extended"
+Requires-Dist: gpytorch>=1.5; extra == "extended"
+Requires-Dist: pillow; extra == "extended"
+Requires-Dist: fire; extra == "extended"
+Dynamic: license-file
 
 .. image:: https://github.com/skorch-dev/skorch/blob/master/assets/skorch_bordered.svg
    :width: 30%
@@ -221,10 +233,9 @@ To install skorch from source using conda, proceed as follows:
 
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
-    conda create -n skorch-env python=3.10
+    conda create -n skorch-env python=3.12
     conda activate skorch-env
-    conda install -c pytorch pytorch
-    python -m pip install -r requirements.txt
+    python -m pip install torch
     python -m pip install .
 
 If you want to help developing, run:
@@ -233,12 +244,10 @@ If you want to help developing, run:
 
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
-    conda create -n skorch-env python=3.10
+    conda create -n skorch-env python=3.12
     conda activate skorch-env
-    conda install -c pytorch pytorch
-    python -m pip install -r requirements.txt
-    python -m pip install -r requirements-dev.txt
-    python -m pip install -e .
+    python -m pip install torch
+    python -m pip install '.[test,docs,dev,extended]'
 
     py.test  # unit tests
     pylint skorch  # static code checks
@@ -255,7 +264,6 @@ For pip, follow these instructions instead:
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     # create and activate a virtual environment
-    python -m pip install -r requirements.txt
     # install pytorch version for your system (see below)
     python -m pip install .
 
@@ -266,10 +274,8 @@ If you want to help developing, run:
     git clone https://github.com/skorch-dev/skorch.git
     cd skorch
     # create and activate a virtual environment
-    python -m pip install -r requirements.txt
     # install pytorch version for your system (see below)
-    python -m pip install -r requirements-dev.txt
-    python -m pip install -e .
+    python -m pip install -e '.[test,docs,dev,extended]'
 
     py.test  # unit tests
     pylint skorch  # static code checks
@@ -283,10 +289,10 @@ instructions for PyTorch, visit the `PyTorch website
 <http://pytorch.org/>`__. skorch officially supports the last four
 minor PyTorch versions, which currently are:
 
-- 2.2.2
-- 2.3.1
-- 2.4.1
 - 2.5.1
+- 2.6.0
+- 2.7.1
+- 2.8.0
 
 However, that doesn't mean that older versions don't work, just that
 they aren't tested. Since skorch mostly relies on the stable part of
@@ -296,9 +302,6 @@ In general, running this to install PyTorch should work:
 
 .. code:: bash
 
-    # using conda:
-    conda install pytorch pytorch-cuda -c pytorch
-    # using pip
     python -m pip install torch
 
 ==================

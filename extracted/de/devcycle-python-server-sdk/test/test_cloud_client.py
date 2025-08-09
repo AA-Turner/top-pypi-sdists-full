@@ -5,7 +5,6 @@ import uuid
 from time import time
 from unittest.mock import patch
 
-
 from devcycle_python_sdk import DevCycleCloudClient, DevCycleCloudOptions
 from devcycle_python_sdk.models.eval_hook import EvalHook
 from devcycle_python_sdk.models.user import DevCycleUser
@@ -99,7 +98,7 @@ class DevCycleCloudClientTest(unittest.TestCase):
         self.assertEqual(result.value, "default_value")
         self.assertTrue(result.isDefaulted)
         self.assertEqual(result.eval.reason, "DEFAULT")
-        self.assertEqual(result.eval.details, "Missing Variable")
+        self.assertEqual(result.eval.details, "Error")
 
         # other exception - return default
         mock_variable_call.reset_mock()
@@ -307,10 +306,10 @@ class DevCycleCloudClientTest(unittest.TestCase):
             hook_called["before"] = True
             return context
 
-        def after_hook(context, variable):
+        def after_hook(context, variable, variable_metadata):
             hook_called["after"] = True
 
-        def finally_hook(context, variable):
+        def finally_hook(context, variable, variable_metadata):
             hook_called["finally"] = True
 
         def error_hook(context, error):
@@ -347,10 +346,10 @@ class DevCycleCloudClientTest(unittest.TestCase):
             hook_called["before"] = True
             raise Exception("Before hook failed")
 
-        def after_hook(context, variable):
+        def after_hook(context, variable, variable_metadata):
             hook_called["after"] = True
 
-        def finally_hook(context, variable):
+        def finally_hook(context, variable, variable_metadata):
             hook_called["finally"] = True
 
         def error_hook(context, error):
@@ -369,6 +368,42 @@ class DevCycleCloudClientTest(unittest.TestCase):
         self.assertFalse(hook_called["after"])
         self.assertTrue(hook_called["finally"])
         self.assertTrue(hook_called["error"])
+
+    @patch("devcycle_python_sdk.api.bucketing_client.BucketingAPIClient.variable")
+    def test_context_has_null_config_metadata(self, mock_variable_call):
+        mock_variable_call.return_value = Variable(
+            _id="123", key="strKey", value=999, type=TypeEnum.NUMBER
+        )
+
+        context_received = None
+
+        def before_hook(context):
+            nonlocal context_received
+            context_received = context
+            return context
+
+        def after_hook(context, variable, variable_metadata):
+            pass
+
+        def finally_hook(context, variable, variable_metadata):
+            pass
+
+        def error_hook(context, error):
+            pass
+
+        self.test_client.add_hook(
+            EvalHook(before_hook, after_hook, finally_hook, error_hook)
+        )
+
+        # Test that context has config_metadata field but it's null for cloud client
+        variable = self.test_client.variable(self.test_user, "strKey", 42)
+
+        # Verify the variable evaluation worked
+        self.assertIsNotNone(variable)
+        self.assertIsNotNone(context_received)
+        self.assertTrue(hasattr(context_received, "config_metadata"))
+        # Cloud client should have null config_metadata since it's not implemented
+        self.assertIsNone(context_received.config_metadata)
 
 
 if __name__ == "__main__":

@@ -54,6 +54,7 @@ from .models.delete_account200_response import DeleteAccount200Response
 from .models.delete_account_request import DeleteAccountRequest
 from .models.delete_account_response import DeleteAccountResponse
 from .models.deleted_account import DeletedAccount
+from .models.delta import Delta
 from .models.downgrade_license import DowngradeLicense
 from .models.downgrade_license200_response import DowngradeLicense200Response
 from .models.downgrade_license_request import DowngradeLicenseRequest
@@ -181,6 +182,7 @@ from .models.update_account200_response import UpdateAccount200Response
 from .models.update_account_request import UpdateAccountRequest
 from .models.update_account_response import UpdateAccountResponse
 from .models.updateable_account import UpdateableAccount
+from .models.updated_accounts import UpdatedAccounts
 from .models.validate_credentials import ValidateCredentials
 from .models.validate_credentials200_response import ValidateCredentials200Response
 from .models.validate_credentials_request import ValidateCredentialsRequest
@@ -240,6 +242,7 @@ __all__ = [
     "DeleteAccountRequest",
     "DeleteAccountResponse",
     "DeletedAccount",
+    "Delta",
     "DowngradeLicense",
     "DowngradeLicense200Response",
     "DowngradeLicenseRequest",
@@ -367,6 +370,7 @@ __all__ = [
     "UpdateAccountRequest",
     "UpdateAccountResponse",
     "UpdateableAccount",
+    "UpdatedAccounts",
     "ValidateCredentials",
     "ValidateCredentials200Response",
     "ValidateCredentialsRequest",

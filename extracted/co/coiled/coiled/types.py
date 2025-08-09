@@ -58,6 +58,7 @@ class PackageInfo(TypedDict):
     conda_name: Optional[str]
     version: str
     wheel_target: Optional[str]
+    requested: bool
 
 
 class PackageSchema(TypedDict):
@@ -104,6 +105,7 @@ class PackageLevelEnum(int, Enum):
     IGNORE = -2
     MATCH_MINOR = -3
     MATCH_MINOR_CEILING = -4
+    IGNORE_UNLESS_REQUESTED = -5
 
 
 KNOWN_PACKAGE_LEVELS = {level.value for level in PackageLevelEnum}
@@ -122,6 +124,7 @@ class ApproximatePackageRequest(TypedDict):
     conda_name: Optional[str]
     version: str
     wheel_target: Optional[str]
+    requested: bool
 
 
 class ApproximatePackageResult(TypedDict):
@@ -247,6 +250,7 @@ class CondaPackage:
         self.depends: List[str] = meta_json.get("depends", [])
         self.constrains: List[str] = meta_json.get("constrains", [])
         self.channel, self.channel_url = parse_conda_channel(self.name, meta_json["channel"], self.subdir)
+        self.requested_spec = meta_json.get("requested_spec", "")
 
     def __repr__(self):
         return (

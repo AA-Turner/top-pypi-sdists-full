@@ -392,10 +392,10 @@ class DevCycleLocalClientTest(unittest.TestCase):
             hook_called["before"] = True
             return context
 
-        def after_hook(context, variable):
+        def after_hook(context, variable, variable_metadata):
             hook_called["after"] = True
 
-        def finally_hook(context, variable):
+        def finally_hook(context, variable, variable_metadata):
             hook_called["finally"] = True
 
         def error_hook(context, error):
@@ -432,10 +432,10 @@ class DevCycleLocalClientTest(unittest.TestCase):
             hook_called["before"] = True
             raise Exception("Before hook failed")
 
-        def after_hook(context, variable):
+        def after_hook(context, variable, variable_metadata):
             hook_called["after"] = True
 
-        def finally_hook(context, variable):
+        def finally_hook(context, variable, variable_metadata):
             hook_called["finally"] = True
 
         def error_hook(context, error):
@@ -456,6 +456,55 @@ class DevCycleLocalClientTest(unittest.TestCase):
         self.assertFalse(hook_called["after"])
         self.assertTrue(hook_called["finally"])
         self.assertTrue(hook_called["error"])
+
+    @responses.activate
+    def test_context_has_config_metadata(self):
+        self.setup_client()
+
+        context_received = None
+
+        def before_hook(context):
+            nonlocal context_received
+            context_received = context
+            return context
+
+        def after_hook(context, variable, variable_metadata):
+            pass
+
+        def finally_hook(context, variable, variable_metadata):
+            pass
+
+        def error_hook(context, error):
+            pass
+
+        self.client.add_hook(
+            EvalHook(before_hook, after_hook, finally_hook, error_hook)
+        )
+
+        user = DevCycleUser(user_id="1234")
+
+        # Test that context has config_metadata field
+        variable = self.client.variable(user, "num-var", 42)
+
+        # Verify the variable evaluation worked
+        self.assertIsNotNone(variable)
+        self.assertIsNotNone(context_received)
+        self.assertTrue(hasattr(context_received, "config_metadata"))
+        # For local client, config_metadata should be populated
+        self.assertIsNotNone(context_received.config_metadata)
+        self.assertTrue(hasattr(context_received.config_metadata, "project"))
+        self.assertTrue(hasattr(context_received.config_metadata, "environment"))
+        # Verify the project and environment data
+        self.assertEqual(
+            context_received.config_metadata.project.id, "61f97628ff4afcb6d057dbf0"
+        )
+        self.assertEqual(context_received.config_metadata.project.key, "emma-project")
+        self.assertEqual(
+            context_received.config_metadata.environment.id, "61f97628ff4afcb6d057dbf2"
+        )
+        self.assertEqual(
+            context_received.config_metadata.environment.key, "development"
+        )
 
 
 def _benchmark_variable_call(client: DevCycleLocalClient, user: DevCycleUser, key: str):

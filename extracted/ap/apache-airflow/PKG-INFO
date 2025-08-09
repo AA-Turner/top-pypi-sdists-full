@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow
-Version: 3.0.3
+Version: 3.0.4
 Summary: Programmatically author, schedule and monitor data pipelines
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -29,9 +29,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Monitoring
-Requires-Python: <3.13,~=3.9
-Requires-Dist: apache-airflow-core==3.0.3
-Requires-Dist: apache-airflow-task-sdk<1.1.0,>=1.0.0
+Requires-Python: !=3.13,>=3.9
+Requires-Dist: apache-airflow-core==3.0.4
+Requires-Dist: apache-airflow-task-sdk<1.1.0,>=1.0.4
 Provides-Extra: aiobotocore
 Requires-Dist: apache-airflow-providers-amazon[aiobotocore]>=9.6.0; extra == 'aiobotocore'
 Provides-Extra: airbyte
@@ -152,7 +152,7 @@ Requires-Dist: atlasclient>=0.1.2; extra == 'all'
 Requires-Dist: authlib>=1.0.0; extra == 'all'
 Requires-Dist: cloudpickle>=2.2.1; extra == 'all'
 Requires-Dist: python-ldap>=3.4.4; extra == 'all'
-Requires-Dist: uv>=0.7.19; extra == 'all'
+Requires-Dist: uv>=0.8.4; extra == 'all'
 Provides-Extra: all-core
 Requires-Dist: apache-airflow-core[all]; extra == 'all-core'
 Provides-Extra: amazon
@@ -366,7 +366,7 @@ Requires-Dist: apache-airflow-providers-teradata>=2.6.1; extra == 'teradata'
 Provides-Extra: trino
 Requires-Dist: apache-airflow-providers-trino>=5.8.1; extra == 'trino'
 Provides-Extra: uv
-Requires-Dist: uv>=0.7.19; extra == 'uv'
+Requires-Dist: uv>=0.8.4; extra == 'uv'
 Provides-Extra: vertica
 Requires-Dist: apache-airflow-providers-vertica>=3.9.1; extra == 'vertica'
 Provides-Extra: weaviate
@@ -437,7 +437,7 @@ Use Airflow to author workflows as directed acyclic graphs (DAGs) of tasks. The 
 
 Apache Airflow is tested with:
 
-|            | Main version (dev)     | Stable version (3.0.1) |
+|            | Main version (dev)     | Stable version (3.0.4) |
 |------------|------------------------|------------------------|
 | Python     | 3.9, 3.10, 3.11, 3.12  | 3.9, 3.10, 3.11, 3.12  |
 | Platform   | AMD64/ARM64(\*)        | AMD64/ARM64(\*)        |

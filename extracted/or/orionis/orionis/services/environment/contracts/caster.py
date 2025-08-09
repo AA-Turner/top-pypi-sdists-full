@@ -10,24 +10,23 @@ class IEnvironmentCaster(ABC):
         Parameters
         ----------
         type_hint : str
-            The type hint to set, which must be one of the valid options defined in OPTIONS.
+            The type hint to assign. Must be one of the valid options defined in OPTIONS.
 
         Raises
         ------
         OrionisEnvironmentValueError
-            If the provided type hint is not one of the valid options.
+            If the provided type hint is not among the valid options.
         """
         pass
 
     @abstractmethod
     def get(self):
         """
-        Returns the value corresponding to the specified type hint.
+        Retrieve the value corresponding to the specified type hint.
 
-        Checks if the provided type hint is valid and then dispatches the call to the appropriate
-        method for handling the type.
-
-        Supported type hints include: 'path:', 'str:', 'int:', 'float:', 'bool:', 'list:', 'dict:', 'tuple:', and 'set:'.
+        Checks the validity of the provided type hint and dispatches the call to the appropriate
+        handler for the type. Supported type hints include: 'path:', 'str:', 'int:', 'float:',
+        'bool:', 'list:', 'dict:', 'tuple:', and 'set:'.
 
         Returns
         -------
@@ -37,6 +36,6 @@ class IEnvironmentCaster(ABC):
         Raises
         ------
         OrionisEnvironmentValueError
-            If the type hint is not one of the supported options.
+            If the type hint is not supported.
         """
         pass

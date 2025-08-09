@@ -1,16 +1,51 @@
 from abc import ABC, abstractmethod
 import asyncio
-
 from tests.container.mocks.mock_simple_classes import ICar
 
 def ejemplo(x:int = 3, y:int = 2):
+    """
+    Add two integers together.
+
+    Parameters
+    ----------
+    x : int, default 3
+        First integer operand.
+    y : int, default 2
+        Second integer operand.
+
+    Returns
+    -------
+    int
+        Sum of x and y.
+    """
     return x + y
 
 class AbstractFakeClass(ABC):
-
     """
-    AbstractFakeClass es una clase abstracta basada en FakeClass, diseñada para simular atributos y métodos de diferentes niveles de visibilidad.
-    Define métodos y propiedades abstractas para ser implementadas por subclases concretas.
+    Abstract base class for testing attribute and method visibility patterns.
+
+    This class defines abstract methods and properties with different visibility
+    levels (public, protected, private) for testing purposes. It includes
+    synchronous and asynchronous methods as instance, class, and static methods.
+
+    Attributes
+    ----------
+    public_attr : int
+        Public class attribute with default value 42.
+    dynamic_attr : Any
+        Dynamic attribute that can be set at runtime, initially None.
+    _protected_attr : str
+        Protected class attribute with default value "protected".
+    __private_attr : str
+        Private class attribute with default value "private".
+    __dd__ : str
+        Dunder attribute with default value "dunder_value".
+
+    Notes
+    -----
+    All methods are abstract and must be implemented by concrete subclasses.
+    This class serves as a template for testing different method and property
+    visibility patterns in Python.
     """
 
     # Atributos de clase
@@ -24,10 +59,12 @@ class AbstractFakeClass(ABC):
     @abstractmethod
     def computed_public_property(self) -> str:
         """
-        Computes and returns the value of a public property.
+        Abstract property that computes and returns a public property value.
 
-        Returns:
-            str: The computed value of the public property.
+        Returns
+        -------
+        str
+            The computed value of the public property.
         """
         pass
 
@@ -35,10 +72,12 @@ class AbstractFakeClass(ABC):
     @abstractmethod
     def _computed_property_protected(self) -> str:
         """
-        A protected method intended to compute and return a string property.
+        Abstract protected property that computes and returns a string value.
 
-        Returns:
-            str: The computed property as a string.
+        Returns
+        -------
+        str
+            The computed property as a string.
         """
         pass
 
@@ -52,116 +91,262 @@ class AbstractFakeClass(ABC):
     # Métodos de instancia
     @abstractmethod
     def instanceSyncMethod(self, x: int, y: int) -> int:
+        """
+        Abstract synchronous instance method for integer operations.
+
+        Parameters
+        ----------
+        x : int
+            First integer operand.
+        y : int
+            Second integer operand.
+
+        Returns
+        -------
+        int
+            Result of the operation.
+        """
         pass
 
     @abstractmethod
     async def instanceAsyncMethod(self, x: int, y: int) -> int:
+        """
+        Abstract asynchronous instance method for integer operations.
+
+        Parameters
+        ----------
+        x : int
+            First integer operand.
+        y : int
+            Second integer operand.
+
+        Returns
+        -------
+        int
+            Result of the operation.
+        """
         pass
 
     @abstractmethod
     def _protectedsyncMethod(self, x: int, y: int) -> int:
+        """
+        Abstract protected synchronous instance method for integer operations.
+
+        Parameters
+        ----------
+        x : int
+            First integer operand.
+        y : int
+            Second integer operand.
+
+        Returns
+        -------
+        int
+            Result of the operation.
+        """
         pass
 
     @abstractmethod
     async def _protectedAsyncMethod(self, x: int, y: int) -> int:
+        """
+        Abstract protected asynchronous instance method for integer operations.
+
+        Parameters
+        ----------
+        x : int
+            First integer operand.
+        y : int
+            Second integer operand.
+
+        Returns
+        -------
+        int
+            Result of the operation.
+        """
         pass
 
     # Métodos de clase
     @classmethod
     @abstractmethod
     def classSyncMethod(cls, x: int, y: int) -> int:
+        """
+        Abstract synchronous class method for integer operations.
+
+        Parameters
+        ----------
+        x : int
+            First integer operand.
+        y : int
+            Second integer operand.
+
+        Returns
+        -------
+        int
+            Result of the operation.
+        """
         pass
 
     @classmethod
     @abstractmethod
     async def classAsyncMethod(cls, x: int, y: int) -> int:
+        """
+        Abstract asynchronous class method for integer operations.
+
+        Parameters
+        ----------
+        x : int
+            First integer operand.
+        y : int
+            Second integer operand.
+
+        Returns
+        -------
+        int
+            Result of the operation.
+        """
         pass
 
     @classmethod
     @abstractmethod
     def _classMethodProtected(cls, x: int, y: int) -> int:
+        """
+        Abstract protected synchronous class method for integer operations.
+
+        Parameters
+        ----------
+        x : int
+            First integer operand.
+        y : int
+            Second integer operand.
+
+        Returns
+        -------
+        int
+            Result of the operation.
+        """
         pass
 
     @classmethod
     @abstractmethod
     async def _classAsyncMethodProtected(cls, x: int, y: int) -> int:
+        """
+        Abstract protected asynchronous class method for integer operations.
+
+        Parameters
+        ----------
+        x : int
+            First integer operand.
+        y : int
+            Second integer operand.
+
+        Returns
+        -------
+        int
+            Result of the operation.
+        """
         pass
 
     # Métodos estáticos
     @staticmethod
     @abstractmethod
     def staticMethod(text: str) -> str:
+        """
+        Abstract static method for text processing.
+
+        Parameters
+        ----------
+        text : str
+            Input text string to process.
+
+        Returns
+        -------
+        str
+            Processed text string.
+        """
         pass
 
     @staticmethod
     @abstractmethod
     async def staticAsyncMethod(text: str) -> str:
+        """
+        Abstract asynchronous static method for text processing.
+
+        Parameters
+        ----------
+        text : str
+            Input text string to process.
+
+        Returns
+        -------
+        str
+            Processed text string.
+        """
         pass
 
     @staticmethod
     @abstractmethod
     def _staticMethodProtected(text: str) -> str:
+        """
+        Abstract protected static method for text processing.
+
+        Parameters
+        ----------
+        text : str
+            Input text string to process.
+
+        Returns
+        -------
+        str
+            Processed text string.
+        """
         pass
 
     @staticmethod
     @abstractmethod
     async def _staticAsyncMethodProtected(text: str) -> str:
+        """
+        Abstract protected asynchronous static method for text processing.
+
+        Parameters
+        ----------
+        text : str
+            Input text string to process.
+
+        Returns
+        -------
+        str
+            Processed text string.
+        """
         pass
 
 class FakeClass(AbstractFakeClass):
     """
-    FakeClass is a test double class designed to simulate a variety of attribute and method visibilities for inspection and testing purposes.
-    This class provides:
-    - Public, protected, and private class-level and instance-level attributes.
-    - Public, protected, and private properties.
-    - Synchronous and asynchronous instance methods with varying visibilities.
-    - Synchronous and asynchronous class methods with varying visibilities.
-    - Synchronous and asynchronous static methods with varying visibilities.
-        public_attr (int): A public class and instance attribute set to 42.
-        dynamic_attr: A public attribute initialized to None, can be set dynamically.
-        _protected_attr (str): A protected class and instance attribute set to "protected".
-        __private_attr (str): A private class and instance attribute set to "private".
-    Properties:
-        computed_public_property (str): Returns "public property".
-        _computed_property_protected (str): Returns "protected property".
-        __computed_property_private (str): Returns "private property".
-    Methods:
-        instanceSyncMethod(x: int, y: int) -> int:
-        instanceAsyncMethod(x: int, y: int) -> int:
-        _protectedsyncMethod(x: int, y: int) -> int:
-            Protected synchronous addition method.
-        _protectedAsyncMethod(x: int, y: int) -> int:
-            Protected asynchronous addition method.
-        __privateSyncMethod(x: int, y: int) -> int:
-            Private synchronous addition method.
-        __privateAsyncMethod(x: int, y: int) -> int:
-            Private asynchronous addition method.
-    Class Methods:
-        classSyncMethod(x: int, y: int) -> int:
-        classAsyncMethod(x: int, y: int) -> int:
-        _classMethodProtected(x: int, y: int) -> int:
-            Protected synchronous class addition method.
-        _classAsyncMethodProtected(x: int, y: int) -> int:
-            Protected asynchronous class addition method.
-        __classMethodPrivate(x: int, y: int) -> int:
-            Private synchronous class addition method.
-        __classAsyncMethodPrivate(x: int, y: int) -> int:
-            Private asynchronous class addition method.
-    Static Methods:
-        staticMethod(text: str) -> str:
-            Synchronously converts the input text to uppercase.
-        staticAsyncMethod(text: str) -> str:
-            Asynchronously converts the input text to uppercase.
-        _staticMethodProtected(text: str) -> str:
-            Protected synchronous static method to uppercase text.
-        _staticAsyncMethodProtected(text: str) -> str:
-            Protected asynchronous static method to uppercase text.
-        __staticMethodPrivate(text: str) -> str:
-            Private synchronous static method to uppercase text.
-        __staticAsyncMethodPrivate(text: str) -> str:
-            Private asynchronous static method to uppercase text.
-    Note:
-        This class is intended for testing and inspection of attribute and method visibility, including Python's name mangling for private members.
+    Concrete implementation of AbstractFakeClass for testing attribute and method visibility.
+
+    This test double class provides concrete implementations of all abstract methods
+    and properties defined in AbstractFakeClass. It demonstrates various visibility
+    levels (public, protected, private) for attributes, properties, and methods
+    including synchronous and asynchronous variants for instance, class, and static methods.
+
+    Attributes
+    ----------
+    public_attr : int
+        Public attribute accessible from anywhere, default value 42.
+    dynamic_attr : Any
+        Dynamic attribute that can be set at runtime, initially None.
+    _protected_attr : str
+        Protected attribute following Python naming convention, default "protected".
+    __private_attr : str
+        Private attribute using name mangling, default "private".
+    __dd__ : str
+        Dunder attribute demonstrating double underscore usage, default "dunder_value".
+
+    Notes
+    -----
+    This class is intended for testing and inspection of Python's attribute and
+    method visibility patterns, including name mangling behavior for private members.
+    All methods perform simple operations (addition for numeric methods, uppercase
+    conversion for string methods) with optional async delays for testing purposes.
     """
 
     # Class-level attribute (Public)
@@ -178,48 +363,65 @@ class FakeClass(AbstractFakeClass):
     @property
     def computed_public_property(self) -> str:
         """
-        Returns the string "public" as a computed property.
+        Compute and return a public property value.
 
-        Returns:
-            str: The string "public".
+        Returns
+        -------
+        str
+            The string "public property".
         """
         return f"public property"
 
     @property
     def _computed_property_protected(self) -> str:
         """
-        Returns a string indicating that this is a protected computed property.
+        Compute and return a protected property value.
 
-        Returns:
-            str: The string "protected".
+        Returns
+        -------
+        str
+            The string "protected property".
         """
-        """A computed property."""
+        # A computed property.
         return f"protected property"
 
     @property
     def __computed_property_private(self) -> str:
         """
-        Returns the string "private".
+        Compute and return a private property value.
 
-        This is a private computed property method, typically used for internal logic or testing purposes.
+        Returns
+        -------
+        str
+            The string "private property".
 
-        Returns:
-            str: The string "private".
+        Notes
+        -----
+        This is a private computed property method using name mangling,
+        typically used for internal logic or testing purposes.
         """
         return f"private property"
 
     def __init__(self, carro:ICar, *, edad:int=10, callback:ejemplo) -> None:
         """
-        Initializes the instance with various attributes for testing attribute visibility.
+        Initialize the FakeClass instance with various attributes for testing visibility.
 
-        Attributes:
-            public_attr (int): A public attribute set to 42.
-            _protected_attr (str): A protected attribute set to "protected".
-            __private_attr (str): A private attribute set to "private".
-            dynamic_attr: An attribute initialized to None, can be set dynamically.
-            __dd__ (str): A dunder (double underscore) attribute set to "dunder_value".
+        Parameters
+        ----------
+        carro : ICar
+            Car instance dependency.
+        edad : int, default 10
+            Age parameter (keyword-only).
+        callback : callable
+            Callback function, typically the ejemplo function.
+
+        Notes
+        -----
+        Initializes attributes with different visibility levels:
+        - Public attributes: public_attr, dynamic_attr
+        - Protected attributes: _protected_attr
+        - Private attributes: __private_attr, __dd__
         """
-
         # Initialize attributes (Publics)
         self.public_attr = 42
         self.dynamic_attr = None
@@ -233,250 +435,358 @@ class FakeClass(AbstractFakeClass):
 
     def instanceSyncMethod(self, x: int, y: int) -> int:
         """
-        Synchronously adds two integers and returns the result.
+        Synchronously add two integers.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
         """
         return x + y
 
     async def instanceAsyncMethod(self, x: int, y: int) -> int:
         """
-        Asynchronously adds two integers and returns the result.
+        Asynchronously add two integers with a brief delay.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return x + y
 
     def _protectedsyncMethod(self, x: int, y: int) -> int:
         """
-        Synchronously adds two integers and returns the result (protected method).
+        Protected synchronous method to add two integers.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
         """
         return x + y
 
     async def _protectedAsyncMethod(self, x: int, y: int) -> int:
         """
-        Asynchronously adds two integers and returns the result (protected method).
+        Protected asynchronous method to add two integers with a brief delay.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return x + y
 
     def __privateSyncMethod(self, x: int, y: int) -> int:
         """
-        Synchronously adds two integers and returns the result (private method).
+        Private synchronous method to add two integers.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
+
+        Notes
+        -----
+        This method uses name mangling due to the double underscore prefix.
         """
         return x + y
 
     async def __privateAsyncMethod(self, x: int, y: int) -> int:
         """
-        Asynchronously adds two integers and returns the result (private method).
+        Private asynchronous method to add two integers with a brief delay.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
+
+        Notes
+        -----
+        This method uses name mangling due to the double underscore prefix.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return x + y
 
     @classmethod
     def classSyncMethod(cls, x: int, y: int) -> int:
         """
-        Synchronously adds two integers and returns the result (class method).
+        Synchronous class method to add two integers.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
         """
         return x + y
 
     @classmethod
     async def classAsyncMethod(cls, x: int, y: int) -> int:
         """
-        Asynchronously adds two integers and returns the result (class method).
+        Asynchronous class method to add two integers with a brief delay.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return x + y
 
     @classmethod
     def _classMethodProtected(cls, x: int, y: int) -> int:
         """
-        Synchronously adds two integers and returns the result (protected class method).
+        Protected synchronous class method to add two integers.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
         """
         return x + y
 
     @classmethod
     async def _classAsyncMethodProtected(cls, x: int, y: int) -> int:
         """
-        Asynchronously adds two integers and returns the result (protected class method).
+        Protected asynchronous class method to add two integers with a brief delay.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return x + y
 
     @classmethod
     def __classMethodPrivate(cls, x: int, y: int) -> int:
         """
-        Synchronously adds two integers and returns the result (private class method).
+        Private synchronous class method to add two integers.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
+
+        Notes
+        -----
+        This method uses name mangling due to the double underscore prefix.
         """
         return x + y
 
     @classmethod
     async def __classAsyncMethodPrivate(cls, x: int, y: int) -> int:
         """
-        Asynchronously adds two integers and returns the result (private class method).
+        Private asynchronous class method to add two integers with a brief delay.
 
-        Args:
-            x (int): The first integer to add.
-            y (int): The second integer to add.
+        Parameters
+        ----------
+        x : int
+            The first integer to add.
+        y : int
+            The second integer to add.
 
-        Returns:
-            int: The sum of x and y.
+        Returns
+        -------
+        int
+            The sum of x and y.
+
+        Notes
+        -----
+        This method uses name mangling due to the double underscore prefix.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return x + y
 
     @staticmethod
     def staticMethod(text: str) -> str:
         """
-        Synchronously converts the input text to uppercase (static method).
+        Static method to convert text to uppercase.
 
-        Args:
-            text (str): The input string.
+        Parameters
+        ----------
+        text : str
+            Input text string to convert.
 
-        Returns:
-            str: The uppercase version of the input string.
+        Returns
+        -------
+        str
+            The uppercase version of the input string.
         """
         return text.upper()
 
     @staticmethod
     async def staticAsyncMethod(text: str) -> str:
         """
-        Asynchronously converts the input text to uppercase (static method).
+        Asynchronous static method to convert text to uppercase with a brief delay.
 
-        Args:
-            text (str): The input string.
+        Parameters
+        ----------
+        text : str
+            Input text string to convert.
 
-        Returns:
-            str: The uppercase version of the input string.
+        Returns
+        -------
+        str
+            The uppercase version of the input string.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return text.upper()
 
     @staticmethod
     def _staticMethodProtected(text: str) -> str:
         """
-        Synchronously converts the input text to uppercase (protected static method).
+        Protected static method to convert text to uppercase.
 
-        Args:
-            text (str): The input string.
+        Parameters
+        ----------
+        text : str
+            Input text string to convert.
 
-        Returns:
-            str: The uppercase version of the input string.
+        Returns
+        -------
+        str
+            The uppercase version of the input string.
         """
         return text.upper()
 
     @staticmethod
     async def _staticAsyncMethodProtected(text: str) -> str:
         """
-        Asynchronously converts the input text to uppercase (protected static method).
+        Protected asynchronous static method to convert text to uppercase with a brief delay.
 
-        Args:
-            text (str): The input string.
+        Parameters
+        ----------
+        text : str
+            Input text string to convert.
 
-        Returns:
-            str: The uppercase version of the input string.
+        Returns
+        -------
+        str
+            The uppercase version of the input string.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return text.upper()
 
     @staticmethod
     def __staticMethodPrivate(text: str) -> str:
         """
-        Synchronously converts the input text to uppercase (private static method).
+        Private static method to convert text to uppercase.
 
-        Args:
-            text (str): The input string.
+        Parameters
+        ----------
+        text : str
+            Input text string to convert.
 
-        Returns:
-            str: The uppercase version of the input string.
+        Returns
+        -------
+        str
+            The uppercase version of the input string.
+
+        Notes
+        -----
+        This method uses name mangling due to the double underscore prefix.
         """
         return text.upper()
 
     @staticmethod
     async def __staticAsyncMethodPrivate(text: str) -> str:
         """
-        Asynchronously converts the input text to uppercase (private static method).
+        Private asynchronous static method to convert text to uppercase with a brief delay.
 
-        Args:
-            text (str): The input string.
+        Parameters
+        ----------
+        text : str
+            Input text string to convert.
 
-        Returns:
-            str: The uppercase version of the input string.
+        Returns
+        -------
+        str
+            The uppercase version of the input string.
+
+        Notes
+        -----
+        This method uses name mangling due to the double underscore prefix.
         """
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.1)  # Brief async delay for testing
         return text.upper()
 

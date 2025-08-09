@@ -30,7 +30,7 @@ with DAG(
         default_args=default_args,
         start_date=datetime(2022, 2, 8),
         catchup=False,
-        schedule_interval=timedelta(1)
+        schedule=None
 ) as dag:
     mcd_connection_id = 'mcd_default_session'
 
@@ -41,7 +41,7 @@ with DAG(
     breaker1 = SimpleCircuitBreakerOperator(
         task_id='circuit_breaker_1',
         mcd_session_conn_id=mcd_connection_id,
-        rule_uuid='58dcbf8a-056f-4d25-9675-0b7f0d08d218'  # A rule that should always breach
+        rule_uuid='045a82b0-5899-42ee-9b99-15263ec42519'  # A rule that should always breach
     )
     breaker2 = SimpleCircuitBreakerOperator(
         task_id='circuit_breaker_2',

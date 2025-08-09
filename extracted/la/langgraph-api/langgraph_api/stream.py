@@ -348,7 +348,17 @@ async def astream_state(
         yield "feedback", feedback_urls
 
 
-async def consume(stream: AnyStream, run_id: str, resumable: bool = False) -> None:
+async def consume(
+    stream: AnyStream,
+    run_id: str,
+    resumable: bool = False,
+    stream_modes: set[StreamMode] | None = None,
+) -> None:
+    stream_modes = stream_modes or set()
+    if "messages-tuple" in stream_modes:
+        stream_modes.add("messages")
+    stream_modes.add("metadata")
+
     async with aclosing(stream):
         try:
             async for mode, payload in stream:
@@ -356,7 +366,7 @@ async def consume(stream: AnyStream, run_id: str, resumable: bool = False) -> No
                     run_id,
                     mode,
                     await run_in_executor(None, json_dumpb, payload),
-                    resumable=resumable,
+                    resumable=resumable and mode.split("|")[0] in stream_modes,
                 )
         except Exception as e:
             if isinstance(e, ExceptionGroup):
@@ -365,7 +375,6 @@ async def consume(stream: AnyStream, run_id: str, resumable: bool = False) -> No
                 run_id,
                 "error",
                 await run_in_executor(None, json_dumpb, e),
-                resumable=resumable,
             )
             raise e
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: Perception
-Version: 0.8.0
+Version: 0.8.1
 Summary: Perception provides flexible, well-documented, and comprehensively tested tooling for perceptual hashing research, development, and production use.
 License: Apache-2.0
 Author: Thorn

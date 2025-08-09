@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-aiofiles"
-version = "24.1.0.20250801"
+version = "24.1.0.20250809"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for aiofiles"
@@ -27,8 +27,9 @@ directory.
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 1.16.1
 * [pyright](https://github.com/microsoft/pyright) 1.1.403
+
 It was generated from typeshed commit
-[`8edafa8029b48c2bb877dde68a572dc4a4349557`](https://github.com/python/typeshed/commit/8edafa8029b48c2bb877dde68a572dc4a4349557).
+[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

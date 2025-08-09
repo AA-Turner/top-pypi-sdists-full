@@ -71,7 +71,12 @@ except ImportError:
     pass
 
 try:
-    import oneocr
+    try:
+        if os.path.exists(os.path.expanduser('~/.config/oneocr/oneocr.dll')):
+            import oneocr
+    except Exception as e:
+        oneocr = None
+        logger.warning(f'Failed to import OneOCR: {e}', exc_info=True)
 except ImportError:
     pass
 
@@ -280,7 +285,10 @@ class GoogleLens:
             logger.info('Google Lens ready')
 
     def __call__(self, img, furigana_filter_sensitivity=0, return_coords=False):
-        furigana_filter_sensitivity = get_furigana_filter_sensitivity()
+        if furigana_filter_sensitivity != None:
+            furigana_filter_sensitivity = get_furigana_filter_sensitivity()
+        else:
+            furigana_filter_sensitivity = 0
         lang = get_ocr_language()
         img, is_path = input_to_pil_image(img)
         if lang != self.initial_lang:
@@ -431,6 +439,7 @@ class GoogleLens:
 
         if skipped:
             logger.info(f"Skipped {len(skipped)} chars due to furigana filter sensitivity: {furigana_filter_sensitivity}")
+            logger.debug(f"Skipped chars: {''.join(skipped)}")
 
         # img.close()
         return x
@@ -863,8 +872,11 @@ class OneOCR:
                 logger.warning('OneOCR is not supported on Windows older than 10!')
             elif 'oneocr' not in sys.modules:
                 logger.warning('oneocr not available, OneOCR will not work!')
+            elif not os.path.exists(os.path.expanduser('~/.config/oneocr/oneocr.dll')):
+                logger.warning('OneOCR DLLs not found, please install OwOCR Dependencies via OCR Tab in GSM.')
             else:
                 try:
+                    logger.info(f'Loading OneOCR model')
                     self.model = oneocr.OcrEngine()
                 except RuntimeError as e:
                     logger.warning(e + ', OneOCR will not work!')
@@ -900,9 +912,12 @@ class OneOCR:
             self.regex = re.compile(
             r'[a-zA-Z\u00C0-\u00FF\u0100-\u017F\u0180-\u024F\u0250-\u02AF\u1D00-\u1D7F\u1D80-\u1DBF\u1E00-\u1EFF\u2C60-\u2C7F\uA720-\uA7FF\uAB30-\uAB6F]')
 
-    def __call__(self, img, furigana_filter_sensitivity=0, return_coords=False, multiple_crop_coords=False):
+    def __call__(self, img, furigana_filter_sensitivity=0, return_coords=False, multiple_crop_coords=False, return_one_box=True):
         lang = get_ocr_language()
-        furigana_filter_sensitivity = get_furigana_filter_sensitivity()
+        if furigana_filter_sensitivity != None:
+            furigana_filter_sensitivity = get_furigana_filter_sensitivity()
+        else:
+            furigana_filter_sensitivity = 0
         if lang != self.initial_lang:
             self.initial_lang = lang
             self.regex = get_regex(lang)
@@ -983,23 +998,15 @@ class OneOCR:
                     #         else:
                     #             continue
                     #     res += '\n'
-                elif return_coords:
-                    for line in filtered_lines:
-                        for word in line['words']:
-                            box = {
-                                "text": word['text'],
-                                "bounding_rect": word['bounding_rect']
-                            }
-                            boxes.append(box)
+                else:
                     res = ocr_resp['text']
-                elif multiple_crop_coords:
+                    
+                if multiple_crop_coords:
+                    logger.info(f"Getting multiple crop coords for {len(filtered_lines)} lines")
                     for line in filtered_lines:
                         crop_coords_list.append(
                             (line['bounding_rect']['x1'] - 5, line['bounding_rect']['y1'] - 5,
                              line['bounding_rect']['x3'] + 5, line['bounding_rect']['y3'] + 5))
-                    res = ocr_resp['text']
-                else:
-                    res = ocr_resp['text']
 
             except RuntimeError as e:
                 return (False, e)
@@ -1015,12 +1022,14 @@ class OneOCR:
                 return (False, 'Unknown error!')
 
             res = res.json()['text']
+
+        x = [True, res]
         if return_coords:
-            x = (True, res, filtered_lines)
-        elif multiple_crop_coords:
-            x = (True, res, crop_coords_list)
-        else:
-            x = (True, res, crop_coords)
+            x.append(filtered_lines)
+        if multiple_crop_coords:
+            x.append(crop_coords_list)
+        if return_one_box:
+            x.append(crop_coords)
         if is_path:
             img.close()
         return x
@@ -1410,9 +1419,12 @@ class localLLMOCR:
                     base_url=self.api_url.replace('/v1/chat/completions', '/v1'),
                     api_key=self.api_key
                 )
-            logger.info('Local LLM OCR (OpenAI-compatible) ready')
-            self.keep_llm_hot_thread = threading.Thread(target=self.keep_llm_warm, daemon=True)
-            self.keep_llm_hot_thread.start()
+            if self.client.models.retrieve(self.model):
+                self.model = self.model
+            logger.info(f'Local LLM OCR (OpenAI-compatible) ready with model {self.model}')
+            if self.keep_warm:
+                self.keep_llm_hot_thread = threading.Thread(target=self.keep_llm_warm, daemon=True)
+                self.keep_llm_hot_thread.start()
         except Exception as e:
             logger.warning(f'Error initializing Local LLM OCR, Local LLM OCR will not work!')
         
@@ -1441,7 +1453,7 @@ class localLLMOCR:
                 prompt = self.custom_prompt.strip()
             else:
                 prompt = f"""
-                Extract all {CommonLanguages.from_code(get_ocr_language())} Text from Image. Ignore all Furigana. Do not return any commentary, just the text in the image. If there is no text in the image, return "" (Empty String).
+                Extract all {CommonLanguages.from_code(get_ocr_language()).name} Text from Image. Ignore all Furigana. Do not return any commentary, just the text in the image. If there is no text in the image, return "" (Empty String).
                 """
 
             response = self.client.chat.completions.create(
@@ -1455,7 +1467,7 @@ class localLLMOCR:
                         ],
                     }
                 ],
-                max_tokens=512,
+                max_tokens=4096,
                 temperature=0.1
             )
             self.last_ocr_time = time.time()

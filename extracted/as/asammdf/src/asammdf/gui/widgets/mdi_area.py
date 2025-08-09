@@ -126,7 +126,7 @@ def deepcopy_cfg_item(item):
             "enabled": item.get("enabled", True),
             "individual_axis": item.get("individual_axis", False),
             "common_axis": item.get("common_axis", False),
-            "color": fn.mkColor(item["color"]),
+            "color": fn.mkColor(item.get("color", "#0000ff")),
             "computed": item.get("computed", False),
             "ranges": ranges,
             "precision": item.get("precision", 3),
@@ -2890,6 +2890,7 @@ class WithMDIArea:
                 required_channels_list,
                 ignore_value2text_conversions=self.ignore_value2text_conversions,
                 copy_master=False,
+                raw=True,
             ):
                 required_channels[sig.name] = sig
 
@@ -3326,6 +3327,7 @@ class WithMDIArea:
                 required_channels,
                 ignore_value2text_conversions=self.ignore_value2text_conversions,
                 copy_master=False,
+                raw=True,
             )
         }
 
@@ -3804,6 +3806,7 @@ class WithMDIArea:
                             [el[0] for el in matrix_components],
                             ignore_value2text_conversions=self.ignore_value2text_conversions,
                             copy_master=False,
+                            raw=True,
                         ),
                         matrix_components,
                         strict=False,
@@ -3871,6 +3874,7 @@ class WithMDIArea:
                         required_channels,
                         ignore_value2text_conversions=self.ignore_value2text_conversions,
                         copy_master=False,
+                        raw=True,
                     )
                 }
 

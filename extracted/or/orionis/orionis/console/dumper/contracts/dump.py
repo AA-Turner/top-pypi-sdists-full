@@ -3,33 +3,32 @@ from typing import Any
 
 class IDebug(ABC):
     """
-    Debugging utility class for enhanced output and inspection of Python objects.
+    Abstract base class for debugging utilities that provide enhanced output and inspection of Python objects.
 
-    This class provides methods for dumping and inspecting data in various formats,
-    including plain text, JSON, and tabular representations. It also supports
-    rendering nested structures with recursion handling and customizable indentation.
+    This class defines the interface for dumping and inspecting data in various formats, 
+    supporting features such as recursion handling and customizable indentation.
     """
 
     @abstractmethod
     def dd(self, *args: Any) -> None:
         """
-        Dumps the provided arguments to the output and exits the program.
+        Dump the provided arguments to the output and terminate the program.
 
         Parameters
         ----------
         *args : Any
-            Variable length argument list to be processed and output.
+            Variable length argument list to be dumped and displayed.
         """
         pass
 
     @abstractmethod
     def dump(self, *args: Any) -> None:
         """
-        Dumps the provided arguments for debugging or logging purposes.
+        Dump the provided arguments for debugging or logging purposes.
 
         Parameters
         ----------
         *args : Any
-            Variable length argument list to be processed and output.
+            Variable length argument list to be dumped and displayed.
         """
         pass

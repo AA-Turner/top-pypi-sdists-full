@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: sagemaker
-Version: 2.249.0
+Version: 2.250.0
 Summary: Open source library for training and deploying models on Amazon SageMaker.
 Project-URL: Homepage, https://github.com/aws/sagemaker-python-sdk
 Author: Amazon Web Services
@@ -95,10 +95,18 @@ Requires-Dist: jsonpickle<4.0.0; extra == 'test'
 Requires-Dist: lexicon; extra == 'test'
 Requires-Dist: mlflow<3,>=2.14.2; extra == 'test'
 Requires-Dist: mock==4.0.3; extra == 'test'
+Requires-Dist: mypy-boto3-appflow==1.35.39; extra == 'test'
+Requires-Dist: mypy-boto3-rds==1.35.72; extra == 'test'
+Requires-Dist: mypy-boto3-redshift-data==1.35.51; extra == 'test'
+Requires-Dist: mypy-boto3-s3==1.35.76; extra == 'test'
+Requires-Dist: mypy-extensions==1.0.0; extra == 'test'
+Requires-Dist: mypy==1.9.0; extra == 'test'
 Requires-Dist: nbformat<6,>=5.9; extra == 'test'
 Requires-Dist: nest-asyncio; extra == 'test'
+Requires-Dist: networkx==3.2.1; extra == 'test'
 Requires-Dist: numpy==1.26.4; extra == 'test'
 Requires-Dist: onnx==1.17.0; extra == 'test'
+Requires-Dist: opentelemetry-exporter-otlp==1.27.0; extra == 'test'
 Requires-Dist: opentelemetry-proto==1.27.0; extra == 'test'
 Requires-Dist: orderly-set<5.4.0; extra == 'test'
 Requires-Dist: pandas==1.4.4; extra == 'test'

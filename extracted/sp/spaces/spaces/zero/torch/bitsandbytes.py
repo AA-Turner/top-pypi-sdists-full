@@ -76,7 +76,7 @@ if (import_context := maybe_import_bitsandbytes()):
     to_ops_4bit: dict[Params4bit, TensorToArgs | None] = WeakTensorKeyDictionary() # type: ignore
 
     def _to_op_register_8bit(self: Int8Params, *args, **kwargs):
-        parsed = torch._C._nn._parse_to(*args, **kwargs)
+        parsed = torch._C._nn._parse_to(*args, **kwargs) # pyright: ignore [reportAttributeAccessIssue]
         device, *_ = parsed
         if not isinstance(device, torch.device): # pragma: no cover
             return _param_to_8bit(self, *args, **kwargs)
@@ -86,7 +86,7 @@ if (import_context := maybe_import_bitsandbytes()):
         return self
 
     def _to_op_register_4bit(self: Params4bit, *args, **kwargs):
-        parsed = torch._C._nn._parse_to(*args, **kwargs)
+        parsed = torch._C._nn._parse_to(*args, **kwargs) # pyright: ignore [reportAttributeAccessIssue]
         device, *_ = parsed
         if not isinstance(device, torch.device): # pragma: no cover
             return _param_to_4bit(self, *args, **kwargs)

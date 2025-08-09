@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2.13.15
+Version: 2.14.4
 Summary: A tool for mining sentences from games. Update: Overlay?
 Author-email: Beangate <bpwhelan95@gmail.com>
 License: MIT License
@@ -39,4 +39,8 @@ Requires-Dist: obsws-python~=1.7.2
 Requires-Dist: matplotlib
 Requires-Dist: sounddevice
 Requires-Dist: google-genai
+Requires-Dist: owocr
+Requires-Dist: betterproto==2.0.0b7
+Requires-Dist: oneocr
+Requires-Dist: openai
 Dynamic: license-file

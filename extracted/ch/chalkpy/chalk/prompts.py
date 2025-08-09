@@ -153,7 +153,7 @@ def completion(
     ...        model="gpt-4o",
     ...        messages=[
     ...            P.message(
-    ...                "system",
+    ...                "user",
     ...                F.jinja("Estimate the age of the user based on the description: {{User.description}}"),
     ...            ),
     ...        ],
@@ -165,7 +165,7 @@ def completion(
     ...        model="gpt-4o",
     ...        messages=[
     ...            P.message(
-    ...                "system",
+    ...                "user",
     ...                [
     ...                    {"type": "input_text", "text": "describe this image"},
     ...                    {"type": "input_image", "image_url": _.image_url},

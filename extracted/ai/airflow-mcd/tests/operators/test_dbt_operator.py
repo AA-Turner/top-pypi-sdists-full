@@ -3,6 +3,11 @@ import subprocess
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
+import pytest
+import airflow
+if airflow.__version__.startswith("1."):
+    pytest.skip("Not supported on Airflow 1. DbtOperator is supported on Airflow >= 2.", allow_module_level=True)
+
 from airflow.exceptions import AirflowException
 from airflow.utils.context import Context
 

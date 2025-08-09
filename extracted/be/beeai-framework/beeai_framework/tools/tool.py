@@ -1,6 +1,7 @@
 # Copyright 2025 © BeeAI a Series of LF Projects, LLC
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import inspect
 import typing
 from abc import ABC, abstractmethod
@@ -73,6 +74,17 @@ class Tool(Generic[TInput, TRunOptions, TOutput], ABC):
         emitter = self._create_emitter()
         emitter.events = tool_event_types
         return emitter
+
+    def to_json_safe(self) -> dict[str, Any]:
+        input_schema = {}
+        with contextlib.suppress(Exception):
+            input_schema = self.input_schema.model_json_schema()
+
+        return {
+            "name": self.name,
+            "description": self.description,
+            "input_schema": input_schema,
+        }
 
     @abstractmethod
     def _create_emitter(self) -> Emitter:
@@ -183,7 +195,7 @@ class Tool(Generic[TInput, TRunOptions, TOutput], ABC):
 def get_input_schema(tool_function: Callable, *, name: str | None = None) -> type[BaseModel]:
     input_model_name = name or tool_function.__name__
 
-    args, _, _, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(tool_function)
+    args, _, varkw, defaults, kwonlyargs, kwonlydefaults, annotations = inspect.getfullargspec(tool_function)
     defaults = defaults or []
     args = args or []
 
@@ -202,7 +214,7 @@ def get_input_schema(tool_function: Callable, *, name: str | None = None) -> typ
         input_model_name,
         **params,
         **keyword_only_params,
-        __config__=ConfigDict(extra="allow", arbitrary_types_allowed=True),
+        __config__=ConfigDict(extra="allow" if varkw else "ignore", arbitrary_types_allowed=True),
     )
 
     return input_model

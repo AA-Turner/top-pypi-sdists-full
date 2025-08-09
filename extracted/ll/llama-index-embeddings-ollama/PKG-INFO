@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-embeddings-ollama
-Version: 0.7.0
+Version: 0.8.0
 Summary: llama-index embeddings ollama integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-sagemaker
-Version: 1.40.3
-Summary: Type annotations for boto3 SageMaker 1.40.3 service generated with mypy-boto3-builder 8.11.0
+Version: 1.40.6
+Summary: Type annotations for boto3 SageMaker 1.40.6 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,7 +56,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 SageMaker 1.40.3](https://pypi.org/project/boto3/)
+Type annotations for [boto3 SageMaker 1.40.6](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -119,7 +119,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.3' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.6' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `SageMaker` service.
 4. Use provided commands to install generated packages.
@@ -430,6 +430,7 @@ from mypy_boto3_sagemaker.paginator import (
     ListTransformJobsPaginator,
     ListTrialComponentsPaginator,
     ListTrialsPaginator,
+    ListUltraServersByReservedCapacityPaginator,
     ListUserProfilesPaginator,
     ListWorkforcesPaginator,
     ListWorkteamsPaginator,
@@ -619,6 +620,9 @@ list_trial_components_paginator: ListTrialComponentsPaginator = client.get_pagin
     "list_trial_components"
 )
 list_trials_paginator: ListTrialsPaginator = client.get_paginator("list_trials")
+list_ultra_servers_by_reserved_capacity_paginator: ListUltraServersByReservedCapacityPaginator = (
+    client.get_paginator("list_ultra_servers_by_reserved_capacity")
+)
 list_user_profiles_paginator: ListUserProfilesPaginator = client.get_paginator("list_user_profiles")
 list_workforces_paginator: ListWorkforcesPaginator = client.get_paginator("list_workforces")
 list_workteams_paginator: ListWorkteamsPaginator = client.get_paginator("list_workteams")

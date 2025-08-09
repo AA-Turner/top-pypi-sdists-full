@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-can
-Version: 4.5.0
+Version: 4.6.0
 Summary: Controller Area Network interface module for Python
 Author: python-can contributors
-License: LGPL v3
+License-Expression: LGPL-3.0-only
 Project-URL: homepage, https://github.com/hardbyte/python-can
 Project-URL: documentation, https://python-can.readthedocs.io
 Project-URL: repository, https://github.com/hardbyte/python-can
@@ -15,18 +15,17 @@ Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Manufacturing
 Classifier: Intended Audience :: Telecommunications Industry
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Embedded Systems
@@ -36,20 +35,14 @@ Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Networking
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: wrapt~=1.10
 Requires-Dist: packaging>=23.1
 Requires-Dist: typing_extensions>=3.10.0.0
-Requires-Dist: msgpack~=1.1.0; platform_system != "Windows"
-Provides-Extra: lint
-Requires-Dist: pylint==3.2.*; extra == "lint"
-Requires-Dist: ruff==0.7.0; extra == "lint"
-Requires-Dist: black==24.10.*; extra == "lint"
-Requires-Dist: mypy==1.12.*; extra == "lint"
 Provides-Extra: pywin32
-Requires-Dist: pywin32>=305; extra == "pywin32"
+Requires-Dist: pywin32>=305; (platform_system == "Windows" and platform_python_implementation == "CPython") and extra == "pywin32"
 Provides-Extra: seeedstudio
 Requires-Dist: pyserial>=3.0; extra == "seeedstudio"
 Provides-Extra: serial
@@ -64,7 +57,7 @@ Requires-Dist: cantact>=0.0.7; extra == "cantact"
 Provides-Extra: cvector
 Requires-Dist: python-can-cvector; extra == "cvector"
 Provides-Extra: gs-usb
-Requires-Dist: gs_usb>=0.2.1; extra == "gs-usb"
+Requires-Dist: gs-usb>=0.2.1; extra == "gs-usb"
 Provides-Extra: nixnet
 Requires-Dist: nixnet>=0.3.2; extra == "nixnet"
 Provides-Extra: pcan
@@ -76,18 +69,23 @@ Requires-Dist: python-can-sontheim>=0.1.2; extra == "sontheim"
 Provides-Extra: canine
 Requires-Dist: python-can-canine>=0.2.2; extra == "canine"
 Provides-Extra: zlgcan
-Requires-Dist: zlgcan-driver-py; extra == "zlgcan"
+Requires-Dist: zlgcan; extra == "zlgcan"
+Provides-Extra: candle
+Requires-Dist: python-can-candle>=1.2.2; extra == "candle"
 Provides-Extra: viewer
 Requires-Dist: windows-curses; (platform_system == "Windows" and platform_python_implementation == "CPython") and extra == "viewer"
 Provides-Extra: mf4
 Requires-Dist: asammdf>=6.0.0; extra == "mf4"
+Provides-Extra: multicast
+Requires-Dist: msgpack~=1.1.0; extra == "multicast"
+Dynamic: license-file
 
 python-can
 ==========
 
 |pypi| |conda| |python_implementation| |downloads| |downloads_monthly|
 
-|docs| |github-actions| |coverage| |mergify| |formatter|
+|docs| |github-actions| |coverage| |formatter|
 
 .. |pypi| image:: https://img.shields.io/pypi/v/python-can.svg
    :target: https://pypi.python.org/pypi/python-can/
@@ -125,10 +123,6 @@ python-can
    :target: https://coveralls.io/github/hardbyte/python-can?branch=develop
    :alt: Test coverage reports on Coveralls.io
 
-.. |mergify| image:: https://img.shields.io/endpoint.svg?url=https://api.mergify.com/v1/badges/hardbyte/python-can&style=flat
-   :target: https://mergify.io
-   :alt: Mergify Status
-
 The **C**\ ontroller **A**\ rea **N**\ etwork is a bus standard designed
 to allow microcontrollers and devices to communicate with each other. It
 has priority based bus arbitration and reliable deterministic
@@ -148,6 +142,7 @@ Library Version                 Python
   3.x                           2.7+, 3.5+
   4.0+                          3.7+
   4.3+                          3.8+
+  4.6+                          3.9+
 ==============================  ===========
 
 

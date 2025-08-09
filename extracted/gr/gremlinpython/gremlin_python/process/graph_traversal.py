@@ -542,9 +542,16 @@ class GraphTraversal(Traversal):
             "gremlin_python.process.GraphTraversalSource.hasKey will be replaced by "
             "gremlin_python.process.GraphTraversalSource.has_key.",
             DeprecationWarning)
-        return self.has_key_(*args)
+        return self.has_key(*args)
 
     def has_key_(self, *args):
+        warnings.warn(
+            "gremlin_python.process.GraphTraversalSource.has_key_ will be replaced by "
+            "gremlin_python.process.GraphTraversalSource.has_key.",
+            DeprecationWarning)
+        return self.has_key(*args)
+    
+    def has_key(self, *args):
         self.bytecode.add_step("hasKey", *args)
         return self
 
@@ -1301,11 +1308,19 @@ class __(object, metaclass=MagicType):
             "gremlin_python.process.__.hasKey will be replaced by "
             "gremlin_python.process.__.has_key.",
             DeprecationWarning)
-        return cls.has_key_(*args)
+        return cls.has_key(*args)
 
     @classmethod
     def has_key_(cls, *args):
-        return cls.graph_traversal(None, None, Bytecode()).has_key_(*args)
+        warnings.warn(
+            "gremlin_python.process.__.has_key_ will be replaced by "
+            "gremlin_python.process.__.has_key.",
+            DeprecationWarning)
+        return cls.has_key(*args)
+    
+    @classmethod
+    def has_key (cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).has_key(*args)
 
     @classmethod
     def hasLabel(cls, *args):
@@ -1466,6 +1481,10 @@ class __(object, metaclass=MagicType):
     @classmethod
     def min_(cls, *args):
         return cls.graph_traversal(None, None, Bytecode()).min_(*args)
+
+    @classmethod
+    def none(cls, *args):
+        return cls.graph_traversal(None, None, Bytecode()).none(*args)
 
     @classmethod
     def not_(cls, *args):
@@ -1943,6 +1962,10 @@ def dedup(*args):
     return __.dedup(*args)
 
 
+def disjunct(*args):
+    return __.disjunct(*args)
+
+
 def drop(*args):
     return __.drop(*args)
 
@@ -2012,12 +2035,14 @@ def has_id(*args):
 
 
 def hasKey(*args):
-    return __.has_key_(*args)
+    return __.has_key(*args)
 
 
 def has_key_(*args):
-    return __.has_key_(*args)
+    return __.has_key(*args)
 
+def has_key(*args):
+    return __.has_key(*args)
 
 def hasLabel(*args):
     return __.has_label(*args)
@@ -2145,6 +2170,10 @@ def merge_v(*args):
 
 def min_(*args):
     return __.min_(*args)
+
+
+def none(*args):
+    return __.none(*args)
 
 
 def not_(*args):
@@ -2435,6 +2464,8 @@ statics.add_static('date_diff', date_diff)
 
 statics.add_static('dedup', dedup)
 
+statics.add_static('disjunct', disjunct)
+
 statics.add_static('drop', drop)
 
 statics.add_static('element', element)
@@ -2471,7 +2502,7 @@ statics.add_static('has_id', has_id)
 
 statics.add_static('hasKey', hasKey)
 
-statics.add_static('has_key', has_key_)
+statics.add_static('has_key', has_key)
 
 statics.add_static('hasLabel', hasLabel)
 
@@ -2534,6 +2565,8 @@ statics.add_static('merge_e', merge_e)
 statics.add_static('merge_v', merge_v)
 
 statics.add_static('min_', min_)
+
+statics.add_static('none', none)
 
 statics.add_static('not_', not_)
 

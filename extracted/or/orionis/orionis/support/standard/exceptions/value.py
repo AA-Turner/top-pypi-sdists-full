@@ -5,7 +5,7 @@ class OrionisStdValueException(Exception):
         Parameters
         ----------
         msg : str
-            Descriptive error message explaining the cause of the exception.
+            The error message that describes the reason for the exception.
         """
         super().__init__(msg)
 
@@ -14,6 +14,6 @@ class OrionisStdValueException(Exception):
         Returns
         -------
         str
-            Formatted string describing the exception.
+            The error message associated with this exception.
         """
         return str(self.args[0])

@@ -19,8 +19,7 @@ from pathlib import Path
 from typing import Dict, List, Set, cast
 from urllib.parse import urlparse
 
-from packaging.version import InvalidVersion
-from packaging.version import parse as parse_version
+from packaging.version import InvalidVersion, Version
 from rich.progress import Progress
 from typing_extensions import Literal
 
@@ -81,7 +80,7 @@ def normalize_version(version: str):
     else:
         try:
             # Normalize things like 23.04.00 to 23.4.0
-            return str(parse_version(version))
+            return str(Version(version))
         # Fallback to original version if its unparseable like 1.7.1dev.rapidsai23.04
         except InvalidVersion:
             return version
@@ -153,6 +152,8 @@ async def handle_conda_package(pkg: CondaPackage) -> PackageInfo | None:
         "name": convert_conda_to_pypi_name(name),
         "version": pkg.version,
         "wheel_target": None,
+        # Some versions of conda/mamba write "None" to the file instead of ""
+        "requested": bool(pkg.requested_spec and pkg.requested_spec.lower() != "none"),
     }
 
 
@@ -192,112 +193,134 @@ async def handle_dist(dist: Distribution, locations: List[Path]) -> PackageInfo 
         return
     installer = dist.read_text("INSTALLER") or ""
     installer = installer.rstrip()
+    was_requested = dist.read_text("REQUESTED") is not None
     # dist._path can sometimes be a zipp.Path or something else
     dist_path = Path(str(dist._path))  # type: ignore
+
     if installer == "conda":
         return CondaPlaceHolder(name=convert_conda_to_pypi_name(dist_name), path=dist_path)
-    elif dist_path.parent.suffix == ".egg":
+
+    if dist_path.parent.suffix == ".egg":
         # .egg files are no longer allowed on PyPI and setuptools > 80.0
         # will not even install them, so let's ignore them
         logger.info("Ignoring .egg package %s", dist_path)
         return
-    else:
-        direct_url_metadata = dist.read_text("direct_url.json")
-        if direct_url_metadata:
-            url_metadata = json.loads(direct_url_metadata)
-            url = url_metadata.get("url")
-            if not url:
-                # no url in this file
-                # invalid PEP-610 so don't do anything
+
+    url_metadata = json.loads(dist.read_text("direct_url.json") or "{}")
+    # Process direct_url.json metadata
+    # PEP-610: https://peps.python.org/pep-0610/
+    # If URL is not set, then this is not a valid PEP-610 package
+    # and we can ignore it.
+    # Similarly, if the URL is actually the pre 1.2 poetry cache location,
+    # then this is just a normal pip install and we can ignore direct_url.json
+    url = url_metadata.get("url", "")
+    if url and str((Path("pypoetry") / "artifacts")) not in url:
+        if url_metadata.get("vcs_info"):
+            # PEP-610 Source is VCS
+            vcs_info = url_metadata["vcs_info"]
+            if not isinstance(vcs_info, dict) or "vcs" not in vcs_info:
+                # PEP-610 requires vcs_info to be a dict with a vcs key
                 pass
-            elif url_metadata.get("vcs_info"):
-                # PEP-610 Source is VCS
-                vcs_info = url_metadata["vcs_info"]
-                if not isinstance(vcs_info, dict) or "vcs" not in vcs_info:
-                    # PEP-610 requires vcs_info to be a dict with a vcs key
-                    pass
-                vcs: Literal["git", "hg", "bzr", "svn"] = vcs_info["vcs"]
-                commit = vcs_info.get("commit_id")
-                url = url_metadata["url"]
-                pip_url = f"{vcs}+{url}"
-                # uv < 0.5.23 doesn't include commit_id, so we cannot pin
-                # to a specific commit.
-                if commit is not None:
-                    pip_url += f"@{commit}"
-                return {
-                    "name": dist_name,
-                    "path": dist_path,
-                    "source": "pip",
-                    "channel": None,
-                    "channel_url": None,
-                    "subdir": None,
-                    "conda_name": None,
-                    "version": dist.version,
-                    "wheel_target": pip_url,
-                }
-            elif str((Path("pypoetry") / "artifacts")) in url_metadata["url"]:
-                # if the install source is actually the pre 1.2 poetry cache location
-                # they this is actually just normal a pypi
-                # and we can ignore direct_url.json
-                pass
-            elif url_metadata.get("archive_info") is not None:
-                # PEP-610 - Source is an archive/wheel, somewhere!
-                p = urlparse(url)
-                if p.scheme == "file":
-                    url = str(parse_file_uri(url))
-                return {
-                    "name": dist_name,
-                    "path": dist_path,
-                    "source": "pip",
-                    "channel": None,
-                    "channel_url": None,
-                    "subdir": None,
-                    "conda_name": None,
-                    "version": dist.version,
-                    "wheel_target": url,
-                }
-            elif url_metadata.get("dir_info") is not None:
-                # PEP-610 - Source is a local directory
-                path = parse_file_uri(url)
-                return {
-                    "name": dist_name,
-                    "path": path,
-                    "source": "pip",
-                    "channel": None,
-                    "channel_url": None,
-                    "subdir": None,
-                    "conda_name": None,
-                    "version": dist.version,
-                    "wheel_target": str(path),
-                }
-        egg_links = []
-        for location in locations:
-            egg_link_pth = location / Path(dist_name).with_suffix(".egg-link")
-            if egg_link_pth.is_file():
-                egg_links.append(location / Path(dist_name).with_suffix(".egg-link"))
-        if egg_links:
+            vcs: Literal["git", "hg", "bzr", "svn"] = vcs_info["vcs"]
+            commit = vcs_info.get("commit_id")
+            url = url_metadata["url"]
+            pip_url = f"{vcs}+{url}"
+            # uv < 0.5.23 doesn't include commit_id, so we cannot pin
+            # to a specific commit.
+            if commit is not None:
+                pip_url += f"@{commit}"
             return {
                 "name": dist_name,
-                "path": dist_path.parent,
+                "path": dist_path,
                 "source": "pip",
                 "channel": None,
                 "channel_url": None,
                 "subdir": None,
                 "conda_name": None,
                 "version": dist.version,
-                "wheel_target": str(dist_path.parent),
+                "wheel_target": pip_url,
+                "requested": was_requested,
             }
+
+        if url_metadata.get("archive_info") is not None:
+            # PEP-610 - Source is an archive/wheel, somewhere!
+            p = urlparse(url)
+            if p.scheme == "file":
+                url = str(parse_file_uri(url))
+            return {
+                "name": dist_name,
+                "path": dist_path,
+                "source": "pip",
+                "channel": None,
+                "channel_url": None,
+                "subdir": None,
+                "conda_name": None,
+                "version": dist.version,
+                "wheel_target": url,
+                "requested": was_requested,
+            }
+
+        if url_metadata.get("dir_info") is not None:
+            # PEP-610 - Source is a local directory
+            path = parse_file_uri(url)
+            dir_info = url_metadata["dir_info"]
+            if dir_info.get("editable", False):
+                was_requested = True
+            return {
+                "name": dist_name,
+                "path": path,
+                "source": "pip",
+                "channel": None,
+                "channel_url": None,
+                "subdir": None,
+                "conda_name": None,
+                "version": dist.version,
+                "wheel_target": str(path),
+                "requested": was_requested,
+            }
+
+    egg_links = []
+    for location in locations:
+        egg_link_pth = location / Path(dist_name).with_suffix(".egg-link")
+        if egg_link_pth.is_file():
+            egg_links.append(location / Path(dist_name).with_suffix(".egg-link"))
+    if egg_links:
         return {
             "name": dist_name,
-            "path": dist_path,
+            "path": dist_path.parent,
             "source": "pip",
             "channel": None,
             "channel_url": None,
             "subdir": None,
             "conda_name": None,
             "version": dist.version,
-            "wheel_target": None,
+            "wheel_target": str(dist_path.parent),
+            "requested": True,  # editable installs are always requested
         }
+
+    # Handle .egg-info packages (legacy format)
+    # .egg-info directories are created for:
+    # 1. Editable installs (pip install -e)
+    # 2. Packages installed from setup.py directly
+    # 3. Older packages that don't use wheel format
+    # Since .egg-info packages typically don't have REQUESTED files,
+    # we assume they were explicitly requested
+    is_egg_info = str(dist_path).endswith(".egg-info")
+    if is_egg_info:
+        was_requested = True
+
+    return {
+        "name": dist_name,
+        "path": dist_path,
+        "source": "pip",
+        "channel": None,
+        "channel_url": None,
+        "subdir": None,
+        "conda_name": None,
+        "version": dist.version,
+        "wheel_target": None,
+        "requested": was_requested,
+    }
 
 
 def _is_hash_match(dist: Distribution, pkg_paths: Dict[str, PackagePath], path: str):
@@ -487,6 +510,12 @@ async def scan_prefix(
                     logger.warning("Could not find importable conda package for %s", pypi_name)
                 else:
                     filtered_conda[pypi_name] = importable_package
+                    # Keep requested meta packages around
+                    for pkg in packages:
+                        if not pkg["path"] and pkg["requested"]:
+                            pkg["name"] = f"{pkg['name']}-conda-metapackage"
+                            filtered_conda[pkg["name"]] = pkg
+                            break
             else:
                 matching_package = next(
                     (
@@ -571,6 +600,7 @@ async def scan_prefix(
                 "subdir": None,
                 "conda_name": None,
                 "wheel_target": str(extra_path),
+                "requested": True,
             })
     for pkg in results:
         if pkg["wheel_target"]:

@@ -10,47 +10,48 @@ from orionis.test.cases.asynchronous import AsyncTestCase
 
 class TestFoundationConfigLoggingChannels(AsyncTestCase):
     """
-    Test cases for the Channels logging configuration class.
+    Unit tests for the `Channels` logging configuration class.
 
-    This class contains unit tests for the `Channels` class, ensuring correct
-    initialization, type validation, custom configuration, dictionary conversion,
-    hashability, and keyword-only initialization.
-
-    Attributes
-    ----------
-    None
+    This test class validates the correct initialization, type enforcement,
+    custom configuration, dictionary conversion, hashability, and keyword-only
+    initialization of the `Channels` class.
 
     Methods
     -------
     testDefaultValues()
-        Test that Channels instance is created with correct default values.
+        Verify that a Channels instance is initialized with the correct default values.
     testStackValidation()
-        Test stack attribute type validation.
+        Ensure that only Stack instances are accepted for the stack attribute.
     testHourlyValidation()
-        Test hourly attribute type validation.
+        Ensure that only Hourly instances are accepted for the hourly attribute.
     testDailyValidation()
-        Test daily attribute type validation.
+        Ensure that only Daily instances are accepted for the daily attribute.
     testWeeklyValidation()
-        Test weekly attribute type validation.
+        Ensure that only Weekly instances are accepted for the weekly attribute.
     testMonthlyValidation()
-        Test monthly attribute type validation.
+        Ensure that only Monthly instances are accepted for the monthly attribute.
     testChunkedValidation()
-        Test chunked attribute type validation.
+        Ensure that only Chunked instances are accepted for the chunked attribute.
     testCustomConfigurations()
-        Test that custom channel configurations are properly stored and validated.
+        Validate that custom channel configurations are correctly assigned and validated.
     testToDictMethod()
-        Test that toDict returns proper dictionary representation.
+        Check that the toDict method returns the correct dictionary representation.
     testHashability()
-        Test that Channels maintains hashability due to unsafe_hash=True.
+        Confirm that Channels instances are hashable due to unsafe_hash=True.
     testKwOnlyInitialization()
-        Test that Channels enforces keyword-only initialization.
+        Ensure that Channels enforces keyword-only initialization.
     """
 
     async def testDefaultValues(self):
         """
-        Test that Channels instance is created with correct default values.
+        Verify that a Channels instance is initialized with the correct default values.
 
-        Ensures all channel configurations are properly initialized with their default values.
+        Ensures that all channel configuration attributes are instances of their
+        respective classes upon default initialization.
+
+        Returns
+        -------
+        None
         """
         channels = Channels()
         self.assertIsInstance(channels.stack, Stack)
@@ -62,9 +63,7 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testStackValidation(self):
         """
-        Test stack attribute type validation.
-
-        Verifies that only Stack instances are accepted for the stack attribute.
+        Ensure that only Stack instances are accepted for the stack attribute.
 
         Raises
         ------
@@ -82,7 +81,7 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testHourlyValidation(self):
         """
-        Test hourly attribute type validation.
+        Ensure that only Hourly instances are accepted for the hourly attribute.
 
         Raises
         ------
@@ -98,7 +97,7 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testDailyValidation(self):
         """
-        Test daily attribute type validation.
+        Ensure that only Daily instances are accepted for the daily attribute.
 
         Raises
         ------
@@ -114,7 +113,7 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testWeeklyValidation(self):
         """
-        Test weekly attribute type validation.
+        Ensure that only Weekly instances are accepted for the weekly attribute.
 
         Raises
         ------
@@ -130,7 +129,7 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testMonthlyValidation(self):
         """
-        Test monthly attribute type validation.
+        Ensure that only Monthly instances are accepted for the monthly attribute.
 
         Raises
         ------
@@ -146,7 +145,7 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testChunkedValidation(self):
         """
-        Test chunked attribute type validation.
+        Ensure that only Chunked instances are accepted for the chunked attribute.
 
         Raises
         ------
@@ -162,10 +161,14 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testCustomConfigurations(self):
         """
-        Test that custom channel configurations are properly stored and validated.
+        Validate that custom channel configurations are correctly assigned and validated.
 
-        Ensures that custom channel instances are correctly assigned and their
-        properties are properly set.
+        Ensures that custom channel instances are properly set and their properties
+        are accurately assigned.
+
+        Returns
+        -------
+        None
         """
         custom_stack = Stack(path="custom/stack.log")
         custom_hourly = Hourly(path="custom/hourly.log")
@@ -191,9 +194,14 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testToDictMethod(self):
         """
-        Test that toDict returns proper dictionary representation.
+        Check that the toDict method returns the correct dictionary representation.
 
-        Ensures that the `toDict` method returns a dictionary with the correct structure.
+        Ensures that the `toDict` method produces a dictionary with the expected
+        structure and types for each channel.
+
+        Returns
+        -------
+        None
         """
         channels = Channels()
         channels_dict = channels.toDict()
@@ -207,9 +215,13 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testHashability(self):
         """
-        Test that Channels maintains hashability due to unsafe_hash=True.
+        Confirm that Channels instances are hashable due to unsafe_hash=True.
 
-        Ensures that Channels instances can be used in sets and as dictionary keys.
+        Ensures that Channels objects can be used in sets and as dictionary keys.
+
+        Returns
+        -------
+        None
         """
         channels1 = Channels()
         channels2 = Channels()
@@ -223,7 +235,7 @@ class TestFoundationConfigLoggingChannels(AsyncTestCase):
 
     async def testKwOnlyInitialization(self):
         """
-        Test that Channels enforces keyword-only initialization.
+        Ensure that Channels enforces keyword-only initialization.
 
         Raises
         ------

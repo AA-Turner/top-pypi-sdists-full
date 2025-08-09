@@ -67,6 +67,8 @@ class GenericCRUD(GenericCrudAbstract, metaclass=ABCMetaLogger,
         # We do not need a connection per schema, and it makes terrible performance.
         # In special cases, you can always use set_schema.
         self.connection = Connector.connect(schema_name=default_schema_name)
+        print(f"\n\nChecking and running connection {self.connection}\n\n")
+        assert self.connection is not None, "Error: DB connection failed – self.connection is None"
         self._cursor = self.connection.cursor()
         self.default_table_name = default_table_name or \
             generate_table_name(entity_name=default_entity_name,
@@ -1262,15 +1264,17 @@ class GenericCRUD(GenericCrudAbstract, metaclass=ABCMetaLogger,
         return view_table_name
     
     # counts number of rows in the table - used in generic_crud_test.py
-    # TODO Add a parameter is_my_records_only to count only the records created by the UserContect.get_effective_user_id - So we can use it in the tests
+    # TODO Add a parameter is_only_my_records=True to count only the records created by the UserContect.get_effective_user_id - So we can use it in the tests
     def get_num_of_rows(self, schema_name: str = None, table_name: str = None) -> int:
         """Returns the total number of rows in the specified table."""
         schema_name = schema_name or self.default_schema_name
         table_name = table_name or self.default_table_name
 
+        
         query = f"""
             SELECT COUNT(*) FROM {schema_name}.{table_name};
         """
+        # TODO Add if is_only_my_records: WHERE created_user_id = UserContext.get_effective_user_id() to count only the records created by the user
         self.cursor.execute(query)
         total_rows = self.cursor.fetchone()[0]  # fetchone() gets the single row result, which is a tuple like (123,)
         return total_rows

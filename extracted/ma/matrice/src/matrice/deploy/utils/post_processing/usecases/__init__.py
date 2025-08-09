@@ -6,6 +6,7 @@ post-processing scenarios.
 """
 
 from .people_counting import PeopleCountingUseCase, PeopleCountingConfig
+from .intrusion_detection import IntrusionUseCase, IntrusionConfig
 from .customer_service import CustomerServiceUseCase, CustomerServiceConfig
 from .advanced_customer_service import AdvancedCustomerServiceUseCase
 from .basic_counting_tracking import BasicCountingTrackingUseCase
@@ -67,6 +68,9 @@ from .road_view_segmentation import RoadViewSegmentationConfig, RoadViewSegmenta
 from .face_recognition import FaceRecognitionConfig, FaceRecognitionUseCase
 from .drowsy_driver_detection import DrowsyDriverUseCase, DrowsyDriverUseCase
 from .waterbody_segmentation import WaterBodyConfig, WaterBodyUseCase
+from .litter_monitoring import LitterDetectionConfig,LitterDetectionUseCase
+from .abandoned_object_detection import AbandonedObjectConfig,AbandonedObjectDetectionUseCase
+
 from .litter_monitoring import LitterDetectionConfig, LitterDetectionUseCase
 from .leak_detection import LeakDetectionConfig, LeakDetectionUseCase
 from .human_activity_recognition import HumanActivityConfig, HumanActivityUseCase
@@ -81,6 +85,7 @@ from .Histopathological_Cancer_Detection_img import HistopathologicalCancerDetec
 
 __all__ = [
     'PeopleCountingUseCase',
+    'IntrusionUseCase',
     'CustomerServiceUseCase',
     'AdvancedCustomerServiceUseCase',
     'BasicCountingTrackingUseCase',
@@ -136,6 +141,7 @@ __all__ = [
     'DrowsyDriverUseCase',
     'WaterBodyUseCase',
     'LitterDetectionUseCase',
+    'AbandonedObjectDetectionUseCase',
     'LeakDetectionUseCase',
     'HumanActivityUseCase',
     'GasLeakDetectionUseCase',
@@ -150,6 +156,7 @@ __all__ = [
 
 
     'PeopleCountingConfig',
+    'IntrusionConfig',
     'ParkingSpaceConfig',
     'CustomerServiceConfig',
     'AdvancedCustomerServiceConfig',
@@ -204,6 +211,8 @@ __all__ = [
     'DrowsyDriverUseCase',
     'WaterBodyConfig',
     'LitterDetectionConfig',
+    'AbandonedObjectConfig',
+
     'LeakDetectionConfig',
     'HumanActivityConfig',
     'GasLeakDetectionConfig',

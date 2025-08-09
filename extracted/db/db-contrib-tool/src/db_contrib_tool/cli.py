@@ -34,4 +34,4 @@ for plugin in _PLUGINS:
 
 if __name__ == "__main__":
     freeze_support()  # Required for multiprocessing support in a frozen (i.e. PyInstaller) application
-    cli(obj=CommandUsage())
+    cli(obj=CommandUsage(command=None))

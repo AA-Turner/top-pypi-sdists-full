@@ -4,6 +4,7 @@ from orionis.foundation.exceptions.integrity import OrionisIntegrityException
 from orionis.test.cases.asynchronous import AsyncTestCase
 
 class TestFoundationConfigQueueBrokers(AsyncTestCase):
+
     async def testDefaultInitialization(self):
         """
         Test that Brokers instance is initialized with correct default values.

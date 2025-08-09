@@ -58,7 +58,9 @@ you need to specify the connection name as a DAG parameter with name `mcd_sessio
 import logging
 from typing import Dict
 
+import pkg_resources
 from airflow_mcd.callbacks.utils import AirflowEventsClientUtils
+from airflow_mcd import airflow_major_version
 
 logger = logging.getLogger(__name__)
 
@@ -164,5 +166,7 @@ task_callbacks = {
 dag_callbacks = {
     'on_failure_callback': mcd_dag_failure_callback,
     'on_success_callback': mcd_dag_success_callback,
-    'sla_miss_callback': mcd_sla_miss_callback,
-}
+} 
+if airflow_major_version() < 3:
+    # Airflow 3+ removed the support for sla_miss_callback
+    dag_callbacks['sla_miss_callback'] = mcd_sla_miss_callback

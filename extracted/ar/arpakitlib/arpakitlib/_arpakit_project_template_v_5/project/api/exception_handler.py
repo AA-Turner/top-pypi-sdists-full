@@ -236,6 +236,24 @@ def get_exception_handler() -> Callable:
     funcs_before = []
     async_funcs_after = []
 
+    funcs_before.append(
+        logging_func_before_in_api_exception_handler(
+            ignore_api_error_codes=[
+                APIErrorCodes.cannot_authorize,
+                APIErrorCodes.error_in_request,
+                APIErrorCodes.not_found
+            ],
+            ignore_status_codes=[
+                fastapi.status.HTTP_401_UNAUTHORIZED,
+                fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY,
+                fastapi.status.HTTP_404_NOT_FOUND
+            ],
+            ignore_exception_types=[
+                fastapi.exceptions.RequestValidationError
+            ],
+        )
+    )
+
     if get_cached_sqlalchemy_db() is not None:
         funcs_before.append(
             create_story_log_func_before_in_api_exception_handler(
@@ -254,24 +272,6 @@ def get_exception_handler() -> Callable:
                 ],
             )
         )
-
-    funcs_before.append(
-        logging_func_before_in_api_exception_handler(
-            ignore_api_error_codes=[
-                APIErrorCodes.cannot_authorize,
-                APIErrorCodes.error_in_request,
-                APIErrorCodes.not_found
-            ],
-            ignore_status_codes=[
-                fastapi.status.HTTP_401_UNAUTHORIZED,
-                fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY,
-                fastapi.status.HTTP_404_NOT_FOUND
-            ],
-            ignore_exception_types=[
-                fastapi.exceptions.RequestValidationError
-            ],
-        )
-    )
 
     return create_api_exception_handler(
         funcs_before=funcs_before,

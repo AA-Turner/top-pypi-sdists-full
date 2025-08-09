@@ -76,7 +76,7 @@ class DeleteTestData(GenericCRUDML):
             results = self.cursor.fetchall()
         except Exception as e:
             print(f"Error: {e}")
-
+        to_delete = []
         for row_id in test_data_list:
             for result in results:
                 # print(f"Changing the schema name to {result[0]}")
@@ -100,7 +100,7 @@ class DeleteTestData(GenericCRUDML):
                 if result_table_name.endswith('old'):
                     continue
                 if is_safe_mode:
-                    global to_delete
+                    # global to_delete made this a comment for test purposes
                     try:
                         id_column_name = generate_id_column_name(result_table_name)
                         to_delete = gcrml1.select_multi_value_by_column_and_value(

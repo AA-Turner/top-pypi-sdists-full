@@ -35,6 +35,7 @@ __all__ = (
     "ImageActionTypeType",
     "ImageFailureCodeType",
     "ImageScanCompleteWaiterName",
+    "ImageTagMutabilityExclusionFilterTypeType",
     "ImageTagMutabilityType",
     "LayerAvailabilityType",
     "LayerFailureCodeType",
@@ -81,7 +82,10 @@ ImageFailureCodeType = Literal[
     "UpstreamUnavailable",
 ]
 ImageScanCompleteWaiterName = Literal["image_scan_complete"]
-ImageTagMutabilityType = Literal["IMMUTABLE", "MUTABLE"]
+ImageTagMutabilityExclusionFilterTypeType = Literal["WILDCARD"]
+ImageTagMutabilityType = Literal[
+    "IMMUTABLE", "IMMUTABLE_WITH_EXCLUSION", "MUTABLE", "MUTABLE_WITH_EXCLUSION"
+]
 LayerAvailabilityType = Literal["AVAILABLE", "UNAVAILABLE"]
 LayerFailureCodeType = Literal["InvalidLayerDigest", "MissingLayerDigest"]
 LifecyclePolicyPreviewCompleteWaiterName = Literal["lifecycle_policy_preview_complete"]

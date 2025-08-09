@@ -1,3 +1,8 @@
+import pytest
+import airflow
+if airflow.__version__.startswith("1."):
+    pytest.skip("Not supported on Airflow 1. DbtOperator is supported on Airflow >= 2.", allow_module_level=True)
+
 from unittest import TestCase
 
 from airflow_mcd.operators.dbt import DbtConfig

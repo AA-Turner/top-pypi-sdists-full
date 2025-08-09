@@ -4,36 +4,41 @@ from orionis.services.system.workers import Workers
 
 class WorkersProvider(ServiceProvider):
     """
-    WorkersProvider
-    ===============
+    Provides and registers the worker management service within the application container.
 
-    Registers the worker management service in the application container.
-    Determines the optimal number of workers to start based on system analysis.
+    This provider determines and registers the optimal worker management implementation,
+    making it available for dependency injection throughout the application.
 
-    Methods
-    -------
-    register()
-        Registers the worker service in the application container.
-    boot()
-        Performs post-registration initialization if needed.
+    Attributes
+    ----------
+    app : Application
+        The application container instance where services are registered.
     """
 
     def register(self) -> None:
         """
-        Registers the worker service in the application container.
+        Register the worker service in the application container.
+
+        Registers the `Workers` implementation as a transient service for the `IWorkers`
+        contract, with the alias "core.orionis.workers".
 
         Returns
         -------
         None
         """
+
         self.app.transient(IWorkers, Workers, alias="core.orionis.workers")
 
     def boot(self) -> None:
         """
-        Performs post-registration initialization if needed.
+        Perform post-registration initialization if required.
+
+        This method is a placeholder for any initialization logic that should occur
+        after the worker service has been registered.
 
         Returns
         -------
         None
         """
+
         pass

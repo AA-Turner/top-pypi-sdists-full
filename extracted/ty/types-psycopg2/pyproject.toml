@@ -4,21 +4,16 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-psycopg2"
-version = "2.9.21.20250718"
+version = "2.9.21.20250809"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for psycopg2"
 readme = { text = """\
 ## Typing stubs for psycopg2
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`psycopg2`](https://github.com/psycopg/psycopg2) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `psycopg2`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`psycopg2`](https://github.com/psycopg/psycopg2) package. It can be used by type checkers
+to check code that uses `psycopg2`. This version of
 `types-psycopg2` aims to provide accurate annotations for
 `psycopg2~=2.9.10`.
 
@@ -29,12 +24,12 @@ for more details. The source for this package can be found in the
 [`stubs/psycopg2`](https://github.com/python/typeshed/tree/main/stubs/psycopg2)
 directory.
 
-This package was tested with
-mypy 1.16.1,
-pyright 1.1.403,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
+
 It was generated from typeshed commit
-[`8e25bda401332ac56d4750cffda2127a4302cd2f`](https://github.com/python/typeshed/commit/8e25bda401332ac56d4750cffda2127a4302cd2f).
+[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

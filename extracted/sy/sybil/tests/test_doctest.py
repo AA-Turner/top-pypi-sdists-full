@@ -6,6 +6,7 @@ import pytest
 from testfixtures import compare
 
 from sybil.document import Document, PythonDocStringDocument
+from sybil.evaluators.doctest import NUMBER, float_approx_equal, OutputChecker
 from sybil.example import SybilFailure
 from sybil.parsers.abstract import DocTestStringParser
 from sybil.parsers.rest import DocTestParser, DocTestDirectiveParser
@@ -121,6 +122,76 @@ def test_directive_with_options():
         "    - Unexpected!\n"
         "    + 2\n"
     ))
+
+
+def test_directive_with_inline_options():
+    name = 'doctest_inline_options.txt'
+    path = sample_path(name)
+    parser = DocTestParser(optionflags=ELLIPSIS)
+    examples, namespace = parse(name, parser, expected=3)
+    # ELLIPSIS active from options:
+    examples[0].evaluate()
+    # ELLIPSIS deactivated by comment:
+    with pytest.raises(SybilFailure) as excinfo:
+        examples[1].evaluate()
+    compare(str(excinfo.value), expected = (
+        f"Example at {path}, line 4, column 1 did not evaluate as expected:\n"
+        "Expected:\n"
+        "    '...'\n"
+        "Got:\n"
+        "    'b'\n"
+    ))
+    # SKIP activated by comment:
+    examples[2].evaluate()
+
+
+@pytest.mark.parametrize("text", [
+        "1.",
+        "+1.",
+        "-1.",
+        ".1",
+        "+.1",
+        "-.1",
+        "0.1",
+        "+0.1",
+        "-0.1",
+        "1e5",
+        "+1e5",
+        "1e+5",
+        "+1e+5",
+        "1e-5",
+        "+1e-5",
+        "-1e-5",
+        "1.2e3",
+        "-1.2e-3",
+    ])
+def test_number_re_matches(text: str) -> None:
+    m = OutputChecker._number_re.match(text)
+    assert m is not None
+    assert float_approx_equal(m.group(), text)
+
+
+@pytest.mark.parametrize("text", [
+    "1",
+    "abc",
+])
+def test_number_re_no_matches(text: str) -> None:
+    assert OutputChecker._number_re.match(text) is None
+
+
+def test_number_option():
+    parser = DocTestParser(optionflags=NUMBER)
+    examples, namespace = parse('doctest_number.txt', parser, expected=23)
+    for example in examples:
+        example.evaluate()
+
+
+def test_number_option_failures():
+    parser = DocTestParser(optionflags=NUMBER)
+    examples, namespace = parse('doctest_number_failures.txt', parser, expected=11)
+    for example in examples:
+        with pytest.raises(SybilFailure):
+            example.evaluate()
 
 
 # Number of doctests that can't be parsed in a file when looking at the whole file source:

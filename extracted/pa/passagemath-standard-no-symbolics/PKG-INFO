@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-standard-no-symbolics
-Version: 10.6.1
+Version: 10.6.2
 Summary: passagemath: Sage library without the symbolics subsystem
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -8,7 +8,7 @@ License-Expression: GPL-2.0-or-later
 Project-URL: release notes, https://github.com/passagemath/passagemath/releases
 Project-URL: repo (upstream), https://github.com/sagemath/sage
 Project-URL: repo, https://github.com/passagemath/passagemath
-Project-URL: documentation, https://doc.sagemath.org
+Project-URL: documentation, https://passagemath.org/docs/latest
 Project-URL: homepage (upstream), https://www.sagemath.org
 Project-URL: discourse, https://passagemath.discourse.group
 Project-URL: tracker (upstream), https://github.com/sagemath/sage/issues
@@ -29,42 +29,42 @@ Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
 Requires-Dist: six>=1.15.0
-Requires-Dist: passagemath-brial~=10.6.1.0
-Requires-Dist: passagemath-categories~=10.6.1.0
-Requires-Dist: passagemath-cddlib~=10.6.1.0
-Requires-Dist: passagemath-combinat~=10.6.1.0
-Requires-Dist: passagemath-eclib~=10.6.1.0
-Requires-Dist: passagemath-environment~=10.6.1.0
-Requires-Dist: passagemath-flint~=10.6.1.0
-Requires-Dist: passagemath-gap~=10.6.1.0
-Requires-Dist: passagemath-gap-pkg-transgrp-data~=10.6.1.0
-Requires-Dist: passagemath-gap-pkg-ctbllib-data~=10.6.1.0
-Requires-Dist: passagemath-gap-pkg-tomlib-data~=10.6.1.0
-Requires-Dist: passagemath-gap-pkg-irredsol-data~=10.6.1.0
-Requires-Dist: passagemath-giac~=10.6.1.0
-Requires-Dist: passagemath-glpk~=10.6.1.0
-Requires-Dist: passagemath-graphs~=10.6.1.0
-Requires-Dist: passagemath-groups~=10.6.1.0
-Requires-Dist: passagemath-homfly~=10.6.1.0
-Requires-Dist: passagemath-lcalc~=10.6.1.0
-Requires-Dist: passagemath-libbraiding~=10.6.1.0
-Requires-Dist: passagemath-libecm~=10.6.1.0
-Requires-Dist: passagemath-linbox~=10.6.1.0
-Requires-Dist: passagemath-modules~=10.6.1.0
-Requires-Dist: passagemath-nauty~=10.6.1.0
-Requires-Dist: passagemath-ntl~=10.6.1.0
-Requires-Dist: passagemath-objects~=10.6.1.0
-Requires-Dist: passagemath-palp~=10.6.1.0
-Requires-Dist: passagemath-pari~=10.6.1.0
-Requires-Dist: passagemath-pari-galdata~=10.6.1.0
-Requires-Dist: passagemath-pari-seadata-small~=10.6.1.0
-Requires-Dist: passagemath-planarity~=10.6.1.0
-Requires-Dist: passagemath-plot~=10.6.1.0
-Requires-Dist: passagemath-polyhedra~=10.6.1.0
-Requires-Dist: passagemath-repl~=10.6.1.0
-Requires-Dist: passagemath-schemes~=10.6.1.0
-Requires-Dist: passagemath-singular~=10.6.1.0
-Requires-Dist: passagemath-tachyon~=10.6.1.0
+Requires-Dist: passagemath-brial~=10.6.2.0
+Requires-Dist: passagemath-categories~=10.6.2.0
+Requires-Dist: passagemath-cddlib~=10.6.2.0
+Requires-Dist: passagemath-combinat~=10.6.2.0
+Requires-Dist: passagemath-eclib~=10.6.2.0
+Requires-Dist: passagemath-environment~=10.6.2.0
+Requires-Dist: passagemath-flint~=10.6.2.0
+Requires-Dist: passagemath-gap~=10.6.2.0
+Requires-Dist: passagemath-gap-pkg-transgrp-data~=10.6.2.0
+Requires-Dist: passagemath-gap-pkg-ctbllib-data~=10.6.2.0
+Requires-Dist: passagemath-gap-pkg-tomlib-data~=10.6.2.0
+Requires-Dist: passagemath-gap-pkg-irredsol-data~=10.6.2.0
+Requires-Dist: passagemath-giac~=10.6.2.0
+Requires-Dist: passagemath-glpk~=10.6.2.0
+Requires-Dist: passagemath-graphs~=10.6.2.0
+Requires-Dist: passagemath-groups~=10.6.2.0
+Requires-Dist: passagemath-homfly~=10.6.2.0
+Requires-Dist: passagemath-lcalc~=10.6.2.0
+Requires-Dist: passagemath-libbraiding~=10.6.2.0
+Requires-Dist: passagemath-libecm~=10.6.2.0
+Requires-Dist: passagemath-linbox~=10.6.2.0
+Requires-Dist: passagemath-modules~=10.6.2.0
+Requires-Dist: passagemath-nauty~=10.6.2.0
+Requires-Dist: passagemath-ntl~=10.6.2.0
+Requires-Dist: passagemath-objects~=10.6.2.0
+Requires-Dist: passagemath-palp~=10.6.2.0
+Requires-Dist: passagemath-pari~=10.6.2.0
+Requires-Dist: passagemath-pari-galdata~=10.6.2.0
+Requires-Dist: passagemath-pari-seadata-small~=10.6.2.0
+Requires-Dist: passagemath-planarity~=10.6.2.0
+Requires-Dist: passagemath-plot~=10.6.2.0
+Requires-Dist: passagemath-polyhedra~=10.6.2.0
+Requires-Dist: passagemath-repl~=10.6.2.0
+Requires-Dist: passagemath-schemes~=10.6.2.0
+Requires-Dist: passagemath-singular~=10.6.2.0
+Requires-Dist: passagemath-tachyon~=10.6.2.0
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: cython!=3.0.3,<4.0,>=3.0
@@ -122,8 +122,8 @@ It was created in October 2024 with the following goals:
 -  inviting collaborations with upstream projects,
 -  `building a professional, respectful, inclusive
    community <https://groups.google.com/g/sage-devel/c/xBzaINHWwUQ>`__,
--  `[empowering Sage users to participate in the scientific Python ecosystem
-   <https://github.com/passagemath/passagemath/issues/248](https://github.com/passagemath/passagemath/issues/248)https://github.com/passagemath/passagemath/issues/248>`__ by publishing packages,
+-  `empowering Sage users to participate in the scientific Python ecosystem
+   <https://github.com/passagemath/passagemath/issues/248>`__ by publishing packages,
 -  developing a port to `Pyodide <https://pyodide.org/en/stable/>`__ for
    serverless deployment with Javascript,
 -  developing a native Windows port.
@@ -134,21 +134,20 @@ available online.
 passagemath attempts to support and provides binary wheels suitable for
 all major Linux distributions and recent versions of macOS.
 
-For the Linux aarch64 (ARM) platform, some third-party packages are still missing wheels;
-see ` <https://github.com/passagemath/passagemath?tab=readme-ov-file#full-installation-of-passagemath-from-binary-wheels-on-pypi>`__
-for instructions for building them from source.
+For the Linux aarch64 (ARM) platform, some third-party packages are still missing
+wheels; see the `instructions for building them from source <https://github.com/passagemath/passagemath?tab=readme-ov-file#full-installation-of-passagemath-from-binary-wheels-on-pypi>`__.
 
 Binary wheels for native Windows (x86_64) are are available for a subset of
 the passagemath distributions. Use of the full functionality of passagemath
 on Windows currently requires the use of Windows Subsystem for Linux (WSL)
 or virtualization.
 
-The supported Python versions in the passagemath 10.6.x series are 3.9.x-3.13.x.
+The supported Python versions in the passagemath 10.6.x series are 3.10.x-3.13.x.
 
 
 About this pip-installable distribution package
 -----------------------------------------------
 
-This pip-installable source distribution `sagemath-standard-no-symbolics` is a distribution of a part of the Sage Library.
+This pip-installable distribution ``passagemath-standard-no-symbolics`` is a distribution of a part of the Sage Library.
 
 Its main purpose is as a technical tool for the modularization project, to test that large parts of the Sage library are independent of the symbolics subsystem.

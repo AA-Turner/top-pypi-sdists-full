@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.5.93
+Version: 2.5.94
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -104,7 +104,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.5.93** | build: **2025-08-08** | Python: **>=3.10, <3.14**
+Release: **2.5.94** | build: **2025-08-09** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -836,6 +836,7 @@ In this mode, you can use pre-configured Experts in Expert mode presets - they w
 - `Research bot` - researcher, 3 sub-agents inside: planner, searcher and writer as base agent
 - `Simple agent` - a single agent.
 - `Evolve` - in each generation (cycle), the best response from a given parent agent is selected; in the next generation, the cycle repeats.
+- `B2B` - bot-to-bot communication, involving two bots interacting with each other while keeping a human in the loop.
 
 More types will be available in the future.
 
@@ -847,6 +848,7 @@ There are also predefined presets added as examples:
 - `Researcher`
 - `Simple agent`
 - `Writer with Feedback`
+- `2 bots`
 
 In the Agents (OpenAI) mode, all remote tools are available for the base agent according to the configuration in the Config -> Settings -> Remote tools menu.
 
@@ -893,6 +895,12 @@ Below is a pattern for how different types of agents work. You can use these pat
 - Another agent (feedback) verifies the best answer and suggests improvements.
 - A request for improving the best answer is sent to a new pair of agents (new parents).
 - From this new pair, the best answer is selected again in the next generation, and the cycle repeats.
+
+**B2B**
+- A human provides a topic for discussion.
+- Bot 1 generates a response and sends it to Bot 2.
+- Bot 2 receives the response from Bot 1 as input, provides an answer, and sends the response back to Bot 1 as its input. This cycle repeats.
+- The human can interrupt the loop at any time and update the entire discussion.
 
 **Limitations:**
 
@@ -1153,38 +1161,32 @@ PyGPT has built-in support for models (as of 2025-07-26):
 - `deepseek-r1:1.5b` (Ollama)
 - `deepseek-r1:14b` (Ollama)
 - `deepseek-r1:32b` (Ollama)
-- `deepseek-r1:670b` (Ollama)
 - `deepseek-r1:7b` (Ollama)
-- `deepseek-r1:671b` (Ollama)
 - `deepseek-reasoner` (DeepSeek)
-- `deepseek-v3:671b` (Ollama)
 - `gemini-1.5-flash` (Google)
 - `gemini-1.5-pro` (Google)
 - `gemini-2.0-flash-exp` (Google)
 - `gemini-2.5-flash` (Google)
 - `gemini-2.5-pro` (Google)
 - `gpt-3.5-turbo` (OpenAI)
-- `gpt-3.5-turbo-1106` (OpenAI)
 - `gpt-3.5-turbo-16k` (OpenAI)
 - `gpt-3.5-turbo-instruct` (OpenAI)
 - `gpt-4` (OpenAI)
-- `gpt-4-0125-preview` (OpenAI)
-- `gpt-4-1106-preview` (OpenAI)
 - `gpt-4-32k` (OpenAI)
 - `gpt-4-turbo` (OpenAI)
-- `gpt-4-turbo-2024-04-09` (OpenAI)
-- `gpt-4-turbo-preview` (OpenAI)
 - `gpt-4-vision-preview` (OpenAI)
 - `gpt-4.1` (OpenAI)
 - `gpt-4.1-mini` (OpenAI)
+- `gpt-4.1-nano` (OpenAI)
 - `gpt-4o` (OpenAI)
-- `gpt-4o-2024-11-20` (OpenAI)
 - `gpt-4o-audio-preview` (OpenAI)
 - `gpt-4o-mini` (OpenAI)
 - `gpt-5` (OpenAI)
 - `gpt-5-mini` (OpenAI)
 - `gpt-5-nano` (OpenAI)
 - `gpt-image-1` (OpenAI)
+- `gpt-oss:20b` (OpenAI - via Ollama and HuggingFace Router)
+- `gpt-oss:120b` (OpenAI - via Ollama and HuggingFace Router)
 - `grok-2-vision` (xAI)
 - `grok-3` (xAI)
 - `grok-3-fast` (xAI)
@@ -1193,21 +1195,19 @@ PyGPT has built-in support for models (as of 2025-07-26):
 - `grok-4` (xAI)
 - `llama2-uncensored` (Ollama)
 - `llama3.1` (Ollama)
-- `llama3.1:405b` (Ollama)
 - `llama3.1:70b` (Ollama)
 - `mistral` (Ollama)
 - `mistral-large` (Ollama)
 - `mistral-small3.1` (Ollama)
 - `o1` (OpenAI)
-- `o3-deep-research` (OpenAI)
 - `o1-mini` (OpenAI)
 - `o1-pro` (OpenAI)
 - `o3` (OpenAI)
+- `o3-deep-research` (OpenAI)
 - `o3-mini` (OpenAI)
 - `o3-pro` (OpenAI)
 - `o4-mini` (OpenAI)
 - `o4-mini-deep-research` (OpenAI)
-- `qwen:7b` (Ollama)
 - `qwen2:7b` (Ollama)
 - `qwen2.5-coder:7b` (Ollama)
 - `qwen3:8b` (Ollama)
@@ -1228,23 +1228,24 @@ You can add your own models. See the section `Extending PyGPT / Adding a new mod
 
 There is built-in support for those LLM providers:
 
-- Anthropic
-- Azure OpenAI
-- Deepseek API
-- Google
-- HuggingFace
-- Local models (OpenAI API compatible)
-- Mistral AI
-- Ollama
-- OpenAI
-- Perplexity
-- xAI
+- `Anthropic`
+- `Azure OpenAI`
+- `Deepseek API`
+- `Google`
+- `HuggingFace API`
+- `HuggingFace Router` (wrapper for OpenAI compatible ChatCompletions)
+- `Local models` (OpenAI API compatible)
+- `Mistral AI`
+- `Ollama`
+- `OpenAI`
+- `Perplexity`
+- `xAI`
 
 ## How to use local or non-GPT models
 
 ### Llama 3, Mistral, DeepSeek, and other local models
 
-How to use locally installed Llama 3 or Mistral models:
+How to use locally installed Llama 3, DeepSeek, Mistral, etc. models:
 
 1) Choose a working mode: `Chat` or `Chat with Files`.
 
@@ -4357,6 +4358,14 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.5.94 (2025-08-09)**
+
+- Added a new LLM provider: HuggingFace Router.
+- Introduced a new model: gpt-oss (OpenAI open-source model available in HuggingFace and Ollama).
+- Added a new agent mode in OpenAI Agents: Bot 2 Bot.
+- Fixed: Storing the last used context ID when empty.
+- Fixed: Reloading items when an agent run is stopped.
 
 **2.5.93 (2025-08-08)**
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: sybil
-Version: 9.1.0
+Version: 9.2.0
 Summary: Automated testing for the examples in your code and documentation.
 Home-page: https://github.com/simplistix/sybil
 Author: Chris Withers
@@ -33,6 +33,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-python
 Dynamic: summary

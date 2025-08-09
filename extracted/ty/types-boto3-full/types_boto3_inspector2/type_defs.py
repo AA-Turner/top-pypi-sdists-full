@@ -240,6 +240,7 @@ __all__ = (
     "CreateSbomExportResponseTypeDef",
     "Cvss2TypeDef",
     "Cvss3TypeDef",
+    "Cvss4TypeDef",
     "CvssScoreAdjustmentTypeDef",
     "CvssScoreDetailsTypeDef",
     "CvssScoreTypeDef",
@@ -876,6 +877,11 @@ class Cvss2TypeDef(TypedDict):
 
 
 class Cvss3TypeDef(TypedDict):
+    baseScore: NotRequired[float]
+    scoringVector: NotRequired[str]
+
+
+class Cvss4TypeDef(TypedDict):
     baseScore: NotRequired[float]
     scoringVector: NotRequired[str]
 
@@ -1992,6 +1998,7 @@ VulnerabilityTypeDef = TypedDict(
         "description": NotRequired[str],
         "atigData": NotRequired[AtigDataTypeDef],
         "vendorSeverity": NotRequired[str],
+        "cvss4": NotRequired[Cvss4TypeDef],
         "cvss3": NotRequired[Cvss3TypeDef],
         "relatedVulnerabilities": NotRequired[List[str]],
         "cvss2": NotRequired[Cvss2TypeDef],

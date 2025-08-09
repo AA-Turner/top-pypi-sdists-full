@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-python-dateutil
-Version: 2.9.0.20250708
+Version: 2.9.0.20250809
 Summary: Typing stubs for python-dateutil
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -17,14 +17,9 @@ Dynamic: license-file
 
 ## Typing stubs for python-dateutil
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`python-dateutil`](https://github.com/dateutil/dateutil) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `python-dateutil`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`python-dateutil`](https://github.com/dateutil/dateutil) package. It can be used by type checkers
+to check code that uses `python-dateutil`. This version of
 `types-python-dateutil` aims to provide accurate annotations for
 `python-dateutil==2.9.*`.
 
@@ -35,9 +30,9 @@ for more details. The source for this package can be found in the
 [`stubs/python-dateutil`](https://github.com/python/typeshed/tree/main/stubs/python-dateutil)
 directory.
 
-This package was tested with
-mypy 1.16.1,
-pyright 1.1.400,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
+
 It was generated from typeshed commit
-[`f4bf1d90a64d3f885ea30c642fe5373e2d19c344`](https://github.com/python/typeshed/commit/f4bf1d90a64d3f885ea30c642fe5373e2d19c344).
+[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).

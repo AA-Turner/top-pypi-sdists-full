@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-toposort
-Version: 1.10.0.20250401
+Version: 1.10.0.20250809
 Summary: Typing stubs for toposort
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -17,14 +17,9 @@ Dynamic: license-file
 
 ## Typing stubs for toposort
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`toposort`](https://gitlab.com/ericvsmith/toposort) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `toposort`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`toposort`](https://gitlab.com/ericvsmith/toposort) package. It can be used by type checkers
+to check code that uses `toposort`. This version of
 `types-toposort` aims to provide accurate annotations for
 `toposort==1.10`.
 
@@ -35,9 +30,9 @@ for more details. The source for this package can be found in the
 [`stubs/toposort`](https://github.com/python/typeshed/tree/main/stubs/toposort)
 directory.
 
-This package was tested with
-mypy 1.15.0,
-pyright 1.1.398,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
+
 It was generated from typeshed commit
-[`bfd032156c59bbf851f62174014f24f4f89b96af`](https://github.com/python/typeshed/commit/bfd032156c59bbf851f62174014f24f4f89b96af).
+[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).

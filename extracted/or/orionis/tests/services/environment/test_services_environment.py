@@ -1,7 +1,7 @@
-import os
 from orionis.services.environment.core.dot_env import DotEnv
 from orionis.services.environment.env import Env
 from orionis.services.environment.enums.value_type import EnvironmentValueType
+from orionis.services.environment.key.key_generator import SecureKeyGenerator
 from orionis.test.cases.asynchronous import AsyncTestCase
 
 class TestServicesEnvironment(AsyncTestCase):
@@ -152,7 +152,7 @@ class TestServicesEnvironment(AsyncTestCase):
         self.assertEqual(env.get("CAST_EXAMPLE_SET"), {1, 2, 3})
 
         # Set and assert a base64 value with explicit type
-        ramdon_text = os.urandom(32).hex()
+        ramdon_text = SecureKeyGenerator.generate()
         env.set("CAST_EXAMPLE_BASE64", ramdon_text, EnvironmentValueType.BASE64)
         self.assertEqual(env.get("CAST_EXAMPLE_BASE64"), ramdon_text)
 
@@ -221,5 +221,6 @@ class TestServicesEnvironment(AsyncTestCase):
         self.assertEqual(env.get("EXAMPLE_SET"), {1, 2, 3})
 
         # Set and get a base64 value without explicit type
-        env.set("EXAMPLE_BASE64", "T3Jpb25pcyBGcmFtZXdvcms=")
-        self.assertEqual(env.get("EXAMPLE_BASE64"), 'T3Jpb25pcyBGcmFtZXdvcms=')
+        ramdon_text = SecureKeyGenerator.generate()
+        env.set("EXAMPLE_BASE64", ramdon_text)
+        self.assertEqual(env.get("EXAMPLE_BASE64"), ramdon_text)

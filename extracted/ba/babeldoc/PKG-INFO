@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BabelDOC
-Version: 0.4.21
+Version: 0.4.22
 Summary: Yet Another Document Translator
 Project-URL: Homepage, https://github.com/funstory-ai/BabelDOC
 Project-URL: Issues, https://github.com/funstory-ai/BabelDOC/issues
@@ -38,6 +38,7 @@ Requires-Dist: rapidocr-onnxruntime>=1.4.4
 Requires-Dist: rich>=13.9.4
 Requires-Dist: rtree>=1.4.0
 Requires-Dist: scikit-image>=0.25.2
+Requires-Dist: scikit-learn>=1.7.1
 Requires-Dist: scipy>=1.15.3
 Requires-Dist: tenacity>=9.0.0
 Requires-Dist: tiktoken>=0.9.0

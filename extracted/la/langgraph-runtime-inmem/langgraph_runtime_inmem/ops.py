@@ -243,6 +243,19 @@ class Assistants(Authenticated):
                 name=name,
             ),
         )
+
+        if config.get("configurable") and context:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
+            )
+
+        # Keep config and context up to date with one another
+        if config.get("configurable"):
+            context = config["configurable"]
+        elif context:
+            config["configurable"] = context
+
         existing_assistant = next(
             (a for a in conn.store["assistants"] if a["assistant_id"] == assistant_id),
             None,
@@ -328,6 +341,7 @@ class Assistants(Authenticated):
         """
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
+        config = config if config is not None else {}
         filters = await Assistants.handle_event(
             ctx,
             "update",
@@ -340,6 +354,19 @@ class Assistants(Authenticated):
                 name=name,
             ),
         )
+
+        if config.get("configurable") and context:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
+            )
+
+        # Keep config and context up to date with one another
+        if config.get("configurable"):
+            context = config["configurable"]
+        elif context:
+            config["configurable"] = context
+
         assistant = next(
             (a for a in conn.store["assistants"] if a["assistant_id"] == assistant_id),
             None,
@@ -375,7 +402,7 @@ class Assistants(Authenticated):
             "assistant_id": assistant_id,
             "version": new_version,
             "graph_id": graph_id if graph_id is not None else assistant["graph_id"],
-            "config": config if config is not None else assistant["config"],
+            "config": config if config else assistant["config"],
             "context": context if context is not None else assistant.get("context", {}),
             "metadata": metadata if metadata is not None else assistant["metadata"],
             "created_at": now,
@@ -1848,9 +1875,7 @@ class Runs(Authenticated):
                             "metadata": merged_metadata,
                         },
                     ),
-                    "context": Runs._merge_jsonb(
-                        assistant.get("context", {}), kwargs.get("context", {})
-                    ),
+                    "context": configurable,
                 },
             ),
             multitask_strategy=multitask_strategy,

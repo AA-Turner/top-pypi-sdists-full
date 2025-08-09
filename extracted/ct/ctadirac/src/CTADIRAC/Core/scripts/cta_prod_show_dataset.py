@@ -17,6 +17,7 @@ from DIRAC import gLogger
 from DIRAC.Core.Base.Script import Script
 from DIRAC.Core.Utilities.PrettyPrint import int_with_commas, printTable
 from DIRAC.Resources.Catalog.FileCatalogClient import FileCatalogClient
+
 from CTADIRAC.Core.Utilities.tool_box import read_inputs_from_file
 
 
@@ -68,7 +69,7 @@ def print_dataset_storage_usage(dataset_name):
         gLogger.error(result["Message"])
         DIRAC.exit(-1)
     gLogger.notice("Directory size")
-    for k, path in result["Value"].items():
+    for path in result["Value"].values():
         if os.path.basename(path) == outputType:
             gLogger.notice(path)
             result = fc.getDirectorySize(path, longOut=True)
@@ -102,9 +103,7 @@ def print_dataset_storage_usage_summary(path_list):
     for path in path_list:
         result = fc.getDirectorySize(path, longOut=True)
         if "PhysicalSize" in result["Value"]["Successful"][path]:
-            for se, sdata in result["Value"]["Successful"][path][
-                "PhysicalSize"
-            ].items():
+            for se in result["Value"]["Successful"][path]["PhysicalSize"].keys():
                 if not se.startswith("Total"):
                     se_list.append(se)
 
@@ -237,7 +236,7 @@ def main():
                     gLogger.error("for dataset:", name)
                     DIRAC.exit(-1)
                 result = fc.findDirectoriesByMetadata(mq)
-                for k, path in result["Value"].items():
+                for path in result["Value"].values():
                     if os.path.basename(path) == outputType:
                         path_list.append(path)
 
@@ -247,7 +246,8 @@ def main():
 
     # To do: optimize to avoid calling twice get_dataset_info when using SEUsage or long options
     gLogger.notice("Storage usage for all datasets\n")
-    gLogger.notice("|_. Name |_. N files |_. Size(TB) |")
+    gLogger.notice("| Name | N files | Size(TB) |")
+    gLogger.notice("| -------- | ------- |  ------- |")
     total_size = 0.0
     total_n_files = 0
     for dataset_name in dataset_list:

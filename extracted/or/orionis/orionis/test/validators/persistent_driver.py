@@ -5,28 +5,23 @@ class __ValidPersistentDriver:
 
     def __call__(self, persistent_driver) -> str:
         """
-        Validator class for persistent driver types.
-        This class is intended to validate the value of a persistent driver, ensuring
-        that it is a string or PersistentDrivers enum and one of the accepted values.
-        Methods
-        -------
-        __call__(persistent_driver: str | PersistentDrivers) -> str
-            Validates the given persistent driver. Raises an OrionisTestValueError if
-            the input is not a string or enum or not one of the accepted values.
+        Validates the provided persistent driver value.
+
         Parameters
         ----------
-        persistent_driver : str | PersistentDrivers
-            The persistent driver to validate. Must be either 'sqlite', 'json', or the corresponding enum.
+        persistent_driver : str or PersistentDrivers
+            The persistent driver to validate. Must be either a string or a member of the PersistentDrivers enum.
+
         Returns
         -------
         str
             The validated persistent driver as a string.
+
         Raises
         ------
         OrionisTestValueError
-            If the input is not a string/enum or not one of the accepted values.
+            If the input is not a string or PersistentDrivers enum, or if it is not one of the accepted values.
         """
-
         if not isinstance(persistent_driver, (str, PersistentDrivers)):
             raise OrionisTestValueError(
             f"Invalid type for persistent_driver: Expected str or PersistentDrivers, got {type(persistent_driver).__name__}."

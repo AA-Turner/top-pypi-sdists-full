@@ -138,6 +138,7 @@ from typing import Any, List, Optional, Tuple, Union, Dict, Set, Callable
 import math
 
 UNSLOTH_ENABLE_LOGGING = os.environ.get("UNSLOTH_ENABLE_LOGGING", "0") == "1"
+UNSLOTH_ENABLE_CCE = os.environ.get("UNSLOTH_ENABLE_CCE", "1") == "1"
 
 import logging
 logger_compiler = logging.getLogger(__name__)
@@ -239,6 +240,8 @@ def get_transformers_model_type(
     model_types = [x.replace("-", "_").lower() for x in model_types]
     # Add splitted modules for eg gemma3_text -> gemma3
     model_types += [x.split("_")[0] for x in model_types]
+    if 'gpt-oss' in os.environ.get("UNSLOTH_MODEL_NAME", ""):
+        model_types = [x for x in model_types if x != "gpt"]
     model_types = list(dict().fromkeys(model_types))
 
     from transformers import models
@@ -605,6 +608,7 @@ def create_standalone_class(
 
     # Remove @auto_docstring
     source = re.sub(r"@auto_docstring[\s]{0,}(\([^\)]{1,}\))?", "", source)
+    source = re.sub(r"@check_model_inputs[\s]{0,}(\([^\)]{1,}\))?", "", source)
     # source = source.replace("@auto_docstring", "")
 
     # Fix Gemma 3 ignore_index being not set!
@@ -772,7 +776,7 @@ elif (UNSLOTH_STUDIO_ENABLED and NOT_RETURN_LOGITS and labels is not None and no
         logit_scale_multiply = None if (\\2) == () else (\\2),
         logit_scale_divide   = None if (\\3) == () else (\\3),
     )
-elif ((\\2) == () and (\\3) == ()) and NOT_RETURN_LOGITS and self.loss_function.__name__.endswith("ForCausalLMLoss") and labels is not None and not requires_grad_:
+elif ((\\2) == () and (\\3) == ()) and (UNSLOTH_ENABLE_CCE) and NOT_RETURN_LOGITS and self.loss_function.__name__.endswith("ForCausalLMLoss") and labels is not None and not requires_grad_:
     loss = fused_linear_cross_entropy(
         hidden_states      = hidden_states\\1,
         lm_weight          = self.lm_head.weight,
@@ -797,7 +801,7 @@ else:
         logit_scale_divide   = (\\3) if (\\3) != () else 0,
         logit_softcapping    = (\\4) if (\\4) != () else 0,
         vocab_size           = (\\6),
-        n_items              = n_items if n_items is not None else 0,
+        n_items              = n_items,
         requires_grad_       = requires_grad_,
     )
 
@@ -812,7 +816,7 @@ else:
     #     logit_scale_divide   = (\\3) if (\\3) != () else 0,
     #     logit_softcapping    = (\\4) if (\\4) not in (None, (),) else 0,
     #     vocab_size           = (\\6),
-    #     n_items              = n_items if n_items is not None else 0,
+    #     n_items              = n_items,
     #     requires_grad_       = requires_grad_,
     # )
 
@@ -888,7 +892,7 @@ elif (UNSLOTH_STUDIO_ENABLED and NOT_RETURN_LOGITS and labels is not None) and n
         logit_scale_multiply = None if (\\2) == () else (\\2),
         logit_scale_divide   = None if (\\3) == () else (\\3),
     )
-elif ((\\2) == () and (\\3) == ()) and NOT_RETURN_LOGITS and self.loss_function.__name__.endswith("ForCausalLMLoss") and labels is not None and not requires_grad_:
+elif ((\\2) == () and (\\3) == ()) and (UNSLOTH_ENABLE_CCE) and NOT_RETURN_LOGITS and self.loss_function.__name__.endswith("ForCausalLMLoss") and labels is not None and not requires_grad_:
     loss = fused_linear_cross_entropy(
         hidden_states      = hidden_states\\1,
         lm_weight          = self.lm_head.weight,
@@ -913,7 +917,7 @@ elif self.loss_function.__name__.endswith("ForCausalLMLoss") and labels is not N
         logit_scale_divide   = (\\3) if (\\3) != () else 0,
         logit_softcapping    = (\\4) if (\\4) not in (None, (),) else 0,
         vocab_size           = (\\8),
-        n_items              = n_items if n_items is not None else 0,
+        n_items              = n_items,
         requires_grad_       = requires_grad_,
     )
 
@@ -929,7 +933,7 @@ elif self.loss_function.__name__.endswith("ForCausalLMLoss") and labels is not N
     #     logit_scale_divide   = (\\3) if (\\3) != () else 0,
     #     logit_softcapping    = (\\4) if (\\4) not in (None, (),) else 0,
     #     vocab_size           = (\\8),
-    #     n_items              = n_items if n_items is not None else 0,
+    #     n_items              = n_items,
     #     requires_grad_       = requires_grad_,
     # )
 else:
@@ -1013,7 +1017,7 @@ else:
         logit_scale_divide   = (\\3) if (\\3) != () else 0,
         logit_softcapping    = (\\4) if (\\4) not in (None, (),) else 0,
         vocab_size           = (\\7),
-        n_items              = n_items if n_items is not None else 0,
+        n_items              = n_items,
         mask                 = \\6,
         requires_grad_       = requires_grad_,
     )
@@ -1031,7 +1035,7 @@ else:
     #     logit_scale_divide   = (\\3) if (\\3) != () else 0,
     #     logit_softcapping    = (\\4) if (\\4) not in (None, (),) else 0,
     #     vocab_size           = (\\7),
-    #     n_items              = n_items if n_items is not None else 0,
+    #     n_items              = n_items,
     #     mask                 = \\6,
     #     requires_grad_       = requires_grad_,
     # )
@@ -1377,6 +1381,7 @@ def patch_gradient_checkpointing(module, source):
     try: forward = inspect.getsource(source.forward)
     except: return None
     if "_gradient_checkpointing_func" in forward: return None
+    if 'gpt-oss' in os.environ.get("UNSLOTH_MODEL_NAME", ""): return None
 
     # Fix Qwen2 missing None for gradient checkpointing
     for custom_find, custom_replace in custom_gradient_checkpointing_replacements:
@@ -1855,6 +1860,8 @@ DISABLE_COMPILE_MODULES = [
     "ParallelExperts",
     "GraniteMoeHybridMoE",
     "GraniteMoeHybridMambaLayer",
+    "GptOssMLP",
+    "GptOssExperts",
 ]
 
 

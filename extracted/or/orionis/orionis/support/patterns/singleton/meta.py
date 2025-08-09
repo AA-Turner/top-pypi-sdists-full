@@ -6,25 +6,21 @@ T = TypeVar('T')
 
 class Singleton(type):
     """
-    Thread-safe and async-safe singleton metaclass.
+    Metaclass for implementing thread-safe and async-safe singleton pattern.
 
-    Ensures that only one instance of a class exists, regardless of whether the code is running in a synchronous or asynchronous context. This metaclass provides both a synchronous (`__call__`) and asynchronous (`__acall__`) method for instance creation, using appropriate locking mechanisms to prevent race conditions in multi-threaded or async environments.
+    This metaclass ensures that only one instance of a class exists, regardless of
+    whether the code is running in a synchronous or asynchronous context. It provides
+    both synchronous and asynchronous mechanisms for instance creation, using appropriate
+    locking to prevent race conditions in multi-threaded or async environments.
 
     Attributes
     ----------
     _instances : Dict[Type[T], T]
-        Stores singleton instances for each class using this metaclass.
+        Dictionary storing singleton instances for each class using this metaclass.
     _lock : threading.Lock
         Thread lock for synchronizing instance creation in synchronous contexts.
     _async_lock : asyncio.Lock
         Async lock for synchronizing instance creation in asynchronous contexts.
-
-    Methods
-    -------
-    __call__(cls, *args, **kwargs)
-        Synchronously creates or retrieves the singleton instance.
-    __acall__(cls, *args, **kwargs)
-        Asynchronously creates or retrieves the singleton instance.
     """
 
     _instances: Dict[Type[T], T] = {}
@@ -33,12 +29,12 @@ class Singleton(type):
 
     def __call__(cls: Type[T], *args: Any, **kwargs: Any) -> T:
         """
-        Synchronously creates or retrieves a singleton instance of the class.
+        Synchronously create or retrieve the singleton instance.
 
-        This method ensures that only one instance of the class is created, even in multi-threaded environments.
-        If the instance does not exist, it acquires a thread lock to prevent race conditions, creates the instance,
-        and stores it in the class-level `_instances` dictionary. If the instance already exists, it simply returns
-        the existing instance.
+        Ensures that only one instance of the class is created in a thread-safe manner.
+        If the instance does not exist, acquires a thread lock to prevent race conditions,
+        creates the instance, and stores it in the class-level `_instances` dictionary.
+        If the instance already exists, returns the existing instance.
 
         Parameters
         ----------
@@ -70,12 +66,12 @@ class Singleton(type):
 
     async def __acall__(cls: Type[T], *args: Any, **kwargs: Any) -> T:
         """
-        Asynchronously creates or retrieves a singleton instance of the class.
+        Asynchronously create or retrieve the singleton instance.
 
-        This method ensures that only one instance of the class is created, even in asynchronous contexts.
-        If the instance does not exist, it acquires an asynchronous lock to prevent race conditions,
-        creates the instance, and stores it in the class-level `_instances` dictionary. If the instance
-        already exists, it simply returns the existing instance.
+        Ensures that only one instance of the class is created in an async-safe manner.
+        If the instance does not exist, acquires an asynchronous lock to prevent race
+        conditions, creates the instance, and stores it in the class-level `_instances`
+        dictionary. If the instance already exists, returns the existing instance.
 
         Parameters
         ----------

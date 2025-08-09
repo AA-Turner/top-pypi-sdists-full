@@ -1,14 +1,13 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: types-Flask-Migrate
-Version: 4.1.0.20250112
+Version: 4.1.0.20250809
 Summary: Typing stubs for Flask-Migrate
-Home-page: https://github.com/python/typeshed
-License: Apache-2.0
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/python/typeshed
 Project-URL: GitHub, https://github.com/python/typeshed
 Project-URL: Changes, https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/Flask-Migrate.md
 Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
 Requires-Python: >=3.9
@@ -16,26 +15,13 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Flask-SQLAlchemy>=3.0.1
 Requires-Dist: Flask>=2.0.0
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 ## Typing stubs for Flask-Migrate
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`Flask-Migrate`](https://github.com/miguelgrinberg/Flask-Migrate) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `Flask-Migrate`. This version of
+This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
+the [`Flask-Migrate`](https://github.com/miguelgrinberg/Flask-Migrate) package. It can be used by type checkers
+to check code that uses `Flask-Migrate`. This version of
 `types-Flask-Migrate` aims to provide accurate annotations for
 `Flask-Migrate==4.1.*`.
 
@@ -46,9 +32,9 @@ for more details. The source for this package can be found in the
 [`stubs/Flask-Migrate`](https://github.com/python/typeshed/tree/main/stubs/Flask-Migrate)
 directory.
 
-This package was tested with
-mypy 1.14.1,
-pyright 1.1.389,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.16.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.403
+
 It was generated from typeshed commit
-[`38d2fe81fee593468d0738f89a5b5101a86f4e53`](https://github.com/python/typeshed/commit/38d2fe81fee593468d0738f89a5b5101a86f4e53).
+[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).

@@ -267,22 +267,67 @@ def generate_table_name(entity_name: str = None,
     elif schema_name:
         table_name = schema_name + "_table"
     else:
-        # Sometime we create GenericCrudMl with no parameters
-        # print("Could not generate table name", file=sys.stderr)
         table_name = None
-    return table_name
 
+    # Append env suffix if needed
+    table_name_with_env = add_env_to_suffix(table_name)
+
+    return table_name_with_env
 
 def generate_view_name(table_name: Optional[str]) -> Optional[str]:
     if table_name:
         view_name = table_name.replace("_table", "_view")
     else:
         view_name = table_name
-    return view_name
+
+    # Append env suffix if needed
+    view_name_with_env = add_env_to_suffix(view_name)
+
+    return view_name_with_env
+
+def add_env_to_suffix(name: Optional[str]) -> Optional[str]:
+    """
+    Add environment name to the suffix of the name and update schema name
+    for specific tables/views in multi-environment databases.
+
+    Examples (env = 'play1'):
+    - profile_table -> test_play1.profile_play1_table
+    - user_view     -> test_play1.user_play1_view
+
+    All other names are returned unchanged.
+    """
+    if name is None:
+        return None
+
+    env_name = get_environment_name()
+    if not env_name:
+        return name
+
+    # Multi-environment entities that require schema + env
+    special_entities = {
+        "test_county_table", "test_county_view",
+        "profile_table", "profile_view",
+        "contact_table", "contact_view",
+        "user_table", "user_view",
+        "person_table", "person_view",
+        "user-external_table", "user-external_view"
+    }
+
+    if name in special_entities:
+        for suffix in ["_table", "_view"]:
+            if name.endswith(suffix):
+                base = name[: -len(suffix)]
+                if not name.endswith(f"_{env_name}{suffix}"):
+                    return f"{base}_{env_name}{suffix}"
+
+    return name
+
 
 
 def generate_id_column_name(table_name: Optional[str]) -> Optional[str]:
     if table_name:
+        if "_play1_" in table_name or "_dvlp1" in table_name:
+            table_name = table_name.replace(f"_{get_environment_name()}_", "_")
         column_name = table_name.replace("_table", "_id")
         return column_name
 

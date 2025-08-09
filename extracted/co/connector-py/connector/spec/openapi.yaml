@@ -1552,14 +1552,45 @@ paths:
     post:
       operationId: list_updated_accounts
       description: |-
-        Retrieve a list of accounts that have been updated since a given date.
+        Retrieve accounts that have been updated since a specified point in time.
 
-        Common use cases include:
-        - Auditing updated accounts
-        - Account discovery and synchronization
+        This operation enables efficient account synchronization by allowing clients to
+        fetch only accounts that have been modified since their last sync. This is
+        particularly useful for maintaining up-to-date account information across
+        large user bases without having to fetch all accounts on every request.
 
-        The request body allows for optional specification of custom attributes
-        to include in the response.
+        ## Use Cases
+
+        - **Account Synchronization**: Keep local account databases in sync with
+        the remote system's current state
+        - **Audit Trails**: Track account changes for compliance and security purposes
+        - **Real-time Updates**: Monitor account modifications for immediate action
+        - **Data Migration**: Identify accounts that need to be updated during
+        system migrations or upgrades
+
+        ## Delta Query Support
+
+        This operation supports delta queries for incremental synchronization:
+
+        - **Initial Request**: Provide a `since_date` to get all accounts updated since that time
+        - **Subsequent Requests**: Use the `delta_cursor` from the previous response for
+        efficient incremental updates
+        - **Cursor Management**: Each response includes a new `delta_cursor` for the next request
+
+        ## Account Update Detection
+
+        Different connectors may define "updates" differently based on their capabilities:
+        - Profile information changes (name, email, department, etc.)
+        - Permission or role modifications
+        - Account status changes (active/inactive, suspended, etc.)
+        - Custom attribute modifications
+        - Group membership changes
+
+        ## Rate Limiting Considerations
+
+        - Implement exponential backoff for repeated requests
+        - Consider batching requests for large account populations
+        - Monitor API rate limits specific to each connector
       parameters:
         - name: connector_id
           in: path
@@ -2714,6 +2745,70 @@ components:
           description: Legacy flag indicating successful account deletion
           deprecated: true
       description: Details about the deleted account
+    Delta:
+      type: object
+      properties:
+        delta_cursor:
+          type: string
+          description: |-
+            Cursor token for delta synchronization.
+
+            This token represents a point in time and should be included in subsequent
+            requests to receive only the changes that occurred since that point.
+
+            - **First request**: Omit this parameter to get all available data
+            - **Subsequent requests**: Include the `delta_cursor` from the previous response
+
+            The cursor is typically a base64-encoded string containing timestamp and
+            other metadata needed for the delta synchronization.
+      description: |-
+        Delta query parameters for incremental data synchronization.
+
+        Delta queries enable efficient incremental data fetching by allowing clients to
+        request only the changes that have occurred since their last synchronization.
+        This is particularly useful for large datasets where fetching all data on each
+        request would be inefficient.
+
+        ## How Delta Queries Work
+
+        1. **Initial Request**: When no `delta_cursor` is provided, the endpoint returns
+        all available data along with a `delta_cursor` in the response.
+
+        2. **Subsequent Requests**: Include the `delta_cursor` from the previous response
+        to receive only the changes (additions, updates, deletions) that occurred
+        since that point.
+
+        3. **Cursor Management**: The response will include a new `delta_cursor` that
+        should be used for the next delta request.
+
+        ## Usage Examples
+
+        ```typescript
+        // First request - get all data
+        const response = await api.getUsers();
+        // response.delta_cursor = "eyJ0aW1lc3RhbXAiOiIyMDI0LTAxLTE1VDEwOjAwOjAwWiJ9"
+
+        // Subsequent request - get only changes
+        const deltaResponse = await api.getUsers({ delta_cursor: response.delta_cursor });
+        // Only returns users that were created, updated, or deleted since the last request
+        ```
+
+        ## Best Practices
+
+        - Store the `delta_cursor` persistently (database, file, etc.) to maintain
+        synchronization state across application restarts
+        - Handle the case where `delta_cursor` becomes invalid (expired, corrupted)
+        by falling back to a full data fetch
+        - Implement exponential backoff for delta requests to handle rate limiting
+        - Consider implementing a "full sync" mechanism that periodically fetches all
+        data to ensure consistency
+
+        ## Error Handling
+
+        - If the `delta_cursor` is invalid or expired, the endpoint may return an error
+        or automatically fall back to returning all data
+        - Always handle the case where the response doesn't include a `delta_cursor`
+        (indicating the endpoint doesn't support delta queries)
     DowngradeLicense:
       type: object
       required:
@@ -3958,23 +4053,99 @@ components:
           type: string
           format: date-time
           description: |-
-            Only include accounts that have been updated since this date.
+            Only include accounts updated since this specific date and time.
 
-            Must be a valid ISO 8601 datetime string with timezone information.
-            Examples: "2024-01-15T10:30:00Z", "2024-01-15T10:30:00+05:00"
+            This parameter defines the cutoff point for account updates. Only accounts
+            that have been modified since this timestamp will be included in the response.
 
-            This is a "best effort" on a per-connector basis, each connector could limit how far in the past
-            they can go.
+            ## Format Requirements
+
+            Must be a valid ISO 8601 datetime string with timezone information:
+            - **UTC**: "2024-01-15T10:30:00Z"
+            - **With Offset**: "2024-01-15T10:30:00+05:00"
+            - **With Timezone**: "2024-01-15T10:30:00-08:00"
+
+            ## Connector Limitations
+
+            Each connector may have different limitations on how far back in time
+            they can reliably track updates:
+            - Some connectors may limit to 30 days
+            - Others may support up to 1 year
+            - Enterprise connectors might support longer periods
+
+            ## Usage Guidelines
+
+            - Use for initial synchronization or when resuming after a long gap
+            - Consider the connector's data retention policies when setting this value
+            - For ongoing syncs, prefer using `delta_cursor` instead
+        delta_cursor:
+          type: string
+          description: |-
+            Cursor token for delta synchronization.
+
+            This token represents a point in time and should be included in subsequent
+            requests to receive only the changes that occurred since that point.
+
+            - **First request**: Omit this parameter to get all available data
+            - **Subsequent requests**: Include the `delta_cursor` from the previous response
+
+            The cursor is typically a base64-encoded string containing timestamp and
+            other metadata needed for the delta synchronization.
         custom_attributes:
           type: array
           items:
             type: string
           description: |-
-            Optional array of custom attribute names to include in the account data.
-            Each string in this array represents a specific custom attribute to retrieve.
+            Optional array of custom attribute names to include in account data.
+
+            This parameter allows you to specify which additional account attributes
+            should be included in the response beyond the standard account information.
+
+            ## Attribute Availability
+
+            Available attributes vary by connector and may include:
+            - **User Profile**: department, title, manager, location
+            - **Organizational**: cost_center, employee_id, hire_date
+            - **Custom Fields**: custom_1, custom_2, custom_role
+            - **System-Specific**: salesforce_user_type, okta_group_membership
+
+            ## Performance Considerations
+
+            - Requesting many custom attributes may increase response time
+            - Some attributes may require additional API calls by the connector
+            - Unsupported attributes are typically ignored rather than causing errors
+
+            ## Best Practices
+
+            - Only request attributes you actually need
+            - Test with small attribute lists first
+            - Consider the connector's rate limits when requesting many attributes
+            - Cache attribute availability information when possible
       description: |-
-        Request parameters for listing accounts that have been updated
-        since a given date
+        Request parameters for listing updated accounts with delta query support.
+
+        This model extends the Delta model to provide both traditional date-based
+        filtering and efficient delta cursor-based incremental synchronization.
+
+        ## Parameter Priority
+
+        When both `delta_cursor` and `since_date` are provided:
+        - The `delta_cursor` takes precedence for delta-based synchronization
+        - The `since_date` is ignored in favor of the cursor's timestamp
+
+        ## Best Practices
+
+        - Use `delta_cursor` for ongoing synchronization to minimize data transfer
+        - Use `since_date` for initial syncs or when resuming after a long gap
+        - Include only necessary `custom_attributes` to optimize response size
+        - Store the returned `delta_cursor` persistently for reliable sync state
+
+        ## Error Scenarios
+
+        - **Invalid Delta Cursor**: May return an error or fall back to full data fetch
+        - **Expired Cursor**: Connector may return all data since the cursor's timestamp
+        - **Unsupported Attributes**: Custom attributes not available in the connector
+        may be ignored or cause errors depending on the connector implementation
       x-capability-level: read
     ListUpdatedAccountsResponse:
       type: object
@@ -3984,14 +4155,16 @@ components:
             - response
           properties:
             response:
-              type: array
-              items:
-                $ref: '#/components/schemas/FoundAccountData'
+              $ref: '#/components/schemas/UpdatedAccounts'
             raw_data: {}
             page:
               $ref: '#/components/schemas/Page'
           description: Response containing the main response payload, raw data, and pagination information.
-      description: Response containing information about the updated accounts
+      description: |-
+        Response containing updated accounts information with delta synchronization support.
+
+        This response model wraps the UpdatedAccounts data and provides standard
+        response metadata including success status and any error information.
     NormalizedExpenseApprovalStatus:
       type: string
       enum:
@@ -4562,6 +4735,59 @@ components:
           description: The value previously supplied by the integration as this account's Unique ID.
           x-semantic: account-id
       description: Request payload for updating a user account
+    UpdatedAccounts:
+      type: object
+      required:
+        - accounts
+      properties:
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/FoundAccountData'
+          description: |-
+            Array of account data for accounts that have been updated.
+
+            Each account in this array represents an account that has been modified
+            since the specified `since_date` or since the `delta_cursor` timestamp.
+
+            ## Account Data Structure
+
+            Each account includes:
+            - Standard account information (id, name, email, status, etc.)
+            - Requested custom attributes (if specified)
+            - Account metadata (creation date, last modified, etc.)
+
+            ## Empty Responses
+
+            An empty array indicates:
+            - No accounts were updated in the specified time period
+            - The delta cursor is up to date (no new changes)
+            - The connector successfully processed the request
+
+            ## Response Size
+
+            Response size varies based on:
+            - Number of updated accounts
+            - Number of requested custom attributes
+            - Connector-specific data richness
+        delta_cursor:
+          type: string
+          description: |-
+            Cursor token for delta synchronization.
+
+            This token represents a point in time and should be included in subsequent
+            requests to receive only the changes that occurred since that point.
+
+            - **First request**: Omit this parameter to get all available data
+            - **Subsequent requests**: Include the `delta_cursor` from the previous response
+
+            The cursor is typically a base64-encoded string containing timestamp and
+            other metadata needed for the delta synchronization.
+      description: |-
+        Response model containing updated accounts with delta synchronization support.
+
+        This model extends the Delta model to include delta cursor information
+        for efficient incremental synchronization.
     ValidateCredentials:
       type: object
       allOf:

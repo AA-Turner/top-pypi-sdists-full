@@ -5,8 +5,7 @@ class __ValidExecutionMode:
 
     def __call__(self, execution_mode: str | ExecutionMode) -> str:
         """
-        Validates that the provided execution_mode is either a valid string representation
-        of an ExecutionMode enum member or an instance of the ExecutionMode enum.
+        Validate and normalize an execution mode value.
 
         Parameters
         ----------
@@ -22,7 +21,7 @@ class __ValidExecutionMode:
         Raises
         ------
         OrionisTestValueError
-            If execution_mode is not a string or ExecutionMode enum, or if the string
+            If `execution_mode` is not a string or ExecutionMode enum, or if the string
             does not correspond to a valid ExecutionMode member.
         """
 

@@ -18,6 +18,7 @@ class FileNameLogger:
         ValueError
             If the provided path is not a non-empty string.
         """
+
         # Validate that the path is a non-empty string
         if not isinstance(path, str) or not path:
             raise ValueError("The 'path' parameter must be a non-empty string.")
@@ -43,6 +44,7 @@ class FileNameLogger:
         - The timestamp is generated using the current date and time.
         - The directory for the log file is created if it does not exist.
         """
+
         # Split the original path into components based on the separator
         if '/' in self.__path:
             parts = self.__path.split('/')

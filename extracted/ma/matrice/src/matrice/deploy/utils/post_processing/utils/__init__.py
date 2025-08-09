@@ -65,6 +65,7 @@ from .color_utils import (
 # Configuration utilities for easy setup
 from ..core.config_utils import (
     create_people_counting_config,
+    create_intrusion_detection_config,
     create_customer_service_config,
     create_advanced_customer_service_config,
     create_basic_counting_tracking_config,
@@ -133,7 +134,8 @@ __all__ = [
     
     # Configuration utilities
     'create_people_counting_config',
-    'create_customer_service_config', 
+    'create_customer_service_config',
+    'create_intrusion_detection_config', 
     'create_advanced_customer_service_config',
     'create_basic_counting_tracking_config',
     'create_zone_from_bbox',

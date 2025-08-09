@@ -3011,8 +3011,24 @@ l_bot_in_chn_added = {
     "zh": "👩🏽‍💻 <b>@{0}</b> 已成功添加到频道 <b>{1}</b> [id=<code>{2}</code>] 并查看其订阅者",
     "ar": "👩🏽‍💻 <b>@{0}</b> تم إضافته بنجاح إلى القناة <b>{1}</b> [id=<code>{2}</code>] ويرى المشتركين بها",
 }
+l_bot_in_chn_deleted = {
+    "ru": "👩🏽‍💻 <b>@{0}</b> покинул канал: <b>{1}</b> [id=<code>{2}</code>] поскольку не является его администратором",
+    "en": "👩🏽‍💻 <b>@{0}</b> was successfully added to the group <b>{1}</b> [id=<code>{2}</code>] and sees its members",
+    "es": "👩🏽‍💻 <b>@{0}</b> se añadió correctamente al grupo <b>{1}</b> [id=<code>{2}</code>] y ve sus miembros",
+    "fr": "👩🏽‍💻 <b>@{0}</b> a été ajouté avec succès au groupe <b>{1}</b> [id=<code>{2}</code>] et voit ses membres",
+    "zh": "👩🏽‍💻 <b>@{0}</b> 已成功添加到群组 <b>{1}</b> [id=<code>{2}</code>] 并查看其成员",
+    "ar": "👩🏽‍💻 <b>@{0}</b> تم إضافته بنجاح إلى المجموعة <b>{1}</b> [id=<code>{2}</code>] ويرى أعضائها",
+}
 l_bot_in_grp_added = {
     "ru": "👩🏽‍💻 <b>@{0}</b> успешно добавлен в группу: <b>{1}</b> [id=<code>{2}</code>] и видит ее участников",
+    "en": "👩🏽‍💻 <b>@{0}</b> was successfully added to the group <b>{1}</b> [id=<code>{2}</code>] and sees its members",
+    "es": "👩🏽‍💻 <b>@{0}</b> se añadió correctamente al grupo <b>{1}</b> [id=<code>{2}</code>] y ve sus miembros",
+    "fr": "👩🏽‍💻 <b>@{0}</b> a été ajouté avec succès au groupe <b>{1}</b> [id=<code>{2}</code>] et voit ses membres",
+    "zh": "👩🏽‍💻 <b>@{0}</b> 已成功添加到群组 <b>{1}</b> [id=<code>{2}</code>] 并查看其成员",
+    "ar": "👩🏽‍💻 <b>@{0}</b> تم إضافته بنجاح إلى المجموعة <b>{1}</b> [id=<code>{2}</code>] ويرى أعضائها",
+}
+l_bot_in_grp_deleted = {
+    "ru": "👩🏽‍💻 <b>@{0}</b> покинул группу: <b>{1}</b> [id=<code>{2}</code>] поскольку не является ее администратором",
     "en": "👩🏽‍💻 <b>@{0}</b> was successfully added to the group <b>{1}</b> [id=<code>{2}</code>] and sees its members",
     "es": "👩🏽‍💻 <b>@{0}</b> se añadió correctamente al grupo <b>{1}</b> [id=<code>{2}</code>] y ve sus miembros",
     "fr": "👩🏽‍💻 <b>@{0}</b> a été ajouté avec succès au groupe <b>{1}</b> [id=<code>{2}</code>] et voit ses membres",

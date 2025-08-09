@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "db-contrib-tool"
-version = "1.1.5"
+version = "2.0.0"
 description = "The `db-contrib-tool` - MongoDB's tool for contributors."
 authors = ["DAG team <dev-prod-dag@mongodb.com>"]
 readme = "README.md"
@@ -29,7 +29,7 @@ opentelemetry-exporter-otlp-proto-grpc = { version = "*", markers = "platform_ma
 opentelemetry-sdk = "*"
 packaging = "^24.0"
 pkce = "^1.0.3"
-pydantic = "1.8.2"
+pydantic = "2.11.0"
 PyGithub = "1.58.0" # beyond this uses cryptography, which is incompatible on ppc64le and s390x
 pyinstaller = "^5.12"
 python = ">=3.9,<3.13"

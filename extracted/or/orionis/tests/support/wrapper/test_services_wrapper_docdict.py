@@ -5,18 +5,16 @@ class TestSupportWrapperDocDict(AsyncTestCase):
 
     async def testDotNotationAccess(self):
         """
-        Tests dot notation access for dictionary values.
+        Test dot notation access for dictionary values.
 
-        This method verifies that values in a DotDict instance can be accessed using dot notation.
-        It checks that existing keys return their corresponding values, nested dictionaries are
-        accessible via chained dot notation, and accessing a non-existent key returns None.
+        Checks that values in a DotDict instance can be accessed using dot notation,
+        including nested dictionaries via chained dot notation. Also verifies that
+        accessing a non-existent key returns None.
 
         Returns
         -------
         None
-            This is a test method and does not return a value.
         """
-
         # Create a DotDict instance with initial values
         dd = DotDict({'key1': 'value1', 'nested': {'inner': 42}})
 
@@ -31,18 +29,16 @@ class TestSupportWrapperDocDict(AsyncTestCase):
 
     async def testDotNotationAssignment(self):
         """
-        Tests assignment of dictionary values using dot notation.
+        Test assignment of dictionary values using dot notation.
 
-        This method verifies that new keys can be added and existing keys can be updated
-        using dot notation. It also checks that nested dictionaries assigned via dot notation
-        are automatically converted to DotDict instances.
+        Verifies that new keys can be added and existing keys updated using dot notation.
+        Also checks that nested dictionaries assigned via dot notation are automatically
+        converted to DotDict instances.
 
         Returns
         -------
         None
-            This is a test method and does not return a value.
         """
-
         # Create a DotDict instance and assign values using dot notation
         dd = DotDict()
 
@@ -59,17 +55,15 @@ class TestSupportWrapperDocDict(AsyncTestCase):
 
     async def testDotNotationDeletion(self):
         """
-        Tests deletion of dictionary keys using dot notation.
+        Test deletion of dictionary keys using dot notation.
 
-        This method verifies that existing keys can be deleted using dot notation.
-        It also checks that attempting to delete a non-existent key raises an AttributeError.
+        Ensures that existing keys can be deleted using dot notation and that attempting
+        to delete a non-existent key raises an AttributeError.
 
         Returns
         -------
         None
-            This is a test method and does not return a value.
         """
-
         # Create a DotDict instance and delete an existing key
         dd = DotDict({'key1': 'value1', 'key2': 'value2'})
 
@@ -83,18 +77,16 @@ class TestSupportWrapperDocDict(AsyncTestCase):
 
     async def testGetMethod(self):
         """
-        Tests the `get` method with automatic DotDict conversion.
+        Test the `get` method with automatic DotDict conversion.
 
-        This method verifies that the `get` method returns the correct value for a given key,
-        returns the provided default for missing keys, and converts nested dictionaries to
-        DotDict instances when accessed.
+        Verifies that the `get` method returns the correct value for a given key,
+        returns the provided default for missing keys, and converts nested dictionaries
+        to DotDict instances when accessed.
 
         Returns
         -------
         None
-            This is a test method and does not return a value.
         """
-
         # Create a DotDict instance and test the `get` method
         dd = DotDict({'key1': 'value1', 'nested': {'inner': 42}})
 
@@ -107,17 +99,15 @@ class TestSupportWrapperDocDict(AsyncTestCase):
 
     async def testExportMethod(self):
         """
-        Tests the `export` method for recursive conversion to regular dict.
+        Test the `export` method for recursive conversion to regular dict.
 
-        This method verifies that calling `export` on a DotDict instance recursively converts
+        Ensures that calling `export` on a DotDict instance recursively converts
         all nested DotDict objects back to regular Python dictionaries.
 
         Returns
         -------
         None
-            This is a test method and does not return a value.
         """
-
         # Create a DotDict instance and export it
         dd = DotDict({
             'key1': 'value1',
@@ -137,18 +127,16 @@ class TestSupportWrapperDocDict(AsyncTestCase):
 
     async def testCopyMethod(self):
         """
-        Tests the `copy` method for deep copy with DotDict conversion.
+        Test the `copy` method for deep copy with DotDict conversion.
 
-        This method verifies that copying a DotDict instance produces an independent copy,
-        with all nested dictionaries converted to DotDict instances. It checks that changes
-        to the copy do not affect the original.
+        Verifies that copying a DotDict instance produces an independent copy,
+        with all nested dictionaries converted to DotDict instances. Checks that
+        changes to the copy do not affect the original.
 
         Returns
         -------
         None
-            This is a test method and does not return a value.
         """
-
         # Create a DotDict instance and copy it
         original = DotDict({
             'key1': 'value1',
@@ -171,15 +159,14 @@ class TestSupportWrapperDocDict(AsyncTestCase):
 
     async def testNestedDictConversion(self):
         """
-        Tests automatic conversion of nested dictionaries to DotDict.
+        Test automatic conversion of nested dictionaries to DotDict.
 
-        This method verifies that nested dictionaries are converted to DotDict instances
+        Verifies that nested dictionaries are converted to DotDict instances
         both during initialization and dynamic assignment.
 
         Returns
         -------
         None
-            This is a test method and does not return a value.
         """
         dd = DotDict({
             'level1': {
@@ -201,17 +188,15 @@ class TestSupportWrapperDocDict(AsyncTestCase):
 
     async def testReprMethod(self):
         """
-        Tests the string representation of DotDict.
+        Test the string representation of DotDict.
 
-        This method verifies that the `__repr__` method of DotDict returns a string
+        Verifies that the `__repr__` method of DotDict returns a string
         representation that includes the DotDict prefix.
 
         Returns
         -------
         None
-            This is a test method and does not return a value.
         """
-
         # Create a DotDict instance and test its string representation
         dd = DotDict({'key': 'value'})
         self.assertEqual(repr(dd), "{'key': 'value'}")

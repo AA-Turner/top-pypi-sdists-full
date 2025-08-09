@@ -24,11 +24,13 @@ from .core.config import (
     BaseConfig, 
     PeopleCountingConfig, 
     CustomerServiceConfig,
+    IntrusionConfig,
     config_manager,
     ConfigValidationError
 )
 from .usecases import (
     PeopleCountingUseCase,
+    IntrusionUseCase,
     CustomerServiceUseCase,
     AdvancedCustomerServiceUseCase,
     LicensePlateUseCase,
@@ -60,6 +62,8 @@ from .usecases import (
     ShelfInventoryUseCase,
     LaneDetectionUseCase,
     LitterDetectionUseCase,
+    AbandonedObjectDetectionUseCase,
+
     LeakDetectionUseCase,
     HumanActivityUseCase,
     GasLeakDetectionUseCase,
@@ -150,6 +154,9 @@ class PostProcessor:
         # Register people counting use case
         registry.register_use_case("general", "people_counting", PeopleCountingUseCase)
         
+        # Register intrusion detection use case
+        registry.register_use_case("security", "intrusion_detection", IntrusionUseCase)
+        
         # Register customer service use case
         registry.register_use_case("sales", "customer_service", CustomerServiceUseCase)
         
@@ -177,7 +184,7 @@ class PostProcessor:
         registry.register_use_case("security", "anti_spoofing_detection", AntiSpoofingDetectionUseCase)
         registry.register_use_case("retail", "shelf_inventory", ShelfInventoryUseCase)
         registry.register_use_case("traffic", "lane_detection", LaneDetectionUseCase)
-        
+        registry.register_use_case("security", "abandoned_object_detection", AbandonedObjectDetectionUseCase)
         registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)
         registry.register_use_case("flare_detection", "flare_analysis", FlareAnalysisUseCase)
         registry.register_use_case("general", "face_emotion", FaceEmotionUseCase)
@@ -364,7 +371,8 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, LaneDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
-
+            elif isinstance(use_case, AbandonedObjectDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, WindmillMaintenanceUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
 

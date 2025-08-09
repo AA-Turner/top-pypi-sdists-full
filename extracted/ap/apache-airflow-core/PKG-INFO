@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-core
-Version: 3.0.3
+Version: 3.0.4
 Summary: Core packages for Apache Airflow, schedule and API server
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Documentation, https://airflow.apache.org/docs/
@@ -47,7 +47,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: System :: Monitoring
-Requires-Python: <3.13,~=3.9
+Requires-Python: !=3.13,>=3.9
 Requires-Dist: a2wsgi>=1.10.8
 Requires-Dist: aiosqlite>=0.20.0
 Requires-Dist: alembic<2.0,>=1.13.1

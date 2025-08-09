@@ -103,6 +103,7 @@ from .paginator import (
     ListTransformJobsPaginator,
     ListTrialComponentsPaginator,
     ListTrialsPaginator,
+    ListUltraServersByReservedCapacityPaginator,
     ListUserProfilesPaginator,
     ListWorkforcesPaginator,
     ListWorkteamsPaginator,
@@ -435,6 +436,8 @@ from .type_defs import (
     DescribeProcessingJobResponseTypeDef,
     DescribeProjectInputTypeDef,
     DescribeProjectOutputTypeDef,
+    DescribeReservedCapacityRequestTypeDef,
+    DescribeReservedCapacityResponseTypeDef,
     DescribeSpaceRequestTypeDef,
     DescribeSpaceResponseTypeDef,
     DescribeStudioLifecycleConfigRequestTypeDef,
@@ -635,6 +638,8 @@ from .type_defs import (
     ListTrialComponentsResponseTypeDef,
     ListTrialsRequestTypeDef,
     ListTrialsResponseTypeDef,
+    ListUltraServersByReservedCapacityRequestTypeDef,
+    ListUltraServersByReservedCapacityResponseTypeDef,
     ListUserProfilesRequestTypeDef,
     ListUserProfilesResponseTypeDef,
     ListWorkforcesRequestTypeDef,
@@ -876,7 +881,7 @@ class SageMakerClient(BaseClient):
     ) -> AttachClusterNodeVolumeResponseTypeDef:
         """
         Attaches your Amazon Elastic Block Store (Amazon EBS) volume to a node in your
-        EKS-orchestrated HyperPod cluster.
+        EKS orchestrated HyperPod cluster.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/attach_cluster_node_volume.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#attach_cluster_node_volume)
@@ -2716,6 +2721,16 @@ class SageMakerClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_project)
         """
 
+    def describe_reserved_capacity(
+        self, **kwargs: Unpack[DescribeReservedCapacityRequestTypeDef]
+    ) -> DescribeReservedCapacityResponseTypeDef:
+        """
+        Retrieves details about a reserved capacity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_reserved_capacity.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#describe_reserved_capacity)
+        """
+
     def describe_space(
         self, **kwargs: Unpack[DescribeSpaceRequestTypeDef]
     ) -> DescribeSpaceResponseTypeDef:
@@ -2833,7 +2848,7 @@ class SageMakerClient(BaseClient):
     ) -> DetachClusterNodeVolumeResponseTypeDef:
         """
         Detaches your Amazon Elastic Block Store (Amazon EBS) volume from a node in
-        your EKS-orchestrated SageMaker HyperPod cluster.
+        your EKS orchestrated SageMaker HyperPod cluster.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/detach_cluster_node_volume.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#detach_cluster_node_volume)
@@ -3732,6 +3747,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_trials.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_trials)
+        """
+
+    def list_ultra_servers_by_reserved_capacity(
+        self, **kwargs: Unpack[ListUltraServersByReservedCapacityRequestTypeDef]
+    ) -> ListUltraServersByReservedCapacityResponseTypeDef:
+        """
+        Lists all UltraServers that are part of a specified reserved capacity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_ultra_servers_by_reserved_capacity.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#list_ultra_servers_by_reserved_capacity)
         """
 
     def list_user_profiles(
@@ -5377,6 +5402,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_trials"]
     ) -> ListTrialsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_ultra_servers_by_reserved_capacity"]
+    ) -> ListUltraServersByReservedCapacityPaginator:
         """
         Create a paginator for an operation.
 

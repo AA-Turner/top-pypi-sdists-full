@@ -243,6 +243,9 @@ __all__ = (
     "ContactFlowSummaryTypeDef",
     "ContactFlowTypeDef",
     "ContactFlowVersionSummaryTypeDef",
+    "ContactMetricInfoTypeDef",
+    "ContactMetricResultTypeDef",
+    "ContactMetricValueTypeDef",
     "ContactSearchSummaryAgentInfoTypeDef",
     "ContactSearchSummaryQueueInfoTypeDef",
     "ContactSearchSummarySegmentAttributeValueTypeDef",
@@ -499,6 +502,8 @@ __all__ = (
     "GetAttachedFileResponseTypeDef",
     "GetContactAttributesRequestTypeDef",
     "GetContactAttributesResponseTypeDef",
+    "GetContactMetricsRequestTypeDef",
+    "GetContactMetricsResponseTypeDef",
     "GetCurrentMetricDataRequestTypeDef",
     "GetCurrentMetricDataResponseTypeDef",
     "GetCurrentUserDataRequestTypeDef",
@@ -1601,6 +1606,14 @@ class ContactFlowVersionSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
     VersionDescription: NotRequired[str]
     Version: NotRequired[int]
+
+
+class ContactMetricInfoTypeDef(TypedDict):
+    Name: Literal["POSITION_IN_QUEUE"]
+
+
+class ContactMetricValueTypeDef(TypedDict):
+    Number: NotRequired[float]
 
 
 class ContactSearchSummaryAgentInfoTypeDef(TypedDict):
@@ -4212,18 +4225,6 @@ class SecurityProfileSearchCriteriaTypeDef(TypedDict):
     StringCondition: NotRequired[StringConditionTypeDef]
 
 
-class UserHierarchyGroupSearchCriteriaPaginatorTypeDef(TypedDict):
-    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
-    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
-    StringCondition: NotRequired[StringConditionTypeDef]
-
-
-class UserHierarchyGroupSearchCriteriaTypeDef(TypedDict):
-    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
-    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
-    StringCondition: NotRequired[StringConditionTypeDef]
-
-
 class ListAgentStatusResponseTypeDef(TypedDict):
     AgentStatusSummaryList: List[AgentStatusSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4354,6 +4355,20 @@ class StartAttachedFileUploadRequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
 
 
+class UserHierarchyGroupSearchCriteriaPaginatorTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+    HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
+
+
+class UserHierarchyGroupSearchCriteriaTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+    HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
+
+
 class AttributeAndConditionTypeDef(TypedDict):
     TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
     HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
@@ -4361,6 +4376,7 @@ class AttributeAndConditionTypeDef(TypedDict):
 
 class CommonAttributeAndConditionTypeDef(TypedDict):
     TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
+    HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
 
 
 class ControlPlaneTagFilterTypeDef(TypedDict):
@@ -4545,6 +4561,17 @@ class ListContactFlowVersionsResponseTypeDef(TypedDict):
     ContactFlowVersionSummaryList: List[ContactFlowVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class GetContactMetricsRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    Metrics: Sequence[ContactMetricInfoTypeDef]
+
+
+class ContactMetricResultTypeDef(TypedDict):
+    Name: Literal["POSITION_IN_QUEUE"]
+    Value: ContactMetricValueTypeDef
 
 
 class ContactSearchSummaryTypeDef(TypedDict):
@@ -5863,6 +5890,13 @@ class GetCurrentUserDataRequestTypeDef(TypedDict):
     Filters: UserDataFiltersTypeDef
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class GetContactMetricsResponseTypeDef(TypedDict):
+    MetricResults: List[ContactMetricResultTypeDef]
+    Id: str
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SearchContactsResponseTypeDef(TypedDict):

@@ -6667,6 +6667,49 @@ fn require_hashes() -> Result<()> {
     Ok(())
 }
 
+/// Use `--require-hashes` when there are no hashes for build dependencies.
+#[test]
+fn require_hashes_build_dependencies() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    // Write to a requirements file.
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str(indoc::indoc! {r"
+        anyio==4.0.0 \
+            --hash=sha256:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f \
+            --hash=sha256:f7ed51751b2c2add651e5747c891b47e26d2a21be5d32d9311dfe9692f3e5d7a
+        idna==3.6 \
+            --hash=sha256:9ecdbbd083b06798ae1e86adcbfe8ab1479cf864e4ee30fe4e46a003d12491ca \
+            --hash=sha256:c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f
+            # via anyio
+        sniffio==1.3.1 \
+            --hash=sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2 \
+            --hash=sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc
+            # via anyio
+    "})?;
+
+    uv_snapshot!(context.pip_install()
+        .arg("--no-binary").arg(":all:")
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("--require-hashes"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 3 packages in [TIME]
+    Prepared 3 packages in [TIME]
+    Installed 3 packages in [TIME]
+     + anyio==4.0.0
+     + idna==3.6
+     + sniffio==1.3.1
+    "
+    );
+
+    Ok(())
+}
+
 /// Omit hashes for dependencies with `--require-hashes`, which is allowed with `--no-deps`.
 #[test]
 fn require_hashes_no_deps() -> Result<()> {
@@ -12409,6 +12452,132 @@ fn pip_install_build_dependencies_respect_locked_versions() -> Result<()> {
      ~ child==0.1.0 (from file://[TEMP_DIR]/child)
      ~ parent==0.1.0 (from file://[TEMP_DIR]/)
     ");
+
+    Ok(())
+}
+
+/// Check that we warn for overlapping packages but not for correctly overlapping namespace
+/// packages.
+#[test]
+fn overlapping_packages_warning() -> Result<()> {
+    let context = TestContext::new("3.12");
+
+    let built_by_uv = context.workspace_root.join("scripts/packages/built-by-uv");
+
+    // Overlaps with `built-by-uv`
+    let also_build_by_uv = context.temp_dir.child("also-built-by-uv");
+    also_build_by_uv.child("pyproject.toml").write_str(
+        r#"
+        [project]
+        name = "also-built-by-uv"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [tool.uv.build-backend]
+        module-name = "built_by_uv"
+
+        [build-system]
+        requires = ["uv_build>=0.7,<10000"]
+        build-backend = "uv_build"
+        "#,
+    )?;
+    also_build_by_uv
+        .child("src")
+        .child("built_by_uv")
+        .child("__init__.py")
+        .touch()?;
+
+    // Check that overlapping packages show a warning
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--no-deps")
+        .arg(&built_by_uv)
+        .arg(also_build_by_uv.path()), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    warning: The module `built_by_uv` is provided by more than one package, which causes an install race condition and can result in a broken module. Consider removing your dependency on either `built-by-uv` (v0.1.0) or `also-built-by-uv` (v0.1.0).
+    Installed 2 packages in [TIME]
+     + also-built-by-uv==0.1.0 (from file://[TEMP_DIR]/also-built-by-uv)
+     + built-by-uv==0.1.0 (from file://[WORKSPACE]/scripts/packages/built-by-uv)
+    "
+    );
+
+    // Check that correctly overlapping namespace packages don't show a warning
+    uv_snapshot!(context.pip_install()
+        .arg("--no-deps")
+        .arg("poetry")
+        .arg("poetry-core"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 2 packages in [TIME]
+    Prepared 2 packages in [TIME]
+    Installed 2 packages in [TIME]
+     + poetry==1.8.2
+     + poetry-core==1.9.0
+    "
+    );
+
+    // Check that we can uninstall even if the venv is bogus.
+    uv_snapshot!(context.filters(), context.pip_uninstall()
+        .arg("built_by_uv"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Uninstalled 1 package in [TIME]
+     - built-by-uv==0.1.0 (from file://[WORKSPACE]/scripts/packages/built-by-uv)
+    "
+    );
+    uv_snapshot!(context.filters(), context.pip_uninstall()
+        .arg("also_built_by_uv"), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Uninstalled 1 package in [TIME]
+     - also-built-by-uv==0.1.0 (from file://[TEMP_DIR]/also-built-by-uv)
+    "
+    );
+
+    // Check that installing one of the packages on their own doesn't warn.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--no-deps")
+        .arg(built_by_uv), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + built-by-uv==0.1.0 (from file://[WORKSPACE]/scripts/packages/built-by-uv)
+    "
+    );
+    // Currently, we don't warn if we install them one wheel at a time.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--no-deps")
+        .arg(also_build_by_uv.path()), @r"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + also-built-by-uv==0.1.0 (from file://[TEMP_DIR]/also-built-by-uv)
+    "
+    );
 
     Ok(())
 }

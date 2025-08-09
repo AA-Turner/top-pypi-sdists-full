@@ -13,54 +13,81 @@ from orionis.services.introspection.exceptions import (
 )
 
 class ReflectionAbstract(IReflectionAbstract):
+    """
+    A reflection utility class for introspecting abstract base classes (interfaces).
+
+    This class provides comprehensive introspection capabilities for abstract base classes,
+    allowing examination of their structure, methods, attributes, and metadata. It enforces
+    that the target class must be an abstract base class that directly inherits from abc.ABC.
+    """
 
     @staticmethod
     def isAbstractClass(abstract: Type) -> bool:
         """
-        Checks if the provided object is an abstract base class (interface).
+        Determine if the provided object is an abstract base class.
 
         Parameters
         ----------
         abstract : Type
-            The class to check.
+            The class object to check for abstract base class characteristics.
 
         Returns
         -------
         bool
-            True if 'abstract' is an abstract base class, False otherwise.
+            True if the object is a class type with abstract methods that directly
+            inherits from abc.ABC, False otherwise.
         """
+        # Check if the object is a class, has abstract methods, and directly inherits from ABC
         return isinstance(abstract, type) and bool(getattr(abstract, '__abstractmethods__', False)) and ABC in abstract.__bases__
 
     @staticmethod
     def ensureIsAbstractClass(abstract: Type) -> bool:
         """
-        Ensures that the provided object is an abstract base class (interface) and directly inherits from ABC.
+        Validate that the provided object is a valid abstract base class.
 
         Parameters
         ----------
         abstract : Type
-            The class to check.
+            The class object to validate for abstract base class compliance.
+
+        Returns
+        -------
+        bool
+            True if validation passes successfully.
 
         Raises
         ------
         ReflectionTypeError
-            If 'abstract' is not a class type, not an abstract base class, or does not directly inherit from ABC.
+            If the object is not a class type, lacks abstract methods, or does not
+            directly inherit from abc.ABC.
         """
+
+        # Check if the provided abstract is a class type, has abstract methods, and directly inherits from ABC
         if not isinstance(abstract, type):
             raise ReflectionTypeError(f"Expected a class type for 'abstract', got {type(abstract).__name__!r}")
         if not bool(getattr(abstract, '__abstractmethods__', False)):
             raise ReflectionTypeError(f"Provided class '{abstract.__name__}' is not an interface (abstract base class)")
         if ABC not in abstract.__bases__:
             raise ReflectionTypeError(f"Provided class '{abstract.__name__}' must directly inherit from abc.ABC")
+
+        # If all checks pass, return True
         return True
 
     def __init__(self, abstract: Type) -> None:
         """
-        Initializes the ReflectionAbstract instance with the given abstract class.
-        Args:
-            abstract (Type): The abstract base class (interface) to be reflected.
-        Raises:
-            TypeError: If the provided abstract is not an abstract base class.
+        Initialize the ReflectionAbstract instance with an abstract base class.
+
+        Parameters
+        ----------
+        abstract : Type
+            The abstract base class to be used for reflection operations.
+            Must be a valid abstract base class that directly inherits from abc.ABC.
+
+        Raises
+        ------
+        ReflectionTypeError
+            If the provided class is not a valid abstract base class or does not
+            directly inherit from abc.ABC.
         """
 
         # Ensure the provided abstract is an abstract base class (interface)
@@ -71,141 +98,183 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getClass(self) -> Type:
         """
-        Returns the class type that this reflection concrete is based on.
+        Get the class type associated with this reflection instance.
 
         Returns
         -------
         Type
-            The class type provided during initialization.
+            The abstract base class type that was provided during initialization.
         """
+
+        # Return the abstract class type
         return self.__abstract
 
     def getClassName(self) -> str:
         """
-        Returns the name of the class type.
+        Get the name of the reflected abstract class.
 
         Returns
         -------
         str
-            The name of the class type.
+            The name of the abstract class provided during initialization.
         """
+
+        # Return the name of the abstract class
         return self.__abstract.__name__
 
     def getModuleName(self) -> str:
         """
-        Returns the name of the module where the class is defined.
+        Get the module name where the reflected abstract class is defined.
 
         Returns
         -------
         str
-            The name of the module.
+            The fully qualified module name containing the abstract class definition.
         """
+
+        # Return the module name of the abstract class
         return self.__abstract.__module__
 
     def getModuleWithClassName(self) -> str:
         """
-        Returns the module name concatenated with the class name.
+        Get the fully qualified name of the abstract class including its module.
 
         Returns
         -------
         str
-            The module name followed by the class name.
+            The complete module path and class name separated by a dot
+            (e.g., 'module.submodule.ClassName').
         """
+
+        # Return the fully qualified name of the class
         return f"{self.getModuleName()}.{self.getClassName()}"
 
     def getDocstring(self) -> str:
         """
-        Returns the docstring of the class.
+        Retrieve the docstring of the reflected abstract class.
 
         Returns
         -------
         str or None
-            The docstring of the class, or None if not defined.
+            The docstring of the abstract class if available, None otherwise.
         """
+
+        # Return the docstring of the abstract class
         return self.__abstract.__doc__ if self.__abstract.__doc__ else None
 
     def getBaseClasses(self) -> list:
         """
-        Returns a list of base classes of the reflected class.
+        Get the base classes of the reflected abstract class.
 
         Returns
         -------
-        list
-            A list of base classes.
+        list of Type
+            List containing all direct base classes of the reflected abstract class.
         """
+
+        # Return the base classes of the abstract class
         return self.__abstract.__bases__
 
     def getSourceCode(self) -> str:
         """
-        Returns the source code of the class.
+        Retrieve the complete source code of the reflected abstract class.
 
         Returns
         -------
         str
-            The source code of the class.
+            The complete source code of the abstract class as a string.
 
         Raises
         ------
         ReflectionValueError
-            If the source code cannot be retrieved.
+            If the source code cannot be retrieved due to file system errors
+            or other unexpected exceptions.
         """
+
+        # Attempt to get the source code of the abstract class
         try:
             return inspect.getsource(self.__abstract)
+
+        # Handle OSError if the source code cannot be retrieved
         except OSError as e:
             raise ReflectionValueError(f"Could not retrieve source code for '{self.__abstract.__name__}': {e}")
 
+        # Handle any other unexpected exceptions
+        except Exception as e:
+            raise ReflectionValueError(f"An unexpected error occurred while retrieving source code for '{self.__abstract.__name__}': {e}")
+
     def getFile(self) -> str:
         """
-        Returns the file path where the class is defined.
+        Get the file path where the reflected abstract class is defined.
 
         Returns
         -------
         str
-            The file path of the class definition.
+            The absolute file path containing the abstract class definition.
 
         Raises
         ------
         ReflectionValueError
-            If the file path cannot be retrieved.
+            If the file path cannot be retrieved due to type errors or
+            other unexpected exceptions.
         """
+
+        # Attempt to get the file path of the abstract class
         try:
             return inspect.getfile(self.__abstract)
+
+        # Handle TypeError if the file path cannot be retrieved
         except TypeError as e:
             raise ReflectionValueError(f"Could not retrieve file for '{self.__abstract.__name__}': {e}")
 
+        # Handle any other unexpected exceptions
+        except Exception as e:
+            raise ReflectionValueError(f"An unexpected error occurred while retrieving file for '{self.__abstract.__name__}': {e}")
+
     def getAnnotations(self) -> dict:
         """
-        Returns the type annotations of the class.
+        Get the type annotations defined on the reflected abstract class.
 
         Returns
         -------
         dict
-            A dictionary of type annotations.
+            Dictionary mapping attribute names to their annotated types.
+            Private attribute names are normalized by removing name mangling prefixes.
         """
+
+        # Retrieve the annotations from the abstract class
         annotations = {}
+
+        # Iterate through the annotations and handle private attribute name mangling
         for k, v in getattr(self.__abstract, '__annotations__', {}).items():
+
+            # Handle private attribute name mangling for clarity
             annotations[str(k).replace(f"_{self.getClassName()}", "")] = v
+
+        # Return the annotations dictionary
         return annotations
 
     def hasAttribute(self, attribute: str) -> bool:
         """
-        Checks if the class has a specific attribute.
+        Check if the reflected abstract class has a specific attribute.
 
         Parameters
         ----------
         attribute : str
-            The name of the attribute to check.
+            Name of the attribute to check for existence.
 
         Returns
         -------
         bool
-            True if the class has the specified attribute, False otherwise.
+            True if the attribute exists in the class, False otherwise.
         """
+
+        # Check if the attribute exists in the class attributes
         return attribute in self.getAttributes()
 
     def getAttribute(self, attribute: str):
         """
-        Returns the value of a specific class attribute.
+        Retrieve the value of a specific class attribute.
 
         Parameters
         ----------
@@ -215,31 +284,42 @@ class ReflectionAbstract(IReflectionAbstract):
         Returns
         -------
         Any
-            The value of the specified class attribute.
+            The value of the specified class attribute if it exists, None otherwise.
 
         Raises
         ------
         ReflectionValueError
             If the attribute does not exist or is not accessible.
         """
+
+        # Get all class attributes (excluding methods and properties)
         attrs = self.getAttributes()
+
+        # Retrieve the attribute value if it exists
         return attrs.get(attribute, None)
 
     def setAttribute(self, name: str, value) -> bool:
         """
-        Set an attribute value.
+        Set the value of a class attribute.
 
         Parameters
         ----------
         name : str
-            The attribute name
+            The name of the attribute to set. Must be a valid Python identifier
+            and not a reserved keyword.
         value : Any
-            The value to set
+            The value to assign to the attribute. Must not be callable.
+
+        Returns
+        -------
+        bool
+            True if the attribute was successfully set.
 
         Raises
         ------
         ReflectionValueError
-            If the attribute is read-only or invalid
+            If the attribute name is invalid, is a Python keyword, or if the
+            value is callable (use setMethod for callables).
         """
 
         # Ensure the name is a valid attr name with regular expression
@@ -258,49 +338,58 @@ class ReflectionAbstract(IReflectionAbstract):
         # Set the attribute on the class itself
         setattr(self.__abstract, name, value)
 
+        # Return True to indicate successful setting of the attribute
         return True
 
     def removeAttribute(self, name: str) -> bool:
         """
-        Remove an attribute from the class.
+        Remove an attribute from the reflected abstract class.
 
         Parameters
         ----------
         name : str
             The name of the attribute to remove.
 
+        Returns
+        -------
+        bool
+            True if the attribute was successfully removed.
+
         Raises
         ------
         ReflectionValueError
             If the attribute does not exist or cannot be removed.
         """
+
+        # Check if the attribute exists in the class
         if not self.hasAttribute(name):
             raise ReflectionValueError(f"Attribute '{name}' does not exist in class '{self.getClassName()}'.")
 
-        # Handle private attribute name mangling
+        # Handle private attribute name mangling for correct attribute resolution
         if name.startswith("__") and not name.endswith("__"):
             class_name = self.getClassName()
             name = f"_{class_name}{name}"
 
+        # Delete the attribute from the class itself
         delattr(self.__abstract, name)
 
+        # Return True to indicate successful removal
         return True
 
     def getAttributes(self) -> dict:
         """
-        Returns a dictionary of all class attributes (not instance attributes).
-
-        Parameters
-        ----------
-        None
+        Retrieve all class-level attributes from the reflected abstract class.
 
         Returns
         -------
         dict
-            A dictionary where keys are the names of class attributes and values are their corresponding values.
-            Only attributes that are not callable, not static/class methods, not properties, and do not start with
-            underscores (including dunder, protected, or private) are included.
+            Dictionary containing all class attributes including public, protected,
+            private, and dunder attributes. Keys are attribute names and values are
+            their corresponding values. Excludes callable objects, static/class methods,
+            and properties.
         """
+
+        # Return a dictionary containing all class attributes
         return {
             **self.getPublicAttributes(),
             **self.getProtectedAttributes(),
@@ -310,117 +399,159 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPublicAttributes(self) -> dict:
         """
-        Returns a dictionary of public class attributes (not instance attributes).
-
-        Parameters
-        ----------
-        None
+        Retrieve all public class-level attributes.
 
         Returns
         -------
         dict
-            A dictionary where keys are the names of public class attributes and values are their corresponding values.
-            Only attributes that are not callable, not static/class methods, not properties, and do not start with
-            underscores (including dunder, protected, or private) are included.
+            Dictionary where keys are names of public class attributes and values
+            are their corresponding values. Includes only attributes that do not
+            start with underscores and are not callable, static methods, class
+            methods, or properties.
         """
+
+        # Get the class name for name mangling checks
         class_name = self.getClassName()
+
+        # Retrieve all attributes from the class
         attributes = self.__abstract.__dict__
+
+        # Initialize a dictionary to hold public attributes
         public = {}
 
         # Exclude dunder, protected, and private attributes
         for attr, value in attributes.items():
+
+            # Skip callables, static methods, class methods, and properties
             if callable(value) or isinstance(value, staticmethod) or isinstance(value, classmethod) or isinstance(value, property):
                 continue
+
+            # Skip dunder attributes
             if attr.startswith("__") and attr.endswith("__"):
                 continue
+
+            # Skip private attributes (name-mangled)
             if attr.startswith(f"_{class_name}"):
                 continue
+
+            # Skip protected attributes (single underscore)
             if attr.startswith("_"):
                 continue
+
+            # Set public attributes
             public[attr] = value
 
+        # Ensure the class name is not a keyword
         return public
 
     def getProtectedAttributes(self) -> dict:
         """
-        Returns a dictionary of protected class attributes (not instance attributes).
-
-        Parameters
-        ----------
-        None
+        Retrieve all protected class-level attributes.
 
         Returns
         -------
         dict
-            A dictionary where keys are the names of protected class attributes and values are their corresponding values.
-            Only attributes that are not callable, not static/class methods, not properties, and start with a single underscore
-            (indicating protected visibility) are included.
+            Dictionary where keys are names of protected class attributes and values
+            are their corresponding values. Includes only attributes that start with
+            a single underscore (protected visibility) and are not callable, static
+            methods, class methods, or properties. Excludes dunder, public, and
+            private attributes.
         """
+
+        # Get the class name for name mangling checks
         class_name = self.getClassName()
+
+        # Retrieve all attributes from the class
         attributes = self.__abstract.__dict__
+
+        # Initialize a dictionary to hold protected attributes
         protected = {}
 
         # Exclude dunder, public, and private attributes
         for attr, value in attributes.items():
+
+            # Skip callables, static methods, class methods, and properties
             if callable(value) or isinstance(value, staticmethod) or isinstance(value, classmethod) or isinstance(value, property):
                 continue
+
+            # Skip dunder attributes
             if attr.startswith("__") and attr.endswith("__"):
                 continue
+
+            # Skip private attributes (name-mangled)
             if attr.startswith(f"_{class_name}"):
                 continue
+
+            # Only include attributes that start with a single underscore (protected)
             if not attr.startswith("_"):
                 continue
+
+            # Exclude internal abc attributes
             if attr.startswith("_abc_"):
                 continue
+
+            # Set protected attributes
             protected[attr] = value
 
         return protected
 
     def getPrivateAttributes(self) -> dict:
         """
-        Returns a dictionary of private class attributes (not instance attributes).
-
-        Parameters
-        ----------
-        None
+        Retrieve all private class-level attributes.
 
         Returns
         -------
         dict
-            A dictionary where keys are the names of private class attributes and values are their corresponding values.
-            Only attributes that are not callable, not static/class methods, not properties, and start with double underscores
-            (indicating private visibility) are included.
+            Dictionary where keys are names of private class attributes with name
+            mangling prefixes removed for clarity, and values are their corresponding
+            values. Includes only name-mangled attributes (starting with _ClassName)
+            that are not callable, static methods, class methods, or properties.
         """
+
+        # Get the class name for name mangling checks
         class_name = self.getClassName()
+
+        # Retrieve all attributes from the class
         attributes = self.__abstract.__dict__
+
+        # Initialize a dictionary to hold private attributes
         private = {}
 
-        # Exclude dunder, public, and protected attributes
+        # Exclude callables, static methods, class methods, and properties
         for attr, value in attributes.items():
+
+            # If the attribute is callable, a static method, a class method, or a property, skip it
             if callable(value) or isinstance(value, staticmethod) or isinstance(value, classmethod) or isinstance(value, property):
                 continue
+
+            # Include only name-mangled private attributes
             if attr.startswith(f"_{class_name}"):
                 private[str(attr).replace(f"_{class_name}", "")] = value
 
+        # Return the dictionary of private attributes
         return private
 
     def getDunderAttributes(self) -> dict:
         """
-        Returns a dictionary of dunder (double underscore) class attributes (not instance attributes).
-
-        Parameters
-        ----------
-        None
+        Retrieve all dunder (double underscore) class-level attributes.
 
         Returns
         -------
         dict
-            A dictionary where keys are the names of dunder class attributes and values are their corresponding values.
-            Only attributes that are not callable, not static/class methods, not properties, and start with double underscores
-            (indicating dunder visibility) are included.
+            Dictionary where keys are names of dunder (magic) class attributes and
+            values are their corresponding values. Includes only attributes that
+            start and end with double underscores and are not callable, static
+            methods, class methods, or properties. Excludes certain built-in
+            dunder attributes.
         """
+
+        # Retrieve all attributes from the class
         attributes = self.__abstract.__dict__
+
+        # Initialize a dictionary to hold dunder attributes
         dunder = {}
+
+        # List of built-in dunder attributes to exclude from the result
         exclude = [
             "__class__", "__delattr__", "__dir__", "__doc__", "__eq__", "__format__", "__ge__", "__getattribute__",
             "__gt__", "__hash__", "__init__", "__init_subclass__", "__le__", "__lt__", "__module__", "__ne__",
@@ -430,58 +561,67 @@ class ReflectionAbstract(IReflectionAbstract):
             "__abstractmethods__", "__code__", "__defaults__", "__kwdefaults__", "__closure__"
         ]
 
-        # Exclude public, protected, and private attributes
+        # Iterate through all attributes and filter for dunder attributes
         for attr, value in attributes.items():
+
+            # Skip callables, static/class methods, properties, and non-dunder attributes
             if callable(value) or isinstance(value, staticmethod) or isinstance(value, classmethod) or isinstance(value, property) or not attr.startswith("__"):
                 continue
+
+            # Skip excluded built-in dunder attributes
             if attr in exclude:
                 continue
+
+            # Only include attributes that start and end with double underscores
             if attr.startswith("__") and attr.endswith("__"):
                 dunder[attr] = value
 
+        # Return the dictionary of dunder attributes
         return dunder
 
     def getMagicAttributes(self) -> dict:
         """
-        Returns a dictionary of magic (dunder) class attributes (not instance attributes).
-
-        Parameters
-        ----------
-        None
+        Get a dictionary of magic (dunder) class attributes.
 
         Returns
         -------
         dict
-            A dictionary where keys are the names of magic class attributes and values are their corresponding values.
-            Only attributes that are not callable, not static/class methods, not properties, and start with double underscores
-            (indicating magic visibility) are included.
+            Dictionary where keys are names of magic class attributes and values
+            are their corresponding values. Includes only attributes that start
+            with double underscores and are not callable, static methods, class
+            methods, or properties.
         """
         return self.getDunderAttributes()
 
     def hasMethod(self, name: str) -> bool:
         """
-        Check if the instance has a specific method.
+        Check if the abstract class has a specific method.
 
         Parameters
         ----------
         name : str
-            The method name to check
+            The method name to check for existence.
 
         Returns
         -------
         bool
-            True if the method exists, False otherwise
+            True if the method exists in the class, False otherwise.
         """
         return name in self.getMethods()
 
     def removeMethod(self, name: str) -> bool:
         """
-        Remove a method from the class.
+        Remove a method from the abstract class.
 
         Parameters
         ----------
         name : str
-            The method name to remove
+            The method name to remove.
+
+        Returns
+        -------
+        bool
+            True if the method was successfully removed.
 
         Raises
         ------
@@ -504,17 +644,17 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getMethodSignature(self, name: str) -> inspect.Signature:
         """
-        Get the signature of a method.
+        Get the signature of a method in the abstract class.
 
         Parameters
         ----------
         name : str
-            The method name to get the signature for
+            The method name to get the signature for.
 
         Returns
         -------
-        str
-            The signature of the method
+        inspect.Signature
+            The signature object of the specified method.
 
         Raises
         ------
@@ -535,12 +675,13 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getMethods(self) -> List[str]:
         """
-        Get all method names of the instance.
+        Get all method names from the abstract class.
 
         Returns
         -------
         List[str]
-            List of method names
+            List containing all method names including public, protected, private,
+            static, and class methods.
         """
         return [
             *self.getPublicMethods(),
@@ -556,16 +697,14 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPublicMethods(self) -> list:
         """
-        Returns a list of public class methods (not instance methods).
-
-        Parameters
-        ----------
-        None
+        Get all public class methods.
 
         Returns
         -------
-        dict
-            A list where each element is the name of a public class method.
+        list
+            List of public class method names. Excludes dunder, protected, private
+            methods and non-callable attributes like properties, static methods,
+            and class methods.
         """
         class_name = self.getClassName()
         attributes = self.__abstract.__dict__
@@ -586,12 +725,12 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPublicSyncMethods(self) -> list:
         """
-        Get all public synchronous method names of the class.
+        Get all public synchronous method names from the abstract class.
 
         Returns
         -------
         list
-            List of public synchronous method names
+            List of public synchronous method names. Excludes asynchronous methods.
         """
         methods = self.getPublicMethods()
         sync_methods = []
@@ -602,12 +741,12 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPublicAsyncMethods(self) -> list:
         """
-        Get all public asynchronous method names of the class.
+        Get all public asynchronous method names from the abstract class.
 
         Returns
         -------
         list
-            List of public asynchronous method names
+            List of public asynchronous method names. Includes only coroutine functions.
         """
         methods = self.getPublicMethods()
         async_methods = []
@@ -618,16 +757,14 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getProtectedMethods(self) -> list:
         """
-        Returns a list of protected class methods (not instance methods).
-
-        Parameters
-        ----------
-        None
+        Get all protected class methods.
 
         Returns
         -------
-        dict
-            A list where each element is the name of a protected class method.
+        list
+            List of protected class method names. Includes only methods that start
+            with a single underscore and are not static methods, class methods,
+            or properties.
         """
         class_name = self.getClassName()
         attributes = self.__abstract.__dict__
@@ -675,16 +812,14 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPrivateMethods(self) -> list:
         """
-        Returns a list of private class methods (not instance methods).
-
-        Parameters
-        ----------
-        None
+        Get all private class methods.
 
         Returns
         -------
         list
-            A list where each element is the name of a private class method.
+            List of private class method names with class name prefixes removed
+            for clarity. Includes only name-mangled methods that start with
+            _ClassName and are not static methods, class methods, or properties.
         """
         class_name = self.getClassName()
         attributes = self.__abstract.__dict__
@@ -732,16 +867,13 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPublicClassMethods(self) -> list:
         """
-        Returns a list of public class methods (not instance methods).
-
-        Parameters
-        ----------
-        None
+        Get all public class methods from the abstract class.
 
         Returns
         -------
         list
-            A list where each element is the name of a public class method.
+            List of public class method names. Includes only methods decorated
+            with @classmethod that do not start with underscores.
         """
         class_name = self.getClassName()
         attributes = self.__abstract.__dict__
@@ -908,16 +1040,13 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPublicStaticMethods(self) -> list:
         """
-        Returns a list of public static methods of the class.
-
-        Parameters
-        ----------
-        None
+        Get all public static methods from the abstract class.
 
         Returns
         -------
         list
-            A list where each element is the name of a public static method.
+            List of public static method names. Includes only methods decorated
+            with @staticmethod that do not start with underscores.
         """
         class_name = self.getClassName()
         attributes = self.__abstract.__dict__
@@ -1084,16 +1213,14 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getDunderMethods(self) -> list:
         """
-        Returns a list of dunder (double underscore) methods of the class.
-
-        Parameters
-        ----------
-        None
+        Get all dunder (double underscore) methods from the abstract class.
 
         Returns
         -------
         list
-            A list where each element is the name of a dunder method.
+            List of dunder method names. Includes only methods that start and
+            end with double underscores and are callable, excluding certain
+            built-in methods.
         """
         attributes = self.__abstract.__dict__
         dunder_methods = []
@@ -1109,27 +1236,23 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getMagicMethods(self) -> list:
         """
-        Returns a list of magic (dunder) methods of the class.
-
-        Parameters
-        ----------
-        None
+        Get all magic (dunder) methods from the abstract class.
 
         Returns
         -------
         list
-            A list where each element is the name of a magic method.
+            List of magic method names. This is an alias for getDunderMethods().
         """
         return self.getDunderMethods()
 
     def getProperties(self) -> List:
         """
-        Get all properties of the instance.
+        Get all properties from the abstract class.
 
         Returns
         -------
-        List[str]
-            List of property names
+        List
+            List of property names with name mangling prefixes removed for clarity.
         """
 
         properties = []
@@ -1141,12 +1264,14 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPublicProperties(self) -> List:
         """
-        Get all public properties of the instance.
+        Get all public properties from the abstract class.
 
         Returns
         -------
-        List:
-            List of public property names and their values
+        List
+            List of public property names with name mangling prefixes removed
+            for clarity. Includes only properties that do not start with
+            underscores.
         """
         properties = []
         cls_name = self.getClassName()
@@ -1158,12 +1283,13 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getProtectedProperties(self) -> List:
         """
-        Get all protected properties of the instance.
+        Get all protected properties from the abstract class.
 
         Returns
         -------
         List
-            List of protected property names and their values
+            List of protected property names. Includes only properties that start
+            with a single underscore but are not name-mangled private properties.
         """
         properties = []
         for name, prop in self.__abstract.__dict__.items():
@@ -1174,12 +1300,14 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPrivateProperties(self) -> List:
         """
-        Get all private properties of the instance.
+        Get all private properties from the abstract class.
 
         Returns
         -------
         List
-            List of private property names and their values
+            List of private property names with class name prefixes removed for
+            clarity. Includes only name-mangled properties that start with
+            _ClassName.
         """
         properties = []
         for name, prop in self.__abstract.__dict__.items():
@@ -1190,17 +1318,17 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPropertySignature(self, name: str) -> inspect.Signature:
         """
-        Get the signature of a property.
+        Get the signature of a property's getter method.
 
         Parameters
         ----------
         name : str
-            The property name to get the signature for
+            The property name to get the signature for.
 
         Returns
         -------
         inspect.Signature
-            The signature of the property
+            The signature of the property's getter method.
 
         Raises
         ------
@@ -1223,17 +1351,17 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getPropertyDocstring(self, name: str) -> str:
         """
-        Get the docstring of a property.
+        Get the docstring of a property's getter method.
 
         Parameters
         ----------
         name : str
-            The property name to get the docstring for
+            The property name to get the docstring for.
 
         Returns
         -------
-        str
-            The docstring of the property
+        str or None
+            The docstring of the property's getter method if available, None otherwise.
 
         Raises
         ------
@@ -1256,32 +1384,37 @@ class ReflectionAbstract(IReflectionAbstract):
 
     def getConstructorDependencies(self) -> ClassDependency:
         """
-        Get the resolved and unresolved dependencies from the constructor of the instance's class.
+        Get the resolved and unresolved dependencies from the constructor.
 
         Returns
         -------
         ClassDependency
-            A structured representation of the constructor dependencies, containing:
-            - resolved: Dictionary of resolved dependencies with their names and values.
-            - unresolved: List of unresolved dependencies (parameter names without default values or annotations).
+            A structured representation of the constructor dependencies containing
+            resolved dependencies (with names and values) and unresolved dependencies
+            (parameter names without default values or annotations).
         """
         return ReflectDependencies(self.__abstract).getConstructorDependencies()
 
     def getMethodDependencies(self, method_name: str) -> MethodDependency:
         """
-        Get the resolved and unresolved dependencies from a method of the instance's class.
+        Get the resolved and unresolved dependencies from a specific method.
 
         Parameters
         ----------
         method_name : str
-            The name of the method to inspect
+            The name of the method to inspect for dependencies.
 
         Returns
         -------
         MethodDependency
-            A structured representation of the method dependencies, containing:
-            - resolved: Dictionary of resolved dependencies with their names and values.
-            - unresolved: List of unresolved dependencies (parameter names without default values or annotations).
+            A structured representation of the method dependencies containing
+            resolved dependencies (with names and values) and unresolved dependencies
+            (parameter names without default values or annotations).
+
+        Raises
+        ------
+        ReflectionAttributeError
+            If the specified method does not exist on the abstract class.
         """
 
         # Ensure the method name is a valid identifier

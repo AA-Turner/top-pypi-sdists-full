@@ -6,42 +6,41 @@ from orionis.services.introspection.exceptions import ReflectionTypeError
 @dataclass(frozen=True, kw_only=True)
 class CallableDependency:
     """
-    Represents the dependencies of a callable, separating resolved and unresolved dependencies.
+    Represents the resolved and unresolved dependencies of a callable.
 
-    Parameters
+    Attributes
     ----------
     resolved : Dict[KnownDependency, Any]
-        A dictionary mapping resolved dependency descriptors to their corresponding
-        resolved instances or values for the method. All keys must be KnownDependency instances.
+        Dictionary mapping KnownDependency instances to their resolved values.
     unresolved : List[str]
-        A list of method parameter names or dependency identifiers that could not be resolved.
-        Must contain only non-empty strings.
+        List of parameter names or dependency identifiers that could not be resolved.
 
     Raises
     ------
     ReflectionTypeError
-        If types don't match the expected:
-            - resolved: Dict[KnownDependency, Any]
-            - unresolved: List[str]
+        If `resolved` is not a dictionary or `unresolved` is not a list.
     ValueError
-        If resolved contains None keys or unresolved contains empty strings
+        If `resolved` contains None keys or `unresolved` contains empty strings.
     """
+
+    # Resolved dependencies mapped to their values
     resolved: Dict[KnownDependency, Any]
+
+    # Unresolved dependencies as a list of parameter names
     unresolved: List[str]
 
     def __post_init__(self):
         """
-        Validates types and values of attributes during initialization.
+        Validates the types and values of the attributes after initialization.
 
         Raises
         ------
         ReflectionTypeError
-            If types don't match the expected:
-                - resolved: Dict[KnownDependency, Any]
-                - unresolved: List[str]
+            If `resolved` is not a dictionary or `unresolved` is not a list.
         ValueError
-            If resolved contains None keys or unresolved contains empty strings
+            If `resolved` contains None keys or `unresolved` contains empty strings.
         """
+
         # Validate 'resolved' is a dict with proper key types
         if not isinstance(self.resolved, dict):
             raise ReflectionTypeError(

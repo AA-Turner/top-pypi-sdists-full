@@ -18,6 +18,7 @@ class TestScopeManagerMethods(AsyncTestCase):
             This method does not return any value. It asserts the existence of methods
             and fails the test if any are missing.
         """
+
         # List of expected method names in ScopeManager
         expected_methods = [
             "__init__",

@@ -27,8 +27,8 @@ from utilities.altair import (
     vconcat_charts,
 )
 from utilities.functions import ensure_class
-from utilities.hypothesis import dates, text_ascii, zoned_datetimes
-from utilities.polars import DatetimeUTC, zoned_datetime_dtype
+from utilities.hypothesis import dates, text_ascii, zoned_date_times
+from utilities.polars import DatetimeUTC, zoned_date_time_dtype
 from utilities.tzdata import HongKong, Tokyo
 from utilities.whenever import get_now
 from utilities.zoneinfo import UTC
@@ -98,7 +98,7 @@ class TestPlotDataFrames:
         df = DataFrame(
             data=[(dt.datetime(2000, 1, 1, 12, tzinfo=time_zone), 0.0)],
             schema={
-                "datetime": zoned_datetime_dtype(time_zone=time_zone),
+                "datetime": zoned_date_time_dtype(time_zone=time_zone),
                 "value": Float64,
             },
             orient="row",
@@ -119,7 +119,7 @@ class TestPlotDataFrames:
         )
         _ = plot_dataframes(df, x="index", y="value")
 
-    @given(data=lists(tuples(zoned_datetimes(), floats(-10, 10))))
+    @given(data=lists(tuples(zoned_date_times(), floats(-10, 10))))
     def test_tooltip_format_date_time(
         self, *, data: list[tuple[ZonedDateTime, float]]
     ) -> None:

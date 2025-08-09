@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from cwl_utils.parser import save
 from CTADIRAC.Interfaces.API.CWLJob import CWLJob
-from CTADIRAC.Interfaces.Utilities.CWL_utils import (
+from CTADIRAC.Interfaces.Utilities.CWLUtilities import (
     LFN_DIRAC_PREFIX,
     LFN_PREFIX,
 )
@@ -114,6 +114,20 @@ baseCommand: ["base_command"]
 CWL_WORKFLOW_EXAMPLE_NO_INPUT_INPUTS = """
 local_script: "test"
 """
+CVMFS_BASE_PATH = Path("/cvmfs/ctao.dpps.test/")
+
+# Input files
+INPUT_1 = "gamma_1.dl1_img.h5"
+INPUT_2 = "gamma_2.dl1_img.h5"
+
+# Output files
+MERGED_OUTPUT = "merged.dl1.h5"  # merged_output
+MERGE_LOG = "ctapipe-merge.log"  # merge_log
+MERGE_PROVENANCE_LOG = "ctapipe-merge.provenance.log"  # merge_provenance_log
+INTERMEDIATE_LOG = "gamma_1.dl1.h5.log"  # intermediate_log
+INTERMEDIATE_PROVENANCE_LOG = "gamma_1.dl1.h5.provlog"  # intermediate_log_provenance
+INTERMEDIATE_LOG_2 = "gamma_2.dl1.h5.log"
+INTERMEDIATE_PROVENANCE_LOG_2 = "gamma_2.dl1.h5.provlog"
 
 
 @pytest.fixture
@@ -177,7 +191,7 @@ def test_cwl_job_submit(
     job = CWLJob(
         cwl_workflow=cwl_workflow_example,
         cwl_inputs=cwl_inputs_example,
-        cvmfs_base_path=Path("/cvmfs/ctao.dpps.test/"),
+        cvmfs_base_path=CVMFS_BASE_PATH,
         output_se="TEST_SE",
     )
 
@@ -213,9 +227,9 @@ def test_cwl_job_submit(
 
 def test_datapipe_cwl_job(mock_submit_job):
     job = CWLJob(
-        "tests/resources/cwl/process_dl0_dl1.cwl",
-        "tests/resources/cwl/inputs_process_dl0_dl1.yaml",
-        cvmfs_base_path=Path("/cvmfs/ctao.dpps.test/"),
+        "tests/resources/cwl/single_command_line_tool/process_dl0_dl1.cwl",
+        "tests/resources/cwl/single_command_line_tool/inputs_process_dl0_dl1.yaml",
+        cvmfs_base_path=CVMFS_BASE_PATH,
     )
 
     # these are set via inputs
@@ -260,21 +274,21 @@ def test_datapipe_cwl_job(mock_submit_job):
 
 def test_datapipe_cwl_workflow_job(mock_submit_job):
     job = CWLJob(
-        "tests/resources/cwl/process_multiple/process_dl0_dl1_multiple.cwl",
-        "tests/resources/cwl/process_multiple/inputs_dl0_dl1_multiple.yaml",
-        cvmfs_base_path=Path("/cvmfs/ctao.dpps.test/"),
+        "tests/resources/cwl/scatter_feat_requirement/process_dl0_dl1_multiple.cwl",
+        "tests/resources/cwl/scatter_feat_requirement/inputs_dl0_dl1_multiple.yaml",
+        cvmfs_base_path=CVMFS_BASE_PATH,
     )
     assert len(job.input_data) == 0
 
     assert len(job.input_sandbox) == 2
-    assert "gamma_1.dl1_img.h5" in job.input_sandbox[0]
-    assert "gamma_2.dl1_img.h5" in job.input_sandbox[1]
+    assert INPUT_1 in job.input_sandbox[0]
+    assert INPUT_2 in job.input_sandbox[1]
 
     assert len(job.output_data) == 0
     assert job.output_sandbox == [
-        "merged.dl1.h5",
-        "ctapipe-merge.log",
-        "ctapipe-merge.provenance.log",
+        MERGED_OUTPUT,
+        MERGE_LOG,
+        MERGE_PROVENANCE_LOG,
     ]
 
     result = job.submit()
@@ -292,16 +306,16 @@ def test_datapipe_cwl_workflow_job(mock_submit_job):
 
     output_sandbox = get_list(result_xml, "OutputSandbox")
     assert len(output_sandbox) == 3
-    assert output_sandbox[0] == "merged.dl1.h5"
+    assert output_sandbox[0] == MERGED_OUTPUT
 
 
 # TODO: parametrize with the above test?
 def test_datapipe_dl0_dl2_workflow(mock_submit_job):
     """Handling JS requirements."""
     job = CWLJob(
-        "tests/resources/cwl/datapipe_dl0_dl2/workflow_dl0_to_dl2.cwl",
-        "tests/resources/cwl/datapipe_dl0_dl2/inputs_workflow_dl0_to_dl2.yaml",
-        cvmfs_base_path=Path("/cvmfs/ctao.dpps.test/"),
+        "tests/resources/cwl/step_input_requirement/workflow_dl0_to_dl2.cwl",
+        "tests/resources/cwl/step_input_requirement/inputs_workflow_dl0_to_dl2.yaml",
+        cvmfs_base_path=CVMFS_BASE_PATH,
     )
     assert len(job.input_data) == 1
     assert job.input_data == [
@@ -331,3 +345,82 @@ def test_datapipe_dl0_dl2_workflow(mock_submit_job):
 
     output_sandbox = get_list(result_xml, "OutputSandbox")
     assert output_sandbox == ["gamma_prod5.dl1.h5", "gamma_prod5.dl2.h5"]
+
+
+def test_scattered_expression_tool(mock_submit_job):
+    job = CWLJob(
+        "tests/resources/cwl/expression_tool_scatter/process_dl0_dl1_multiple.cwl",
+        "tests/resources/cwl/expression_tool_scatter/inputs_process_multiple.yaml",
+        cvmfs_base_path=CVMFS_BASE_PATH,
+    )
+
+    assert len(job.input_data) == 0
+
+    assert len(job.input_sandbox) == 2
+    assert INPUT_1 in job.input_sandbox[0]
+    assert INPUT_2 in job.input_sandbox[1]
+
+    assert len(job.output_data) == 0
+    assert set(job.output_sandbox) == {
+        MERGED_OUTPUT,
+        MERGE_LOG,
+        MERGE_PROVENANCE_LOG,
+        INTERMEDIATE_LOG,
+        INTERMEDIATE_LOG_2,
+        INTERMEDIATE_PROVENANCE_LOG,
+        INTERMEDIATE_PROVENANCE_LOG_2,
+    }
+
+    result = job.submit()
+    mock_submit_job.assert_called_once_with(job)
+    result_xml = ET.fromstring(result)
+
+    input_data = get_list(result_xml, "InputData")
+    assert input_data == []
+
+    input_sandbox = get_list(result_xml, "InputSandbox")
+    assert len(input_sandbox) == 4  # cwl + inputs + input_sandbox
+
+    output_data = get_list(result_xml, "OutputData")
+    assert len(output_data) == 0
+
+    output_sandbox = get_list(result_xml, "OutputSandbox")
+    assert len(output_sandbox) == 7
+
+
+def test_expression_tool(mock_submit_job):
+    job = CWLJob(
+        "tests/resources/cwl/expression_tool/process_dl0_dl1_multiple.cwl",
+        "tests/resources/cwl/expression_tool/inputs_process_multiple.yaml",
+        cvmfs_base_path=CVMFS_BASE_PATH,
+    )
+
+    assert len(job.input_data) == 0
+
+    assert len(job.input_sandbox) == 1
+    assert INPUT_1 in job.input_sandbox[0]
+
+    assert len(job.output_data) == 0
+    assert set(job.output_sandbox) == {
+        MERGED_OUTPUT,
+        MERGE_LOG,
+        MERGE_PROVENANCE_LOG,
+        INTERMEDIATE_LOG,
+        INTERMEDIATE_PROVENANCE_LOG,
+    }
+
+    result = job.submit()
+    mock_submit_job.assert_called_once_with(job)
+    result_xml = ET.fromstring(result)
+
+    input_data = get_list(result_xml, "InputData")
+    assert input_data == []
+
+    input_sandbox = get_list(result_xml, "InputSandbox")
+    assert len(input_sandbox) == 3  # cwl + inputs + input_sandbox
+
+    output_data = get_list(result_xml, "OutputData")
+    assert len(output_data) == 0
+
+    output_sandbox = get_list(result_xml, "OutputSandbox")
+    assert len(output_sandbox) == 5

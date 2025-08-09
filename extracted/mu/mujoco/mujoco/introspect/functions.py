@@ -9869,6 +9869,34 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
          ),
          doc='Add material.',
      )),
+    ('mjs_makeMesh',
+     FunctionDecl(
+         name='mjs_makeMesh',
+         return_type=ValueType(name='int'),
+         parameters=(
+             FunctionParameterDecl(
+                 name='mesh',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjsMesh'),
+                 ),
+             ),
+             FunctionParameterDecl(
+                 name='builtin',
+                 type=ValueType(name='mjtMeshBuiltin'),
+             ),
+             FunctionParameterDecl(
+                 name='params',
+                 type=PointerType(
+                     inner_type=ValueType(name='double'),
+                 ),
+             ),
+             FunctionParameterDecl(
+                 name='nparams',
+                 type=ValueType(name='int'),
+             ),
+         ),
+         doc='Sets the vertices and normals of a mesh.',
+     )),
     ('mjs_getSpec',
      FunctionDecl(
          name='mjs_getSpec',
@@ -10687,6 +10715,20 @@ FUNCTIONS: Mapping[str, FunctionDecl] = dict([
              ),
          ),
          doc='Delete user payload.',
+     )),
+    ('mjs_sensorDim',
+     FunctionDecl(
+         name='mjs_sensorDim',
+         return_type=ValueType(name='int'),
+         parameters=(
+             FunctionParameterDecl(
+                 name='sensor',
+                 type=PointerType(
+                     inner_type=ValueType(name='mjsSensor', is_const=True),
+                 ),
+             ),
+         ),
+         doc='Return sensor dimension.',
      )),
     ('mjs_defaultSpec',
      FunctionDecl(

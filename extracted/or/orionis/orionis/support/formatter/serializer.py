@@ -5,11 +5,18 @@ class Parser:
     @staticmethod
     def exception(exception: Exception) -> ExceptionParser:
         """
-        Creates and returns an ExceptionParser instance for the given exception.
-        Args:
-            exception (Exception): The exception to be parsed.
-        Returns:
-            ExceptionParser: An instance of ExceptionParser initialized with the provided exception.
+        Create and return an ExceptionParser instance for the given exception.
+
+        Parameters
+        ----------
+        exception : Exception
+            The exception object to be parsed.
+
+        Returns
+        -------
+        ExceptionParser
+            An ExceptionParser instance initialized with the provided exception.
         """
 
+        # Instantiate and return an ExceptionParser for the given exception
         return ExceptionParser(exception)

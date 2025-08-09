@@ -75,7 +75,7 @@ class CropWeedDetectionUseCase(BaseProcessor):
         self.CASE_VERSION: Optional[str] = '1.2'
 
         # List of  categories to track
-        self.target_categories = ['crop', 'weed']
+        self.target_categories = ['BroWeed', 'Maize', 'NarWeed']
 
         # Initialize smoothing tracker
         self.smoothing_tracker = None

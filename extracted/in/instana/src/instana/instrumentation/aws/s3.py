@@ -57,16 +57,26 @@ try:
         with tracer.start_as_current_span("s3", span_context=parent_context) as span:
             try:
                 span.set_attribute("s3.op", operations[wrapped.__name__])
-                if wrapped.__name__ in ["download_file", "download_fileobj"]:
-                    span.set_attribute("s3.bucket", args[0])
-                else:
-                    span.set_attribute("s3.bucket", args[1])
+                if "Bucket" in kwargs:
+                    span.set_attribute("s3.bucket", kwargs["Bucket"])
+                elif len(args) > 1:
+                    if wrapped.__name__ in ["download_file", "download_fileobj"]:
+                        span.set_attribute("s3.bucket", args[0])
+                    else:
+                        span.set_attribute("s3.bucket", args[1])
+            except Exception:
+                logger.debug(
+                    f"collect_s3_injected_attributes collect error: {wrapped.__name__}", exc_info=True
+                )
+
+            try:
                 return wrapped(*args, **kwargs)
             except Exception as exc:
                 span.record_exception(exc)
                 logger.debug(
-                    "collect_s3_injected_attributes: collect error", exc_info=True
+                    f"collect_s3_injected_attributes error: {wrapped.__name__}", exc_info=True
                 )
+                raise
 
     for method in [
         "upload_file",

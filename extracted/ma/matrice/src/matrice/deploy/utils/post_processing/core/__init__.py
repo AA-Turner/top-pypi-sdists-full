@@ -21,6 +21,7 @@ from .config import (
     BaseConfig,
     PeopleCountingConfig,
     CustomerServiceConfig,
+    IntrusionConfig,
     ZoneConfig,
     TrackingConfig,
     AlertConfig,
@@ -48,6 +49,7 @@ __all__ = [
     # Configuration classes
     'BaseConfig',
     'PeopleCountingConfig',
+    'IntrusionConfig',
     'CustomerServiceConfig',
     'ZoneConfig',
     'TrackingConfig',

@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple
 
 class ITestLogs(ABC):
     """
-    Interface for test logs persistence using a relational database.
+    Abstract interface for persisting and retrieving test logs in a relational database.
     """
 
     @abstractmethod
@@ -13,22 +13,16 @@ class ITestLogs(ABC):
 
         Parameters
         ----------
-        report : Dict
-            Must include the following keys:
-            - json (str): JSON-serialized report.
-            - total_tests (int)
-            - passed (int)
-            - failed (int)
-            - errors (int)
-            - skipped (int)
-            - total_time (float)
-            - success_rate (float)
-            - timestamp (str)
+        report : dict
+            Dictionary containing the test report data. Required keys:
+            'json' (str), 'total_tests' (int), 'passed' (int), 'failed' (int),
+            'errors' (int), 'skipped' (int), 'total_time' (float),
+            'success_rate' (float), 'timestamp' (str).
 
         Returns
         -------
         bool
-            True if the report was stored successfully.
+            True if the report was stored successfully, otherwise False.
 
         Raises
         ------
@@ -42,12 +36,12 @@ class ITestLogs(ABC):
     @abstractmethod
     def reset(self) -> bool:
         """
-        Drop the reports table, removing all test history.
+        Remove all test reports from the database.
 
         Returns
         -------
         bool
-            True if the table was dropped or did not exist.
+            True if the reports table was dropped or did not exist.
 
         Raises
         ------
@@ -67,15 +61,16 @@ class ITestLogs(ABC):
 
         Parameters
         ----------
-        first : Optional[int]
-            Number of earliest reports (ascending by id).
-        last : Optional[int]
-            Number of latest reports (descending by id).
+        first : int, optional
+            Number of earliest reports to retrieve, ordered by ascending ID.
+        last : int, optional
+            Number of latest reports to retrieve, ordered by descending ID.
 
         Returns
         -------
-        List[Tuple]
-            Each tuple: (id, json, total_tests, passed, failed, errors, skipped, total_time, success_rate, timestamp)
+        list of tuple
+            Each tuple contains:
+            (id, json, total_tests, passed, failed, errors, skipped, total_time, success_rate, timestamp).
 
         Raises
         ------

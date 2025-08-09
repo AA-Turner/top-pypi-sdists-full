@@ -11,45 +11,52 @@ from orionis.services.introspection.dependencies.entities.known_dependencies imp
 from orionis.services.introspection.dependencies.entities.method_dependencies import MethodDependency
 
 class Resolver(IResolver):
-    """
-    Resolver class for handling dependency resolution in the container.
-    """
 
     def __init__(
         self,
-        container:IContainer
+        container: IContainer
     ):
         """
-        Initialize the resolver.
-
-        This method initializes the resolver with a reference to the container.
-
         Parameters
         ----------
         container : IContainer
-            The container instance that this resolver will use to resolve dependencies.
+            The container instance used by the resolver to resolve dependencies.
+
+        Notes
+        -----
+        Initializes the Resolver with a reference to the dependency injection container.
+        This allows the resolver to access registered bindings and resolve dependencies
+        as required throughout the container's lifecycle.
         """
         self.container = container
 
     def resolve(
         self,
-        binding:Binding,
+        binding: Binding,
         *args,
         **kwargs
     ):
         """
-        Resolves an instance from a binding.
-        This method resolves an instance based on the binding's lifetime and type.
-        It delegates to specific resolution methods based on the lifetime (transient, singleton, or scoped).
-        Args:
-            binding (Binding): The binding to resolve.
-            *args: Additional positional arguments to pass to the constructor.
-            **kwargs: Additional keyword arguments to pass to the constructor.
-        Returns:
-            Any: The resolved instance.
-        Raises:
-            OrionisContainerException: If the binding is not an instance of Binding
-                or if scoped lifetime resolution is attempted (not yet implemented).
+        Resolves an instance from a binding according to its lifetime.
+
+        Parameters
+        ----------
+        binding : Binding
+            The binding to resolve.
+        *args : tuple
+            Additional positional arguments to pass to the constructor.
+        **kwargs : dict
+            Additional keyword arguments to pass to the constructor.
+
+        Returns
+        -------
+        Any
+            The resolved instance.
+
+        Raises
+        ------
+        OrionisContainerException
+            If the binding is not an instance of Binding or if the lifetime is not supported.
         """
 
         # Ensure the binding is an instance of Binding

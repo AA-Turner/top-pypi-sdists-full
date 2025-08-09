@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcpadapt
-Version: 0.1.12
+Version: 0.1.13
 Summary: Adapt MCP servers to many agentic framework.
 Project-URL: Homepage, https://github.com/grll/mcpadapt
 Project-URL: Repository, https://github.com/grll/mcpadapt
@@ -18,7 +18,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: jsonref>=1.1.0
-Requires-Dist: mcp>=1.9.4
+Requires-Dist: mcp>=1.10.1
 Requires-Dist: pydantic>=2.10.6
 Requires-Dist: python-dotenv>=1.0.1
 Provides-Extra: audio

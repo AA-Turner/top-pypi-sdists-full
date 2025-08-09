@@ -17,6 +17,7 @@ class ILoggerService(ABC):
         None
             This method does not return any value.
         """
+
         # To be implemented by subclasses
         pass
 
@@ -35,6 +36,7 @@ class ILoggerService(ABC):
         None
             This method does not return any value.
         """
+
         # To be implemented by subclasses
         pass
 
@@ -53,6 +55,7 @@ class ILoggerService(ABC):
         None
             This method does not return any value.
         """
+
         # To be implemented by subclasses
         pass
 
@@ -71,5 +74,6 @@ class ILoggerService(ABC):
         None
             This method does not return any value.
         """
+
         # To be implemented by subclasses
         pass

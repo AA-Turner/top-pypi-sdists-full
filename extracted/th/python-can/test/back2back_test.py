@@ -14,13 +14,12 @@ import pytest
 import can
 from can import CanInterfaceNotImplementedError
 from can.interfaces.udp_multicast import UdpMulticastBus
+from can.interfaces.udp_multicast.utils import is_msgpack_installed
 
 from .config import (
     IS_CI,
     IS_OSX,
     IS_PYPY,
-    IS_TRAVIS,
-    IS_UNIX,
     TEST_CAN_FD,
     TEST_INTERFACE_SOCKETCAN,
 )
@@ -273,23 +272,21 @@ class Back2BackTestCase(unittest.TestCase):
         self.bus2.recv(0)
         self.bus2.recv(0)
 
-    @unittest.skipIf(IS_CI, "fails randomly when run on CI server")
     def test_send_periodic_duration(self):
         """
         Verify that send_periodic only transmits for the specified duration.
 
         Regression test for #1713.
         """
-        for params in [(0.01, 0.003), (0.1, 0.011), (1, 0.4)]:
-            duration, period = params
+        for duration, period in [(0.01, 0.003), (0.1, 0.011), (1, 0.4)]:
             messages = []
 
             self.bus2.send_periodic(can.Message(), period, duration)
-            while (msg := self.bus1.recv(period * 1.25)) is not None:
+            while (msg := self.bus1.recv(period + self.TIMEOUT)) is not None:
                 messages.append(msg)
 
-            delta_t = round(messages[-1].timestamp - messages[0].timestamp, 2)
-            assert delta_t <= duration
+            delta_t = messages[-1].timestamp - messages[0].timestamp
+            assert delta_t < duration + 0.05
 
 
 @unittest.skipUnless(TEST_INTERFACE_SOCKETCAN, "skip testing of socketcan")
@@ -302,9 +299,13 @@ class BasicTestSocketCan(Back2BackTestCase):
 
 # this doesn't even work on Travis CI for macOS; for example, see
 # https://travis-ci.org/github/hardbyte/python-can/jobs/745389871
+@unittest.skipIf(
+    IS_CI and IS_OSX,
+    "not supported for macOS CI",
+)
 @unittest.skipUnless(
-    IS_UNIX and not (IS_CI and IS_OSX),
-    "only supported on Unix systems (but not on macOS at Travis CI and GitHub Actions)",
+    is_msgpack_installed(raise_exception=False),
+    "msgpack not installed",
 )
 class BasicTestUdpMulticastBusIPv4(Back2BackTestCase):
     INTERFACE_1 = "udp_multicast"
@@ -319,9 +320,13 @@ class BasicTestUdpMulticastBusIPv4(Back2BackTestCase):
 
 # this doesn't even work for loopback multicast addresses on Travis CI; for example, see
 # https://travis-ci.org/github/hardbyte/python-can/builds/745065503
+@unittest.skipIf(
+    IS_CI and IS_OSX,
+    "not supported for macOS CI",
+)
 @unittest.skipUnless(
-    IS_UNIX and not (IS_TRAVIS or (IS_CI and IS_OSX)),
-    "only supported on Unix systems (but not on Travis CI; and not on macOS at GitHub Actions)",
+    is_msgpack_installed(raise_exception=False),
+    "msgpack not installed",
 )
 class BasicTestUdpMulticastBusIPv6(Back2BackTestCase):
     HOST_LOCAL_MCAST_GROUP_IPv6 = "ff11:7079:7468:6f6e:6465:6d6f:6d63:6173"

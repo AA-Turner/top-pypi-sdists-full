@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_outposts.client import OutpostsClient
     from types_aiobotocore_outposts.paginator import (
+        GetOutpostBillingInformationPaginator,
         GetOutpostInstanceTypesPaginator,
         GetOutpostSupportedInstanceTypesPaginator,
         ListAssetInstancesPaginator,
@@ -28,6 +29,7 @@ Usage::
     with session.create_client("outposts") as client:
         client: OutpostsClient
 
+        get_outpost_billing_information_paginator: GetOutpostBillingInformationPaginator = client.get_paginator("get_outpost_billing_information")
         get_outpost_instance_types_paginator: GetOutpostInstanceTypesPaginator = client.get_paginator("get_outpost_instance_types")
         get_outpost_supported_instance_types_paginator: GetOutpostSupportedInstanceTypesPaginator = client.get_paginator("get_outpost_supported_instance_types")
         list_asset_instances_paginator: ListAssetInstancesPaginator = client.get_paginator("list_asset_instances")
@@ -49,6 +51,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    GetOutpostBillingInformationInputPaginateTypeDef,
+    GetOutpostBillingInformationOutputTypeDef,
     GetOutpostInstanceTypesInputPaginateTypeDef,
     GetOutpostInstanceTypesOutputTypeDef,
     GetOutpostSupportedInstanceTypesInputPaginateTypeDef,
@@ -77,6 +81,7 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "GetOutpostBillingInformationPaginator",
     "GetOutpostInstanceTypesPaginator",
     "GetOutpostSupportedInstanceTypesPaginator",
     "ListAssetInstancesPaginator",
@@ -88,6 +93,26 @@ __all__ = (
     "ListOutpostsPaginator",
     "ListSitesPaginator",
 )
+
+if TYPE_CHECKING:
+    _GetOutpostBillingInformationPaginatorBase = AioPaginator[
+        GetOutpostBillingInformationOutputTypeDef
+    ]
+else:
+    _GetOutpostBillingInformationPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class GetOutpostBillingInformationPaginator(_GetOutpostBillingInformationPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/paginator/GetOutpostBillingInformation.html#Outposts.Paginator.GetOutpostBillingInformation)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/paginators/#getoutpostbillinginformationpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetOutpostBillingInformationInputPaginateTypeDef]
+    ) -> AioPageIterator[GetOutpostBillingInformationOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/outposts/paginator/GetOutpostBillingInformation.html#Outposts.Paginator.GetOutpostBillingInformation.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_outposts/paginators/#getoutpostbillinginformationpaginator)
+        """
 
 if TYPE_CHECKING:
     _GetOutpostInstanceTypesPaginatorBase = AioPaginator[GetOutpostInstanceTypesOutputTypeDef]

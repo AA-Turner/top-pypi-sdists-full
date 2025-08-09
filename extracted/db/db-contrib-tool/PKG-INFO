@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: db-contrib-tool
-Version: 1.1.5
+Version: 2.0.0
 Summary: The `db-contrib-tool` - MongoDB's tool for contributors.
 Home-page: https://github.com/10gen/db-contrib-tool
 Author: DAG team
@@ -25,7 +25,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc ; platform_machine != "s39
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: packaging (>=24.0,<25.0)
 Requires-Dist: pkce (>=1.0.3,<2.0.0)
-Requires-Dist: pydantic (==1.8.2)
+Requires-Dist: pydantic (==2.11.0)
 Requires-Dist: pyinstaller (>=5.12,<6.0)
 Requires-Dist: requests (>=2.26.0,<3.0.0)
 Requires-Dist: requests-oauthlib (>=2.0.0,<3.0.0)
@@ -38,34 +38,11 @@ Description-Content-Type: text/markdown
 
 # db-contrib-tool
 
-The `db-contrib-tool` - MongoDB's tools for contributors.
-
-## Table of contents
-
-- [db-contrib-tool](#db-contrib-tool)
-  - [Table of contents](#table-of-contents)
-  - [Description](#description)
-  - [Dependencies](#dependencies)
-  - [Installation](#installation)
-  - [Usage](#usage)
-  - [Contributor's Guide (local development)](#contributors-guide-local-development)
-    - [Install project dependencies](#install-project-dependencies)
-    - [Run command line tool (local development)](#run-command-line-tool-local-development)
-    - [Run linters](#run-linters)
-    - [Run tests](#run-tests)
-    - [Pre-commit](#pre-commit)
-    - [Testing changes in mongo](#testing-changes-in-mongo)
-    - [Testing changes locally](#testing-changes-locally)
-    - [Versioning](#versioning)
-    - [Code Review](#code-review)
-    - [Deployment](#deployment)
+The `db-contrib-tool` - a collection of tooling to support repro environments.
 
 ## Description
 
 The command line tool with various subcommands:
-- `bisect`
-  - [README.md](src/db_contrib_tool/evg_aware_bisect/README.md)
-  - performs an evergreen-aware git-bisect to find the 'last passing version' and 'first failing version' of mongo
 - `setup-repro-env`
   - [README.md](src/db_contrib_tool/setup_repro_env/README.md)
   - downloads and installs:
@@ -73,6 +50,12 @@ The command line tool with various subcommands:
     - debug symbols
     - artifacts (including resmoke, python scripts etc)
     - python venv for resmoke, python scripts etc
+- `setup-mongot-repro-env`
+  - [README.md](src/db_contrib_tool/setup_mongot_repro_env/README.md)
+  - Downloads and installs particular Mongot versions into install directory.
+- `bisect`
+  - [README.md](src/db_contrib_tool/evg_aware_bisect/README.md)
+  - performs an evergreen-aware git-bisect to find the 'last passing version' and 'first failing version' of mongo
 - `symbolize`
   - [README.md](src/db_contrib_tool/symbolizer/README.md)
   - Symbolizes stacktraces from recent `mongod` and `mongos` binaries compiled in Evergreen, including patch builds, mainline builds, and release/production builds.
@@ -123,107 +106,27 @@ Print out help message:
 db-contrib-tool --help
 ```
 
-For more information see [description](#description) section.
-
-## Contributor's Guide (local development)
-
-### Install project dependencies
-
-This project uses [poetry](https://python-poetry.org/) for dependency management.
-
-```bash
-poetry install
+Download and install the v8.0 mongo binary:
+```sh
+db-contrib-tool setup-repro-env 8.0
 ```
 
-### Run command line tool (local development)
-
-Some subcommands like `bisect` and `symbolize` could be tested from the db-contrib-tool repo root:
-
-```bash
-poetry run db-contrib-tool --help
+Download other accompanying artifacts with flags:
+```sh
+db-contrib-tool setup-repro-env 8.0 \
+  --downloadSymbols \
+  --downloadArtifacts \
+  --downloadPythonVenv
 ```
 
-For `setup-repro-env` some features can also be tested from the db-contrib-tool repo root,
-but full features are available when running from mongo repo root.
-See [testing changes locally](#testing-changes-locally) section.
-
-### Run linters
-
-```bash
-poetry run ruff format
-poetry run ruff check
+Download latest binary from the 10gen/mongo master branch:
+```sh
+db-contrib-tool setup-repro-env master
 ```
 
-### Run tests
+There are more ways to specify binary versions - see [setup_repro_env/README.md](src/db_contrib_tool/setup_repro_env/README.md).
 
-```bash
-poetry run pytest
-```
+# Contributing
 
-### Pre-commit
-
-This project has [pre-commit](https://pre-commit.com/) configured. Pre-commit will run
-configured checks at git commit time.<br>
-To enable pre-commit on your local repository run:
-```bash
-poetry run pre-commit install
-```
-
-To run pre-commit manually:
-```bash
-poetry run pre-commit run
-```
-or across all files (not just those staged):
-```bash
-poetry run pre-commit run --all-files
-```
-
-### Testing changes in mongo
-
-This tool is used to help run tests in the mongodb/mongo repository. On occasion, it may be
-desirable to run a mongodb-mongo-* patch build with in-flight changes to this repository. The
-following steps can be taken to accomplish that.
-
-- Create a patch build with the changes you wish to test, running the `create_pyinstaller_binary` tasks.
-- In the `mongo` repository, edit [evergreen/download_db_contrib_tool.py](https://github.com/10gen/mongo/blob/2a3cf647ce2b4e64d8b5001f50e00620114425c8/evergreen/download_db_contrib_tool.py#L17) to use your patch's Evergreen
-version, like `https://mdb-build-public.s3.amazonaws.com/db-contrib-tool-binaries/<your patch's version ID>/"`
-
-### Testing changes locally
-
-Pipx installation recommendations can be found in [installation](#installation) section.
-
-The tool can be installed via pipx from your local repo:
-
-```bash
-python3 -m pipx install /path/to/db-contrib-tool/repo/root/dir
-```
-
-If the tool is already installed you can force install an updated version using --force flag:
-
-```bash
-python3 -m pipx install --force /path/to/db-contrib-tool/repo/root/dir
-```
-
-After these steps you can run in-development version of db-contrib-tool from any directory:
-
-```bash
-db-contrib-tool --help
-```
-
-### Versioning
-
-This project uses [semver](https://semver.org/) for versioning.
-Please include a description what is added for each new version in `CHANGELOG.md`.
-
-### Code Review
-
-This projects uses GitHub PRs for code reviews. You should assign any reviewers you would like to look at the PR to it.
-
-This project uses the GitHub merge queue. Click "Merge when ready" as soon as you'd like.
-
-### Deployment
-
-Deployment to pypi is done by [deploy](https://spruce.mongodb.com/commits/db-contrib-tool?taskNames=deploy)
-task of `db-contrib-tool` project in Evergreen.
-A new version in Evergreen is created on merges to `main` branch.
+See [./CONTRIBUTING.md](./CONTRIBUTING.md) on details for development on this project.
 

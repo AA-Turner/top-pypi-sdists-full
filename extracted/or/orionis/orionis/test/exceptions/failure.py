@@ -4,11 +4,7 @@ class OrionisTestFailureException(Exception):
 
     def __init__(self, result: unittest.TestResult):
         """
-        Initializes the OrionisTestFailureException with details about failed and errored tests.
-
-        This constructor extracts information from the provided unittest.TestResult object,
-        including the IDs of tests that failed or encountered errors. It then formats a summary
-        message listing all such tests and passes this message to the base Exception class.
+        Initialize the exception with details of failed and errored tests.
 
         Parameters
         ----------
@@ -25,18 +21,7 @@ class OrionisTestFailureException(Exception):
             List of formatted error messages for each failed or errored test.
         text : str
             Formatted string summarizing all test failures and errors.
-
-        Returns
-        -------
-        None
-            This method does not return a value. It initializes the exception instance.
-
-        Raises
-        ------
-        OrionisTestFailureException
-            Raised when there are failed or errored tests, with a summary message.
         """
-
         # Collect IDs of failed tests
         failed_tests = [test.id() for test, _ in result.failures]
 
@@ -61,13 +46,12 @@ class OrionisTestFailureException(Exception):
 
     def __str__(self) -> str:
         """
-        Returns a formatted string describing the exception.
+        Return a formatted string describing the exception.
 
         Returns
         -------
         str
             The summary message containing the number and details of failed and errored tests.
         """
-
         # Return the first argument passed to the exception as a string
         return str(self.args[0])

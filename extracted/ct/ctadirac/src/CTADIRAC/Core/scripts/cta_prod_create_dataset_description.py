@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 """
 Create datasets descriptions (in json format) for DL2 processing with ctapipe
+If unmerged DL2 files contain images, the corresponding datasets can be created using with_images=True (default False)
 The produced json files can be used as inputs to cta-prod-add-dataset
 
 Usage example:
-   cta-prod-create-dataset-description --MCCampaign=PROD5b --site=LaPalma --array_layout=Alpha --az=180 --zen=20.0 --ctapipe_ver=v0.19.0 --nsb=1
+   cta-prod-create-dataset-description --MCCampaign=PROD5b --site=LaPalma --array_layout=Alpha --az=180 --zen=20.0
+   --ctapipe_ver=v0.19.0 --nsb=1 --with_images=True
 """
 
 __RCSID__ = "$Id$"
@@ -19,13 +21,14 @@ from DIRAC.Core.Base.Script import Script
 def main():
     Script.registerSwitch("", "MCCampaign=", "MCCampaign")
     Script.registerSwitch("", "site=", "site")
-    Script.registerSwitch("", "array_layout=", "array_layout")
+    Script.registerSwitch("", "array_layout=", "array layout")
     Script.registerSwitch("", "az=", "azimuth angle")
     Script.registerSwitch("", "zen=", "zenith angle")
     Script.registerSwitch("", "div_ang=", "divergent angle")
     Script.registerSwitch("", "nsb=", "nsb")
     Script.registerSwitch("", "max_merged=", "max_merged")
-    Script.registerSwitch("", "ctapipe_ver=", "ctapipe_version")
+    Script.registerSwitch("", "ctapipe_ver=", "ctapipe version")
+    Script.registerSwitch("", "with_images=", "with images flag")
     switches, argss = Script.parseCommandLine(ignoreErrors=True)
 
     if not switches:
@@ -41,6 +44,7 @@ def main():
     nsb = 1
     max_merged = 3
     analysis_prog_version = "v0.19.0"
+    with_images = "False"
 
     for switch in switches:
         if switch[0] == "MCCampaign":
@@ -67,12 +71,20 @@ def main():
             max_merged = int(switch[1])
         elif switch[0] == "ctapipe_ver":
             analysis_prog_version = switch[1]
+        elif switch[0] == "with_images":
+            with_images = switch[1]
 
-    file_ext_list = [
-        ".DL1ImgParDL2Geo.json",
-        ".DL1ParDL2Geo.json",
-        ".DL2GeoEneGam.json",
-    ]
+    if with_images == "True":
+        file_ext_list = [
+            ".DL1ImgParDL2Geo.json",
+            ".DL1ParDL2Geo.json",
+            ".DL2GeoEneGam.json",
+        ]
+    else:
+        file_ext_list = [
+            ".DL1ParDL2Geo.json",
+            ".DL2GeoEneGam.json",
+        ]
     file_name_list = []
 
     for file_ext in file_ext_list:
@@ -192,9 +204,10 @@ def main():
                 f.write(json_string.replace('"', "'") + "\n")
                 f.close()
 
-    # Add another dataset for all final DL2 files
+    # Add another dataset for all final DL1 and or DL2 files
     MDdict.pop("particle")
     MDdict["split"] = "test"
+    MDdict["data_level"] = {"<=": 2}
     json_string = json.dumps(MDdict)
     if div_ang:
         file_name = (

@@ -360,12 +360,15 @@ struct mjtSensor {
     std::make_pair("mjSENS_SUBTREECOM", ::mjtSensor::mjSENS_SUBTREECOM),
     std::make_pair("mjSENS_SUBTREELINVEL", ::mjtSensor::mjSENS_SUBTREELINVEL),
     std::make_pair("mjSENS_SUBTREEANGMOM", ::mjtSensor::mjSENS_SUBTREEANGMOM),
+    std::make_pair("mjSENS_INSIDESITE", ::mjtSensor::mjSENS_INSIDESITE),
     std::make_pair("mjSENS_GEOMDIST", ::mjtSensor::mjSENS_GEOMDIST),
     std::make_pair("mjSENS_GEOMNORMAL", ::mjtSensor::mjSENS_GEOMNORMAL),
     std::make_pair("mjSENS_GEOMFROMTO", ::mjtSensor::mjSENS_GEOMFROMTO),
+    std::make_pair("mjSENS_CONTACT", ::mjtSensor::mjSENS_CONTACT),
     std::make_pair("mjSENS_E_POTENTIAL", ::mjtSensor::mjSENS_E_POTENTIAL),
     std::make_pair("mjSENS_E_KINETIC", ::mjtSensor::mjSENS_E_KINETIC),
     std::make_pair("mjSENS_CLOCK", ::mjtSensor::mjSENS_CLOCK),
+    std::make_pair("mjSENS_TACTILE", ::mjtSensor::mjSENS_TACTILE),
     std::make_pair("mjSENS_PLUGIN", ::mjtSensor::mjSENS_PLUGIN),
     std::make_pair("mjSENS_USER", ::mjtSensor::mjSENS_USER)};
 };
@@ -388,6 +391,20 @@ struct mjtDataType {
     std::make_pair("mjDATATYPE_POSITIVE", ::mjtDataType::mjDATATYPE_POSITIVE),
     std::make_pair("mjDATATYPE_AXIS", ::mjtDataType::mjDATATYPE_AXIS),
     std::make_pair("mjDATATYPE_QUATERNION", ::mjtDataType::mjDATATYPE_QUATERNION)};
+};
+
+struct mjtConDataField {
+  static constexpr char name[] = "mjtConDataField";
+  using type = ::mjtConDataField;
+  static constexpr auto values = std::array{
+    std::make_pair("mjCONDATA_FOUND", ::mjtConDataField::mjCONDATA_FOUND),
+    std::make_pair("mjCONDATA_FORCE", ::mjtConDataField::mjCONDATA_FORCE),
+    std::make_pair("mjCONDATA_TORQUE", ::mjtConDataField::mjCONDATA_TORQUE),
+    std::make_pair("mjCONDATA_DIST", ::mjtConDataField::mjCONDATA_DIST),
+    std::make_pair("mjCONDATA_POS", ::mjtConDataField::mjCONDATA_POS),
+    std::make_pair("mjCONDATA_NORMAL", ::mjtConDataField::mjCONDATA_NORMAL),
+    std::make_pair("mjCONDATA_TANGENT", ::mjtConDataField::mjCONDATA_TANGENT),
+    std::make_pair("mjNCONDATA", ::mjtConDataField::mjNCONDATA)};
 };
 
 struct mjtSameFrame {
@@ -615,7 +632,6 @@ struct mjtVisFlag {
     std::make_pair("mjVIS_FLEXFACE", ::mjtVisFlag::mjVIS_FLEXFACE),
     std::make_pair("mjVIS_FLEXSKIN", ::mjtVisFlag::mjVIS_FLEXSKIN),
     std::make_pair("mjVIS_BODYBVH", ::mjtVisFlag::mjVIS_BODYBVH),
-    std::make_pair("mjVIS_FLEXBVH", ::mjtVisFlag::mjVIS_FLEXBVH),
     std::make_pair("mjVIS_MESHBVH", ::mjtVisFlag::mjVIS_MESHBVH),
     std::make_pair("mjVIS_SDFITER", ::mjtVisFlag::mjVIS_SDFITER),
     std::make_pair("mjNVISFLAG", ::mjtVisFlag::mjNVISFLAG)};
@@ -724,6 +740,20 @@ struct mjtMeshInertia {
     std::make_pair("mjMESH_INERTIA_EXACT", ::mjtMeshInertia::mjMESH_INERTIA_EXACT),
     std::make_pair("mjMESH_INERTIA_LEGACY", ::mjtMeshInertia::mjMESH_INERTIA_LEGACY),
     std::make_pair("mjMESH_INERTIA_SHELL", ::mjtMeshInertia::mjMESH_INERTIA_SHELL)};
+};
+
+struct mjtMeshBuiltin {
+  static constexpr char name[] = "mjtMeshBuiltin";
+  using type = ::mjtMeshBuiltin;
+  static constexpr auto values = std::array{
+    std::make_pair("mjMESH_BUILTIN_NONE", ::mjtMeshBuiltin::mjMESH_BUILTIN_NONE),
+    std::make_pair("mjMESH_BUILTIN_SPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_SPHERE),
+    std::make_pair("mjMESH_BUILTIN_HEMISPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_HEMISPHERE),
+    std::make_pair("mjMESH_BUILTIN_CONE", ::mjtMeshBuiltin::mjMESH_BUILTIN_CONE),
+    std::make_pair("mjMESH_BUILTIN_SUPERSPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_SUPERSPHERE),
+    std::make_pair("mjMESH_BUILTIN_SUPERTORUS", ::mjtMeshBuiltin::mjMESH_BUILTIN_SUPERTORUS),
+    std::make_pair("mjMESH_BUILTIN_WEDGE", ::mjtMeshBuiltin::mjMESH_BUILTIN_WEDGE),
+    std::make_pair("mjMESH_BUILTIN_PLATE", ::mjtMeshBuiltin::mjMESH_BUILTIN_PLATE)};
 };
 
 struct mjtBuiltin {
@@ -867,6 +897,7 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtSensor{},
     mjtStage{},
     mjtDataType{},
+    mjtConDataField{},
     mjtSameFrame{},
     mjtLRMode{},
     mjtFlexSelf{},
@@ -892,6 +923,7 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtFont{},
     mjtGeomInertia{},
     mjtMeshInertia{},
+    mjtMeshBuiltin{},
     mjtBuiltin{},
     mjtMark{},
     mjtLimited{},

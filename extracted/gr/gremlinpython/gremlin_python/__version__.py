@@ -16,5 +16,5 @@ KIND, either express or implied.  See the License for the
 specific language governing permissions and limitations
 under the License.
 '''
-version   = '3.7.3'
-timestamp = 1730223986
+version   = '3.7.4'
+timestamp = 1754672102

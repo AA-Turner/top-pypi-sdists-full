@@ -34,7 +34,7 @@ pub use types::{
 };
 
 // Re-export HuggingFace functionality
-pub use create::{metadata_hf_repo, model_cache_hf_to_b10ptr, HfError};
+pub use create::{metadata_hf_repo, HfError};
 
 // Re-export BasetenPointer API
 pub use create::create_basetenpointer;
@@ -118,8 +118,8 @@ mod tests {
         let manifest = BasetenPointerManifest {
             pointers: vec![pointer],
         };
-        let result = crate::core::build_resolution_map(&manifest);
-        assert!(result.is_err());
+        let _result = crate::core::build_resolution_map(&manifest);
+        // used to be that we raise an error here, but now we just log a warning
     }
 
     #[test]
@@ -381,10 +381,11 @@ mod tests {
         assert_eq!(SECRETS_BASE_PATH, "/secrets");
 
         // Test manifest paths
-        assert_eq!(LAZY_DATA_RESOLVER_PATHS.len(), 3);
+        assert_eq!(LAZY_DATA_RESOLVER_PATHS.len(), 4);
         assert!(LAZY_DATA_RESOLVER_PATHS.contains(&"/bptr/bptr-manifest"));
         assert!(LAZY_DATA_RESOLVER_PATHS.contains(&"/bptr/bptr-manifest.json"));
         assert!(LAZY_DATA_RESOLVER_PATHS.contains(&"/bptr/static-bptr-manifest.json"));
+        assert!(LAZY_DATA_RESOLVER_PATHS.contains(&"/static-bptr/static-bptr-manifest.json"));
     }
 
     #[test]

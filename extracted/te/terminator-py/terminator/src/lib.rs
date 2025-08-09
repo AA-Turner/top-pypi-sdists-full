@@ -11,6 +11,7 @@ use tracing::{debug, error, instrument};
 pub mod browser_script;
 pub mod element;
 pub mod errors;
+pub mod extension_bridge;
 pub mod locator;
 pub mod platforms;
 pub mod selector;

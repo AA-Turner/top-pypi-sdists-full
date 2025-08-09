@@ -5,20 +5,20 @@ class TestTestingPrinter(AsyncTestCase):
 
     async def testMethodsExist(self):
         """
-        Checks for the existence of required methods in the TestPrinter class.
+        Verify that all required methods are present in the TestPrinter class.
 
-        This test ensures that all methods listed in `required_methods` are present
-        in the `TestPrinter` class by asserting their existence using `hasattr`.
+        This asynchronous test checks whether each method listed in `required_methods`
+        exists as an attribute of the TestPrinter class. An assertion error is raised
+        if any required method is missing.
 
         Parameters
         ----------
         self : TestTestingPrinter
-            The test case instance.
+            Instance of the test case.
 
         Returns
         -------
         None
-            Raises an AssertionError if any required method is missing.
         """
         # List of method names that must exist in TestPrinter
         required_methods = [

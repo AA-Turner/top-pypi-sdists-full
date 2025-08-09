@@ -1,6 +1,4 @@
 import asyncio
-import functools
-import re
 import time
 import urllib.parse
 import uuid
@@ -28,6 +26,7 @@ from langgraph_api.schema import (
     StreamMode,
 )
 from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx
+from langgraph_api.utils.headers import should_include_header
 from langgraph_runtime.ops import Runs, logger
 
 
@@ -180,82 +179,61 @@ LANGSMITH_TAGS = "langsmith-tags"
 LANGSMITH_PROJECT = "langsmith-project"
 
 
-def translate_pattern(pat: str) -> re.Pattern[str]:
-    """Translate a pattern to regex, supporting only literals and * wildcards to avoid RE DoS."""
-    res = []
-    i = 0
-    n = len(pat)
-
-    while i < n:
-        c = pat[i]
-        i += 1
-
-        if c == "*":
-            res.append(".*")
-        else:
-            res.append(re.escape(c))
-
-    pattern = "".join(res)
-    return re.compile(rf"(?s:{pattern})\Z")
-
-
-@functools.lru_cache(maxsize=1)
-def get_header_patterns() -> tuple[
-    list[re.Pattern[str] | None], list[re.Pattern[str] | None]
-]:
-    from langgraph_api import config
-
-    if not config.HTTP_CONFIG:
-        return None, None
-    configurable = config.HTTP_CONFIG.get("configurable_headers")
-    if not configurable:
-        return None, None
-    header_includes = configurable.get("includes") or configurable.get("include") or []
-    include_patterns = []
-    for include in header_includes:
-        include_patterns.append(translate_pattern(include))
-    header_excludes = configurable.get("excludes") or configurable.get("exclude") or []
-    exclude_patterns = []
-    for exclude in header_excludes:
-        exclude_patterns.append(translate_pattern(exclude))
-    return include_patterns, exclude_patterns
+# Default headers to exclude from run configuration for security
+DEFAULT_RUN_HEADERS_EXCLUDE = {"x-api-key", "x-tenant-id", "x-service-key"}
 
 
 def get_configurable_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Extract headers that should be added to run configuration.
+
+    This function handles special cases like langsmith-trace and baggage headers,
+    while respecting the configurable header patterns.
+    """
     configurable = {}
-    include_patterns, exclude_patterns = get_header_patterns()
+
     for key, value in headers.items():
-        # First handle tracing stuff; not configurable
+        # First handle tracing stuff - always included regardless of patterns
         if key == "langsmith-trace":
             configurable[key] = value
             if baggage := headers.get("baggage"):
                 for item in baggage.split(","):
-                    key, value = item.split("=")
-                    if key == LANGSMITH_METADATA and key not in configurable:
-                        configurable[key] = orjson.loads(urllib.parse.unquote(value))
-                    elif key == LANGSMITH_TAGS:
-                        configurable[key] = urllib.parse.unquote(value).split(",")
-                    elif key == LANGSMITH_PROJECT:
-                        configurable[key] = urllib.parse.unquote(value)
-        # Then handle overridable behavior
-        if exclude_patterns and any(pattern.match(key) for pattern in exclude_patterns):
-            continue
-        if include_patterns and any(pattern.match(key) for pattern in include_patterns):
-            configurable[key] = value
+                    baggage_key, baggage_value = item.split("=")
+                    if (
+                        baggage_key == LANGSMITH_METADATA
+                        and baggage_key not in configurable
+                    ):
+                        configurable[baggage_key] = orjson.loads(
+                            urllib.parse.unquote(baggage_value)
+                        )
+                    elif baggage_key == LANGSMITH_TAGS:
+                        configurable[baggage_key] = urllib.parse.unquote(
+                            baggage_value
+                        ).split(",")
+                    elif baggage_key == LANGSMITH_PROJECT:
+                        configurable[baggage_key] = urllib.parse.unquote(baggage_value)
             continue
 
-        # Then handle default behavior
+        # Check if header should be included based on patterns
+        # For run configuration, we have specific default behavior for x-* headers
         if key.startswith("x-"):
-            if key in (
-                "x-api-key",
-                "x-tenant-id",
-                "x-service-key",
-            ):
+            # Check against default excludes for x-* headers
+            if key in DEFAULT_RUN_HEADERS_EXCLUDE:
+                # Check if explicitly included via patterns
+                if should_include_header(key):
+                    configurable[key] = value
                 continue
-            configurable[key] = value
-
+            # Other x-* headers are included by default unless patterns exclude them
+            if should_include_header(key):
+                configurable[key] = value
         elif key == "user-agent":
-            configurable[key] = value
+            # user-agent is included by default unless excluded by patterns
+            if should_include_header(key):
+                configurable[key] = value
+        else:
+            # All other headers only included if patterns allow
+            if should_include_header(key):
+                configurable[key] = value
+
     return configurable
 
 
@@ -297,6 +275,13 @@ async def create_valid_run(
     config = payload.get("config") or {}
     context = payload.get("context") or {}
     configurable = config.setdefault("configurable", {})
+
+    if configurable and context:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
+        )
+
     if checkpoint_id:
         configurable["checkpoint_id"] = str(checkpoint_id)
     if checkpoint := payload.get("checkpoint"):
@@ -322,6 +307,12 @@ async def create_valid_run(
     configurable["__after_seconds__"] = after_seconds
     put_time_start = time.time()
     if_not_exists = payload.get("if_not_exists", "reject")
+
+    # Keep config and context in sync
+    # Configurable is either A) just internal config or B) internal config + user config (and context is empty). Either way, configurable is the default.
+    context = {**context, **configurable}
+    config["configurable"] = context
+
     run_coro = Runs.put(
         conn,
         assistant_id,

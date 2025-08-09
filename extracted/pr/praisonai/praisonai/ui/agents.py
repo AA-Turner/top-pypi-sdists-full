@@ -10,7 +10,7 @@ from praisonaiagents import Agent, Task, PraisonAIAgents, register_display_callb
 framework = "praisonai"
 config_list = [
     {
-        'model': os.environ.get("OPENAI_MODEL_NAME", "gpt-4o-mini"),
+        'model': os.environ.get("OPENAI_MODEL_NAME", "gpt-5-nano"),
         'base_url': os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1"),
         'api_key': os.environ.get("OPENAI_API_KEY", "")
     }
@@ -431,7 +431,7 @@ async def ui_run_praisonai(config, topic, tools_dict):
                 role=role_filled,
                 goal=goal_filled,
                 backstory=backstory_filled,
-                llm=details.get('llm', 'gpt-4o'),
+                llm=details.get('llm', 'gpt-5-nano'),
                 verbose=True,
                 allow_delegation=details.get('allow_delegation', False),
                 max_iter=details.get('max_iter', 15),
@@ -526,7 +526,7 @@ async def ui_run_praisonai(config, topic, tools_dict):
                 tasks=tasks,
                 verbose=True,
                 process="hierarchical",
-                manager_llm=config.get('manager_llm', 'gpt-4o')
+                manager_llm=config.get('manager_llm', 'gpt-5-nano')
             )
         else:
             prai_agents = PraisonAIAgents(
@@ -641,7 +641,7 @@ async def set_profiles(current_user: cl.User):
 @cl.on_chat_start
 async def start_chat():
     try:
-        model_name = load_setting("model_name") or os.getenv("MODEL_NAME", "gpt-4o-mini")
+        model_name = load_setting("model_name") or os.getenv("MODEL_NAME", "gpt-5-nano")
         cl.user_session.set("model_name", model_name)
         logger.debug(f"Model name: {model_name}")
 

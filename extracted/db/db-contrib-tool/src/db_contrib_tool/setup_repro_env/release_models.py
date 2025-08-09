@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pydantic import BaseModel
 from typing import Any, Dict, NamedTuple, Optional
 
 from db_contrib_tool.config import DownloadTarget
@@ -179,7 +180,7 @@ class DownloadMetadata(NamedTuple):
         )
 
 
-class ReleaseUrls(NamedTuple):
+class ReleaseUrls(BaseModel):
     """
     URLs to download build from.
 

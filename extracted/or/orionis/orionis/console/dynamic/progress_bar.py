@@ -3,17 +3,14 @@ from orionis.console.dynamic.contracts.progress_bar import IProgressBar
 
 class ProgressBar(IProgressBar):
     """
-    A console-based progress bar implementation.
-
-    This class provides a simple text-based progress bar that updates
-    in place without clearing the console.
+    Console-based progress bar for tracking and displaying progress.
 
     Parameters
     ----------
     total : int, optional
-        The total amount of progress (default is 100).
+        The maximum value representing 100% progress. Default is 100.
     width : int, optional
-        The width of the progress bar in characters (default is 50).
+        The width of the progress bar in characters. Default is 50.
 
     Attributes
     ----------
@@ -23,27 +20,18 @@ class ProgressBar(IProgressBar):
         The width of the progress bar in characters.
     progress : int
         The current progress value.
-
-    Methods
-    -------
-    start()
-        Initializes the progress bar to the starting state.
-    advance(increment=1)
-        Advances the progress bar by a given increment.
-    finish()
-        Completes the progress bar and moves to a new line.
     """
 
     def __init__(self, total=100, width=50) -> None:
         """
-        Constructs all the necessary attributes for the progress bar object.
+        Initialize a new ProgressBar instance.
 
         Parameters
         ----------
         total : int, optional
-            The total amount of progress (default is 100).
+            The maximum value representing 100% progress. Default is 100.
         width : int, optional
-            The width of the progress bar in characters (default is 50).
+            The width of the progress bar in characters. Default is 50.
         """
         self.total = total
         self.bar_width = width
@@ -51,10 +39,10 @@ class ProgressBar(IProgressBar):
 
     def __updateBar(self) -> None:
         """
-        Updates the visual representation of the progress bar.
+        Update the visual representation of the progress bar in the console.
 
-        This method calculates the percentage of progress and updates the
-        console output accordingly.
+        Calculates the percentage of completion and redraws the progress bar
+        in place, overwriting the previous output.
         """
         percent = self.progress / self.total
         filled_length = int(self.bar_width * percent)
@@ -66,21 +54,25 @@ class ProgressBar(IProgressBar):
 
     def start(self) -> None:
         """
-        Initializes the progress bar to the starting state.
+        Reset and display the progress bar at the starting state.
 
-        This method resets the progress to zero and displays the initial bar.
+        Sets the progress to zero and renders the initial progress bar.
         """
         self.progress = 0
         self.__updateBar()
 
     def advance(self, increment=1) -> None:
         """
-        Advances the progress bar by a specific increment.
+        Advance the progress bar by a specified increment.
 
         Parameters
         ----------
         increment : int, optional
-            The amount by which the progress should be increased (default is 1).
+            The value by which to increase the progress. Default is 1.
+
+        Notes
+        -----
+        Progress will not exceed the total value.
         """
         self.progress += increment
         if self.progress > self.total:
@@ -89,10 +81,10 @@ class ProgressBar(IProgressBar):
 
     def finish(self) -> None:
         """
-        Completes the progress bar.
+        Complete the progress bar and move to a new line.
 
-        This method sets the progress to its maximum value, updates the bar,
-        and moves the cursor to a new line for cleaner output.
+        Sets progress to the maximum value, updates the bar, and moves the
+        cursor to a new line for cleaner output.
         """
         self.progress = self.total
         self.__updateBar()

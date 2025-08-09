@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "canonmap"
-version = "0.4.31"
+version = "0.4.51"
 description = "A data matching and canonicalization library with multipl database connector support"
 readme = "README.md"
 license = {text = "MIT"}
@@ -70,9 +70,7 @@ Repository = "https://github.com/vinceberry/canonmap"
 Issues = "https://github.com/vinceberry/canonmap/issues"
 Changelog = "https://github.com/vinceberry/canonmap/blob/main/CHANGELOG.md"
 
-[project.scripts]
-cm = "canonmap.cli:main"
-canonmap = "canonmap.cli:main"
+## Note: CLI entry points removed because `canonmap.cli` is not present under `src`.
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/canonmap"]

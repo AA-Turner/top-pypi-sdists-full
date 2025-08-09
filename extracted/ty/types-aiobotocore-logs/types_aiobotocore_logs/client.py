@@ -130,6 +130,8 @@ from .type_defs import (
     GetLogEventsResponseTypeDef,
     GetLogGroupFieldsRequestTypeDef,
     GetLogGroupFieldsResponseTypeDef,
+    GetLogObjectRequestTypeDef,
+    GetLogObjectResponseTypeDef,
     GetLogRecordRequestTypeDef,
     GetLogRecordResponseTypeDef,
     GetQueryResultsRequestTypeDef,
@@ -216,6 +218,7 @@ class Exceptions(BaseClientExceptions):
     ClientError: Type[BotocoreClientError]
     ConflictException: Type[BotocoreClientError]
     DataAlreadyAcceptedException: Type[BotocoreClientError]
+    InternalStreamingException: Type[BotocoreClientError]
     InvalidOperationException: Type[BotocoreClientError]
     InvalidParameterException: Type[BotocoreClientError]
     InvalidSequenceTokenException: Type[BotocoreClientError]
@@ -805,6 +808,16 @@ class CloudWatchLogsClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#get_log_group_fields)
         """
 
+    async def get_log_object(
+        self, **kwargs: Unpack[GetLogObjectRequestTypeDef]
+    ) -> GetLogObjectResponseTypeDef:
+        """
+        Retrieves a large logging object (LLO) and streams it back.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_log_object.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#get_log_object)
+        """
+
     async def get_log_record(
         self, **kwargs: Unpack[GetLogRecordRequestTypeDef]
     ) -> GetLogRecordResponseTypeDef:
@@ -912,9 +925,9 @@ class CloudWatchLogsClient(AioBaseClient):
         self, **kwargs: Unpack[PutAccountPolicyRequestTypeDef]
     ) -> PutAccountPolicyResponseTypeDef:
         """
-        Creates an account-level data protection policy, subscription filter policy, or
-        field index policy that applies to all log groups or a subset of log groups in
-        the account.
+        Creates an account-level data protection policy, subscription filter policy,
+        field index policy, transformer policy, or metric extraction policy that
+        applies to all log groups or a subset of log groups in the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_account_policy.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_logs/client/#put_account_policy)

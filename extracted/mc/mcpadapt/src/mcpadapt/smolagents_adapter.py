@@ -3,12 +3,16 @@
 SmolAgents do not support async tools, so this adapter will only work with the sync
 context manager.
 
+To enable structured output support (MCP spec 2025-06-18+), use:
+SmolAgentsAdapter(structured_output=True)
+
 Example Usage:
 >>> with MCPAdapt(StdioServerParameters(command="uv", args=["run", "src/echo.py"]), SmolAgentsAdapter()) as tools:
 >>>     print(tools)
 """
 
 import base64
+import json
 import keyword
 import logging
 import re
@@ -62,6 +66,17 @@ class SmolAgentsAdapter(ToolAdapter):
 
     """
 
+    def __init__(self, structured_output: bool = False):
+        """Initialize the SmolAgentsAdapter.
+
+        Args:
+            structured_output: If True, enable structured output features including
+                              outputSchema support and structured content handling.
+                              If False, use the original simple behavior.
+                              Defaults to False for backwards compatibility.
+        """
+        self.structured_output = structured_output
+
     def adapt(
         self,
         func: Callable[[dict | None], mcp.types.CallToolResult],
@@ -77,72 +92,6 @@ class SmolAgentsAdapter(ToolAdapter):
             A SmolAgents tool.
         """
 
-        class MCPAdaptTool(smolagents.Tool):
-            def __init__(
-                self,
-                name: str,
-                description: str,
-                inputs: dict[str, dict[str, str]],
-                output_type: str,
-            ):
-                self.name = _sanitize_function_name(name)
-                self.description = description
-                self.inputs = inputs
-                self.output_type = output_type
-                self.is_initialized = True
-                self.skip_forward_signature_validation = True
-
-            def forward(
-                self, *args, **kwargs
-            ) -> Union[str, "PILImage", "torch.Tensor"]:
-                if len(args) > 0:
-                    if len(args) == 1 and isinstance(args[0], dict) and not kwargs:
-                        mcp_output = func(args[0])
-                    else:
-                        raise ValueError(
-                            f"tool {self.name} does not support multiple positional arguments or combined positional and keyword arguments"
-                        )
-                else:
-                    mcp_output = func(kwargs)
-
-                if len(mcp_output.content) == 0:
-                    raise ValueError(f"tool {self.name} returned an empty content")
-
-                if len(mcp_output.content) > 1:
-                    logger.warning(
-                        f"tool {self.name} returned multiple content, using the first one"
-                    )
-
-                content = mcp_output.content[0]
-
-                if isinstance(content, mcp.types.TextContent):
-                    return content.text
-
-                if isinstance(content, mcp.types.ImageContent):
-                    from PIL import Image
-
-                    image_data = base64.b64decode(content.data)
-                    image = Image.open(BytesIO(image_data))
-                    return image
-
-                if isinstance(content, mcp.types.AudioContent):
-                    if not _is_package_available("torchaudio"):
-                        raise ValueError(
-                            "Audio content requires the torchaudio package to be installed. "
-                            "Please install it with `uv add mcpadapt[smolagents,audio]`.",
-                        )
-                    else:
-                        import torchaudio  # type: ignore
-
-                        audio_data = base64.b64decode(content.data)
-                        audio_io = BytesIO(audio_data)
-                        audio_tensor, _ = torchaudio.load(audio_io)
-                        return audio_tensor
-
-                raise ValueError(
-                    f"tool {self.name} returned an unsupported content type: {type(content)}"
-                )
-
         # make sure jsonref are resolved
         input_schema = {
             k: v
@@ -157,11 +106,135 @@ class SmolAgentsAdapter(ToolAdapter):
             if "type" not in v:
                 input_schema["properties"][k]["type"] = "string"
 
+        # Extract and resolve outputSchema if present (only if structured_output=True)
+        output_schema = None
+        if (
+            self.structured_output
+            and hasattr(mcp_tool, "outputSchema")
+            and mcp_tool.outputSchema
+        ):
+            try:
+                output_schema = jsonref.replace_refs(mcp_tool.outputSchema)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to resolve outputSchema for tool {mcp_tool.name}: {e}"
+                )
+                output_schema = (
+                    mcp_tool.outputSchema
+                )  # Use unresolved schema as fallback
+
+        # Always use "object" output_type for maximum flexibility
+        # Smolagents will handle type detection at runtime
+        output_type = "object"
+
+        class MCPAdaptTool(smolagents.Tool):
+            def __init__(
+                self,
+                name: str,
+                description: str,
+                inputs: dict[str, dict[str, str]],
+                output_type: str,
+                output_schema: dict[str, Any] | None = None,
+                structured_output: bool = False,
+            ):
+                self.name = _sanitize_function_name(name)
+                self.description = description
+                self.inputs = inputs
+                self.output_type = output_type
+                self.output_schema = output_schema
+                self.structured_output = structured_output
+                self.is_initialized = True
+                self.skip_forward_signature_validation = True
+
+            def forward(
+                self, *args, **kwargs
+            ) -> Union[str, "PILImage", "torch.Tensor", Any]:
+                if len(args) > 0:
+                    if len(args) == 1 and isinstance(args[0], dict) and not kwargs:
+                        mcp_output = func(args[0])
+                    else:
+                        raise ValueError(
+                            f"tool {self.name} does not support multiple positional arguments or combined positional and keyword arguments"
+                        )
+                else:
+                    mcp_output = func(kwargs)
+
+                # Early exit for empty content
+                if not mcp_output.content:
+                    raise ValueError(f"tool {self.name} returned an empty content")
+
+                # Handle structured features if enabled
+                if self.structured_output:
+                    # Prioritize structuredContent if available
+                    if (
+                        hasattr(mcp_output, "structuredContent")
+                        and mcp_output.structuredContent is not None
+                    ):
+                        return mcp_output.structuredContent
+
+                # Handle multiple content warning (unified for both modes)
+                if len(mcp_output.content) > 1:
+                    warning_msg = (
+                        f"tool {self.name} returned multiple content items but no structuredContent. Using the first content item."
+                        if self.structured_output
+                        else f"tool {self.name} returned multiple content, using the first one"
+                    )
+                    logger.warning(warning_msg)
+
+                # Get the first content item
+                content_item = mcp_output.content[0]
+
+                # Handle different content types
+                if isinstance(content_item, mcp.types.TextContent):
+                    text_content = content_item.text
+
+                    # Always try to parse JSON if structured features are enabled and structuredContent is absent
+                    if self.structured_output and text_content:
+                        try:
+                            parsed_data = json.loads(text_content)
+                            return parsed_data
+                        except json.JSONDecodeError:
+                            logger.warning(
+                                f"tool {self.name} expected structured output but got unparseable text: {text_content[:100]}..."
+                            )
+                            # Fall through to return text as-is for backwards compatibility
+
+                    # Return simple text content (works for both modes)
+                    return text_content
+
+                elif isinstance(content_item, mcp.types.ImageContent):
+                    from PIL import Image
+
+                    image_data = base64.b64decode(content_item.data)
+                    image = Image.open(BytesIO(image_data))
+                    return image
+
+                elif isinstance(content_item, mcp.types.AudioContent):
+                    if not _is_package_available("torchaudio"):
+                        raise ValueError(
+                            "Audio content requires the torchaudio package to be installed. "
+                            "Please install it with `uv add mcpadapt[smolagents,audio]`.",
+                        )
+                    else:
+                        import torchaudio  # type: ignore
+
+                        audio_data = base64.b64decode(content_item.data)
+                        audio_io = BytesIO(audio_data)
+                        audio_tensor, _ = torchaudio.load(audio_io)
+                        return audio_tensor
+
+                else:
+                    raise ValueError(
+                        f"tool {self.name} returned an unsupported content type: {type(content_item)}"
+                    )
+
         tool = MCPAdaptTool(
             name=mcp_tool.name,
             description=mcp_tool.description or "",
             inputs=input_schema["properties"],
-            output_type="object",
+            output_type=output_type,
+            output_schema=output_schema,
+            structured_output=self.structured_output,
         )
 
         return tool

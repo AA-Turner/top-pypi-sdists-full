@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class JaxArrayEqualityComparator(BaseEqualityComparator[jnp.ndarray]):
+class JaxArrayEqualityComparator(BaseEqualityComparator[jnp.ndarray]):  # noqa: PLW1641
     r"""Implement an equality comparator for ``jax.numpy.ndarray``.
 
     Example usage:
@@ -85,7 +85,7 @@ def get_type_comparator_mapping() -> dict[type, BaseEqualityComparator]:
     >>> from coola.equality.comparators.jax_ import get_type_comparator_mapping
     >>> get_type_comparator_mapping()
     {<class 'jax.Array'>: JaxArrayEqualityComparator(),
-     <class 'jaxlib.xla_extension.ArrayImpl'>: JaxArrayEqualityComparator()}
+     <class 'jaxlib...ArrayImpl'>: JaxArrayEqualityComparator()}
 
     ```
     """

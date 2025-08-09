@@ -52,9 +52,12 @@ if sys.version_info < (3, 4):
 
 gethostname = setuptools.Extension(
     "gethostname",
-    sources=["src/sagemaker_training/c/gethostname.c", "src/sagemaker_training/c/jsmn.c"],
+    sources=[
+        "src/sagemaker_training/c/gethostname.c",
+        "src/sagemaker_training/c/jsmn.c",
+    ],
     include_dirs=["src/sagemaker_training/c"],
-    extra_compile_args=["-Wall", "-shared", "-export-dynamic", "-ldl"],
+    extra_compile_args=["-Wall", "-shared", "-Wl,-export-dynamic", "-ldl"],
 )
 
 setuptools.setup(

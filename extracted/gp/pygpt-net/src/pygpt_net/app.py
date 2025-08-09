@@ -6,7 +6,7 @@
 # GitHub:  https://github.com/szczyglis-dev/py-gpt   #
 # MIT License                                        #
 # Created By  : Marcin Szczygliński                  #
-# Updated Date: 2025.08.08 05:00:00                  #
+# Updated Date: 2025.08.09 01:00:00                  #
 # ================================================== #
 
 import os
@@ -16,7 +16,7 @@ import platform
 
 # disable warnings
 os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
-os.environ["QT_LOGGING_RULES"] = "qt.multimedia.ffmpeg=false"
+os.environ["QT_LOGGING_RULES"] = "qt.multimedia.ffmpeg=false;qt.qpa.fonts=false"
 
 if platform.system() == 'Windows':
     # fix ffmpeg bug: [SWR] Output channel layout "" is invalid or unsupported.
@@ -85,6 +85,7 @@ from pygpt_net.provider.agents.openai.agent_with_feedback import Agent as OpenAI
 from pygpt_net.provider.agents.openai.bot_researcher import Agent as OpenAIAgentBotResearcher
 from pygpt_net.provider.agents.openai.agent_planner import Agent as OpenAIAgentPlanner
 from pygpt_net.provider.agents.openai.evolve import Agent as OpenAIAgentsEvolve
+from pygpt_net.provider.agents.openai.agent_b2b import Agent as OpenAIAgentsB2B
 
 # LLM wrapper providers (langchain, llama-index, embeddings)
 from pygpt_net.provider.llms.anthropic import AnthropicLLM
@@ -93,6 +94,7 @@ from pygpt_net.provider.llms.deepseek_api import DeepseekApiLLM
 from pygpt_net.provider.llms.google import GoogleLLM
 # from pygpt_net.provider.llms.hugging_face import HuggingFaceLLM
 from pygpt_net.provider.llms.hugging_face_api import HuggingFaceApiLLM
+from pygpt_net.provider.llms.hugging_face_router import HuggingFaceRouterLLM
 from pygpt_net.provider.llms.local import LocalLLM
 from pygpt_net.provider.llms.mistral import MistralAILLM
 from pygpt_net.provider.llms.ollama import OllamaLLM
@@ -390,6 +392,7 @@ def run(**kwargs):
     launcher.add_llm(GoogleLLM())
     # launcher.add_llm(HuggingFaceLLM())
     launcher.add_llm(HuggingFaceApiLLM())
+    launcher.add_llm(HuggingFaceRouterLLM())
     launcher.add_llm(LocalLLM())
     launcher.add_llm(MistralAILLM())
     launcher.add_llm(OllamaLLM())
@@ -430,6 +433,7 @@ def run(**kwargs):
     launcher.add_agent(OpenAIAgentBotResearcher())  # openai-agents
     launcher.add_agent(OpenAIAgentsExpertsFeedback())  # openai-agents
     launcher.add_agent(OpenAIAgentsEvolve())  # openai-agents
+    launcher.add_agent(OpenAIAgentsB2B())  # openai-agents
 
     # register custom agents
     agents = kwargs.get('agents', None)

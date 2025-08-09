@@ -89,9 +89,14 @@ class ArtifactDownloadService:
         :param download_options: Details about how to download artifacts.
         :return: Directory extracted artifacts where linked to.
         """
+        evergreen_urls = download_request.get_evergreen_urls()
+        release_urls = download_request.get_release_urls()
+        if not evergreen_urls and not release_urls:
+            raise DownloadError("Download urls not found from Evergreen or from releases.")
+
         url_list = self.find_urls_to_download(
-            download_request.get_evergreen_urls(),
-            download_request.get_release_urls(),
+            evergreen_urls,
+            release_urls,
             download_options,
         )
         subdir = download_request.get_unique_identifier()

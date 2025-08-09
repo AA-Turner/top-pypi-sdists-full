@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class NumpyArrayEqualHandler(BaseEqualityHandler):
+class NumpyArrayEqualHandler(BaseEqualityHandler):  # noqa: PLW1641
     r"""Check if the two NumPy arrays are equal.
 
     This handler returns ``True`` if the two arrays are equal,
@@ -63,8 +63,7 @@ class NumpyArrayEqualHandler(BaseEqualityHandler):
         object_equal = array_equal(actual, expected, config)
         if config.show_difference and not object_equal:
             logger.info(
-                f"numpy.ndarrays have different elements:\n"
-                f"actual:\n{actual}\nexpected:\n{expected}"
+                f"numpy.ndarrays have different elements:\nactual:\n{actual}\nexpected:\n{expected}"
             )
         return object_equal
 

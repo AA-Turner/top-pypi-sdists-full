@@ -4290,6 +4290,17 @@ struct mjs_addMaterial {
   }
 };
 
+struct mjs_makeMesh {
+  static constexpr char name[] = "mjs_makeMesh";
+  static constexpr char doc[] = "Sets the vertices and normals of a mesh.";
+  using type = int (mjsMesh *, mjtMeshBuiltin, double *, int);
+  static constexpr auto param_names = std::make_tuple("mesh", "builtin", "params", "nparams");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_makeMesh;
+  }
+};
+
 struct mjs_getSpec {
   static constexpr char name[] = "mjs_getSpec";
   static constexpr char doc[] = "Get spec from body.";
@@ -4716,6 +4727,17 @@ struct mjs_deleteUserValue {
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
     return ::mjs_deleteUserValue;
+  }
+};
+
+struct mjs_sensorDim {
+  static constexpr char name[] = "mjs_sensorDim";
+  static constexpr char doc[] = "Return sensor dimension.";
+  using type = int (const mjsSensor *);
+  static constexpr auto param_names = std::make_tuple("sensor");
+
+  MUJOCO_ALWAYS_INLINE static type& GetFunc() {
+    return ::mjs_sensorDim;
   }
 };
 
