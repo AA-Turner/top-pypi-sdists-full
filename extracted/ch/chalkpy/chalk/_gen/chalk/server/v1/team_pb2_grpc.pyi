@@ -18,6 +18,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateServiceTokenResponse,
     CreateTeamRequest,
     CreateTeamResponse,
+    DeactivateUserRequest,
+    DeactivateUserResponse,
     DeleteServiceTokenRequest,
     DeleteServiceTokenResponse,
     ExpireTeamInviteRequest,
@@ -42,6 +44,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ListServiceTokensResponse,
     ListTeamInvitesRequest,
     ListTeamInvitesResponse,
+    ReactivateUserRequest,
+    ReactivateUserResponse,
     UpdateEnvironmentRequest,
     UpdateEnvironmentResponse,
     UpdateScimGroupSettingsRequest,
@@ -148,6 +152,14 @@ class TeamServiceStub:
     ArchiveEnvironment: UnaryUnaryMultiCallable[
         ArchiveEnvironmentRequest,
         ArchiveEnvironmentResponse,
+    ]
+    DeactivateUser: UnaryUnaryMultiCallable[
+        DeactivateUserRequest,
+        DeactivateUserResponse,
+    ]
+    ReactivateUser: UnaryUnaryMultiCallable[
+        ReactivateUserRequest,
+        ReactivateUserResponse,
     ]
 
 class TeamServiceServicer(metaclass=ABCMeta):
@@ -282,5 +294,17 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: ArchiveEnvironmentRequest,
         context: ServicerContext,
     ) -> ArchiveEnvironmentResponse: ...
+    @abstractmethod
+    def DeactivateUser(
+        self,
+        request: DeactivateUserRequest,
+        context: ServicerContext,
+    ) -> DeactivateUserResponse: ...
+    @abstractmethod
+    def ReactivateUser(
+        self,
+        request: ReactivateUserRequest,
+        context: ServicerContext,
+    ) -> ReactivateUserResponse: ...
 
 def add_TeamServiceServicer_to_server(servicer: TeamServiceServicer, server: Server) -> None: ...

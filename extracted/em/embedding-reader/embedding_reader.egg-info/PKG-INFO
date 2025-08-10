@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: embedding-reader
-Version: 1.7.0
+Version: 1.8.1
 Summary: A python template
 Home-page: https://github.com/rom1504/embedding-reader
 Author: Romain Beaumont
@@ -199,5 +199,7 @@ Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/markdown

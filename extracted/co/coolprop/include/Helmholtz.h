@@ -2,6 +2,8 @@
 #ifndef HELMHOLTZ_H
 #define HELMHOLTZ_H
 
+#include <algorithm>
+#include <array>
 #include <vector>
 #include "rapidjson_include.h"
 //#include "Eigen/Core"
@@ -9,6 +11,7 @@
 #include "CachedElement.h"
 #include "Backends/Cubics/GeneralizedCubic.h"
 #include "crossplatform_shared_ptr.h"
+#include "CPnumerics.h"
 
 #if ENABLE_CATCH
 #    include "MultiComplex/MultiComplex.hpp"
@@ -466,6 +469,30 @@ class ResidualHelmholtzGeneralizedExponential : public BaseHelmholtzTerm
         delta_li_in_u = true;
         tau_mi_in_u = true;
     };
+    /** \brief Add and convert a double-exponential term
+     *
+     * Term of the format
+     * \f$ \alpha^r=\displaystyle\sum_i n_i \delta^{d_i} \tau^{t_i} \exp(-gd_j\delta^{ld_j}-gt_j\tau^{lt_i})\f$
+     */
+    void add_DoubleExponential(
+       const std::vector<CoolPropDbl>& n, const std::vector<CoolPropDbl>& d, const std::vector<CoolPropDbl>& t,
+       const std::vector<CoolPropDbl>& gd, const std::vector<CoolPropDbl>& ld,
+       const std::vector<CoolPropDbl>& gt, const std::vector<CoolPropDbl>& lt) {
+        for (std::size_t i = 0; i < n.size(); ++i) {
+            ResidualHelmholtzGeneralizedExponentialElement el;
+            el.n = n[i];
+            el.d = d[i];
+            el.t = t[i];
+            el.c = gd[i];
+            el.l_double = ld[i];
+            el.l_int = (int)el.l_double;
+            el.omega = gt[i];
+            el.m_double = lt[i];
+            elements.push_back(el);
+        }
+        delta_li_in_u = true;
+        tau_mi_in_u = true;
+    };
 
     void finish() {
         n.resize(elements.size());
@@ -714,90 +741,86 @@ class ResidualHelmholtzSAFTAssociating : public BaseHelmholtzTerm
 class BaseHelmholtzContainer
 {
    protected:
-    CachedElement _base, _dDelta, _dTau, _dDelta2, _dTau2, _dDelta_dTau, _dDelta3, _dDelta2_dTau, _dDelta_dTau2, _dTau3;
-    CachedElement _dDelta4, _dDelta3_dTau, _dDelta2_dTau2, _dDelta_dTau3, _dTau4;
+    std::array<double, 16> cache = create_filled_array<double, 16>(_HUGE);
+    std::array<bool, 16> is_cached = create_filled_array<bool, 16>(false);
+    constexpr static std::size_t i00 = 0, i01 = 1, i02 = 2, i03 = 3, i04 = 4,
+    i10 = 5, i11 = 6, i12 = 7, i13 = 8,
+    i20 = 9, i21 = 10, i22 = 11,
+    i30 = 12, i31 = 13,
+    i40 = 14;
+    
+    bool cache_valid(std::size_t i) const {
+        return is_cached[i];
+    }
 
    public:
     void clear() {
-        _base.clear();
-        _dDelta.clear();
-        _dTau.clear();
-        _dDelta2.clear();
-        _dTau2.clear();
-        _dDelta_dTau.clear();
-        _dDelta3.clear();
-        _dTau3.clear();
-        _dDelta2_dTau.clear();
-        _dDelta_dTau2.clear();
-        _dDelta4.clear();
-        _dDelta3_dTau.clear();
-        _dDelta2_dTau2.clear();
-        _dDelta_dTau3.clear();
-        _dTau4.clear();
+        memset(cache.data(), 0, sizeof(cache));
+        memset(is_cached.data(), false, sizeof(is_cached));
     };
 
     virtual void empty_the_EOS() = 0;
     virtual HelmholtzDerivatives all(const CoolPropDbl tau, const CoolPropDbl delta, bool cache_values) = 0;
 
     CoolPropDbl base(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_base || dont_use_cache)
+        if (!cache_valid(i00) || dont_use_cache)
             return all(tau, delta, false).alphar;
         else
-            return _base;
+            return cache[i00];
     };
     CoolPropDbl dDelta(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dDelta || dont_use_cache)
+        if (!cache_valid(i10) || dont_use_cache)
             return all(tau, delta, false).dalphar_ddelta;
         else
-            return _dDelta;
+            return cache[i10];
     };
     CoolPropDbl dTau(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dTau || dont_use_cache)
+        if (!cache_valid(i01) || dont_use_cache)
             return all(tau, delta, false).dalphar_dtau;
         else
-            return _dTau;
+            return cache[i01];
     };
     CoolPropDbl dDelta2(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dDelta2 || dont_use_cache)
+        if (!cache_valid(i20) || dont_use_cache)
             return all(tau, delta, false).d2alphar_ddelta2;
         else
-            return _dDelta2;
+            return cache[i20];
     };
     CoolPropDbl dDelta_dTau(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dDelta_dTau || dont_use_cache)
+        if (!cache_valid(i11) || dont_use_cache)
             return all(tau, delta, false).d2alphar_ddelta_dtau;
         else
-            return _dDelta_dTau;
+            return cache[i11];
     };
     CoolPropDbl dTau2(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dTau2 || dont_use_cache)
+        if (!cache_valid(i02) || dont_use_cache)
             return all(tau, delta, false).d2alphar_dtau2;
         else
-            return _dTau2;
+            return cache[i02];
     };
     CoolPropDbl dDelta3(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dDelta3 || dont_use_cache)
+        if (!cache_valid(i30) || dont_use_cache)
             return all(tau, delta, false).d3alphar_ddelta3;
         else
-            return _dDelta3;
+            return cache[i30];
     };
     CoolPropDbl dDelta2_dTau(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dDelta2_dTau || dont_use_cache)
+        if (!cache_valid(i21) || dont_use_cache)
             return all(tau, delta, false).d3alphar_ddelta2_dtau;
         else
-            return _dDelta2_dTau;
+            return cache[i21];
     };
     CoolPropDbl dDelta_dTau2(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dDelta_dTau2 || dont_use_cache)
+        if (!cache_valid(i12) || dont_use_cache)
             return all(tau, delta, false).d3alphar_ddelta_dtau2;
         else
-            return _dDelta_dTau2;
+            return cache[i12];
     };
     CoolPropDbl dTau3(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
-        if (!_dTau3 || dont_use_cache)
+        if (!cache_valid(i03) || dont_use_cache)
             return all(tau, delta, false).d3alphar_dtau3;
         else
-            return _dTau3;
+            return cache[i03];
     };
     CoolPropDbl dDelta4(CoolPropDbl tau, CoolPropDbl delta, const bool dont_use_cache = false) {
         return all(tau, delta, false).d4alphar_ddelta4;
@@ -844,16 +867,17 @@ class ResidualHelmholtzContainer : public BaseHelmholtzContainer
         XiangDeiters.all(tau, delta, derivs);
         GaoB.all(tau, delta, derivs);
         if (cache_values) {
-            _base = derivs.alphar;
-            _dDelta = derivs.dalphar_ddelta;
-            _dTau = derivs.dalphar_dtau;
-            _dDelta2 = derivs.d2alphar_ddelta2;
-            _dTau2 = derivs.d2alphar_dtau2;
-            _dDelta_dTau = derivs.d2alphar_ddelta_dtau;
-            _dDelta3 = derivs.d3alphar_ddelta3;
-            _dTau3 = derivs.d3alphar_dtau3;
-            _dDelta2_dTau = derivs.d3alphar_ddelta2_dtau;
-            _dDelta_dTau2 = derivs.d3alphar_ddelta_dtau2;
+            cache[i00] = derivs.alphar;
+            cache[i10] = derivs.dalphar_ddelta;
+            cache[i01] = derivs.dalphar_dtau;
+            cache[i20] = derivs.d2alphar_ddelta2;
+            cache[i02] = derivs.d2alphar_dtau2;
+            cache[i11] = derivs.d2alphar_ddelta_dtau;
+            cache[i30] = derivs.d3alphar_ddelta3;
+            cache[i03] = derivs.d3alphar_dtau3;
+            cache[i21] = derivs.d3alphar_ddelta2_dtau;
+            cache[i12] = derivs.d3alphar_ddelta_dtau2;
+            memset(is_cached.data(), true, sizeof(is_cached));
         }
         return derivs;
     };
@@ -1426,16 +1450,17 @@ class IdealHelmholtzContainer : public BaseHelmholtzContainer
         GERG2004Sinh.all(tau, delta, derivs);
 
         if (cache_values) {
-            _base = derivs.alphar * _prefactor;
-            _dDelta = derivs.dalphar_ddelta * _prefactor;
-            _dTau = derivs.dalphar_dtau * _prefactor;
-            _dDelta2 = derivs.d2alphar_ddelta2 * _prefactor;
-            _dTau2 = derivs.d2alphar_dtau2 * _prefactor;
-            _dDelta_dTau = derivs.d2alphar_ddelta_dtau * _prefactor;
-            _dDelta3 = derivs.d3alphar_ddelta3 * _prefactor;
-            _dTau3 = derivs.d3alphar_dtau3 * _prefactor;
-            _dDelta2_dTau = derivs.d3alphar_ddelta2_dtau * _prefactor;
-            _dDelta_dTau2 = derivs.d3alphar_ddelta_dtau2 * _prefactor;
+            cache[i00] = derivs.alphar * _prefactor;
+            cache[i10] = derivs.dalphar_ddelta * _prefactor;
+            cache[i01] = derivs.dalphar_dtau * _prefactor;
+            cache[i20] = derivs.d2alphar_ddelta2 * _prefactor;
+            cache[i02] = derivs.d2alphar_dtau2 * _prefactor;
+            cache[i11] = derivs.d2alphar_ddelta_dtau * _prefactor;
+            cache[i30] = derivs.d3alphar_ddelta3 * _prefactor;
+            cache[i03] = derivs.d3alphar_dtau3 * _prefactor;
+            cache[i21] = derivs.d3alphar_ddelta2_dtau * _prefactor;
+            cache[i12] = derivs.d3alphar_ddelta_dtau2 * _prefactor;
+            memset(is_cached.data(), true, sizeof(is_cached));
         }
         return derivs * _prefactor;
     };

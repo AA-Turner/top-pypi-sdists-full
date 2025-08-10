@@ -6,7 +6,7 @@ from enum import Enum
 from pydantic import BaseModel
 
 
-class DmlResult(TypedDict):
+class DMLResult(TypedDict):
     affected_rows: int
 
 class QueryRequest(BaseModel):

@@ -4,6 +4,7 @@
 #include "Exceptions.h"
 #include "CoolPropTools.h"
 #include <cstdlib>
+#include <unordered_map>
 
 #if !defined(SWIG)  // Hide this for swig - Swig gets confused
 #    include "rapidjson_include.h"
@@ -51,8 +52,8 @@
     X(HENRYS_LAW_TO_GENERATE_VLE_GUESSES, "HENRYS_LAW_TO_GENERATE_VLE_GUESSES", false,                                                               \
       "If true, when doing water-based mixture dewpoint calculations, use Henry's Law to generate guesses for liquid-phase composition")             \
     X(PHASE_ENVELOPE_STARTING_PRESSURE_PA, "PHASE_ENVELOPE_STARTING_PRESSURE_PA", 100.0, "Starting pressure [Pa] for phase envelope construction")   \
-    X(R_U_CODATA, "R_U_CODATA", 8.3144598,                                                                                                           \
-      "The value for the ideal gas constant in J/mol/K according to CODATA 2014.  This value is used to harmonize all the ideal gas constants. "     \
+    X(R_U_CODATA, "R_U_CODATA", 8.31446261815324,                                                                                                    \
+      "The value for the ideal gas constant in J/mol/K according to CODATA 2022.  This value is used to harmonize all the ideal gas constants. "     \
       "This is especially important in the critical region.")                                                                                        \
     X(VTPR_UNIFAC_PATH, "VTPR_UNIFAC_PATH", "", "The path to the directory containing the UNIFAC JSON files.  Should be slash terminated")           \
     X(SPINODAL_MINIMUM_DELTA, "SPINODAL_MINIMUM_DELTA", 0.5,                                                                                         \
@@ -74,6 +75,7 @@
     X(VTPR_ALWAYS_RELOAD_LIBRARY, "VTPR_ALWAYS_RELOAD_LIBRARY", false,                                                                               \
       "If true, the library will always be reloaded, no matter what is currently loaded")                                                            \
     X(FLOAT_PUNCTUATION, "FLOAT_PUNCTUATION", ".", "The first character of this string will be used as the separator between the number fraction.")  \
+    X(ENABLE_SUPERANCILLARIES, "ENABLE_SUPERANCILLARIES", true, "If true, the superancillary functions will be used for VLE of pure fluids")        \
     X(LIST_STRING_DELIMITER, "LIST_STRING_DELIMITER", ",", "The delimiter to be used when converting a list of strings to a string")
 
 // Use preprocessor to create the Enum
@@ -275,7 +277,7 @@ class ConfigurationItem
 class Configuration
 {
    protected:
-    std::map<configuration_keys, ConfigurationItem> items;
+    std::unordered_map<configuration_keys, ConfigurationItem> items;
 
    public:
     Configuration() {
@@ -286,7 +288,7 @@ class Configuration
     /// Get an item from the configuration
     ConfigurationItem& get_item(configuration_keys key) {
         // Try to find it
-        std::map<configuration_keys, ConfigurationItem>::iterator it = items.find(key);
+        std::unordered_map<configuration_keys, ConfigurationItem>::iterator it = items.find(key);
         // If equal to end, not found
         if (it != items.end()) {
             // Found, return it
@@ -302,7 +304,7 @@ class Configuration
     };
 
     /// Return a reference to all of the items
-    std::map<configuration_keys, ConfigurationItem>& get_items(void) {
+    std::unordered_map<configuration_keys, ConfigurationItem>& get_items(void) {
         return items;
     };
     
@@ -334,7 +336,7 @@ class Configuration
                     items.erase(key); items.emplace(key, ConfigurationItem(key, i));
                     break;
                 case ConfigurationDataTypes::CONFIGURATION_DOUBLE_TYPE:
-                    int d;
+                    double d;
                     try{
                         d = std::stod(envval);
                     }
@@ -347,7 +349,7 @@ class Configuration
                     items.erase(key); items.emplace(key, ConfigurationItem(key, d));
                     break;
                 case ConfigurationDataTypes::CONFIGURATION_BOOL_TYPE:
-                    int b;
+                    bool b;
                     try{
                         b = tobool(envval);
                     }

@@ -2,15 +2,13 @@ from setuptools import setup
 
 setup(
     name='yeref',
-    version='0.27.51',
+    version='0.27.60',
     description='desc-f',
     author='john smith',
     packages=['yeref'],
     package_data={'yeref': ['tonweb.js']},
     # install_requires=[ "aiogram>=2.22.1", ]
 )
-
-# endregion
 
 # rm -rf dist && python -m build; twine upload --repository yeref dist/*; python3 -m pip install --upgrade yeref ; python3 -m pip install --upgrade yeref
 # python3 -m pip install --upgrade yeref --break-system-packages

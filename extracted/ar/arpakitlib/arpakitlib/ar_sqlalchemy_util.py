@@ -220,6 +220,20 @@ class SQLAlchemyDb:
         self.remove_celery_tables_data()
         self._logger.info("all reinited")
 
+    def remove_rows_from_tables(self):
+        with self.new_session() as session:
+            for table_name, table in BaseDBM.metadata.tables.items():
+                session.execute(sqlalchemy.delete(table))
+            session.commit()
+        self._logger.info(f"rows from tables ({BaseDBM.metadata.tables.keys()}) were removed")
+
+    async def async_remove_rows_from_tables(self):
+        async with self.new_async_session() as async_session:
+            for table_name, table in BaseDBM.metadata.tables.items():
+                await async_session.execute(sqlalchemy.delete(table))
+            await async_session.commit()
+        self._logger.info(f"rows from tables ({BaseDBM.metadata.tables.keys()}) were removed")
+
     def check_conn(self):
         self.engine.connect()
         self._logger.info("db conn is good")

@@ -720,6 +720,12 @@ scope_type : {self._atomic.scope_type}
         if isinstance(node, (nodes.With, nodes.For, nodes.While)):
             return NamesConsumer._defines_name_raises_or_returns_recursive(name, node)
 
+        if isinstance(node, nodes.Match):
+            return all(
+                NamesConsumer._defines_name_raises_or_returns_recursive(name, case)
+                for case in node.cases
+            )
+
         if not isinstance(node, nodes.If):
             return False
 
@@ -768,6 +774,7 @@ scope_type : {self._atomic.scope_type}
                     nodes.With,
                     nodes.For,
                     nodes.While,
+                    nodes.Match,
                 ),
             )
             and self._inferred_to_define_name_raise_or_return(name, if_body_stmt)
@@ -1010,6 +1017,11 @@ scope_type : {self._atomic.scope_type}
                 and NamesConsumer._defines_name_raises_or_returns_recursive(name, stmt)
             ):
                 return True
+            if isinstance(stmt, nodes.Match):
+                return all(
+                    NamesConsumer._defines_name_raises_or_returns_recursive(name, case)
+                    for case in stmt.cases
+                )
         return False
 
     @staticmethod
@@ -1937,7 +1949,17 @@ class VariablesChecker(BaseChecker):
                 # and unevaluated annotations inside a function body
                 if not (
                     self._postponed_evaluation_enabled
-                    and isinstance(stmt, (nodes.AnnAssign, nodes.FunctionDef))
+                    and (
+                        isinstance(stmt, nodes.AnnAssign)
+                        or (
+                            isinstance(stmt, nodes.FunctionDef)
+                            and node
+                            not in {
+                                *(stmt.args.defaults or ()),
+                                *(stmt.args.kw_defaults or ()),
+                            }
+                        )
+                    )
                 ) and not (
                     isinstance(stmt, nodes.AnnAssign)
                     and utils.get_node_first_ancestor_of_type(stmt, nodes.FunctionDef)
@@ -2824,9 +2846,7 @@ class VariablesChecker(BaseChecker):
                 return
 
             # Special case for exception variable
-            if isinstance(stmt.parent, nodes.ExceptHandler) and any(
-                n.name == name for n in stmt.parent.nodes_of_class(nodes.Name)
-            ):
+            if self._is_exception_binding_used_in_handler(stmt, name):
                 return
 
             self.add_message(message_name, args=name, node=stmt)
@@ -2900,6 +2920,15 @@ class VariablesChecker(BaseChecker):
             return
 
         self.add_message("unused-argument", args=name, node=stmt, confidence=confidence)
+
+    def _is_exception_binding_used_in_handler(
+        self, stmt: nodes.NodeNG, name: str
+    ) -> bool:
+        return (
+            isinstance(stmt.parent, nodes.ExceptHandler)
+            and stmt is stmt.parent.name
+            and any(n.name == name for n in stmt.parent.nodes_of_class(nodes.Name))
+        )
 
     def _check_late_binding_closure(self, node: nodes.Name) -> None:
         """Check whether node is a cell var that is assigned within a containing loop.
@@ -3225,6 +3254,8 @@ class VariablesChecker(BaseChecker):
         for name, node_lst in not_consumed.items():
             for node in node_lst:
                 if in_type_checking_block(node):
+                    continue
+                if self._is_exception_binding_used_in_handler(node, name):
                     continue
                 self.add_message("unused-variable", args=(name,), node=node)
 

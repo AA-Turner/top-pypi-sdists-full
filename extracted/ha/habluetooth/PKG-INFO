@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: habluetooth
-Version: 4.0.2
+Version: 5.0.1
 Summary: High availability Bluetooth
 License: Apache-2.0
 Author: J. Nick Koston
@@ -22,6 +22,7 @@ Requires-Dist: bleak-retry-connector (>=4)
 Requires-Dist: bluetooth-adapters (>=2)
 Requires-Dist: bluetooth-auto-recovery (>=1.5.1)
 Requires-Dist: bluetooth-data-tools (>=1.28.0)
+Requires-Dist: btsocket (>=0.3.0)
 Requires-Dist: dbus-fast (>=2.30.2) ; platform_system == "Linux"
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/habluetooth/issues
 Project-URL: Changelog, https://github.com/bluetooth-devices/habluetooth/blob/main/CHANGELOG.md

@@ -51,26 +51,27 @@ def truncate_to_display_width(text: str, max_column_width: int, centre=False, un
         width = 0
 
 
-        # for char in text:
-        #     w = wcwidth(char)
-        #     if w < 0:
-        #         continue
-        #     if width + w > max_column_width:
-        #         break
-        #     result += char
-        #     width += w
-
-        test_str = text[:max_column_width]
-        while True:
-            width = wcswidth(test_str)
-            if width  < max_column_width or width == 0:
+        for char in text:
+            w = wcwidth(char)
+            if w < 0:
+                continue
+            if width + w > max_column_width:
                 break
-            test_str = test_str[:-1]
-        result = test_str
+            result += char
+            width += w
+
+        # test_str = text[:max_column_width]
+        # while True:
+        #     width = wcswidth(test_str)
+        #     if width  < max_column_width or width == 0:
+        #         break
+        #     test_str = test_str[:-1]
+        # result = test_str
     
 
         # Pad if it's shorter
         # padding = max_column_width - wcswidth(result)
+        # return result + ' ' * padding
     else:
         result = text[:max_column_width]
         width = len(result)

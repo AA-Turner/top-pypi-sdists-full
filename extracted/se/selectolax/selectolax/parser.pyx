@@ -1,5 +1,6 @@
 
-from cpython cimport bool
+from cpython.bool cimport bool
+from cpython.exc cimport PyErr_SetObject
 
 include "modest/selection.pxi"
 include "modest/node.pxi"
@@ -61,8 +62,7 @@ cdef class HTMLParser:
 
         """
 
-        node = Node()
-        node._init(self.html_tree.node_html, self)
+        cdef Node node = Node.new(self.html_tree.node_html, self)
         return node.css(query)
 
     def css_first(self, str query, default=None, strict=False):
@@ -84,12 +84,11 @@ cdef class HTMLParser:
 
         """
 
-        node = Node()
-        node._init(self.html_tree.node_html, self)
+        cdef Node node = Node.new(self.html_tree.node_html, self)
         return node.css_first(query, default, strict)
 
     cdef void _detect_encoding(self, char* html, size_t html_len) nogil:
-        cdef myencoding_t encoding = MyENCODING_DEFAULT;
+        cdef myencoding_t encoding = MyENCODING_DEFAULT
 
         if self.use_meta_tags:
             encoding = myencoding_prescan_stream_to_determine_encoding(html, html_len)
@@ -102,7 +101,7 @@ cdef class HTMLParser:
 
         self._encoding = encoding
 
-    cdef _parse_html(self, char* html, size_t html_len):
+    cdef int _parse_html(self, char* html, size_t html_len) except -1:
         cdef myhtml_t* myhtml
         cdef mystatus_t status
 
@@ -111,23 +110,28 @@ cdef class HTMLParser:
             status = myhtml_init(myhtml, MyHTML_OPTIONS_DEFAULT, 1, 0)
 
         if status != 0:
-            raise RuntimeError("Can't init MyHTML object.")
+            PyErr_SetObject(RuntimeError, "Can't init MyHTML object.")
+            return -1
 
         with nogil:
             self.html_tree = myhtml_tree_create()
             status = myhtml_tree_init(self.html_tree, myhtml)
 
         if status != 0:
-            raise RuntimeError("Can't init MyHTML Tree object.")
+            PyErr_SetObject(RuntimeError, "Can't init MyHTML Tree object.")
+            return -1
 
         with nogil:
             status = myhtml_parse(self.html_tree, self._encoding, html, html_len)
 
         if status != 0:
-            raise RuntimeError("Can't parse HTML (status code: %d)" % status)
+            PyErr_SetObject(RuntimeError, "Can't parse HTML (status code: %d)" % status)
+            return -1
 
-        assert self.html_tree.node_html != NULL
-
+        if self.html_tree.node_html == NULL:
+            PyErr_SetObject(RuntimeError, "html_tree is still NULL even after parsing ")
+            return -1
+        return 0
 
     @property
     def input_encoding(self):
@@ -148,9 +152,7 @@ cdef class HTMLParser:
         """Returns root node."""
         if self.html_tree and self.html_tree.node_html:
             try:
-                node = Node()
-                node._init(self.html_tree.node_html, self)
-                return node
+                return Node.new(self.html_tree.node_html, self)
             except Exception:
                 # If Node creation or initialization fails, return None
                 return None
@@ -163,9 +165,7 @@ cdef class HTMLParser:
         head = myhtml_tree_get_node_head(self.html_tree)
 
         if head != NULL:
-            node = Node()
-            node._init(head, self)
-            return node
+            return Node.new(head, self)
         return None
 
     @property
@@ -175,10 +175,7 @@ cdef class HTMLParser:
         body = myhtml_tree_get_node_body(self.html_tree)
 
         if body != NULL:
-            node = Node()
-            node._init(body, self)
-            return node
-
+            return Node.new(body, self)
         return None
 
     def tags(self, str name):
@@ -197,7 +194,7 @@ cdef class HTMLParser:
 
         cdef myhtml_collection_t* collection = NULL
         pybyte_name = name.encode('UTF-8')
-        cdef mystatus_t status = 0;
+        cdef mystatus_t status = 0
 
         result = list()
         collection = myhtml_get_nodes_by_name(self.html_tree, NULL, pybyte_name, len(pybyte_name), &status)
@@ -207,8 +204,7 @@ cdef class HTMLParser:
 
         if status == 0:
             for i in range(collection.length):
-                node = Node()
-                node._init(collection.list[i], self)
+                node = Node.new(collection.list[i], self)
                 result.append(node)
 
         myhtml_collection_destroy(collection)
@@ -258,7 +254,7 @@ cdef class HTMLParser:
         """
         cdef myhtml_collection_t* collection = NULL
 
-        cdef mystatus_t status = 0;
+        cdef mystatus_t status = 0
 
         for tag in tags:
             pybyte_name = tag.encode('UTF-8')
@@ -277,7 +273,6 @@ cdef class HTMLParser:
                     myhtml_node_delete(collection.list[i])
 
             myhtml_collection_destroy(collection)
-
 
     def unwrap_tags(self, list tags, delete_empty : bool = False):
         """Unwraps specified tags from the HTML tree.
@@ -305,9 +300,9 @@ cdef class HTMLParser:
     @property
     def html(self):
         """Return HTML representation of the page."""
-        if self.html_tree and self.html_tree.document:
-            node = Node()
-            node._init(self.html_tree.document, self)
+        cdef Node node
+        if self.html_tree != NULL and self.html_tree.document != NULL:
+            node = Node.new(self.html_tree.document, self)
             return node.html
         return None
 
@@ -361,6 +356,7 @@ cdef class HTMLParser:
 
     def css_matches(self, str selector):
         return self.root.css_matches(selector)
+
     def merge_text_nodes(self):
         """Iterates over all text nodes and merges all text nodes that are close to each other.
 
@@ -380,6 +376,7 @@ cdef class HTMLParser:
         "John Doe"
         """
         return self.root.merge_text_nodes()
+
     @staticmethod
     cdef HTMLParser from_tree(
             myhtml_tree_t * tree, bytes raw_html, bint detect_encoding, bint use_meta_tags, str decode_errors,
@@ -396,13 +393,13 @@ cdef class HTMLParser:
         obj.cached_script_srcs = None
         return obj
 
-
     def clone(self):
         """Clone the current tree."""
         cdef myhtml_t* myhtml
         cdef mystatus_t status
         cdef myhtml_tree_t* html_tree
         cdef myhtml_tree_node_t* node
+        cdef HTMLParser cls
 
         with nogil:
             myhtml = myhtml_create()

@@ -9,7 +9,7 @@ requires = [
 
 [project]
 name = 'selectolax'
-version = '0.3.32'
+version = '0.3.33'
 description = 'Fast HTML5 parser with CSS selectors.'
 readme = 'README.rst'
 requires-python = '>=3.9'
@@ -67,3 +67,7 @@ test-skip = "*-macosx_arm64"
 cython = [
     "Cython",
 ]
+
+[tool.cython-lint]
+max-line-length = 120
+ignore = ['E221','E222',]

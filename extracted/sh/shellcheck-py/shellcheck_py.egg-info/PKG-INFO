@@ -1,17 +1,16 @@
 Metadata-Version: 2.1
-Name: shellcheck-py
-Version: 0.10.0.1
+Name: shellcheck_py
+Version: 0.11.0.1
 Summary: Python wrapper around invoking shellcheck (https://www.shellcheck.net/)
 Home-page: https://github.com/ryanrhee/shellcheck-py
 Author: Ryan Rhee
 Author-email: pypi@rhee.io
 License: MIT
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 
@@ -44,7 +43,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+    rev: v0.11.0.1
     hooks:
     -   id: shellcheck
 ```

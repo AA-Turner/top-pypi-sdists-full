@@ -513,6 +513,12 @@ class StreamingGatewayManager:
                 else:
                     gateway_data_list = []
                 if not gateway_data_list:
+                    logging.debug(
+                        "get_streaming_gateways: service_id=%s page=%s limit=%s -> 0 gateways",
+                        self.service_id,
+                        page,
+                        limit,
+                    )
                     return [], None, "No streaming gateways found"
                 
                 # Convert to StreamingGateway instances
@@ -526,6 +532,11 @@ class StreamingGatewayManager:
                         logging.warning(f"Failed to parse gateway data: {e}")
                         continue
                 
+                logging.debug(
+                    "get_streaming_gateways: service_id=%s -> gateways=%s",
+                    self.service_id,
+                    len(streaming_gateways),
+                )
                 return streaming_gateways, None, message
             except Exception as e:
                 return None, f"Failed to parse streaming gateways: {str(e)}", "Parse error"

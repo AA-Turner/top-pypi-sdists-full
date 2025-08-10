@@ -89655,6 +89655,8 @@ scout_rids_api_CheckAlertRid = str
 
 ingest_api_ContainerizedExtractorRid = str
 
+api_rids_EdgeSyncTargetRid = str
+
 scout_chart_api_JsonString = str
 
 scout_chartdefinition_api_LogTagFilter = Dict[str, List[str]]
@@ -89715,8 +89717,6 @@ scout_channelvariables_api_ComputeSpecV1 = str
 
 timeseries_logicalseries_api_TableName = str
 
-api_rids_ProcedureExecutionRid = str
-
 scout_rids_api_NotebookRid = str
 
 scout_rids_api_UserRid = str
@@ -89728,6 +89728,8 @@ scout_units_api_UnitSymbol = str
 timeseries_logicalseries_api_LocationName = str
 
 api_rids_DataSourceRid = str
+
+api_rids_EdgeSyncSourceRid = str
 
 scout_rids_api_CheckLineageRid = str
 
@@ -89762,6 +89764,8 @@ datasource_logset_api_LogSetRid = str
 ingest_api_DataSourceRefName = str
 
 api_ErrorType = str
+
+api_rids_ProcedureExecutionRid = str
 
 scout_compute_api_ComputeWithUnitsRequest = scout_compute_api_ComputeNodeRequest
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typedspark
-Version: 1.5.3
+Version: 1.5.4
 Summary: Column-wise type annotations for pyspark DataFrames
 Home-page: https://github.com/kaiko-ai/typedspark
 Author: Nanne Aben
@@ -12,7 +12,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: typing-extensions<=4.13.1
+Requires-Dist: typing-extensions<=4.14.1
 Provides-Extra: pyspark
 Requires-Dist: pyspark; extra == "pyspark"
 Dynamic: author

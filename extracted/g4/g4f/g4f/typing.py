@@ -15,9 +15,9 @@ from typing import (
     Type,
     IO,
     Optional,
-    TypedDict,
     TYPE_CHECKING,
 )
+from typing_extensions import TypedDict
 
 # Only import PIL for type-checkers; no runtime dependency required.
 if TYPE_CHECKING:
@@ -48,6 +48,9 @@ class ContentPart(TypedDict, total=False):
     type: str           # e.g., "text", "image_url", etc.
     text: str           # present when type == "text"
     image_url: Dict[str, str]  # present when type == "image_url"
+    input_audio: Dict[str, str]  # present when type == "input_audio"
+    bucket_id: str
+    name: str
 
 class Message(TypedDict):
     role: str

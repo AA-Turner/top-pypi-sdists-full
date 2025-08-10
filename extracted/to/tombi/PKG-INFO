@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tombi
-Version: 0.5.1
+Version: 0.5.2
 License-File: LICENSE
 Summary: 🦅 TOML Toolkit 🦅 
 Requires-Python: >=3.10

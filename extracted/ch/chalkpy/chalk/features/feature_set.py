@@ -13,13 +13,13 @@ from typing import (
     Dict,
     Iterator,
     List,
+    Mapping,
     Optional,
+    Protocol,
+    Set,
     Tuple,
     Type,
     cast,
-    Set,
-    Protocol,
-    Mapping,
 )
 
 from typing_extensions import TypeGuard
@@ -31,8 +31,8 @@ from chalk.utils.collections import ensure_tuple, get_unique_item
 from chalk.utils.source_parsing import should_skip_source_code_parsing
 
 if TYPE_CHECKING:
-    from chalk.features.feature_field import Feature
     from chalk._lsp.error_builder import FeatureClassErrorBuilder
+    from chalk.features.feature_field import Feature
     from chalk.features.underscore_features import NamedUnderscoreExpr
 
 __all__ = ["Features", "FeaturesMeta", "FeatureSetBase", "is_features_cls", "is_feature_set_class"]
@@ -87,7 +87,7 @@ class FeaturesMeta(type):
         if not isinstance(subcls, type):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise TypeError(f"{subcls} is not a type")
         if hasattr(subcls, "__is_features__"):
-            return getattr(subcls, "__is_features__")
+            return subcls.__is_features__
         return False
 
     def __instancecheck__(self, instance: object) -> bool:
@@ -252,13 +252,6 @@ class FeatureSetBase:
 
 
 class FeatureSetBaseWrapper(FeatureRegistryProtocol):
-    """
-    Wrapper around the global FeatureSetBase
-    """
-
-    def __init__(self):
-        super().__init__()
-
     def get_feature_sets(self) -> Mapping[str, Type[Features]]:
         return FeatureSetBase.registry
 

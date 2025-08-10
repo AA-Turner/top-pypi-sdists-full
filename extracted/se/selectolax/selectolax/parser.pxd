@@ -33,9 +33,9 @@ cdef extern from "myhtml/myhtml.h" nogil:
         MyHTML_OPTIONS_PARSE_MODE_SEPARATELY   = 0x04
 
     ctypedef struct myhtml_collection_t:
-        myhtml_tree_node_t **list;
-        size_t size;
-        size_t length;
+        myhtml_tree_node_t **list
+        size_t size
+        size_t length
 
     ctypedef  struct myhtml_tree_node_t:
         myhtml_tree_node_flags flags
@@ -85,7 +85,6 @@ cdef extern from "myhtml/myhtml.h" nogil:
         MyHTML_TOKEN_TYPE_DATA             = 0x200
         MyHTML_TOKEN_TYPE_COMMENT          = 0x400
         MyHTML_TOKEN_TYPE_NULL             = 0x800
-
 
     ctypedef enum myhtml_tags:
         MyHTML_TAG__UNDEF              = 0x000
@@ -392,8 +391,6 @@ cdef extern from "myhtml/myhtml.h" nogil:
         size_t raw_value_begin
         size_t raw_value_length
 
-
-
     myhtml_t * myhtml_create()
     mystatus_t myhtml_init(myhtml_t* myhtml, myhtml_options opt, size_t thread_count, size_t queue_size)
     myhtml_tree_t * myhtml_tree_create()
@@ -415,7 +412,7 @@ cdef extern from "myhtml/myhtml.h" nogil:
     myhtml_tree_node_t* myhtml_tree_get_node_head(myhtml_tree_t* tree)
 
     myhtml_collection_t* myhtml_get_nodes_by_name(myhtml_tree_t* tree, myhtml_collection_t *collection,
-                         const char* name, size_t length, mystatus_t *status)
+                                                  const char* name, size_t length, mystatus_t *status)
 
     void myhtml_node_delete(myhtml_tree_node_t *node)
     void myhtml_node_delete_recursive(myhtml_tree_node_t *node)
@@ -427,7 +424,7 @@ cdef extern from "myhtml/myhtml.h" nogil:
     myhtml_tree_node_t * myhtml_node_append_child(myhtml_tree_node_t* target, myhtml_tree_node_t* node)
 
     mycore_string_t * myhtml_node_text_set(myhtml_tree_node_t *node, const char* text, size_t length,
-                                          myencoding_t encoding)
+                                           myencoding_t encoding)
     myhtml_tree_attr_t * myhtml_attribute_by_key(myhtml_tree_node_t *node, const char *key, size_t key_len)
     myhtml_tree_attr_t * myhtml_attribute_remove_by_key(myhtml_tree_node_t *node, const char *key, size_t key_len)
     myhtml_tree_attr_t * myhtml_attribute_add(myhtml_tree_node_t *node, const char *key, size_t key_len,
@@ -515,16 +512,16 @@ cdef extern from "mycss/mycss.h" nogil:
     ctypedef mycss_selectors_flags mycss_selectors_flags_t
 
     ctypedef struct mycss_selectors_list_t:
-        mycss_selectors_entries_list_t* entries_list;
-        size_t entries_list_length;
+        mycss_selectors_entries_list_t* entries_list
+        size_t entries_list_length
 
-        mycss_declaration_entry_t* declaration_entry;
+        mycss_declaration_entry_t* declaration_entry
 
-        mycss_selectors_flags_t flags;
+        mycss_selectors_flags_t flags
 
-        mycss_selectors_list_t* parent;
-        mycss_selectors_list_t* next;
-        mycss_selectors_list_t* prev;
+        mycss_selectors_list_t* parent
+        mycss_selectors_list_t* next
+        mycss_selectors_list_t* prev
 
     # CSS init routines
     mycss_t * mycss_create()
@@ -542,12 +539,11 @@ cdef extern from "mycss/mycss.h" nogil:
     mycss_t * mycss_destroy(mycss_t* mycss, bint self_destroy)
 
 
-
 cdef extern from "modest/finder/finder.h" nogil:
     ctypedef struct modest_finder_t
     modest_finder_t* modest_finder_create_simple()
     mystatus_t modest_finder_by_selectors_list(modest_finder_t* finder, myhtml_tree_node_t* scope_node,
-                                                mycss_selectors_list_t* selector_list, myhtml_collection_t** collection)
+                                               mycss_selectors_list_t* selector_list, myhtml_collection_t** collection)
     modest_finder_t * modest_finder_destroy(modest_finder_t* finder, bint self_destroy)
 
 
@@ -562,7 +558,8 @@ cdef class HTMLParser:
     cdef object cached_script_srcs
 
     cdef void _detect_encoding(self, char* html, size_t html_len) nogil
-    cdef _parse_html(self, char* html, size_t html_len)
+    cdef int _parse_html(self, char* html, size_t html_len) except -1
+
     @staticmethod
     cdef HTMLParser from_tree(
         myhtml_tree_t * tree, bytes raw_html, bint detect_encoding, bint use_meta_tags, str decode_errors,
@@ -576,6 +573,6 @@ cdef class Stack:
     cdef myhtml_tree_node_t ** _stack
 
     cdef bint is_empty(self)
-    cdef push(self, myhtml_tree_node_t* res)
+    cdef int push(self, myhtml_tree_node_t* res) except -1
     cdef myhtml_tree_node_t * pop(self)
-    cdef resize(self)
+    cdef int resize(self) except -1

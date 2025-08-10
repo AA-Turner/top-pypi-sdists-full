@@ -211,6 +211,17 @@ class AutoStreaming:
                 self.gateway_configs[gateway_id] = gateway_config
                 service_id = gateway_config.id_service
 
+                # Extra diagnostics about the gateway configuration
+                try:
+                    logging.debug(
+                        f"Gateway {gateway_id} config loaded | service_id={service_id} | "
+                        f"camera_groups_count={len(getattr(gateway_config, 'camera_group_ids', []) )} | "
+                        f"camera_groups={getattr(gateway_config, 'camera_group_ids', [])}"
+                    )
+                except Exception:
+                    # Do not fail on logging issues
+                    pass
+
                 # Create camera manager with correct service_id for this gateway
                 camera_manager = CameraManager(self.session, service_id=service_id)
 
@@ -228,16 +239,26 @@ class AutoStreaming:
                         f"Failed to get camera inputs for gateway {gateway_id}: {error}"
                     )
                     logging.error(error_msg)
+                    if message:
+                        logging.debug(
+                            f"Gateway {gateway_id} camera input fetch message: {message}"
+                        )
                     AutoStreamingUtils.record_error(self.stats, error_msg)
                     self.stats["failed_streams"][gateway_id] = error
                     continue
 
                 if not input_configs:
-                    error_msg = (
-                        f"No camera configurations found for gateway {gateway_id}"
+                    detailed_msg = (
+                        message
+                        if message
+                        else f"No camera configurations found for gateway {gateway_id}"
                     )
-                    logging.warning(error_msg)
-                    self.stats["failed_streams"][gateway_id] = error_msg
+                    logging.warning(
+                        f"No camera configurations found for gateway {gateway_id} | "
+                        f"service_id={service_id} | camera_groups={getattr(gateway_config, 'camera_group_ids', [])} | "
+                        f"details={detailed_msg}"
+                    )
+                    self.stats["failed_streams"][gateway_id] = detailed_msg
                     continue
 
                 # Store input configs for later use

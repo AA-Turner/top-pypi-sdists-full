@@ -36,6 +36,76 @@ class AuthServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateLinkSessionRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateLinkSessionResponse.FromString,
         )
+        self.CheckTeamInvites = channel.unary_unary(
+            "/chalk.server.v1.AuthService/CheckTeamInvites",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CheckTeamInvitesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CheckTeamInvitesResponse.FromString,
+        )
+        self.CreateUser = channel.unary_unary(
+            "/chalk.server.v1.AuthService/CreateUser",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateUserRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateUserResponse.FromString,
+        )
+        self.GetUserById = channel.unary_unary(
+            "/chalk.server.v1.AuthService/GetUserById",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByIdRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByIdResponse.FromString,
+        )
+        self.GetUserByEmail = channel.unary_unary(
+            "/chalk.server.v1.AuthService/GetUserByEmail",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByEmailRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByEmailResponse.FromString,
+        )
+        self.GetUserByAccount = channel.unary_unary(
+            "/chalk.server.v1.AuthService/GetUserByAccount",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByAccountRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByAccountResponse.FromString,
+        )
+        self.UpdateUser = channel.unary_unary(
+            "/chalk.server.v1.AuthService/UpdateUser",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserResponse.FromString,
+        )
+        self.LinkAccount = channel.unary_unary(
+            "/chalk.server.v1.AuthService/LinkAccount",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.LinkAccountRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.LinkAccountResponse.FromString,
+        )
+        self.CreateSession = channel.unary_unary(
+            "/chalk.server.v1.AuthService/CreateSession",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateSessionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateSessionResponse.FromString,
+        )
+        self.GetSessionAndUser = channel.unary_unary(
+            "/chalk.server.v1.AuthService/GetSessionAndUser",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetSessionAndUserRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetSessionAndUserResponse.FromString,
+        )
+        self.UpdateSession = channel.unary_unary(
+            "/chalk.server.v1.AuthService/UpdateSession",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateSessionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateSessionResponse.FromString,
+        )
+        self.DeleteSession = channel.unary_unary(
+            "/chalk.server.v1.AuthService/DeleteSession",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.DeleteSessionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.DeleteSessionResponse.FromString,
+        )
+        self.CreateVerificationToken = channel.unary_unary(
+            "/chalk.server.v1.AuthService/CreateVerificationToken",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateVerificationTokenRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateVerificationTokenResponse.FromString,
+        )
+        self.UseVerificationToken = channel.unary_unary(
+            "/chalk.server.v1.AuthService/UseVerificationToken",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenResponse.FromString,
+        )
+        self.UpsertUserByEmail = channel.unary_unary(
+            "/chalk.server.v1.AuthService/UpsertUserByEmail",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailResponse.FromString,
+        )
 
 
 class AuthServiceServicer(object):
@@ -65,6 +135,90 @@ class AuthServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CheckTeamInvites(self, request, context):
+        """NextAuth Adapter RPCs"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateUser(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetUserById(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetUserByEmail(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetUserByAccount(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateUser(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def LinkAccount(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateSession(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetSessionAndUser(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateSession(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteSession(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateVerificationToken(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UseVerificationToken(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpsertUserByEmail(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_AuthServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -87,6 +241,76 @@ def add_AuthServiceServicer_to_server(servicer, server):
             servicer.UpdateLinkSession,
             request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateLinkSessionRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateLinkSessionResponse.SerializeToString,
+        ),
+        "CheckTeamInvites": grpc.unary_unary_rpc_method_handler(
+            servicer.CheckTeamInvites,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CheckTeamInvitesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CheckTeamInvitesResponse.SerializeToString,
+        ),
+        "CreateUser": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateUser,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateUserRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateUserResponse.SerializeToString,
+        ),
+        "GetUserById": grpc.unary_unary_rpc_method_handler(
+            servicer.GetUserById,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByIdRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByIdResponse.SerializeToString,
+        ),
+        "GetUserByEmail": grpc.unary_unary_rpc_method_handler(
+            servicer.GetUserByEmail,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByEmailRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByEmailResponse.SerializeToString,
+        ),
+        "GetUserByAccount": grpc.unary_unary_rpc_method_handler(
+            servicer.GetUserByAccount,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByAccountRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByAccountResponse.SerializeToString,
+        ),
+        "UpdateUser": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateUser,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserResponse.SerializeToString,
+        ),
+        "LinkAccount": grpc.unary_unary_rpc_method_handler(
+            servicer.LinkAccount,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.LinkAccountRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.LinkAccountResponse.SerializeToString,
+        ),
+        "CreateSession": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateSession,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateSessionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateSessionResponse.SerializeToString,
+        ),
+        "GetSessionAndUser": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSessionAndUser,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetSessionAndUserRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.GetSessionAndUserResponse.SerializeToString,
+        ),
+        "UpdateSession": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateSession,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateSessionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateSessionResponse.SerializeToString,
+        ),
+        "DeleteSession": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteSession,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.DeleteSessionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.DeleteSessionResponse.SerializeToString,
+        ),
+        "CreateVerificationToken": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateVerificationToken,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateVerificationTokenRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.CreateVerificationTokenResponse.SerializeToString,
+        ),
+        "UseVerificationToken": grpc.unary_unary_rpc_method_handler(
+            servicer.UseVerificationToken,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenResponse.SerializeToString,
+        ),
+        "UpsertUserByEmail": grpc.unary_unary_rpc_method_handler(
+            servicer.UpsertUserByEmail,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.AuthService", rpc_method_handlers)
@@ -203,6 +427,412 @@ class AuthService(object):
             "/chalk.server.v1.AuthService/UpdateLinkSession",
             chalk_dot_server_dot_v1_dot_auth__pb2.UpdateLinkSessionRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_auth__pb2.UpdateLinkSessionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CheckTeamInvites(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/CheckTeamInvites",
+            chalk_dot_server_dot_v1_dot_auth__pb2.CheckTeamInvitesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.CheckTeamInvitesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateUser(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/CreateUser",
+            chalk_dot_server_dot_v1_dot_auth__pb2.CreateUserRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.CreateUserResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetUserById(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/GetUserById",
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByIdRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByIdResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetUserByEmail(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/GetUserByEmail",
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByEmailRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByEmailResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetUserByAccount(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/GetUserByAccount",
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByAccountRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetUserByAccountResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateUser(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/UpdateUser",
+            chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def LinkAccount(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/LinkAccount",
+            chalk_dot_server_dot_v1_dot_auth__pb2.LinkAccountRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.LinkAccountResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateSession(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/CreateSession",
+            chalk_dot_server_dot_v1_dot_auth__pb2.CreateSessionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.CreateSessionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSessionAndUser(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/GetSessionAndUser",
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetSessionAndUserRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.GetSessionAndUserResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateSession(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/UpdateSession",
+            chalk_dot_server_dot_v1_dot_auth__pb2.UpdateSessionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.UpdateSessionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteSession(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/DeleteSession",
+            chalk_dot_server_dot_v1_dot_auth__pb2.DeleteSessionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.DeleteSessionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateVerificationToken(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/CreateVerificationToken",
+            chalk_dot_server_dot_v1_dot_auth__pb2.CreateVerificationTokenRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.CreateVerificationTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UseVerificationToken(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/UseVerificationToken",
+            chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.UseVerificationTokenResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpsertUserByEmail(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/UpsertUserByEmail",
+            chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.UpsertUserByEmailResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -18,21 +18,33 @@ from podcast2notion.config import (
 from podcast2notion.utils import get_icon
 
 
+def generate_activation_code():
+    """生成并设置激活码"""
+    url = "https://podcast.notionhub.app/generate-activation-code"
+    payload = {
+        "access_token": os.getenv("NOTION_TOKEN"),
+        "podcast": os.getenv("REFRESH_TOKEN"),
+        "tongyi": os.getenv("COOKIE"),
+        "duplicated_template_id": os.getenv("NOTION_PAGE"),
+    }
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        activation_code = response.json().get("activation_code")
+        if activation_code:
+            os.environ["ACTIVATION_CODE"] = activation_code
+            print("激活码生成并设置成功")
+        else:
+            print(f"获取激活码失败: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"调用激活码接口失败: {e}")
+
+
 headers = {
     "host": "api.xiaoyuzhoufm.com",
     "applicationid": "app.podcast.cosmos",
     "x-jike-refresh-token": os.getenv("REFRESH_TOKEN").strip(),
-    "os":"android",
-    "os-version":"32",
-    "app-version":"2.80.4",
-    "app-buildno":"1175",
-    "user-agent":"okhttp/4.12.0",
     "x-jike-device-id": "5070e349-ba04-4c7b-a32e-13eb0fed01e7",
-    "timezone": "Asia/Shanghai",
-    "market": "update",
-    "manufacturer": "Xiaomi",
-    "model": "Redmi Note 7 Pro",
-    "resolution": "1080x2216",
 }
 
 tongyi_headers = {
@@ -516,6 +528,7 @@ def get_dir():
 
 
 def main():
+    generate_activation_code()
     refresh_token()
     dir_dict = get_dir()
     d = insert_podcast(dir_dict)

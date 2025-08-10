@@ -5,7 +5,7 @@ from pydantic import BaseModel, PositiveInt
 
 from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
-from canonmap.connectors.mysql_connector.mysql_db_client import DBClient
+from canonmap.connectors.mysql_connector.db_client import DBClient
 
 class TableFieldObj(BaseModel):
     table_name: str

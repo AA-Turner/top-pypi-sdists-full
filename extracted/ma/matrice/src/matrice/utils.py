@@ -6,12 +6,12 @@ import traceback
 import subprocess
 import logging
 import inspect
-import importlib
 import base64
 import hashlib
 from datetime import datetime, timezone
 from functools import lru_cache, wraps
 from typing import Any, List, Optional
+from importlib.metadata import PackageNotFoundError, version
 
 class ErrorType:
     NOT_FOUND = "NotFound"
@@ -499,9 +499,9 @@ def get_summary(session, project_id, service_name):
 def _is_package_installed(package_name):
     """Check if a package is already installed."""
     try:
-        importlib.import_module(package_name.replace('-', '_'))
+        version(package_name.replace('-', '_'))
         return True
-    except (ImportError, OSError):
+    except (ImportError, OSError, PackageNotFoundError):
         return False
 
 @lru_cache(maxsize=64)
@@ -534,3 +534,4 @@ def dependencies_check(package_names):
         if not _install_package(package_name):
             success = False
     return success
+

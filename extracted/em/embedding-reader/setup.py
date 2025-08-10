@@ -17,7 +17,7 @@ if __name__ == "__main__":
         name="embedding_reader",
         packages=find_packages(),
         include_package_data=True,
-        version="1.7.0",
+        version="1.8.1",
         license="MIT",
         description="A python template",
         long_description=long_description,
@@ -33,6 +33,8 @@ if __name__ == "__main__":
             "Intended Audience :: Developers",
             "Topic :: Scientific/Engineering :: Artificial Intelligence",
             "License :: OSI Approved :: MIT License",
-            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
+            "Programming Language :: Python :: 3.12",
         ],
     )

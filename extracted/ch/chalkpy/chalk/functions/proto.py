@@ -10,38 +10,13 @@ from chalk.features.underscore import Underscore, UnderscoreFunction
 
 
 def _is_protobuf_message(obj: Any) -> bool:
-    if isinstance(obj, Message):
-        return True
-
-    # If using a different protobuf generation implemention, e.g. google._upb._message.MessageMeta,
-    # just check for common protobuf fields fields
-    required_methods = [
-        "DESCRIPTOR",
-        "SerializeToString",
-        "ParseFromString",
-    ]
-    return all(hasattr(obj, method) for method in required_methods)
-
-
-class UnderscoreProtoSerialize(UnderscoreFunction):
-    def __init__(
-        self,
-        mapping: Mapping[str, Union[Underscore, Any]],
-        message: Message,
-    ):
-        if not isinstance(mapping, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise TypeError(f"F.proto_serialize(): mapping must be a Mapping: got {type(mapping)}")
-        if not _is_protobuf_message(message):
-            raise TypeError(f"F.proto_serialize(): message must be a Message: got {type(message)}")
-
-        message_file_descriptor = serialize_message_file_descriptor(message.DESCRIPTOR.file)
-        super().__init__(
-            "proto_serialize",
-            message_file_descriptor,
-            message.DESCRIPTOR.full_name,
-            list(mapping.keys()),
-            *mapping.values(),
-        )
+    return isinstance(obj, Message) or (
+        # If using a different protobuf generation implementation,
+        # e.g. google._upb._message.MessageMeta, check for common protobuf fields
+        hasattr(obj, "DESCRIPTOR")
+        and hasattr(obj, "SerializeToString")
+        and hasattr(obj, "ParseFromString")
+    )
 
 
 def proto_serialize(mapping: Mapping[str, Union[Underscore, Any]], message: Message):
@@ -70,30 +45,18 @@ def proto_serialize(mapping: Mapping[str, Union[Underscore, Any]], message: Mess
     ...        GetTransactionRequest,
     ...    )
     """
-    return UnderscoreProtoSerialize(mapping, message)
+    if not isinstance(mapping, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise TypeError(f"F.proto_serialize(): mapping must be a Mapping: got {type(mapping)}")
+    if not _is_protobuf_message(message):
+        raise TypeError(f"F.proto_serialize(): message must be a Message: got {type(message)}")
 
-
-class UnderscoreProtoDeserialize(UnderscoreFunction):
-    def __init__(
-        self,
-        body: Union[Underscore, bytes],
-        message: Message,
-    ):
-        if not isinstance(body, (bytes, Underscore)):  # pyright: ignore[reportUnnecessaryIsInstance]
-            raise TypeError(f"F.proto_deserialize(): body must be a bytes or Underscore, got {type(body)}")
-        if not _is_protobuf_message(message):
-            raise TypeError(f"F.proto_deserialize(): message must be a Message, got {type(message)}")
-
-        message_file_descriptor = serialize_message_file_descriptor(message.DESCRIPTOR.file)
-        message_name = message.DESCRIPTOR.full_name
-        pa_scalar = create_empty_pyarrow_scalar_from_proto_type(message)
-        super().__init__(
-            "proto_deserialize",
-            message_file_descriptor,
-            message_name,
-            pa_scalar,
-            body,
-        )
+    return UnderscoreFunction(
+        "proto_serialize",
+        serialize_message_file_descriptor(message.DESCRIPTOR.file),
+        message.DESCRIPTOR.full_name,
+        list(mapping.keys()),
+        *mapping.values(),
+    )
 
 
 def proto_deserialize(body: Union[Underscore, bytes], message: Message):
@@ -121,7 +84,21 @@ def proto_deserialize(body: Union[Underscore, bytes], message: Message):
     ...        GetTransactionResponse,
     ...    )
     """
-    return UnderscoreProtoDeserialize(body, message)
+    if not isinstance(body, (bytes, Underscore)):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise TypeError(f"F.proto_deserialize(): body must be a bytes or Underscore, got {type(body)}")
+    if not _is_protobuf_message(message):
+        raise TypeError(f"F.proto_deserialize(): message must be a Message, got {type(message)}")
+
+    message_file_descriptor = serialize_message_file_descriptor(message.DESCRIPTOR.file)
+    message_name = message.DESCRIPTOR.full_name
+    pa_scalar = create_empty_pyarrow_scalar_from_proto_type(message)
+    return UnderscoreFunction(
+        "proto_deserialize",
+        message_file_descriptor,
+        message_name,
+        pa_scalar,
+        body,
+    )
 
 
 __all__ = [

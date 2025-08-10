@@ -5,7 +5,7 @@ import logging
 from fastapi import Request, APIRouter
 
 from canonmap.connectors.mysql_connector.models import QueryRequest, QueryResult
-from canonmap.connectors.mysql_connector.mysql_db_client import DBClient
+from canonmap.connectors.mysql_connector.db_client import DBClient
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import HTTPException
 from mysql.connector import Error as MySQLError

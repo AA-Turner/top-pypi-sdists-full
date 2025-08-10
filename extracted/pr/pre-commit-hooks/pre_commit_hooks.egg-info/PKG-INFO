@@ -1,17 +1,16 @@
 Metadata-Version: 2.1
 Name: pre_commit_hooks
-Version: 5.0.0
+Version: 6.0.0
 Summary: Some out-of-the-box hooks for pre-commit.
 Home-page: https://github.com/pre-commit/pre-commit-hooks
 Author: Anthony Sottile
 Author-email: asottile@umich.edu
 License: MIT
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ruamel.yaml>=0.15
@@ -34,7 +33,7 @@ Add this to your `.pre-commit-config.yaml`
 
 ```yaml
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0  # Use the ref you want to point at
+    rev: v6.0.0  # Use the ref you want to point at
     hooks:
     -   id: trailing-whitespace
     # -   id: ...
@@ -148,13 +147,6 @@ The following arguments are available:
 #### `fix-byte-order-marker`
 removes UTF-8 byte order marker
 
-#### `fix-encoding-pragma`
-
-_Deprecated since py2 is EOL - use [pyupgrade](https://github.com/asottile/pyupgrade) instead._
-
-Add `# -*- coding: utf-8 -*-` to the top of python files.
-  - To remove the coding pragma pass `--remove` (useful in a python3-only codebase)
-
 #### `forbid-new-submodules`
 Prevent addition of new git submodules.
 
@@ -232,6 +224,7 @@ Trims trailing whitespace.
 ### Deprecated / replaced hooks
 
 - `check-byte-order-marker`: instead use fix-byte-order-marker
+- `fix-encoding-pragma`: instead use [`pyupgrade`](https://github.com/asottile/pyupgrade)
 
 ### As a standalone package
 

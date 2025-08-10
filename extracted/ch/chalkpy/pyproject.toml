@@ -478,7 +478,7 @@ chalkpy = "chalk.cli:cli"
 
 [tool.setuptools.packages.find]
 include = ["chalk*"]
-exclude = ["tests*", "fixtures*"]
+exclude = ["tests*", "fixtures*", "typings*"]
 namespaces = false
 
 [tool.setuptools.dynamic]

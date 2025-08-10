@@ -119,6 +119,22 @@ class JSONFluidLibrary
                 assert(n.size() == l.size());
                 assert(n.size() == m.size());
                 alphar.GenExp.add_Lemmon2005(n, d, t, l, m);
+            } else if (!type.compare("ResidualHelmholtzDoubleExponential")) {
+                std::vector<CoolPropDbl> n = cpjson::get_long_double_array(contribution["n"]);
+                std::vector<CoolPropDbl> d = cpjson::get_long_double_array(contribution["d"]);
+                std::vector<CoolPropDbl> t = cpjson::get_long_double_array(contribution["t"]);
+                std::vector<CoolPropDbl> gt = cpjson::get_long_double_array(contribution["gt"]);
+                std::vector<CoolPropDbl> lt = cpjson::get_long_double_array(contribution["lt"]);
+                std::vector<CoolPropDbl> gd = cpjson::get_long_double_array(contribution["gd"]);
+                std::vector<CoolPropDbl> ld = cpjson::get_long_double_array(contribution["ld"]);
+                
+                assert(n.size() == d.size());
+                assert(n.size() == t.size());
+                assert(n.size() == gt.size());
+                assert(n.size() == lt.size());
+                assert(n.size() == gd.size());
+                assert(n.size() == ld.size());
+                alphar.GenExp.add_DoubleExponential(n,d,t,gd,ld,gt,lt);
             } else if (!type.compare("ResidualHelmholtzExponential")) {
                 std::vector<CoolPropDbl> n = cpjson::get_long_double_array(contribution["n"]);
                 std::vector<CoolPropDbl> d = cpjson::get_long_double_array(contribution["d"]);
@@ -311,7 +327,7 @@ class JSONFluidLibrary
                 CoolPropDbl a1 = cpjson::get_double(contribution, "a1");
                 CoolPropDbl a2 = cpjson::get_double(contribution, "a2");
                 std::string reference = cpjson::get_string(contribution, "reference");
-                alpha0.EnthalpyEntropyOffsetCore = IdealHelmholtzEnthalpyEntropyOffset(a1, a2, reference);
+                alpha0.EnthalpyEntropyOffsetCore.set(a1, a2, reference);
             } else {
                 std::cout << format("Unsupported ideal-gas Helmholtz type: %s\n", type.c_str());
                 //throw ValueError(format("Unsupported ideal-gas Helmholtz type: %s",type.c_str()));
@@ -375,6 +391,16 @@ class JSONFluidLibrary
         // BibTex keys
         EOS.BibTeX_EOS = cpjson::get_string(EOS_json, "BibTeX_EOS");
         EOS.BibTeX_CP0 = cpjson::get_string(EOS_json, "BibTeX_CP0");
+        
+        if (EOS_json.HasMember("SUPERANCILLARY")){
+            if (getenv("COOLPROP_DISABLE_SUPERANCILLARIES_ENTIRELY")){
+            }
+            else{
+                // This is inefficient as we do JSON(rapidjson) -> string -> JSON(nlohmann)
+                // which implies two large parsing passes
+                EOS.set_superancillaries_str(cpjson::json2string(EOS_json["SUPERANCILLARY"]));
+            }
+        }
 
         EOS.alphar = parse_alphar(EOS_json["alphar"]);
         EOS.alpha0 = parse_alpha0(EOS_json["alpha0"]);

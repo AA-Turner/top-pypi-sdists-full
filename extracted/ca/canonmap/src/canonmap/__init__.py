@@ -1,6 +1,6 @@
-from canonmap.connectors.mysql_connector.mysql_connector import MySQLConnector
+from canonmap.connectors.mysql_connector.connector import MySQLConnector
 from canonmap.connectors.mysql_connector.config import MySQLConfig
-from canonmap.connectors.mysql_connector.mysql_db_client import DBClient
+from canonmap.connectors.mysql_connector.db_client import DBClient
 from canonmap.mapping.mapping_pipeline import MappingPipeline
 from canonmap.mapping.models import EntityMappingRequest, MappingWeights
 from canonmap.logger import make_console_handler

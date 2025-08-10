@@ -176,7 +176,7 @@ class RequestWorker:
             if request_element is None:
                 time.sleep(0.1)
                 return
-            request_id, ignore_return_value, retryable = request_element
+            request_id, ignore_return_value, _ = request_element
             request = api_requests.get_request(request_id)
             assert request is not None, f'Request with ID {request_id} is None'
             if request.status == api_requests.RequestStatus.CANCELLED:
@@ -190,12 +190,10 @@ class RequestWorker:
             # the process, such as subprocess_daemon.py.
             fut = executor.submit_until_success(_request_execution_wrapper,
                                                 request_id, ignore_return_value)
-            if retryable:
-                # If the task might fail and be retried, start a thread to
-                # monitor the future and process retry.
-                threading.Thread(target=self.handle_task_result,
-                                 args=(fut, request_element),
-                                 daemon=True).start()
+            # Monitor the result of the request execution.
+            threading.Thread(target=self.handle_task_result,
+                             args=(fut, request_element),
+                             daemon=True).start()
 
             logger.info(f'[{self}] Submitted request: {request_id}')
         except (Exception, SystemExit) as e:  # pylint: disable=broad-except
@@ -209,6 +207,21 @@ class RequestWorker:
                            request_element: Tuple[str, bool, bool]) -> None:
         try:
             fut.result()
+        except concurrent.futures.process.BrokenProcessPool as e:
+            # Happens when the worker process dies unexpectedly, e.g. OOM
+            # killed.
+            request_id, _, retryable = request_element
+            # Ensure the request status.
+            api_requests.set_request_failed(request_id, e)
+            logger.error(
+                f'Request {request_id} failed to get processed '
+                f'{common_utils.format_exception(e, use_bracket=True)}')
+            if retryable:
+                # If the request is retryable and disrupted by broken
+                # process pool, reschedule it immediately to get it
+                # retried in the new process pool.
+                queue = _get_queue(self.schedule_type)
+                queue.put(request_element)
         except exceptions.ExecutionRetryableError as e:
             time.sleep(e.retry_wait_seconds)
             # Reschedule the request.
@@ -258,7 +271,8 @@ def _get_queue(schedule_type: api_requests.ScheduleType) -> RequestQueue:
 
 @contextlib.contextmanager
 def override_request_env_and_config(
-        request_body: payloads.RequestBody) -> Generator[None, None, None]:
+        request_body: payloads.RequestBody,
+        request_id: str) -> Generator[None, None, None]:
     """Override the environment and SkyPilot config for a request."""
     original_env = os.environ.copy()
     os.environ.update(request_body.env_vars)
@@ -279,7 +293,8 @@ def override_request_env_and_config(
         client_entrypoint=request_body.entrypoint,
         client_command=request_body.entrypoint_command,
         using_remote_api_server=request_body.using_remote_api_server,
-        user=user)
+        user=user,
+        request_id=request_id)
     try:
         logger.debug(
             f'override path: {request_body.override_skypilot_config_path}')
@@ -363,7 +378,7 @@ def _request_execution_wrapper(request_id: str,
         # config, as there can be some logs during override that needs to be
         # captured in the log file.
         try:
-            with override_request_env_and_config(request_body), \
+            with override_request_env_and_config(request_body, request_id), \
                 tempstore.tempdir():
                 if sky_logging.logging_enabled(logger, sky_logging.DEBUG):
                     config = skypilot_config.to_dict()

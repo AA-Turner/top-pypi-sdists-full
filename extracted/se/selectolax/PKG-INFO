@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: selectolax
-Version: 0.3.32
+Version: 0.3.33
 Summary: Fast HTML5 parser with CSS selectors.
 Home-page: https://github.com/rushter/selectolax
 Author: Artem Golubin

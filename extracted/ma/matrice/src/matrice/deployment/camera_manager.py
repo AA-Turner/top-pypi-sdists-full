@@ -148,10 +148,17 @@ class CameraConfig:
     @classmethod
     def from_dict(cls, data: Dict) -> "CameraConfig":
         """Create a CameraConfig instance from API response data."""
-        return cls(
+        camera_group_id = (
+            data.get("CameraGroupID")
+            or data.get("cameraGroupId")
+            or data.get("groupId")
+            or data.get("GroupId")
+        )
+
+        instance = cls(
             id=data.get("ID") or data.get("id") or data.get("_id"),
             id_service=data.get("IDService") or data.get("idService"),
-            camera_group_id=data.get("CameraGroupID") or data.get("cameraGroupId"),
+            camera_group_id=camera_group_id,
             camera_name=data.get("CameraName") or data.get("cameraName"),
             stream_url=data.get("StreamURL") or data.get("streamUrl"),
             is_stream_url=data.get("IsStreamURL")
@@ -162,6 +169,18 @@ class CameraConfig:
             created_at=data.get("CreatedAt") or data.get("createdAt"),
             updated_at=data.get("UpdatedAt") or data.get("updatedAt"),
         )
+
+        # Emit a debug diagnostic if camera_group_id could not be parsed
+        if instance.camera_group_id in (None, ""):
+            try:
+                logging.debug(
+                    "CameraConfig.from_dict: missing camera_group_id in payload keys=%s",
+                    list(data.keys()),
+                )
+            except Exception:
+                pass
+
+        return instance
 
     def get_effective_stream_settings(
         self, group_defaults: StreamSettings
@@ -788,10 +807,10 @@ class CameraGroup:
 
         if resp and resp.get("success"):
             result = resp.get("data")
-            if result and "cameras" in result:
+            if result and "items" in result:
                 try:
                     camera_instances = []
-                    for config_data in result["cameras"]:
+                    for config_data in result["items"]:
                         try:
                             camera_config = CameraConfig.from_dict(config_data)
                             if camera_config.camera_group_id != self.config.id:
@@ -1051,10 +1070,10 @@ class CameraManager:
         if error:
             return None, error, message
 
-        if result and "groups" in result:
+        if result and "items" in result:
             try:
                 camera_group_instances = []
-                for group_data in result["groups"]:
+                for group_data in result["items"]:
                     try:
                         group_config = CameraGroupConfig.from_dict(group_data)
                         camera_group_instance = CameraGroup(self.session, group_config)
@@ -1063,6 +1082,13 @@ class CameraManager:
                         logging.warning(f"Failed to parse camera group data: {e}")
                         continue
 
+                logging.debug(
+                    "get_camera_groups: service_id=%s page=%s limit=%s -> groups=%s",
+                    self.service_id,
+                    page,
+                    limit,
+                    len(camera_group_instances),
+                )
                 return camera_group_instances, None, message
             except Exception as e:
                 return None, f"Failed to parse camera groups: {str(e)}", "Parse error"
@@ -1195,8 +1221,17 @@ class CameraManager:
         if error:
             return None, error, message
 
-        if result and "cameras" in result:
-            return result["cameras"], None, message
+        if result and "items" in result:
+            cameras_list = result["items"]
+            logging.debug(
+                "list_camera_configs: service_id=%s page=%s limit=%s group_id=%s -> cameras=%s",
+                self.service_id,
+                page,
+                limit,
+                group_id,
+                len(cameras_list),
+            )
+            return cameras_list, None, message
 
         return [], None, message
 
@@ -1215,6 +1250,14 @@ class CameraManager:
         Returns:
             tuple: (camera_instances, error, message)
         """
+        logging.debug(
+            "get_cameras: service_id=%s page=%s limit=%s group_id=%s search=%s",
+            self.service_id,
+            page,
+            limit,
+            group_id,
+            search,
+        )
         cameras, error, message = self.list_camera_configs(
             page=page, limit=limit, search=search, group_id=group_id
         )
@@ -1233,6 +1276,10 @@ class CameraManager:
                 logging.warning(f"Failed to parse camera config data: {e}")
                 continue
 
+        logging.debug(
+            "get_cameras: built_instances=%s (after parsing/filtering)",
+            len(camera_instances),
+        )
         return camera_instances, None, message
 
     def get_stream_url(

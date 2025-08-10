@@ -77,6 +77,28 @@ class AutoStreamingUtils:
                     camera_group.default_stream_settings
                 )
 
+                # Diagnostics about each camera before building input config
+                logging.debug(
+                    (
+                        "Preparing input for camera name=%s id=%s group_id=%s | "
+                        "stream_url_present=%s | effective_settings={fps:%s, quality:%s, width:%s, height:%s}"
+                    ),
+                    getattr(camera_config, 'camera_name', None),
+                    getattr(camera_config, 'id', None),
+                    getattr(camera_config, 'camera_group_id', None),
+                    bool(getattr(camera_config, 'stream_url', None)),
+                    getattr(effective_settings, 'fps', None),
+                    getattr(effective_settings, 'video_quality', None),
+                    getattr(effective_settings, 'width', None),
+                    getattr(effective_settings, 'height', None),
+                )
+
+                if not getattr(camera_config, 'stream_url', None):
+                    logging.warning(
+                        f"Camera {getattr(camera_config, 'camera_name', None)} has no stream_url; skipping"
+                    )
+                    continue
+
                 input_config = InputConfig(
                     type=InputType.AUTO,
                     source=camera_config.stream_url,
@@ -182,24 +204,42 @@ class AutoStreamingUtils:
         """
         # Get cameras from all camera groups in this gateway
         camera_configs = []
-        for group_id in streaming_gateway_config_instance.camera_group_ids:
+        group_id_list = list(getattr(streaming_gateway_config_instance, 'camera_group_ids', []) or [])
+        logging.debug(
+            f"Fetching cameras for gateway={getattr(streaming_gateway_config_instance, 'id', None)} "
+            f"service_id={getattr(streaming_gateway_config_instance, 'id_service', None)} "
+            f"groups_count={len(group_id_list)} groups={group_id_list}"
+        )
+        for group_id in group_id_list:
             group_cameras, error, message = camera_manager.get_cameras(group_id=group_id, limit=100)
             if error:
-                logging.warning(f"Failed to get cameras for group {group_id}: {error}")
+                logging.warning(f"Failed to get cameras for group {group_id}: {error} | message={message}")
                 continue
+            logging.debug(
+                f"Group {group_id}: fetched_cameras={len(group_cameras) if group_cameras else 0}"
+            )
             if group_cameras:
                 camera_configs.extend(group_cameras)
         
         if not camera_configs:
-            return [], None, f"No cameras found for gateway {streaming_gateway_config_instance.id}"
+            return [], None, (
+                f"No cameras found for gateway {getattr(streaming_gateway_config_instance, 'id', None)}. "
+                f"Checked groups={group_id_list}. Ensure cameras are assigned and visible to the deployment."
+            )
 
         # Get camera groups for the deployment
         camera_groups_list, error, message = camera_manager.get_camera_groups(limit=100)
         if error:
+            logging.error(
+                f"Failed to get camera groups for service_id={getattr(streaming_gateway_config_instance, 'id_service', None)}: {error} | message={message}"
+            )
             return None, error, message
 
         # Convert to dictionary for easy lookup
         camera_groups = {group.id: group for group in camera_groups_list}
+        logging.debug(
+            f"Camera groups available: {len(camera_groups)} | ids={list(camera_groups.keys())}"
+        )
 
         # Convert to input configurations
         try:
@@ -210,10 +250,16 @@ class AutoStreamingUtils:
                 model_input_type=model_input_type
             )
 
-            return input_configs, None, f"Successfully converted {len(input_configs)} camera configs to input configs for gateway {streaming_gateway_config_instance.id}"
+            return input_configs, None, (
+                f"Successfully converted {len(input_configs)} camera configs to input configs for gateway "
+                f"{getattr(streaming_gateway_config_instance, 'id', None)}"
+            )
 
         except Exception as e:
-            error_msg = f"Failed to convert camera configs to input configs for gateway {streaming_gateway_config_instance.id}: {str(e)}"
+            error_msg = (
+                f"Failed to convert camera configs to input configs for gateway "
+                f"{getattr(streaming_gateway_config_instance, 'id', None)}: {str(e)}"
+            )
             logging.error(error_msg)
             return None, error_msg, "Conversion failed"
 

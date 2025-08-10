@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: lazy_imports
-Version: 1.0.0
+Version: 1.0.1
 Summary: Tool to support lazy imports
 Author: Pascal Bachor
 Author-email: lazy-imports.vista851@passmail.net
 Maintainer: Pascal Bachor
+License: Apache-2.0
 Project-URL: Changelog, https://github.com/bachorp/lazy-imports/blob/HEAD/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/bachorp/lazy-imports/issues
 Project-URL: Source Code, https://github.com/bachorp/lazy-imports
 Keywords: import imports lazy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -39,22 +39,23 @@ Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: packaging; extra == "testing"
 Provides-Extra: all
-Requires-Dist: mdformat; extra == "all"
-Requires-Dist: isort; extra == "all"
-Requires-Dist: mypy; extra == "all"
 Requires-Dist: pydocstyle; extra == "all"
-Requires-Dist: pylintfileheader; extra == "all"
-Requires-Dist: pytest; extra == "all"
+Requires-Dist: mdformat; extra == "all"
+Requires-Dist: mypy; extra == "all"
+Requires-Dist: black; extra == "all"
+Requires-Dist: isort; extra == "all"
 Requires-Dist: pylint; extra == "all"
+Requires-Dist: pylintfileheader; extra == "all"
 Requires-Dist: flake8; extra == "all"
 Requires-Dist: packaging; extra == "all"
-Requires-Dist: black; extra == "all"
+Requires-Dist: pytest; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: keywords
+Dynamic: license
 Dynamic: license-file
 Dynamic: maintainer
 Dynamic: project-url
@@ -246,7 +247,7 @@ In December 2024 responsibility was transferred to [Pascal Bachor](https://githu
 ## Licensing
 
 Copyright (c) 2024-2025 Pascal Bachor<br/>
-Copyright (c) 2021 [Philip May](https://may.la/), [Deutsche Telekom AG](https://www.telekom.com/)<br/>
+Copyright (c) 2021 [Philip May](https://philipmay.org/), [Deutsche Telekom AG](https://www.telekom.com/)<br/>
 Copyright (c) 2020, 2021 [The HuggingFace Team](https://huggingface.co/)<br/>
 Copyright (c) 2018 Preferred Networks, Inc.
 

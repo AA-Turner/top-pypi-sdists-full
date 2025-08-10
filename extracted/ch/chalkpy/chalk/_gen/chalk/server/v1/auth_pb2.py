@@ -22,7 +22,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1a\x63halk/server/v1/auth.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/server/v1/link.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x9d\x01\n\x0fGetTokenRequest\x12\x1b\n\tclient_id\x18\x01 \x01(\tR\x08\x63lientId\x12)\n\rclient_secret\x18\x02 \x01(\tB\x04\xd8\xa1\'\x01R\x0c\x63lientSecret\x12\x1d\n\ngrant_type\x18\x03 \x01(\tR\tgrantType\x12\x19\n\x05scope\x18\x04 \x01(\tH\x00R\x05scope\x88\x01\x01\x42\x08\n\x06_scope"\xf7\x05\n\x10GetTokenResponse\x12\'\n\x0c\x61\x63\x63\x65ss_token\x18\x01 \x01(\tB\x04\xd8\xa1\'\x01R\x0b\x61\x63\x63\x65ssToken\x12\x1d\n\ntoken_type\x18\x02 \x01(\tR\ttokenType\x12\x1d\n\nexpires_in\x18\x03 \x01(\x05R\texpiresIn\x12\x39\n\nexpires_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1d\n\napi_server\x18\x05 \x01(\tR\tapiServer\x12\x34\n\x13primary_environment\x18\x06 \x01(\tH\x00R\x12primaryEnvironment\x88\x01\x01\x12H\n\x07\x65ngines\x18\x07 \x03(\x0b\x32..chalk.server.v1.GetTokenResponse.EnginesEntryR\x07\x65ngines\x12U\n\x0cgrpc_engines\x18\x08 \x03(\x0b\x32\x32.chalk.server.v1.GetTokenResponse.GrpcEnginesEntryR\x0bgrpcEngines\x12o\n\x16\x65nvironment_id_to_name\x18\t \x03(\x0b\x32:.chalk.server.v1.GetTokenResponse.EnvironmentIdToNameEntryR\x13\x65nvironmentIdToName\x1a:\n\x0c\x45nginesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a>\n\x10GrpcEnginesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a\x46\n\x18\x45nvironmentIdToNameEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x16\n\x14_primary_environment"j\n\x18UpdateLinkSessionRequest\x12\x16\n\x06status\x18\x01 \x01(\tR\x06status\x12\x17\n\x07user_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n\nsession_id\x18\x03 \x01(\tR\tsessionId"+\n\x19UpdateLinkSessionResponse\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id2\xbf\x03\n\x0b\x41uthService\x12Z\n\x08GetToken\x12 .chalk.server.v1.GetTokenRequest\x1a!.chalk.server.v1.GetTokenResponse"\t\x80}\x01\x8a\xd3\x0e\x02\x08\x01\x12u\n\x11\x43reateLinkSession\x12).chalk.server.v1.CreateLinkSessionRequest\x1a*.chalk.server.v1.CreateLinkSessionResponse"\t\x80}\x01\x8a\xd3\x0e\x02\x08\x01\x12\x66\n\x0eGetLinkSession\x12&.chalk.server.v1.GetLinkSessionRequest\x1a\'.chalk.server.v1.GetLinkSessionResponse"\x03\x80}\x01\x12u\n\x11UpdateLinkSession\x12).chalk.server.v1.UpdateLinkSessionRequest\x1a*.chalk.server.v1.UpdateLinkSessionResponse"\t\x80}\x01\x8a\xd3\x0e\x02\x08\x01\x42\x92\x01\n\x13\x63om.chalk.server.v1B\tAuthProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1a\x63halk/server/v1/auth.proto\x12\x0f\x63halk.server.v1\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/server/v1/link.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a google/protobuf/descriptor.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x8e\x02\n\x0b\x41\x64\x61pterUser\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x46\n\x0e\x65mail_verified\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\remailVerified\x88\x01\x01\x12\x1c\n\x07team_id\x18\x03 \x01(\tH\x01R\x06teamId\x88\x01\x01\x12\x17\n\x04name\x18\x04 \x01(\tH\x02R\x04name\x88\x01\x01\x12\x19\n\x05\x65mail\x18\x05 \x01(\tH\x03R\x05\x65mail\x88\x01\x01\x12\x19\n\x05image\x18\x06 \x01(\tH\x04R\x05image\x88\x01\x01\x42\x11\n\x0f_email_verifiedB\n\n\x08_team_idB\x07\n\x05_nameB\x08\n\x06_emailB\x08\n\x06_image"\x82\x02\n\x0f\x41\x64\x61pterUserNoId\x12\x46\n\x0e\x65mail_verified\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\remailVerified\x88\x01\x01\x12\x1c\n\x07team_id\x18\x02 \x01(\tH\x01R\x06teamId\x88\x01\x01\x12\x17\n\x04name\x18\x03 \x01(\tH\x02R\x04name\x88\x01\x01\x12\x19\n\x05\x65mail\x18\x04 \x01(\tH\x03R\x05\x65mail\x88\x01\x01\x12\x19\n\x05image\x18\x05 \x01(\tH\x04R\x05image\x88\x01\x01\x42\x11\n\x0f_email_verifiedB\n\n\x08_team_idB\x07\n\x05_nameB\x08\n\x06_emailB\x08\n\x06_image"\x94\x01\n\x0e\x41\x64\x61pterSession\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12#\n\rsession_token\x18\x02 \x01(\tR\x0csessionToken\x12\x17\n\x07user_id\x18\x03 \x01(\tR\x06userId\x12\x34\n\x07\x65xpires\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65xpires"\x8a\x01\n\x14\x41\x64\x61pterCreateSession\x12#\n\rsession_token\x18\x01 \x01(\tR\x0csessionToken\x12\x17\n\x07user_id\x18\x02 \x01(\tR\x06userId\x12\x34\n\x07\x65xpires\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65xpires"\xdf\x01\n\x14UpdateAdapterSession\x12\x13\n\x02id\x18\x01 \x01(\tH\x00R\x02id\x88\x01\x01\x12(\n\rsession_token\x18\x02 \x01(\tH\x01R\x0csessionToken\x88\x01\x01\x12\x1c\n\x07user_id\x18\x03 \x01(\tH\x02R\x06userId\x88\x01\x01\x12\x39\n\x07\x65xpires\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\x07\x65xpires\x88\x01\x01\x42\x05\n\x03_idB\x10\n\x0e_session_tokenB\n\n\x08_user_idB\n\n\x08_expires"\xe8\x05\n\x0bNextAccount\x12.\n\x13provider_account_id\x18\x01 \x01(\tR\x11providerAccountId\x12\x17\n\x07user_id\x18\x02 \x01(\tR\x06userId\x12\x1a\n\x08provider\x18\x03 \x01(\tR\x08provider\x12\x12\n\x04type\x18\x04 \x01(\tR\x04type\x12,\n\x0c\x61\x63\x63\x65ss_token\x18\x05 \x01(\tB\x04\xd8\xa1\'\x01H\x00R\x0b\x61\x63\x63\x65ssToken\x88\x01\x01\x12"\n\nexpires_at\x18\x06 \x01(\x05H\x01R\texpiresAt\x88\x01\x01\x12\x19\n\x05scope\x18\x07 \x01(\tH\x02R\x05scope\x88\x01\x01\x12"\n\ntoken_type\x18\x08 \x01(\tH\x03R\ttokenType\x88\x01\x01\x12$\n\x08id_token\x18\t \x01(\tB\x04\xd8\xa1\'\x01H\x04R\x07idToken\x88\x01\x01\x12.\n\rrefresh_token\x18\n \x01(\tB\x04\xd8\xa1\'\x01H\x05R\x0crefreshToken\x88\x01\x01\x12(\n\rsession_state\x18\x0b \x01(\tH\x06R\x0csessionState\x88\x01\x01\x12\x37\n\x12oauth_token_secret\x18\x0c \x01(\tB\x04\xd8\xa1\'\x01H\x07R\x10oauthTokenSecret\x88\x01\x01\x12*\n\x0boauth_token\x18\r \x01(\tB\x04\xd8\xa1\'\x01H\x08R\noauthToken\x88\x01\x01\x12<\n\x18refresh_token_expires_in\x18\x0e \x01(\x05H\tR\x15refreshTokenExpiresIn\x88\x01\x01\x42\x0f\n\r_access_tokenB\r\n\x0b_expires_atB\x08\n\x06_scopeB\r\n\x0b_token_typeB\x0b\n\t_id_tokenB\x10\n\x0e_refresh_tokenB\x10\n\x0e_session_stateB\x15\n\x13_oauth_token_secretB\x0e\n\x0c_oauth_tokenB\x1b\n\x19_refresh_token_expires_in"\x85\x01\n\x11VerificationToken\x12\x1e\n\nidentifier\x18\x01 \x01(\tR\nidentifier\x12\x34\n\x07\x65xpires\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x07\x65xpires\x12\x1a\n\x05token\x18\x03 \x01(\tB\x04\xd8\xa1\'\x01R\x05token"2\n\x17\x43heckTeamInvitesRequest\x12\x17\n\x07user_id\x18\x01 \x01(\tR\x06userId"3\n\x18\x43heckTeamInvitesResponse\x12\x17\n\x07team_id\x18\x01 \x01(\tR\x06teamId"I\n\x11\x43reateUserRequest\x12\x34\n\x04user\x18\x01 \x01(\x0b\x32 .chalk.server.v1.AdapterUserNoIdR\x04user"-\n\x12GetUserByIdRequest\x12\x17\n\x07user_id\x18\x01 \x01(\tR\x06userId"-\n\x15GetUserByEmailRequest\x12\x14\n\x05\x65mail\x18\x01 \x01(\tR\x05\x65mail"e\n\x17GetUserByAccountRequest\x12.\n\x13provider_account_id\x18\x01 \x01(\tR\x11providerAccountId\x12\x1a\n\x08provider\x18\x02 \x01(\tR\x08provider"\x83\x02\n\x10UpdateUserFields\x12\x46\n\x0e\x65mail_verified\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\remailVerified\x88\x01\x01\x12\x1c\n\x07team_id\x18\x02 \x01(\tH\x01R\x06teamId\x88\x01\x01\x12\x17\n\x04name\x18\x03 \x01(\tH\x02R\x04name\x88\x01\x01\x12\x19\n\x05\x65mail\x18\x04 \x01(\tH\x03R\x05\x65mail\x88\x01\x01\x12\x19\n\x05image\x18\x05 \x01(\tH\x04R\x05image\x88\x01\x01\x42\x11\n\x0f_email_verifiedB\n\n\x08_team_idB\x07\n\x05_nameB\x08\n\x06_emailB\x08\n\x06_image"^\n\x11UpdateUserRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x39\n\x06\x66ields\x18\x02 \x01(\x0b\x32!.chalk.server.v1.UpdateUserFieldsR\x06\x66ields"L\n\x12LinkAccountRequest\x12\x36\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.NextAccountR\x07\x61\x63\x63ount"W\n\x14\x43reateSessionRequest\x12?\n\x07session\x18\x01 \x01(\x0b\x32%.chalk.server.v1.AdapterCreateSessionR\x07session"?\n\x18GetSessionAndUserRequest\x12#\n\rsession_token\x18\x01 \x01(\tR\x0csessionToken"\x88\x01\n\x19GetSessionAndUserResponse\x12\x39\n\x07session\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.AdapterSessionR\x07session\x12\x30\n\x04user\x18\x02 \x01(\x0b\x32\x1c.chalk.server.v1.AdapterUserR\x04user"W\n\x14UpdateSessionRequest\x12?\n\x07session\x18\x01 \x01(\x0b\x32%.chalk.server.v1.UpdateAdapterSessionR\x07session";\n\x14\x44\x65leteSessionRequest\x12#\n\rsession_token\x18\x01 \x01(\tR\x0csessionToken"s\n\x1e\x43reateVerificationTokenRequest\x12Q\n\x12verification_token\x18\x01 \x01(\x0b\x32".chalk.server.v1.VerificationTokenR\x11verificationToken"S\n\x1bUseVerificationTokenRequest\x12\x1e\n\nidentifier\x18\x01 \x01(\tR\nidentifier\x12\x14\n\x05token\x18\x02 \x01(\tR\x05token"\x89\x01\n\x17UpsertUserByEmailFields\x12\x41\n\x0e\x65mail_verified\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\remailVerified\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x17\n\x07team_id\x18\x03 \x01(\tR\x06teamId"r\n\x18UpsertUserByEmailRequest\x12\x14\n\x05\x65mail\x18\x01 \x01(\tR\x05\x65mail\x12@\n\x06\x66ields\x18\x02 \x01(\x0b\x32(.chalk.server.v1.UpsertUserByEmailFieldsR\x06\x66ields"F\n\x12\x43reateUserResponse\x12\x30\n\x04user\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.AdapterUserR\x04user"U\n\x13GetUserByIdResponse\x12\x35\n\x04user\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.AdapterUserH\x00R\x04user\x88\x01\x01\x42\x07\n\x05_user"X\n\x16GetUserByEmailResponse\x12\x35\n\x04user\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.AdapterUserH\x00R\x04user\x88\x01\x01\x42\x07\n\x05_user"Z\n\x18GetUserByAccountResponse\x12\x35\n\x04user\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.AdapterUserH\x00R\x04user\x88\x01\x01\x42\x07\n\x05_user"T\n\x12UpdateUserResponse\x12\x35\n\x04user\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.AdapterUserH\x00R\x04user\x88\x01\x01\x42\x07\n\x05_user"^\n\x13LinkAccountResponse\x12;\n\x07\x61\x63\x63ount\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.NextAccountH\x00R\x07\x61\x63\x63ount\x88\x01\x01\x42\n\n\x08_account"R\n\x15\x43reateSessionResponse\x12\x39\n\x07session\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.AdapterSessionR\x07session"c\n\x15UpdateSessionResponse\x12>\n\x07session\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.AdapterSessionH\x00R\x07session\x88\x01\x01\x42\n\n\x08_session"c\n\x15\x44\x65leteSessionResponse\x12>\n\x07session\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.AdapterSessionH\x00R\x07session\x88\x01\x01\x42\n\n\x08_session"\x90\x01\n\x1f\x43reateVerificationTokenResponse\x12V\n\x12verification_token\x18\x01 \x01(\x0b\x32".chalk.server.v1.VerificationTokenH\x00R\x11verificationToken\x88\x01\x01\x42\x15\n\x13_verification_token"\x8d\x01\n\x1cUseVerificationTokenResponse\x12V\n\x12verification_token\x18\x01 \x01(\x0b\x32".chalk.server.v1.VerificationTokenH\x00R\x11verificationToken\x88\x01\x01\x42\x15\n\x13_verification_token"[\n\x19UpsertUserByEmailResponse\x12\x35\n\x04user\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.AdapterUserH\x00R\x04user\x88\x01\x01\x42\x07\n\x05_user"\x9d\x01\n\x0fGetTokenRequest\x12\x1b\n\tclient_id\x18\x01 \x01(\tR\x08\x63lientId\x12)\n\rclient_secret\x18\x02 \x01(\tB\x04\xd8\xa1\'\x01R\x0c\x63lientSecret\x12\x1d\n\ngrant_type\x18\x03 \x01(\tR\tgrantType\x12\x19\n\x05scope\x18\x04 \x01(\tH\x00R\x05scope\x88\x01\x01\x42\x08\n\x06_scope"\xf7\x05\n\x10GetTokenResponse\x12\'\n\x0c\x61\x63\x63\x65ss_token\x18\x01 \x01(\tB\x04\xd8\xa1\'\x01R\x0b\x61\x63\x63\x65ssToken\x12\x1d\n\ntoken_type\x18\x02 \x01(\tR\ttokenType\x12\x1d\n\nexpires_in\x18\x03 \x01(\x05R\texpiresIn\x12\x39\n\nexpires_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1d\n\napi_server\x18\x05 \x01(\tR\tapiServer\x12\x34\n\x13primary_environment\x18\x06 \x01(\tH\x00R\x12primaryEnvironment\x88\x01\x01\x12H\n\x07\x65ngines\x18\x07 \x03(\x0b\x32..chalk.server.v1.GetTokenResponse.EnginesEntryR\x07\x65ngines\x12U\n\x0cgrpc_engines\x18\x08 \x03(\x0b\x32\x32.chalk.server.v1.GetTokenResponse.GrpcEnginesEntryR\x0bgrpcEngines\x12o\n\x16\x65nvironment_id_to_name\x18\t \x03(\x0b\x32:.chalk.server.v1.GetTokenResponse.EnvironmentIdToNameEntryR\x13\x65nvironmentIdToName\x1a:\n\x0c\x45nginesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a>\n\x10GrpcEnginesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1a\x46\n\x18\x45nvironmentIdToNameEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x16\n\x14_primary_environment"j\n\x18UpdateLinkSessionRequest\x12\x16\n\x06status\x18\x01 \x01(\tR\x06status\x12\x17\n\x07user_id\x18\x02 \x01(\tR\x06userId\x12\x1d\n\nsession_id\x18\x03 \x01(\tR\tsessionId"+\n\x19UpdateLinkSessionResponse\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id2\xb8\x0f\n\x0b\x41uthService\x12Z\n\x08GetToken\x12 .chalk.server.v1.GetTokenRequest\x1a!.chalk.server.v1.GetTokenResponse"\t\x80}\x01\x8a\xd3\x0e\x02\x08\x01\x12u\n\x11\x43reateLinkSession\x12).chalk.server.v1.CreateLinkSessionRequest\x1a*.chalk.server.v1.CreateLinkSessionResponse"\t\x80}\x01\x8a\xd3\x0e\x02\x08\x01\x12\x66\n\x0eGetLinkSession\x12&.chalk.server.v1.GetLinkSessionRequest\x1a\'.chalk.server.v1.GetLinkSessionResponse"\x03\x80}\x01\x12u\n\x11UpdateLinkSession\x12).chalk.server.v1.UpdateLinkSessionRequest\x1a*.chalk.server.v1.UpdateLinkSessionResponse"\t\x80}\x01\x8a\xd3\x0e\x02\x08\x01\x12r\n\x10\x43heckTeamInvites\x12(.chalk.server.v1.CheckTeamInvitesRequest\x1a).chalk.server.v1.CheckTeamInvitesResponse"\t\x80}\x1d\x8a\xd3\x0e\x02\x08\x01\x12`\n\nCreateUser\x12".chalk.server.v1.CreateUserRequest\x1a#.chalk.server.v1.CreateUserResponse"\t\x80}\x1d\x8a\xd3\x0e\x02\x08\x01\x12\x63\n\x0bGetUserById\x12#.chalk.server.v1.GetUserByIdRequest\x1a$.chalk.server.v1.GetUserByIdResponse"\t\x80}\x1d\x8a\xd3\x0e\x02\x08\x01\x12l\n\x0eGetUserByEmail\x12&.chalk.server.v1.GetUserByEmailRequest\x1a\'.chalk.server.v1.GetUserByEmailResponse"\t\x80}\x1d\x8a\xd3\x0e\x02\x08\x01\x12r\n\x10GetUserByAccount\x12(.chalk.server.v1.GetUserByAccountRequest\x1a).chalk.server.v1.GetUserByAccountResponse"\t\x80}\x1d\x8a\xd3\x0e\x02\x08\x01\x12`\n\nUpdateUser\x12".chalk.server.v1.UpdateUserRequest\x1a#.chalk.server.v1.UpdateUserResponse"\t\x80}\x1d\x8a\xd3\x0e\x02\x08\x01\x12\x63\n\x0bLinkAccount\x12#.chalk.server.v1.LinkAccountRequest\x1a$.chalk.server.v1.LinkAccountResponse"\t\x80}\x1d\x8a\xd3\x0e\x02\x08\x01\x12\x63\n\rCreateSession\x12%.chalk.server.v1.CreateSessionRequest\x1a&.chalk.server.v1.CreateSessionResponse"\x03\x80}\x1d\x12o\n\x11GetSessionAndUser\x12).chalk.server.v1.GetSessionAndUserRequest\x1a*.chalk.server.v1.GetSessionAndUserResponse"\x03\x80}\x1d\x12\x63\n\rUpdateSession\x12%.chalk.server.v1.UpdateSessionRequest\x1a&.chalk.server.v1.UpdateSessionResponse"\x03\x80}\x1d\x12\x63\n\rDeleteSession\x12%.chalk.server.v1.DeleteSessionRequest\x1a&.chalk.server.v1.DeleteSessionResponse"\x03\x80}\x1d\x12\x81\x01\n\x17\x43reateVerificationToken\x12/.chalk.server.v1.CreateVerificationTokenRequest\x1a\x30.chalk.server.v1.CreateVerificationTokenResponse"\x03\x80}\x1d\x12x\n\x14UseVerificationToken\x12,.chalk.server.v1.UseVerificationTokenRequest\x1a-.chalk.server.v1.UseVerificationTokenResponse"\x03\x80}\x1d\x12u\n\x11UpsertUserByEmail\x12).chalk.server.v1.UpsertUserByEmailRequest\x1a*.chalk.server.v1.UpsertUserByEmailResponse"\t\x80}\x1d\x8a\xd3\x0e\x02\x08\x01\x42\x92\x01\n\x13\x63om.chalk.server.v1B\tAuthProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -33,6 +33,18 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\tAuthProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_NEXTACCOUNT"].fields_by_name["access_token"]._options = None
+    _globals["_NEXTACCOUNT"].fields_by_name["access_token"]._serialized_options = b"\330\241'\001"
+    _globals["_NEXTACCOUNT"].fields_by_name["id_token"]._options = None
+    _globals["_NEXTACCOUNT"].fields_by_name["id_token"]._serialized_options = b"\330\241'\001"
+    _globals["_NEXTACCOUNT"].fields_by_name["refresh_token"]._options = None
+    _globals["_NEXTACCOUNT"].fields_by_name["refresh_token"]._serialized_options = b"\330\241'\001"
+    _globals["_NEXTACCOUNT"].fields_by_name["oauth_token_secret"]._options = None
+    _globals["_NEXTACCOUNT"].fields_by_name["oauth_token_secret"]._serialized_options = b"\330\241'\001"
+    _globals["_NEXTACCOUNT"].fields_by_name["oauth_token"]._options = None
+    _globals["_NEXTACCOUNT"].fields_by_name["oauth_token"]._serialized_options = b"\330\241'\001"
+    _globals["_VERIFICATIONTOKEN"].fields_by_name["token"]._options = None
+    _globals["_VERIFICATIONTOKEN"].fields_by_name["token"]._serialized_options = b"\330\241'\001"
     _globals["_GETTOKENREQUEST"].fields_by_name["client_secret"]._options = None
     _globals["_GETTOKENREQUEST"].fields_by_name["client_secret"]._serialized_options = b"\330\241'\001"
     _globals["_GETTOKENRESPONSE_ENGINESENTRY"]._options = None
@@ -55,20 +67,130 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_AUTHSERVICE"].methods_by_name[
         "UpdateLinkSession"
     ]._serialized_options = b"\200}\001\212\323\016\002\010\001"
-    _globals["_GETTOKENREQUEST"]._serialized_start = 235
-    _globals["_GETTOKENREQUEST"]._serialized_end = 392
-    _globals["_GETTOKENRESPONSE"]._serialized_start = 395
-    _globals["_GETTOKENRESPONSE"]._serialized_end = 1154
-    _globals["_GETTOKENRESPONSE_ENGINESENTRY"]._serialized_start = 936
-    _globals["_GETTOKENRESPONSE_ENGINESENTRY"]._serialized_end = 994
-    _globals["_GETTOKENRESPONSE_GRPCENGINESENTRY"]._serialized_start = 996
-    _globals["_GETTOKENRESPONSE_GRPCENGINESENTRY"]._serialized_end = 1058
-    _globals["_GETTOKENRESPONSE_ENVIRONMENTIDTONAMEENTRY"]._serialized_start = 1060
-    _globals["_GETTOKENRESPONSE_ENVIRONMENTIDTONAMEENTRY"]._serialized_end = 1130
-    _globals["_UPDATELINKSESSIONREQUEST"]._serialized_start = 1156
-    _globals["_UPDATELINKSESSIONREQUEST"]._serialized_end = 1262
-    _globals["_UPDATELINKSESSIONRESPONSE"]._serialized_start = 1264
-    _globals["_UPDATELINKSESSIONRESPONSE"]._serialized_end = 1307
-    _globals["_AUTHSERVICE"]._serialized_start = 1310
-    _globals["_AUTHSERVICE"]._serialized_end = 1757
+    _globals["_AUTHSERVICE"].methods_by_name["CheckTeamInvites"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name[
+        "CheckTeamInvites"
+    ]._serialized_options = b"\200}\035\212\323\016\002\010\001"
+    _globals["_AUTHSERVICE"].methods_by_name["CreateUser"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["CreateUser"]._serialized_options = b"\200}\035\212\323\016\002\010\001"
+    _globals["_AUTHSERVICE"].methods_by_name["GetUserById"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["GetUserById"]._serialized_options = b"\200}\035\212\323\016\002\010\001"
+    _globals["_AUTHSERVICE"].methods_by_name["GetUserByEmail"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name[
+        "GetUserByEmail"
+    ]._serialized_options = b"\200}\035\212\323\016\002\010\001"
+    _globals["_AUTHSERVICE"].methods_by_name["GetUserByAccount"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name[
+        "GetUserByAccount"
+    ]._serialized_options = b"\200}\035\212\323\016\002\010\001"
+    _globals["_AUTHSERVICE"].methods_by_name["UpdateUser"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["UpdateUser"]._serialized_options = b"\200}\035\212\323\016\002\010\001"
+    _globals["_AUTHSERVICE"].methods_by_name["LinkAccount"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["LinkAccount"]._serialized_options = b"\200}\035\212\323\016\002\010\001"
+    _globals["_AUTHSERVICE"].methods_by_name["CreateSession"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["CreateSession"]._serialized_options = b"\200}\035"
+    _globals["_AUTHSERVICE"].methods_by_name["GetSessionAndUser"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["GetSessionAndUser"]._serialized_options = b"\200}\035"
+    _globals["_AUTHSERVICE"].methods_by_name["UpdateSession"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["UpdateSession"]._serialized_options = b"\200}\035"
+    _globals["_AUTHSERVICE"].methods_by_name["DeleteSession"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["DeleteSession"]._serialized_options = b"\200}\035"
+    _globals["_AUTHSERVICE"].methods_by_name["CreateVerificationToken"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["CreateVerificationToken"]._serialized_options = b"\200}\035"
+    _globals["_AUTHSERVICE"].methods_by_name["UseVerificationToken"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name["UseVerificationToken"]._serialized_options = b"\200}\035"
+    _globals["_AUTHSERVICE"].methods_by_name["UpsertUserByEmail"]._options = None
+    _globals["_AUTHSERVICE"].methods_by_name[
+        "UpsertUserByEmail"
+    ]._serialized_options = b"\200}\035\212\323\016\002\010\001"
+    _globals["_ADAPTERUSER"]._serialized_start = 235
+    _globals["_ADAPTERUSER"]._serialized_end = 505
+    _globals["_ADAPTERUSERNOID"]._serialized_start = 508
+    _globals["_ADAPTERUSERNOID"]._serialized_end = 766
+    _globals["_ADAPTERSESSION"]._serialized_start = 769
+    _globals["_ADAPTERSESSION"]._serialized_end = 917
+    _globals["_ADAPTERCREATESESSION"]._serialized_start = 920
+    _globals["_ADAPTERCREATESESSION"]._serialized_end = 1058
+    _globals["_UPDATEADAPTERSESSION"]._serialized_start = 1061
+    _globals["_UPDATEADAPTERSESSION"]._serialized_end = 1284
+    _globals["_NEXTACCOUNT"]._serialized_start = 1287
+    _globals["_NEXTACCOUNT"]._serialized_end = 2031
+    _globals["_VERIFICATIONTOKEN"]._serialized_start = 2034
+    _globals["_VERIFICATIONTOKEN"]._serialized_end = 2167
+    _globals["_CHECKTEAMINVITESREQUEST"]._serialized_start = 2169
+    _globals["_CHECKTEAMINVITESREQUEST"]._serialized_end = 2219
+    _globals["_CHECKTEAMINVITESRESPONSE"]._serialized_start = 2221
+    _globals["_CHECKTEAMINVITESRESPONSE"]._serialized_end = 2272
+    _globals["_CREATEUSERREQUEST"]._serialized_start = 2274
+    _globals["_CREATEUSERREQUEST"]._serialized_end = 2347
+    _globals["_GETUSERBYIDREQUEST"]._serialized_start = 2349
+    _globals["_GETUSERBYIDREQUEST"]._serialized_end = 2394
+    _globals["_GETUSERBYEMAILREQUEST"]._serialized_start = 2396
+    _globals["_GETUSERBYEMAILREQUEST"]._serialized_end = 2441
+    _globals["_GETUSERBYACCOUNTREQUEST"]._serialized_start = 2443
+    _globals["_GETUSERBYACCOUNTREQUEST"]._serialized_end = 2544
+    _globals["_UPDATEUSERFIELDS"]._serialized_start = 2547
+    _globals["_UPDATEUSERFIELDS"]._serialized_end = 2806
+    _globals["_UPDATEUSERREQUEST"]._serialized_start = 2808
+    _globals["_UPDATEUSERREQUEST"]._serialized_end = 2902
+    _globals["_LINKACCOUNTREQUEST"]._serialized_start = 2904
+    _globals["_LINKACCOUNTREQUEST"]._serialized_end = 2980
+    _globals["_CREATESESSIONREQUEST"]._serialized_start = 2982
+    _globals["_CREATESESSIONREQUEST"]._serialized_end = 3069
+    _globals["_GETSESSIONANDUSERREQUEST"]._serialized_start = 3071
+    _globals["_GETSESSIONANDUSERREQUEST"]._serialized_end = 3134
+    _globals["_GETSESSIONANDUSERRESPONSE"]._serialized_start = 3137
+    _globals["_GETSESSIONANDUSERRESPONSE"]._serialized_end = 3273
+    _globals["_UPDATESESSIONREQUEST"]._serialized_start = 3275
+    _globals["_UPDATESESSIONREQUEST"]._serialized_end = 3362
+    _globals["_DELETESESSIONREQUEST"]._serialized_start = 3364
+    _globals["_DELETESESSIONREQUEST"]._serialized_end = 3423
+    _globals["_CREATEVERIFICATIONTOKENREQUEST"]._serialized_start = 3425
+    _globals["_CREATEVERIFICATIONTOKENREQUEST"]._serialized_end = 3540
+    _globals["_USEVERIFICATIONTOKENREQUEST"]._serialized_start = 3542
+    _globals["_USEVERIFICATIONTOKENREQUEST"]._serialized_end = 3625
+    _globals["_UPSERTUSERBYEMAILFIELDS"]._serialized_start = 3628
+    _globals["_UPSERTUSERBYEMAILFIELDS"]._serialized_end = 3765
+    _globals["_UPSERTUSERBYEMAILREQUEST"]._serialized_start = 3767
+    _globals["_UPSERTUSERBYEMAILREQUEST"]._serialized_end = 3881
+    _globals["_CREATEUSERRESPONSE"]._serialized_start = 3883
+    _globals["_CREATEUSERRESPONSE"]._serialized_end = 3953
+    _globals["_GETUSERBYIDRESPONSE"]._serialized_start = 3955
+    _globals["_GETUSERBYIDRESPONSE"]._serialized_end = 4040
+    _globals["_GETUSERBYEMAILRESPONSE"]._serialized_start = 4042
+    _globals["_GETUSERBYEMAILRESPONSE"]._serialized_end = 4130
+    _globals["_GETUSERBYACCOUNTRESPONSE"]._serialized_start = 4132
+    _globals["_GETUSERBYACCOUNTRESPONSE"]._serialized_end = 4222
+    _globals["_UPDATEUSERRESPONSE"]._serialized_start = 4224
+    _globals["_UPDATEUSERRESPONSE"]._serialized_end = 4308
+    _globals["_LINKACCOUNTRESPONSE"]._serialized_start = 4310
+    _globals["_LINKACCOUNTRESPONSE"]._serialized_end = 4404
+    _globals["_CREATESESSIONRESPONSE"]._serialized_start = 4406
+    _globals["_CREATESESSIONRESPONSE"]._serialized_end = 4488
+    _globals["_UPDATESESSIONRESPONSE"]._serialized_start = 4490
+    _globals["_UPDATESESSIONRESPONSE"]._serialized_end = 4589
+    _globals["_DELETESESSIONRESPONSE"]._serialized_start = 4591
+    _globals["_DELETESESSIONRESPONSE"]._serialized_end = 4690
+    _globals["_CREATEVERIFICATIONTOKENRESPONSE"]._serialized_start = 4693
+    _globals["_CREATEVERIFICATIONTOKENRESPONSE"]._serialized_end = 4837
+    _globals["_USEVERIFICATIONTOKENRESPONSE"]._serialized_start = 4840
+    _globals["_USEVERIFICATIONTOKENRESPONSE"]._serialized_end = 4981
+    _globals["_UPSERTUSERBYEMAILRESPONSE"]._serialized_start = 4983
+    _globals["_UPSERTUSERBYEMAILRESPONSE"]._serialized_end = 5074
+    _globals["_GETTOKENREQUEST"]._serialized_start = 5077
+    _globals["_GETTOKENREQUEST"]._serialized_end = 5234
+    _globals["_GETTOKENRESPONSE"]._serialized_start = 5237
+    _globals["_GETTOKENRESPONSE"]._serialized_end = 5996
+    _globals["_GETTOKENRESPONSE_ENGINESENTRY"]._serialized_start = 5778
+    _globals["_GETTOKENRESPONSE_ENGINESENTRY"]._serialized_end = 5836
+    _globals["_GETTOKENRESPONSE_GRPCENGINESENTRY"]._serialized_start = 5838
+    _globals["_GETTOKENRESPONSE_GRPCENGINESENTRY"]._serialized_end = 5900
+    _globals["_GETTOKENRESPONSE_ENVIRONMENTIDTONAMEENTRY"]._serialized_start = 5902
+    _globals["_GETTOKENRESPONSE_ENVIRONMENTIDTONAMEENTRY"]._serialized_end = 5972
+    _globals["_UPDATELINKSESSIONREQUEST"]._serialized_start = 5998
+    _globals["_UPDATELINKSESSIONREQUEST"]._serialized_end = 6104
+    _globals["_UPDATELINKSESSIONRESPONSE"]._serialized_start = 6106
+    _globals["_UPDATELINKSESSIONRESPONSE"]._serialized_end = 6149
+    _globals["_AUTHSERVICE"]._serialized_start = 6152
+    _globals["_AUTHSERVICE"]._serialized_end = 8128
 # @@protoc_insertion_point(module_scope)

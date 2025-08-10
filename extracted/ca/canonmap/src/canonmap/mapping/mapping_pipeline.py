@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from canonmap.connectors.mysql_connector.mysql_connector import MySQLConnector
+from canonmap.connectors.mysql_connector.connector import MySQLConnector
 from canonmap.mapping.models import EntityMappingRequest, EntityMappingResponse, MappingWeights, SingleMappedEntity
 from canonmap.mapping.utils.blocking import block_candidates
 from canonmap.mapping.utils.normalize import normalize

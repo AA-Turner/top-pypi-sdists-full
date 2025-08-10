@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 
 from canonmap.connectors.mysql_connector.config import MySQLConfig
-from canonmap.connectors.mysql_connector.mysql_connector import MySQLConnector
+from canonmap.connectors.mysql_connector.connector import MySQLConnector
 from canonmap.mapping.mapping_pipeline import MappingPipeline
 
 load_dotenv(override=True)

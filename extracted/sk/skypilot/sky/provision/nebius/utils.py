@@ -41,10 +41,7 @@ def get_project_by_region(region: str) -> str:
 
     #  Check is there project if in config
     project_id = skypilot_config.get_effective_region_config(
-        cloud='nebius',
-        region=None,
-        keys=(region, 'project_id'),
-        default_value=None)
+        cloud='nebius', region=region, keys=('project_id',), default_value=None)
     if project_id is not None:
         return project_id
     for project in projects.items:
@@ -171,6 +168,7 @@ def launch(cluster_name_on_cloud: str,
            user_data: str,
            associate_public_ip_address: bool,
            filesystems: List[Dict[str, Any]],
+           use_spot: bool = False,
            network_tier: Optional[resources_utils.NetworkTier] = None) -> str:
     # Each node must have a unique name to avoid conflicts between
     # multiple worker VMs. To ensure uniqueness,a UUID is appended
@@ -189,8 +187,8 @@ def launch(cluster_name_on_cloud: str,
         if preset == '8gpu-128vcpu-1600gb':
             fabric = skypilot_config.get_effective_region_config(
                 cloud='nebius',
-                region=None,
-                keys=(region, 'fabric'),
+                region=region,
+                keys=('fabric',),
                 default_value=None)
 
             # Auto-select fabric if network_tier=best and no fabric configured
@@ -284,7 +282,14 @@ def launch(cluster_name_on_cloud: str,
                     public_ip_address=nebius.compute().PublicIPAddress()
                     if associate_public_ip_address else None,
                 )
-            ]))).wait()
+            ],
+            recovery_policy=nebius.compute().InstanceRecoveryPolicy.FAIL
+            if use_spot else None,
+            preemptible=nebius.compute().PreemptibleSpec(
+                priority=1,
+                on_preemption=nebius.compute(
+                ).PreemptibleSpec.PreemptionPolicy.STOP) if use_spot else None,
+        ))).wait()
     instance_id = ''
     retry_count = 0
     while retry_count < nebius.MAX_RETRIES_TO_INSTANCE_READY:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: scalene
-Version: 1.5.51
+Version: 1.5.53
 Summary: Scalene: A high-resolution, low-overhead CPU, GPU, and memory profiler for Python with AI-powered optimization suggestions
 Author-email: Emery Berger <emery@cs.umass.edu>, Sam Stern <jstern@umass.edu>, Juan Altmayer Pizzorno <juan@altmayer.com>
 Project-URL: Homepage, https://github.com/plasma-umass/scalene
@@ -29,7 +29,6 @@ Classifier: Operating System :: Microsoft :: Windows
 Requires-Python: !=3.11.0,>=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: wheel>=0.36.1
 Requires-Dist: rich>=10.7.0
 Requires-Dist: cloudpickle>=2.2.1
 Requires-Dist: nvidia-ml-py>=12.555.43; platform_system != "Darwin"
@@ -38,6 +37,7 @@ Requires-Dist: psutil>=5.9.2
 Requires-Dist: numpy!=1.27,>=1.24.0
 Requires-Dist: astunparse>=1.6.3; python_version < "3.9"
 Requires-Dist: pydantic>=2.6
+Dynamic: license-file
 
 ![scalene](https://github.com/plasma-umass/scalene/raw/master/docs/scalene-icon-white.png)
 
@@ -56,8 +56,12 @@ by [Emery Berger](https://emeryberger.com), [Sam Stern](https://samstern.me/), a
 
 ![Semantic Scholar success story](https://github.com/plasma-umass/scalene/raw/master/docs/semantic-scholar-success.png)
 
-***Scalene web-based user interface:*** [http://plasma-umass.org/scalene-gui/](http://plasma-umass.org/scalene-gui/)
- 
+[_Python Profiler Links to AI to Improve Code Scalene identifies inefficiencies and asks GPT-4 for suggestions_](https://spectrum.ieee.org/python-programming), IEEE Spectrum
+
+[Episode 172: Measuring Multiple Facets of Python Performance With Scalene](https://realpython.com/podcasts/rpp/172/), The Real Python podcast
+
+***Scalene web-based user interface:*** [https://scalene-gui.github.io/scalene-gui/](https://scalene-gui.github.io/scalene-gui/)
+
 ## About Scalene
 
 Scalene is a high-performance CPU, GPU *and* memory profiler for
@@ -183,7 +187,7 @@ def slow_function():
 
 #### Web-based GUI
 
-Scalene has both a CLI and a web-based GUI [(demo here)](http://plasma-umass.org/scalene-gui/).
+Scalene has both a CLI and a web-based GUI [(demo here)](https://scalene-gui.github.io/scalene-gui/).
 
 By default, once Scalene has profiled your program, it will open a
 tab in a web browser with an interactive user interface (all processing is done

@@ -10,6 +10,8 @@ from roborock.exceptions import RoborockConnectionException, RoborockException
 from roborock.protocol import Decoder, Encoder, create_local_decoder, create_local_encoder
 from roborock.roborock_message import RoborockMessage
 
+from .channel import Channel
+
 _LOGGER = logging.getLogger(__name__)
 _PORT = 58867
 
@@ -30,7 +32,7 @@ class _LocalProtocol(asyncio.Protocol):
         self.connection_lost_cb(exc)
 
 
-class LocalChannel:
+class LocalChannel(Channel):
     """Simple RPC-style channel for communicating with a device over a local network.
 
     Handles request/response correlation and timeouts, but leaves message
@@ -49,6 +51,11 @@ class LocalChannel:
         self._decoder: Decoder = create_local_decoder(local_key)
         self._encoder: Encoder = create_local_encoder(local_key)
         self._queue_lock = asyncio.Lock()
+
+    @property
+    def is_connected(self) -> bool:
+        """Check if the channel is currently connected."""
+        return self._is_connected
 
     async def connect(self) -> None:
         """Connect to the device."""
@@ -113,7 +120,7 @@ class LocalChannel:
             else:
                 _LOGGER.debug("Received message with no waiting handler: request_id=%s", request_id)
 
-    async def send_command(self, message: RoborockMessage, timeout: float = 10.0) -> RoborockMessage:
+    async def send_message(self, message: RoborockMessage, timeout: float = 10.0) -> RoborockMessage:
         """Send a command message and wait for the response message."""
         if not self._transport or not self._is_connected:
             raise RoborockConnectionException("Not connected to device")

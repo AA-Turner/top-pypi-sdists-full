@@ -1,4 +1,4 @@
-from libc.stdint cimport uint32_t, uint8_t, uintptr_t
+from libc.stdint cimport uint8_t, uint32_t, uintptr_t
 
 
 cdef extern from "lexbor/core/core.h" nogil:
@@ -31,7 +31,6 @@ cdef extern from "lexbor/core/core.h" nogil:
     lexbor_str_t* lexbor_str_create()
     lxb_char_t * lexbor_str_data_noi(lexbor_str_t *str)
 
-
 cdef extern from "lexbor/html/html.h" nogil:
     ctypedef unsigned int lxb_html_document_opt_t
 
@@ -54,13 +53,11 @@ cdef extern from "lexbor/html/html.h" nogil:
         void *events
 
     ctypedef struct lexbor_str_t:
-        lxb_char_t *data;
-        size_t     length;
-
+        lxb_char_t *data
+        size_t     length
 
     ctypedef struct lxb_dom_node_t:
         lxb_dom_event_target_t event_target
-
 
         uintptr_t              local_name
         uintptr_t              prefix
@@ -76,7 +73,6 @@ cdef extern from "lexbor/html/html.h" nogil:
         void                   *user
 
         lxb_dom_node_type_t    type
-
 
     ctypedef struct lxb_dom_document_t:
         lxb_dom_node_t              node
@@ -104,7 +100,6 @@ cdef extern from "lexbor/html/html.h" nogil:
 
         bint                        scripting
 
-
     ctypedef  struct lxb_html_document_t:
         lxb_dom_document_t dom_document
 
@@ -127,7 +122,6 @@ cdef extern from "lexbor/html/html.h" nogil:
         LXB_HTML_PARSER_STATE_END              = 0x02
         LXB_HTML_PARSER_STATE_FRAGMENT_PROCESS = 0x03
         LXB_HTML_PARSER_STATE_ERROR            = 0x04
-
 
     ctypedef enum lxb_dom_node_type_t:
         LXB_DOM_NODE_TYPE_ELEMENT                = 0x01
@@ -175,10 +169,9 @@ cdef extern from "lexbor/html/html.h" nogil:
         size_t  length
         size_t  struct_size
 
-
     ctypedef struct lxb_html_tree_pending_table_t
-    ctypedef bint lxb_html_tree_insertion_mode_f;
-    ctypedef lxb_status_t lxb_html_tree_append_attr_f;
+    ctypedef bint lxb_html_tree_insertion_mode_f
+    ctypedef lxb_status_t lxb_html_tree_append_attr_f
 
     ctypedef struct lxb_html_tree_t:
 
@@ -189,13 +182,13 @@ cdef extern from "lexbor/html/html.h" nogil:
 
         lxb_html_form_element_t *form
 
-        lexbor_array_t *open_elements;
-        lexbor_array_t *active_formatting;
-        lexbor_array_obj_t *template_insertion_modes;
+        lexbor_array_t *open_elements
+        lexbor_array_t *active_formatting
+        lexbor_array_obj_t *template_insertion_modes
 
-        lxb_html_tree_pending_table_t *pending_table;
+        lxb_html_tree_pending_table_t *pending_table
 
-        lexbor_array_obj_t *parse_errors;
+        lexbor_array_obj_t *parse_errors
 
         bint foster_parenting
         bint frameset_ok
@@ -232,9 +225,13 @@ cdef extern from "lexbor/html/html.h" nogil:
     lxb_status_t lxb_html_serialize_tree_str(lxb_dom_node_t *node, lexbor_str_t *str)
 
 cdef class LexborNode:
-    cdef lxb_dom_node_t *node
-    cdef public LexborHTMLParser parser
-    cdef _cinit(self, lxb_dom_node_t *node, LexborHTMLParser parser)
+    cdef:
+        lxb_dom_node_t *node
+        public LexborHTMLParser parser
+
+    @staticmethod
+    cdef LexborNode new(lxb_dom_node_t *node, LexborHTMLParser parser)
+
 
 cdef class LexborCSSSelector:
     cdef lxb_css_parser_t* parser
@@ -242,15 +239,15 @@ cdef class LexborCSSSelector:
     cdef lxb_css_selectors_t * css_selectors
     cdef public list results
     cdef public LexborNode current_node
-    cdef _create_css_parser(self)
-    cpdef find(self, str query, LexborNode node)
-    cpdef any_matches(self, str query, LexborNode node)
+    cdef int _create_css_parser(self) except -1
+    cpdef list find(self, str query, LexborNode node)
+    cpdef int any_matches(self, str query, LexborNode node) except -1
 
 cdef class LexborHTMLParser:
     cdef lxb_html_document_t *document
     cdef public bytes raw_html
     cdef LexborCSSSelector _selector
-    cdef _parse_html(self, char* html, size_t html_len)
+    cdef int _parse_html(self, char* html, size_t html_len) except -1
     cdef object cached_script_texts
     cdef object cached_script_srcs
 
@@ -267,8 +264,8 @@ cdef extern from "lexbor/dom/dom.h" nogil:
     ctypedef lexbor_action_t (*lxb_dom_node_simple_walker_f)(lxb_dom_node_t *node, void *ctx)
 
     ctypedef struct lxb_dom_character_data_t:
-        lxb_dom_node_t node;
-        lexbor_str_t   data;
+        lxb_dom_node_t node
+        lexbor_str_t   data
 
     ctypedef struct lxb_dom_text_t:
         lxb_dom_character_data_t char_data
@@ -289,19 +286,20 @@ cdef extern from "lexbor/dom/dom.h" nogil:
         lxb_dom_element_t *owner
 
         lxb_dom_attr_t *next
-        lxb_dom_attr_t *prev;
-
+        lxb_dom_attr_t *prev
 
     lxb_dom_collection_t * lxb_dom_collection_make(lxb_dom_document_t *document, size_t start_list_size)
     lxb_char_t * lxb_dom_node_text_content(lxb_dom_node_t *node, size_t *len)
+    lxb_status_t lxb_dom_node_text_content_set(lxb_dom_node_t *node, const lxb_char_t *content, size_t len)
+    void lxb_dom_node_remove(lxb_dom_node_t *node)
     void * lxb_dom_document_destroy_text_noi(lxb_dom_document_t *document, lxb_char_t *text)
-    lxb_dom_node_t *  lxb_dom_document_root(lxb_dom_document_t *document)
+    lxb_dom_node_t * lxb_dom_document_root(lxb_dom_document_t *document)
     lxb_char_t * lxb_dom_element_qualified_name(lxb_dom_element_t *element, size_t *len)
     lxb_dom_node_t * lxb_dom_node_destroy(lxb_dom_node_t *node)
     lxb_dom_node_t * lxb_dom_node_destroy_deep(lxb_dom_node_t *root)
     lxb_dom_attr_t * lxb_dom_element_first_attribute_noi(lxb_dom_element_t *element)
 
-    const lxb_char_t * lxb_dom_attr_local_name_noi(lxb_dom_attr_t *attr, size_t *len);
+    const lxb_char_t * lxb_dom_attr_local_name_noi(lxb_dom_attr_t *attr, size_t *len)
     const lxb_char_t * lxb_dom_attr_value_noi(lxb_dom_attr_t *attr, size_t *len)
 
     lxb_dom_attr_t * lxb_dom_element_set_attribute(lxb_dom_element_t *element,
@@ -314,7 +312,7 @@ cdef extern from "lexbor/dom/dom.h" nogil:
     lxb_tag_id_t lxb_dom_node_tag_id_noi(lxb_dom_node_t *node)
     lxb_dom_node_t * lxb_dom_document_import_node(lxb_dom_document_t *doc, lxb_dom_node_t *node, bint deep)
     void lxb_dom_node_insert_after(lxb_dom_node_t *to, lxb_dom_node_t *node)
-    lxb_status_t lxb_dom_node_replace_all(lxb_dom_node_t *parent, lxb_dom_node_t *node);
+    lxb_status_t lxb_dom_node_replace_all(lxb_dom_node_t *parent, lxb_dom_node_t *node)
     void lxb_dom_node_insert_child(lxb_dom_node_t *to, lxb_dom_node_t *node)
     void lxb_dom_node_insert_before(lxb_dom_node_t *to, lxb_dom_node_t *node)
     void lxb_dom_node_insert_after(lxb_dom_node_t *to, lxb_dom_node_t *node)
@@ -347,7 +345,7 @@ cdef extern from "lexbor/css/css.h" nogil:
     lxb_css_parser_t * lxb_css_parser_create()
     lxb_status_t lxb_css_parser_init(lxb_css_parser_t *parser, lxb_css_syntax_tokenizer_t *tkz)
     lxb_css_parser_t * lxb_css_parser_destroy(lxb_css_parser_t *parser, bint self_destroy)
-    lxb_css_memory_t * lxb_css_memory_destroy(lxb_css_memory_t *memory, bint self_destroy);
+    lxb_css_memory_t * lxb_css_memory_destroy(lxb_css_memory_t *memory, bint self_destroy)
     void lxb_css_selector_list_destroy_memory(lxb_css_selector_list_t *list)
 
 
@@ -558,8 +556,7 @@ cdef extern from "lexbor/selectors/selectors.h" nogil:
     ctypedef struct lxb_selectors_t
     ctypedef struct lxb_css_selector_list_t
     ctypedef struct lxb_css_selector_specificity_t
-    ctypedef lxb_status_t (*lxb_selectors_cb_f)(lxb_dom_node_t *node, lxb_css_selector_specificity_t *spec,
-                      void *ctx)
+    ctypedef lxb_status_t (*lxb_selectors_cb_f)(lxb_dom_node_t *node, lxb_css_selector_specificity_t *spec, void *ctx)
     ctypedef enum lxb_selectors_opt_t:
         LXB_SELECTORS_OPT_DEFAULT = 0x00
         LXB_SELECTORS_OPT_MATCH_ROOT = 1 << 1
@@ -576,4 +573,4 @@ cdef extern from "lexbor/selectors/selectors.h" nogil:
     lxb_status_t lxb_selectors_init(lxb_selectors_t *selectors)
     lxb_selectors_t * lxb_selectors_destroy(lxb_selectors_t *selectors, bint self_destroy)
     lxb_status_t lxb_selectors_find(lxb_selectors_t *selectors, lxb_dom_node_t *root,
-                   lxb_css_selector_list_t *list, lxb_selectors_cb_f cb, void *ctx)
+                                    lxb_css_selector_list_t *list, lxb_selectors_cb_f cb, void *ctx)

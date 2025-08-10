@@ -16,11 +16,14 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <variant>
+#include <optional>
 #include <cassert>
 #include <iterator>
 #include "Eigen/Core"
 #include "PolyMath.h"
 #include "Ancillaries.h"
+#include "superancillary/superancillary.h"
 
 namespace CoolProp {
 
@@ -139,13 +142,9 @@ struct ConductivityDiluteVariables
         CONDUCTIVITY_DILUTE_NONE,
         CONDUCTIVITY_DILUTE_NOT_SET
     };
-    int type;
+    int type = CONDUCTIVITY_DILUTE_NOT_SET;
     ConductivityDiluteRatioPolynomialsData ratio_polynomials;
     ConductivityDiluteEta0AndPolyData eta0_and_poly;
-
-    ConductivityDiluteVariables() {
-        type = CONDUCTIVITY_DILUTE_NOT_SET;
-    }
 };
 
 struct ConductivityResidualPolynomialAndExponentialData
@@ -169,13 +168,9 @@ struct ConductivityResidualVariables
         CONDUCTIVITY_RESIDUAL_CO2,
         CONDUCTIVITY_RESIDUAL_NOT_SET
     };
-    int type;
+    int type = CONDUCTIVITY_RESIDUAL_NOT_SET;
     ConductivityResidualPolynomialData polynomials;
     ConductivityResidualPolynomialAndExponentialData polynomial_and_exponential;
-
-    ConductivityResidualVariables() {
-        type = CONDUCTIVITY_RESIDUAL_NOT_SET;
-    }
 };
 
 struct ConductivityCriticalSimplifiedOlchowySengersData
@@ -208,12 +203,8 @@ struct ConductivityCriticalVariables
         CONDUCTIVITY_CRITICAL_CARBONDIOXIDE_SCALABRIN_JPCRD_2006,
         CONDUCTIVITY_CRITICAL_NOT_SET
     };
-    int type;
+    int type = CONDUCTIVITY_CRITICAL_NOT_SET;
     ConductivityCriticalSimplifiedOlchowySengersData Olchowy_Sengers;
-
-    ConductivityCriticalVariables() {
-        type = CONDUCTIVITY_CRITICAL_NOT_SET;
-    }
 };
 
 /// Variables for the dilute gas part
@@ -251,15 +242,12 @@ struct ViscosityDiluteVariables
         VISCOSITY_DILUTE_POWERS_OF_TR,                        ///< Use \ref TransportRoutines::viscosity_dilute_powers_of_Tr
         VISCOSITY_DILUTE_NOT_SET
     };
-    ViscosityDiluteType type;
+    ViscosityDiluteType type = VISCOSITY_DILUTE_NOT_SET;
     ViscosityDiluteGasCollisionIntegralData collision_integral;  ///< Data for \ref TransportRoutines::viscosity_dilute_collision_integral
     ViscosityDiluteCollisionIntegralPowersOfTstarData
       collision_integral_powers_of_Tstar;       ///< Data for \ref TransportRoutines::viscosity_dilute_collision_integral_powers_of_T
     ViscosityDiluteGasPowersOfT powers_of_T;    ///< Data for \ref TransportRoutines::viscosity_dilute_powers_of_T
     ViscosityDiluteGasPowersOfTr powers_of_Tr;  ///< Data for \ref TransportRoutines::viscosity_dilute_powers_of_Tr
-    ViscosityDiluteVariables() {
-        type = VISCOSITY_DILUTE_NOT_SET;
-    }
 };
 
 struct ViscosityRainWaterFriendData
@@ -280,12 +268,9 @@ struct ViscosityInitialDensityVariables
         VISCOSITY_INITIAL_DENSITY_EMPIRICAL,         ///< Use \ref TransportRoutines::viscosity_initial_density_dependence_empirical
         VISCOSITY_INITIAL_DENSITY_NOT_SET
     };
-    ViscosityInitialDensityEnum type;
+    ViscosityInitialDensityEnum type = VISCOSITY_INITIAL_DENSITY_NOT_SET;
     ViscosityRainWaterFriendData rainwater_friend;   ///< Data for \ref TransportRoutines::viscosity_initial_density_dependence_Rainwater_Friend
     ViscosityInitialDensityEmpiricalData empirical;  ///< Data for \ref TransportRoutines::viscosity_initial_density_dependence_empirical
-    ViscosityInitialDensityVariables() {
-        type = VISCOSITY_INITIAL_DENSITY_NOT_SET;
-    }
 };
 
 struct ViscosityModifiedBatschinskiHildebrandData
@@ -314,13 +299,10 @@ struct ViscosityHigherOrderVariables
         VISCOSITY_HIGHER_ORDER_FRICTION_THEORY,        ///< Use \ref TransportRoutines::viscosity_higher_order_friction_theory
         VISCOSITY_HIGHER_ORDER_NOT_SET
     };
-    ViscosityHigherOrderEnum type;
+    ViscosityHigherOrderEnum type = VISCOSITY_HIGHER_ORDER_NOT_SET;
     ViscosityModifiedBatschinskiHildebrandData
       modified_Batschinski_Hildebrand;            ///< Data for \ref TransportRoutines::viscosity_higher_order_modified_Batschinski_Hildebrand
     ViscosityFrictionTheoryData friction_theory;  ///< Data for \ref TransportRoutines::viscosity_higher_order_friction_theory
-    ViscosityHigherOrderVariables() {
-        type = VISCOSITY_HIGHER_ORDER_NOT_SET;
-    };
 };
 
 struct ViscosityRhoSrVariables
@@ -417,9 +399,14 @@ struct Ancillaries
 */
 class EquationOfState
 {
+public:
+    using SuperAncillary_t = superancillary::SuperAncillary<std::vector<double>>;
+    
+private:
+    std::string superancillaries_str;
+    std::optional<SuperAncillary_t> superancillaries = std::nullopt; ///< The superancillaries
+    
    public:
-    EquationOfState(){};
-    ~EquationOfState(){};
     SimpleState reduce,  ///< Reducing state used for the EOS (usually, but not always, the critical point)
       sat_min_liquid,    ///< The saturated liquid state at the minimum saturation temperature
       sat_min_vapor,     ///< The saturated vapor state at the minimum saturation temperature
@@ -439,6 +426,33 @@ class EquationOfState
       BibTeX_CP0;                       ///< The bibtex key for the ideal gas specific heat correlation
     CriticalRegionSplines
       critical_region_splines;  ///< A cubic spline in the form T = f(rho) for saturated liquid and saturated vapor curves in the near-critical region
+    
+    /// Get the optional of the populated superancillary
+    std::optional<SuperAncillary_t> & get_superanc_optional(){
+        
+        if (!superancillaries){
+            if (!superancillaries_str.empty()){
+                auto start = std::chrono::high_resolution_clock::now(); // Start time
+                // Now do the parsing pass and replace with the actual superancillary
+                superancillaries.emplace(SuperAncillary_t(superancillaries_str));
+                auto end = std::chrono::high_resolution_clock::now();  // End time
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+                //std::cout << "Execution time: " << duration.count() << " microseconds for " << BibTeX_EOS << std::endl;
+            }
+        }
+        return superancillaries;
+    }
+    
+    /// Set the placeholder string for the superancillaries to allow for lazy construction, particularly important in debug builds
+    void set_superancillaries_str(const std::string &s){
+        superancillaries_str = s;
+        // Do the construction greedily by default, but allow it to be lazy if you want
+#if !defined(LAZY_LOAD_SUPERANCILLARIES)
+        get_superanc_optional();
+#endif
+    }
+    
+    
 
     /// Validate the EOS that was just constructed
     void validate() {

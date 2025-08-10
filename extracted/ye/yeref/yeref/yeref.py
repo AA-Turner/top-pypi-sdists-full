@@ -18,6 +18,7 @@ import random
 import re
 import csv
 import subprocess
+import uuid
 from typing import Optional
 
 import aioboto3
@@ -5484,8 +5485,10 @@ async def outsource_generate(lst, path='link_path'):
                                             #                                                file=open(src_mp3, "rb"))
 
                                             # gpt-4o-transcribe 1,72 rub, gpt-4o-mini-transcribe 0,86 rub
-                                            res = await client.audio.transcriptions.create(model="gpt-4o-transcribe",
-                                                                                           file=open(src_mp3, "rb"))
+                                            # gpt-4o-transcribe  1,47 ₽ rub, gpt-4o-mini-transcribe 0,73 rub
+                                            print(f"{src_mp3=}")
+                                            print(f"{os.path.exists(src_mp3)=}")
+                                            res = await client.audio.transcriptions.create(model="gpt-4o-mini-transcribe", file=open(src_mp3, "rb"))
 
                                             result.append({'type': item['type'], 'answer': res.text})
                                             is_res = True
@@ -17073,6 +17076,77 @@ async def convert_png_to_mp4(ENT_TID, input_name, output_name, MEDIA_D):
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
+
+
+async def ogg_to_mp3(src_ogg: str, dst_mp3: str | None = None, timeout: int = 60) -> str:
+    if not os.path.exists(src_ogg):
+        raise FileNotFoundError(src_ogg)
+    if shutil.which("ffmpeg") is None:
+        raise FileNotFoundError("ffmpeg not found")
+
+    dst_mp3 = dst_mp3 or src_ogg.rsplit(".", 1)[0] + ".mp3"
+    tmp = f"{dst_mp3}.{uuid.uuid4().hex}.tmp.mp3"
+
+    cmd = [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", src_ogg, "-vn",
+        "-acodec", "libmp3lame", "-ar", "44100", "-ac", "2", "-b:a", "192k",
+        "-f", "mp3", tmp
+    ]
+
+    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE)
+    try:
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        proc.kill(); await proc.wait()
+        if os.path.exists(tmp): os.remove(tmp)
+        raise
+
+    if proc.returncode != 0:
+        if os.path.exists(tmp): os.remove(tmp)
+        raise RuntimeError((stderr or b"").decode(errors="ignore").strip()[:300])
+
+    os.replace(tmp, dst_mp3)
+    return dst_mp3
+
+
+async def video_to_mp3(src_video: str, dst_mp3: str | None = None, timeout: int = 60,
+                       bitrate: str = "96k", sample_rate: int = 16000, channels: int = 1,
+                       threads: int = 0) -> str:
+    if not os.path.exists(src_video):
+        raise FileNotFoundError(src_video)
+    if shutil.which("ffmpeg") is None:
+        raise FileNotFoundError("ffmpeg not found in PATH")
+
+    dst_mp3 = dst_mp3 or src_video.rsplit('.', 1)[0] + '.mp3'
+    tmp = f"{dst_mp3}.{uuid.uuid4().hex}.tmp.mp3"
+
+    cmd = [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-nostdin",
+        "-i", src_video,
+        "-map", "0:a:0",
+        "-c:a", "libmp3lame",
+        "-ar", str(sample_rate), "-ac", str(channels), "-b:a", bitrate,
+        "-f", "mp3"
+    ]
+    if threads and int(threads) > 0:
+        cmd += ["-threads", str(threads)]
+    cmd += [tmp]
+
+    proc = await asyncio.create_subprocess_exec(*cmd,
+                                                stdout=asyncio.subprocess.DEVNULL,
+                                                stderr=asyncio.subprocess.PIPE)
+    try:
+        _, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        proc.kill(); await proc.wait()
+        if os.path.exists(tmp): os.remove(tmp)
+        raise
+    if proc.returncode != 0:
+        if os.path.exists(tmp): os.remove(tmp)
+        raise RuntimeError((stderr or b"").decode(errors="ignore").strip()[:300])
+    os.replace(tmp, dst_mp3)
+    return dst_mp3
 
 
 async def item_to_static_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND, is_upload=True, is_circle=False,
