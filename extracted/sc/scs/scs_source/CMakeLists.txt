@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.5)
 project(
   scs
   LANGUAGES C
-  VERSION 3.2.7)
+  VERSION 3.2.8)
 
 # Defines the CMAKE_INSTALL_LIBDIR, CMAKE_INSTALL_BINDIR and many other useful
 # macros. See https://cmake.org/cmake/help/latest/module/GNUInstallDirs.html
@@ -124,9 +124,19 @@ message(STATUS "Read/write functionality is NOT ${NO_READ_WRITE}")
 option(USE_LAPACK "Whether to use BLAS/LAPACK" ON)
 message(STATUS "BLAS/LAPACK usage is ${USE_LAPACK}")
 
+# spectral cones
+option(USE_SPECTRAL_CONES "Whether to use spectral cones (requires LAPACK)" OFF)
+if(USE_SPECTRAL_CONES AND NOT USE_LAPACK)
+  message(FATAL_ERROR "USE_SPECTRAL_CONES requires USE_LAPACK to be ON")
+endif()
+
 # Enable OpenMP support
 option(USE_OPENMP "Compile with OpenMP support" OFF)
 message(STATUS "OpenMP parallelization is ${USE_OPENMP}")
+
+# Enable cuDSS support
+option(USE_CUDSS "Compile with cuDSS support" OFF)
+message(STATUS "cuDSS support is ${USE_CUDSS}")
 
 set(COMPILER_OPTS "-DCTRLC")
 set(LAPACK_LINK_LIBRARIES "")
@@ -154,13 +164,26 @@ if(NO_READ_WRITE)
   set(COMPILER_OPTS "-DNO_READ_WRITE=1 ${COMPILER_OPTS}")
 endif()
 
-if (USE_LAPACK)
+if(USE_LAPACK)
   set(COMPILER_OPTS "-DUSE_LAPACK ${COMPILER_OPTS}")
   list(APPEND LAPACK_LINK_LIBRARIES "blas" "lapack")
 endif()
 
 if(USE_OPENMP)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
+endif()
+
+# Flags for spectral cones.
+if(USE_SPECTRAL_CONES)
+  set(COMPILER_OPTS "-DUSE_SPECTRAL_CONES ${COMPILER_OPTS}")
+endif()
+
+if(USE_SPECTRAL_TIMING_FLAG)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSPECTRAL_TIMING_FLAG")
+endif()
+
+if(USE_SPECTRAL_DEBUG)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DSPECTRAL_DEBUG")
 endif()
 
 message(STATUS "COMPILER_OPTS = ${COMPILER_OPTS}")
@@ -189,6 +212,23 @@ set(${PROJECT_NAME}_SRC
     ${LINSYS}/csparse.c
     ${LINSYS}/scs_matrix.c)
 
+# Spectral source files
+set(SPECTRAL_SRC
+    src/spectral_cones/logdeterminant/log_cone_Newton.c
+    src/spectral_cones/logdeterminant/log_cone_IPM.c
+    src/spectral_cones/logdeterminant/log_cone_wrapper.c
+    src/spectral_cones/logdeterminant/logdet_cone.c
+    src/spectral_cones/nuclear/ell1_cone.c
+    src/spectral_cones/nuclear/nuclear_cone.c
+    src/spectral_cones/sum-largest/sum_largest_cone.c
+    src/spectral_cones/sum-largest/sum_largest_eval_cone.c
+    src/spectral_cones/util_spectral_cones.c)
+
+# Conditionally add spectral files
+if(USE_SPECTRAL_CONES)
+  list(APPEND ${PROJECT_NAME}_SRC ${SPECTRAL_SRC})
+endif()
+
 # Common header files
 set(${PROJECT_NAME}_HDR
     include/aa.h
@@ -206,6 +246,13 @@ set(${PROJECT_NAME}_HDR
     include/util.h
     ${LINSYS}/csparse.h
     ${LINSYS}/scs_matrix.h)
+
+# Spectral header files
+set(SPECTRAL_HDR include/util_spectral_cones.h)
+
+if(USE_SPECTRAL_CONES)
+  list(APPEND ${PROJECT_NAME}_HDR ${SPECTRAL_HDR})
+endif()
 
 # get all the c file in amd/external
 file(GLOB ${PROJECT_NAME}_AMD_EXTERNAL_SRC ${EXTERNAL}/amd/*.c)
@@ -245,7 +292,8 @@ target_include_directories(
 target_compile_definitions(${${PROJECT_NAME}_DIRECT} PRIVATE ${COMPILER_OPTS})
 
 # The library depends on math (m) and (optionally) blas and lapack
-target_link_libraries(${${PROJECT_NAME}_DIRECT} PRIVATE m ${LAPACK_LINK_LIBRARIES})
+target_link_libraries(${${PROJECT_NAME}_DIRECT}
+                      PRIVATE m ${LAPACK_LINK_LIBRARIES})
 
 # Set some properties
 set_target_properties(
@@ -293,7 +341,8 @@ target_compile_definitions(${${PROJECT_NAME}_INDIRECT} PRIVATE ${COMPILER_OPTS}
                                                                -DINDIRECT)
 
 # The library depends on math (m) and (optionally) blas and lapack
-target_link_libraries(${${PROJECT_NAME}_INDIRECT} PUBLIC m ${LAPACK_LINK_LIBRARIES})
+target_link_libraries(${${PROJECT_NAME}_INDIRECT}
+                      PUBLIC m ${LAPACK_LINK_LIBRARIES})
 
 # Set some properties
 set_target_properties(
@@ -347,8 +396,8 @@ if(DEFINED ENV{MKLROOT})
   target_compile_definitions(${${PROJECT_NAME}_MKL} PRIVATE ${COMPILER_OPTS})
   # See:
   # https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html
-  # This is probably not correct for other systems. TODO: make SCS-MKL
-  # work for all combinations of platform / compiler / threading options.
+  # This is probably not correct for other systems. TODO: make SCS-MKL work for
+  # all combinations of platform / compiler / threading options.
   target_link_options(${${PROJECT_NAME}_MKL} PRIVATE "LINKER:--no-as-needed")
   target_link_directories(${${PROJECT_NAME}_MKL} PRIVATE $ENV{MKLROOT}/lib)
   target_link_libraries(
@@ -389,6 +438,71 @@ endif()
 
 # ##############################################################################
 
+# If cuDSS is enabled and environment variables are set, install the cuDSS
+# version
+if(USE_CUDSS)
+  find_package(CUDAToolkit REQUIRED)
+  find_package(cudss REQUIRED)
+
+  # Force 32-bit integers for cuDSS compatibility
+  if(DLONG)
+    message(
+      FATAL_ERROR
+        "cuDSS requires 32-bit integers. Set DLONG=OFF or do not use -DDLONG=ON"
+    )
+  endif()
+
+  message(STATUS "Will install SCS-cuDSS (libscscudss).")
+
+  set(CUDSSSRC ${LINSYS}/cudss/direct)
+
+  # Here we compile the direct cuDSS library
+  set(${PROJECT_NAME}_CUDSS ${PROJECT_NAME}cudss)
+  add_library(
+    ${${PROJECT_NAME}_CUDSS} ${${PROJECT_NAME}_HDR} ${${PROJECT_NAME}_SRC}
+                             ${CUDSSSRC}/private.c ${CUDSSSRC}/private.h)
+
+  target_include_directories(
+    ${${PROJECT_NAME}_CUDSS}
+    PRIVATE
+      "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/${CUDSSSRC};${CMAKE_CURRENT_SOURCE_DIR}/${LINSYS}>"
+  )
+
+  target_include_directories(
+    ${${PROJECT_NAME}_CUDSS}
+    PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/scs>")
+
+  target_compile_definitions(${${PROJECT_NAME}_CUDSS} PRIVATE ${COMPILER_OPTS})
+
+  target_link_libraries(
+    ${${PROJECT_NAME}_CUDSS}
+    PRIVATE CUDA::cudart cudss $<$<NOT:$<PLATFORM_ID:Windows>>:m>
+            ${LAPACK_LINK_LIBRARIES})
+
+  # Set some properties
+  set_target_properties(
+    ${${PROJECT_NAME}_CUDSS}
+    PROPERTIES VERSION ${scs_VERSION} PUBLIC_HEADER
+                                      "${${PROJECT_NAME}_PUBLIC_HDR}")
+
+  add_library(scs::${${PROJECT_NAME}_CUDSS} ALIAS ${${PROJECT_NAME}_CUDSS})
+
+  # Install the library
+  install(
+    TARGETS ${${PROJECT_NAME}_CUDSS}
+    EXPORT ${PROJECT_NAME}
+    COMPONENT runtime
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT shlib
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT lib
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT bin
+    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/scs")
+
+  # Add the cuDSS method to the set of the compiled targets
+  set_property(GLOBAL APPEND PROPERTY SCS_TARGETS ${${PROJECT_NAME}_CUDSS})
+endif()
+
+# ##############################################################################
 # Install the .cmake file. It is possible to link scs o consumer libraries.
 include(InstallBasicPackageFiles)
 install_basic_package_files(
@@ -448,6 +562,22 @@ if(BUILD_TESTING)
     add_test(
       NAME run_tests_mkl
       COMMAND run_tests_mkl
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+  endif()
+
+  if(USE_CUDSS)
+    add_executable(run_tests_cudss test/run_tests.c)
+    target_compile_definitions(run_tests_cudss PRIVATE ${COMPILER_OPTS})
+    target_link_libraries(run_tests_cudss PRIVATE scs::scscudss)
+    target_include_directories(
+      run_tests_cudss
+      PRIVATE
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/test;${CMAKE_CURRENT_SOURCE_DIR}/include;${CMAKE_CURRENT_SOURCE_DIR}/${LINSYS}>"
+    )
+
+    add_test(
+      NAME run_tests_cudss
+      COMMAND run_tests_cudss
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
   endif()
 

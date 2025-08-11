@@ -1,5 +1,5 @@
 /* ----------------------------------------------------------------------------
-| Copyright (c) 2013-2024, Nucleic Development Team.
+| Copyright (c) 2013-2025, Nucleic Development Team.
 |
 | Distributed under the terms of the Modified BSD License.
 |
@@ -9,5 +9,5 @@
 
 #pragma once
 
-#define PY_KIWI_VERSION "1.4.8"
+#define PY_KIWI_VERSION "1.4.9"
 

@@ -15291,7 +15291,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
   (void)__Pyx_modinit_variable_import_code(__pyx_mstate);
   (void)__Pyx_modinit_function_import_code(__pyx_mstate);
   /*--- Execution code ---*/
-  __Pyx_TraceStartFunc("PyInit_prio_semaphore", __pyx_f[0], 1, 5, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceStartFunc("PyInit_prio_semaphore", __pyx_f[0], 1, 0, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
 
   /* "a_sync/primitives/locks/prio_semaphore.pyx":8
  * """
@@ -15780,7 +15780,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,4,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,5,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_26_AbstractPrioritySemaphore_21__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AbstractPrioritySemaphore___red, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[18])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -15863,7 +15863,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     cdef tuple state
  *     cdef object _dict
 */
-  __Pyx_TraceLine(1,2,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,3,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_40_AbstractPrioritySemaphoreContextManager_16__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_AbstractPrioritySemaphoreContex_8, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[30])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_6a_sync_10primitives_5locks_14prio_semaphore__AbstractPrioritySemaphoreContextManager, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -15916,7 +15916,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,0,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,2,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_32_PrioritySemaphoreContextManager_5__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_PrioritySemaphoreContextManager_2, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[36])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -15928,7 +15928,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,7,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,6,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_32_PrioritySemaphoreContextManager_7__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_PrioritySemaphoreContextManager_3, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[37])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -15961,7 +15961,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,6,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,7,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_17PrioritySemaphore_9__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_PrioritySemaphore___setstate_cyt, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[43])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_4) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -15981,7 +15981,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  *     cdef object __pyx_PickleError
  *     cdef object __pyx_result
 */
-  __Pyx_TraceLine(1,3,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,4,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_14prio_semaphore_1__pyx_unpickle__AbstractPrioritySemaphoreContextManager, 0, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__AbstractPriority, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_prio_sem, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[45])); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_pyx_unpickle__AbstractPriority, __pyx_t_4) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -16002,7 +16002,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
  * """
  * This module provides priority-based semaphore implementations. These semaphores allow
 */
-  __Pyx_TraceLine(1,5,0,__PYX_ERR(0, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,0,0,__PYX_ERR(0, 1, __pyx_L1_error))
   __pyx_t_4 = __Pyx_PyDict_NewPresized(11); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_AbstractPrioritySemaphore___ini, __pyx_mstate_global->__pyx_kp_u_Initializes_the_priority_semapho) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
@@ -16018,7 +16018,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
   if (PyDict_SetItem(__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_PrioritySemaphore___getitem___li, __pyx_mstate_global->__pyx_kp_u_Gets_the_context_manager_for_a_g) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_4) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __Pyx_TraceReturnValue(Py_None, 5, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
   __Pyx_PyMonitoring_ExitScope(0);
 
   /*--- Wrapped vars code ---*/
@@ -16031,7 +16031,7 @@ __Pyx_RefNannySetupContext("PyInit_prio_semaphore", 0);
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_7);
   __Pyx_TraceException(__pyx_lineno, 0, 0);
-  __Pyx_TraceExceptionUnwind(5, 0);
+  __Pyx_TraceExceptionUnwind(0, 0);
   if (__pyx_m) {
     if (__pyx_mstate->__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init a_sync.primitives.locks.prio_semaphore", __pyx_clineno, __pyx_lineno, __pyx_filename);

@@ -1,4 +1,4 @@
-from orionis.support.facades.workers import Workers
+from orionis.services.system.workers import Workers
 from orionis.test.exceptions import OrionisTestValueError
 
 class __ValidWorkers:
@@ -25,7 +25,7 @@ class __ValidWorkers:
         OrionisTestValueError
             If `max_workers` is not a positive integer within the allowed range.
         """
-        max_allowed = Workers.calculate()
+        max_allowed = Workers().calculate()
         if not isinstance(max_workers, int) or max_workers < 1 or max_workers > max_allowed:
             raise OrionisTestValueError(
                 f"Invalid max_workers: Expected a positive integer between 1 and {max_allowed}, got '{max_workers}' ({type(max_workers).__name__})."

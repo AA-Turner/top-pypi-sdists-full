@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.4.4
+Version: 0.4.5
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -23,13 +23,13 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: json_strong_typing>=0.3.9
+Requires-Dist: json_strong_typing>=0.4
 Requires-Dist: lxml>=6.0
 Requires-Dist: markdown>=3.8
 Requires-Dist: pymdown-extensions>=10.16
 Requires-Dist: PyYAML>=6.0
 Requires-Dist: requests>=2.32
-Requires-Dist: typing_extensions>=4.14; python_version < "3.12"
+Requires-Dist: typing-extensions>=4.14; python_version < "3.12"
 Provides-Extra: dev
 Requires-Dist: markdown_doc>=0.1.4; python_version >= "3.10" and extra == "dev"
 Requires-Dist: types-lxml>=2025.3.30; extra == "dev"
@@ -38,6 +38,8 @@ Requires-Dist: types-PyYAML>=6.0; extra == "dev"
 Requires-Dist: types-requests>=2.32; extra == "dev"
 Requires-Dist: mypy>=1.16; extra == "dev"
 Requires-Dist: ruff>=0.12; extra == "dev"
+Provides-Extra: formulas
+Requires-Dist: matplotlib>=3.9; extra == "formulas"
 Dynamic: license-file
 
 # Publish Markdown files to Confluence wiki
@@ -57,7 +59,7 @@ This Python package
 * Sections and subsections
 * Text with **bold**, *italic*, `monospace`, <ins>underline</ins> and ~~strikethrough~~
 * Link to [sections on the same page](#getting-started) or [external locations](http://example.com/)
-* Subscript and superscript (with HTML tags `<sub>` and `<sup>`)
+* Subscript and superscript
 * Math formulas with LaTeX notation
 * Emoji
 * Ordered and unordered lists
@@ -71,7 +73,7 @@ This Python package
 * [Collapsed sections](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/organizing-information-with-collapsed-sections)
 * [Tasklists](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/about-tasklists)
 * draw\.io diagrams
-* [Mermaid diagrams](https://mermaid.live/) in code blocks (converted to images)
+* [Mermaid diagrams](https://mermaid.live/)
 * Confluence status labels and date widget
 
 Whenever possible, the implementation uses [Confluence REST API v2](https://developer.atlassian.com/cloud/confluence/rest/v2/) to fetch space properties, and get, create or update page content.
@@ -92,6 +94,12 @@ pip install markdown-to-confluence
 
 ```sh
 npm install -g @mermaid-js/mermaid-cli
+```
+
+**Optional.** Converting formulas and equations to PNG or SVG images requires [Matplotlib](https://matplotlib.org/):
+
+```sh
+pip install matplotlib
 ```
 
 ### Marketplace apps
@@ -252,6 +260,12 @@ Root page
 └── Ethical considerations
 ```
 
+### Subscript and superscript
+
+Subscripts may either use the character *tilde* (e.g. `CH~3~CH~2~OH`) or the HTML tag `<sub>`.
+
+Superscripts may either use the character *caret* (e.g. `e^-ix^`) or the HTML tag `<sup>`.
+
 ### Emoji
 
 The short name notation `:smile:` in a Markdown document is converted into the corresponding emoji 😄 when publishing to Confluence.
@@ -277,6 +291,8 @@ Highlight in <span style="background-color: rgb(198,237,251);">teal</span>, <spa
 ```markdown
 Highlight in <span style="background-color: rgb(198,237,251);">teal</span>, <span style="background-color: rgb(211,241,167);">lime</span> and <span style="background-color: rgb(254,222,200);">yellow</span>.
 ```
+
+Highlighting is also supported via `==marks==`. However, the background color is not customizable.
 
 The following table shows standard text colors (CSS `color`) that are available via Confluence UI:
 
@@ -357,6 +373,8 @@ Displaying math formulas in Confluence requires the extension [LaTeX Math for Co
 
 | Markdown code                              | Confluence equivalent                                   |
 | :----------------------------------------- | :------------------------------------------------------ |
+| `[[_TOC_]]`                                | table of contents (based on headings)                   |
+| `[[_LISTING_]]`                            | child pages (of current page)                           |
 | `![My label][STATUS-GRAY]`                 | gray status label (with specified label text)           |
 | `![My label][STATUS-PURPLE]`               | purple status label                                     |
 | `![My label][STATUS-BLUE]`                 | blue status label                                       |
@@ -405,13 +423,13 @@ This is useful if you have a page in a hierarchy that participates in parent-chi
 
 ### Page title
 
-*md2conf* makes a best-effort attempt at setting the Confluence wiki page title when it publishes a Markdown document the first time. The following are probed in this order:
+*md2conf* makes a best-effort attempt at setting the Confluence wiki page title when it publishes a Markdown document the first time. The following act as sources for deriving a page title:
 
 1. The `title` attribute set in the [front-matter](https://daily-dev-tips.com/posts/what-exactly-is-frontmatter/). Front-matter is a block delimited by `---` at the beginning of a Markdown document. Both JSON and YAML syntax are supported.
 2. The text of the topmost unique Markdown heading (`#`). For example, if a document has a single first-level heading (e.g. `# My document`), its text is used. However, if there are multiple first-level headings, this step is skipped.
-3. The file name (without the extension `.md`).
+3. The file name (without the extension `.md`) and a digest. The digest is included to ensure the title is unique across the Confluence space.
 
-If a matching Confluence page already exists for a Markdown file, the page title in Confluence is left unchanged.
+If the `title` attribute (in the front-matter) or the topmost unique heading (in the document body) changes, the Confluence page title is updated. A warning is raised if the new title conflicts with the title of another page, and thus cannot be updated.
 
 ### Labels
 
@@ -446,16 +464,21 @@ The attribute `properties` is parsed as a dictionary with keys of type string an
 
 ### draw\.io diagrams
 
-With the command-line option `--no-render-drawio` (default), editable diagram data is extracted from images with embedded draw\.io diagrams (`*.drawio.png` and `*.drawio.svg`), and uploaded to Confluence as attachments. `*.drawio` and `*.drawio.xml` files are uploaded as-is. You need a [marketplace app](https://marketplace.atlassian.com/apps/1210933/draw-io-diagrams-uml-bpmn-aws-erd-flowcharts) to view and edit these diagrams on a Confluence page.
+With the command-line option `--no-render-drawio` (default), editable diagram data is extracted from images with embedded draw\.io diagrams (`*.drawio.png` and `*.drawio.svg`), and uploaded to Confluence as attachments. Files that match `*.drawio` or `*.drawio.xml` are uploaded as-is. You need a [marketplace app](https://marketplace.atlassian.com/apps/1210933/draw-io-diagrams-uml-bpmn-aws-erd-flowcharts) to view and edit these diagrams on a Confluence page.
 
-With the command-line option `--render-drawio`, images with embedded draw\.io diagrams (`*.drawio.png` and `*.drawio.svg`) are uploaded unchanged, and shown on the Confluence page as images. These diagrams are not editable in Confluence. When both an SVG and a PNG image is available, PNG is preferred. `*.drawio` and `*.drawio.xml` files are converted into PNG or SVG images by invoking draw\.io as a command-line utility, and the generated images are uploaded to Confluence as attachments, and shown as images.
+With the command-line option `--render-drawio`, images with embedded draw\.io diagrams (`*.drawio.png` and `*.drawio.svg`) are uploaded unchanged, and shown on the Confluence page as images. These diagrams are not editable in Confluence. When both an SVG and a PNG image is available, PNG is preferred. Files that match `*.drawio` or `*.drawio.xml` are converted into PNG or SVG images by invoking draw\.io as a command-line utility, and the generated images are uploaded to Confluence as attachments, and shown as images.
 
 ### Mermaid diagrams
 
-You can include [Mermaid diagrams](https://mermaid.js.org/) in your Markdown documents to create visual representations of systems, processes, and relationships. When a Markdown document contains a code block with the language specifier `mermaid`, *md2conf* offers two options to publish the diagram:
+You can add [Mermaid diagrams](https://mermaid.js.org/) to your Markdown documents to create visual representations of systems, processes, and relationships. There are two ways to include a Mermaid diagram:
 
-1. Pre-render into an image (command-line option `--render-mermaid`). The code block is interpreted by and converted into a PNG or SVG image with the Mermaid diagram utility [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). The generated image is then uploaded to Confluence as an attachment to the page. This is the approach we use and support.
-2. Display on demand (command-line option `--no-render-mermaid`). The code block is transformed into a [diagram macro](https://stratus-addons.atlassian.net/wiki/spaces/MDFC/overview), which is processed by Confluence. You need a [marketplace app](https://marketplace.atlassian.com/apps/1226567/mermaid-diagrams-for-confluence) to turn macro definitions into images when a Confluence page is visited.
+* an image reference to a `.mmd` or `.mermaid` file, i.e. `![My diagram](figure/diagram.mmd)`, or
+* a fenced code block with the language specifier `mermaid`.
+
+*md2conf* offers two options to publish the diagram:
+
+1. Pre-render into an image (command-line option `--render-mermaid`). The source file or code block is interpreted by and converted into a PNG or SVG image with the Mermaid diagram utility [mermaid-cli](https://github.com/mermaid-js/mermaid-cli). The generated image is then uploaded to Confluence as an attachment to the page. This is the approach we use and support.
+2. Display on demand (command-line option `--no-render-mermaid`). The code block is transformed into a [diagram macro](https://stratus-addons.atlassian.net/wiki/spaces/MDFC/overview), which is processed by Confluence. You need a separate [marketplace app](https://marketplace.atlassian.com/apps/1226567/mermaid-diagrams-for-confluence) to turn macro definitions into images when a Confluence page is visited.
 
 If you are running into issues with the pre-rendering approach (e.g. misaligned labels in the generated image), verify if `mermaid-cli` can process the Mermaid source:
 
@@ -464,6 +487,10 @@ mmdc -i sample.mmd -o sample.png -b transparent --scale 2
 ```
 
 Ensure that `mermaid-cli` is set up, refer to *Installation* for instructions.
+
+### Links to attachments
+
+If *md2conf* encounters a Markdown link that points to a file in the directory hierarchy being synchronized, it automatically uploads the file as an attachment to the Confluence page. Activating the link in Confluence downloads the file. Typical examples include PDFs (`*.pdf`), word processor documents (`*.docx`), spreadsheets (`*.xlsx`), plain text files (`*.txt`) or logs (`*.log`). The MIME type is set based on the file type.
 
 ### Implicit URLs
 
@@ -491,10 +518,7 @@ Use the `--help` switch to get a full list of supported command-line options:
 
 ```console
 $ python3 -m md2conf --help
-usage: md2conf [-h] [--version] [-d DOMAIN] [-p PATH] [--api-url API_URL] [-u USERNAME] [-a API_KEY] [-s SPACE] [-l {debug,info,warning,error,critical}] [-r ROOT_PAGE] [--keep-hierarchy] [--flatten-hierarchy]
-               [--generated-by GENERATED_BY] [--no-generated-by] [--render-drawio] [--no-render-drawio] [--render-mermaid] [--no-render-mermaid] [--render-mermaid-format {png,svg}] [--heading-anchors]
-               [--no-heading-anchors] [--ignore-invalid-url] [--local] [--headers [KEY=VALUE ...]] [--webui-links]
-               mdpath
+usage: md2conf mdpath [OPTIONS]
 
 positional arguments:
   mdpath                Path to Markdown file or directory to convert and publish.
@@ -518,17 +542,21 @@ options:
   --generated-by GENERATED_BY
                         Add prompt to pages (default: 'This page has been generated with a tool.').
   --no-generated-by     Do not add 'generated by a tool' prompt to pages.
-  --render-drawio       Render draw.io diagrams as image files and add as attachments. (Converter required.)
-  --no-render-drawio    Inline draw.io diagram in Confluence page. (Marketplace app required.)
-  --render-mermaid      Render Mermaid diagrams as image files and add as attachments. (Converter required.)
-  --no-render-mermaid   Inline Mermaid diagram in Confluence page. (Marketplace app required.)
-  --render-mermaid-format {png,svg}
+  --render-drawio       Render draw.io diagrams as image files. (Installed utility required to covert.)
+  --no-render-drawio    Upload draw.io diagram sources as Confluence page attachments. (Marketplace app required to display.)
+  --render-mermaid      Render Mermaid diagrams as image files. (Installed utility required to convert.)
+  --no-render-mermaid   Upload Mermaid diagram sources as Confluence page attachments. (Marketplace app required to display.)
+  --render-latex        Render LaTeX formulas as image files. (Matplotlib required to convert.)
+  --no-render-latex     Inline LaTeX formulas in Confluence page. (Marketplace app required to display.)
+  --diagram-output-format {png,svg}
                         Format for rendering Mermaid and draw.io diagrams (default: 'png').
+  --render-mermaid-format FORMAT
+                        Format for rendering Mermaid diagrams (default: 'png').
   --heading-anchors     Place an anchor at each section heading with GitHub-style same-page identifiers.
   --no-heading-anchors  Don't place an anchor at each section heading.
   --ignore-invalid-url  Emit a warning but otherwise ignore relative URLs that point to ill-specified locations.
   --local               Write XHTML-based Confluence Storage Format files locally without invoking Confluence API.
-  --headers [KEY=VALUE ...]
+  --headers KEY=VALUE [KEY=VALUE ...]
                         Apply custom headers to all Confluence API requests.
   --webui-links         Enable Confluence Web UI links. (Typically required for on-prem versions of Confluence.)
 ```

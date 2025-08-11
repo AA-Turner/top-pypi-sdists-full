@@ -9,11 +9,10 @@ Copyright 2022-2025, Levente Hunyadi
 import logging
 import unittest
 
-import lxml.etree as ET
-
 from md2conf.converter import attachment_name, title_to_identifier
+from md2conf.latex import LATEX_ENABLED, get_png_dimensions, remove_png_chunks, render_latex
 from md2conf.toc import TableOfContentsBuilder, TableOfContentsEntry
-from md2conf.xml import is_xml_equal
+from tests.utility import TypedTestCase
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,7 +20,7 @@ logging.basicConfig(
 )
 
 
-class TestUnit(unittest.TestCase):
+class TestUnit(TypedTestCase):
     "Simple unit tests without set-up or tear-down requirements."
 
     def test_attachment(self) -> None:
@@ -31,12 +30,6 @@ class TestUnit(unittest.TestCase):
         self.assertEqual(attachment_name("../a.png"), "PAR_a.png")
         with self.assertRaises(ValueError):
             _ = attachment_name("/path/to/image.png")
-
-    def test_xml(self) -> None:
-        tree1 = ET.fromstring('<body><p class="paragraph" data-skip="..." style="display: none;">to be, or not to be</p></body>')
-        tree2 = ET.fromstring('<body><p style="display: none;" class="paragraph">to be, or not to be</p></body>')
-        self.assertFalse(is_xml_equal(tree1, tree2))
-        self.assertTrue(is_xml_equal(tree1, tree2, skip_attributes={"data-skip"}))
 
     def test_title_to_identifier(self) -> None:
         self.assertEqual(title_to_identifier("This is  a Heading  "), "this-is-a-heading")
@@ -115,6 +108,22 @@ class TestUnit(unittest.TestCase):
         ]
         self.assertEqual(expected, builder.tree)
         self.assertEqual(builder.get_title(), "Title")
+
+    @unittest.skipUnless(LATEX_ENABLED, "matplotlib not installed")
+    def test_formula(self) -> None:
+        data = render_latex(r"\vec{\nabla}\times\vec{H}=\vec{J}+\dfrac{\partial\vec{D}}{\partial t}")
+        width, height = get_png_dimensions(data=data)
+        self.assertGreater(width, 0)
+        self.assertGreater(height, 0)
+
+        data = render_latex(r"\underset{S}{\int\int}\ \vec{\nabla}\times\vec{B}\cdot d\vec{S}=\underset{C}{\oint}\ \vec{B}\cdot d\vec{l}")
+        width, height = get_png_dimensions(data=data)
+        self.assertGreater(width, 0)
+        self.assertGreater(height, 0)
+
+        self.assertIn(b"pHYs", data)
+        data = remove_png_chunks(["pHYs"], source_data=data)
+        self.assertNotIn(b"pHYs", data)
 
 
 if __name__ == "__main__":

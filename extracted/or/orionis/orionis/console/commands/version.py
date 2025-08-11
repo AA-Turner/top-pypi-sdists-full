@@ -15,17 +15,32 @@ class VersionCommand(BaseCommand):
 
     def handle(self) -> None:
         """
-        Execute the version command.
+        Executes the version command to display the current Orionis framework version.
 
-        This method retrieves and prints the version of the Orionis framework.
+        This method retrieves the version number from the framework metadata and prints it
+        in a formatted, bold, and successful style to the console. If an unexpected error occurs
+        during execution, it raises a CLIOrionisRuntimeError with the original exception message.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            This method does not return any value. It outputs the version information to the console.
 
         Raises
         ------
-        ValueError
-            If an unexpected error occurs during execution, a ValueError is raised
+        CLIOrionisRuntimeError
+            If an unexpected error occurs during execution, a CLIOrionisRuntimeError is raised
             with the original exception message.
         """
+
+        # Print the Orionis framework version in a bold, success style
         try:
             self.textSuccessBold(f"Orionis Framework v{VERSION}")
+
+        # Raise a custom runtime error if any exception occurs
         except Exception as e:
             raise CLIOrionisRuntimeError(f"An unexpected error occurred: {e}") from e

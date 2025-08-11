@@ -1,25 +1,28 @@
 Metadata-Version: 2.1
 Name: pyiso8583
-Version: 3.0.0
+Version: 4.0.0
 Summary: A serializer and deserializer of ISO8583 data.
 Home-page: https://github.com/knovichikhin/pyiso8583
 Author: Konstantin Novichikhin
 Author-email: konstantin.novichikhin@gmail.com
 License: MIT
 Keywords: iso8583 8583 banking protocol library
+Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.md
 
@@ -145,3 +148,5 @@ Feel free to fork and send contributions over.
 .. |coverage| image:: https://codecov.io/gh/knovichikhin/pyiso8583/branch/master/graph/badge.svg
     :alt: Test coverage
     :target: https://codecov.io/gh/knovichikhin/pyiso8583
+
+

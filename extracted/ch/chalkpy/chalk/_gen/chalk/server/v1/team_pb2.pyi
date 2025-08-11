@@ -243,14 +243,7 @@ class GetTeamResponse(_message.Message):
     def __init__(self, team: _Optional[_Union[Team, _Mapping]] = ...) -> None: ...
 
 class CreateServiceTokenRequest(_message.Message):
-    __slots__ = (
-        "name",
-        "permissions",
-        "custom_claims",
-        "customer_claims",
-        "feature_tag_to_permission",
-        "default_permission",
-    )
+    __slots__ = ("name", "permissions", "custom_claims", "customer_claims", "feature_tag_to_permission")
     class FeatureTagToPermissionEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -268,13 +261,11 @@ class CreateServiceTokenRequest(_message.Message):
     CUSTOM_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_TAG_TO_PERMISSION_FIELD_NUMBER: _ClassVar[int]
-    DEFAULT_PERMISSION_FIELD_NUMBER: _ClassVar[int]
     name: str
     permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     custom_claims: _containers.RepeatedScalarFieldContainer[str]
     customer_claims: _containers.RepeatedCompositeFieldContainer[_agent_pb2.CustomClaim]
     feature_tag_to_permission: _containers.ScalarMap[str, _featurepermission_pb2.FeaturePermission]
-    default_permission: _featurepermission_pb2.FeaturePermission
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -282,7 +273,6 @@ class CreateServiceTokenRequest(_message.Message):
         custom_claims: _Optional[_Iterable[str]] = ...,
         customer_claims: _Optional[_Iterable[_Union[_agent_pb2.CustomClaim, _Mapping]]] = ...,
         feature_tag_to_permission: _Optional[_Mapping[str, _featurepermission_pb2.FeaturePermission]] = ...,
-        default_permission: _Optional[_Union[_featurepermission_pb2.FeaturePermission, str]] = ...,
     ) -> None: ...
 
 class CreateServiceTokenResponse(_message.Message):
@@ -411,14 +401,7 @@ class ListServiceTokensResponse(_message.Message):
     ) -> None: ...
 
 class UpdateServiceTokenRequest(_message.Message):
-    __slots__ = (
-        "client_id",
-        "name",
-        "permissions",
-        "customer_claims",
-        "feature_tag_to_permission",
-        "default_permission",
-    )
+    __slots__ = ("client_id", "name", "permissions", "customer_claims", "feature_tag_to_permission")
     class FeatureTagToPermissionEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -436,13 +419,11 @@ class UpdateServiceTokenRequest(_message.Message):
     PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
     FEATURE_TAG_TO_PERMISSION_FIELD_NUMBER: _ClassVar[int]
-    DEFAULT_PERMISSION_FIELD_NUMBER: _ClassVar[int]
     client_id: str
     name: str
     permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
     customer_claims: _containers.RepeatedCompositeFieldContainer[_agent_pb2.CustomClaim]
     feature_tag_to_permission: _containers.ScalarMap[str, _featurepermission_pb2.FeaturePermission]
-    default_permission: _featurepermission_pb2.FeaturePermission
     def __init__(
         self,
         client_id: _Optional[str] = ...,
@@ -450,7 +431,6 @@ class UpdateServiceTokenRequest(_message.Message):
         permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
         customer_claims: _Optional[_Iterable[_Union[_agent_pb2.CustomClaim, _Mapping]]] = ...,
         feature_tag_to_permission: _Optional[_Mapping[str, _featurepermission_pb2.FeaturePermission]] = ...,
-        default_permission: _Optional[_Union[_featurepermission_pb2.FeaturePermission, str]] = ...,
     ) -> None: ...
 
 class UpdateServiceTokenResponse(_message.Message):
@@ -658,25 +638,5 @@ class ArchiveEnvironmentRequest(_message.Message):
     def __init__(self, id: _Optional[str] = ...) -> None: ...
 
 class ArchiveEnvironmentResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class DeactivateUserRequest(_message.Message):
-    __slots__ = ("user_id",)
-    USER_ID_FIELD_NUMBER: _ClassVar[int]
-    user_id: str
-    def __init__(self, user_id: _Optional[str] = ...) -> None: ...
-
-class DeactivateUserResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class ReactivateUserRequest(_message.Message):
-    __slots__ = ("user_id",)
-    USER_ID_FIELD_NUMBER: _ClassVar[int]
-    user_id: str
-    def __init__(self, user_id: _Optional[str] = ...) -> None: ...
-
-class ReactivateUserResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...

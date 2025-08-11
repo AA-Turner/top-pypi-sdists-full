@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-amazon
-Version: 9.11.0
+Version: 9.12.0
 Summary: Provider package apache-airflow-providers-amazon for Apache Airflow
 Keywords: airflow-provider,amazon,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -38,7 +38,7 @@ Requires-Dist: marshmallow>=3
 Requires-Dist: aiobotocore[boto3]>=2.21.1 ; extra == "aiobotocore"
 Requires-Dist: apache-airflow-providers-apache-hive ; extra == "apache-hive"
 Requires-Dist: apache-airflow-providers-cncf-kubernetes>=7.2.0 ; extra == "cncf-kubernetes"
-Requires-Dist: apache-airflow-providers-common-messaging>=1.0.1 ; extra == "common-messaging"
+Requires-Dist: apache-airflow-providers-common-messaging>=1.0.3 ; extra == "common-messaging"
 Requires-Dist: apache-airflow-providers-exasol ; extra == "exasol"
 Requires-Dist: apache-airflow-providers-fab>=2.2.0 ; extra == "fab" and ( python_version < '3.13')
 Requires-Dist: apache-airflow-providers-ftp ; extra == "ftp"
@@ -55,8 +55,8 @@ Requires-Dist: apache-airflow-providers-salesforce ; extra == "salesforce"
 Requires-Dist: apache-airflow-providers-ssh ; extra == "ssh"
 Requires-Dist: apache-airflow-providers-standard ; extra == "standard"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.11.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.11.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.12.0/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.12.0
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -104,7 +104,7 @@ Provides-Extra: standard
 
 Package ``apache-airflow-providers-amazon``
 
-Release: ``9.11.0``
+Release: ``9.12.0``
 
 Release Date: ``|PypiReleaseDate|``
 
@@ -118,7 +118,7 @@ This is a provider package for ``amazon`` provider. All classes for this provide
 are in ``airflow.providers.amazon`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.11.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.12.0/>`_.
 
 Installation
 ------------
@@ -186,5 +186,5 @@ Dependent package                                                               
 ========================================================================================================================  ====================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.11.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-amazon/9.12.0/changelog.html>`_.
 

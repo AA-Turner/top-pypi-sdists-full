@@ -230,7 +230,6 @@ def test_trtllm_batch_prefill(
     o_dtype,
     kv_cache_dtype,
 ):
-
     # Set up test parameters
     seed = 0
     torch.manual_seed(seed)
@@ -270,7 +269,6 @@ def test_trtllm_batch_prefill(
 
     in_kv_lens = torch.randint(0, MAX_IN_KV_LEN, (batch_size,), dtype=torch.int)
     in_kv_lens[-1] = MAX_IN_KV_LEN
-    max_in_kv_len = torch.max(in_kv_lens).item()
     seq_lens = in_kv_lens + q_lens
     seq_lens_gpu = seq_lens.to(device)
     max_seq_len = torch.max(seq_lens).item()
@@ -491,6 +489,10 @@ def test_trtllm_batch_prefill(
             k_scale=k_scale,
             v_scale=v_scale / o_scale,
         )
-        # v_scale, o_scale is not supported in wrapper api yet.
+        # v_scale, o_scale in wrapper is emulated by multiplying output by v_scale instead of fused into kernel.
         if v_scale == o_scale == 1.0:
             assert (output2 == output).all()
+        else:
+            torch.testing.assert_close(
+                output.float(), output2.float(), rtol=1e-1, atol=1e-1
+            )

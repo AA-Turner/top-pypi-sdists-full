@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pkdevtools
-Version: 0.13.20250805.272
+Version: 0.13.20250811.274
 Summary: A general day-to-day toolset for PKScreener repos
 Home-page: https://github.com/pkjmesra/PKDevTools
-Download-URL: https://github.com/pkjmesra/PKDevTools/archive/v0.13.20250805.272.zip
+Download-URL: https://github.com/pkjmesra/PKDevTools/archive/v0.13.20250811.274.zip
 Author: pkjmesra
 Author-email: pkjmesra@gmail.com
 License: OSI Approved (MIT)
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: aiosqlite
 Requires-Dist: alive_progress
 Requires-Dist: argparse
 Requires-Dist: blinker

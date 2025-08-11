@@ -411,9 +411,10 @@ class PeopleCountingUseCase(BaseProcessor):
                     else:
                         level = "low"
                         self._ascending_alert_list.append(0)
-
-                    human_text_lines.append(f"\t\t- Zone name: {zone_name}")
-                    human_text_lines.append(f"\t\t\t- Total people in zone: {zone_total}")
+                    
+                    if zone_total > 0:
+                        human_text_lines.append(f"\t\t- Zone name: {zone_name}")
+                        human_text_lines.append(f"\t\t\t- Total people in zone: {zone_total}")
                     # Main people counting incident
                     event= self.create_incident(incident_id=self.CASE_TYPE+'_'+'zone_'+zone_name+str(frame_id), incident_type=self.CASE_TYPE,
                             severity_level=zone_level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
@@ -551,8 +552,8 @@ class PeopleCountingUseCase(BaseProcessor):
                         human_text_lines.append(f"\t- Zone name: {zone_name}")
                         human_text_lines.append(f"\t\t- Total count in zone: {zone_total-1}")
 
-                
-                human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
+                if total_unique_count > 0:
+                    human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
                 if alerts:
                     for alert in alerts:
                         human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
@@ -584,8 +585,9 @@ class PeopleCountingUseCase(BaseProcessor):
         human_text_lines.append(f"\t- People Detected: {total_people}")
 
         human_text_lines.append("")
-        human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-        human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
+        if total_unique_count > 0:
+            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+            human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
 
         if alerts:
             for alert in alerts:

@@ -17,7 +17,7 @@ from _qwak_proto.qwak.automation.v1 import trigger_pb2 as qwak_dot_automation_do
 from _qwak_proto.qwak.automation.v1 import notification_pb2 as qwak_dot_automation_dot_v1_dot_notification__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#qwak/automation/v1/automation.proto\x12\x12qwak.automation.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1fqwak/automation/v1/action.proto\x1a qwak/automation/v1/trigger.proto\x1a%qwak/automation/v1/notification.proto\"\xe4\x01\n\nAutomation\x12\x15\n\rautomation_id\x18\x01 \x01(\t\x12;\n\x0f\x61utomation_spec\x18\x02 \x01(\x0b\x32\".qwak.automation.v1.AutomationSpec\x12\x1b\n\x13qwak_environment_id\x18\x03 \x01(\t\x12\x39\n\x0c\x63reate_audit\x18\x04 \x01(\x0b\x32#.qwak.automation.v1.AutomationAudit\x12\x12\n\nis_deleted\x18\x05 \x01(\x08\x12\x16\n\x0ejfrog_token_id\x18\x06 \x01(\t\"\xe3\x02\n\x0e\x41utomationSpec\x12\x10\n\x08model_id\x18\x02 \x01(\t\x12\x17\n\x0f\x61utomation_name\x18\x03 \x01(\t\x12,\n\x07trigger\x18\x04 \x01(\x0b\x32\x1b.qwak.automation.v1.Trigger\x12*\n\x06\x61\x63tion\x18\x05 \x01(\x0b\x32\x1a.qwak.automation.v1.Action\x12\x1e\n\x16\x61utomation_description\x18\x06 \x01(\t\x12\x12\n\nis_enabled\x18\x07 \x01(\x08\x12\x32\n\x08on_error\x18\x08 \x01(\x0b\x32 .qwak.automation.v1.Notification\x12\x34\n\non_success\x18\t \x01(\x0b\x32 .qwak.automation.v1.Notification\x12\x1b\n\x13\x65xecute_immediately\x18\n \x01(\x08\x12\x11\n\tis_sdk_v1\x18\x0b \x01(\x08\"L\n\x0f\x41utomationAudit\x12(\n\x04\x64\x61te\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07user_id\x18\x02 \x01(\tB!\n\x1d\x63om.qwak.ai.automation.api.v1P\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n#qwak/automation/v1/automation.proto\x12\x12qwak.automation.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1fqwak/automation/v1/action.proto\x1a qwak/automation/v1/trigger.proto\x1a%qwak/automation/v1/notification.proto\"\xfa\x01\n\nAutomation\x12\x15\n\rautomation_id\x18\x01 \x01(\t\x12;\n\x0f\x61utomation_spec\x18\x02 \x01(\x0b\x32\".qwak.automation.v1.AutomationSpec\x12\x1b\n\x13qwak_environment_id\x18\x03 \x01(\t\x12\x39\n\x0c\x63reate_audit\x18\x04 \x01(\x0b\x32#.qwak.automation.v1.AutomationAudit\x12\x12\n\nis_deleted\x18\x05 \x01(\x08\x12\x16\n\x0ejfrog_token_id\x18\x06 \x01(\t\x12\x14\n\x0cplatform_url\x18\x07 \x01(\t\"\xe3\x02\n\x0e\x41utomationSpec\x12\x10\n\x08model_id\x18\x02 \x01(\t\x12\x17\n\x0f\x61utomation_name\x18\x03 \x01(\t\x12,\n\x07trigger\x18\x04 \x01(\x0b\x32\x1b.qwak.automation.v1.Trigger\x12*\n\x06\x61\x63tion\x18\x05 \x01(\x0b\x32\x1a.qwak.automation.v1.Action\x12\x1e\n\x16\x61utomation_description\x18\x06 \x01(\t\x12\x12\n\nis_enabled\x18\x07 \x01(\x08\x12\x32\n\x08on_error\x18\x08 \x01(\x0b\x32 .qwak.automation.v1.Notification\x12\x34\n\non_success\x18\t \x01(\x0b\x32 .qwak.automation.v1.Notification\x12\x1b\n\x13\x65xecute_immediately\x18\n \x01(\x08\x12\x11\n\tis_sdk_v1\x18\x0b \x01(\x08\"L\n\x0f\x41utomationAudit\x12(\n\x04\x64\x61te\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07user_id\x18\x02 \x01(\tB!\n\x1d\x63om.qwak.ai.automation.api.v1P\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -27,9 +27,9 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\035com.qwak.ai.automation.api.v1P\001'
   _globals['_AUTOMATION']._serialized_start=199
-  _globals['_AUTOMATION']._serialized_end=427
-  _globals['_AUTOMATIONSPEC']._serialized_start=430
-  _globals['_AUTOMATIONSPEC']._serialized_end=785
-  _globals['_AUTOMATIONAUDIT']._serialized_start=787
-  _globals['_AUTOMATIONAUDIT']._serialized_end=863
+  _globals['_AUTOMATION']._serialized_end=449
+  _globals['_AUTOMATIONSPEC']._serialized_start=452
+  _globals['_AUTOMATIONSPEC']._serialized_end=807
+  _globals['_AUTOMATIONAUDIT']._serialized_start=809
+  _globals['_AUTOMATIONAUDIT']._serialized_end=885
 # @@protoc_insertion_point(module_scope)

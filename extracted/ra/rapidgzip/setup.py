@@ -53,126 +53,191 @@ def getDependencyOption(key):
 withCxxopts = getDependencyOption('CXXOPTS')
 withIsal = getDependencyOption('ISAL')
 withRpmalloc = getDependencyOption('RPMALLOC')
-withZlib = getDependencyOption('ZLIB')
+withZlibng = getDependencyOption('ZLIB')
 
 if withCxxopts == 'disable':
     print("[Warning] Cxxopts can not be disabled! Will enable it.")
     withCxxopts = 'enable'
 
-# ISA-l does not compile on 32-bit becaue it contains statements such as [bits 64].
+# ISA-l does not compile on 32-bit because it contains statements such as [bits 64].
 # It simply is not supported and I also don't see a reason. 32-bit should be long dead exactly
 # like almost all (96% according to Steam) PCs have AVX support.
-# On aarch64 macOS, ISA-L causes: ImportError: dlopen(python3.10/site-packages/rapidgzip.cpython-310-darwin.so, 0x0002):
-#   symbol not found in flat namespace '_decode_huffman_code_block_stateless'
-# On aarch64 linux, ISA-L causes:
-#   /bin/ld: external/isa-l/igzip/igzip_decode_block_stateless_01.obj: error adding symbols: file in wrong format
-# -> I need to migrate the ARM build settings to CMake. ISA-L has aarch64 subfolders with assembly files.
-canBuildIsal = shutil.which("nasm") is not None and platform.machine() in ['x86_64', 'AMD64']
+architecture = None
+canBuildIsal = False
+if platform.machine() in ['x86_64', 'AMD64']:
+    architecture = 'x86_64'
+    canBuildIsal = shutil.which("nasm") is not None
+elif platform.machine() in ['aarch64', 'arm64']:
+    architecture = 'aarch64'
+    canBuildIsal = True  # Use GCC as assembler
+# macOS is not supported because multiarch fat binaries are a pain in the ass to build with setuptools.
+# Furthermore, there seem to be Bus Errors on macos-13 (x86) runners! No idea why.
+# See https://github.com/mxmlnkn/indexed_bzip2/pull/22#issuecomment-3156326658
+# Help from macOS users in the form of a PR fixing the linked issue would be very welcome!
+if platform.system() == 'Darwin':
+    canBuildIsal = False
 if not canBuildIsal:
     withIsal = 'disable'
 
 print("Final rapidgzip build configuration:")
 print(f"  isal: {withIsal}")
-print(f"  zlib: {withZlib}")
+print(f"  zlib-ng: {withZlibng}")
 print(f"  rpmalloc: {withRpmalloc}")
 print(f"  cxxopts: {withCxxopts}")
 
 zlib_sources = []
-if withZlib == 'enable':
-    zlib_sources = ['deflate.c', 'inflate.c', 'crc32.c', 'adler32.c', 'inftrees.c', 'inffast.c', 'trees.c', 'zutil.c']
-    zlib_sources = ['external/zlib/' + source for source in zlib_sources]
+if withZlibng == 'enable':
+    zlib_sources = [
+        "cpu_features.c",
+        "inflate.c",
+        "adler32.c",
+        "crc32.c",
+        "crc32_braid_comb.c",
+        "functable.c",
+        "inftrees.c",
+        "zutil.c",
+        "deflate.c",
+        "deflate_fast.c",
+        "deflate_huff.c",
+        "deflate_medium.c",
+        "deflate_quick.c",
+        "deflate_rle.c",
+        "deflate_slow.c",
+        "deflate_stored.c",
+        "insert_string.c",
+        "insert_string_roll.c",
+        "trees.c",
+        "arch/generic/adler32_c.c",
+        "arch/generic/adler32_fold_c.c",
+        "arch/generic/chunkset_c.c",
+        "arch/generic/compare256_c.c",
+        "arch/generic/crc32_braid_c.c",
+        "arch/generic/crc32_fold_c.c",
+        "arch/generic/slide_hash_c.c",
+    ]
+    zlib_sources = ["src/external/zlib-ng/" + source for source in zlib_sources]
+    for name in ["zlib_name_mangling.h", "zlib.h", "zconf.h"]:
+        with open(f"src/external/zlib-ng/{name}.in", 'rb') as file, open(
+            f"src/external/zlib-ng/{name}", 'wb'
+        ) as out_file:
+            out_file.write(file.read().replace(b"@ZLIB_SYMBOL_PREFIX@", b"LIBRAPIDARCHIVE_"))
 
 isal_sources = [
-    # "include/igzip_lib.h",
-    # "include/unaligned.h",
-    "include/reg_sizes.asm",
-    "include/multibinary.asm",
     "igzip/igzip_inflate.c",
     "igzip/igzip.c",
     "igzip/hufftables_c.c",
-    # "igzip/igzip_checksums.h",
-    "igzip/igzip_inflate_multibinary.asm",
-    "igzip/igzip_decode_block_stateless_01.asm",
-    "igzip/igzip_decode_block_stateless_04.asm",
-    "igzip/rfc1951_lookup.asm",
-    # "igzip/igzip_wrapper.h",
-    # "igzip/static_inflate.h",
-    "igzip/stdmac.asm",
+    #
     # Compression
     # "igzip/igzip_base_aliases.c",
     "igzip/encode_df.c",
-    "igzip/igzip_deflate_hash.asm",
     "igzip/igzip_icf_base.c",
     "igzip/igzip_icf_body.c",
     "igzip/igzip_base.c",
-    "igzip/igzip_body.asm",
-    "igzip/igzip_multibinary.asm",
-    "igzip/igzip_update_histogram_01.asm",
-    "igzip/igzip_update_histogram_04.asm",
-    # "igzip/igzip_update_histogram.asm",
-    # "igzip/bitbuf2.asm",
-    # "igzip/data_struct2.asm",
-    "igzip/encode_df_04.asm",
-    "igzip/encode_df_06.asm",
-    # "igzip/heap_macros.asm",
-    # "igzip/huffman.asm",
-    # "igzip/igzip_compare_types.asm",
-    "igzip/igzip_finish.asm",
-    "igzip/igzip_gen_icf_map_lh1_04.asm",
-    "igzip/igzip_gen_icf_map_lh1_06.asm",
-    "igzip/igzip_icf_body_h1_gr_bt.asm",
-    "igzip/igzip_icf_finish.asm",
-    "igzip/igzip_set_long_icf_fg_04.asm",
-    "igzip/igzip_set_long_icf_fg_06.asm",
-    # "igzip/inflate_data_structs.asm",
-    # "igzip/lz0a_const.asm",
-    # "igzip/options.asm",
-    "igzip/proc_heap.asm",
-    # "igzip/rfc1951_lookup.asm",
-    "igzip/adler32_avx2_4.asm",
-    "igzip/adler32_sse.asm",
     "igzip/adler32_base.c",
-    # "igzip/encode_df.c",
     "igzip/flatten_ll.c",
     # "igzip/generate_custom_hufftables.c",
     # "igzip/generate_static_inflate.c",
     "igzip/huff_codes.c",
     # "igzip/hufftables_c.c",
-    # "igzip/igzip_base_aliases.c",
-    # "igzip/igzip_base.c",
-    # "igzip/igzip_icf_base.c",
-    # "igzip/igzip_icf_body.c",
     # "igzip/proc_heap_base.c",
-    "crc/crc_multibinary.asm",
-    "crc/crc32_gzip_refl_by16_10.asm",
-    "crc/crc32_gzip_refl_by8_02.asm",
-    "crc/crc32_gzip_refl_by8.asm",
     "crc/crc_base.c",
     # "crc/crc_base_aliases.c",
 ]
-isal_sources = ['external/isa-l/' + source for source in isal_sources] if withIsal == 'enable' else []
+isal_sources_by_architecture = {
+    'x86_64': [
+        "include/reg_sizes.asm",
+        "include/multibinary.asm",
+        "igzip/igzip_inflate_multibinary.asm",
+        "igzip/igzip_decode_block_stateless_01.asm",
+        "igzip/igzip_decode_block_stateless_04.asm",
+        # "igzip/igzip_decode_block_stateless.asm"
+        "igzip/rfc1951_lookup.asm",
+        "igzip/stdmac.asm",
+        #
+        # Compression
+        "igzip/igzip_deflate_hash.asm",
+        "igzip/igzip_body.asm",
+        "igzip/igzip_multibinary.asm",
+        "igzip/igzip_update_histogram_01.asm",
+        "igzip/igzip_update_histogram_04.asm",
+        # "igzip/igzip_update_histogram.asm",
+        #
+        # "igzip/bitbuf2.asm",
+        # "igzip/data_struct2.asm",
+        "igzip/encode_df_04.asm",
+        "igzip/encode_df_06.asm",
+        # "igzip/heap_macros.asm",
+        # "igzip/huffman.asm",
+        # "igzip/igzip_compare_types.asm",
+        "igzip/igzip_finish.asm",
+        "igzip/igzip_gen_icf_map_lh1_04.asm",
+        "igzip/igzip_gen_icf_map_lh1_06.asm",
+        "igzip/igzip_icf_body_h1_gr_bt.asm",
+        "igzip/igzip_icf_finish.asm",
+        "igzip/igzip_set_long_icf_fg_04.asm",
+        "igzip/igzip_set_long_icf_fg_06.asm",
+        # "igzip/inflate_data_structs.asm",
+        # "igzip/lz0a_const.asm",
+        # "igzip/options.asm",
+        "igzip/proc_heap.asm",
+        # "igzip/rfc1951_lookup.asm",
+        "igzip/adler32_avx2_4.asm",
+        "igzip/adler32_sse.asm",
+        #
+        "crc/crc_multibinary.asm",
+        "crc/crc32_gzip_refl_by16_10.asm",
+        "crc/crc32_gzip_refl_by8_02.asm",
+        "crc/crc32_gzip_refl_by8.asm",
+    ],
+    'aarch64': [
+        "crc/aarch64/crc_aarch64_dispatcher.c",
+        "igzip/proc_heap_base.c",
+        #
+        "igzip/aarch64/encode_df.S",
+        "igzip/aarch64/gen_icf_map.S",
+        "igzip/aarch64/igzip_decode_huffman_code_block_aarch64.S",
+        "igzip/aarch64/igzip_deflate_body_aarch64.S",
+        "igzip/aarch64/igzip_deflate_finish_aarch64.S",
+        "igzip/aarch64/igzip_deflate_hash_aarch64.S",
+        "igzip/aarch64/igzip_inflate_multibinary_arm64.S",
+        "igzip/aarch64/igzip_isal_adler32_neon.S",
+        "igzip/aarch64/igzip_multibinary_aarch64_dispatcher.c",
+        "igzip/aarch64/igzip_multibinary_arm64.S",
+        "igzip/aarch64/igzip_set_long_icf_fg.S",
+        "igzip/aarch64/isal_deflate_icf_body_hash_hist.S",
+        "igzip/aarch64/isal_deflate_icf_finish_hash_hist.S",
+        "igzip/aarch64/isal_update_histogram.S",
+        #
+        "crc/aarch64/crc_multibinary_arm.S",
+        # "crc/aarch64/crc32_common_crc_ext_cortex_a72.S",
+        # "crc/aarch64/crc32_common_mix_neoverse_n1.S",
+        "crc/aarch64/crc32_gzip_refl_3crc_fold.S",
+        "crc/aarch64/crc32_gzip_refl_crc_ext.S",
+        "crc/aarch64/crc32_gzip_refl_pmull.S",
+        # "crc/aarch64/crc32_mix_default.S",
+        # "crc/aarch64/crc32_mix_default_common.S",
+        # "crc/aarch64/crc32_mix_neoverse_n1.S",
+        # "crc/aarch64/crc32c_mix_default.S",
+        # "crc/aarch64/crc32c_mix_neoverse_n1.S",
+    ],
+}
+for sources_architecture, sources in isal_sources_by_architecture.items():
+    if architecture == sources_architecture:
+        isal_sources += sources
+isal_sources = ['src/external/isa-l/' + source for source in set(isal_sources)] if withIsal == 'enable' else []
 
-include_dirs = [
-    '.',
-    'core',
-    'huffman',
-    'rapidgzip',
-    'rapidgzip/chunkdecoding',
-    'rapidgzip/huffman',
-    'rapidgzip/gzip',
-    'indexed_bzip2',
-]
-isal_includes = ['external/isa-l/include', 'external/isa-l/igzip']
+include_dirs = ['src']
+isal_includes = ['src/external/isa-l/include', 'src/external/isa-l/igzip', 'src/external/isa-l']
 if withIsal == 'enable':
     include_dirs += isal_includes
-if withZlib == 'enable':
-    include_dirs += ['external/zlib']
+if withZlibng == 'enable':
+    include_dirs += ['src/external/zlib-ng']
 if withRpmalloc == 'enable':
-    include_dirs += ['external/rpmalloc/rpmalloc']
+    include_dirs += ['src/external/rpmalloc/rpmalloc']
 if withCxxopts == 'enable':
-    include_dirs += ['external/cxxopts/include']
+    include_dirs += ['src/external/cxxopts/include']
 
-rpmalloc_sources = ['external/rpmalloc/rpmalloc/rpmalloc.c'] if withRpmalloc == 'enable' else []
+rpmalloc_sources = ['src/external/rpmalloc/rpmalloc/rpmalloc.c'] if withRpmalloc == 'enable' else []
 
 extensions = [
     Extension(
@@ -222,7 +287,7 @@ class Build(build_ext):
         # it even that.
         oldCompile = self.compiler.compile
 
-        if withIsal == 'disable':
+        if withIsal == 'disable' or architecture != 'x86_64':
             nasmCompiler = None
         elif sys.platform == "win32":
             from nasm_extension.winnasmcompiler import WinNasmCompiler
@@ -235,11 +300,47 @@ class Build(build_ext):
 
         def newCompile(sources, *args, **kwargs):
             cSources = [source for source in sources if source.endswith('.c')]
-            asmSources = [source for source in sources if source.endswith('.asm')]
-            cppSources = [source for source in sources if not source.endswith('.c') and not source.endswith('.asm')]
+            asmSources = [source for source in sources if source.endswith('.S')]
+            nasmSources = [source for source in sources if source.endswith('.asm')]
+            cppSources = [
+                source
+                for source in sources
+                if '.' in source and source.rsplit('.', maxsplit=1)[1] not in ('c', 'S', 'asm')
+            ]
 
             objects = []
-            if asmSources and nasmCompiler:
+
+            if cppSources:
+                objects.extend(oldCompile(cppSources, *args, **kwargs))
+
+            # Filter out C++ options for C compilation
+            cppCompileArgs = [
+                '-fconstexpr-ops-limit=99000100',
+                '-fconstexpr-steps=99000100',
+                '-std=c++17',
+                '/std:c++17',
+            ]
+            cppPostArgs = kwargs.get('extra_postargs', [])
+            postArgs = [x for x in cppPostArgs if x not in cppCompileArgs]
+
+            if cSources:
+                for cSource in cSources:
+                    if 'extra_postargs' in kwargs:
+                        if any(name in cSource for name in rpmalloc_sources):
+                            kwargs['extra_postargs'] = postArgs + [
+                                argument.replace('c++17', 'c17') for argument in cppPostArgs if 'c++17' in argument
+                            ]
+                        else:
+                            kwargs['extra_postargs'] = postArgs
+                    objects.extend(oldCompile([cSource], *args, **kwargs))
+                    # We cannot have -std=c17 when compiling when compiling ISA-L!
+                    if 'extra_postargs' in kwargs:
+                        kwargs['extra_postargs'] = postArgs
+
+            if 'extra_postargs' in kwargs:
+                kwargs['extra_postargs'] = postArgs
+
+            if nasmSources and nasmCompiler:
                 nasm_kwargs = copy.deepcopy(kwargs)
                 nasm_kwargs['extra_postargs'] = []
                 nasm_kwargs['include_dirs'] = isal_includes
@@ -259,52 +360,60 @@ class Build(build_ext):
                 # external/isa-l/igzip/igzip_decode_block_stateless_01.asm:3: fatal: unable to open include file
                 #   `igzip_decode_block_stateless.asm'
                 # error: command 'nasm' failed with exit status 1
-                # I even tried chaning -I<dir> to -I <dir> by overwriting nasmcompiler._setup_compile but to no avail.
+                # I even tried changing -I<dir> to -I <dir> by overwriting nasmcompiler._setup_compile but to no avail.
                 for path in isal_includes:
                     for fileName in os.listdir(path):
                         if fileName.endswith('.asm'):
                             shutil.copy(os.path.join(path, fileName), ".")
-                objects.extend(nasmCompiler.compile(asmSources, *args, **nasm_kwargs))
+                objects.extend(nasmCompiler.compile(nasmSources, *args, **nasm_kwargs))
 
-            if cppSources:
-                objects.extend(oldCompile(cppSources, *args, **kwargs))
-
-            if cSources:
-                cppCompileArgs = [
-                    '-fconstexpr-ops-limit=99000100',
-                    '-fconstexpr-steps=99000100',
-                    '-std=c++17',
-                    '/std:c++17',
-                ]
-                if 'extra_postargs' in kwargs:
-                    kwargs['extra_postargs'] = [x for x in kwargs['extra_postargs'] if x not in cppCompileArgs]
-                objects.extend(oldCompile(cSources, *args, **kwargs))
+            if asmSources:
+                extraArgs = ['-D__ASSEMBLY__', '-march=armv8-a']
+                for path in kwargs.get('include_dirs', []):
+                    extraArgs.extend(['-I', path])
+                for src in asmSources:
+                    obj = self.compiler.object_filenames([src])[0]
+                    self.compiler.spawn([self.compiler.compiler_so[0], '-c', src, '-o', obj, *extraArgs])
+                    objects.append(obj)
 
             return objects
 
         self.compiler.compile = newCompile
+        if '.S' not in self.compiler.src_extensions:
+            self.compiler.src_extensions.append('.S')
+
+        defines = {
+            "NDEBUG": None,
+            # https://github.com/mjansson/rpmalloc/issues/297#issuecomment-3171952804
+            "ENABLE_OVERRIDE": "0",
+            "WITH_PYTHON_SUPPORT": "0",
+            "ZLIB_SYMBOL_PREFIX": "LIBRAPIDARCHIVE_",
+        }
+        if withZlibng:
+            defines["ZLIB_COMPAT"] = None
 
         for ext in self.extensions:
             ext.extra_compile_args = [
-                '-std=c++17',
-                '-O3',
-                '-DNDEBUG',
-                '-DWITH_PYTHON_SUPPORT',
-                '-D_LARGEFILE64_SOURCE=1',
-                '-D_GLIBCXX_ASSERTIONS',
+                "-std=c++17",
+                "-O3",
+                "-D_LARGEFILE64_SOURCE=1",
+                "-D_GLIBCXX_ASSERTIONS",
+                *[f"-D{define}" + ("" if value is None else "=" + value) for define, value in defines.items()],
             ]
 
             if supportsFlag(self.compiler, '-flto=auto'):
                 ext.extra_compile_args += ['-flto=auto']
+                ext.extra_link_args += ['-flto=auto']
             elif supportsFlag(self.compiler, '-flto'):
                 ext.extra_compile_args += ['-flto']
+                ext.extra_link_args += ['-flto']
 
             if supportsFlag(self.compiler, '-D_FORTIFY_SOURCE=2'):
                 ext.extra_compile_args += ['-D_FORTIFY_SOURCE=2']
             if withRpmalloc != 'disable':
-                ext.extra_compile_args.append('-DWITH_RPMALLOC')
+                ext.extra_compile_args.append('-DLIBRAPIDARCHIVE_WITH_RPMALLOC')
             if withIsal != 'disable':
-                ext.extra_compile_args.append('-DWITH_ISAL')
+                ext.extra_compile_args.append('-DLIBRAPIDARCHIVE_WITH_ISAL')
 
             # https://github.com/cython/cython/issues/2670#issuecomment-432212671
             # https://github.com/cython/cython/issues/3405#issuecomment-596975159
@@ -325,15 +434,15 @@ class Build(build_ext):
             elif self.compiler.compiler_type == 'msvc':
                 ext.extra_compile_args = [
                     '/std:c++17',
+                    '/experimental:c11atomics',
                     '/O2',
-                    '/DNDEBUG',
-                    '/DWITH_PYTHON_SUPPORT',
                     '/constexpr:steps99000100',
+                    *[f"/D{define}" + ("" if value is None else "=" + value) for define, value in defines.items()],
                 ]
                 if withRpmalloc != 'disable':
-                    ext.extra_compile_args.append('/DWITH_RPMALLOC')
+                    ext.extra_compile_args.append('/DLIBRAPIDARCHIVE_WITH_RPMALLOC')
                 if withIsal != 'disable':
-                    ext.extra_compile_args.append('/DWITH_ISAL')
+                    ext.extra_compile_args.append('/DLIBRAPIDARCHIVE_WITH_ISAL')
                 if withRpmalloc != 'disable':
                     # This list is from rpmalloc/build/ninja/msvc.py
                     ext.libraries = ['kernel32', 'user32', 'shell32', 'advapi32']
@@ -348,9 +457,9 @@ class Build(build_ext):
                 if sys.platform == 'linux':
                     ext.extra_compile_args += ['-D_GNU_SOURCE']
 
-                if sys.platform.startswith('darwin') and supportsFlag(self.compiler, '-mmacosx-version-min=10.15'):
-                    ext.extra_compile_args += ['-mmacosx-version-min=10.15']
-                    ext.extra_link_args += ['-mmacosx-version-min=10.15']
+                if sys.platform.startswith('darwin') and supportsFlag(self.compiler, '-mmacosx-version-min=13.0'):
+                    ext.extra_compile_args += ['-mmacosx-version-min=13.0']
+                    ext.extra_link_args += ['-mmacosx-version-min=13.0']
 
                 # Add some hardening. See e.g.:
                 # https://www.phoronix.com/news/GCC-fhardened-Hardening-Option

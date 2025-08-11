@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import _thread
 import atexit
 import contextlib
 import functools
@@ -17,13 +18,14 @@ import reprlib
 import sys
 import traceback
 import types
-import _thread
-
-from typing import (
-    overload,
-    Any, Callable, Final, IO,
-)
 from collections.abc import Iterable, Iterator, Mapping
+from typing import (
+    IO,
+    Any,
+    Callable,
+    Final,
+    overload,
+)
 
 from coverage.misc import human_sorted_items, isolate_module
 from coverage.types import AnyCallable, TWritable
@@ -113,7 +115,7 @@ class NoDebugging(DebugControl):
     """A replacement for DebugControl that will never try to do anything."""
     def __init__(self) -> None:
         # pylint: disable=super-init-not-called
-        ...
+        pass
 
     def should(self, option: str) -> bool:
         """Should we write debug messages?  Never."""
@@ -127,6 +129,12 @@ class NoDebugging(DebugControl):
     def write(self, msg: str, *, exc: BaseException | None = None) -> None:
         """This will never be called."""
         raise AssertionError("NoDebugging.write should never be called.")
+
+
+class DevNullDebug(NoDebugging):
+    """A DebugControl that won't write anywhere."""
+    def write(self, msg: str, *, exc: BaseException | None = None) -> None:
+        pass
 
 
 def info_header(label: str) -> str:
@@ -453,7 +461,7 @@ class DebugOutputFile:
             else:
                 # $set_env.py: COVERAGE_DEBUG_FILE - Where to write debug output
                 file_name = os.getenv("COVERAGE_DEBUG_FILE", FORCED_DEBUG_FILE)
-                if file_name in ("stdout", "stderr"):
+                if file_name in ["stdout", "stderr"]:
                     fileobj = getattr(sys, file_name)
                 elif file_name:
                     fileobj = open(file_name, "a", encoding="utf-8")
@@ -497,13 +505,15 @@ class DebugOutputFile:
     def write(self, text: str) -> None:
         """Just like file.write, but filter through all our filters."""
         assert self.outfile is not None
-        self.outfile.write(filter_text(text, self.filters))
-        self.outfile.flush()
+        if not self.outfile.closed:
+            self.outfile.write(filter_text(text, self.filters))
+            self.outfile.flush()
 
     def flush(self) -> None:
         """Flush our file."""
         assert self.outfile is not None
-        self.outfile.flush()
+        if not self.outfile.closed:
+            self.outfile.flush()
 
 
 def log(msg: str, stack: bool = False) -> None:             # pragma: debugging

@@ -64,7 +64,7 @@ class AuthKeyValidator:
     def update_auth_keys(self) -> None:
         """Fetch and validate auth keys for the deployment."""      
         try:
-            response = self.rpc.get(f"/v1/inference/{self.deployment_id}")
+            response = self.rpc.get(f"/v1/inference/{self.deployment_id}", raise_exception=False)
             if not response.get("success"):
                 logging.error("Failed to fetch auth keys")
                 return

@@ -95,6 +95,7 @@ class MatriceDeployServer:
             )
             self.deployment_id = self.action_details.get("_idDeployment")
             self.model_id = self.action_details.get("_idModelDeploy")
+            self.inference_pipeline_id = self.action_details.get("inference_pipeline_id")
 
             # Validate deployment information
             if not all(
@@ -350,6 +351,7 @@ class MatriceDeployServer:
             num_workers=num_workers,
             app_name=self.app_name,
             app_version=self.app_version,
+            inference_pipeline_id=self.inference_pipeline_id,
         )
 
         # Start stream worker manager in background thread since it's async

@@ -15,7 +15,7 @@ description = "Powerful and exquisite WSGI/ASGI framework/toolkit."
 name = "baize"
 readme = "README.md"
 requires-python = ">=3.9"
-version = "0.23.0"
+version = "0.23.1"
 
 [project.license]
 text = "Apache-2.0"

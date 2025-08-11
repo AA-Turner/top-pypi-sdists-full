@@ -47,7 +47,7 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
                 raise_for_status(response)
                 data = response.json()
                 data = data.get("data") if isinstance(data, dict) else data
-                cls.image_models = [model.get("name") if cls.use_model_names else model.get("id", model.get("name")) for model in data if model.get("image") or model.get("type") == "image"]
+                cls.image_models = [model.get("name") if cls.use_model_names else model.get("id", model.get("name")) for model in data if model.get("image") or model.get("type") == "image" or model.get("supports_images")]
                 cls.vision_models = cls.vision_models.copy()
                 cls.vision_models += [model.get("name") if cls.use_model_names else model.get("id", model.get("name")) for model in data if model.get("vision")]
                 cls.models = [model.get("name") if cls.use_model_names else model.get("id", model.get("name")) for model in data]
@@ -80,7 +80,7 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
         headers: dict = None,
         impersonate: str = None,
         download_media: bool = True,
-        extra_parameters: list[str] = ["tools", "parallel_tool_calls", "tool_choice", "reasoning_effort", "logit_bias", "modalities", "audio"],
+        extra_parameters: list[str] = ["tools", "parallel_tool_calls", "tool_choice", "reasoning_effort", "logit_bias", "modalities", "audio", "stream_options"],
         extra_body: dict = None,
         **kwargs
     ) -> AsyncResult:
@@ -135,9 +135,10 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
                 **extra_body
             )
             if api_endpoint is None:
-                api_endpoint = cls.api_endpoint
-                if api_endpoint is None:
+                if api_base:
                     api_endpoint = f"{api_base.rstrip('/')}/chat/completions"
+                if api_endpoint is None:
+                    api_endpoint = cls.api_endpoint
             async with session.post(api_endpoint, json=data, ssl=cls.ssl) as response:
                 async for chunk in read_response(response, stream, prompt, cls.get_dict(), download_media):
                     yield chunk

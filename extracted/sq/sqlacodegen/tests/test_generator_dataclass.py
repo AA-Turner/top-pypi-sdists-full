@@ -77,7 +77,7 @@ mapped_column
             __tablename__ = 'simple'
 
             id: Mapped[int] = mapped_column(Integer, primary_key=True)
-            age: Mapped[int] = mapped_column(Integer)
+            age: Mapped[int] = mapped_column(Integer, nullable=False)
             name: Mapped[Optional[str]] = mapped_column(String(20), \
 server_default=text('foo'))
         """,
@@ -101,7 +101,7 @@ def test_onetomany_optional(generator: CodeGenerator) -> None:
     validate_code(
         generator.generate(),
         """\
-        from typing import List, Optional
+        from typing import Optional
 
         from sqlalchemy import ForeignKey, Integer
         from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, \
@@ -116,7 +116,7 @@ mapped_column, relationship
 
             id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-            simple_items: Mapped[List['SimpleItems']] = relationship('SimpleItems', \
+            simple_items: Mapped[list['SimpleItems']] = relationship('SimpleItems', \
 back_populates='container')
 
 
@@ -152,8 +152,6 @@ def test_manytomany(generator: CodeGenerator) -> None:
     validate_code(
         generator.generate(),
         """\
-        from typing import List
-
         from sqlalchemy import Column, ForeignKey, Integer, Table
         from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, \
 mapped_column, relationship
@@ -167,7 +165,7 @@ mapped_column, relationship
 
             id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-            item: Mapped[List['SimpleItems']] = relationship('SimpleItems', \
+            item: Mapped[list['SimpleItems']] = relationship('SimpleItems', \
 secondary='container_items', back_populates='container')
 
 
@@ -176,7 +174,7 @@ secondary='container_items', back_populates='container')
 
             id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-            container: Mapped[List['SimpleContainers']] = \
+            container: Mapped[list['SimpleContainers']] = \
 relationship('SimpleContainers', secondary='container_items', back_populates='item')
 
 
@@ -208,7 +206,7 @@ def test_named_foreign_key_constraints(generator: CodeGenerator) -> None:
     validate_code(
         generator.generate(),
         """\
-        from typing import List, Optional
+        from typing import Optional
 
         from sqlalchemy import ForeignKeyConstraint, Integer
         from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, \
@@ -223,7 +221,7 @@ mapped_column, relationship
 
             id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
-            simple_items: Mapped[List['SimpleItems']] = relationship('SimpleItems', \
+            simple_items: Mapped[list['SimpleItems']] = relationship('SimpleItems', \
 back_populates='container')
 
 
@@ -253,10 +251,11 @@ def test_uuid_type_annotation(generator: CodeGenerator) -> None:
     validate_code(
         generator.generate(),
         """\
+        import uuid
+
         from sqlalchemy import UUID
         from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, \
 mapped_column
-        import uuid
 
         class Base(MappedAsDataclass, DeclarativeBase):
             pass

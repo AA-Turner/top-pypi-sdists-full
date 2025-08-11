@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: baize
-Version: 0.23.0
+Version: 0.23.1
 Summary: Powerful and exquisite WSGI/ASGI framework/toolkit.
 Author-Email: abersheeran <me@abersheeran.com>
 License: Apache-2.0

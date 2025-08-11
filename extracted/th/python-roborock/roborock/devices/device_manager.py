@@ -18,8 +18,10 @@ from roborock.mqtt.session import MqttSession
 from roborock.protocol import create_mqtt_params
 from roborock.web_api import RoborockApiClient
 
+from .cache import Cache, NoCache
 from .channel import Channel
 from .mqtt_channel import create_mqtt_channel
+from .traits.b01.props import B01PropsApi
 from .traits.dyad import DyadApi
 from .traits.status import StatusTrait
 from .traits.trait import Trait
@@ -32,8 +34,6 @@ __all__ = [
     "create_device_manager",
     "create_home_data_api",
     "DeviceManager",
-    "HomeDataApi",
-    "DeviceCreator",
 ]
 
 
@@ -46,6 +46,7 @@ class DeviceVersion(enum.StrEnum):
 
     V1 = "1.0"
     A01 = "A01"
+    B01 = "B01"
     UNKNOWN = "unknown"
 
 
@@ -57,19 +58,27 @@ class DeviceManager:
         home_data_api: HomeDataApi,
         device_creator: DeviceCreator,
         mqtt_session: MqttSession,
+        cache: Cache,
     ) -> None:
         """Initialize the DeviceManager with user data and optional cache storage.
 
         This takes ownership of the MQTT session and will close it when the manager is closed.
         """
         self._home_data_api = home_data_api
+        self._cache = cache
         self._device_creator = device_creator
         self._devices: dict[str, RoborockDevice] = {}
         self._mqtt_session = mqtt_session
 
     async def discover_devices(self) -> list[RoborockDevice]:
         """Discover all devices for the logged-in user."""
-        home_data = await self._home_data_api()
+        cache_data = await self._cache.get()
+        if not cache_data.home_data:
+            _LOGGER.debug("No cached home data found, fetching from API")
+            cache_data.home_data = await self._home_data_api()
+            await self._cache.set(cache_data)
+        home_data = cache_data.home_data
+
         device_products = home_data.device_products
         _LOGGER.debug("Discovered %d devices %s", len(device_products), home_data)
 
@@ -113,18 +122,24 @@ def create_home_data_api(email: str, user_data: UserData) -> HomeDataApi:
     client = RoborockApiClient(email)
 
     async def home_data_api() -> HomeData:
-        return await client.get_home_data(user_data)
+        return await client.get_home_data_v3(user_data)
 
     return home_data_api
 
 
-async def create_device_manager(user_data: UserData, home_data_api: HomeDataApi) -> DeviceManager:
+async def create_device_manager(
+    user_data: UserData,
+    home_data_api: HomeDataApi,
+    cache: Cache | None = None,
+) -> DeviceManager:
     """Convenience function to create and initialize a DeviceManager.
 
     The Home Data is fetched using the provided home_data_api callable which
     is exposed this way to allow for swapping out other implementations to
     include caching or other optimizations.
     """
+    if cache is None:
+        cache = NoCache()
 
     mqtt_params = create_mqtt_params(user_data.rriot)
     mqtt_session = await create_mqtt_session(mqtt_params)
@@ -135,7 +150,7 @@ async def create_device_manager(user_data: UserData, home_data_api: HomeDataApi)
         # TODO: Define a registration mechanism/factory for v1 traits
         match device.pv:
             case DeviceVersion.V1:
-                channel = create_v1_channel(user_data, mqtt_params, mqtt_session, device)
+                channel = create_v1_channel(user_data, mqtt_params, mqtt_session, device, cache)
                 traits.append(StatusTrait(product, channel.rpc_channel))
             case DeviceVersion.A01:
                 mqtt_channel = create_mqtt_channel(user_data, mqtt_params, mqtt_session, device)
@@ -146,10 +161,13 @@ async def create_device_manager(user_data: UserData, home_data_api: HomeDataApi)
                         traits.append(ZeoApi(mqtt_channel))
                     case _:
                         raise NotImplementedError(f"Device {device.name} has unsupported category {product.category}")
+            case DeviceVersion.B01:
+                mqtt_channel = create_mqtt_channel(user_data, mqtt_params, mqtt_session, device)
+                traits.append(B01PropsApi(mqtt_channel))
             case _:
                 raise NotImplementedError(f"Device {device.name} has unsupported version {device.pv}")
         return RoborockDevice(device, channel, traits)
 
-    manager = DeviceManager(home_data_api, device_creator, mqtt_session=mqtt_session)
+    manager = DeviceManager(home_data_api, device_creator, mqtt_session=mqtt_session, cache=cache)
     await manager.discover_devices()
     return manager

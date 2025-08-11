@@ -1,5 +1,5 @@
 """
-Cython wrapper for the GzipReader and ParallelGzipReader C++ classes.
+Cython wrapper for the ParallelGzipReader C++ class.
 """
 
 from libc.stdlib cimport malloc, free
@@ -19,9 +19,15 @@ import enum
 import io
 import os
 import sys
+from typing import IO
 
 ctypedef (unsigned long long int) size_t
 ctypedef (long long int) lli
+
+# We need to ensure that zlib.h is the very first import, or else ZLIB_SYMBOL_PREFIX will wreak havoc because
+# the defines for 'crc32' will also replace stuff such as footer.crc32 but not the declaration!
+cdef extern from "zlib.h":
+    pass
 
 
 def _isFileObject(file):
@@ -53,7 +59,6 @@ cdef extern from "indexed_bzip2/BZ2Reader.hpp":
         BZ2Reader(PyObject*) except +
 
         bool eof() except +
-        int fileno() except +
         bool seekable() except +
         void close() except +
         bool closed() except +
@@ -75,7 +80,6 @@ cdef extern from "indexed_bzip2/ParallelBZ2Reader.hpp":
         ParallelBZ2Reader(PyObject*, size_t) except +
 
         bool eof() except +
-        int fileno() except +
         bool seekable() except +
         void close() except +
         bool closed() except +
@@ -110,11 +114,15 @@ cdef class _IndexedBzip2File():
             self.bz2reader = new BZ2Reader(<int>file.fileno())
         elif _isFileObject(file):
             self.bz2reader = new BZ2Reader(<PyObject*>file)
-        elif isinstance(file, basestring) and hasattr(file, 'encode'):
-            # Note that BytesIO also is an instance of basestring but fortunately has no encode method!
+        elif isinstance(file, bytes):
+            self.bz2reader = new BZ2Reader(<string>file)
+        elif isinstance(file, str) and hasattr(file, 'encode'):
+            # Note that BytesIO also is an instance of str but fortunately has no encode method!
             self.bz2reader = new BZ2Reader(<string>file.encode())
+        elif isinstance(file, os.PathLike):
+            self.bz2reader = new BZ2Reader(<string>bytes(file))
         else:
-            raise Exception("Expected file name string, file descriptor integer, or file-like object for BZ2Reader!")
+            raise ValueError("Expected file name string, file descriptor integer, or file-like object!")
 
     def __del__(self):
         if not self.closed():
@@ -129,11 +137,6 @@ cdef class _IndexedBzip2File():
 
     def closed(self):
         return self.bz2reader == NULL or self.bz2reader.closed()
-
-    def fileno(self):
-        if not self.bz2reader:
-            raise Exception("Invalid file object!")
-        return self.bz2reader.fileno()
 
     def seekable(self):
         return self.bz2reader != NULL and self.bz2reader.seekable()
@@ -213,13 +216,15 @@ cdef class _IndexedBzip2FileParallel():
             self.bz2reader = new ParallelBZ2Reader(<int>file.fileno(), <int>parallelization)
         elif _isFileObject(file):
             self.bz2reader = new ParallelBZ2Reader(<PyObject*>file, <int>parallelization)
-        elif isinstance(file, basestring) and hasattr(file, 'encode'):
-            # Note that BytesIO also is an instance of basestring but fortunately has no encode method!
+        elif isinstance(file, bytes):
+            self.bz2reader = new ParallelBZ2Reader(<string>file, <int>parallelization)
+        elif isinstance(file, str) and hasattr(file, 'encode'):
+            # Note that BytesIO also is an instance of str but fortunately has no encode method!
             self.bz2reader = new ParallelBZ2Reader(<string>file.encode(), <int>parallelization)
+        elif isinstance(file, os.PathLike):
+            self.bz2reader = new ParallelBZ2Reader(<string>bytes(file), <int>parallelization)
         else:
-            raise Exception("Expected file name string, file descriptor integer, "
-                            "or file-like object for ParallelBZ2Reader!")
-
+            raise ValueError("Expected file name string, file descriptor integer, or file-like object!")
 
     def __init__(self, *args, **kwargs):
         pass
@@ -234,11 +239,6 @@ cdef class _IndexedBzip2FileParallel():
 
     def closed(self):
         return self.bz2reader == NULL or self.bz2reader.closed()
-
-    def fileno(self):
-        if not self.bz2reader:
-            raise Exception("Invalid file object!")
-        return self.bz2reader.fileno()
 
     def seekable(self):
         if not self.bz2reader:
@@ -325,12 +325,6 @@ class IndexedBzip2FileRaw(io.RawIOBase):
 
         # IOBase provides sane default implementations for read, readline, readlines, readall, ...
 
-    def fileno(self):
-        try:
-            return self.bz2reader.fileno()
-        except Exception as exception:
-            raise io.UnsupportedOperation() from exception
-
     def close(self):
         if self.closed:
             return
@@ -384,7 +378,6 @@ cdef extern from "rapidgzip/ParallelGzipReader.hpp" namespace "rapidgzip":
         ParallelGzipReader(PyObject*, size_t, uint64_t, IOReadMethod) except +
 
         bool eof() except +
-        int fileno() except +
         bool seekable() except +
         void close() except +
         bool closed() except +
@@ -458,15 +451,22 @@ cdef class _RapidgzipFile():
             self.gzipReader = new ParallelGzipReader[RapidgzipChunkData](
                 <PyObject*>file, <size_t>parallelization, <uint64_t>chunk_size, <IOReadMethod>io_read_method
             )
-        elif isinstance(file, basestring) and hasattr(file, 'encode'):
-            # Note that BytesIO also is an instance of basestring but fortunately has no encode method!
+        elif isinstance(file, bytes):
+            self.gzipReader = new ParallelGzipReader[RapidgzipChunkData](
+                <string>file, <size_t>parallelization, <uint64_t>chunk_size, <IOReadMethod>io_read_method
+            )
+        elif isinstance(file, str) and hasattr(file, 'encode'):
+            # Note that BytesIO also is an instance of str but fortunately has no encode method!
             self.gzipReader = new ParallelGzipReader[RapidgzipChunkData](
                 <string>file.encode(), <size_t>parallelization, <uint64_t>chunk_size, <IOReadMethod>io_read_method
             )
+        elif isinstance(file, os.PathLike):
+            self.gzipReader = new ParallelGzipReader[RapidgzipChunkData](
+                <string>bytes(file), <size_t>parallelization, <uint64_t>chunk_size, <IOReadMethod>io_read_method
+            )
 
         if self.gzipReader == NULL:
-            raise Exception("Expected file name string, file descriptor integer, "
-                            "or file-like object for ParallelGzipReader!")
+            raise ValueError("Expected file name string, file descriptor integer, or file-like object!")
 
         self.gzipReader.setStatisticsEnabled(verbose);
         self.gzipReader.setShowProfileOnDestruction(verbose);
@@ -488,11 +488,6 @@ cdef class _RapidgzipFile():
 
     def closed(self):
         return self.gzipReader == NULL or self.gzipReader.closed()
-
-    def fileno(self):
-        if not self.gzipReader:
-            raise Exception("Invalid file object!")
-        return self.gzipReader.fileno()
 
     def seekable(self):
         return self.gzipReader != NULL and self.gzipReader.seekable()
@@ -632,12 +627,6 @@ class RapidgzipFile(io.RawIOBase):
 
         # IOBase provides sane default implementations for read, readline, readlines, readall, ...
 
-    def fileno(self):
-        try:
-            return self.gzipReader.fileno()
-        except Exception as exception:
-            raise io.UnsupportedOperation() from exception
-
     def close(self):
         if self.closed:
             return
@@ -664,11 +653,13 @@ def open(filename, parallelization = 0, verbose = False):
     return RapidgzipFile(filename, parallelization=parallelization, verbose=verbose)
 
 
-def determineFileType(fileOrPath):
-    if isinstance(fileOrPath, int) or isinstance(fileOrPath, str):
+def determineFileType(fileOrPath: Union[int, bytes, str, os.PathLike, IO[bytes]]):
+    if isinstance(fileOrPath, (int, bytes, str, os.PathLike)):
         with builtins.open(fileOrPath, "rb") as file:
             return determineFileTypeAsString(<PyObject*>file).decode()
-    return determineFileTypeAsString(<PyObject*>fileOrPath).decode()
+    if _isFileObject(fileOrPath):
+        return determineFileTypeAsString(<PyObject*>fileOrPath).decode()
+    raise ValueError("Expected file name string, file descriptor integer, or file-like object!")
 
 
 def cli():

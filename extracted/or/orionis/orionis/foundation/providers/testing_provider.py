@@ -1,6 +1,8 @@
 from orionis.container.providers.service_provider import ServiceProvider
 from orionis.test.contracts.unit_test import IUnitTest
 from orionis.test.core.unit_test import UnitTest
+from orionis.foundation.config.testing.entities.testing import Testing
+import os
 
 class TestingProvider(ServiceProvider):
     """
@@ -28,7 +30,38 @@ class TestingProvider(ServiceProvider):
         None
         """
 
-        self.app.singleton(IUnitTest, UnitTest, alias="core.orionis.testing")
+        # Create a Testing configuration instance from the application config
+        config = Testing(**self.app.config('testing'))
+
+        # Create a UnitTest instance
+        unit_test = UnitTest(
+            app=self.app
+        )
+
+        # Configure the UnitTest instance with settings from the Testing configuration
+        unit_test.configure(
+            verbosity=config.verbosity,
+            execution_mode=config.execution_mode,
+            max_workers=config.max_workers,
+            fail_fast=config.fail_fast,
+            print_result=config.print_result,
+            throw_exception=config.throw_exception,
+            persistent=config.persistent,
+            persistent_driver=config.persistent_driver,
+            web_report=config.web_report
+        )
+
+        # Discover tests based on the configuration
+        unit_test.discoverTests(
+            base_path=config.base_path,
+            folder_path=config.folder_path,
+            pattern=config.pattern,
+            test_name_pattern=config.test_name_pattern,
+            tags=config.tags
+        )
+
+        # Register the UnitTest instance in the application container
+        self.app.instance(IUnitTest, unit_test, alias="core.orionis.testing")
 
     def boot(self) -> None:
         """
@@ -42,4 +75,7 @@ class TestingProvider(ServiceProvider):
         None
         """
 
-        pass
+        # Ensure directory for testing storage exists
+        storage_path = self.app.path('storage_testing')
+        if not os.path.exists(storage_path):
+            os.makedirs(storage_path, exist_ok=True)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk8s-grafana
-Version: 0.1.709
+Version: 0.1.710
 Summary: Grafana construct for cdk8s.
 Home-page: https://github.com/cdk8s-team/cdk8s-grafana.git
 Author: Amazon Web Services

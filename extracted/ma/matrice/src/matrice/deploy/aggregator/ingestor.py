@@ -2,7 +2,7 @@ import logging
 import time
 import threading
 from typing import Dict, Optional, List, Tuple
-from queue import Empty, PriorityQueue
+from queue import Empty, PriorityQueue, Full
 from matrice.session import Session
 from matrice.deploy.utils.kafka_utils import MatriceKafkaDeployment
 import itertools
@@ -198,7 +198,7 @@ class ResultsIngestor:
                     input_streams = result_value.get("input_streams", [])
                     input_stream = input_streams[0]["input_stream"] if input_streams else {}
                     # input_order = input_stream.get("input_order")
-                    camera_info = input_stream.get("camera_info")
+                    camera_info = input_stream.get("camera_info") or {}
                     stream_key = camera_info.get("camera_name")
                     stream_group_key = camera_info.get("camera_group") or "default_group"
 
@@ -229,14 +229,23 @@ class ResultsIngestor:
                                 deployment_id
                             ] = results_queue.qsize()
 
-                    except Exception as exc:
+                    except Full:
                         # Queue is full, log warning and continue
                         logging.warning(
-                            f"Result queue full for deployment {deployment_id}, dropping result: {exc}"
+                            f"Result queue full for deployment {deployment_id}, dropping result"
                         )
                         with self._lock:
                             self.stats["errors"] += 1
                             self.stats["last_error"] = "Queue full"
+                            self.stats["last_error_time"] = time.time()
+                    except Exception as exc:
+                        # Other enqueue errors
+                        logging.error(
+                            f"Failed to enqueue result for deployment {deployment_id}: {exc}"
+                        )
+                        with self._lock:
+                            self.stats["errors"] += 1
+                            self.stats["last_error"] = str(exc)
                             self.stats["last_error_time"] = time.time()
 
             except Exception as exc:

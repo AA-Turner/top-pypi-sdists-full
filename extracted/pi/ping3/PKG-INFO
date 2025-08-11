@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ping3
-Version: 5.1.3
+Version: 5.1.5
 Summary: A pure python3 version of ICMP ping implementation using raw socket.
 Author-email: Kyan <kai@kyan001.com>
 License-Expression: MIT

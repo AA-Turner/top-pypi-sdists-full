@@ -7,6 +7,7 @@ Copyright 2022-2025, Levente Hunyadi
 """
 
 import logging
+import re
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,7 @@ import lxml.etree as ET
 
 from md2conf.drawio import extract_diagram, extract_xml_from_png, extract_xml_from_svg
 from md2conf.xml import is_xml_equal
+from tests.utility import TypedTestCase
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,12 +23,13 @@ logging.basicConfig(
 )
 
 
-class TestDrawio(unittest.TestCase):
+class TestDrawio(TypedTestCase):
     def test_bytes(self) -> None:
         image_dir = Path(__file__).parent / "source" / "figure"
         image_file = image_dir / "diagram.drawio.png"
         image = extract_diagram(image_file)
         self.assertGreater(len(image), 0)
+        self.assertIsNotNone(re.match(b"^<mxfile[^<>]*><diagram[^<>]*><mxGraphModel[^<>]*>.*</mxGraphModel></diagram></mxfile>$", image))
 
     def test_xml_from_png(self) -> None:
         image_dir = Path(__file__).parent / "source" / "figure"

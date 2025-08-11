@@ -7609,7 +7609,7 @@ __Pyx_RefNannySetupContext("PyInit__debug", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,2,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_6_debug_15_LoopBoundMixin_7__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_LoopBoundMixin___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives__debug, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[7])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -7727,7 +7727,7 @@ __Pyx_RefNannySetupContext("PyInit__debug", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,2,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,1,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_6_debug_17_DebugDaemonMixin_12__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_DebugDaemonMixin___reduce_cytho, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives__debug, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[16])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)

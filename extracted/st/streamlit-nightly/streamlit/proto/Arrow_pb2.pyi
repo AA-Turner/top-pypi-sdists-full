@@ -103,11 +103,11 @@ class Arrow(google.protobuf.message.Message):
     data: builtins.bytes
     """The serialized arrow dataframe"""
     width: builtins.int
-    """Width in pixels"""
+    """DEPRECATED: Width in pixels. Use Element.width_config instead."""
     height: builtins.int
-    """Height in pixels"""
+    """DEPRECATED: Height in pixels. Use Element.height_config instead."""
     use_container_width: builtins.bool
-    """If True, will overwrite the dataframe width to fit to container."""
+    """DEPRECATED: Use Element.width_config.use_stretch instead."""
     id: builtins.str
     """The id of the widget, this is required if the dataframe is editable"""
     columns: builtins.str

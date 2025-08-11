@@ -2244,6 +2244,7 @@ class NagMessageLevel(enum.Enum):
 
     WARN = "WARN"
     ERROR = "ERROR"
+    INFO = "INFO"
 
 
 @jsii.implements(_aws_cdk_ceddda9d.IAspect)

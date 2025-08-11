@@ -39,6 +39,7 @@ def exception_wrapper():
             ("MOVED" not in str(e)) and
             ("item exists" not in str(e)) and
             ("key already exists" not in str(e)) and
+            ("Keys in request don't hash to the same slot" not in str(e)) and
             (not ("TS." in str(e) and "the key does not exist" in str(e))) and
             (not ("BF." in str(e) and "received bad data" in str(e))) and
             (not ("CF." in str(e) and "Invalid header" in str(e))) and
@@ -51,8 +52,7 @@ def exception_wrapper():
             (not ("RENAME" in str(e) and "no such key" in str(e))) and
             (not ("RESTORE" in str(e))) and
             (not ("LSET" in str(e) and "index out of range" in str(e))) and
-            (not ("LSET" in str(e) and "no such key" in str(e))) and
-            (not (("MSET" in str(e) or "TS.MADD" in str(e)) and "Keys in request don't hash to the same slot" in str(e)))):
+            (not ("LSET" in str(e) and "no such key" in str(e)))):
             raise e
 
 class KeyedLimitedRandomQueue:

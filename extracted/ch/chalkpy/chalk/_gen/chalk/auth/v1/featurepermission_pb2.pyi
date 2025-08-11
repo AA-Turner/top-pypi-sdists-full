@@ -19,7 +19,7 @@ FEATURE_PERMISSION_ALLOW_INTERNAL: FeaturePermission
 FEATURE_PERMISSION_DENY: FeaturePermission
 
 class FeaturePermissions(_message.Message):
-    __slots__ = ("tags", "default_permission")
+    __slots__ = ("tags",)
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -31,11 +31,5 @@ class FeaturePermissions(_message.Message):
         ) -> None: ...
 
     TAGS_FIELD_NUMBER: _ClassVar[int]
-    DEFAULT_PERMISSION_FIELD_NUMBER: _ClassVar[int]
     tags: _containers.ScalarMap[str, FeaturePermission]
-    default_permission: FeaturePermission
-    def __init__(
-        self,
-        tags: _Optional[_Mapping[str, FeaturePermission]] = ...,
-        default_permission: _Optional[_Union[FeaturePermission, str]] = ...,
-    ) -> None: ...
+    def __init__(self, tags: _Optional[_Mapping[str, FeaturePermission]] = ...) -> None: ...

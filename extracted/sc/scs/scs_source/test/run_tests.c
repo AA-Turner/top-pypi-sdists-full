@@ -33,11 +33,29 @@ _SKIP(test_validation)
 
 /* solve SDPs, requires blas / lapack */
 #if defined(USE_LAPACK) && NO_READ_WRITE == 0
+#include "problems/complex_PSD.h"
 #include "problems/random_prob.h"
 #include "problems/rob_gauss_cov_est.h"
 #else
 _SKIP(rob_gauss_cov_est)
 _SKIP(random_prob)
+_SKIP(complex_PSD)
+#endif
+
+#if defined(USE_SPECTRAL_CONES) && NO_READ_WRITE == 0
+#include "spectral_cones_problems/exp_design.h"
+#include "spectral_cones_problems/graph_partitioning.h"
+#include "spectral_cones_problems/robust_pca.h"
+#include "spectral_cones_problems/several_logdet_cones.h"
+#include "spectral_cones_problems/several_nuc_cone.h"
+#include "spectral_cones_problems/several_sum_largest.h"
+#else
+_SKIP(exp_design)
+_SKIP(robust_pca)
+_SKIP(graph_partitioning)
+_SKIP(several_sum_largest)
+_SKIP(several_nuc_cone)
+_SKIP(several_logdet_cones)
 #endif
 
 #if NO_READ_WRITE == 0 /* reads / writes */
@@ -56,6 +74,7 @@ static const char *all_tests(void) {
   mu_run_test(small_lp);
   mu_run_test(small_qp);
   mu_run_test(rob_gauss_cov_est);
+  mu_run_test(complex_PSD);
   mu_run_test(hs21_tiny_qp);
   mu_run_test(hs21_tiny_qp_rw);
   mu_run_test(qafiro_tiny_qp);
@@ -65,6 +84,12 @@ static const char *all_tests(void) {
   mu_run_test(max_ent);
   mu_run_test(mpc_bug);
   mu_run_test(test_exp_cone);
+  mu_run_test(exp_design);
+  mu_run_test(robust_pca);
+  mu_run_test(graph_partitioning);
+  mu_run_test(several_sum_largest);
+  mu_run_test(several_nuc_cone);
+  mu_run_test(several_logdet_cones);
   return 0;
 }
 int main(void) {

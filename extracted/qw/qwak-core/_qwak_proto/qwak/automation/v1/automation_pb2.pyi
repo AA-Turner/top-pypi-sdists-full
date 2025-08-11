@@ -27,6 +27,7 @@ class Automation(google.protobuf.message.Message):
     CREATE_AUDIT_FIELD_NUMBER: builtins.int
     IS_DELETED_FIELD_NUMBER: builtins.int
     JFROG_TOKEN_ID_FIELD_NUMBER: builtins.int
+    PLATFORM_URL_FIELD_NUMBER: builtins.int
     automation_id: builtins.str
     """The automation ID"""
     @property
@@ -37,6 +38,8 @@ class Automation(google.protobuf.message.Message):
     def create_audit(self) -> global___AutomationAudit: ...
     is_deleted: builtins.bool
     jfrog_token_id: builtins.str
+    platform_url: builtins.str
+    """The platform URL for the artifactory"""
     def __init__(
         self,
         *,
@@ -46,9 +49,10 @@ class Automation(google.protobuf.message.Message):
         create_audit: global___AutomationAudit | None = ...,
         is_deleted: builtins.bool = ...,
         jfrog_token_id: builtins.str = ...,
+        platform_url: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["automation_spec", b"automation_spec", "create_audit", b"create_audit"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["automation_id", b"automation_id", "automation_spec", b"automation_spec", "create_audit", b"create_audit", "is_deleted", b"is_deleted", "jfrog_token_id", b"jfrog_token_id", "qwak_environment_id", b"qwak_environment_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["automation_id", b"automation_id", "automation_spec", b"automation_spec", "create_audit", b"create_audit", "is_deleted", b"is_deleted", "jfrog_token_id", b"jfrog_token_id", "platform_url", b"platform_url", "qwak_environment_id", b"qwak_environment_id"]) -> None: ...
 
 global___Automation = Automation
 

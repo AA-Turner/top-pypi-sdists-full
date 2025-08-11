@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for PagerDuty/pagerduty provider version 3.27.3
+# CDKTF prebuilt bindings for PagerDuty/pagerduty provider version 3.28.1
 
-This repo builds and publishes the [Terraform pagerduty provider](https://registry.terraform.io/providers/PagerDuty/pagerduty/3.27.3/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform pagerduty provider](https://registry.terraform.io/providers/PagerDuty/pagerduty/3.28.1/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform pagerduty provider version
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform pagerduty provider](https://registry.terraform.io/providers/PagerDuty/pagerduty/3.27.3)
+* [Terraform pagerduty provider](https://registry.terraform.io/providers/PagerDuty/pagerduty/3.28.1)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -171,6 +171,7 @@ __all__ = [
     "data_pagerduty_user_contact_method",
     "data_pagerduty_users",
     "data_pagerduty_vendor",
+    "enablement",
     "escalation_policy",
     "event_orchestration",
     "event_orchestration_global",
@@ -262,6 +263,7 @@ from . import data_pagerduty_user
 from . import data_pagerduty_user_contact_method
 from . import data_pagerduty_users
 from . import data_pagerduty_vendor
+from . import enablement
 from . import escalation_policy
 from . import event_orchestration
 from . import event_orchestration_global

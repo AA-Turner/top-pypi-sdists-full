@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: kiwisolver
-Version: 1.4.8
+Version: 1.4.9
 Summary: A fast implementation of the Cassowary constraint solver
 Author-email: The Nucleic Development Team <sccolbert@gmail.com>
 Maintainer-email: "Matthieu C. Dartiailh" <m.dartiailh@gmail.com>
@@ -10,7 +10,7 @@ License: =========================
         Kiwi is licensed under the terms of the Modified BSD License (also known as
         New or Revised BSD), as follows:
         
-        Copyright (c) 2013-2024, Nucleic Development Team
+        Copyright (c) 2013-2025, Nucleic Development Team
         
         All rights reserved.
         
@@ -69,7 +69,7 @@ License: =========================
         to indicate the copyright and license terms:
         
         #------------------------------------------------------------------------------
-        # Copyright (c) 2013-2024, Nucleic Development Team.
+        # Copyright (c) 2013-2025, Nucleic Development Team.
         #
         # Distributed under the terms of the Modified BSD License.
         #
@@ -87,11 +87,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 Welcome to Kiwi
 ===============

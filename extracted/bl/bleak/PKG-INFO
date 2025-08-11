@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bleak
-Version: 1.0.1
+Version: 1.1.0
 Summary: Bluetooth Low Energy platform Agnostic Klient
 License: MIT
 Author: Henrik Blidh
@@ -19,7 +19,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: pythonista
 Requires-Dist: async-timeout (>=3.0.0) ; python_version < "3.11"
+Requires-Dist: bleak-pythonista (>=0.1.1) ; extra == "pythonista"
 Requires-Dist: dbus-fast (>=1.83.0) ; platform_system == "Linux"
 Requires-Dist: pyobjc-core (>=10.3) ; platform_system == "Darwin"
 Requires-Dist: pyobjc-framework-CoreBluetooth (>=10.3) ; platform_system == "Darwin"

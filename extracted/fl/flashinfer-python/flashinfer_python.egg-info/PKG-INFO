@@ -1,21 +1,20 @@
 Metadata-Version: 2.4
 Name: flashinfer-python
-Version: 0.2.10
+Version: 0.2.11
 Summary: FlashInfer: Kernel Library for LLM Serving
 Author: FlashInfer team
 Project-URL: Homepage, https://github.com/flashinfer-ai/flashinfer
 Requires-Python: <4.0,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
+License-File: NOTICE
 Requires-Dist: numpy
 Requires-Dist: torch
 Requires-Dist: ninja
 Requires-Dist: requests
-Requires-Dist: cuda-python
+Requires-Dist: cuda-python<=12.9
 Requires-Dist: pynvml
 Requires-Dist: einops
-Requires-Dist: nvidia-nvshmem-cu12
-Requires-Dist: nvidia-cudnn-cu12
 Requires-Dist: nvidia-cudnn-frontend>=1.13.0
 Dynamic: license-file
 Dynamic: requires-dist

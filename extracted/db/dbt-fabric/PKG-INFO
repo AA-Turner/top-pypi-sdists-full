@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt-fabric
-Version: 1.9.5
+Version: 1.9.6
 Summary: A Microsoft Fabric Synapse Data Warehouse adapter plugin for dbt
 Home-page: https://github.com/microsoft/dbt-fabric
 Author: Pradeep Srikakolapu

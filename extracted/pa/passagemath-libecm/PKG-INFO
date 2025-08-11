@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-libecm
-Version: 10.6.2
+Version: 10.6.3
 Summary: passagemath: Elliptic curve method for integer factorization using GMP-ECM
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -28,17 +28,17 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-conf~=10.6.2.0; sys_platform != "win32"
-Requires-Dist: passagemath-objects~=10.6.2.0
-Requires-Dist: passagemath-categories~=10.6.2.0
-Requires-Dist: passagemath-environment~=10.6.2.0
+Requires-Dist: passagemath-conf~=10.6.3.0; sys_platform != "win32"
+Requires-Dist: passagemath-objects~=10.6.3.0
+Requires-Dist: passagemath-categories~=10.6.3.0
+Requires-Dist: passagemath-environment~=10.6.3.0
 Requires-Dist: memory_allocator
 Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Provides-Extra: test
-Requires-Dist: passagemath-repl~=10.6.2.0; extra == "test"
+Requires-Dist: passagemath-repl~=10.6.3.0; extra == "test"
 Provides-Extra: pari
-Requires-Dist: passagemath-pari~=10.6.2.0; extra == "pari"
+Requires-Dist: passagemath-pari~=10.6.3.0; extra == "pari"
 
 =======================================================================================================
  passagemath: Elliptic curve method for integer factorization using GMP-ECM

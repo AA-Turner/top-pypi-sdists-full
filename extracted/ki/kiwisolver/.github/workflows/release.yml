@@ -89,7 +89,7 @@ jobs:
       - name: Install cibuildwheel
         run: |
           python -m pip install --upgrade pip
-          python -m pip install wheel cibuildwheel
+          python -m pip install wheel cibuildwheel==3.1.1
       - name: Build wheels
         if: matrix.manylinux_version == 'manylinux2010'
         env:
@@ -97,8 +97,8 @@ jobs:
           CIBW_ARCHS_MACOS: x86_64 universal2 arm64
           CIBW_ARCHS_LINUX: ${{ matrix.archs }}
           CIBW_ARCHS_WINDOWS: auto64
-          CIBW_MANYLINUX_X86_64_IMAGE: manylinux2010
-          CIBW_MANYLINUX_I686_IMAGE: manylinux2010
+          CIBW_MANYLINUX_X86_64_IMAGE: quay.io/pypa/manylinux2010_x86_64
+          CIBW_MANYLINUX_I686_IMAGE: quay.io/pypa/manylinux2010_i686
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: python -m pytest {package}/py/tests -v
         run: |
@@ -106,9 +106,9 @@ jobs:
       - name: Build wheels
         if: matrix.manylinux_version == 'manylinux2014'
         env:
-          CIBW_BUILD: "cp311-* cp312-* cp313-* cp313t-* pp310-*"
+          CIBW_BUILD: "cp311-* cp312-* cp313-* cp313t-* cp314-* cp314t-* pp310-* pp311-*"
           CIBW_SKIP: "cp313t-win*"
-          CIBW_ENABLE: cpython-freethreading
+          CIBW_ENABLE: cpython-freethreading pypy
           CIBW_ARCHS_MACOS: x86_64 universal2 arm64
           CIBW_ARCHS_LINUX: ${{ matrix.archs }}
           CIBW_ARCHS_WINDOWS: auto64
@@ -121,7 +121,8 @@ jobs:
       - name: Build wheels
         if: runner.os == 'Windows' && matrix.archs == 'ARM64'
         env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp313t-* cp314-* cp314t-*"
+          CIBW_ENABLE: cpython-freethreading
           CIBW_ARCHS_WINDOWS: ${{ matrix.archs }}
           # It is not yet possible to run ARM64 tests, only cross-compile them.
           CIBW_TEST_SKIP: "*-win_arm64"
@@ -139,6 +140,11 @@ jobs:
     if: github.event_name == 'push'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/kiwisolver
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v4.1.7
         with:
@@ -147,11 +153,6 @@ jobs:
           merge-multiple: true
 
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.pypi_password }}
-          # To test:
-          # repository_url: https://test.pypi.org/legacy/
 
   github-release:
     name: >-
@@ -173,9 +174,8 @@ jobs:
         path: dist
         merge-multiple: true
     - name: Sign the dists with Sigstore
-      uses: sigstore/gh-action-sigstore-python@v2.1.0
+      uses: sigstore/gh-action-sigstore-python@v3.0.1
       with:
-        password: ${{ secrets.pypi_password }}
         inputs: >-
           ./dist/*.tar.gz
           ./dist/*.whl

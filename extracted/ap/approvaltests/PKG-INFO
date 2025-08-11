@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approvaltests
-Version: 15.0.0
+Version: 15.1.0
 Summary: Assertion/verification library to aid testing
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
@@ -31,7 +31,7 @@ Requires-Dist: beautifulsoup4>=4.4.0
 Requires-Dist: allpairspy>=2.1.0
 Requires-Dist: testfixtures>=7.1.0
 Requires-Dist: mock>=5.1.0
-Requires-Dist: approval_utilities==15.0.0
+Requires-Dist: approval_utilities==15.1.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -315,7 +315,9 @@ If there is documentation you wish existed, please add a `page request` to [this
 
 ### Dependencies
 
-ApprovalTests require Python 3.8 or greater and the following dependencies:
+ApprovalTests is tested on the following Python versions: 3.8, 3.9, 3.10, 3.11, 3.12, 3.13.<!-- singleLineInclude: tests/approved_files/test_workflow_matrix.test_workflow_matrix_python_versions.approved.txt -->
+
+ApprovalTests requires the following dependencies:
 
 #### Required dependencies
 

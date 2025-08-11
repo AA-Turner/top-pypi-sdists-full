@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: demisto-sdk
-Version: 1.38.8
+Version: 1.38.9
 Summary: "A Python library for the Demisto SDK"
 License: MIT
 Author: Demisto
@@ -41,6 +41,7 @@ Requires-Dist: gsutil (==5.17) ; extra == "build"
 Requires-Dist: imagesize (>=1.3.0,<2.0.0)
 Requires-Dist: importlib-resources (>=5.6.0,<6.0.0)
 Requires-Dist: inflection (>=0.5.1,<0.6.0)
+Requires-Dist: jira (>=3.8.0,<4.0.0)
 Requires-Dist: json5 (>=0.9.14,<0.10.0)
 Requires-Dist: jsonschema (>=4.4.0,<5.0.0)
 Requires-Dist: junitparser (>=3.1.0,<4.0.0)
@@ -66,6 +67,7 @@ Requires-Dist: pylint (>=3.3.2,<4.0.0)
 Requires-Dist: pyspellchecker (>=0.6.3,<0.7.0)
 Requires-Dist: pytest-freezegun (>=0.4.2,<0.5.0)
 Requires-Dist: python-dotenv (>=0.20.0,<0.21.0)
+Requires-Dist: python-gitlab (>=3.0.0,<4.0.0)
 Requires-Dist: requests (>=2.27.1,<3.0.0)
 Requires-Dist: ruamel.yaml (>=0.17.21,<0.18.0)
 Requires-Dist: setuptools (>=80.9.0)

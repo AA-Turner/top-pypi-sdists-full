@@ -257,7 +257,7 @@ class ResultsAggregator:
 
         # Check if output queue is getting full
         queue_size = self.aggregated_results_queue.qsize()
-        if queue_size > 0:
+        if queue_size > 1000:
             health["status"] = "degraded"
             health["reason"] = f"Output queue too large ({queue_size} items)"
             logging.warning(f"Aggregator degraded: output queue has {queue_size} items (threshold: 100)")

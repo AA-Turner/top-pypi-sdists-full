@@ -18,6 +18,10 @@ class HashGen(BaseGen):
     def hset(self, pipe: redis.client.Pipeline, key: str) -> None:
         fields = {self._rand_str(self.subkey_size): self._rand_str(self.subval_size) for _ in range(random.randint(1, self.max_subelements))}
         pipe.hset(key, mapping=fields)
+
+    @cg_method(cmd_type="hash", can_create_key=True)
+    def hmset(self, pipe: redis.client.Pipeline, key: str) -> None:
+        self.hset(pipe, key)
     
     @cg_method(cmd_type="hash", can_create_key=True)
     def hincrby(self, pipe: redis.client.Pipeline, key: str) -> None:

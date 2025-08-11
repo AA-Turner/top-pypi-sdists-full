@@ -1,42 +1,8 @@
-"""
-Orionis Framework Test Examples
-===============================
-
-This module contains comprehensive test examples demonstrating the capabilities
-of the Orionis testing framework, including both synchronous and asynchronous
-testing patterns with dependency injection.
-
-Examples:
---------
-    Run synchronous tests:
-        >>> from tests.example.test_example import TestSynchronousExample
-        >>> test = TestSynchronousExample()
-        >>> test.setUp()
-        >>> test.testBasicAssertions()
-
-    Run asynchronous tests:
-        >>> from tests.example.test_example import TestAsynchronousExample
-        >>> test = TestAsynchronousExample()
-        >>> await test.asyncSetUp()
-        >>> await test.testAsyncBasicOperations()
-
-Notes:
------
-    These examples showcase:
-    - Dependency injection patterns
-    - Path resolution services
-    - Container integration
-    - Error handling strategies
-    - Data validation techniques
-    - Concurrent operations
-    - Async/await patterns
-"""
-
 import asyncio
 import time
 from typing import Dict, List, Any
 from orionis.foundation.application import Application
-from orionis.services.paths.contracts.resolver import IResolver
+from orionis.services.system.contracts.workers import IWorkers
 from orionis.test.cases.asynchronous import AsyncTestCase
 from orionis.test.cases.synchronous import SyncTestCase
 
@@ -48,44 +14,6 @@ class TestSynchronousExample(SyncTestCase):
     path resolution, container usage, and error handling in a synchronous context.
     The tests demonstrate best practices for writing maintainable and reliable
     test cases within the Orionis framework.
-
-    Attributes
-    ----------
-    test_data : Dict[str, Any]
-        Test data dictionary containing sample files and expected values
-        for use across multiple test methods.
-
-    Methods
-    -------
-    setUp()
-        Initialize test environment before each test method execution.
-    tearDown()
-        Clean up resources after each test method completion.
-    testBasicAssertions()
-        Validate basic assertion functionality and patterns.
-    testPathResolution(paths)
-        Test path resolution service functionality with dependency injection.
-    testContainerIntegration(container)
-        Validate container dependency injection capabilities.
-    testErrorHandling()
-        Test error handling and exception management patterns.
-    testDataValidation()
-        Validate data validation and complex assertion patterns.
-
-    Examples
-    --------
-    Basic usage:
-        >>> test = TestSynchronousExample()
-        >>> test.setUp()
-        >>> test.testBasicAssertions()
-        >>> test.tearDown()
-
-    With dependency injection:
-        >>> test = TestSynchronousExample()
-        >>> test.setUp()
-        >>> # Path resolver will be injected automatically
-        >>> test.testPathResolution(resolver_instance)
-        >>> test.tearDown()
     """
 
     def setUp(self) -> None:
@@ -156,90 +84,112 @@ class TestSynchronousExample(SyncTestCase):
             "Unexpected value found in container"
         )
 
-    def testPathResolution(self, paths: IResolver) -> None:
+    def testMaxWorkers(self, worker: IWorkers) -> None:
         """
-        Test path resolution service functionality with dependency injection.
+        Test worker service functionality with dependency injection.
 
-        Validates the path resolution service by testing relative path creation
-        and string conversion operations. This method demonstrates how dependency
-        injection works within the Orionis testing framework.
+        Validates the worker service's ability to calculate the maximum number
+        of available workers in the system. This method demonstrates dependency
+        injection capabilities with the IWorkers service and ensures proper
+        worker count calculation functionality.
 
         Parameters
         ----------
-        paths : IResolver
-            Injected path resolver service instance for testing path operations.
-            This parameter is automatically injected by the testing framework
-            based on the type annotation.
+        worker : IWorkers
+            Injected worker service instance for testing worker calculation
+            capabilities. The service provides methods for determining optimal
+            worker counts based on system resources.
+
+        Returns
+        -------
+        None
+            This test method does not return any value. It performs assertions
+            to validate the worker service functionality.
 
         Tests
         -----
-        - Relative path creation from string path
-        - Path string conversion and format validation
-        - Path ending validation
-        - Path content validation
+        - Worker service instance validation
+        - Worker count calculation functionality
+        - Worker count positive value validation
+        - Service method execution through dependency injection
 
         Raises
         ------
         AssertionError
-            If path resolution fails or returns unexpected results.
+            If worker count calculation fails, returns invalid values, or
+            the calculated worker count is not greater than zero.
         """
-        # Test relative path resolution
-        relative_path = paths.relativePath(self.test_data["sample_file"])
-        path_string = relative_path.toString()
 
-        # Verify path resolution results
-        self.assertTrue(
-            path_string.endswith("test_example.py"),
-            "Path should end with test_example.py"
-        )
-        self.assertIn(
-            "test_example.py",
-            path_string,
-            "Path should contain expected directory structure"
+        # Calculate maximum available workers using the injected service
+        max_workers = worker.calculate()
+
+        # Validate that worker count is greater than zero
+        self.assertGreater(
+            max_workers,
+            0,
+            "Worker count should be greater than zero"
         )
 
     def testContainerIntegration(self, container: Application) -> None:
         """
         Test container dependency injection functionality.
 
-        Validates the container's ability to resolve services and manage
-        dependencies. This method demonstrates the dependency injection
-        capabilities of the Orionis application container.
+        Validates the application container's ability to resolve services and manage
+        dependencies correctly. This method demonstrates the dependency injection
+        capabilities of the Orionis application container, including service
+        registration, resolution, and lifecycle management. The test ensures that
+        the container can successfully instantiate and provide service instances
+        when requested through the dependency injection mechanism.
 
         Parameters
         ----------
         container : Application
             Injected application container instance for testing dependency
-            injection capabilities. The container manages service resolution
-            and dependency lifecycle.
+            injection capabilities. The container manages service resolution,
+            dependency lifecycle, and provides access to registered services
+            throughout the application.
+
+        Returns
+        -------
+        None
+            This test method does not return any value. It performs assertions
+            to validate the container's dependency injection functionality.
 
         Tests
         -----
-        - Container instance validation
-        - Service resolution from container
-        - Service functionality validation through container
-        - Dependency lifecycle management
+        - Container instance validation and null checking
+        - Service resolution from container using interface contracts
+        - Service functionality validation through container-resolved instances
+        - Dependency lifecycle management and proper instantiation
+        - Interface-to-implementation mapping verification
 
         Raises
         ------
         AssertionError
-            If container operations fail or services cannot be resolved.
+            If container operations fail, services cannot be resolved, or
+            the container instance is invalid or None.
+
+        Notes
+        -----
+        This test validates the core dependency injection functionality that
+        is essential for the Orionis framework's service architecture. The
+        container must be able to resolve services using their interface
+        contracts and provide properly configured instances.
         """
-        # Test container instance validation
+
+        # Validate that the injected container instance is not None
+        # This ensures the dependency injection framework is working correctly
         self.assertIsNotNone(container, "Container instance should not be None")
 
-        # Test service resolution from container
-        path_resolver: IResolver = container.make(IResolver)
-        self.assertIsNotNone(
-            path_resolver,
-            "Service resolution should return valid instance"
-        )
+        # Attempt to resolve the IWorkers service from the container
+        # This tests the container's ability to map interfaces to implementations
+        workers: IWorkers = container.make(IWorkers)
 
-        # Test service functionality through container
-        test_path = path_resolver.relativePath("README.md")
+        # Verify that the service resolution was successful
+        # The container should return a valid instance implementing IWorkers
         self.assertIsNotNone(
-            test_path,
-            "Service method execution should return valid result"
+            workers,
+            "Service resolution should return valid instance"
         )
 
     def testErrorHandling(self) -> None:
@@ -436,54 +386,50 @@ class TestAsynchronousExample(AsyncTestCase):
             "Async sleep duration should not exceed maximum time tolerance"
         )
 
-    async def testAsyncPathResolution(self, paths: IResolver) -> None:
+    async def testAsyncMaxWorkers(self, worker: IWorkers) -> None:
         """
-        Test async path resolution service functionality with dependency injection.
+        Test async worker service functionality with dependency injection.
 
-        Validates async path resolution operations by simulating async I/O
-        operations and testing path resolution in an asynchronous context.
+        Validates async worker operations by simulating async I/O
+        operations and testing worker calculation in an asynchronous context.
         This method demonstrates async dependency injection patterns.
 
         Parameters
         ----------
-        paths : IResolver
-            Injected path resolver service instance for async path operations.
+        worker : IWorkers
+            Injected worker service instance for async worker operations.
             This parameter is automatically injected by the async testing framework.
 
         Tests
         -----
-        - Async path resolution with simulated I/O delay
-        - Path string conversion in async context
-        - Path validation in async operations
+        - Async worker calculation with simulated I/O delay
+        - Worker count validation in async context
+        - Worker validation in async operations
         - Async service method execution
 
         Raises
         ------
         AssertionError
-            If async path resolution fails or returns unexpected results.
+            If async worker calculation fails or returns unexpected results.
         """
-        async def resolve_path_async(path_name: str) -> str:
+        async def calculate_workers_async() -> int:
             """
-            Simulate async path resolution with I/O delay.
-
-            Parameters
-            ----------
-            path_name : str
-                Path name to resolve asynchronously.
+            Simulate async worker calculation with I/O delay.
 
             Returns
             -------
-            str
-                Resolved path as string.
+            int
+                Calculated maximum workers count.
             """
             await asyncio.sleep(0.01)  # Simulate async I/O operation
-            return paths.relativePath(path_name).toString()
+            return worker.calculate()
 
-        # Test async path resolution
-        resolved_path = await resolve_path_async("tests/example/test_example.py")
-        self.assertTrue(
-            resolved_path.endswith("test_example.py"),
-            "Async path resolution should return correct file ending"
+        # Test async worker calculation
+        max_workers = await calculate_workers_async()
+        self.assertGreater(
+            max_workers,
+            0,
+            "Async worker calculation should return positive value"
         )
 
     async def testConcurrentOperations(self) -> None:
@@ -602,64 +548,108 @@ class TestAsynchronousExample(AsyncTestCase):
         """
         Test async container dependency injection functionality.
 
-        Validates the container's ability to resolve services in async
-        contexts and manage async dependencies. This method demonstrates
-        async dependency injection patterns and service resolution.
+        Validates the application container's ability to resolve services and manage
+        dependencies in asynchronous contexts. This method demonstrates async dependency
+        injection patterns, service resolution capabilities, and validates that the
+        container can properly handle service lifecycle management in async environments.
+        The test ensures that services resolved through the container maintain their
+        functionality when used in asynchronous operations.
 
         Parameters
         ----------
         container : Application
-            Injected application container instance for testing async
-            dependency injection capabilities.
+            Injected application container instance for testing async dependency
+            injection capabilities. The container manages service resolution,
+            dependency lifecycle, and provides access to registered services
+            throughout the async application context.
+
+        Returns
+        -------
+        None
+            This test method does not return any value. It performs assertions
+            to validate the container's async dependency injection functionality
+            and service resolution capabilities in asynchronous contexts.
 
         Tests
         -----
-        - Async service resolution from container
-        - Async service method execution
-        - Async dependency lifecycle management
-        - Async service functionality validation
+        - Async service resolution from container using interface contracts
+        - Service instance validation after async resolution
+        - Async service method execution and functionality verification
+        - Dependency lifecycle management in async contexts
+        - Interface-to-implementation mapping in async scenarios
 
         Raises
         ------
         AssertionError
-            If async container operations fail or services cannot be resolved.
+            If async container operations fail, services cannot be resolved,
+            service methods return invalid results, or the container instance
+            fails to properly manage async dependencies.
+
+        Notes
+        -----
+        This test validates the core async dependency injection functionality
+        that is essential for the Orionis framework's async service architecture.
+        The container must be able to resolve services using their interface
+        contracts and provide properly configured instances that work correctly
+        in asynchronous execution contexts.
         """
-        async def resolve_service_async() -> IResolver:
+        async def resolve_service_async() -> IWorkers:
             """
-            Simulate async service resolution.
+            Simulate async service resolution with I/O delay.
+
+            Demonstrates async service resolution from the container while
+            simulating real-world async I/O operations that might occur
+            during service instantiation or configuration.
 
             Returns
             -------
-            IResolver
-                Resolved path resolver service instance.
+            IWorkers
+                Resolved worker service instance implementing the IWorkers interface.
             """
+            # Simulate async I/O operation that might occur during service resolution
             await asyncio.sleep(0.01)
-            return container.make(IResolver)
+            # Resolve the IWorkers service from the injected container
+            return container.make(IWorkers)
 
-        # Test async service resolution
-        path_resolver = await resolve_service_async()
+        # Test async service resolution from the container
+        # This validates that the container can resolve services in async contexts
+        worker_service = await resolve_service_async()
+
+        # Verify that the async service resolution was successful
+        # The container should return a valid instance implementing IWorkers
         self.assertIsNotNone(
-            path_resolver,
+            worker_service,
             "Async service resolution should return valid instance"
         )
 
-        async def use_service_async() -> str:
+        async def use_service_async() -> int:
             """
-            Simulate async service method execution.
+            Simulate async service method execution with I/O delay.
+
+            Demonstrates using a resolved service in an async context while
+            simulating real-world async operations that might be performed
+            by the service methods.
 
             Returns
             -------
-            str
-                Result from async service method call.
+            int
+                Result from async service method call representing worker count.
             """
+            # Simulate async I/O operation that might occur during service usage
             await asyncio.sleep(0.01)
-            return path_resolver.relativePath("README.md").toString()
+            # Execute the calculate method on the resolved worker service
+            return worker_service.calculate()
 
-        # Test async service method execution
+        # Test async service method execution after resolution
+        # This validates that resolved services function properly in async contexts
         result = await use_service_async()
-        self.assertTrue(
-            result.endswith("README.md"),
-            "Async service method execution should return correct result"
+
+        # Verify that the async service method execution returns expected results
+        # The worker calculation should return a positive integer representing available workers
+        self.assertGreater(
+            result,
+            0,
+            "Async service method execution should return positive worker count"
         )
 
     async def testAsyncDataProcessing(self) -> None:

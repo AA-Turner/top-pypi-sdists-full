@@ -34,6 +34,7 @@ from deepeval.utils import (
     should_skip_on_missing_params,
     should_use_cache,
     should_verbose_print,
+    get_identifier,
 )
 from deepeval.telemetry import capture_evaluation_run
 from deepeval.metrics import (
@@ -101,6 +102,7 @@ def assert_test(
                     skip_on_missing_params=should_skip_on_missing_params(),
                     throttle_value=0,
                     max_concurrent=100,
+                    identifier=get_identifier(),
                     _use_bar_indicator=True,
                     _is_assert_test=True,
                 )
@@ -114,6 +116,7 @@ def assert_test(
                 show_indicator=True,
                 save_to_disk=get_is_running_deepeval(),
                 skip_on_missing_params=should_skip_on_missing_params(),
+                identifier=get_identifier(),
                 _use_bar_indicator=False,
                 _is_assert_test=True,
             )[0]
@@ -134,6 +137,7 @@ def assert_test(
                     max_concurrent=100,
                     save_to_disk=get_is_running_deepeval(),
                     show_indicator=True,
+                    identifier=get_identifier(),
                     _use_bar_indicator=True,
                     _is_assert_test=True,
                 )
@@ -148,6 +152,7 @@ def assert_test(
                 verbose_mode=should_verbose_print(),
                 save_to_disk=get_is_running_deepeval(),
                 show_indicator=True,
+                identifier=get_identifier(),
                 _use_bar_indicator=False,
                 _is_assert_test=True,
             )[0]
@@ -178,11 +183,9 @@ def assert_test(
 
 
 def evaluate(
-    test_cases: Optional[
-        Union[
-            List[LLMTestCase], List[ConversationalTestCase], List[MLLMTestCase]
-        ]
-    ] = None,
+    test_cases: Union[
+        List[LLMTestCase], List[ConversationalTestCase], List[MLLMTestCase]
+    ],
     metrics: Optional[
         Union[
             List[BaseMetric],
@@ -190,6 +193,8 @@ def evaluate(
             List[BaseMultimodalMetric],
         ]
     ] = None,
+    # Evals on Confident AI
+    metric_collection: Optional[str] = None,
     hyperparameters: Optional[Dict[str, Union[str, int, float, Prompt]]] = None,
     # agnostic
     identifier: Optional[str] = None,
@@ -202,6 +207,7 @@ def evaluate(
     validate_evaluate_inputs(
         test_cases=test_cases,
         metrics=metrics,
+        metric_collection=metric_collection,
     )
     check_valid_test_cases_type(test_cases)
 

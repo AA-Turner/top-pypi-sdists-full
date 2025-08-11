@@ -32,6 +32,7 @@ class UpdateGcpTriggerJsonBody:
         delivery_type (Union[Unset, UpdateGcpTriggerJsonBodyDeliveryType]):
         delivery_config (Union[Unset, UpdateGcpTriggerJsonBodyDeliveryConfig]):
         enabled (Union[Unset, bool]):
+        auto_acknowledge_msg (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdateGcpTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the script
             or flow
@@ -49,6 +50,7 @@ class UpdateGcpTriggerJsonBody:
     delivery_type: Union[Unset, UpdateGcpTriggerJsonBodyDeliveryType] = UNSET
     delivery_config: Union[Unset, "UpdateGcpTriggerJsonBodyDeliveryConfig"] = UNSET
     enabled: Union[Unset, bool] = UNSET
+    auto_acknowledge_msg: Union[Unset, bool] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "UpdateGcpTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "UpdateGcpTriggerJsonBodyRetry"] = UNSET
@@ -73,6 +75,7 @@ class UpdateGcpTriggerJsonBody:
             delivery_config = self.delivery_config.to_dict()
 
         enabled = self.enabled
+        auto_acknowledge_msg = self.auto_acknowledge_msg
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -104,6 +107,8 @@ class UpdateGcpTriggerJsonBody:
             field_dict["delivery_config"] = delivery_config
         if enabled is not UNSET:
             field_dict["enabled"] = enabled
+        if auto_acknowledge_msg is not UNSET:
+            field_dict["auto_acknowledge_msg"] = auto_acknowledge_msg
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -152,6 +157,8 @@ class UpdateGcpTriggerJsonBody:
 
         enabled = d.pop("enabled", UNSET)
 
+        auto_acknowledge_msg = d.pop("auto_acknowledge_msg", UNSET)
+
         error_handler_path = d.pop("error_handler_path", UNSET)
 
         _error_handler_args = d.pop("error_handler_args", UNSET)
@@ -180,6 +187,7 @@ class UpdateGcpTriggerJsonBody:
             delivery_type=delivery_type,
             delivery_config=delivery_config,
             enabled=enabled,
+            auto_acknowledge_msg=auto_acknowledge_msg,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

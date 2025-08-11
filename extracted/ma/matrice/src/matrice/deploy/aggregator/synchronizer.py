@@ -36,12 +36,12 @@ class ResultsSynchronizer:
         self._synchronization_thread = None
 
         # Synchronization state
-        # Structure: {(stream_key, session_id, input_order): {deployment_id: result, ...}}
-        self._pending_results: Dict[Tuple[str, int, int], Dict[str, Dict]] = defaultdict(
+        # Structure: {(stream_group_key, stream_key, input_order): {deployment_id: result, ...}}
+        self._pending_results: Dict[Tuple[str, str, int], Dict[str, Dict]] = defaultdict(
             dict
         )
         # Track when each key combination was first seen
-        self._result_timestamps: Dict[Tuple[str, int, int], float] = {}
+        self._result_timestamps: Dict[Tuple[str, str, int], float] = {}
 
         # Statistics
         self.stats = {
@@ -113,7 +113,7 @@ class ResultsSynchronizer:
 
     def _create_synchronized_result(
         self,
-        key: Tuple[str, int, int],
+        key: Tuple[str, str, int],
         deployment_results: Dict[str, Dict],
         is_complete: bool,
         is_timeout: bool,
@@ -204,11 +204,17 @@ class ResultsSynchronizer:
                     # Update statistics
                     if is_complete:
                         self.stats["complete_syncs"] += 1
-                        logging.debug(f"Complete sync for stream {key[0]}, session {key[1]}, order {key[2]} with {len(deployment_results)} deployments")
+                        stream_group_key, stream_key, input_order = key
+                        logging.debug(
+                            f"Complete sync for group {stream_group_key}, stream {stream_key}, "
+                            f"order {input_order} with {len(deployment_results)} deployments"
+                        )
                     else:
                         self.stats["partial_syncs"] += 1
+                        stream_group_key, stream_key, input_order = key
                         logging.warning(
-                            f"Partial sync for stream {key[0]}, session {key[1]}, order {key[2]}: {len(deployment_results)}/{len(self.deployment_ids)} deployments "
+                            f"Partial sync for group {stream_group_key}, stream {stream_key}, "
+                            f"order {input_order}: {len(deployment_results)}/{len(self.deployment_ids)} deployments "
                             f"(timeout after {result_age:.2f}s)"
                         )
 
@@ -230,8 +236,9 @@ class ResultsSynchronizer:
                 self.stats["results_synchronized"] += 1
 
             logging.debug(
-                f"Sent synchronized result for stream {synchronized_result['stream_key']}, "
-                f"session {synchronized_result['session_id']}, order {synchronized_result['input_order']}"
+                f"Sent synchronized result for group {synchronized_result.get('stream_group_key')}, "
+                f"stream {synchronized_result['stream_key']}, "
+                f"order {synchronized_result['input_order']}"
             )
 
         except Exception as exc:

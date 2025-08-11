@@ -12,13 +12,13 @@ from typing import Optional
 
 from .api import ConfluenceContentProperty, ConfluenceLabel, ConfluenceSession, ConfluenceStatus
 from .converter import ConfluenceDocument, attachment_name, get_volatile_attributes, get_volatile_elements
-from .csf import elements_from_string
+from .csf import AC_ATTR, elements_from_string
 from .domain import ConfluenceDocumentOptions, ConfluencePageID
 from .extra import override, path_relative_to
 from .metadata import ConfluencePageMetadata
 from .processor import Converter, DocumentNode, Processor, ProcessorFactory
 from .properties import PageError
-from .xml import is_xml_equal
+from .xml import is_xml_equal, unwrap_substitute
 
 LOGGER = logging.getLogger(__name__)
 
@@ -116,18 +116,20 @@ class SynchronizingProcessor(Processor):
         """
 
         base_path = path.parent
-        for image_path in document.images:
+        for image_data in document.images:
             self.api.upload_attachment(
                 page_id.page_id,
-                attachment_name(path_relative_to(image_path, base_path)),
-                attachment_path=image_path,
+                attachment_name(path_relative_to(image_data.path, base_path)),
+                attachment_path=image_data.path,
+                comment=image_data.description,
             )
 
-        for name, data in document.embedded_files.items():
+        for name, file_data in document.embedded_files.items():
             self.api.upload_attachment(
                 page_id.page_id,
                 name,
-                raw_data=data,
+                raw_data=file_data.data,
+                comment=file_data.description,
             )
 
         content = document.xhtml()
@@ -152,10 +154,14 @@ class SynchronizingProcessor(Processor):
         if not title:  # empty or `None`
             title = page.title
 
+        # discard comments
+        tree = elements_from_string(page.content)
+        unwrap_substitute(AC_ATTR("inline-comment-marker"), tree)
+
         # check if page has any changes
         if page.title != title or not is_xml_equal(
             document.root,
-            elements_from_string(page.content),
+            tree,
             skip_attributes=get_volatile_attributes(),
             skip_elements=get_volatile_elements(),
         ):

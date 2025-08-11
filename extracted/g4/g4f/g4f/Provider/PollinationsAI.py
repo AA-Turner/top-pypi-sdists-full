@@ -13,7 +13,7 @@ from .helper import filter_none, format_media_prompt
 from .base_provider import AsyncGeneratorProvider, ProviderModelMixin
 from ..typing import AsyncResult, Messages, MediaListType
 from ..image import is_data_an_audio
-from ..errors import ModelNotFoundError, MissingAuthError
+from ..errors import MissingAuthError
 from ..requests.raise_for_status import raise_for_status
 from ..requests.aiohttp import get_connector
 from ..image import use_aspect_ratio
@@ -88,21 +88,8 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
     vision_models = [default_vision_model]
     _models_loaded = False
     model_aliases = {
-        "gpt-4.1-mini": "openai",
-        "gpt-4.1-nano": "openai-fast",
-        "gpt-4.1": "openai-large",
-        "o4-mini": "openai-reasoning",
-        "qwen-2.5-coder-32b": "qwen-coder",
-        "llama-3.3-70b": "llama",
         "llama-4-scout": "llamascout",
-        "mistral-small-3.1-24b": "mistral",
-        "phi-4": "phi",
         "deepseek-r1": "deepseek-reasoning",
-        "deepseek-v3-0324": "deepseek",
-        "deepseek-v3": "deepseek",
-        "grok-3-mini": "grok",
-        "grok-3-mini-high": "grok",
-        "gpt-4o-mini-audio": "openai-audio",
         "sdxl-turbo": "turbo",
         "gpt-image": "gptimage",
         "flux-dev": "flux",
@@ -111,27 +98,11 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
         "flux": "flux",
         "flux-kontext": "kontext",
     }
-    swap_models = {value: key for key, value in model_aliases.items()}
-
-    @classmethod
-    def get_model(cls, model: str) -> str:
-        """Get the internal model name from the user-provided model name."""
-        if not model:
-            return cls.default_model
-
-        # Check if there's an alias for this model
-        if model in cls.model_aliases:
-            return cls.model_aliases[model]
-
-        # Check if the model exists directly in our model lists
-        if model in cls.text_models or model in cls.image_models or model in cls.audio_models:
-            return model
-
-        # If no match is found, raise an error
-        raise ModelNotFoundError(f"PollinationsAI: Model {model} not found")
 
     @classmethod
     def get_models(cls, **kwargs):
+        def get_alias(model: dict) -> str:
+            return model.get("aliases", model.get("name")).replace("-instruct", "").replace("qwen-", "qwen").replace("qwen", "qwen-")
         if not cls._models_loaded:
             try:
                 # Update of image models
@@ -166,27 +137,19 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
                         cls.audio_models.update({alias: {}})
 
                 cls.vision_models.extend([
-                    cls.swap_models.get(model.get("name"), model.get("name"))
+                    get_alias(model)
                     for model in models
-                    if model.get("vision") and model not in cls.vision_models
+                    if model.get("vision") and get_alias(model) not in cls.vision_models
                 ])
-                for alias, model in cls.model_aliases.items():
-                    if model in cls.vision_models and alias not in cls.vision_models:
-                        cls.vision_models.append(alias)
 
-                # Create a set of unique text models starting with default model
-                text_models = cls.text_models.copy()
-
-                # Add models from the API response
                 for model in models:
-                    model_name = model.get("name")
-                    if model_name and "input_modalities" in model and "text" in model["input_modalities"]:
-                        text_models.append(cls.swap_models.get(model_name, model_name))
-
-                # Convert to list and update text_models
-                cls.text_models = list(dict.fromkeys(text_models))
-
-                cls._models_loaded = True
+                    alias = get_alias(model)
+                    if alias not in cls.text_models:
+                        cls.text_models.append(alias)
+                        if alias != model.get("name"):
+                            cls.model_aliases[alias] = model.get("name")
+                    elif model.get("name") not in cls.text_models:
+                        cls.text_models.append(model.get("name"))
 
             except Exception as e:
                 # Save default models in case of an error
@@ -195,6 +158,9 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
                 if not cls.image_models:
                     cls.image_models = [cls.default_image_model]
                 debug.error(f"Failed to fetch models: {e}")
+
+            finally:
+                cls._models_loaded = True
 
         # Return unique models across all categories
         all_models = cls.text_models.copy()
@@ -259,10 +225,10 @@ class PollinationsAI(AsyncGeneratorProvider, ProviderModelMixin):
                         has_audio = True
                         break
             model = cls.default_audio_model if has_audio else model
-        try:
-            model = cls.get_model(model) if model else None
-        except ModelNotFoundError:
-            pass
+        elif cls._models_loaded or cls.get_models():
+            if model in cls.model_aliases:
+                model = cls.model_aliases[model]
+        debug.log(f"Using model: {model}")
         if model in cls.image_models:
             async for chunk in cls._generate_image(
                 model="gptimage" if model == "transparent" else model,

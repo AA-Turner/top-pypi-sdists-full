@@ -207,7 +207,7 @@ class CameraConfig:
         }
 
         for api_key, attr_name in custom_mapping.items():
-            if api_key in self.custom_stream_settings:
+            if api_key in self.custom_stream_settings and self.custom_stream_settings[api_key]:
                 effective[attr_name] = self.custom_stream_settings[api_key]
 
         return StreamSettings(**effective)

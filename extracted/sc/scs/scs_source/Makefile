@@ -1,7 +1,33 @@
 # MAKEFILE for scs
 include scs.mk
 
-SCS_OBJECTS = src/util.o src/cones.o src/exp_cone.o src/aa.o src/rw.o src/linalg.o src/ctrlc.o src/scs_version.o src/normalize.o
+# Base object files always included
+BASE_SCS_OBJECTS = \
+    src/util.o src/cones.o src/exp_cone.o src/aa.o src/rw.o src/linalg.o src/ctrlc.o src/scs_version.o src/normalize.o
+
+# Spectral cones files, only included if USE_SPECTRAL_CONES=1
+SPECTRAL_CONES_OBJECTS = \
+    src/spectral_cones/logdeterminant/log_cone_Newton.o \
+    src/spectral_cones/logdeterminant/log_cone_IPM.o \
+    src/spectral_cones/logdeterminant/log_cone_wrapper.o \
+    src/spectral_cones/logdeterminant/logdet_cone.o \
+    src/spectral_cones/nuclear/ell1_cone.o \
+    src/spectral_cones/nuclear/nuclear_cone.o \
+    src/spectral_cones/sum-largest/sum_largest_cone.o \
+    src/spectral_cones/sum-largest/sum_largest_eval_cone.o \
+    src/spectral_cones/util_spectral_cones.o
+
+# Now decide which objects to include:
+ifneq ($(USE_LAPACK),0)
+  ifneq ($(USE_SPECTRAL_CONES),0)
+    SCS_OBJECTS = $(BASE_SCS_OBJECTS) $(SPECTRAL_CONES_OBJECTS)
+  else
+    SCS_OBJECTS = $(BASE_SCS_OBJECTS)
+  endif
+else
+  SCS_OBJECTS = $(BASE_SCS_OBJECTS)
+endif
+
 SCS_O = src/scs.o
 SCS_INDIR_O = src/scs_indir.o
 
@@ -28,6 +54,12 @@ else
 	@echo "To solve SDPs, install blas and lapack, then edit scs.mk to set USE_LAPACK=1"
 	@echo "and point to the library install locations, and recompile with 'make purge', 'make'."
 endif
+ifneq ($(USE_SPECTRAL_CONES), 0)
+	@echo "Compiled with spectral cones extension enabled (Daniel Cederberg 2025)"
+else
+	@echo "Spectral cones extension is NOT enabled. To enable spectral cones, edit"
+	@echo "scs.mk to set USE_SPECTRAL_CONES=1 and recompile."
+endif
 	@echo "****************************************************************************************"
 
 $(SCS_O): src/scs.c $(INC_FILES)
@@ -51,6 +83,8 @@ src/scs_version.o: src/scs_version.c $(INC_FILES)
 $(DIRSRC)/private.o: $(DIRSRC)/private.c  $(DIRSRC)/private.h
 $(INDIRSRC)/indirect/private.o: $(INDIRSRC)/private.c $(INDIRSRC)/private.h
 $(MKLSRC)/private.o: $(MKLSRC)/private.c  $(MKLSRC)/private.h
+$(CUDSSSRC)/private.o: $(CUDSSSRC)/private.c  $(CUDSSSRC)/private.h
+	$(CUCC) $(INCLUDE) $(CUDSS_FLAGS) -I$(CUDSSSRC) -c $(CUDSSSRC)/private.c -o $@
 $(LINSYS)/scs_matrix.o: $(LINSYS)/scs_matrix.c $(LINSYS)/scs_matrix.h
 $(LINSYS)/csparse.o: $(LINSYS)/csparse.c $(LINSYS)/csparse.h
 
@@ -69,6 +103,11 @@ $(OUT)/libscsmkl.a: $(SCS_O) $(SCS_OBJECTS) $(MKLSRC)/private.o $(LINSYS)/scs_ma
 	$(ARCHIVE) $@ $^
 	- $(RANLIB) $@
 
+$(OUT)/libscscudss.a: $(SCS_O) $(SCS_OBJECTS) $(CUDSSSRC)/private.o $(LINSYS)/scs_matrix.o $(LINSYS)/csparse.o
+	mkdir -p $(OUT)
+	$(ARCHIVE) $@ $^
+	- $(RANLIB) $@
+
 $(OUT)/libscsdir.$(SHARED): $(SCS_O) $(SCS_OBJECTS) $(DIRSRC)/private.o $(AMD_OBJS) $(LDL_OBJS) $(LINSYS)/scs_matrix.o $(LINSYS)/csparse.o
 	mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -shared -Wl,$(SONAME),$(@:$(OUT)/%=%) -o $@ $^ $(LDFLAGS) $(BLASLDFLAGS)
@@ -81,6 +120,10 @@ $(OUT)/libscsmkl.$(SHARED): $(SCS_O) $(SCS_OBJECTS) $(MKLSRC)/private.o $(LINSYS
 	mkdir -p $(OUT)
 	$(CC) $(CFLAGS) -shared -Wl,$(SONAME),$(@:$(OUT)/%=%) -o $@ $^ $(LDFLAGS) $(MKLFLAGS)
 
+$(OUT)/libscscudss.$(SHARED): $(SCS_O) $(SCS_OBJECTS) $(CUDSSSRC)/private.o $(LINSYS)/scs_matrix.o $(LINSYS)/csparse.o
+	mkdir -p $(OUT)
+	$(CC) $(CFLAGS) -shared -Wl,$(SONAME),$(@:$(OUT)/%=%) -o $@ $^ $(LDFLAGS) $(CULDFLAGS)
+
 $(OUT)/demo_socp_direct: test/random_socp_prob.c $(OUT)/libscsdir.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(BLASLDFLAGS)
 
@@ -89,6 +132,9 @@ $(OUT)/demo_socp_indirect: test/random_socp_prob.c $(OUT)/libscsindir.a
 
 $(OUT)/demo_socp_mkl: test/random_socp_prob.c $(OUT)/libscsmkl.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(MKLFLAGS)
+
+$(OUT)/demo_socp_cudss: test/random_socp_prob.c $(OUT)/libscscudss.a
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(BLASLDFLAGS) $(CUDSS_LDFLAGS)
 
 $(OUT)/run_from_file_direct: test/run_from_file.c $(OUT)/libscsdir.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(BLASLDFLAGS)
@@ -109,6 +155,8 @@ $(OUT)/run_tests_direct: test/run_tests.c $(OUT)/libscsdir.a
 $(OUT)/run_tests_mkl: test/run_tests.c $(OUT)/libscsmkl.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(MKLFLAGS) -Itest
 
+$(OUT)/run_tests_cudss: test/run_tests.c $(OUT)/libscscudss.a
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(BLASLDFLAGS) $(CUDSS_LDFLAGS) -Itest
 
 .PHONY: test_gpu
 test_gpu: $(OUT)/run_tests_gpu_indirect # $(OUT)/run_tests_gpu_direct
@@ -120,6 +168,8 @@ ifndef MKLROOT
 	$(error MKLROOT is undefined, set MKLROOT to the MKL install location)
 endif
 
+.PHONY:
+cudss: $(OUT)/libscscudss.a $(OUT)/libscscudss.$(SHARED) $(OUT)/run_tests_cudss $(OUT)/demo_socp_cudss
 
 $(OUT)/run_tests_gpu_indirect: test/run_tests.c $(OUT)/libscsgpuindir.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS) $(BLASLDFLAGS) $(CULDFLAGS) -Itest
@@ -134,13 +184,13 @@ gpu: gpu_indirect # gpu_direct
 gpu_indirect: $(OUT)/demo_socp_gpu_indirect $(OUT)/libscsgpuindir.$(SHARED) $(OUT)/libscsgpuindir.a $(OUT)/run_from_file_gpu_indirect
 
 $(LINSYS)/gpu/gpu.o: $(LINSYS)/gpu/gpu.c
-	$(CUCC) -c -o $@ $^ $(CUDAFLAGS)
+	$(CC) -c -o $@ $^ $(CUDAFLAGS)
 
 # $(GPUDIR)/private.o: $(GPUDIR)/private.c
 # 	$(CUCC) -c -o $(GPUDIR)/private.o $^ $(CUDAFLAGS)
 
 $(GPUINDIR)/private.o: $(GPUINDIR)/private.c
-	$(CUCC) -c -o $@ $^ $(CUDAFLAGS)
+	$(CC) -c -o $@ $^ $(CUDAFLAGS)
 
 # $(OUT)/libscsgpudir.$(SHARED): $(SCS_O) $(SCS_OBJECTS) $(GPUDIR)/private.o $(AMD_OBJS) $(LINSYS)/scs_matrix.o $(LINSYS)/gpu/gpu.o
 #	 mkdir -p $(OUT)

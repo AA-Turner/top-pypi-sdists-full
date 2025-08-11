@@ -49,6 +49,7 @@ class RoborockMqttSession(MqttSession):
         self._params = params
         self._background_task: asyncio.Task[None] | None = None
         self._healthy = False
+        self._stop = False
         self._backoff = MIN_BACKOFF_INTERVAL
         self._client: aiomqtt.Client | None = None
         self._client_lock = asyncio.Lock()
@@ -81,6 +82,7 @@ class RoborockMqttSession(MqttSession):
 
     async def close(self) -> None:
         """Cancels the MQTT loop and shutdown the client library."""
+        self._stop = True
         if self._background_task:
             self._background_task.cancel()
             try:
@@ -125,16 +127,19 @@ class RoborockMqttSession(MqttSession):
             except Exception as err:
                 # This error is thrown when the MQTT loop is cancelled
                 # and the generator is not stopped.
-                if "generator didn't stop" in str(err):
+                if "generator didn't stop" in str(err) or "generator didn't yield" in str(err):
                     _LOGGER.debug("MQTT loop was cancelled")
                     return
                 if start_future:
                     _LOGGER.error("Uncaught error starting MQTT session: %s", err)
                     start_future.set_exception(err)
                     return
-                _LOGGER.error("Uncaught error during MQTT session: %s", err)
+                _LOGGER.exception("Uncaught error during MQTT session: %s", err)
 
             self._healthy = False
+            if self._stop:
+                _LOGGER.debug("MQTT session closed, stopping retry loop")
+                return
             _LOGGER.info("MQTT session disconnected, retrying in %s seconds", self._backoff.total_seconds())
             await asyncio.sleep(self._backoff.total_seconds())
             self._backoff = min(self._backoff * BACKOFF_MULTIPLIER, MAX_BACKOFF_INTERVAL)
@@ -180,7 +185,7 @@ class RoborockMqttSession(MqttSession):
                 except asyncio.CancelledError:
                     raise
                 except Exception as e:
-                    _LOGGER.error("Uncaught exception in subscriber callback: %s", e)
+                    _LOGGER.exception("Uncaught exception in subscriber callback: %s", e)
 
     async def subscribe(self, topic: str, callback: Callable[[bytes], None]) -> Callable[[], None]:
         """Subscribe to messages on the specified topic and invoke the callback for new messages.

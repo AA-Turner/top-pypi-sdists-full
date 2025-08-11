@@ -8,38 +8,10 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.auth_pb2 import (
-    CheckTeamInvitesRequest,
-    CheckTeamInvitesResponse,
-    CreateSessionRequest,
-    CreateSessionResponse,
-    CreateUserRequest,
-    CreateUserResponse,
-    CreateVerificationTokenRequest,
-    CreateVerificationTokenResponse,
-    DeleteSessionRequest,
-    DeleteSessionResponse,
-    GetSessionAndUserRequest,
-    GetSessionAndUserResponse,
     GetTokenRequest,
     GetTokenResponse,
-    GetUserByAccountRequest,
-    GetUserByAccountResponse,
-    GetUserByEmailRequest,
-    GetUserByEmailResponse,
-    GetUserByIdRequest,
-    GetUserByIdResponse,
-    LinkAccountRequest,
-    LinkAccountResponse,
     UpdateLinkSessionRequest,
     UpdateLinkSessionResponse,
-    UpdateSessionRequest,
-    UpdateSessionResponse,
-    UpdateUserRequest,
-    UpdateUserResponse,
-    UpsertUserByEmailRequest,
-    UpsertUserByEmailResponse,
-    UseVerificationTokenRequest,
-    UseVerificationTokenResponse,
 )
 from chalk._gen.chalk.server.v1.link_pb2 import (
     CreateLinkSessionRequest,
@@ -72,63 +44,6 @@ class AuthServiceStub:
         UpdateLinkSessionRequest,
         UpdateLinkSessionResponse,
     ]
-    CheckTeamInvites: UnaryUnaryMultiCallable[
-        CheckTeamInvitesRequest,
-        CheckTeamInvitesResponse,
-    ]
-    """NextAuth Adapter RPCs"""
-    CreateUser: UnaryUnaryMultiCallable[
-        CreateUserRequest,
-        CreateUserResponse,
-    ]
-    GetUserById: UnaryUnaryMultiCallable[
-        GetUserByIdRequest,
-        GetUserByIdResponse,
-    ]
-    GetUserByEmail: UnaryUnaryMultiCallable[
-        GetUserByEmailRequest,
-        GetUserByEmailResponse,
-    ]
-    GetUserByAccount: UnaryUnaryMultiCallable[
-        GetUserByAccountRequest,
-        GetUserByAccountResponse,
-    ]
-    UpdateUser: UnaryUnaryMultiCallable[
-        UpdateUserRequest,
-        UpdateUserResponse,
-    ]
-    LinkAccount: UnaryUnaryMultiCallable[
-        LinkAccountRequest,
-        LinkAccountResponse,
-    ]
-    CreateSession: UnaryUnaryMultiCallable[
-        CreateSessionRequest,
-        CreateSessionResponse,
-    ]
-    GetSessionAndUser: UnaryUnaryMultiCallable[
-        GetSessionAndUserRequest,
-        GetSessionAndUserResponse,
-    ]
-    UpdateSession: UnaryUnaryMultiCallable[
-        UpdateSessionRequest,
-        UpdateSessionResponse,
-    ]
-    DeleteSession: UnaryUnaryMultiCallable[
-        DeleteSessionRequest,
-        DeleteSessionResponse,
-    ]
-    CreateVerificationToken: UnaryUnaryMultiCallable[
-        CreateVerificationTokenRequest,
-        CreateVerificationTokenResponse,
-    ]
-    UseVerificationToken: UnaryUnaryMultiCallable[
-        UseVerificationTokenRequest,
-        UseVerificationTokenResponse,
-    ]
-    UpsertUserByEmail: UnaryUnaryMultiCallable[
-        UpsertUserByEmailRequest,
-        UpsertUserByEmailResponse,
-    ]
 
 class AuthServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -155,90 +70,5 @@ class AuthServiceServicer(metaclass=ABCMeta):
         request: UpdateLinkSessionRequest,
         context: ServicerContext,
     ) -> UpdateLinkSessionResponse: ...
-    @abstractmethod
-    def CheckTeamInvites(
-        self,
-        request: CheckTeamInvitesRequest,
-        context: ServicerContext,
-    ) -> CheckTeamInvitesResponse:
-        """NextAuth Adapter RPCs"""
-    @abstractmethod
-    def CreateUser(
-        self,
-        request: CreateUserRequest,
-        context: ServicerContext,
-    ) -> CreateUserResponse: ...
-    @abstractmethod
-    def GetUserById(
-        self,
-        request: GetUserByIdRequest,
-        context: ServicerContext,
-    ) -> GetUserByIdResponse: ...
-    @abstractmethod
-    def GetUserByEmail(
-        self,
-        request: GetUserByEmailRequest,
-        context: ServicerContext,
-    ) -> GetUserByEmailResponse: ...
-    @abstractmethod
-    def GetUserByAccount(
-        self,
-        request: GetUserByAccountRequest,
-        context: ServicerContext,
-    ) -> GetUserByAccountResponse: ...
-    @abstractmethod
-    def UpdateUser(
-        self,
-        request: UpdateUserRequest,
-        context: ServicerContext,
-    ) -> UpdateUserResponse: ...
-    @abstractmethod
-    def LinkAccount(
-        self,
-        request: LinkAccountRequest,
-        context: ServicerContext,
-    ) -> LinkAccountResponse: ...
-    @abstractmethod
-    def CreateSession(
-        self,
-        request: CreateSessionRequest,
-        context: ServicerContext,
-    ) -> CreateSessionResponse: ...
-    @abstractmethod
-    def GetSessionAndUser(
-        self,
-        request: GetSessionAndUserRequest,
-        context: ServicerContext,
-    ) -> GetSessionAndUserResponse: ...
-    @abstractmethod
-    def UpdateSession(
-        self,
-        request: UpdateSessionRequest,
-        context: ServicerContext,
-    ) -> UpdateSessionResponse: ...
-    @abstractmethod
-    def DeleteSession(
-        self,
-        request: DeleteSessionRequest,
-        context: ServicerContext,
-    ) -> DeleteSessionResponse: ...
-    @abstractmethod
-    def CreateVerificationToken(
-        self,
-        request: CreateVerificationTokenRequest,
-        context: ServicerContext,
-    ) -> CreateVerificationTokenResponse: ...
-    @abstractmethod
-    def UseVerificationToken(
-        self,
-        request: UseVerificationTokenRequest,
-        context: ServicerContext,
-    ) -> UseVerificationTokenResponse: ...
-    @abstractmethod
-    def UpsertUserByEmail(
-        self,
-        request: UpsertUserByEmailRequest,
-        context: ServicerContext,
-    ) -> UpsertUserByEmailResponse: ...
 
 def add_AuthServiceServicer_to_server(servicer: AuthServiceServicer, server: Server) -> None: ...

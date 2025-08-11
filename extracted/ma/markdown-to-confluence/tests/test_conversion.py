@@ -19,10 +19,12 @@ from md2conf.converter import ConfluenceDocument, attachment_name
 from md2conf.csf import elements_from_string, elements_to_string
 from md2conf.domain import ConfluenceDocumentOptions
 from md2conf.extra import override
+from md2conf.latex import LATEX_ENABLED
 from md2conf.matcher import Matcher, MatcherOptions
 from md2conf.mermaid import has_mmdc
 from md2conf.metadata import ConfluenceSiteMetadata
 from tests import emoji
+from tests.utility import TypedTestCase
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,7 +35,8 @@ logging.basicConfig(
 def canonicalize(content: str) -> str:
     "Converts a Confluence Storage Format (CSF) document to the normalized format."
 
-    return elements_to_string(elements_from_string(content))
+    root = elements_from_string(content)
+    return elements_to_string(root)
 
 
 def substitute(root_dir: Path, content: str) -> str:
@@ -65,7 +68,7 @@ def standardize(content: str) -> str:
     return canonicalize(content)
 
 
-class TestConversion(unittest.TestCase):
+class TestConversion(TypedTestCase):
     source_dir: Path
     target_dir: Path
     site_metadata: ConfluenceSiteMetadata
@@ -189,6 +192,7 @@ class TestConversion(unittest.TestCase):
         self.assertEqual(doc.title, "Sections")
 
     @unittest.skipUnless(has_mmdc(), "mmdc is not available")
+    @unittest.skipUnless(os.getenv("TEST_MERMAID"), "mermaid tests are disabled")
     def test_mermaid_embedded_svg(self) -> None:
         _, document = ConfluenceDocument.create(
             self.source_dir / "mermaid.md",
@@ -203,6 +207,7 @@ class TestConversion(unittest.TestCase):
         self.assertEqual(len(document.embedded_files), 6)
 
     @unittest.skipUnless(has_mmdc(), "mmdc is not available")
+    @unittest.skipUnless(os.getenv("TEST_MERMAID"), "mermaid tests are disabled")
     def test_mermaid_embedded_png(self) -> None:
         _, document = ConfluenceDocument.create(
             self.source_dir / "mermaid.md",
@@ -215,6 +220,34 @@ class TestConversion(unittest.TestCase):
             self.page_metadata,
         )
         self.assertEqual(len(document.embedded_files), 6)
+
+    @unittest.skipUnless(LATEX_ENABLED, "matplotlib not installed")
+    def test_latex_svg(self) -> None:
+        _, document = ConfluenceDocument.create(
+            self.source_dir / "math.md",
+            ConfluenceDocumentOptions(
+                render_latex=True,
+                diagram_output_format="svg",
+            ),
+            self.source_dir,
+            self.site_metadata,
+            self.page_metadata,
+        )
+        self.assertEqual(len(document.embedded_files), 4)
+
+    @unittest.skipUnless(LATEX_ENABLED, "matplotlib not installed")
+    def test_latex_png(self) -> None:
+        _, document = ConfluenceDocument.create(
+            self.source_dir / "math.md",
+            ConfluenceDocumentOptions(
+                render_latex=True,
+                diagram_output_format="png",
+            ),
+            self.source_dir,
+            self.site_metadata,
+            self.page_metadata,
+        )
+        self.assertEqual(len(document.embedded_files), 4)
 
 
 if __name__ == "__main__":

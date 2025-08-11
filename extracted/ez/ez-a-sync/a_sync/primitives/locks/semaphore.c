@@ -16443,7 +16443,7 @@ __Pyx_RefNannySetupContext("PyInit_semaphore", 0);
   (void)__Pyx_modinit_variable_import_code(__pyx_mstate);
   if (unlikely((__Pyx_modinit_function_import_code(__pyx_mstate) < 0))) __PYX_ERR(0, 1, __pyx_L1_error)
   /*--- Execution code ---*/
-  __Pyx_TraceStartFunc("PyInit_semaphore", __pyx_f[0], 1, 0, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceStartFunc("PyInit_semaphore", __pyx_f[0], 1, 3, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
 
   /* "a_sync/primitives/locks/semaphore.pyx":6
  * """
@@ -16991,7 +16991,7 @@ __Pyx_RefNannySetupContext("PyInit_semaphore", 0);
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
 */
-  __Pyx_TraceLine(1,3,0,__PYX_ERR(1, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,0,0,__PYX_ERR(1, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_9semaphore_14DummySemaphore_18__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_DummySemaphore___reduce_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_semaphor, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[34])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(1, 1, __pyx_L1_error)
@@ -17003,7 +17003,7 @@ __Pyx_RefNannySetupContext("PyInit_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,6,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,5,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_9semaphore_14DummySemaphore_20__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_DummySemaphore___setstate_cython, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_semaphor, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[35])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -17061,7 +17061,7 @@ __Pyx_RefNannySetupContext("PyInit_semaphore", 0);
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
 */
-  __Pyx_TraceLine(3,5,0,__PYX_ERR(1, 3, __pyx_L1_error))
+  __Pyx_TraceLine(3,6,0,__PYX_ERR(1, 3, __pyx_L1_error))
   __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_6a_sync_10primitives_5locks_9semaphore_19ThreadsafeSemaphore_13__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_mstate_global->__pyx_n_u_ThreadsafeSemaphore___setstate_c, NULL, __pyx_mstate_global->__pyx_n_u_a_sync_primitives_locks_semaphor, __pyx_mstate_global->__pyx_d, ((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[44])); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(1, 3, __pyx_L1_error)
@@ -17072,12 +17072,12 @@ __Pyx_RefNannySetupContext("PyInit_semaphore", 0);
  * This module provides various semaphore implementations, including a debug-enabled semaphore,
  * a dummy semaphore that does nothing, and a threadsafe semaphore for use in multi-threaded applications.
 */
-  __Pyx_TraceLine(1,0,0,__PYX_ERR(0, 1, __pyx_L1_error))
+  __Pyx_TraceLine(1,3,0,__PYX_ERR(0, 1, __pyx_L1_error))
   __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_test, __pyx_t_3) < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 1, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 3, 0, __PYX_ERR(0, 1, __pyx_L1_error));
   __Pyx_PyMonitoring_ExitScope(0);
 
   /*--- Wrapped vars code ---*/
@@ -17087,7 +17087,7 @@ __Pyx_RefNannySetupContext("PyInit_semaphore", 0);
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_TraceException(__pyx_lineno, 0, 0);
-  __Pyx_TraceExceptionUnwind(0, 0);
+  __Pyx_TraceExceptionUnwind(3, 0);
   if (__pyx_m) {
     if (__pyx_mstate->__pyx_d && stringtab_initialized) {
       __Pyx_AddTraceback("init a_sync.primitives.locks.semaphore", __pyx_clineno, __pyx_lineno, __pyx_filename);

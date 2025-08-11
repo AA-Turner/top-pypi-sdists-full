@@ -1043,14 +1043,16 @@ class MatriceKafkaDeployment:
     def __init__(
         self, 
         session, 
-        deployment_id: str, 
+        service_id: str, 
         type: str, 
         consumer_group_id: str = None, 
         consumer_group_instance_id: str = None,
         sasl_mechanism: Optional[str] = "SCRAM-SHA-256",
         sasl_username: Optional[str] = "matrice-sdk-user",
         sasl_password: Optional[str] = "matrice-sdk-password",
-        security_protocol: str = "SASL_PLAINTEXT"
+        security_protocol: str = "SASL_PLAINTEXT",
+        custom_request_service_id: str = None,
+        custom_result_service_id: str = None,
     ) -> None:
         """Initialize Kafka deployment with deployment ID.
 
@@ -1064,29 +1066,33 @@ class MatriceKafkaDeployment:
             sasl_username: Username for SASL authentication
             sasl_password: Password for SASL authentication
             security_protocol: Security protocol for Kafka connection
+            custom_request_service_id: Custom request service ID
+            custom_result_service_id: Custom result service ID
         Raises:
             ValueError: If type is not "client" or "server"
         """
         self.session = session
         self.rpc = session.rpc
-        self.deployment_id = deployment_id
+        self.service_id = service_id
         self.type = type
         self.sasl_mechanism = sasl_mechanism
         self.sasl_username = sasl_username
         self.sasl_password = sasl_password
         self.security_protocol = security_protocol
+        self.custom_request_service_id = custom_request_service_id or service_id
+        self.custom_result_service_id = custom_result_service_id or service_id
 
         # Use provided consumer_group_id or generate a stable one
         if consumer_group_id:
             self.consumer_group_id = consumer_group_id
         else:
-            self.consumer_group_id = f"{self.deployment_id}-{self.type}-{int(time.time())}"
+            self.consumer_group_id = f"{self.service_id}-{self.type}-{int(time.time())}"
 
         # Use provided consumer_group_instance_id or generate a stable one
         if consumer_group_instance_id:
             self.consumer_group_instance_id = consumer_group_instance_id
         else:
-            self.consumer_group_instance_id = f"{self.deployment_id}-{self.type}-stable"
+            self.consumer_group_instance_id = f"{self.service_id}-{self.type}-stable"
 
         self.setup_success = False
         self.bootstrap_server = None
@@ -1117,7 +1123,7 @@ class MatriceKafkaDeployment:
 
         logging.info(
             "Initialized MatriceKafkaDeployment: deployment_id=%s, type=%s, consumer_group_id=%s, consumer_group_instance_id=%s",
-            deployment_id, type, self.consumer_group_id, self.consumer_group_instance_id
+            service_id, type, self.consumer_group_id, self.consumer_group_instance_id
         )
 
     def check_setup_success(self) -> bool:
@@ -1256,8 +1262,8 @@ class MatriceKafkaDeployment:
         """
         setup_success = True
         try:
-            request_topic = self.rpc.get(f"/v1/actions/get_kafka_request_topics/{self.deployment_id}")
-            result_topic = self.rpc.get(f"/v1/actions/get_kafka_result_topics/{self.deployment_id}")
+            request_topic = self.rpc.get(f"/v1/actions/get_kafka_request_topics/{self.custom_request_service_id}")
+            result_topic = self.rpc.get(f"/v1/actions/get_kafka_result_topics/{self.custom_result_service_id}")
 
             if not request_topic or not request_topic.get("success"):
                 raise ValueError(f"Failed to get request topics: {request_topic.get('message', 'Unknown error')}")

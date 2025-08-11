@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import asdict
 import time
 from datetime import datetime, timezone
@@ -27,52 +27,60 @@ class VehicleMonitoringConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.3
     usecase_categories: List[str] = field(
         default_factory=lambda: [
-            "bicycle", "car", "motorbike", "auto rickshaw", "bus", "garbagevan",
-            "truck", "minibus", "army vehicle", "pickup", "policecar", "rickshaw",
-            "scooter", "suv", "taxi", "three wheelers -CNG-", "human hauler", "van", "wheelbarrow"
+            # COCO 2017 80-category label set
+            "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
+            "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog",
+            "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
+            "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite",
+            "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
+            "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich",
+            "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+            "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote",
+            "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
+            "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
         ]
     )
     target_categories: List[str] = field(
-        default_factory=lambda: ['car', 'bicycle', 'bus', 'garbagevan', 'truck', 'motorbike', 'van']
+        default_factory=lambda: [
+            'car', 'bicycle', 'bus', 'truck', 'motorcycle', 'train', 'boat'
+        ]
     )
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-                0: "ambulance",
-                1: "army vehicle",
-                2: "car",
-                3: "bicycle",
-                4: "bus",
-                5: "auto rickshaw",
-                6: "garbagevan",
-                7: "truck",
-                8: "minibus",
-                9: "minivan",
-                10: "motorbike",
-                11: "pickup",
-                12: "policecar",
-                13: "rickshaw",
-                14: "scooter",
-                15: "suv",
-                16: "taxi",
-                17: "three wheelers -CNG-",
-                18: "human hauler",
-                19: "van",
-                20: "wheelbarrow"
+                # COCO 2017 80-category index mapping
+                0: "person", 1: "bicycle", 2: "car", 3: "motorcycle", 4: "airplane", 5: "bus",
+                6: "train", 7: "truck", 8: "boat", 9: "traffic light", 10: "fire hydrant",
+                11: "stop sign", 12: "parking meter", 13: "bench", 14: "bird", 15: "cat",
+                16: "dog", 17: "horse", 18: "sheep", 19: "cow", 20: "elephant", 21: "bear",
+                22: "zebra", 23: "giraffe", 24: "backpack", 25: "umbrella", 26: "handbag",
+                27: "tie", 28: "suitcase", 29: "frisbee", 30: "skis", 31: "snowboard",
+                32: "sports ball", 33: "kite", 34: "baseball bat", 35: "baseball glove",
+                36: "skateboard", 37: "surfboard", 38: "tennis racket", 39: "bottle",
+                40: "wine glass", 41: "cup", 42: "fork", 43: "knife", 44: "spoon", 45: "bowl",
+                46: "banana", 47: "apple", 48: "sandwich", 49: "orange", 50: "broccoli",
+                51: "carrot", 52: "hot dog", 53: "pizza", 54: "donut", 55: "cake", 56: "chair",
+                57: "couch", 58: "potted plant", 59: "bed", 60: "dining table", 61: "toilet",
+                62: "tv", 63: "laptop", 64: "mouse", 65: "remote", 66: "keyboard",
+                67: "cell phone", 68: "microwave", 69: "oven", 70: "toaster", 71: "sink",
+                72: "refrigerator", 73: "book", 74: "clock", 75: "vase", 76: "scissors",
+                77: "teddy bear", 78: "hair drier", 79: "toothbrush"
             }
     )
 
 class VehicleMonitoringUseCase(BaseProcessor):
     CATEGORY_DISPLAY = {
-        "bicycle": "Bicycle", "car": "Car", "motorbike": "Motorbike", "auto rickshaw": "Auto Rickshaw",
-        "bus": "Bus", "garbagevan": "Garbage Van", "truck": "Truck", "minibus": "Minibus",
-        "army vehicle": "Army Vehicle", "pickup": "Pickup", "policecar": "Police Car",
-        "rickshaw": "Rickshaw", "scooter": "Scooter", "suv": "SUV", "taxi": "Taxi",
-        "three wheelers -CNG-": "Three Wheelers (CNG)", "human hauler": "Human Hauler",
-        "van": "Van", "wheelbarrow": "Wheelbarrow"
+        # Focus on vehicle-related COCO classes
+        "bicycle": "Bicycle",
+        "car": "Car",
+        "motorcycle": "Motorcycle",
+        "bus": "Bus",
+        "truck": "Truck",
+        "train": "Train",
+        "boat": "Boat"
     }
 
     def __init__(self):
@@ -80,7 +88,7 @@ class VehicleMonitoringUseCase(BaseProcessor):
         self.category = "traffic"
         self.CASE_TYPE: Optional[str] = 'vehicle_monitoring'
         self.CASE_VERSION: Optional[str] = '1.0'
-        self.target_categories = ['car', 'bicycle', 'bus', 'garbagevan', 'truck', 'motorbike', 'van']
+        self.target_categories = ['car', 'bicycle', 'bus', 'truck', 'motorcycle', 'train', 'boat']
         self.smoothing_tracker = None
         self.tracker = None
         self._total_frame_counter = 0
@@ -100,6 +108,9 @@ class VehicleMonitoringUseCase(BaseProcessor):
             return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
         if context is None:
             context = ProcessingContext()
+
+        # Normalize typical YOLO outputs (COCO pretrained) to internal schema
+        data = self._normalize_yolo_results(data, getattr(config, 'index_to_category', None))
 
         input_format = match_results_structure(data)
         context.input_format = input_format
@@ -188,6 +199,79 @@ class VehicleMonitoringUseCase(BaseProcessor):
             context=context
         )
         return result
+
+    def _normalize_yolo_results(self, data: Any, index_to_category: Optional[Dict[int, str]] = None) -> Any:
+        """
+        Normalize YOLO-style outputs to internal detection schema:
+        - category/category_id: prefer string label using COCO mapping if available
+        - confidence: map from 'conf'/'score' to 'confidence'
+        - bounding_box: ensure dict with keys (x1,y1,x2,y2) or (xmin,ymin,xmax,ymax)
+        - supports list of detections and frame_id -> detections dict
+        """
+        def to_bbox_dict(d: Dict[str, Any]) -> Dict[str, Any]:
+            if "bounding_box" in d and isinstance(d["bounding_box"], dict):
+                return d["bounding_box"]
+            if "bbox" in d:
+                bbox = d["bbox"]
+                if isinstance(bbox, dict):
+                    return bbox
+                if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+                    x1, y1, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
+                    return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+            if "xyxy" in d and isinstance(d["xyxy"], (list, tuple)) and len(d["xyxy"]) >= 4:
+                x1, y1, x2, y2 = d["xyxy"][0], d["xyxy"][1], d["xyxy"][2], d["xyxy"][3]
+                return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+            if "xywh" in d and isinstance(d["xywh"], (list, tuple)) and len(d["xywh"]) >= 4:
+                cx, cy, w, h = d["xywh"][0], d["xywh"][1], d["xywh"][2], d["xywh"][3]
+                x1, y1, x2, y2 = cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2
+                return {"x1": x1, "y1": y1, "x2": x2, "y2": y2}
+            return {}
+
+        def resolve_category(d: Dict[str, Any]) -> Tuple[str, Optional[int]]:
+            raw_cls = d.get("category", d.get("category_id", d.get("class", d.get("cls"))))
+            label_name = d.get("name")
+            if isinstance(raw_cls, int):
+                if index_to_category and raw_cls in index_to_category:
+                    return index_to_category[raw_cls], raw_cls
+                return str(raw_cls), raw_cls
+            if isinstance(raw_cls, str):
+                # Some YOLO exports provide string labels directly
+                return raw_cls, None
+            if label_name:
+                return str(label_name), None
+            return "unknown", None
+
+        def normalize_det(det: Dict[str, Any]) -> Dict[str, Any]:
+            category_name, category_id = resolve_category(det)
+            confidence = det.get("confidence", det.get("conf", det.get("score", 0.0)))
+            bbox = to_bbox_dict(det)
+            normalized = {
+                "category": category_name,
+                "confidence": confidence,
+                "bounding_box": bbox,
+            }
+            if category_id is not None:
+                normalized["category_id"] = category_id
+            # Preserve optional fields
+            for key in ("track_id", "frame_id", "masks", "segmentation"):
+                if key in det:
+                    normalized[key] = det[key]
+            return normalized
+
+        if isinstance(data, list):
+            return [normalize_det(d) if isinstance(d, dict) else d for d in data]
+        if isinstance(data, dict):
+            # Detect tracking style dict: frame_id -> list of detections
+            normalized_dict: Dict[str, Any] = {}
+            for k, v in data.items():
+                if isinstance(v, list):
+                    normalized_dict[k] = [normalize_det(d) if isinstance(d, dict) else d for d in v]
+                elif isinstance(v, dict):
+                    normalized_dict[k] = normalize_det(v)
+                else:
+                    normalized_dict[k] = v
+            return normalized_dict
+        return data
 
     def _check_alerts(self, summary: dict, frame_number: Any, config: VehicleMonitoringConfig) -> List[Dict]:
         def get_trend(data, lookback=900, threshold=0.6):

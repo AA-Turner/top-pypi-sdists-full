@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk8s-image
-Version: 0.2.695
+Version: 0.2.696
 Summary: Build & Push local docker images inside CDK8s applications
 Home-page: https://github.com/cdk8s-team/cdk8s-image.git
 Author: Amazon Web Services

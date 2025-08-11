@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json_repair
-Version: 0.48.0
+Version: 0.49.0
 Summary: A package to repair broken json strings
 Author-email: Stefano Baccianella <4247706+mangiucugna@users.noreply.github.com>
 License: MIT License
@@ -40,6 +40,7 @@ Dynamic: license-file
 [![PyPI](https://img.shields.io/pypi/v/json-repair)](https://pypi.org/project/json-repair/)
 ![Python version](https://img.shields.io/badge/python-3.10+-important)
 [![PyPI downloads](https://img.shields.io/pypi/dm/json-repair)](https://pypi.org/project/json-repair/)
+[![PyPI Downloads](https://static.pepy.tech/badge/json-repair)](https://pepy.tech/projects/json-repair)
 [![Github Sponsors](https://img.shields.io/github/sponsors/mangiucugna)](https://github.com/sponsors/mangiucugna)
 [![GitHub Repo stars](https://img.shields.io/github/stars/mangiucugna/json_repair?style=flat)](https://github.com/mangiucugna/json_repair/stargazers)
 

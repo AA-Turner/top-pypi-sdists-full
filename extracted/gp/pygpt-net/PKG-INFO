@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pygpt-net
-Version: 2.5.95
+Version: 2.5.97
 Summary: Desktop AI Assistant powered by: OpenAI GPT-5, o1, o3, GPT-4, Gemini, Claude, Grok, DeepSeek, and other models supported by Llama Index, and Ollama. Chatbot, agents, completion, image generation, vision analysis, speech-to-text, plugins, internet access, file handling, command execution and more.
 License: MIT
 Keywords: py_gpt,py-gpt,pygpt,desktop,app,o1,o3,gpt-5,gpt,gpt4,gpt-4o,gpt-4v,gpt3.5,gpt-4,gpt-4-vision,gpt-3.5,llama3,mistral,gemini,grok,deepseek,bielik,claude,tts,whisper,vision,chatgpt,dall-e,chat,chatbot,assistant,text completion,image generation,ai,api,openai,api key,langchain,llama-index,ollama,presets,ui,qt,pyside
@@ -104,7 +104,7 @@ Description-Content-Type: text/markdown
 
 [![pygpt](https://snapcraft.io/pygpt/badge.svg)](https://snapcraft.io/pygpt)
 
-Release: **2.5.95** | build: **2025-08-09** | Python: **>=3.10, <3.14**
+Release: **2.5.97** | build: **2025-08-11** | Python: **>=3.10, <3.14**
 
 > Official website: https://pygpt.net | Documentation: https://pygpt.readthedocs.io
 > 
@@ -4364,6 +4364,14 @@ may consume additional tokens that are not displayed in the main window.
 # CHANGELOG
 
 ## Recent changes:
+
+**2.5.97 (2025-08-11)**
+
+- Fix: attribute error in prev ctx.
+
+**2.5.96 (2025-08-10)**
+
+- Fixed memory leaks.
 
 **2.5.95 (2025-08-09)**
 

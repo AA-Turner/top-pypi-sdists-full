@@ -3358,7 +3358,6 @@ int __pyx_module_is_main_a_sync__a_sync__property = 0;
 /* Implementation of "a_sync.a_sync.property" */
 /* #### Code section: global_var ### */
 static PyObject *__pyx_builtin_super;
-static PyObject *__pyx_builtin_KeyError;
 /* #### Code section: string_decls ### */
 static const char __pyx_k_[] = "__";
 static const char __pyx_k_6[] = "\200\001\340\n\013\330\r\033\2306\240\021\340\005\006";
@@ -3468,7 +3467,6 @@ static const char __pyx_k_prepare[] = "__prepare__";
 static const char __pyx_k_unbound[] = "unbound";
 static const char __pyx_k_wrapped[] = "__wrapped__";
 static const char __pyx_k_Callable[] = "Callable";
-static const char __pyx_k_KeyError[] = "KeyError";
 static const char __pyx_k_Optional[] = "Optional";
 static const char __pyx_k_add_note[] = "add_note";
 static const char __pyx_k_executor[] = "executor";
@@ -3620,7 +3618,7 @@ static const char __pyx_k_A_variant_of_class_ASyncPropert[] = "\n    A variant o
 static const char __pyx_k_AnyFn_Concatenate_I_P_Awaitable[] = "AnyFn[Concatenate[I, P], Awaitable[T]]";
 static const char __pyx_k_The_original_docstring_for_meth[] = "\n\nThe original docstring for :meth:`~";
 static const char __pyx_k_Union_ASyncPropertyDescriptor_I[] = "Union[ASyncPropertyDescriptor[I, T], ASyncPropertyDescriptorSyncDefault[I, T], ASyncPropertyDescriptorAsyncDefault[I, T], ASyncPropertyDecorator[I, T], ASyncPropertyDecoratorSyncDefault[I, T], ASyncPropertyDecoratorAsyncDefault[I, T]]";
-static const char __pyx_k_z_Q_9Cq_1_d_HIQa_L_A_A_j_IQnA_3[] = "\320\004/\250z\270\034\300Q\360\024\000\t\014\2109\220C\220q\330\014\023\2201\360\006\000\t\037\230d\240!\330\010\t\330\014\024\220H\230I\240Q\240a\330\017\020\330\014\024\220L\240\001\330\020\021\330\020\024\220A\330\020\024\220A\330\020\021\330\022\026\220j\240\001\340\014\024\220I\230Q\230n\250A\330\014\031\230\021\320\0323\2601\330\010\033\2301\230L\250\n\260!\330\010\017\210q";
+static const char __pyx_k_z_Q_9Cq_1_d_Qa_6_A_L_A_A_j_IQnA[] = "\320\004/\250z\270\034\300Q\360\024\000\t\014\2109\220C\220q\330\014\023\2201\360\006\000\t\037\230d\240!\330\010\020\220\010\230\t\240\024\240Q\240a\330\010\013\2106\220\023\220A\330\014\024\220L\240\001\330\020\021\330\020\024\220A\330\020\024\220A\330\020\021\330\022\026\220j\240\001\340\014\024\220I\230Q\230n\250A\330\014\031\230\021\320\0323\2601\330\010\033\2301\230L\250\n\260!\330\010\017\210q";
 static const char __pyx_k_ASyncCachedPropertyDecoratorAsyn[] = "ASyncCachedPropertyDecoratorAsyncDefault";
 static const char __pyx_k_ASyncCachedPropertyDecoratorSync[] = "ASyncCachedPropertyDecoratorSyncDefault";
 static const char __pyx_k_ASyncCachedPropertyDecorator_I_T[] = "ASyncCachedPropertyDecorator[I, T]";
@@ -3771,7 +3769,7 @@ typedef struct {
   PyObject *__pyx_slice[1];
   PyObject *__pyx_tuple[5];
   PyObject *__pyx_codeobj_tab[45];
-  PyObject *__pyx_string_tab[279];
+  PyObject *__pyx_string_tab[278];
   PyObject *__pyx_int_2;
   PyObject *__pyx_int_10;
   PyObject *__pyx_int_neg_2;
@@ -3929,193 +3927,192 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_HiddenMethod___init __pyx_string_tab[89]
 #define __pyx_n_u_HiddenMethod___repr __pyx_string_tab[90]
 #define __pyx_n_u_I __pyx_string_tab[91]
-#define __pyx_n_u_KeyError __pyx_string_tab[92]
-#define __pyx_n_u_Literal __pyx_string_tab[93]
-#define __pyx_kp_u_Literal_None __pyx_string_tab[94]
-#define __pyx_kp_u_Literal_async __pyx_string_tab[95]
-#define __pyx_kp_u_Literal_sync __pyx_string_tab[96]
-#define __pyx_n_u_Lock __pyx_string_tab[97]
-#define __pyx_n_u_ModifierKwargs __pyx_string_tab[98]
-#define __pyx_n_u_None __pyx_string_tab[99]
-#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[100]
-#define __pyx_n_u_Optional __pyx_string_tab[101]
-#define __pyx_kp_u_Optional_AnyGetterFunction_I_T __pyx_string_tab[102]
-#define __pyx_kp_u_Optional_I __pyx_string_tab[103]
-#define __pyx_kp_u_Optional_Type_I __pyx_string_tab[104]
-#define __pyx_kp_u_Optional_int __pyx_string_tab[105]
-#define __pyx_kp_u_Optional_str __pyx_string_tab[106]
-#define __pyx_n_u_P __pyx_string_tab[107]
-#define __pyx_kp_u_Represents_a_hidden_method_for_a __pyx_string_tab[108]
-#define __pyx_n_u_Self __pyx_string_tab[109]
-#define __pyx_n_u_T __pyx_string_tab[110]
-#define __pyx_n_u_TYPE_CHECKING __pyx_string_tab[111]
-#define __pyx_n_u_Task __pyx_string_tab[112]
-#define __pyx_n_u_TaskMapping __pyx_string_tab[113]
-#define __pyx_kp_u_TaskMapping_I_T __pyx_string_tab[114]
-#define __pyx_kp_u_Task_T __pyx_string_tab[115]
-#define __pyx_kp_u_The_original_docstring_for_meth __pyx_string_tab[116]
-#define __pyx_n_u_Tuple __pyx_string_tab[117]
-#define __pyx_n_u_Type __pyx_string_tab[118]
-#define __pyx_kp_u_Type_I __pyx_string_tab[119]
-#define __pyx_n_u_Union __pyx_string_tab[120]
-#define __pyx_kp_u_Union_ASyncCachedPropertyDescrip __pyx_string_tab[121]
-#define __pyx_kp_u_Union_ASyncPropertyDescriptor_I __pyx_string_tab[122]
-#define __pyx_kp_u_Union_AnyGetterFunction_I_T_Defa __pyx_string_tab[123]
-#define __pyx_kp_u_Union_Self_Awaitable_T __pyx_string_tab[124]
-#define __pyx_n_u_Unpack __pyx_string_tab[125]
-#define __pyx_kp_u_Unpack_ModifierKwargs __pyx_string_tab[126]
-#define __pyx_kp_u__2 __pyx_string_tab[127]
-#define __pyx_kp_u__3 __pyx_string_tab[128]
-#define __pyx_kp_u__4 __pyx_string_tab[129]
-#define __pyx_kp_u__5 __pyx_string_tab[130]
-#define __pyx_n_u_a_sync __pyx_string_tab[131]
-#define __pyx_n_u_a_sync__typing __pyx_string_tab[132]
-#define __pyx_n_u_a_sync_a_sync __pyx_string_tab[133]
-#define __pyx_n_u_a_sync_a_sync_property __pyx_string_tab[134]
-#define __pyx_kp_u_a_sync_a_sync_property_pyx __pyx_string_tab[135]
-#define __pyx_n_u_a_sync_async_property __pyx_string_tab[136]
-#define __pyx_n_u_a_sync_cached_property __pyx_string_tab[137]
-#define __pyx_n_u_a_sync_instance_should_await __pyx_string_tab[138]
-#define __pyx_n_u_a_sync_property __pyx_string_tab[139]
-#define __pyx_n_u_a_sync_task __pyx_string_tab[140]
-#define __pyx_kp_u_add_note __pyx_string_tab[141]
-#define __pyx_n_u_all __pyx_string_tab[142]
-#define __pyx_n_u_annotations __pyx_string_tab[143]
-#define __pyx_n_u_any __pyx_string_tab[144]
-#define __pyx_n_u_ap __pyx_string_tab[145]
-#define __pyx_n_u_args __pyx_string_tab[146]
-#define __pyx_n_u_async __pyx_string_tab[147]
-#define __pyx_n_u_async_def __pyx_string_tab[148]
-#define __pyx_n_u_async_property __pyx_string_tab[149]
-#define __pyx_n_u_async_property_2 __pyx_string_tab[150]
-#define __pyx_n_u_asyncio __pyx_string_tab[151]
-#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[152]
-#define __pyx_n_u_await __pyx_string_tab[153]
-#define __pyx_n_u_awaitable __pyx_string_tab[154]
-#define __pyx_kp_u_awaiting_awaitable_for_s_for_ins __pyx_string_tab[155]
-#define __pyx_kp_u_awaiting_s __pyx_string_tab[156]
-#define __pyx_kp_u_awaiting_s_for_instance_s __pyx_string_tab[157]
-#define __pyx_n_u_base __pyx_string_tab[158]
-#define __pyx_n_u_bool __pyx_string_tab[159]
-#define __pyx_n_u_bound __pyx_string_tab[160]
-#define __pyx_n_u_cache_state __pyx_string_tab[161]
-#define __pyx_n_u_cached __pyx_string_tab[162]
-#define __pyx_n_u_check_method_sync __pyx_string_tab[163]
-#define __pyx_n_u_class __pyx_string_tab[164]
-#define __pyx_n_u_class_getitem __pyx_string_tab[165]
-#define __pyx_n_u_cline_in_traceback __pyx_string_tab[166]
-#define __pyx_n_u_close __pyx_string_tab[167]
-#define __pyx_n_u_concurrency __pyx_string_tab[168]
-#define __pyx_n_u_config __pyx_string_tab[169]
-#define __pyx_n_u_copy __pyx_string_tab[170]
-#define __pyx_n_u_copy_2 __pyx_string_tab[171]
-#define __pyx_n_u_debug __pyx_string_tab[172]
-#define __pyx_n_u_debug_logs __pyx_string_tab[173]
-#define __pyx_n_u_decorator __pyx_string_tab[174]
-#define __pyx_n_u_default __pyx_string_tab[175]
-#define __pyx_n_u_deleter __pyx_string_tab[176]
-#define __pyx_n_u_descriptor __pyx_string_tab[177]
-#define __pyx_n_u_descriptor_class __pyx_string_tab[178]
-#define __pyx_n_u_dict __pyx_string_tab[179]
-#define __pyx_kp_u_disable __pyx_string_tab[180]
-#define __pyx_n_u_doc __pyx_string_tab[181]
-#define __pyx_n_u_e __pyx_string_tab[182]
-#define __pyx_kp_u_enable __pyx_string_tab[183]
-#define __pyx_n_u_executor __pyx_string_tab[184]
-#define __pyx_n_u_fdel __pyx_string_tab[185]
-#define __pyx_n_u_fget __pyx_string_tab[186]
-#define __pyx_n_u_field_name __pyx_string_tab[187]
-#define __pyx_kp_u_for_property_bound_to __pyx_string_tab[188]
-#define __pyx_n_u_format __pyx_string_tab[189]
-#define __pyx_n_u_fset __pyx_string_tab[190]
-#define __pyx_n_u_func __pyx_string_tab[191]
-#define __pyx_n_u_func_2 __pyx_string_tab[192]
-#define __pyx_n_u_function __pyx_string_tab[193]
-#define __pyx_n_u_functools __pyx_string_tab[194]
-#define __pyx_kp_u_gc __pyx_string_tab[195]
-#define __pyx_n_u_get __pyx_string_tab[196]
-#define __pyx_n_u_getLogger __pyx_string_tab[197]
-#define __pyx_n_u_get_2 __pyx_string_tab[198]
-#define __pyx_n_u_get_event_loop __pyx_string_tab[199]
-#define __pyx_n_u_get_instance_state __pyx_string_tab[200]
-#define __pyx_n_u_get_loader __pyx_string_tab[201]
-#define __pyx_n_u_get_lock __pyx_string_tab[202]
-#define __pyx_n_u_hidden_method_descriptor __pyx_string_tab[203]
-#define __pyx_n_u_hidden_method_name __pyx_string_tab[204]
-#define __pyx_n_u_hidden_modifiers __pyx_string_tab[205]
-#define __pyx_n_u_import_TaskMapping __pyx_string_tab[206]
-#define __pyx_n_u_init __pyx_string_tab[207]
-#define __pyx_n_u_initializing __pyx_string_tab[208]
-#define __pyx_n_u_inner_task __pyx_string_tab[209]
-#define __pyx_n_u_instance __pyx_string_tab[210]
-#define __pyx_n_u_instance_context __pyx_string_tab[211]
-#define __pyx_n_u_instance_type __pyx_string_tab[212]
-#define __pyx_n_u_instances __pyx_string_tab[213]
-#define __pyx_n_u_isEnabledFor __pyx_string_tab[214]
-#define __pyx_n_u_is_async_def __pyx_string_tab[215]
-#define __pyx_n_u_is_coroutine __pyx_string_tab[216]
-#define __pyx_n_u_is_running __pyx_string_tab[217]
-#define __pyx_kp_u_is_shown_below __pyx_string_tab[218]
-#define __pyx_n_u_iscoroutinefunction __pyx_string_tab[219]
-#define __pyx_kp_u_isenabled __pyx_string_tab[220]
-#define __pyx_n_u_lambda __pyx_string_tab[221]
-#define __pyx_n_u_load_value __pyx_string_tab[222]
-#define __pyx_n_u_loader __pyx_string_tab[223]
-#define __pyx_n_u_locks __pyx_string_tab[224]
-#define __pyx_n_u_log __pyx_string_tab[225]
-#define __pyx_n_u_logger __pyx_string_tab[226]
-#define __pyx_n_u_logger_debug __pyx_string_tab[227]
-#define __pyx_n_u_logger_is_enabled __pyx_string_tab[228]
-#define __pyx_n_u_logger_log __pyx_string_tab[229]
-#define __pyx_n_u_logging __pyx_string_tab[230]
-#define __pyx_n_u_main __pyx_string_tab[231]
-#define __pyx_n_u_map __pyx_string_tab[232]
-#define __pyx_kp_u_mapping_s_to_instances_s_owner_s __pyx_string_tab[233]
-#define __pyx_n_u_max __pyx_string_tab[234]
-#define __pyx_n_u_metaclass __pyx_string_tab[235]
-#define __pyx_n_u_method __pyx_string_tab[236]
-#define __pyx_n_u_min __pyx_string_tab[237]
-#define __pyx_n_u_modifiers __pyx_string_tab[238]
-#define __pyx_n_u_module __pyx_string_tab[239]
-#define __pyx_n_u_mro_entries __pyx_string_tab[240]
-#define __pyx_n_u_name __pyx_string_tab[241]
-#define __pyx_n_u_name_2 __pyx_string_tab[242]
-#define __pyx_kp_u_new_hidden_method_s __pyx_string_tab[243]
-#define __pyx_n_u_next __pyx_string_tab[244]
-#define __pyx_n_u_overload __pyx_string_tab[245]
-#define __pyx_n_u_owner __pyx_string_tab[246]
-#define __pyx_n_u_parse_args __pyx_string_tab[247]
-#define __pyx_n_u_partial __pyx_string_tab[248]
-#define __pyx_n_u_pop __pyx_string_tab[249]
-#define __pyx_n_u_prepare __pyx_string_tab[250]
-#define __pyx_n_u_property __pyx_string_tab[251]
-#define __pyx_n_u_pyx_vtable __pyx_string_tab[252]
-#define __pyx_n_u_qualname __pyx_string_tab[253]
-#define __pyx_n_u_repr __pyx_string_tab[254]
-#define __pyx_n_u_return __pyx_string_tab[255]
-#define __pyx_kp_u_returning_s_for_s_for_instance_s __pyx_string_tab[256]
-#define __pyx_n_u_retval __pyx_string_tab[257]
-#define __pyx_n_u_self __pyx_string_tab[258]
-#define __pyx_n_u_send __pyx_string_tab[259]
-#define __pyx_n_u_set_name __pyx_string_tab[260]
-#define __pyx_n_u_setter __pyx_string_tab[261]
-#define __pyx_n_u_should_await __pyx_string_tab[262]
-#define __pyx_n_u_slots __pyx_string_tab[263]
-#define __pyx_n_u_spec __pyx_string_tab[264]
-#define __pyx_n_u_str __pyx_string_tab[265]
-#define __pyx_n_u_sum __pyx_string_tab[266]
-#define __pyx_n_u_super __pyx_string_tab[267]
-#define __pyx_n_u_sync __pyx_string_tab[268]
-#define __pyx_n_u_task __pyx_string_tab[269]
-#define __pyx_n_u_test __pyx_string_tab[270]
-#define __pyx_n_u_throw __pyx_string_tab[271]
-#define __pyx_n_u_traceback __pyx_string_tab[272]
-#define __pyx_n_u_typing __pyx_string_tab[273]
-#define __pyx_n_u_typing_extensions __pyx_string_tab[274]
-#define __pyx_n_u_unbound __pyx_string_tab[275]
-#define __pyx_n_u_value __pyx_string_tab[276]
-#define __pyx_n_u_with_traceback __pyx_string_tab[277]
-#define __pyx_n_u_wrapped __pyx_string_tab[278]
+#define __pyx_n_u_Literal __pyx_string_tab[92]
+#define __pyx_kp_u_Literal_None __pyx_string_tab[93]
+#define __pyx_kp_u_Literal_async __pyx_string_tab[94]
+#define __pyx_kp_u_Literal_sync __pyx_string_tab[95]
+#define __pyx_n_u_Lock __pyx_string_tab[96]
+#define __pyx_n_u_ModifierKwargs __pyx_string_tab[97]
+#define __pyx_n_u_None __pyx_string_tab[98]
+#define __pyx_kp_u_Note_that_Cython_is_deliberately __pyx_string_tab[99]
+#define __pyx_n_u_Optional __pyx_string_tab[100]
+#define __pyx_kp_u_Optional_AnyGetterFunction_I_T __pyx_string_tab[101]
+#define __pyx_kp_u_Optional_I __pyx_string_tab[102]
+#define __pyx_kp_u_Optional_Type_I __pyx_string_tab[103]
+#define __pyx_kp_u_Optional_int __pyx_string_tab[104]
+#define __pyx_kp_u_Optional_str __pyx_string_tab[105]
+#define __pyx_n_u_P __pyx_string_tab[106]
+#define __pyx_kp_u_Represents_a_hidden_method_for_a __pyx_string_tab[107]
+#define __pyx_n_u_Self __pyx_string_tab[108]
+#define __pyx_n_u_T __pyx_string_tab[109]
+#define __pyx_n_u_TYPE_CHECKING __pyx_string_tab[110]
+#define __pyx_n_u_Task __pyx_string_tab[111]
+#define __pyx_n_u_TaskMapping __pyx_string_tab[112]
+#define __pyx_kp_u_TaskMapping_I_T __pyx_string_tab[113]
+#define __pyx_kp_u_Task_T __pyx_string_tab[114]
+#define __pyx_kp_u_The_original_docstring_for_meth __pyx_string_tab[115]
+#define __pyx_n_u_Tuple __pyx_string_tab[116]
+#define __pyx_n_u_Type __pyx_string_tab[117]
+#define __pyx_kp_u_Type_I __pyx_string_tab[118]
+#define __pyx_n_u_Union __pyx_string_tab[119]
+#define __pyx_kp_u_Union_ASyncCachedPropertyDescrip __pyx_string_tab[120]
+#define __pyx_kp_u_Union_ASyncPropertyDescriptor_I __pyx_string_tab[121]
+#define __pyx_kp_u_Union_AnyGetterFunction_I_T_Defa __pyx_string_tab[122]
+#define __pyx_kp_u_Union_Self_Awaitable_T __pyx_string_tab[123]
+#define __pyx_n_u_Unpack __pyx_string_tab[124]
+#define __pyx_kp_u_Unpack_ModifierKwargs __pyx_string_tab[125]
+#define __pyx_kp_u__2 __pyx_string_tab[126]
+#define __pyx_kp_u__3 __pyx_string_tab[127]
+#define __pyx_kp_u__4 __pyx_string_tab[128]
+#define __pyx_kp_u__5 __pyx_string_tab[129]
+#define __pyx_n_u_a_sync __pyx_string_tab[130]
+#define __pyx_n_u_a_sync__typing __pyx_string_tab[131]
+#define __pyx_n_u_a_sync_a_sync __pyx_string_tab[132]
+#define __pyx_n_u_a_sync_a_sync_property __pyx_string_tab[133]
+#define __pyx_kp_u_a_sync_a_sync_property_pyx __pyx_string_tab[134]
+#define __pyx_n_u_a_sync_async_property __pyx_string_tab[135]
+#define __pyx_n_u_a_sync_cached_property __pyx_string_tab[136]
+#define __pyx_n_u_a_sync_instance_should_await __pyx_string_tab[137]
+#define __pyx_n_u_a_sync_property __pyx_string_tab[138]
+#define __pyx_n_u_a_sync_task __pyx_string_tab[139]
+#define __pyx_kp_u_add_note __pyx_string_tab[140]
+#define __pyx_n_u_all __pyx_string_tab[141]
+#define __pyx_n_u_annotations __pyx_string_tab[142]
+#define __pyx_n_u_any __pyx_string_tab[143]
+#define __pyx_n_u_ap __pyx_string_tab[144]
+#define __pyx_n_u_args __pyx_string_tab[145]
+#define __pyx_n_u_async __pyx_string_tab[146]
+#define __pyx_n_u_async_def __pyx_string_tab[147]
+#define __pyx_n_u_async_property __pyx_string_tab[148]
+#define __pyx_n_u_async_property_2 __pyx_string_tab[149]
+#define __pyx_n_u_asyncio __pyx_string_tab[150]
+#define __pyx_n_u_asyncio_coroutines __pyx_string_tab[151]
+#define __pyx_n_u_await __pyx_string_tab[152]
+#define __pyx_n_u_awaitable __pyx_string_tab[153]
+#define __pyx_kp_u_awaiting_awaitable_for_s_for_ins __pyx_string_tab[154]
+#define __pyx_kp_u_awaiting_s __pyx_string_tab[155]
+#define __pyx_kp_u_awaiting_s_for_instance_s __pyx_string_tab[156]
+#define __pyx_n_u_base __pyx_string_tab[157]
+#define __pyx_n_u_bool __pyx_string_tab[158]
+#define __pyx_n_u_bound __pyx_string_tab[159]
+#define __pyx_n_u_cache_state __pyx_string_tab[160]
+#define __pyx_n_u_cached __pyx_string_tab[161]
+#define __pyx_n_u_check_method_sync __pyx_string_tab[162]
+#define __pyx_n_u_class __pyx_string_tab[163]
+#define __pyx_n_u_class_getitem __pyx_string_tab[164]
+#define __pyx_n_u_cline_in_traceback __pyx_string_tab[165]
+#define __pyx_n_u_close __pyx_string_tab[166]
+#define __pyx_n_u_concurrency __pyx_string_tab[167]
+#define __pyx_n_u_config __pyx_string_tab[168]
+#define __pyx_n_u_copy __pyx_string_tab[169]
+#define __pyx_n_u_copy_2 __pyx_string_tab[170]
+#define __pyx_n_u_debug __pyx_string_tab[171]
+#define __pyx_n_u_debug_logs __pyx_string_tab[172]
+#define __pyx_n_u_decorator __pyx_string_tab[173]
+#define __pyx_n_u_default __pyx_string_tab[174]
+#define __pyx_n_u_deleter __pyx_string_tab[175]
+#define __pyx_n_u_descriptor __pyx_string_tab[176]
+#define __pyx_n_u_descriptor_class __pyx_string_tab[177]
+#define __pyx_n_u_dict __pyx_string_tab[178]
+#define __pyx_kp_u_disable __pyx_string_tab[179]
+#define __pyx_n_u_doc __pyx_string_tab[180]
+#define __pyx_n_u_e __pyx_string_tab[181]
+#define __pyx_kp_u_enable __pyx_string_tab[182]
+#define __pyx_n_u_executor __pyx_string_tab[183]
+#define __pyx_n_u_fdel __pyx_string_tab[184]
+#define __pyx_n_u_fget __pyx_string_tab[185]
+#define __pyx_n_u_field_name __pyx_string_tab[186]
+#define __pyx_kp_u_for_property_bound_to __pyx_string_tab[187]
+#define __pyx_n_u_format __pyx_string_tab[188]
+#define __pyx_n_u_fset __pyx_string_tab[189]
+#define __pyx_n_u_func __pyx_string_tab[190]
+#define __pyx_n_u_func_2 __pyx_string_tab[191]
+#define __pyx_n_u_function __pyx_string_tab[192]
+#define __pyx_n_u_functools __pyx_string_tab[193]
+#define __pyx_kp_u_gc __pyx_string_tab[194]
+#define __pyx_n_u_get __pyx_string_tab[195]
+#define __pyx_n_u_getLogger __pyx_string_tab[196]
+#define __pyx_n_u_get_2 __pyx_string_tab[197]
+#define __pyx_n_u_get_event_loop __pyx_string_tab[198]
+#define __pyx_n_u_get_instance_state __pyx_string_tab[199]
+#define __pyx_n_u_get_loader __pyx_string_tab[200]
+#define __pyx_n_u_get_lock __pyx_string_tab[201]
+#define __pyx_n_u_hidden_method_descriptor __pyx_string_tab[202]
+#define __pyx_n_u_hidden_method_name __pyx_string_tab[203]
+#define __pyx_n_u_hidden_modifiers __pyx_string_tab[204]
+#define __pyx_n_u_import_TaskMapping __pyx_string_tab[205]
+#define __pyx_n_u_init __pyx_string_tab[206]
+#define __pyx_n_u_initializing __pyx_string_tab[207]
+#define __pyx_n_u_inner_task __pyx_string_tab[208]
+#define __pyx_n_u_instance __pyx_string_tab[209]
+#define __pyx_n_u_instance_context __pyx_string_tab[210]
+#define __pyx_n_u_instance_type __pyx_string_tab[211]
+#define __pyx_n_u_instances __pyx_string_tab[212]
+#define __pyx_n_u_isEnabledFor __pyx_string_tab[213]
+#define __pyx_n_u_is_async_def __pyx_string_tab[214]
+#define __pyx_n_u_is_coroutine __pyx_string_tab[215]
+#define __pyx_n_u_is_running __pyx_string_tab[216]
+#define __pyx_kp_u_is_shown_below __pyx_string_tab[217]
+#define __pyx_n_u_iscoroutinefunction __pyx_string_tab[218]
+#define __pyx_kp_u_isenabled __pyx_string_tab[219]
+#define __pyx_n_u_lambda __pyx_string_tab[220]
+#define __pyx_n_u_load_value __pyx_string_tab[221]
+#define __pyx_n_u_loader __pyx_string_tab[222]
+#define __pyx_n_u_locks __pyx_string_tab[223]
+#define __pyx_n_u_log __pyx_string_tab[224]
+#define __pyx_n_u_logger __pyx_string_tab[225]
+#define __pyx_n_u_logger_debug __pyx_string_tab[226]
+#define __pyx_n_u_logger_is_enabled __pyx_string_tab[227]
+#define __pyx_n_u_logger_log __pyx_string_tab[228]
+#define __pyx_n_u_logging __pyx_string_tab[229]
+#define __pyx_n_u_main __pyx_string_tab[230]
+#define __pyx_n_u_map __pyx_string_tab[231]
+#define __pyx_kp_u_mapping_s_to_instances_s_owner_s __pyx_string_tab[232]
+#define __pyx_n_u_max __pyx_string_tab[233]
+#define __pyx_n_u_metaclass __pyx_string_tab[234]
+#define __pyx_n_u_method __pyx_string_tab[235]
+#define __pyx_n_u_min __pyx_string_tab[236]
+#define __pyx_n_u_modifiers __pyx_string_tab[237]
+#define __pyx_n_u_module __pyx_string_tab[238]
+#define __pyx_n_u_mro_entries __pyx_string_tab[239]
+#define __pyx_n_u_name __pyx_string_tab[240]
+#define __pyx_n_u_name_2 __pyx_string_tab[241]
+#define __pyx_kp_u_new_hidden_method_s __pyx_string_tab[242]
+#define __pyx_n_u_next __pyx_string_tab[243]
+#define __pyx_n_u_overload __pyx_string_tab[244]
+#define __pyx_n_u_owner __pyx_string_tab[245]
+#define __pyx_n_u_parse_args __pyx_string_tab[246]
+#define __pyx_n_u_partial __pyx_string_tab[247]
+#define __pyx_n_u_pop __pyx_string_tab[248]
+#define __pyx_n_u_prepare __pyx_string_tab[249]
+#define __pyx_n_u_property __pyx_string_tab[250]
+#define __pyx_n_u_pyx_vtable __pyx_string_tab[251]
+#define __pyx_n_u_qualname __pyx_string_tab[252]
+#define __pyx_n_u_repr __pyx_string_tab[253]
+#define __pyx_n_u_return __pyx_string_tab[254]
+#define __pyx_kp_u_returning_s_for_s_for_instance_s __pyx_string_tab[255]
+#define __pyx_n_u_retval __pyx_string_tab[256]
+#define __pyx_n_u_self __pyx_string_tab[257]
+#define __pyx_n_u_send __pyx_string_tab[258]
+#define __pyx_n_u_set_name __pyx_string_tab[259]
+#define __pyx_n_u_setter __pyx_string_tab[260]
+#define __pyx_n_u_should_await __pyx_string_tab[261]
+#define __pyx_n_u_slots __pyx_string_tab[262]
+#define __pyx_n_u_spec __pyx_string_tab[263]
+#define __pyx_n_u_str __pyx_string_tab[264]
+#define __pyx_n_u_sum __pyx_string_tab[265]
+#define __pyx_n_u_super __pyx_string_tab[266]
+#define __pyx_n_u_sync __pyx_string_tab[267]
+#define __pyx_n_u_task __pyx_string_tab[268]
+#define __pyx_n_u_test __pyx_string_tab[269]
+#define __pyx_n_u_throw __pyx_string_tab[270]
+#define __pyx_n_u_traceback __pyx_string_tab[271]
+#define __pyx_n_u_typing __pyx_string_tab[272]
+#define __pyx_n_u_typing_extensions __pyx_string_tab[273]
+#define __pyx_n_u_unbound __pyx_string_tab[274]
+#define __pyx_n_u_value __pyx_string_tab[275]
+#define __pyx_n_u_with_traceback __pyx_string_tab[276]
+#define __pyx_n_u_wrapped __pyx_string_tab[277]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -4153,7 +4150,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_slice[i]); }
   for (int i=0; i<5; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
   for (int i=0; i<45; ++i) { Py_CLEAR(clear_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<279; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<278; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
   Py_CLEAR(clear_module_state->__pyx_int_2);
   Py_CLEAR(clear_module_state->__pyx_int_10);
   Py_CLEAR(clear_module_state->__pyx_int_neg_2);
@@ -4194,7 +4191,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_slice[i]); }
   for (int i=0; i<5; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
   for (int i=0; i<45; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_codeobj_tab[i]); }
-  for (int i=0; i<279; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<278; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_2);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_10);
   __Pyx_VISIT_CONST(traverse_module_state->__pyx_int_neg_2);
@@ -13669,16 +13666,9 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8property_22HiddenMethodDescriptor_2__
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
-  PyObject *__pyx_t_5 = NULL;
+  size_t __pyx_t_5;
   PyObject *__pyx_t_6 = NULL;
-  int __pyx_t_7;
-  PyObject *__pyx_t_8 = NULL;
-  PyObject *__pyx_t_9 = NULL;
-  PyObject *__pyx_t_10 = NULL;
-  PyObject *__pyx_t_11 = NULL;
-  PyObject *__pyx_t_12 = NULL;
-  PyObject *__pyx_t_13 = NULL;
-  size_t __pyx_t_14;
+  PyObject *__pyx_t_7 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -13724,8 +13714,8 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8property_22HiddenMethodDescriptor_2__
  * 
  *         cdef _ASyncBoundMethod bound
  *         cdef str field_name = self.field_name             # <<<<<<<<<<<<<<
- *         try:
- *             bound = instance.__dict__[field_name]
+ *         bound = instance.__dict__.get(field_name)
+ *         if bound is None:
 */
   __Pyx_TraceLine(782,12,0,__PYX_ERR(0, 782, __pyx_L1_error))
   __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_field_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 782, __pyx_L1_error)
@@ -13737,239 +13727,188 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8property_22HiddenMethodDescriptor_2__
   /* "a_sync/a_sync/property.pyx":783
  *         cdef _ASyncBoundMethod bound
  *         cdef str field_name = self.field_name
- *         try:             # <<<<<<<<<<<<<<
- *             bound = instance.__dict__[field_name]
- *         except KeyError:
-*/
-  __Pyx_TraceLine(783,13,0,__PYX_ERR(0, 783, __pyx_L1_error))
-  {
-    __Pyx_PyThreadState_declare
-    __Pyx_PyThreadState_assign
-    __Pyx_ExceptionSave(&__pyx_t_3, &__pyx_t_4, &__pyx_t_5);
-    __Pyx_XGOTREF(__pyx_t_3);
-    __Pyx_XGOTREF(__pyx_t_4);
-    __Pyx_XGOTREF(__pyx_t_5);
-    /*try:*/ {
-
-      /* "a_sync/a_sync/property.pyx":784
- *         cdef str field_name = self.field_name
- *         try:
- *             bound = instance.__dict__[field_name]             # <<<<<<<<<<<<<<
- *         except KeyError:
+ *         bound = instance.__dict__.get(field_name)             # <<<<<<<<<<<<<<
+ *         if bound is None:
  *             bound = HiddenMethod(
 */
-      __Pyx_TraceLine(784,16,0,__PYX_ERR(0, 784, __pyx_L4_error))
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_instance, __pyx_mstate_global->__pyx_n_u_dict); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 784, __pyx_L4_error)
-      __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_6 = __Pyx_PyObject_Dict_GetItem(__pyx_t_2, __pyx_v_field_name); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 784, __pyx_L4_error)
-      __Pyx_GOTREF(__pyx_t_6);
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (!(likely(((__pyx_t_6) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_6, __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_6method__ASyncBoundMethod))))) __PYX_ERR(0, 784, __pyx_L4_error)
-      __pyx_v_bound = ((struct __pyx_obj_6a_sync_6a_sync_6method__ASyncBoundMethod *)__pyx_t_6);
-      __pyx_t_6 = 0;
-
-      /* "a_sync/a_sync/property.pyx":783
- *         cdef _ASyncBoundMethod bound
- *         cdef str field_name = self.field_name
- *         try:             # <<<<<<<<<<<<<<
- *             bound = instance.__dict__[field_name]
- *         except KeyError:
-*/
-    }
+  __Pyx_TraceLine(783,15,0,__PYX_ERR(0, 783, __pyx_L1_error))
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_instance, __pyx_mstate_global->__pyx_n_u_dict); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 783, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
+  __pyx_t_3 = __pyx_t_4;
+  __Pyx_INCREF(__pyx_t_3);
+  __pyx_t_5 = 0;
+  {
+    PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_field_name};
+    __pyx_t_2 = __Pyx_PyObject_FastCallMethod(__pyx_mstate_global->__pyx_n_u_get, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    goto __pyx_L9_try_end;
-    __pyx_L4_error:;
-    __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __Pyx_TraceException(__pyx_lineno, 0, 0);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 783, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+  }
+  if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_6method__ASyncBoundMethod))))) __PYX_ERR(0, 783, __pyx_L1_error)
+  __pyx_v_bound = ((struct __pyx_obj_6a_sync_6a_sync_6method__ASyncBoundMethod *)__pyx_t_2);
+  __pyx_t_2 = 0;
 
-    /* "a_sync/a_sync/property.pyx":785
- *         try:
- *             bound = instance.__dict__[field_name]
- *         except KeyError:             # <<<<<<<<<<<<<<
+  /* "a_sync/a_sync/property.pyx":784
+ *         cdef str field_name = self.field_name
+ *         bound = instance.__dict__.get(field_name)
+ *         if bound is None:             # <<<<<<<<<<<<<<
  *             bound = HiddenMethod(
  *                 instance,
 */
-    __Pyx_TraceLine(785,19,0,__PYX_ERR(0, 785, __pyx_L6_except_error))
-    __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
-    if (__pyx_t_7) {
-      __Pyx_AddTraceback("a_sync.a_sync.property.HiddenMethodDescriptor.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      __Pyx_TraceExceptionHandled(0);
-      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_2, &__pyx_t_8) < 0) __PYX_ERR(0, 785, __pyx_L6_except_error)
-      __Pyx_XGOTREF(__pyx_t_6);
-      __Pyx_XGOTREF(__pyx_t_2);
-      __Pyx_XGOTREF(__pyx_t_8);
-      __Pyx_TraceExceptionDone();
+  __Pyx_TraceLine(784,22,0,__PYX_ERR(0, 784, __pyx_L1_error))
+  __pyx_t_1 = (((PyObject *)__pyx_v_bound) == Py_None);
+  if (__pyx_t_1) {
 
-      /* "a_sync/a_sync/property.pyx":786
- *             bound = instance.__dict__[field_name]
- *         except KeyError:
+    /* "a_sync/a_sync/property.pyx":785
+ *         bound = instance.__dict__.get(field_name)
+ *         if bound is None:
  *             bound = HiddenMethod(             # <<<<<<<<<<<<<<
  *                 instance,
  *                 self.__wrapped__,
 */
-      __Pyx_TraceLine(786,22,0,__PYX_ERR(0, 786, __pyx_L6_except_error))
-      __pyx_t_10 = NULL;
-      __Pyx_GetModuleGlobalName(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_HiddenMethod); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 786, __pyx_L6_except_error)
-      __Pyx_GOTREF(__pyx_t_11);
+    __Pyx_TraceLine(785,25,0,__PYX_ERR(0, 785, __pyx_L1_error))
+    __pyx_t_4 = NULL;
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_HiddenMethod); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 785, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
 
-      /* "a_sync/a_sync/property.pyx":789
+    /* "a_sync/a_sync/property.pyx":788
  *                 instance,
  *                 self.__wrapped__,
  *                 self.__is_async_def__,             # <<<<<<<<<<<<<<
  *                 field_name,
  *                 **self.modifiers._modifiers,
 */
-      __Pyx_TraceLine(789,27,0,__PYX_ERR(0, 789, __pyx_L6_except_error))
-      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_async_def); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 789, __pyx_L6_except_error)
-      __Pyx_GOTREF(__pyx_t_12);
+    __Pyx_TraceLine(788,30,0,__PYX_ERR(0, 788, __pyx_L1_error))
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_is_async_def); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 788, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_6);
 
-      /* "a_sync/a_sync/property.pyx":791
+    /* "a_sync/a_sync/property.pyx":790
  *                 self.__is_async_def__,
  *                 field_name,
  *                 **self.modifiers._modifiers,             # <<<<<<<<<<<<<<
  *             )
  *             instance.__dict__[field_name] = bound
 */
-      __Pyx_TraceLine(791,31,0,__PYX_ERR(0, 791, __pyx_L6_except_error))
-      if (unlikely(__pyx_v_self->modifiers->_modifiers == Py_None)) {
-        PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 791, __pyx_L6_except_error)
-      }
-      __pyx_t_13 = PyDict_Copy(__pyx_v_self->modifiers->_modifiers); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 791, __pyx_L6_except_error)
-      __Pyx_GOTREF(__pyx_t_13);
-      __pyx_t_14 = 1;
-      #if CYTHON_UNPACK_METHODS
-      if (unlikely(PyMethod_Check(__pyx_t_11))) {
-        __pyx_t_10 = PyMethod_GET_SELF(__pyx_t_11);
-        assert(__pyx_t_10);
-        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_11);
-        __Pyx_INCREF(__pyx_t_10);
-        __Pyx_INCREF(__pyx__function);
-        __Pyx_DECREF_SET(__pyx_t_11, __pyx__function);
-        __pyx_t_14 = 0;
-      }
-      #endif
-      {
-        PyObject *__pyx_callargs[5] = {__pyx_t_10, __pyx_v_instance, __pyx_v_self->__pyx___wrapped__, __pyx_t_12, __pyx_v_field_name};
-        __pyx_t_9 = __Pyx_PyObject_FastCallDict(__pyx_t_11, __pyx_callargs+__pyx_t_14, (5-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_13);
-        __Pyx_XDECREF(__pyx_t_10); __pyx_t_10 = 0;
-        __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-        __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 786, __pyx_L6_except_error)
-        __Pyx_GOTREF(__pyx_t_9);
-      }
+    __Pyx_TraceLine(790,34,0,__PYX_ERR(0, 790, __pyx_L1_error))
+    if (unlikely(__pyx_v_self->modifiers->_modifiers == Py_None)) {
+      PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
+      __PYX_ERR(0, 790, __pyx_L1_error)
+    }
+    __pyx_t_7 = PyDict_Copy(__pyx_v_self->modifiers->_modifiers); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 790, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    __pyx_t_5 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_3))) {
+      __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_3);
+      assert(__pyx_t_4);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_3);
+      __Pyx_INCREF(__pyx_t_4);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_3, __pyx__function);
+      __pyx_t_5 = 0;
+    }
+    #endif
+    {
+      PyObject *__pyx_callargs[5] = {__pyx_t_4, __pyx_v_instance, __pyx_v_self->__pyx___wrapped__, __pyx_t_6, __pyx_v_field_name};
+      __pyx_t_2 = __Pyx_PyObject_FastCallDict(__pyx_t_3, __pyx_callargs+__pyx_t_5, (5-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_7);
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 785, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+    }
 
-      /* "a_sync/a_sync/property.pyx":786
- *             bound = instance.__dict__[field_name]
- *         except KeyError:
+    /* "a_sync/a_sync/property.pyx":785
+ *         bound = instance.__dict__.get(field_name)
+ *         if bound is None:
  *             bound = HiddenMethod(             # <<<<<<<<<<<<<<
  *                 instance,
  *                 self.__wrapped__,
 */
-      __Pyx_TraceLine(786,22,0,__PYX_ERR(0, 786, __pyx_L6_except_error))
-      if (!(likely(((__pyx_t_9) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_9, __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_6method__ASyncBoundMethod))))) __PYX_ERR(0, 786, __pyx_L6_except_error)
-      __Pyx_XDECREF_SET(__pyx_v_bound, ((struct __pyx_obj_6a_sync_6a_sync_6method__ASyncBoundMethod *)__pyx_t_9));
-      __pyx_t_9 = 0;
+    __Pyx_TraceLine(785,25,0,__PYX_ERR(0, 785, __pyx_L1_error))
+    if (!(likely(((__pyx_t_2) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_2, __pyx_mstate_global->__pyx_ptype_6a_sync_6a_sync_6method__ASyncBoundMethod))))) __PYX_ERR(0, 785, __pyx_L1_error)
+    __Pyx_DECREF_SET(__pyx_v_bound, ((struct __pyx_obj_6a_sync_6a_sync_6method__ASyncBoundMethod *)__pyx_t_2));
+    __pyx_t_2 = 0;
 
-      /* "a_sync/a_sync/property.pyx":793
+    /* "a_sync/a_sync/property.pyx":792
  *                 **self.modifiers._modifiers,
  *             )
  *             instance.__dict__[field_name] = bound             # <<<<<<<<<<<<<<
  *             _logger_debug("new hidden method: %s", bound)
  *         _update_cache_timer(field_name, instance, bound)
 */
-      __Pyx_TraceLine(793,33,0,__PYX_ERR(0, 793, __pyx_L6_except_error))
-      __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_instance, __pyx_mstate_global->__pyx_n_u_dict); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 793, __pyx_L6_except_error)
-      __Pyx_GOTREF(__pyx_t_9);
-      if (unlikely((PyObject_SetItem(__pyx_t_9, __pyx_v_field_name, ((PyObject *)__pyx_v_bound)) < 0))) __PYX_ERR(0, 793, __pyx_L6_except_error)
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_TraceLine(792,36,0,__PYX_ERR(0, 792, __pyx_L1_error))
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_instance, __pyx_mstate_global->__pyx_n_u_dict); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 792, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    if (unlikely((PyObject_SetItem(__pyx_t_2, __pyx_v_field_name, ((PyObject *)__pyx_v_bound)) < 0))) __PYX_ERR(0, 792, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-      /* "a_sync/a_sync/property.pyx":794
+    /* "a_sync/a_sync/property.pyx":793
  *             )
  *             instance.__dict__[field_name] = bound
  *             _logger_debug("new hidden method: %s", bound)             # <<<<<<<<<<<<<<
  *         _update_cache_timer(field_name, instance, bound)
  *         return bound
 */
-      __Pyx_TraceLine(794,38,0,__PYX_ERR(0, 794, __pyx_L6_except_error))
-      __pyx_t_11 = NULL;
-      __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8property__logger_debug);
-      __pyx_t_13 = __pyx_v_6a_sync_6a_sync_8property__logger_debug; 
-      __pyx_t_14 = 1;
-      #if CYTHON_UNPACK_METHODS
-      if (unlikely(PyMethod_Check(__pyx_t_13))) {
-        __pyx_t_11 = PyMethod_GET_SELF(__pyx_t_13);
-        assert(__pyx_t_11);
-        PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_13);
-        __Pyx_INCREF(__pyx_t_11);
-        __Pyx_INCREF(__pyx__function);
-        __Pyx_DECREF_SET(__pyx_t_13, __pyx__function);
-        __pyx_t_14 = 0;
-      }
-      #endif
-      {
-        PyObject *__pyx_callargs[3] = {__pyx_t_11, __pyx_mstate_global->__pyx_kp_u_new_hidden_method_s, ((PyObject *)__pyx_v_bound)};
-        __pyx_t_9 = __Pyx_PyObject_FastCall(__pyx_t_13, __pyx_callargs+__pyx_t_14, (3-__pyx_t_14) | (__pyx_t_14*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-        __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-        __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
-        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 794, __pyx_L6_except_error)
-        __Pyx_GOTREF(__pyx_t_9);
-      }
-      __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      goto __pyx_L5_exception_handled;
+    __Pyx_TraceLine(793,41,0,__PYX_ERR(0, 793, __pyx_L1_error))
+    __pyx_t_3 = NULL;
+    __Pyx_INCREF(__pyx_v_6a_sync_6a_sync_8property__logger_debug);
+    __pyx_t_7 = __pyx_v_6a_sync_6a_sync_8property__logger_debug; 
+    __pyx_t_5 = 1;
+    #if CYTHON_UNPACK_METHODS
+    if (unlikely(PyMethod_Check(__pyx_t_7))) {
+      __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_7);
+      assert(__pyx_t_3);
+      PyObject* __pyx__function = PyMethod_GET_FUNCTION(__pyx_t_7);
+      __Pyx_INCREF(__pyx_t_3);
+      __Pyx_INCREF(__pyx__function);
+      __Pyx_DECREF_SET(__pyx_t_7, __pyx__function);
+      __pyx_t_5 = 0;
     }
-    goto __pyx_L6_except_error;
+    #endif
+    {
+      PyObject *__pyx_callargs[3] = {__pyx_t_3, __pyx_mstate_global->__pyx_kp_u_new_hidden_method_s, ((PyObject *)__pyx_v_bound)};
+      __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_5, (3-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 793, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_2);
+    }
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "a_sync/a_sync/property.pyx":783
- *         cdef _ASyncBoundMethod bound
+    /* "a_sync/a_sync/property.pyx":784
  *         cdef str field_name = self.field_name
- *         try:             # <<<<<<<<<<<<<<
- *             bound = instance.__dict__[field_name]
- *         except KeyError:
+ *         bound = instance.__dict__.get(field_name)
+ *         if bound is None:             # <<<<<<<<<<<<<<
+ *             bound = HiddenMethod(
+ *                 instance,
 */
-    __pyx_L6_except_error:;
-    __Pyx_XGIVEREF(__pyx_t_3);
-    __Pyx_XGIVEREF(__pyx_t_4);
-    __Pyx_XGIVEREF(__pyx_t_5);
-    __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
-    goto __pyx_L1_error;
-    __pyx_L5_exception_handled:;
-    __Pyx_XGIVEREF(__pyx_t_3);
-    __Pyx_XGIVEREF(__pyx_t_4);
-    __Pyx_XGIVEREF(__pyx_t_5);
-    __Pyx_ExceptionReset(__pyx_t_3, __pyx_t_4, __pyx_t_5);
-    __pyx_L9_try_end:;
   }
 
-  /* "a_sync/a_sync/property.pyx":795
+  /* "a_sync/a_sync/property.pyx":794
  *             instance.__dict__[field_name] = bound
  *             _logger_debug("new hidden method: %s", bound)
  *         _update_cache_timer(field_name, instance, bound)             # <<<<<<<<<<<<<<
  *         return bound
  * 
 */
-  __Pyx_TraceLine(795,42,0,__PYX_ERR(0, 795, __pyx_L1_error))
-  __pyx_f_6a_sync_6a_sync_6method__update_cache_timer(__pyx_v_field_name, __pyx_v_instance, __pyx_v_bound); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 795, __pyx_L1_error)
+  __Pyx_TraceLine(794,45,0,__PYX_ERR(0, 794, __pyx_L1_error))
+  __pyx_f_6a_sync_6a_sync_6method__update_cache_timer(__pyx_v_field_name, __pyx_v_instance, __pyx_v_bound); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 794, __pyx_L1_error)
 
-  /* "a_sync/a_sync/property.pyx":796
+  /* "a_sync/a_sync/property.pyx":795
  *             _logger_debug("new hidden method: %s", bound)
  *         _update_cache_timer(field_name, instance, bound)
  *         return bound             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(796,46,0,__PYX_ERR(0, 796, __pyx_L1_error))
+  __Pyx_TraceLine(795,49,0,__PYX_ERR(0, 795, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF((PyObject *)__pyx_v_bound);
   __pyx_r = ((PyObject *)__pyx_v_bound);
-  __Pyx_TraceReturnValue(__pyx_r, 46, 0, __PYX_ERR(0, 796, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 49, 0, __PYX_ERR(0, 795, __pyx_L1_error));
   goto __pyx_L0;
 
   /* "a_sync/a_sync/property.pyx":768
@@ -13983,13 +13922,10 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8property_22HiddenMethodDescriptor_2__
   /* function exit code */
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_6);
-  __Pyx_XDECREF(__pyx_t_8);
-  __Pyx_XDECREF(__pyx_t_9);
-  __Pyx_XDECREF(__pyx_t_10);
-  __Pyx_XDECREF(__pyx_t_11);
-  __Pyx_XDECREF(__pyx_t_12);
-  __Pyx_XDECREF(__pyx_t_13);
+  __Pyx_XDECREF(__pyx_t_7);
   __Pyx_TraceException(__pyx_lineno, 0, 0);
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
@@ -14007,7 +13943,7 @@ static PyObject *__pyx_pf_6a_sync_6a_sync_8property_22HiddenMethodDescriptor_2__
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/property.pyx":799
+/* "a_sync/a_sync/property.pyx":798
  * 
  * 
  * cdef object _parse_args(             # <<<<<<<<<<<<<<
@@ -14027,68 +13963,68 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8property__parse_args(PyObject *__pyx_v
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[43]))
   __Pyx_RefNannySetupContext("_parse_args", 0);
-  __Pyx_TraceStartFunc("_parse_args", __pyx_f[0], 799, 0, 0, 0, __PYX_ERR(0, 799, __pyx_L1_error));
+  __Pyx_TraceStartFunc("_parse_args", __pyx_f[0], 798, 0, 0, 0, __PYX_ERR(0, 798, __pyx_L1_error));
 
-  /* "a_sync/a_sync/property.pyx":812
+  /* "a_sync/a_sync/property.pyx":811
  *         Tuple[Optional[AsyncGetterFunction[I, T]], ModifierKwargs] A tuple containing the parsed function and modifiers.
  *     """
  *     if func in ("sync", "async"):             # <<<<<<<<<<<<<<
  *         modifiers["default"] = func
  *         return None, modifiers
 */
-  __Pyx_TraceLine(812,3,0,__PYX_ERR(0, 812, __pyx_L1_error))
+  __Pyx_TraceLine(811,3,0,__PYX_ERR(0, 811, __pyx_L1_error))
   __Pyx_INCREF(__pyx_v_func);
   __pyx_t_1 = __pyx_v_func;
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sync, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 812, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_sync, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 811, __pyx_L1_error)
   if (!__pyx_t_3) {
   } else {
     __pyx_t_2 = __pyx_t_3;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_async, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 812, __pyx_L1_error)
+  __pyx_t_3 = (__Pyx_PyUnicode_Equals(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_async, Py_EQ)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 811, __pyx_L1_error)
   __pyx_t_2 = __pyx_t_3;
   __pyx_L4_bool_binop_done:;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_3 = __pyx_t_2;
   if (__pyx_t_3) {
 
-    /* "a_sync/a_sync/property.pyx":813
+    /* "a_sync/a_sync/property.pyx":812
  *     """
  *     if func in ("sync", "async"):
  *         modifiers["default"] = func             # <<<<<<<<<<<<<<
  *         return None, modifiers
  *     return func, modifiers
 */
-    __Pyx_TraceLine(813,7,0,__PYX_ERR(0, 813, __pyx_L1_error))
+    __Pyx_TraceLine(812,7,0,__PYX_ERR(0, 812, __pyx_L1_error))
     if (unlikely(__pyx_v_modifiers == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 813, __pyx_L1_error)
+      __PYX_ERR(0, 812, __pyx_L1_error)
     }
-    if (unlikely((PyDict_SetItem(__pyx_v_modifiers, __pyx_mstate_global->__pyx_n_u_default, __pyx_v_func) < 0))) __PYX_ERR(0, 813, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_modifiers, __pyx_mstate_global->__pyx_n_u_default, __pyx_v_func) < 0))) __PYX_ERR(0, 812, __pyx_L1_error)
 
-    /* "a_sync/a_sync/property.pyx":814
+    /* "a_sync/a_sync/property.pyx":813
  *     if func in ("sync", "async"):
  *         modifiers["default"] = func
  *         return None, modifiers             # <<<<<<<<<<<<<<
  *     return func, modifiers
  * 
 */
-    __Pyx_TraceLine(814,11,0,__PYX_ERR(0, 814, __pyx_L1_error))
+    __Pyx_TraceLine(813,11,0,__PYX_ERR(0, 813, __pyx_L1_error))
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 814, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 813, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(Py_None);
     __Pyx_GIVEREF(Py_None);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, Py_None) != (0)) __PYX_ERR(0, 814, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, Py_None) != (0)) __PYX_ERR(0, 813, __pyx_L1_error);
     __Pyx_INCREF(__pyx_v_modifiers);
     __Pyx_GIVEREF(__pyx_v_modifiers);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_modifiers) != (0)) __PYX_ERR(0, 814, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_modifiers) != (0)) __PYX_ERR(0, 813, __pyx_L1_error);
     __pyx_r = __pyx_t_1;
     __pyx_t_1 = 0;
-    __Pyx_TraceReturnValue(__pyx_r, 11, 0, __PYX_ERR(0, 814, __pyx_L1_error));
+    __Pyx_TraceReturnValue(__pyx_r, 11, 0, __PYX_ERR(0, 813, __pyx_L1_error));
     goto __pyx_L0;
 
-    /* "a_sync/a_sync/property.pyx":812
+    /* "a_sync/a_sync/property.pyx":811
  *         Tuple[Optional[AsyncGetterFunction[I, T]], ModifierKwargs] A tuple containing the parsed function and modifiers.
  *     """
  *     if func in ("sync", "async"):             # <<<<<<<<<<<<<<
@@ -14097,29 +14033,29 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8property__parse_args(PyObject *__pyx_v
 */
   }
 
-  /* "a_sync/a_sync/property.pyx":815
+  /* "a_sync/a_sync/property.pyx":814
  *         modifiers["default"] = func
  *         return None, modifiers
  *     return func, modifiers             # <<<<<<<<<<<<<<
  * 
  * 
 */
-  __Pyx_TraceLine(815,14,0,__PYX_ERR(0, 815, __pyx_L1_error))
+  __Pyx_TraceLine(814,14,0,__PYX_ERR(0, 814, __pyx_L1_error))
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 815, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 814, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_v_func);
   __Pyx_GIVEREF(__pyx_v_func);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_func) != (0)) __PYX_ERR(0, 815, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_func) != (0)) __PYX_ERR(0, 814, __pyx_L1_error);
   __Pyx_INCREF(__pyx_v_modifiers);
   __Pyx_GIVEREF(__pyx_v_modifiers);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_modifiers) != (0)) __PYX_ERR(0, 815, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_v_modifiers) != (0)) __PYX_ERR(0, 814, __pyx_L1_error);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
-  __Pyx_TraceReturnValue(__pyx_r, 14, 0, __PYX_ERR(0, 815, __pyx_L1_error));
+  __Pyx_TraceReturnValue(__pyx_r, 14, 0, __PYX_ERR(0, 814, __pyx_L1_error));
   goto __pyx_L0;
 
-  /* "a_sync/a_sync/property.pyx":799
+  /* "a_sync/a_sync/property.pyx":798
  * 
  * 
  * cdef object _parse_args(             # <<<<<<<<<<<<<<
@@ -14134,7 +14070,7 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8property__parse_args(PyObject *__pyx_v
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 799, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 798, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.property._parse_args", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
@@ -14145,7 +14081,7 @@ static PyObject *__pyx_f_6a_sync_6a_sync_8property__parse_args(PyObject *__pyx_v
   return __pyx_r;
 }
 
-/* "a_sync/a_sync/property.pyx":818
+/* "a_sync/a_sync/property.pyx":817
  * 
  * 
  * cdef inline void _import_TaskMapping():             # <<<<<<<<<<<<<<
@@ -14163,29 +14099,29 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8property__import_TaskMapping(
   int __pyx_clineno = 0;
   __Pyx_TraceFrameInit(((PyObject *)__pyx_mstate_global->__pyx_codeobj_tab[44]))
   __Pyx_RefNannySetupContext("_import_TaskMapping", 0);
-  __Pyx_TraceStartFunc("_import_TaskMapping", __pyx_f[0], 818, 0, 0, 0, __PYX_ERR(0, 818, __pyx_L1_error));
+  __Pyx_TraceStartFunc("_import_TaskMapping", __pyx_f[0], 817, 0, 0, 0, __PYX_ERR(0, 817, __pyx_L1_error));
 
-  /* "a_sync/a_sync/property.pyx":820
+  /* "a_sync/a_sync/property.pyx":819
  * cdef inline void _import_TaskMapping():
  *     global TaskMapping
  *     from a_sync import TaskMapping             # <<<<<<<<<<<<<<
 */
-  __Pyx_TraceLine(820,4,0,__PYX_ERR(0, 820, __pyx_L1_error))
-  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 820, __pyx_L1_error)
+  __Pyx_TraceLine(819,4,0,__PYX_ERR(0, 819, __pyx_L1_error))
+  __pyx_t_1 = PyList_New(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 819, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_INCREF(__pyx_mstate_global->__pyx_n_u_TaskMapping);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_n_u_TaskMapping);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_TaskMapping) != (0)) __PYX_ERR(0, 820, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_a_sync, __pyx_t_1, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 820, __pyx_L1_error)
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_1, 0, __pyx_mstate_global->__pyx_n_u_TaskMapping) != (0)) __PYX_ERR(0, 819, __pyx_L1_error);
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_a_sync, __pyx_t_1, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 819, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 820, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_ImportFrom(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_TaskMapping); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 819, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TaskMapping, __pyx_t_1) < 0) __PYX_ERR(0, 820, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_TaskMapping, __pyx_t_1) < 0) __PYX_ERR(0, 819, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "a_sync/a_sync/property.pyx":818
+  /* "a_sync/a_sync/property.pyx":817
  * 
  * 
  * cdef inline void _import_TaskMapping():             # <<<<<<<<<<<<<<
@@ -14194,7 +14130,7 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8property__import_TaskMapping(
 */
 
   /* function exit code */
-  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 818, __pyx_L1_error));
+  __Pyx_TraceReturnValue(Py_None, 0, 0, __PYX_ERR(0, 817, __pyx_L1_error));
   goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_1);
@@ -14203,7 +14139,7 @@ static CYTHON_INLINE void __pyx_f_6a_sync_6a_sync_8property__import_TaskMapping(
   #if CYTHON_USE_SYS_MONITORING
   __Pyx_TraceExceptionUnwind(0, 0);
   #else
-  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 818, __pyx_L1_error));
+  __Pyx_TraceReturnValue(NULL, 0, 0, __PYX_ERR(0, 817, __pyx_L1_error));
   #endif
   __Pyx_AddTraceback("a_sync.a_sync.property._import_TaskMapping", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_L0:;
@@ -18548,24 +18484,24 @@ __Pyx_RefNannySetupContext("PyInit_property", 0);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "a_sync/a_sync/property.pyx":799
+  /* "a_sync/a_sync/property.pyx":798
  * 
  * 
  * cdef object _parse_args(             # <<<<<<<<<<<<<<
  *     func: Union[None, DefaultMode, AsyncGetterFunction[I, T]],
  *     dict modifiers,
 */
-  __Pyx_TraceLine(799,636,0,__PYX_ERR(0, 799, __pyx_L1_error))
+  __Pyx_TraceLine(798,636,0,__PYX_ERR(0, 798, __pyx_L1_error))
 
 
-  /* "a_sync/a_sync/property.pyx":818
+  /* "a_sync/a_sync/property.pyx":817
  * 
  * 
  * cdef inline void _import_TaskMapping():             # <<<<<<<<<<<<<<
  *     global TaskMapping
  *     from a_sync import TaskMapping
 */
-  __Pyx_TraceLine(818,637,0,__PYX_ERR(0, 818, __pyx_L1_error))
+  __Pyx_TraceLine(817,637,0,__PYX_ERR(0, 817, __pyx_L1_error))
 
 
   /* "a_sync/a_sync/property.pyx":1
@@ -18741,7 +18677,6 @@ static const __Pyx_StringTabEntry __pyx_string_tab[] = {
   {__pyx_k_HiddenMethod___init, sizeof(__pyx_k_HiddenMethod___init), 0, 1, 1}, /* PyObject cname: __pyx_n_u_HiddenMethod___init */
   {__pyx_k_HiddenMethod___repr, sizeof(__pyx_k_HiddenMethod___repr), 0, 1, 1}, /* PyObject cname: __pyx_n_u_HiddenMethod___repr */
   {__pyx_k_I, sizeof(__pyx_k_I), 0, 1, 1}, /* PyObject cname: __pyx_n_u_I */
-  {__pyx_k_KeyError, sizeof(__pyx_k_KeyError), 0, 1, 1}, /* PyObject cname: __pyx_n_u_KeyError */
   {__pyx_k_Literal, sizeof(__pyx_k_Literal), 0, 1, 1}, /* PyObject cname: __pyx_n_u_Literal */
   {__pyx_k_Literal_None, sizeof(__pyx_k_Literal_None), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Literal_None */
   {__pyx_k_Literal_async, sizeof(__pyx_k_Literal_async), 0, 1, 0}, /* PyObject cname: __pyx_kp_u_Literal_async */
@@ -18938,7 +18873,6 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry const *t, PyObject **target, c
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __pyx_builtin_super = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_super); if (!__pyx_builtin_super) __PYX_ERR(0, 154, __pyx_L1_error)
-  __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 785, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -19273,17 +19207,17 @@ static int __Pyx_CreateCodeObjects(__pyx_mstatetype *__pyx_mstate) {
     __pyx_mstate_global->__pyx_codeobj_tab[41] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_property_pyx, __pyx_mstate->__pyx_n_u_init, __pyx_k_A_A_y_wnA_4y_1_2_NdR___Q_B_OtS, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[41])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 768, 118};
+    const __Pyx_PyCode_New_function_description descr = {3, 0, 0, 5, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 768, 123};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_self, __pyx_mstate->__pyx_n_u_instance, __pyx_mstate->__pyx_n_u_owner, __pyx_mstate->__pyx_n_u_bound, __pyx_mstate->__pyx_n_u_field_name};
-    __pyx_mstate_global->__pyx_codeobj_tab[42] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_property_pyx, __pyx_mstate->__pyx_n_u_get_2, __pyx_k_z_Q_9Cq_1_d_HIQa_L_A_A_j_IQnA_3, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[42])) goto bad;
+    __pyx_mstate_global->__pyx_codeobj_tab[42] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_property_pyx, __pyx_mstate->__pyx_n_u_get_2, __pyx_k_z_Q_9Cq_1_d_Qa_6_A_L_A_A_j_IQnA, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[42])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 22, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 799, 41};
+    const __Pyx_PyCode_New_function_description descr = {2, 0, 0, 22, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 798, 41};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_func, __pyx_mstate->__pyx_n_u_modifiers, __pyx_mstate->__pyx_n_u_get_event_loop, __pyx_mstate->__pyx_n_u_iscoroutinefunction, __pyx_mstate->__pyx_n_u_Lock, __pyx_mstate->__pyx_n_u_Task, __pyx_mstate->__pyx_n_u_copy, __pyx_mstate->__pyx_n_u_partial, __pyx_mstate->__pyx_n_u_logger, __pyx_mstate->__pyx_n_u_logger_is_enabled, __pyx_mstate->__pyx_n_u_logger_debug, __pyx_mstate->__pyx_n_u_logger_log, __pyx_mstate->__pyx_n_u_DEBUG, __pyx_mstate->__pyx_n_u_Literal, __pyx_mstate->__pyx_n_u_overload, __pyx_mstate->__pyx_n_u_ASyncDescriptor, __pyx_mstate->__pyx_n_u_ASyncFunction, __pyx_mstate->__pyx_n_u_ASyncFunctionAsyncDefault, __pyx_mstate->__pyx_n_u_ASyncFunctionSyncDefault, __pyx_mstate->__pyx_n_u_ASyncBoundMethod, __pyx_mstate->__pyx_n_u_ASyncBoundMethodAsyncDefault, __pyx_mstate->__pyx_n_u_ASyncMethodDescriptorAsyncDefaul};
     __pyx_mstate_global->__pyx_codeobj_tab[43] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_property_pyx, __pyx_mstate->__pyx_n_u_parse_args, __pyx_k_uD_q_vQ_6, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[43])) goto bad;
   }
   {
-    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 20, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 818, 12};
+    const __Pyx_PyCode_New_function_description descr = {0, 0, 0, 20, (unsigned int)(CO_OPTIMIZED|CO_NEWLOCALS), 817, 12};
     PyObject* const varnames[] = {__pyx_mstate->__pyx_n_u_get_event_loop, __pyx_mstate->__pyx_n_u_iscoroutinefunction, __pyx_mstate->__pyx_n_u_Lock, __pyx_mstate->__pyx_n_u_Task, __pyx_mstate->__pyx_n_u_copy, __pyx_mstate->__pyx_n_u_partial, __pyx_mstate->__pyx_n_u_logger, __pyx_mstate->__pyx_n_u_logger_is_enabled, __pyx_mstate->__pyx_n_u_logger_debug, __pyx_mstate->__pyx_n_u_logger_log, __pyx_mstate->__pyx_n_u_DEBUG, __pyx_mstate->__pyx_n_u_Literal, __pyx_mstate->__pyx_n_u_overload, __pyx_mstate->__pyx_n_u_ASyncDescriptor, __pyx_mstate->__pyx_n_u_ASyncFunction, __pyx_mstate->__pyx_n_u_ASyncFunctionAsyncDefault, __pyx_mstate->__pyx_n_u_ASyncFunctionSyncDefault, __pyx_mstate->__pyx_n_u_ASyncBoundMethod, __pyx_mstate->__pyx_n_u_ASyncBoundMethodAsyncDefault, __pyx_mstate->__pyx_n_u_ASyncMethodDescriptorAsyncDefaul};
     __pyx_mstate_global->__pyx_codeobj_tab[44] = __Pyx_PyCode_New(descr, varnames, __pyx_mstate->__pyx_kp_u_a_sync_a_sync_property_pyx, __pyx_mstate->__pyx_n_u_import_TaskMapping, __pyx_k_q, tuple_dedup_map); if (unlikely(!__pyx_mstate_global->__pyx_codeobj_tab[44])) goto bad;
   }

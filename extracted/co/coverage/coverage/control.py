@@ -17,20 +17,23 @@ import sys
 import threading
 import time
 import warnings
-
-from types import FrameType
-from typing import cast, Any, Callable, IO, Union
 from collections.abc import Iterable, Iterator
+from types import FrameType
+from typing import IO, Any, Callable, Union, cast
 
 from coverage import env
 from coverage.annotate import AnnotateReporter
 from coverage.collector import Collector
-from coverage.config import CoverageConfig, read_coverage_config
-from coverage.context import should_start_context_test_function, combine_context_switchers
-from coverage.core import Core, CTRACER_FILE
+from coverage.config import CoverageConfig, deserialize_config, read_coverage_config
+from coverage.context import combine_context_switchers, should_start_context_test_function
+from coverage.core import CTRACER_FILE, Core
 from coverage.data import CoverageData, combine_parallel_data
 from coverage.debug import (
-    DebugControl, NoDebugging, short_stack, write_formatted_info, relevant_environment_display,
+    DebugControl,
+    NoDebugging,
+    relevant_environment_display,
+    short_stack,
+    write_formatted_info,
 )
 from coverage.disposition import disposition_debug_msg
 from coverage.exceptions import ConfigError, CoverageException, CoverageWarning, PluginError
@@ -39,8 +42,13 @@ from coverage.html import HtmlReporter
 from coverage.inorout import InOrOut
 from coverage.jsonreport import JsonReporter
 from coverage.lcovreport import LcovReporter
-from coverage.misc import bool_or_none, join_regex
-from coverage.misc import DefaultValue, ensure_dir_for_file, isolate_module
+from coverage.misc import (
+    DefaultValue,
+    bool_or_none,
+    ensure_dir_for_file,
+    isolate_module,
+    join_regex,
+)
 from coverage.multiproc import patch_multiprocessing
 from coverage.patch import apply_patches
 from coverage.plugin import FileReporter
@@ -50,8 +58,14 @@ from coverage.report import SummaryReporter
 from coverage.report_core import render_report
 from coverage.results import Analysis, analysis_from_file_reporter
 from coverage.types import (
-    FilePath, TConfigurable, TConfigSectionIn, TConfigValueIn, TConfigValueOut,
-    TFileDisposition, TLineNo, TMorf
+    FilePath,
+    TConfigSectionIn,
+    TConfigurable,
+    TConfigValueIn,
+    TConfigValueOut,
+    TFileDisposition,
+    TLineNo,
+    TMorf,
 )
 from coverage.xmlreport import XmlReporter
 
@@ -75,6 +89,7 @@ def override_config(cov: Coverage, **kwargs: TConfigValueIn) -> Iterator[None]:
 
 DEFAULT_DATAFILE = DefaultValue("MISSING")
 _DEFAULT_DATAFILE = DEFAULT_DATAFILE  # Just in case, for backwards compatibility
+CONFIG_FROM_ENVIRONMENT = ":envvar:"
 
 class Coverage(TConfigurable):
     """Programmatic access to coverage.py.
@@ -282,6 +297,7 @@ class Coverage(TConfigurable):
         self._plugins: Plugins = Plugins()
         self._plugin_override = cast(Union[Iterable[TCoverageInit], None], plugins)
         self._data: CoverageData | None = None
+        self._data_to_close: list[CoverageData] = []
         self._core: Core | None = None
         self._collector: Collector | None = None
         self._metacov = False
@@ -301,27 +317,30 @@ class Coverage(TConfigurable):
         self._should_write_debug = True
 
         # Build our configuration from a number of sources.
-        if not isinstance(config_file, bool):
-            config_file = os.fspath(config_file)
-        self.config = read_coverage_config(
-            config_file=config_file,
-            warn=self._warn,
-            data_file=data_file,
-            cover_pylib=cover_pylib,
-            timid=timid,
-            branch=branch,
-            parallel=bool_or_none(data_suffix),
-            source=source,
-            source_pkgs=source_pkgs,
-            source_dirs=source_dirs,
-            run_omit=omit,
-            run_include=include,
-            debug=debug,
-            report_omit=omit,
-            report_include=include,
-            concurrency=concurrency,
-            context=context,
-        )
+        if config_file == CONFIG_FROM_ENVIRONMENT:
+            self.config = deserialize_config(cast(str, os.getenv("COVERAGE_PROCESS_CONFIG")))
+        else:
+            if not isinstance(config_file, bool):
+                config_file = os.fspath(config_file)
+            self.config = read_coverage_config(
+                config_file=config_file,
+                warn=self._warn,
+                data_file=data_file,
+                cover_pylib=cover_pylib,
+                timid=timid,
+                branch=branch,
+                parallel=bool_or_none(data_suffix),
+                source=source,
+                source_pkgs=source_pkgs,
+                source_dirs=source_dirs,
+                run_omit=omit,
+                run_include=include,
+                debug=debug,
+                report_omit=omit,
+                report_include=include,
+                concurrency=concurrency,
+                context=context,
+            )
 
         # If we have subprocess measurement happening automatically, then we
         # want any explicit creation of a Coverage object to mean, this process
@@ -646,6 +665,7 @@ class Coverage(TConfigurable):
                 debug=self._debug,
                 no_disk=self._no_disk,
             )
+            self._data_to_close.append(self._data)
 
     def start(self) -> None:
         """Start measuring code coverage.
@@ -681,7 +701,7 @@ class Coverage(TConfigurable):
         if self._auto_load:
             self.load()
 
-        apply_patches(self, self.config, make_pth_file=self._make_pth_file)
+        apply_patches(self, self.config, self._debug, make_pth_file=self._make_pth_file)
 
         self._collector.start()
         self._started = True
@@ -718,6 +738,8 @@ class Coverage(TConfigurable):
             self.stop()
         if self._auto_save or event == "sigterm":
             self.save()
+        for d in self._data_to_close:
+            d.close(force=True)
 
     def _on_sigterm(self, signum_unused: int, frame_unused: FrameType | None) -> None:
         """A handler for signal.SIGTERM."""
@@ -1048,6 +1070,7 @@ class Coverage(TConfigurable):
             if self._data is not None:
                 mapped_data.update(self._data, map_path=self._make_aliases().map)
             self._data = mapped_data
+            self._data_to_close.append(mapped_data)
 
     def report(
         self,
@@ -1357,7 +1380,7 @@ class Coverage(TConfigurable):
             ("platform", platform.platform()),
             ("implementation", platform.python_implementation()),
             ("build", platform.python_build()),
-            ("gil_enabled", getattr(sys, '_is_gil_enabled', lambda: True)()),
+            ("gil_enabled", getattr(sys, "_is_gil_enabled", lambda: True)()),
             ("executable", sys.executable),
             ("def_encoding", sys.getdefaultencoding()),
             ("fs_encoding", sys.getfilesystemencoding()),
@@ -1394,24 +1417,19 @@ def process_startup() -> Coverage | None:
     measurement is started.  The value of the variable is the config file
     to use.
 
-    There are two ways to configure your Python installation to invoke this
-    function when Python starts:
-
-    #. Create or append to sitecustomize.py to add these lines::
-
-        import coverage
-        coverage.process_startup()
-
-    #. Create a .pth file in your Python installation containing::
-
-        import coverage; coverage.process_startup()
+    For details, see https://coverage.readthedocs.io/en/latest/subprocess.html.
 
     Returns the :class:`Coverage` instance that was started, or None if it was
     not started by this call.
 
     """
     cps = os.getenv("COVERAGE_PROCESS_START")
-    if not cps:
+    config_data = os.getenv("COVERAGE_PROCESS_CONFIG")
+    if cps is not None:
+        config_file = cps
+    elif config_data is not None:
+        config_file = CONFIG_FROM_ENVIRONMENT
+    else:
         # No request for coverage, nothing to do.
         return None
 
@@ -1426,10 +1444,10 @@ def process_startup() -> Coverage | None:
 
     if hasattr(process_startup, "coverage"):
         # We've annotated this function before, so we must have already
-        # started coverage.py in this process.  Nothing to do.
+        # auto-started coverage.py in this process.  Nothing to do.
         return None
 
-    cov = Coverage(config_file=cps)
+    cov = Coverage(config_file=config_file)
     process_startup.coverage = cov      # type: ignore[attr-defined]
     cov._warn_no_data = False
     cov._warn_unimported_source = False

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from md2conf.extra import override
 from md2conf.mermaid import has_mmdc, render_diagram
+from tests.utility import TypedTestCase
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,7 +30,8 @@ graph TD
 
 
 @unittest.skipUnless(has_mmdc(), "mmdc is not available")
-class TestMermaidRendering(unittest.TestCase):
+@unittest.skipUnless(os.getenv("TEST_MERMAID"), "mermaid tests are disabled")
+class TestMermaidRendering(TypedTestCase):
     out_dir: Path
 
     @override

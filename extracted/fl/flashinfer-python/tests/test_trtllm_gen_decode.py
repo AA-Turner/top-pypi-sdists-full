@@ -1,6 +1,5 @@
 import math
 
-import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
@@ -73,7 +72,7 @@ def reference_paged_attention(
 
         # Gather K and V from kv_cache
         current_pos = 0
-        for block_idx, block_id in enumerate(blocks):
+        for block_id in blocks:
             # Calculate how many tokens we can take from this block
             remaining_tokens = seq_len - current_pos
             tokens_to_take = min(page_size, remaining_tokens)
@@ -134,7 +133,6 @@ def test_trtllm_batch_decode_fmha(
     o_dtype,
     kv_cache_dtype,
 ):
-
     # Set up test parameters
     seed = 0
     torch.manual_seed(seed)
@@ -379,9 +377,13 @@ def test_trtllm_batch_decode_fmha(
             k_scale=k_scale,
             v_scale=v_scale / o_scale,
         )
-        # v_scale, o_scale is not supported in wrapper api yet.
+        # v_scale, o_scale in wrapper is emulated by multiplying output by v_scale instead of fused into kernel.
         if v_scale == o_scale == 1.0:
             assert (output2 == output).all()
+        else:
+            torch.testing.assert_close(
+                output.float(), output2.float(), rtol=1e-1, atol=1e-1
+            )
 
 
 @pytest.mark.parametrize(
@@ -412,7 +414,6 @@ def test_trtllm_batch_decode_mla(
 
     # Deepseek attention config (decode-MLA)
     num_q_heads = 128
-    num_kv_heads = 1
     qk_nope_head_dim = 128
     qk_rope_head_dim = 64
     kv_lora_rank = 512
@@ -468,7 +469,7 @@ def test_trtllm_batch_decode_mla(
 
     # Allocate workspace buffer
     # todo(Yingyi): calculate the actual size of workspace buffer
-    workspace_buffer = torch.empty(128 * 1024 * 1024, dtype=torch.int8, device=device)
+    workspace_buffer = torch.zeros(128 * 1024 * 1024, dtype=torch.int8, device=device)
 
     bmm1_log2_scale_tensor = (
         torch.tensor(
@@ -486,21 +487,22 @@ def test_trtllm_batch_decode_mla(
     )
 
     # Run decode-MLA
-    output = flashinfer.decode.trtllm_batch_decode_with_kv_cache_mla(
-        query=query,
-        kv_cache=kv_cache.unsqueeze(1),
-        workspace_buffer=workspace_buffer,
-        qk_nope_head_dim=qk_nope_head_dim,
-        kv_lora_rank=kv_lora_rank,
-        qk_rope_head_dim=qk_rope_head_dim,
-        block_tables=block_tables,
-        seq_lens=seq_lens_tensor,
-        max_seq_len=max_seq_len,
-        bmm1_scale=scale / ((128 + 64) ** 0.5),
-        bmm2_scale=1.0,
-        bmm1_scale_log2_tensor=bmm1_log2_scale_tensor,
-        bmm2_scale_tensor=bmm2_scale_tensor,
-    )
+    for _ in range(3):
+        output = flashinfer.decode.trtllm_batch_decode_with_kv_cache_mla(
+            query=query,
+            kv_cache=kv_cache.unsqueeze(1),
+            workspace_buffer=workspace_buffer,
+            qk_nope_head_dim=qk_nope_head_dim,
+            kv_lora_rank=kv_lora_rank,
+            qk_rope_head_dim=qk_rope_head_dim,
+            block_tables=block_tables,
+            seq_lens=seq_lens_tensor,
+            max_seq_len=max_seq_len,
+            bmm1_scale=scale / ((128 + 64) ** 0.5),
+            bmm2_scale=1.0,
+            bmm1_scale_log2_tensor=bmm1_log2_scale_tensor,
+            bmm2_scale_tensor=bmm2_scale_tensor,
+        )
 
     # Run reference attention and align output
     sm_scale = scale / (

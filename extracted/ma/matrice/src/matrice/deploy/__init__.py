@@ -15,7 +15,8 @@ dependencies_check(
         "scikit-learn",
         "matplotlib",
         "scikit-image",
-        "python-snappy"
+        "python-snappy",
+        "pyyaml"
     ]
 )
 

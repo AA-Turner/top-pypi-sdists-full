@@ -3,11 +3,11 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.6.2.0',
+    'passagemath-setup ~= 10.6.3.0',
     'pkgconfig',
-    'passagemath-conf ~= 10.6.2.0 ; sys_platform != "win32"',
-    'passagemath-environment ~= 10.6.2.0',
-    'passagemath-modules ~= 10.6.2.0',
+    'passagemath-conf ~= 10.6.3.0 ; sys_platform != "win32"',
+    'passagemath-environment ~= 10.6.3.0',
+    'passagemath-modules ~= 10.6.3.0',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'gmpy2 ~=2.1.b999',
     'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
@@ -23,10 +23,10 @@ dependencies = [
     'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
     'passagemath-ppl',
     'memory_allocator',
-    'passagemath-conf ~= 10.6.2.0 ; sys_platform != "win32"',
-    'passagemath-environment ~= 10.6.2.0',
-    'passagemath-glpk ~= 10.6.2.0',
-    'passagemath-modules ~= 10.6.2.0',
+    'passagemath-conf ~= 10.6.3.0 ; sys_platform != "win32"',
+    'passagemath-environment ~= 10.6.3.0',
+    'passagemath-glpk ~= 10.6.3.0',
+    'passagemath-modules ~= 10.6.3.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"

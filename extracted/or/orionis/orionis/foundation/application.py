@@ -174,7 +174,6 @@ class Application(Container, IApplication):
         # Import core framework providers
         from orionis.foundation.providers.console_provider import ConsoleProvider
         from orionis.foundation.providers.dumper_provider import DumperProvider
-        from orionis.foundation.providers.path_resolver_provider import PathResolverProvider
         from orionis.foundation.providers.progress_bar_provider import ProgressBarProvider
         from orionis.foundation.providers.workers_provider import WorkersProvider
         from orionis.foundation.providers.testing_provider import TestingProvider
@@ -183,7 +182,6 @@ class Application(Container, IApplication):
         core_providers = [
             ConsoleProvider,
             DumperProvider,
-            PathResolverProvider,
             ProgressBarProvider,
             WorkersProvider,
             LoggerProvider,

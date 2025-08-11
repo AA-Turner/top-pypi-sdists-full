@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: h3
-Version: 4.3.0
+Version: 4.3.1
 Summary: Uber's hierarchical hexagonal geospatial indexing system
 Author-Email: Uber Technologies <ajfriend@gmail.com>
 Maintainer-Email: AJ Friend <ajfriend@gmail.com>

@@ -77,7 +77,7 @@ class RPC:
 
         headers["sdk_version"] = self.sdk_version
         response = None
-        response_data = None
+        response_data = {"success": False, "data": None, "error": None}
         error_text = None
         try:
             response = requests.request(

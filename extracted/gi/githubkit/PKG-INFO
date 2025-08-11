@@ -1,39 +1,36 @@
-Metadata-Version: 2.3
-Name: GitHubKit
-Version: 0.13.0
+Metadata-Version: 2.4
+Name: githubkit
+Version: 0.13.1
 Summary: GitHub SDK for Python
-License: MIT
 Keywords: github,octokit
 Author: yanyongyu
-Author-email: yyy@yyydl.top
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
+Author-email: yanyongyu <yyy@yyydl.top>
+License-Expression: MIT
+Requires-Dist: anyio>=3.6.1,<5.0.0
+Requires-Dist: httpx>=0.23.0,<1.0.0
+Requires-Dist: hishel>=0.0.21,<=0.2.0
+Requires-Dist: typing-extensions>=4.11.0,<5.0.0
+Requires-Dist: pydantic>=1.9.1,!=2.5.0,!=2.5.1,<3.0.0
+Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'all'
+Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'auth'
+Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'auth-app'
+Requires-Dist: pyjwt[crypto]>=2.4.0,<3.0.0 ; extra == 'jwt'
+Requires-Python: >=3.9, <4.0
+Project-URL: Bug Tracker, https://github.com/yanyongyu/githubkit/issues
+Project-URL: Documentation, https://github.com/yanyongyu/githubkit
+Project-URL: Homepage, https://github.com/yanyongyu/githubkit
+Project-URL: Repository, https://github.com/yanyongyu/githubkit
 Provides-Extra: all
 Provides-Extra: auth
 Provides-Extra: auth-app
 Provides-Extra: auth-oauth-device
 Provides-Extra: jwt
-Requires-Dist: PyJWT[crypto] (>=2.4.0,<3.0.0) ; extra == "jwt" or extra == "auth-app" or extra == "auth" or extra == "all"
-Requires-Dist: anyio (>=3.6.1,<5.0.0)
-Requires-Dist: hishel (>=0.0.21,<=0.2.0)
-Requires-Dist: httpx (>=0.23.0,<1.0.0)
-Requires-Dist: pydantic (>=1.9.1,<3.0.0,!=2.5.0,!=2.5.1)
-Requires-Dist: typing-extensions (>=4.11.0,<5.0.0)
-Project-URL: Documentation, https://github.com/yanyongyu/githubkit
-Project-URL: Homepage, https://github.com/yanyongyu/githubkit
-Project-URL: Repository, https://github.com/yanyongyu/githubkit
 Description-Content-Type: text/markdown
 
 <!-- markdownlint-disable MD041 -->
 <div align="center">
 
-[![githubkit](https://socialify.git.ci/yanyongyu/githubkit/image?description=1&descriptionEditable=%E2%9C%A8%20GitHub%20SDK%20for%20Python%20%E2%9C%A8&font=Bitter&language=1&pattern=Circuit%20Board&theme=Light)](https://github.com/yanyongyu/githubkit)
+[![githubkit](https://socialify.git.ci/yanyongyu/githubkit/image?custom_description=%E2%9C%A8+The+modern%2C+all-batteries-included+GitHub+SDK+for+Python+%E2%9C%A8&description=1&descriptionEditable=%E2%9C%A8+GitHub+SDK+for+Python+%E2%9C%A8&font=Bitter&language=1&pattern=Circuit+Board&theme=Light)](https://github.com/yanyongyu/githubkit)
 
 </div>
 
@@ -44,7 +41,7 @@ Description-Content-Type: text/markdown
   <a href="https://pypi.python.org/pypi/githubkit">
     <img src="https://img.shields.io/pypi/v/githubkit?logo=python&logoColor=edb641" alt="pypi">
   </a>
-  <img src="https://img.shields.io/badge/python-3.8+-blue?logo=python&logoColor=edb641" alt="python">
+  <img src="https://img.shields.io/badge/python-3.9+-blue?logo=python&logoColor=edb641" alt="python">
   <a href="https://github.com/psf/black">
     <img src="https://img.shields.io/badge/code%20style-black-000000.svg?logo=python&logoColor=edb641" alt="black">
   </a>
@@ -135,6 +132,11 @@ print(repo.full_name)
 
 ## Development
 
+> [!TIP]
+> Open in Codespaces (Dev Container):
+>
+> [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=512138996)
+
 See the [development](https://yanyongyu.github.io/githubkit/contributing/) in the contributing guide.
 
 ## Contributors
@@ -144,4 +146,3 @@ Thanks to the following people who have contributed to this project:
 <a href="https://github.com/yanyongyu/githubkit/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=yanyongyu/githubkit&max=1000" alt="contributors" />
 </a>
-

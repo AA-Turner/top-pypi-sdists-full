@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import sys
 
 
 def pdm_build_update_setup_kwargs(context, setup_kwargs):
@@ -13,6 +14,7 @@ def pdm_build_update_setup_kwargs(context, setup_kwargs):
         filter(
             lambda path: path.replace("\\", "/")
             not in (
+                "baize/datastructures.py",  # Always skip build, because mypyc make `isinstance` not work
                 "baize/multipart_helper.py",
                 # ASGI
                 "baize/asgi/middleware.py",

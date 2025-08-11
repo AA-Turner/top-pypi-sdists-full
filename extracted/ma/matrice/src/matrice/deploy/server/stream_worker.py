@@ -24,6 +24,7 @@ class StreamWorker:
         consumer_group_suffix: str = "",
         app_name: str = "",
         app_version: str = "",
+        inference_pipeline_id: str = "",
     ):
         """Initialize stream worker.
 
@@ -35,6 +36,8 @@ class StreamWorker:
             inference_interface: Inference interface to use for inference
             consumer_group_suffix: Optional suffix for consumer group ID
             app_name: Application name for result formatting
+            app_version: Application version for result formatting
+            inference_pipeline_id: Inference pipeline ID
         """
         self.worker_id = worker_id
         self.session = session
@@ -43,7 +46,7 @@ class StreamWorker:
         self.inference_interface = inference_interface
         self.app_name = app_name
         self.app_version = app_version
-
+        self.inference_pipeline_id = inference_pipeline_id
         # Kafka setup with unique consumer group for this worker
         consumer_group_id = f"{deployment_id}-worker-{worker_id}"
         if consumer_group_suffix:
@@ -55,6 +58,7 @@ class StreamWorker:
             "server",
             consumer_group_id,
             f"{deployment_instance_id}-{worker_id}",
+            custom_request_service_id=self.inference_pipeline_id or deployment_id
         )
 
         # Worker state
@@ -327,6 +331,7 @@ class StreamWorkerManager:
         num_workers: int = 1,
         app_name: str = "",
         app_version: str = "",
+        inference_pipeline_id: str = "",
     ):
         """Initialize stream worker manager.
 
@@ -338,6 +343,7 @@ class StreamWorkerManager:
             num_workers: Number of workers to create
             app_name: Application name for result formatting
             app_version: Application version for result formatting
+            inference_pipeline_id: Inference pipeline ID
         """
         self.session = session
         self.deployment_id = deployment_id
@@ -346,6 +352,7 @@ class StreamWorkerManager:
         self.num_workers = num_workers
         self.app_name = app_name
         self.app_version = app_version
+        self.inference_pipeline_id = inference_pipeline_id
         # Worker management
         self.workers: Dict[str, StreamWorker] = {}
         self.is_running = False
@@ -373,6 +380,7 @@ class StreamWorkerManager:
                 inference_interface=self.inference_interface,
                 app_name=self.app_name,
                 app_version=self.app_version,
+                inference_pipeline_id=self.inference_pipeline_id,
             )
 
             self.workers[worker_id] = worker
@@ -456,6 +464,7 @@ class StreamWorkerManager:
             inference_interface=self.inference_interface,
             app_name=self.app_name,
             app_version=self.app_version,
+            inference_pipeline_id=self.inference_pipeline_id,
         )
 
         self.workers[worker_id] = worker
