@@ -14,26 +14,41 @@ import System
 import System.Collections.Generic
 
 
-class FutureCache(QuantConnect.Securities.SecurityCache):
-    """Future specific caching support"""
+class MarginRequirementsEntry(System.Object):
+    """POCO class for modeling margin requirements at given date"""
 
     @property
-    def settlement_price(self) -> float:
-        """The current settlement price"""
+    def date(self) -> datetime.datetime:
+        """Date of margin requirements change"""
         ...
 
-    @settlement_price.setter
-    def settlement_price(self, value: float) -> None:
+    @property
+    def initial_overnight(self) -> float:
+        """Initial overnight margin for the contract effective from the date of change"""
         ...
 
-    def process_data_point(self, data: QuantConnect.Data.BaseData, cache_by_type: bool) -> None:
+    @property
+    def maintenance_overnight(self) -> float:
+        """Maintenance overnight margin for the contract effective from the date of change"""
+        ...
+
+    @property
+    def initial_intraday(self) -> float:
+        """Initial intraday margin for the contract effective from the date of change"""
+        ...
+
+    @property
+    def maintenance_intraday(self) -> float:
+        """Maintenance intraday margin for the contract effective from the date of change"""
+        ...
+
+    @staticmethod
+    def create(csv_line: str) -> QuantConnect.Securities.Future.MarginRequirementsEntry:
         """
-        Will consume the given data point updating the cache state and it's properties
+        Creates a new instance of MarginRequirementsEntry from the specified csv line
         
-        This method is protected.
-        
-        :param data: The data point to process
-        :param cache_by_type: True if this data point should be cached by type
+        :param csv_line: The csv line to be parsed
+        :returns: A new MarginRequirementsEntry for the specified csv line.
         """
         ...
 
@@ -177,6 +192,30 @@ class Future(QuantConnect.Securities.Security, QuantConnect.Securities.IContinuo
         ...
 
 
+class FutureSymbol(System.Object):
+    """Static class contains common utility methods specific to symbols representing the future contracts"""
+
+    @staticmethod
+    def is_standard(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Determine if a given Futures contract is a standard contract.
+        
+        :param symbol: Future symbol
+        :returns: True if symbol expiration matches standard expiration.
+        """
+        ...
+
+    @staticmethod
+    def is_weekly(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Returns true if the future contract is a weekly contract
+        
+        :param symbol: Future symbol
+        :returns: True if symbol is non-standard contract.
+        """
+        ...
+
+
 class EmptyFutureChainProvider(System.Object, QuantConnect.Interfaces.IFutureChainProvider):
     """An implementation of IFutureChainProvider that always returns an empty list of contracts"""
 
@@ -191,69 +230,114 @@ class EmptyFutureChainProvider(System.Object, QuantConnect.Interfaces.IFutureCha
         ...
 
 
-class MarginRequirementsEntry(System.Object):
-    """POCO class for modeling margin requirements at given date"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """Date of margin requirements change"""
-        ...
-
-    @property
-    def initial_overnight(self) -> float:
-        """Initial overnight margin for the contract effective from the date of change"""
-        ...
-
-    @property
-    def maintenance_overnight(self) -> float:
-        """Maintenance overnight margin for the contract effective from the date of change"""
-        ...
-
-    @property
-    def initial_intraday(self) -> float:
-        """Initial intraday margin for the contract effective from the date of change"""
-        ...
-
-    @property
-    def maintenance_intraday(self) -> float:
-        """Maintenance intraday margin for the contract effective from the date of change"""
-        ...
+class FuturesListings(System.Object):
+    """
+    Helpers for getting the futures contracts that are trading on a given date.
+    This is a substitute for the BacktestingFutureChainProvider, but
+    does not outright replace it because of missing entries. This will resolve
+    the listed contracts without having any data in place. We follow the listing rules
+    set forth by the exchange to get the Symbols that are listed at a given date.
+    """
 
     @staticmethod
-    def create(csv_line: str) -> QuantConnect.Securities.Future.MarginRequirementsEntry:
+    def listed_contracts(future_ticker: str, time: typing.Union[datetime.datetime, datetime.date]) -> typing.List[QuantConnect.Symbol]:
         """
-        Creates a new instance of MarginRequirementsEntry from the specified csv line
+        Gets the listed futures contracts on a given date
         
-        :param csv_line: The csv line to be parsed
-        :returns: A new MarginRequirementsEntry for the specified csv line.
+        :param future_ticker: Ticker of the future contract
+        :param time: Contracts to look up that are listed at that time
+        :returns: The currently trading contracts on the exchange.
         """
         ...
 
 
-class FutureSettlementModel(QuantConnect.Securities.ImmediateSettlementModel):
-    """Settlement model which can handle daily profit and loss settlement"""
+class FutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
+    """Represents a simple margin model for margin futures. Margin file contains Initial and Maintenance margins"""
 
-    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
+    @property
+    def enable_intraday_margins(self) -> bool:
+        """True will enable usage of intraday margins."""
+        ...
+
+    @enable_intraday_margins.setter
+    def enable_intraday_margins(self, value: bool) -> None:
+        ...
+
+    @property
+    def initial_overnight_margin_requirement(self) -> float:
+        """Initial Overnight margin requirement for the contract effective from the date of change"""
+        ...
+
+    @property
+    def maintenance_overnight_margin_requirement(self) -> float:
+        """Maintenance Overnight margin requirement for the contract effective from the date of change"""
+        ...
+
+    @property
+    def initial_intraday_margin_requirement(self) -> float:
+        """Initial Intraday margin for the contract effective from the date of change"""
+        ...
+
+    @property
+    def maintenance_intraday_margin_requirement(self) -> float:
+        """Maintenance Intraday margin requirement for the contract effective from the date of change"""
+        ...
+
+    def __init__(self, required_free_buying_power_percent: float = 0, security: QuantConnect.Securities.Security = None) -> None:
         """
-        Applies unsettledContractsTodaysProfit settlement rules
+        Initializes a new instance of the FutureMarginModel
         
-        :param apply_funds_parameters: The funds application parameters
+        :param required_free_buying_power_percent: The percentage used to determine the required unused buying power for the account.
+        :param security: The security that this model belongs to
         """
         ...
 
-    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
+    def get_initial_margin_required_for_order(self, parameters: QuantConnect.Securities.InitialMarginRequiredForOrderParameters) -> QuantConnect.Securities.InitialMargin:
         """
-        Scan for pending settlements
+        Gets the total margin required to execute the specified order in units of the account currency including fees
         
-        :param settlement_parameters: The settlement parameters
+        :param parameters: An object containing the portfolio, the security and the order
+        :returns: The total margin in terms of the currency quoted in the order.
         """
         ...
 
-    def set_local_date_time_frontier(self, new_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
+        """The margin that must be held in order to increase the position by the provided quantity"""
+        ...
+
+    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
         """
-        Set the current datetime in terms of the exchange's local time zone
+        Gets the current leverage of the security
         
-        :param new_local_time: Current local time
+        :param security: The security to get leverage for
+        :returns: The current leverage in the security.
+        """
+        ...
+
+    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
+        """
+        Gets the margin currently allotted to the specified holding
+        
+        :param parameters: An object containing the security
+        :returns: The maintenance margin required for the.
+        """
+        ...
+
+    def get_maximum_order_quantity_for_target_buying_power(self, parameters: QuantConnect.Securities.GetMaximumOrderQuantityForTargetBuyingPowerParameters) -> QuantConnect.Securities.GetMaximumOrderQuantityResult:
+        """
+        Get the maximum market order quantity to obtain a position with a given buying power percentage.
+        Will not take into account free buying power.
+        
+        :param parameters: An object containing the portfolio, the security and the target signed buying power percentage
+        :returns: Returns the maximum allowed market order quantity and if zero, also the reason.
+        """
+        ...
+
+    def set_leverage(self, security: QuantConnect.Securities.Security, leverage: float) -> None:
+        """
+        Sets the leverage for the applicable securities, i.e, futures
+        
+        :param leverage: The new leverage
         """
         ...
 
@@ -284,51 +368,6 @@ class FuturesExpiryFunctions(System.Object):
         ...
 
 
-class FuturesListings(System.Object):
-    """
-    Helpers for getting the futures contracts that are trading on a given date.
-    This is a substitute for the BacktestingFutureChainProvider, but
-    does not outright replace it because of missing entries. This will resolve
-    the listed contracts without having any data in place. We follow the listing rules
-    set forth by the exchange to get the Symbols that are listed at a given date.
-    """
-
-    @staticmethod
-    def listed_contracts(future_ticker: str, time: typing.Union[datetime.datetime, datetime.date]) -> typing.List[QuantConnect.Symbol]:
-        """
-        Gets the listed futures contracts on a given date
-        
-        :param future_ticker: Ticker of the future contract
-        :param time: Contracts to look up that are listed at that time
-        :returns: The currently trading contracts on the exchange.
-        """
-        ...
-
-
-class FutureSymbol(System.Object):
-    """Static class contains common utility methods specific to symbols representing the future contracts"""
-
-    @staticmethod
-    def is_standard(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
-        """
-        Determine if a given Futures contract is a standard contract.
-        
-        :param symbol: Future symbol
-        :returns: True if symbol expiration matches standard expiration.
-        """
-        ...
-
-    @staticmethod
-    def is_weekly(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
-        """
-        Returns true if the future contract is a weekly contract
-        
-        :param symbol: Future symbol
-        :returns: True if symbol is non-standard contract.
-        """
-        ...
-
-
 class FutureExchange(QuantConnect.Securities.SecurityExchange):
     """Future exchange class - information and helper tools for future exchange properties"""
 
@@ -347,29 +386,26 @@ class FutureExchange(QuantConnect.Securities.SecurityExchange):
         ...
 
 
-class FutureHolding(QuantConnect.Securities.SecurityHolding):
-    """Future holdings implementation of the base securities class"""
+class FutureCache(QuantConnect.Securities.SecurityCache):
+    """Future specific caching support"""
 
     @property
-    def settled_profit(self) -> float:
-        """The cash settled profit for the current open position"""
+    def settlement_price(self) -> float:
+        """The current settlement price"""
         ...
 
-    @settled_profit.setter
-    def settled_profit(self, value: float) -> None:
+    @settlement_price.setter
+    def settlement_price(self, value: float) -> None:
         ...
 
-    @property
-    def unsettled_profit(self) -> float:
-        """Unsettled profit for the current open position SettledProfit"""
-        ...
-
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+    def process_data_point(self, data: QuantConnect.Data.BaseData, cache_by_type: bool) -> None:
         """
-        Future Holding Class constructor
+        Will consume the given data point updating the cache state and it's properties
         
-        :param security: The future security being held
-        :param currency_converter: A currency converter instance
+        This method is protected.
+        
+        :param data: The data point to process
+        :param cache_by_type: True if this data point should be cached by type
         """
         ...
 
@@ -567,93 +603,57 @@ class FuturesExpiryUtilityFunctions(System.Object):
         ...
 
 
-class FutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
-    """Represents a simple margin model for margin futures. Margin file contains Initial and Maintenance margins"""
+class FutureSettlementModel(QuantConnect.Securities.ImmediateSettlementModel):
+    """Settlement model which can handle daily profit and loss settlement"""
+
+    def apply_funds(self, apply_funds_parameters: QuantConnect.Securities.ApplyFundsSettlementModelParameters) -> None:
+        """
+        Applies unsettledContractsTodaysProfit settlement rules
+        
+        :param apply_funds_parameters: The funds application parameters
+        """
+        ...
+
+    def scan(self, settlement_parameters: QuantConnect.Securities.ScanSettlementModelParameters) -> None:
+        """
+        Scan for pending settlements
+        
+        :param settlement_parameters: The settlement parameters
+        """
+        ...
+
+    def set_local_date_time_frontier(self, new_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Set the current datetime in terms of the exchange's local time zone
+        
+        :param new_local_time: Current local time
+        """
+        ...
+
+
+class FutureHolding(QuantConnect.Securities.SecurityHolding):
+    """Future holdings implementation of the base securities class"""
 
     @property
-    def enable_intraday_margins(self) -> bool:
-        """True will enable usage of intraday margins."""
+    def settled_profit(self) -> float:
+        """The cash settled profit for the current open position"""
         ...
 
-    @enable_intraday_margins.setter
-    def enable_intraday_margins(self, value: bool) -> None:
-        ...
-
-    @property
-    def initial_overnight_margin_requirement(self) -> float:
-        """Initial Overnight margin requirement for the contract effective from the date of change"""
+    @settled_profit.setter
+    def settled_profit(self, value: float) -> None:
         ...
 
     @property
-    def maintenance_overnight_margin_requirement(self) -> float:
-        """Maintenance Overnight margin requirement for the contract effective from the date of change"""
+    def unsettled_profit(self) -> float:
+        """Unsettled profit for the current open position SettledProfit"""
         ...
 
-    @property
-    def initial_intraday_margin_requirement(self) -> float:
-        """Initial Intraday margin for the contract effective from the date of change"""
-        ...
-
-    @property
-    def maintenance_intraday_margin_requirement(self) -> float:
-        """Maintenance Intraday margin requirement for the contract effective from the date of change"""
-        ...
-
-    def __init__(self, required_free_buying_power_percent: float = 0, security: QuantConnect.Securities.Security = None) -> None:
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
         """
-        Initializes a new instance of the FutureMarginModel
+        Future Holding Class constructor
         
-        :param required_free_buying_power_percent: The percentage used to determine the required unused buying power for the account.
-        :param security: The security that this model belongs to
-        """
-        ...
-
-    def get_initial_margin_required_for_order(self, parameters: QuantConnect.Securities.InitialMarginRequiredForOrderParameters) -> QuantConnect.Securities.InitialMargin:
-        """
-        Gets the total margin required to execute the specified order in units of the account currency including fees
-        
-        :param parameters: An object containing the portfolio, the security and the order
-        :returns: The total margin in terms of the currency quoted in the order.
-        """
-        ...
-
-    def get_initial_margin_requirement(self, parameters: QuantConnect.Securities.InitialMarginParameters) -> QuantConnect.Securities.InitialMargin:
-        """The margin that must be held in order to increase the position by the provided quantity"""
-        ...
-
-    def get_leverage(self, security: QuantConnect.Securities.Security) -> float:
-        """
-        Gets the current leverage of the security
-        
-        :param security: The security to get leverage for
-        :returns: The current leverage in the security.
-        """
-        ...
-
-    def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
-        """
-        Gets the margin currently allotted to the specified holding
-        
-        :param parameters: An object containing the security
-        :returns: The maintenance margin required for the.
-        """
-        ...
-
-    def get_maximum_order_quantity_for_target_buying_power(self, parameters: QuantConnect.Securities.GetMaximumOrderQuantityForTargetBuyingPowerParameters) -> QuantConnect.Securities.GetMaximumOrderQuantityResult:
-        """
-        Get the maximum market order quantity to obtain a position with a given buying power percentage.
-        Will not take into account free buying power.
-        
-        :param parameters: An object containing the portfolio, the security and the target signed buying power percentage
-        :returns: Returns the maximum allowed market order quantity and if zero, also the reason.
-        """
-        ...
-
-    def set_leverage(self, security: QuantConnect.Securities.Security, leverage: float) -> None:
-        """
-        Sets the leverage for the applicable securities, i.e, futures
-        
-        :param leverage: The new leverage
+        :param security: The future security being held
+        :param currency_converter: A currency converter instance
         """
         ...
 

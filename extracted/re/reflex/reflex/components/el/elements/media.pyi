@@ -6162,6 +6162,265 @@ class Path(BaseHTML):
             The component.
         """
 
+class Marker(BaseHTML):
+    @classmethod
+    def create(
+        cls,
+        *children,
+        marker_height: Var[float | int | str] | float | int | str | None = None,
+        marker_width: Var[float | int | str] | float | int | str | None = None,
+        marker_units: Var[str] | str | None = None,
+        orient: Var[float | int | str] | float | int | str | None = None,
+        preserve_aspect_ratio: Var[str] | str | None = None,
+        ref_x: Var[float | int | str] | float | int | str | None = None,
+        ref_y: Var[float | int | str] | float | int | str | None = None,
+        view_box: Var[str] | str | None = None,
+        access_key: Var[str] | str | None = None,
+        auto_capitalize: Literal[
+            "characters", "none", "off", "on", "sentences", "words"
+        ]
+        | Var[Literal["characters", "none", "off", "on", "sentences", "words"]]
+        | None = None,
+        content_editable: Literal["inherit", "plaintext-only", False, True]
+        | Var[Literal["inherit", "plaintext-only", False, True]]
+        | None = None,
+        context_menu: Var[str] | str | None = None,
+        dir: Var[str] | str | None = None,
+        draggable: Var[bool] | bool | None = None,
+        enter_key_hint: Literal[
+            "done", "enter", "go", "next", "previous", "search", "send"
+        ]
+        | Var[Literal["done", "enter", "go", "next", "previous", "search", "send"]]
+        | None = None,
+        hidden: Var[bool] | bool | None = None,
+        input_mode: Literal[
+            "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
+        ]
+        | Var[
+            Literal[
+                "decimal", "email", "none", "numeric", "search", "tel", "text", "url"
+            ]
+        ]
+        | None = None,
+        item_prop: Var[str] | str | None = None,
+        lang: Var[str] | str | None = None,
+        role: Literal[
+            "alert",
+            "alertdialog",
+            "application",
+            "article",
+            "banner",
+            "button",
+            "cell",
+            "checkbox",
+            "columnheader",
+            "combobox",
+            "complementary",
+            "contentinfo",
+            "definition",
+            "dialog",
+            "directory",
+            "document",
+            "feed",
+            "figure",
+            "form",
+            "grid",
+            "gridcell",
+            "group",
+            "heading",
+            "img",
+            "link",
+            "list",
+            "listbox",
+            "listitem",
+            "log",
+            "main",
+            "marquee",
+            "math",
+            "menu",
+            "menubar",
+            "menuitem",
+            "menuitemcheckbox",
+            "menuitemradio",
+            "navigation",
+            "none",
+            "note",
+            "option",
+            "presentation",
+            "progressbar",
+            "radio",
+            "radiogroup",
+            "region",
+            "row",
+            "rowgroup",
+            "rowheader",
+            "scrollbar",
+            "search",
+            "searchbox",
+            "separator",
+            "slider",
+            "spinbutton",
+            "status",
+            "switch",
+            "tab",
+            "table",
+            "tablist",
+            "tabpanel",
+            "term",
+            "textbox",
+            "timer",
+            "toolbar",
+            "tooltip",
+            "tree",
+            "treegrid",
+            "treeitem",
+        ]
+        | Var[
+            Literal[
+                "alert",
+                "alertdialog",
+                "application",
+                "article",
+                "banner",
+                "button",
+                "cell",
+                "checkbox",
+                "columnheader",
+                "combobox",
+                "complementary",
+                "contentinfo",
+                "definition",
+                "dialog",
+                "directory",
+                "document",
+                "feed",
+                "figure",
+                "form",
+                "grid",
+                "gridcell",
+                "group",
+                "heading",
+                "img",
+                "link",
+                "list",
+                "listbox",
+                "listitem",
+                "log",
+                "main",
+                "marquee",
+                "math",
+                "menu",
+                "menubar",
+                "menuitem",
+                "menuitemcheckbox",
+                "menuitemradio",
+                "navigation",
+                "none",
+                "note",
+                "option",
+                "presentation",
+                "progressbar",
+                "radio",
+                "radiogroup",
+                "region",
+                "row",
+                "rowgroup",
+                "rowheader",
+                "scrollbar",
+                "search",
+                "searchbox",
+                "separator",
+                "slider",
+                "spinbutton",
+                "status",
+                "switch",
+                "tab",
+                "table",
+                "tablist",
+                "tabpanel",
+                "term",
+                "textbox",
+                "timer",
+                "toolbar",
+                "tooltip",
+                "tree",
+                "treegrid",
+                "treeitem",
+            ]
+        ]
+        | None = None,
+        slot: Var[str] | str | None = None,
+        spell_check: Var[bool] | bool | None = None,
+        tab_index: Var[int] | int | None = None,
+        title: Var[str] | str | None = None,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Var | Any] | None = None,
+        on_blur: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_focus: EventType[()] | None = None,
+        on_mount: EventType[()] | None = None,
+        on_mouse_down: EventType[()] | None = None,
+        on_mouse_enter: EventType[()] | None = None,
+        on_mouse_leave: EventType[()] | None = None,
+        on_mouse_move: EventType[()] | None = None,
+        on_mouse_out: EventType[()] | None = None,
+        on_mouse_over: EventType[()] | None = None,
+        on_mouse_up: EventType[()] | None = None,
+        on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
+        on_unmount: EventType[()] | None = None,
+        **props,
+    ) -> Marker:
+        """Create the component.
+
+        Args:
+            *children: The children of the component.
+            marker_height: The height of the marker viewport.
+            marker_width: The width of the marker viewport.
+            marker_units: The coordinate system for the marker attributes.
+            orient: The orientation of the marker relative to the shape it is attached to.
+            preserve_aspect_ratio: How the svg fragment must be deformed if it is embedded in a container with a different aspect ratio.
+            ref_x: The x coordinate for the reference point of the marker.
+            ref_y: The y coordinate for the reference point of the marker.
+            view_box: The bound of the SVG viewport for the current SVG fragment.
+            access_key: Provides a hint for generating a keyboard shortcut for the current element.
+            auto_capitalize: Controls whether and how text input is automatically capitalized as it is entered/edited by the user.
+            content_editable: Indicates whether the element's content is editable.
+            context_menu: Defines the ID of a <menu> element which will serve as the element's context menu.
+            dir: Defines the text direction. Allowed values are ltr (Left-To-Right) or rtl (Right-To-Left)
+            draggable: Defines whether the element can be dragged.
+            enter_key_hint: Hints what media types the media element is able to play.
+            hidden: Defines whether the element is hidden.
+            input_mode: Defines the type of the element.
+            item_prop: Defines the name of the element for metadata purposes.
+            lang: Defines the language used in the element.
+            role: Defines the role of the element.
+            slot: Assigns a slot in a shadow DOM shadow tree to an element.
+            spell_check: Defines whether the element may be checked for spelling errors.
+            tab_index: Defines the position of the current element in the tabbing order.
+            title: Defines a tooltip for the element.
+            style: The style of the component.
+            key: A unique key for the component.
+            id: The id for the component.
+            ref: The Var to pass as the ref to the component.
+            class_name: The class name for the component.
+            custom_attrs: custom attribute
+            **props: The props of the component.
+
+        Returns:
+            The component.
+        """
+
 class G(BaseHTML):
     @classmethod
     def create(
@@ -6429,6 +6688,7 @@ class SVG(ComponentNamespace):
     linear_gradient = staticmethod(LinearGradient.create)
     radial_gradient = staticmethod(RadialGradient.create)
     defs = staticmethod(Defs.create)
+    marker = staticmethod(Marker.create)
     g = staticmethod(G.create)
 
     @staticmethod
@@ -6689,6 +6949,7 @@ stop = Stop.create
 linear_gradient = LinearGradient.create
 radial_gradient = RadialGradient.create
 defs = Defs.create
+marker = Marker.create
 g = G.create
 area = Area.create
 audio = Audio.create

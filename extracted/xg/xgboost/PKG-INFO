@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xgboost
-Version: 3.0.3
+Version: 3.0.4
 Summary: XGBoost Python Package
 Project-URL: documentation, https://xgboost.readthedocs.io/en/stable/
 Project-URL: repository, https://github.com/dmlc/xgboost

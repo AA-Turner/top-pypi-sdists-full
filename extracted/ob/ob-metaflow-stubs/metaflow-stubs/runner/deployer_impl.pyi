@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.17.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-06T15:19:48.443054                                                            #
+# MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-11T21:26:28.424784                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -47,6 +47,14 @@ class DeployerImpl(object, metaclass=type):
         the deployment command.
     """
     def __init__(self, flow_file: str, show_output: bool = True, profile: typing.Optional[str] = None, env: typing.Optional[typing.Dict] = None, cwd: typing.Optional[str] = None, file_read_timeout: int = 3600, **kwargs):
+        ...
+    @property
+    def to_reload(self) -> typing.List[str]:
+        """
+        List of modules to reload when the deployer is initialized.
+        This is used to ensure that the CLI is in a clean state before
+        deploying the flow.
+        """
         ...
     @property
     def deployer_kwargs(self) -> typing.Dict[str, typing.Any]:

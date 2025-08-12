@@ -201,14 +201,14 @@ def ave_interval_1D(data, start_index, end_index):
 
 
 
-def scale_interval(interval, compress_itv):
+def scale_interval(interval, compress_ratio):
     # scale interval if mod's data was already reduced.
-    if compress_itv < 1:
-        raise ValueError('figures.scale_interval has compress_itv < 1:', compress_itv)
+    if compress_ratio < 1:
+        raise ValueError('figures.scale_interval has compress_ratio < 1:', compress_ratio)
 
-    interval = int(interval / compress_itv)
+    interval = int(interval / compress_ratio)
     if interval == 0:
-        print('Warning: data already smoothed by an interval: mod.compress_itv =', compress_itv, 'which is coarser than your', interval)
+        print('Warning: data already smoothed by an interval: mod.compress_ratio =', compress_ratio, 'which is coarser than your', interval)
         interval = 1
 
     return interval

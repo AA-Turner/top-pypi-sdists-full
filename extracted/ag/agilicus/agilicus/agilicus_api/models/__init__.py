@@ -828,6 +828,7 @@ from agilicus_api.model.trusted_certificate_label_status import TrustedCertifica
 from agilicus_api.model.trusted_certificate_org import TrustedCertificateOrg
 from agilicus_api.model.trusted_certificate_spec import TrustedCertificateSpec
 from agilicus_api.model.trusted_certificate_status import TrustedCertificateStatus
+from agilicus_api.model.trusted_issuer import TrustedIssuer
 from agilicus_api.model.uri_parameter_rewrite_filter import URIParameterRewriteFilter
 from agilicus_api.model.upstream_alias import UpstreamAlias
 from agilicus_api.model.upstream_alias_mapping import UpstreamAliasMapping

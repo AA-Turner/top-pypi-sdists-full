@@ -77,13 +77,4 @@ class SingleActivityBaseCaseDFG(BaseCase[IMDataStructureDFG]):
         parameters: Optional[Dict[str, Any]] = None,
     ) -> ProcessTree:
         leaf = ProcessTree(label=list(obj.dfg.start_activities)[0])
-        if obj.data_structure.skip is False:
-            return leaf
-        else:
-            tree = ProcessTree(operator=Operator.XOR)
-            skip = ProcessTree()
-            skip.parent = tree
-            leaf.parent = tree
-            tree.children.append(leaf)
-            tree.children.append(skip)
-            return tree
+        return leaf

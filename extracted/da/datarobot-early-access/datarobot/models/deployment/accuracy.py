@@ -474,7 +474,9 @@ class AccuracyOverTime(APIObject, MonitoringDataQueryBuilderMixin):
             if not fetched.buckets:
                 continue
             dataframe = pd.json_normalize(fetched.buckets)
-            dataframe.set_index(["model_id", "period.start"], drop=True, inplace=True)
+            dataframe.set_index(
+                ["model_id", "period.start"], drop=True, inplace=True  # noqa: PD002
+            )
             series[fetched.metric] = dataframe["value"]
         if series:
             return pd.DataFrame.from_dict(series)

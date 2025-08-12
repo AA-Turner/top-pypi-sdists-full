@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gable"
-version = "0.37.6"
+version = "0.37.7"
 description = "Command line interface (CLI) and software development kit (SDK) to interact with Gable API"
 authors = ["Gable.ai <engineers@gable.ai>"]
 readme = "README.md"

@@ -3,12 +3,12 @@ import argparse,sys,os,subprocess
 from abstract_utilities.robust_reader import read_file_as_text
 
 def _run_gui():
-    from .gui import main as gui_main
+    from gui_frontend import main as gui_main
     gui_main()
 
 def _run_flask():
     # Launch Flask in‐process (blocking)
-    from .flask_app import create_app
+    from flask import create_app
     app = create_app()
     app.run(host='127.0.0.1', port=7820)
 

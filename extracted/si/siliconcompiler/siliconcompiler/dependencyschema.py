@@ -12,9 +12,10 @@ class DependencySchema(BaseSchema):
     '''
 
     def __init__(self):
+        '''Initializes the DependencySchema.'''
         super().__init__()
 
-        self.__deps = {}
+        self._reset_deps()
 
         schema = EditableSchema(self)
         schema.insert(
@@ -27,6 +28,20 @@ class DependencySchema(BaseSchema):
                 help="List of named object dependencies included via add_dep()."))
 
     def _from_dict(self, manifest, keypath, version=None):
+        '''
+        Internal helper to load schema from a dictionary manifest.
+
+        This method temporarily unlocks the 'deps' parameter to allow it to be
+        populated from the manifest data.
+
+        Args:
+            manifest (dict): The dictionary to load data from.
+            keypath (list): The list of keys representing the path to the data.
+            version (str, optional): The schema version. Defaults to None.
+
+        Returns:
+            The result of the parent class's _from_dict method.
+        '''
         self.set("deps", False, field="lock")
         ret = super()._from_dict(manifest, keypath, version)
         self.set("deps", True, field="lock")
@@ -37,9 +52,9 @@ class DependencySchema(BaseSchema):
         Adds a module to this object.
 
         Args:
-            obj (:class:`NamedSchema`): Module to add
+            obj (:class:`NamedSchema`): Module to add.
             clobber (bool): If true will insert the object and overwrite any
-                existing with the same name
+                existing with the same name.
 
         Returns:
             True if object was imported, otherwise false.
@@ -48,19 +63,18 @@ class DependencySchema(BaseSchema):
         if not isinstance(obj, NamedSchema):
             raise TypeError(f"Cannot add an object of type: {type(obj)}")
 
-        if not clobber and obj.name() in self.__deps:
+        if not clobber and obj.name in self.__deps:
             return False
 
-        if obj.name() is None:
+        if obj.name is None:
             raise ValueError("Cannot add an unnamed dependency")
 
-        if obj.name() not in self.__deps:
+        if not self.has_dep(obj):
             self.set("deps", False, field="lock")
-            self.add("deps", obj.name())
+            self.add("deps", obj.name)
             self.set("deps", True, field="lock")
 
-        self.__deps[obj.name()] = obj
-        obj._reset()
+        self.__deps[obj.name] = obj
 
         return True
 
@@ -73,12 +87,12 @@ class DependencySchema(BaseSchema):
         Renders and saves the dependency graph to a file.
 
         Args:
-            filename (filepath): Output filepath
-            fontcolor (str): Node font RGB color hex value
-            background (str): Background color
-            fontsize (str): Node text font size
-            border (bool): Enables node border if True
-            landscape (bool): Renders graph in landscape layout if True
+            filename (filepath): Output filepath.
+            fontcolor (str): Node font RGB color hex value.
+            background (str): Background color.
+            fontsize (str): Node text font size.
+            border (bool): Enables node border if True.
+            landscape (bool): Renders graph in landscape layout if True.
 
         Examples:
             >>> schema.write_depgraph('mydump.png')
@@ -107,11 +121,11 @@ class DependencySchema(BaseSchema):
         dot.attr(bgcolor=background)
 
         def make_label(dep):
-            return f"lib-{dep.name()}"
+            return f"lib-{dep.name}"
 
         nodes = {
-            self.name(): {
-                "text": self.name(),
+            self.name: {
+                "text": self.name,
                 "shape": "box",
                 "color": background,
                 "connects_to": set([make_label(subdep) for subdep in self.__deps.values()])
@@ -119,7 +133,7 @@ class DependencySchema(BaseSchema):
         }
         for dep in self.get_dep():
             nodes[make_label(dep)] = {
-                "text": dep.name(),
+                "text": dep.name,
                 "shape": "oval",
                 "color": background,
                 "connects_to": set([make_label(subdep) for subdep in dep.__deps.values()])
@@ -140,16 +154,25 @@ class DependencySchema(BaseSchema):
 
     def __get_all_deps(self, seen: set) -> list:
         '''
-        Loop through the dependency tree and generate a flat list
+        Recursively traverses the dependency tree to generate a flat list.
+
+        This method avoids cycles and duplicate entries by keeping track of
+        visited nodes in the 'seen' set.
+
+        Args:
+            seen (set): A set of dependency names that have already been visited.
+
+        Returns:
+            list: A flat list of all dependency objects.
         '''
         deps = []
 
         for obj in self.__deps.values():
-            if obj.name() in seen:
+            if obj.name in seen:
                 continue
 
             deps.append(obj)
-            seen.add(obj.name())
+            seen.add(obj.name)
 
             if not isinstance(obj, DependencySchema):
                 # nothing to iterate over
@@ -157,7 +180,7 @@ class DependencySchema(BaseSchema):
 
             for obj_dep in obj.__get_all_deps(seen):
                 deps.append(obj_dep)
-                seen.add(obj_dep.name())
+                seen.add(obj_dep.name)
 
         return deps
 
@@ -166,16 +189,19 @@ class DependencySchema(BaseSchema):
         Returns all dependencies associated with this object or a specific one if requested.
 
         Raises:
-            KeyError: if the module specific module is requested but not found
+            KeyError: if the specific module is requested but not found.
 
         Args:
-            name (str): name of the module
-            hierarchy (bool): if True, will return all modules including children
-                otherwise only this objects modules are returned.
+            name (str): Name of the module.
+            hierarchy (bool): If True, will return all modules including children,
+                otherwise only this object's modules are returned.
+
+        Returns:
+            list: A list of dependency objects.
         '''
 
         if name:
-            if name not in self.__deps:
+            if not self.has_dep(name):
                 if "." in name:
                     name0, *name1 = name.split(".")
                     subdep = self.get_dep(name0)
@@ -190,18 +216,37 @@ class DependencySchema(BaseSchema):
             return self.__get_all_deps(set())
         return list(self.__deps.values())
 
+    def has_dep(self, name: str) -> bool:
+        '''
+        Checks if a specific dependency is present.
+
+        Args:
+            name (str): Name of the module.
+
+        Returns:
+            True if the module was found, False otherwise.
+        '''
+
+        if isinstance(name, NamedSchema):
+            name = name.name
+
+        return name in self.__deps
+
     def remove_dep(self, name: str) -> bool:
         '''
         Removes a previously registered module.
 
         Args:
-            name (str): name of the module
+            name (str): Name of the module.
 
         Returns:
-            True if the module was removed, False is not found.
+            True if the module was removed, False if it was not found.
         '''
-        if name not in self.__deps:
+        if not self.has_dep(name):
             return False
+
+        if isinstance(name, NamedSchema):
+            name = name.name
 
         del self.__deps[name]
 
@@ -216,6 +261,15 @@ class DependencySchema(BaseSchema):
         return True
 
     def _populate_deps(self, module_map: dict):
+        '''
+        Internal method to populate the internal dependency dictionary.
+
+        This is used to reconstruct object references from a serialized format
+        by looking up dependency names in the provided map.
+
+        Args:
+            module_map (dict): A dictionary mapping module names to module objects.
+        '''
         if self.__deps:
             return
 
@@ -226,3 +280,7 @@ class DependencySchema(BaseSchema):
 
             if isinstance(self.__deps[module], DependencySchema):
                 self.__deps[module]._populate_deps(module_map)
+
+    def _reset_deps(self):
+        '''Resets the internal dependency dictionary.'''
+        self.__deps = {}

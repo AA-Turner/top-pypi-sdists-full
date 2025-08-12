@@ -10,6 +10,7 @@ from anndata import AnnData
 from pandas import DataFrame
 from rpy2.robjects import baseenv, globalenv
 from rpy2.robjects.conversion import localconverter
+from scanpy.datasets import pbmc68k_reduced
 from scipy import sparse
 
 import anndata2ri
@@ -33,11 +34,11 @@ def mk_ad_simple() -> AnnData:
 
 
 @pytest.mark.parametrize('dtype', [np.float32, np.float64, np.int32, np.int64])
-@pytest.mark.parametrize('mat_type', [np.asarray, sparse.csr_matrix])
+@pytest.mark.parametrize('mat_type', [np.asarray, sparse.csr_matrix, sparse.csc_array])
 def test_simple(
     py2r: Py2R,
     dtype: np.dtype,
-    mat_type: Callable[[np.ndarray, np.dtype], np.ndarray | sparse.spmatrix],
+    mat_type: Callable[[np.ndarray, np.dtype], np.ndarray | sparse.spmatrix | sparse.sparray],
 ) -> None:
     data = mk_ad_simple()
     if data.X is not None:
@@ -78,31 +79,19 @@ def test_datasets(
     dataset: Callable[[], AnnData],
 ) -> None:
     if dataset is krumsiek:
-        # TODO(flying-sheep): Adapt to rpy2 changes instead
-        # https://github.com/theislab/anndata2ri/issues/109
-        with pytest.warns(DeprecationWarning, match=r'rpy2\.robjects\.conversion is deprecated'):
-            filterwarnings('ignore', r'Duplicated obs_names', UserWarning)
-            filterwarnings('ignore', r'Observation names are not unique', UserWarning)
-            ex = py2r(anndata2ri, dataset())
-    else:
-        ex = py2r(anndata2ri, dataset())
+        filterwarnings('ignore', r'Duplicated obs_names', UserWarning)
+        filterwarnings('ignore', r'Observation names are not unique', UserWarning)
+    ex = py2r(anndata2ri, dataset())
     assert tuple(baseenv['dim'](ex)[::-1]) == shape
     check(ex)
 
 
 def test_numpy_pbmc68k() -> None:
     """Not tested above as the pbmc68k dataset has some weird metadata."""
-    from scanpy.datasets import pbmc68k_reduced
-
-    try:
-        with pytest.warns(DeprecationWarning, match=r'global conversion'):
-            anndata2ri.activate()
-        with catch_warnings(record=True) as logs:
-            simplefilter('ignore', DeprecationWarning)
-            globalenv['adata'] = pbmc68k_reduced()
-        assert len(logs) == 0, [m.message for m in logs]
-    finally:
-        anndata2ri.deactivate()
+    with localconverter(anndata2ri.converter), catch_warnings(record=True) as logs:
+        simplefilter('ignore', DeprecationWarning)
+        globalenv['adata'] = pbmc68k_reduced()
+    assert len(logs) == 0, [m.message for m in logs]
 
 
 @pytest.mark.parametrize('attr', ['X', 'layers', 'obsm'])

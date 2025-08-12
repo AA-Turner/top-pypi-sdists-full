@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-os-config
-Version: 1.20.2
+Version: 1.21.0
 Summary: Google Cloud Os Config API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-os-config
 Author: Google LLC

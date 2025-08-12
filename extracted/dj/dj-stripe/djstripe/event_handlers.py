@@ -22,7 +22,6 @@ from djstripe.settings import djstripe_settings
 from . import models
 from .enums import PayoutType
 from .signals import WEBHOOK_SIGNALS
-from .utils import convert_tstamp
 
 logger = logging.getLogger(__name__)
 
@@ -126,44 +125,6 @@ def handle_customer_event(sender, event, **kwargs):
         update_customer_helper(metadata, customer_id, subscriber_key)
 
         _handle_crud_like_event(target_cls=models.Customer, event=event)
-
-
-@djstripe_receiver("customer.discount.created")
-@djstripe_receiver("customer.discount.deleted")
-@djstripe_receiver("customer.discount.updated")
-def handle_customer_discount_event(sender, event, **kwargs):
-    """Handle updates to customer discount objects.
-
-    Docs: https://stripe.com/docs/api#discounts
-
-    Because there is no concept of a "Discount" model in dj-stripe (due to the
-    lack of a stripe id on them), this is a little different to the other
-    handlers.
-    """
-
-    crud_type = CrudType.determine(event=event)
-    discount_data = event.data.get("object", {})
-    coupon_data = discount_data.get("coupon", {})
-    customer = event.customer
-
-    if crud_type is CrudType.DELETED:
-        coupon = None
-        coupon_start = None
-        coupon_end = None
-    else:
-        coupon = _handle_crud_like_event(
-            target_cls=models.Coupon,
-            event=event,
-            data=coupon_data,
-            id=coupon_data.get("id"),
-        )
-        coupon_start = discount_data.get("start")
-        coupon_end = discount_data.get("end")
-
-    customer.coupon = coupon
-    customer.coupon_start = convert_tstamp(coupon_start)
-    customer.coupon_end = convert_tstamp(coupon_end)
-    customer.save()
 
 
 @djstripe_receiver("customer.subscription.created")
@@ -328,7 +289,6 @@ def handle_charge_dispute_event(sender, event, **kwargs):
 @djstripe_receiver("coupon.created")
 @djstripe_receiver("coupon.deleted")
 @djstripe_receiver("coupon.updated")
-@djstripe_receiver("entitlements.active_entitlement_summary.updated")
 @djstripe_receiver("file.created")
 @djstripe_receiver("invoice.created")
 @djstripe_receiver("invoice.deleted")
@@ -345,7 +305,6 @@ def handle_charge_dispute_event(sender, event, **kwargs):
 @djstripe_receiver("invoice.voided")
 @djstripe_receiver("invoiceitem.created")
 @djstripe_receiver("invoiceitem.deleted")
-@djstripe_receiver("invoiceitem.updated")
 @djstripe_receiver("payment_intent.amount_capturable_updated")
 @djstripe_receiver("payment_intent.canceled")
 @djstripe_receiver("payment_intent.created")
@@ -460,7 +419,7 @@ class CrudType(Enum):
 
 
 def _handle_crud_like_event(
-    target_cls, event: "models.Event", data=None, id: str = None, crud_type=None
+    target_cls, event: "models.Event", data=None, id: str | None = None, crud_type=None
 ):
     """
     Helper to process crud_type-like events for objects.
@@ -526,3 +485,25 @@ def _handle_crud_like_event(
         obj = target_cls.sync_from_stripe_data(data, api_key=event.default_api_key)
 
     return obj
+
+
+@djstripe_receiver("entitlements.active_entitlement_summary.updated")
+def handle_customer_entitlements_event(sender, event, **kwargs):
+    # The `entitlements` object is a list of entitlements.
+    # The event does not carry a normal id. It carries a customer id.
+    # So we track this in `Customer.entitlements`.
+    object = event.data["object"]
+    customer_id = object.get("customer")
+    if not customer_id or not isinstance(customer_id, str):
+        logger.debug(f"Ignoring malformed event id {event.id!r}")
+        return
+    customer = models.Customer.objects.filter(id=customer_id).first()
+    if not customer:
+        logger.warning(
+            f"Discarding event {event.id!r} because customer {customer_id!r} does not exist"
+        )
+        return
+
+    entitlements_list = object["entitlements"].get("data", [])
+    customer.entitlements = entitlements_list
+    customer.save()

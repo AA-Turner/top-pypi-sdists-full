@@ -106,6 +106,8 @@ from .type_defs import (
     GetApplicationAuthenticationMethodResponseTypeDef,
     GetApplicationGrantRequestTypeDef,
     GetApplicationGrantResponseTypeDef,
+    GetApplicationSessionConfigurationRequestTypeDef,
+    GetApplicationSessionConfigurationResponseTypeDef,
     GetInlinePolicyForPermissionSetRequestTypeDef,
     GetInlinePolicyForPermissionSetResponseTypeDef,
     GetPermissionsBoundaryForPermissionSetRequestTypeDef,
@@ -156,6 +158,7 @@ from .type_defs import (
     PutApplicationAssignmentConfigurationRequestTypeDef,
     PutApplicationAuthenticationMethodRequestTypeDef,
     PutApplicationGrantRequestTypeDef,
+    PutApplicationSessionConfigurationRequestTypeDef,
     PutInlinePolicyToPermissionSetRequestTypeDef,
     PutPermissionsBoundaryToPermissionSetRequestTypeDef,
     TagResourceRequestTypeDef,
@@ -617,6 +620,16 @@ class SSOAdminClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/#get_application_grant)
         """
 
+    def get_application_session_configuration(
+        self, **kwargs: Unpack[GetApplicationSessionConfigurationRequestTypeDef]
+    ) -> GetApplicationSessionConfigurationResponseTypeDef:
+        """
+        Retrieves the session configuration for an application in IAM Identity Center.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/get_application_session_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/#get_application_session_configuration)
+        """
+
     def get_inline_policy_for_permission_set(
         self, **kwargs: Unpack[GetInlinePolicyForPermissionSetRequestTypeDef]
     ) -> GetInlinePolicyForPermissionSetResponseTypeDef:
@@ -899,6 +912,16 @@ class SSOAdminClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/put_application_grant.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/#put_application_grant)
+        """
+
+    def put_application_session_configuration(
+        self, **kwargs: Unpack[PutApplicationSessionConfigurationRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Updates the session configuration for an application in IAM Identity Center.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sso-admin/client/put_application_session_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_admin/client/#put_application_session_configuration)
         """
 
     def put_inline_policy_to_permission_set(

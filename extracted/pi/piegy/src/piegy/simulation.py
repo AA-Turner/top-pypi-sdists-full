@@ -2,7 +2,7 @@
 Main Module of Stochastic Simulation
 -------------------------------------------
 
-Contains all the necessary tools to build a model and run models based on Gillespie Algorithm.
+Contains the necessary tools to build a model and run models based on the Gillespie Algorithm.
 
 Class & Functions:
 - model:                creates a stochastic mode. Run the model by ``simulation.run(mod)``
@@ -66,12 +66,12 @@ class model_c(ctypes.Structure):
         ('data_empty', c_bool),
         ('max_record', c_size_t),
         ('arr_size', c_size_t),
-        ('compress_itv', c_uint32),
+        ('compress_ratio', c_uint32),
 
         ('U1d', ctypes.POINTER(c_double)),
         ('V1d', ctypes.POINTER(c_double)),
-        ('Upi_1d', ctypes.POINTER(c_double)),
-        ('Vpi_1d', ctypes.POINTER(c_double)),
+        ('Hpi_1d', ctypes.POINTER(c_double)),
+        ('Dpi_1d', ctypes.POINTER(c_double)),
     ]
     def get_array(self, name):
         """Return internal data as NumPy array, e.g. .get_array('U')"""
@@ -126,7 +126,7 @@ class model:
             Return a deep copy of self. Can choose whether to copy data as well. Default is to copy.
 
         clear_data:
-            clear all data stored, set U, V, Upi, Vpi to zero arrays
+            clear all data stored, set U, V, Hpi, Dpi to zero arrays
 
         change_maxtime:
             Changes maxtime of self. Update data storage as well.
@@ -138,9 +138,9 @@ class model:
             compress data by only storing average values
     '''
 
-    def __init__(self, N, M, maxtime, record_itv, sim_time, boundary, I, X, P, print_pct = 25, seed = None, check_overflow = True):
+    def __init__(self, N, M, maxtime, record_itv, sim_time, boundary, init_popu, matrices, patch_params, print_pct = 50, seed = None, check_overflow = True):
 
-        self.check_valid_input(N, M, maxtime, record_itv, sim_time, boundary, I, X, P, print_pct, seed, check_overflow)
+        self.check_valid_input(N, M, maxtime, record_itv, sim_time, boundary, init_popu, matrices, patch_params, print_pct, seed, check_overflow)
         
         self.N = N                      # int, N x M is spatial dimension
         self.M = M                      # int, can't be 1. If want to make 1D space, use N = 1. And this model doesn't work for 1x1 space (causes NaN)
@@ -148,9 +148,9 @@ class model:
         self.record_itv = record_itv    # float, record data every record_itv of time
         self.sim_time = sim_time        # int, run this many of rounds (of single_test)
         self.boundary = boundary        # bool, the N x M space have boundary or not (i.e., zero-flux (True) or periodical (False))
-        self.I = np.array(I)            # N x M x 2 np.array, initial population. Two init-popu for every patch (U and V)
-        self.X = np.array(X)            # N x M x 4 np.array, matrices. The '4' comes from 2x2 matrix flattened to 1D
-        self.P = np.array(P)            # N x M x 6 np.array, 'patch variables', i.e., mu1&2, w1&2, kappa1&2
+        self.init_popu = np.array(init_popu)            # N x M x 2 np.array, initial population. Two init-popu for every patch (U and V)
+        self.matrices = np.array(matrices)            # N x M x 4 np.array, matrices. The '4' comes from 2x2 matrix flattened to 1D
+        self.patch_params = np.array(patch_params)            # N x M x 6 np.array, 'patch variables', i.e., mu1&2, w1&2, kappa1&2
         if print_pct == None:
             self.print_pct = -1
         else:
@@ -165,13 +165,39 @@ class model:
             check_overflow_func(self)
 
         # initialize storage bins.
-        self.set_data(data_empty = True, max_record = int(maxtime / record_itv), compress_itv = 1, 
-                      U = None, V = None, Upi = None, Vpi = None)
+        self.set_data(data_empty = True, max_record = int(maxtime / record_itv), compress_ratio = 1, 
+                      U = None, V = None, Hpi = None, Dpi = None)
 
 
+    def set_data(self, data_empty, max_record, compress_ratio, U, V, Hpi, Dpi):
+        # set data to the given data values
+        # copies are made
+        self.check_valid_data(data_empty, max_record, compress_ratio)
+
+        self.data_empty = data_empty
+        self.max_record = max_record
+        self.compress_ratio = compress_ratio
+
+        if U is None:
+            self.U = None
+        else:
+            self.U = np.copy(U)
+        if V is None:
+            self.V = None
+        else:
+            self.V = np.copy(V)
+
+        if Hpi is None:
+            self.Hpi = None
+        else:
+            self.Hpi = np.copy(Hpi)
+        if Dpi is None:
+            self.Dpi = None
+        else:
+            self.Dpi = np.copy(Dpi)
 
 
-    def check_valid_input(self, N, M, maxtime, record_itv, sim_time, boundary, I, X, P, print_pct, seed, check_overflow):
+    def check_valid_input(self, N, M, maxtime, record_itv, sim_time, boundary, init_popu, matrices, patch_params, print_pct, seed, check_overflow):
         # check whether the inputs are valid
 
         if (N < 1) or (M < 1):
@@ -189,19 +215,19 @@ class model:
         if type(boundary) != bool:
             raise TypeError('boundary not a bool. Please use True for zero-flux (with boundary) or False for periodical (no boundary)')
         
-        if (type(I) != list) and (type(I) != np.ndarray):
+        if (type(init_popu) != list) and (type(init_popu) != np.ndarray):
             raise TypeError('Please set I as a list or np.ndarray')
-        if np.array(I).shape != (N, M, 2):
+        if np.array(init_popu).shape != (N, M, 2):
             raise ValueError('Please set I as a N x M x 2 shape list or array. 2 is for init values of U, V at every patch')
         
-        if (type(X) != list) and (type(X) != np.ndarray):
+        if (type(matrices) != list) and (type(matrices) != np.ndarray):
             raise TypeError('Please set X as a list or np.ndarray')
-        if np.array(X).shape != (N, M, 4):
+        if np.array(matrices).shape != (N, M, 4):
             raise ValueError('Please set X as a N x M x 4 shape list or array. 4 is for the flattened 2x2 payoff matrix')
         
-        if (type(P) != list) and (type(P) != np.ndarray):
-            raise TypeError('Please set P as a list or np.ndarray')
-        if np.array(P).shape != (N, M, 6):
+        if (type(patch_params) != list) and (type(patch_params) != np.ndarray):
+            raise TypeError('Please set patch_params as a list or np.ndarray')
+        if np.array(patch_params).shape != (N, M, 6):
             raise ValueError('Please set P as a N x M x 6 shape list or array. 6 is for mu1, mu2, w1, w2, kappa1, kappa2')
         
         if not ((print_pct == None) or (isinstance(print_pct, int) and (print_pct >= -1))):
@@ -215,7 +241,7 @@ class model:
             raise ValueError('Please use a bool for check_overflow')
         
 
-    def check_valid_data(self, data_empty, max_record, compress_itv):
+    def check_valid_data(self, data_empty, max_record, compress_ratio):
         # check whether a set of data is valid, used when reading a saved model
         if type(data_empty) != bool:
             raise TypeError('data_empty not a bool')
@@ -225,10 +251,10 @@ class model:
         if max_record < 0:
             raise ValueError('max_record < 0')
         
-        if type(compress_itv) != int:
-            raise TypeError('compress_itv not an int')
-        if compress_itv < 0:
-            raise ValueError('compress_itv < 0')
+        if type(compress_ratio) != int:
+            raise TypeError('compress_ratio not an int')
+        if compress_ratio < 0:
+            raise ValueError('compress_ratio < 0')
    
 
     def __str__(self):
@@ -245,52 +271,52 @@ class model:
         self_str += 'seed = ' + str(self.seed) + '\n'
         self_str += 'check_overflow = ' + str(self.check_overflow) + '\n'
         self_str += 'data_empty = ' + str(self.data_empty) + '\n'
-        self_str += 'compress_itv = ' + str(self.compress_itv) + '\n'
+        self_str += 'compress_ratio = ' + str(self.compress_ratio) + '\n'
         self_str += '\n'
 
-        # check whether I, X, P all same (compare all patches to (0, 0))
+        # check whether init_popu, matrices, patch_params are uniform (by comparing each patch with patch (0, 0))
         I_same = True
         X_same = True
         P_same = True
         for i in range(self.N):
             for j in range(self.M):
                 for k in range(2):
-                    if self.I[i][j][k] != self.I[0][0][k]:
+                    if self.init_popu[i][j][k] != self.init_popu[0][0][k]:
                         I_same = False
                 for k in range(4):
-                    if self.X[i][j][k] != self.X[0][0][k]:
+                    if self.matrices[i][j][k] != self.matrices[0][0][k]:
                         X_same = False
                 for k in range(6):
-                    if self.P[i][j][k] != self.P[0][0][k]:
+                    if self.patch_params[i][j][k] != self.patch_params[0][0][k]:
                         P_same = False
         
         if I_same:
-            self_str += 'I all same: ' + str(self.I[0][0]) + '\n'
+            self_str += 'I all same: ' + str(self.init_popu[0][0]) + '\n'
         else:
             self_str += 'I:\n'
             for i in range(self.N):
                 for j in range(self.M):
-                    self_str += str(self.I[i][j]) + ' '
+                    self_str += str(self.init_popu[i][j]) + ' '
                 self_str += '\n'
             self_str += '\n'
         
         if X_same:
-            self_str += 'X all same: ' + str(self.X[0][0]) + '\n'
+            self_str += 'X all same: ' + str(self.matrices[0][0]) + '\n'
         else:
             self_str += 'X:\n'
             for i in range(self.N):
                 for j in range(self.M):
-                    self_str += str(self.X[i][j]) + ' '
+                    self_str += str(self.matrices[i][j]) + ' '
                 self_str += '\n'
             self_str += '\n'
 
         if P_same:
-            self_str += 'P all same: ' + str(self.P[0][0]) + '\n'
+            self_str += 'P all same: ' + str(self.patch_params[0][0]) + '\n'
         else:
             self_str += 'P:\n'
             for i in range(self.N):
                 for j in range(self.M):
-                    self_str += str(self.P[i][j]) + ' '
+                    self_str += str(self.patch_params[i][j]) + ' '
                 self_str += '\n'
 
         return self_str
@@ -303,14 +329,14 @@ class model:
             raise TypeError('Please give a bool as argument: whether to copy data or not')
 
         sim2 = model(N = self.N, M = self.M, maxtime = self.maxtime, record_itv = self.record_itv, sim_time = self.sim_time, boundary = self.boundary,
-                          I = np.copy(self.I), X = np.copy(self.X), P = np.copy(self.P), 
+                          init_popu = np.copy(self.init_popu), matrices = np.copy(self.matrices), patch_params = np.copy(self.patch_params), 
                           print_pct = self.print_pct, seed = self.seed, check_overflow = self.check_overflow)
 
         if copy_data:
             # copy data as well
             if self.data_empty:
                 print("Warning: model has empty data")
-            sim2.set_data(self.data_empty, self.max_record, self.compress_itv, self.U, self.V, self.Upi, self.Vpi)
+            sim2.set_data(self.data_empty, self.max_record, self.compress_ratio, self.U, self.V, self.Hpi, self.Dpi)
 
         return sim2
 
@@ -323,8 +349,8 @@ class model:
                     for t in range(self.max_record):
                         self.U[i][j][t] /= self.sim_time
                         self.V[i][j][t] /= self.sim_time
-                        self.Upi[i][j][t] /= self.sim_time
-                        self.Vpi[i][j][t] /= self.sim_time
+                        self.Hpi[i][j][t] /= self.sim_time
+                        self.Dpi[i][j][t] /= self.sim_time
 
 
     def change_maxtime(self, maxtime):
@@ -334,7 +360,8 @@ class model:
         if maxtime <= 0:
             raise ValueError('Please use a positive maxtime.')
         self.maxtime = maxtime
-        self.init_storage()
+        self.set_data(data_empty = True, max_record = int(maxtime / self.record_itv), compress_ratio = 1, 
+                      U = None, V = None, Hpi = None, Dpi = None)
 
 
     def set_seed(self, seed):
@@ -343,58 +370,45 @@ class model:
 
 
     def clear_data(self):
-        # clear all data stored, set all to 0
-        self.init_storage()
+        # clear all data stored, set U, V, Hpi
+        self.set_data(data_empty = True, max_record = int(self.maxtime / self.record_itv), compress_ratio = 1, 
+                      U = None, V = None, Hpi = None, Dpi = None)
 
 
-    def set_data(self, data_empty, max_record, compress_itv, U, V, Upi, Vpi):
-        # set data to the given data values
-        # copies are made
-        self.check_valid_data(data_empty, max_record, compress_itv)
-
-        self.data_empty = data_empty
-        self.max_record = max_record
-        self.compress_itv = compress_itv
-        self.U = np.copy(U)
-        self.V = np.copy(V)
-        self.Upi = np.copy(Upi)
-        self.Vpi = np.copy(Vpi)
-
-
-    def compress_data(self, compress_itv = 5):
+    def compress_data(self, compress_ratio = 5):
         # compress data by only storing average values
         if self.data_empty:
             raise RuntimeError('Model has empty data. Cannot compress')
 
-        if type(compress_itv) != int:
-            raise TypeError('Please use an int as compress_itv')
-        if compress_itv < 1:
+        if type(compress_ratio) != int:
+            raise TypeError('Please use an int as compress_ratio')
+        if compress_ratio < 1:
             raise ValueError('Please use record_itv >= 1')
-        if compress_itv == 1:
+        if compress_ratio == 1:
             return
         
-        self.compress_itv *= compress_itv  # may be reduced over and over again
-        self.max_record = int(self.max_record / compress_itv)  # number of data points after reducing
+        self.compress_ratio *= compress_ratio  # may be reduced over and over again
+        self.max_record = int(self.max_record / compress_ratio)  # number of data points after reducing
 
         U_reduced = np.zeros((self.N, self.M, self.max_record), dtype = np.float64)
         V_reduced = np.zeros((self.N, self.M, self.max_record), dtype = np.float64)
-        Upi_reduced = np.zeros((self.N, self.M, self.max_record), dtype = np.float64)
-        Vpi_reduced = np.zeros((self.N, self.M, self.max_record), dtype = np.float64)
+        Hpi_reduced = np.zeros((self.N, self.M, self.max_record), dtype = np.float64)
+        Dpi_reduced = np.zeros((self.N, self.M, self.max_record), dtype = np.float64)
 
         for i in range(self.N):
             for j in range(self.M):
                 for k in range(self.max_record):
-                    lower = k * compress_itv  # upper and lower bound of current record_itv
-                    upper = lower + compress_itv
+                    lower = k * compress_ratio  # upper and lower bound of current record_itv
+                    upper = lower + compress_ratio
                     U_reduced[i][j][k] = np.mean(self.U[i, j, lower : upper])
                     V_reduced[i][j][k] = np.mean(self.V[i, j, lower : upper])
-                    Upi_reduced[i][j][k] = np.mean(self.Upi[i, j, lower : upper])
-                    Vpi_reduced[i][j][k] = np.mean(self.Vpi[i, j, lower : upper])
+                    Hpi_reduced[i][j][k] = np.mean(self.Hpi[i, j, lower : upper])
+                    Dpi_reduced[i][j][k] = np.mean(self.Dpi[i, j, lower : upper])
         
         self.U = U_reduced
         self.V = V_reduced
-        self.Upi = Upi_reduced
-        self.Vpi = Vpi_reduced
+        self.Hpi = Hpi_reduced
+        self.Dpi = Dpi_reduced
 
 
 
@@ -412,14 +426,14 @@ def run(mod, message = ""):
     msg_bytes = message.encode('utf-8')
     msg_buffer = ctypes.create_string_buffer(msg_bytes, msg_len) 
     
-    I = np.ascontiguousarray(mod.I.flatten(), dtype = np.uint32)
-    X = np.ascontiguousarray(mod.X.flatten(), dtype = np.float64)
-    P = np.ascontiguousarray(mod.P.flatten(), dtype = np.float64)
-
     mod_c = model_c()
     init_sucess = LIB.mod_init(ctypes.byref(mod_c), 
                            mod.N, mod.M, mod.maxtime, mod.record_itv, mod.sim_time, mod.boundary,
-                           I, X, P, mod.print_pct, mod.seed)
+                           np.ascontiguousarray(mod.init_popu.flatten(), dtype = np.uint32),
+                           np.ascontiguousarray(mod.matrices.flatten(), dtype = np.float64), 
+                           np.ascontiguousarray(mod.patch_params.flatten(), dtype = np.float64), 
+                           mod.print_pct, mod.seed)
+    
     if not init_sucess:
         LIB.mod_free_py(ctypes.byref(mod_c))
         del mod_c
@@ -430,8 +444,8 @@ def run(mod, message = ""):
     if result == SIM_SUCCESS:
         mod.set_data(False, mod.max_record, 1, mod_c.get_array('U1d').reshape(mod.N, mod.M, mod.max_record), 
                     mod_c.get_array('V1d').reshape(mod.N, mod.M, mod.max_record), 
-                    mod_c.get_array('Upi_1d').reshape(mod.N, mod.M, mod.max_record), 
-                    mod_c.get_array('Vpi_1d').reshape(mod.N, mod.M, mod.max_record))
+                    mod_c.get_array('Hpi_1d').reshape(mod.N, mod.M, mod.max_record), 
+                    mod_c.get_array('Dpi_1d').reshape(mod.N, mod.M, mod.max_record))
         LIB.mod_free_py(ctypes.byref(mod_c))
         del mod_c
     elif result == SIM_SMALL_MAXTIME:
@@ -461,25 +475,25 @@ def demo_model():
 
     N = 10                  # Number of rows
     M = 10                  # Number of cols
-    maxtime = 30           # how long you want the model to run
+    maxtime = 100           # how long you want the model to run
     record_itv = 0.1        # how often to record data.
-    sim_time = 1            # repeat model to reduce randomness
+    sim_time = 1            # repeat simulation to reduce randomness
     boundary = True         # boundary condition.
 
     # initial population for the N x M patches. 
-    I = [[[44, 22] for _ in range(M)] for _ in range(N)]
+    init_popu = [[[200, 100] for _ in range(M)] for _ in range(N)]
     
-    # flattened payoff matrices, total resource is 0.4, cost of fighting is 0.1
-    X = [[[-1, 4, 0, 2] for _ in range(M)] for _ in range(N)]
+    # flattened payoff matrices
+    matrices = [[[-1, 4, 0, 2] for _ in range(M)] for _ in range(N)]
     
-    # patch variables
-    P = [[[0.5, 0.5, 1, 1, 0.001, 0.001] for _ in range(M)] for _ in range(N)]
+    # patch parameters
+    patch_params = [[[1, 1, 10, 10, 0.001, 0.001] for _ in range(M)] for _ in range(N)]
 
-    print_pct = 25           # print progress
+    print_pct = 50           # print progress
     seed = 36               # seed for random number generation
 
     # create a model object
-    mod = model(N, M, maxtime, record_itv, sim_time, boundary, I, X, P, 
+    mod = model(N, M, maxtime, record_itv, sim_time, boundary, init_popu, matrices, patch_params, 
                             print_pct = print_pct, seed = seed)
     
     return mod
@@ -500,13 +514,13 @@ def UV_expected_val(mod):
         for j in range(mod.M):
             # say matrix = [a, b, c, d]
             # U_proportion = (d - b) / (a - b - c + d)
-            U_prop = (mod.X[i][j][3] - mod.X[i][j][1]) / (mod.X[i][j][0] - mod.X[i][j][1] - mod.X[i][j][2] + mod.X[i][j][3])
+            U_prop = (mod.matrices[i][j][3] - mod.matrices[i][j][1]) / (mod.matrices[i][j][0] - mod.matrices[i][j][1] - mod.matrices[i][j][2] + mod.matrices[i][j][3])
             # equilibrium payoff, U_payoff = V_payoff
-            eq_payoff = U_prop * mod.X[i][j][0] + (1 - U_prop) * mod.X[i][j][1]
+            eq_payoff = U_prop * mod.matrices[i][j][0] + (1 - U_prop) * mod.matrices[i][j][1]
             
             # payoff / kappa * proportion
-            U_expected[i][j] = eq_payoff / mod.P[i][j][4] * U_prop
-            V_expected[i][j] = eq_payoff / mod.P[i][j][5] * (1 - U_prop)
+            U_expected[i][j] = eq_payoff / mod.patch_params[i][j][4] * U_prop
+            V_expected[i][j] = eq_payoff / mod.patch_params[i][j][5] * (1 - U_prop)
             pi_expected[i][j] = eq_payoff
                 
     return U_expected, V_expected, pi_expected
@@ -517,8 +531,8 @@ def check_overflow_func(mod):
     _, _, pi_expected = UV_expected_val(mod)
     for i in range(mod.N):
         for j in range(mod.M):
-            w1_pi = pi_expected[i][j] * mod.P[i][j][2]  # w1 * U_pi
-            w2_pi = pi_expected[i][j] * mod.P[i][j][3]  # w2 * V_pi
+            w1_pi = pi_expected[i][j] * mod.patch_params[i][j][2]  # w1 * U_pi
+            w2_pi = pi_expected[i][j] * mod.patch_params[i][j][3]  # w2 * V_pi
             if ((w1_pi > EXP_OVERFLOW_BOUND) or (w2_pi > EXP_OVERFLOW_BOUND)):
                 print("Warning: might cause overflow in simulation. w1, w2, or payoff matrix values too large")
                 return

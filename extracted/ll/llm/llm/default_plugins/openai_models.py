@@ -157,6 +157,31 @@ def register_models(register):
             supports_tools=True,
         ),
     )
+    # GPT-5
+    for model_id in (
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-5-nano",
+        "gpt-5-2025-08-07",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-nano-2025-08-07",
+    ):
+        register(
+            Chat(
+                model_id,
+                vision=True,
+                reasoning=True,
+                supports_schema=True,
+                supports_tools=True,
+            ),
+            AsyncChat(
+                model_id,
+                vision=True,
+                reasoning=True,
+                supports_schema=True,
+                supports_tools=True,
+            ),
+        )
     # The -instruct completion model
     register(
         Completion("gpt-3.5-turbo-instruct", default_max_tokens=256),
@@ -407,6 +432,7 @@ class SharedOptions(llm.Options):
 
 
 class ReasoningEffortEnum(str, Enum):
+    minimal = "minimal"
     low = "low"
     medium = "medium"
     high = "high"
@@ -573,6 +599,14 @@ class _Shared:
                     )
         if prompt.system and prompt.system != current_system:
             messages.append({"role": "system", "content": prompt.system})
+        for tool_result in prompt.tool_results:
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_result.tool_call_id,
+                    "content": tool_result.output,
+                }
+            )
         if not prompt.attachments:
             if prompt.prompt:
                 messages.append({"role": "user", "content": prompt.prompt or ""})
@@ -583,14 +617,6 @@ class _Shared:
             for attachment in prompt.attachments:
                 attachment_message.append(_attachment(attachment))
             messages.append({"role": "user", "content": attachment_message})
-        for tool_result in prompt.tool_results:
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tool_result.tool_call_id,
-                    "content": tool_result.output,
-                }
-            )
         return messages
 
     def set_usage(self, response, usage):
@@ -690,12 +716,15 @@ class Chat(_Shared, KeyModel):
                     usage = chunk.usage.model_dump()
                 if chunk.choices and chunk.choices[0].delta:
                     for tool_call in chunk.choices[0].delta.tool_calls or []:
+                        if tool_call.function.arguments is None:
+                            tool_call.function.arguments = ""
                         index = tool_call.index
                         if index not in tool_calls:
                             tool_calls[index] = tool_call
-                        tool_calls[
-                            index
-                        ].function.arguments += tool_call.function.arguments
+                        else:
+                            tool_calls[
+                                index
+                            ].function.arguments += tool_call.function.arguments
                 try:
                     content = chunk.choices[0].delta.content
                 except IndexError:
@@ -774,12 +803,15 @@ class AsyncChat(_Shared, AsyncKeyModel):
                     usage = chunk.usage.model_dump()
                 if chunk.choices and chunk.choices[0].delta:
                     for tool_call in chunk.choices[0].delta.tool_calls or []:
+                        if tool_call.function.arguments is None:
+                            tool_call.function.arguments = ""
                         index = tool_call.index
                         if index not in tool_calls:
                             tool_calls[index] = tool_call
-                        tool_calls[
-                            index
-                        ].function.arguments += tool_call.function.arguments
+                        else:
+                            tool_calls[
+                                index
+                            ].function.arguments += tool_call.function.arguments
                 try:
                     content = chunk.choices[0].delta.content
                 except IndexError:

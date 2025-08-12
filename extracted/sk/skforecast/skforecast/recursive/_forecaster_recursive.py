@@ -32,9 +32,7 @@ from ..utils import (
     check_predict_input,
     check_residuals_input,
     check_interval,
-    preprocess_y,
-    preprocess_last_window,
-    preprocess_exog,
+    check_extract_values_and_index,
     input_to_frame,
     date_to_index_position,
     expand_index,
@@ -168,8 +166,13 @@ class ForecasterRecursive(ForecasterBase):
     exog_type_in_ : type
         Type of exogenous data (pandas Series or DataFrame) used in training.
     exog_dtypes_in_ : dict
-        Type of each exogenous variable/s used in training. If `transformer_exog` 
-        is used, the dtypes are calculated before the transformation.
+        Type of each exogenous variable/s used in training before the transformation
+        applied by `transformer_exog`. If `transformer_exog` is not used, it
+        is equal to `exog_dtypes_out_`.
+    exog_dtypes_out_ : dict
+        Type of each exogenous variable/s used in training after the transformation 
+        applied by `transformer_exog`. If `transformer_exog` is not used, it 
+        is equal to `exog_dtypes_in_`.
     X_train_window_features_names_out_ : list
         Names of the window features included in the matrix `X_train` created
         internally for training.
@@ -263,6 +266,7 @@ class ForecasterRecursive(ForecasterBase):
         self.exog_names_in_                     = None
         self.exog_type_in_                      = None
         self.exog_dtypes_in_                    = None
+        self.exog_dtypes_out_                   = None
         self.X_train_window_features_names_out_ = None
         self.X_train_exog_names_out_            = None
         self.X_train_features_names_out_        = None
@@ -590,6 +594,7 @@ class ForecasterRecursive(ForecasterBase):
         list[str], 
         list[str], 
         list[str], 
+        dict[str, type],
         dict[str, type]
     ]:
         """
@@ -622,8 +627,13 @@ class ForecasterRecursive(ForecasterBase):
         X_train_features_names_out_ : list
             Names of the columns of the matrix created internally for training.
         exog_dtypes_in_ : dict
-            Type of each exogenous variable/s used in training. If `transformer_exog` 
-            is used, the dtypes are calculated before the transformation.
+            Type of each exogenous variable/s used in training before the transformation
+            applied by `transformer_exog`. If `transformer_exog` is not used, it
+            is equal to `exog_dtypes_out_`.
+        exog_dtypes_out_ : dict
+            Type of each exogenous variable/s used in training after the transformation
+            applied by `transformer_exog`. If `transformer_exog` is not used, it 
+            is equal to `exog_dtypes_in_`.
         
         """
 
@@ -647,7 +657,7 @@ class ForecasterRecursive(ForecasterBase):
                 fit               = fit_transformer,
                 inverse_transform = False,
             )
-        y_values, y_index = preprocess_y(y=y)
+        y_values, y_index = check_extract_values_and_index(data=y, data_label='`y`')
         train_index = y_index[self.window_size:]
 
         if self.differentiation is not None:
@@ -659,10 +669,14 @@ class ForecasterRecursive(ForecasterBase):
 
         exog_names_in_ = None
         exog_dtypes_in_ = None
+        exog_dtypes_out_ = None
         X_as_pandas = False
         if exog is not None:
             check_exog(exog=exog, allow_nan=True)
             exog = input_to_frame(data=exog, input_name='exog')
+            _, exog_index = check_extract_values_and_index(
+                data=exog, data_label='`exog`', ignore_freq=True, return_values=False
+            )
 
             len_y = len(y_values)
             len_train_index = len(train_index)
@@ -672,7 +686,7 @@ class ForecasterRecursive(ForecasterBase):
                     f"Length of `exog` must be equal to the length of `y` (if index is "
                     f"fully aligned) or length of `y` - `window_size` (if `exog` "
                     f"starts after the first `window_size` values).\n"
-                    f"    `exog`              : ({exog.index[0]} -- {exog.index[-1]})  (n={len_exog})\n"
+                    f"    `exog`              : ({exog_index[0]} -- {exog_index[-1]})  (n={len_exog})\n"
                     f"    `y`                 : ({y.index[0]} -- {y.index[-1]})  (n={len_y})\n"
                     f"    `y` - `window_size` : ({train_index[0]} -- {train_index[-1]})  (n={len_train_index})"
                 )
@@ -688,12 +702,12 @@ class ForecasterRecursive(ForecasterBase):
                    )
             
             check_exog_dtypes(exog, call_check_exog=True)
+            exog_dtypes_out_ = get_exog_dtypes(exog=exog)
             X_as_pandas = any(
                 not pd.api.types.is_numeric_dtype(dtype) or pd.api.types.is_bool_dtype(dtype) 
                 for dtype in set(exog.dtypes)
             )
 
-            _, exog_index = preprocess_exog(exog=exog, return_values=False)
             if len_exog == len_y:
                 if not (exog_index == y_index).all():
                     raise ValueError(
@@ -773,7 +787,8 @@ class ForecasterRecursive(ForecasterBase):
             X_train_window_features_names_out_,
             X_train_exog_names_out_,
             X_train_features_names_out_,
-            exog_dtypes_in_
+            exog_dtypes_in_,
+            exog_dtypes_out_
         )
     
     def create_train_X_y(
@@ -955,6 +970,7 @@ class ForecasterRecursive(ForecasterBase):
         self.exog_names_in_                     = None
         self.exog_type_in_                      = None
         self.exog_dtypes_in_                    = None
+        self.exog_dtypes_out_                   = None
         self.X_train_window_features_names_out_ = None
         self.X_train_exog_names_out_            = None
         self.X_train_features_names_out_        = None
@@ -971,7 +987,8 @@ class ForecasterRecursive(ForecasterBase):
             X_train_window_features_names_out_,
             X_train_exog_names_out_,
             X_train_features_names_out_,
-            exog_dtypes_in_
+            exog_dtypes_in_,
+            exog_dtypes_out_
         ) = self._create_train_X_y(y=y, exog=exog)
         sample_weight = self.create_sample_weights(X_train=X_train)
 
@@ -991,20 +1008,19 @@ class ForecasterRecursive(ForecasterBase):
         self.is_fitted = True
         self.series_name_in_ = y.name if y.name is not None else 'y'
         self.fit_date = pd.Timestamp.today().strftime('%Y-%m-%d %H:%M:%S')
-        self.training_range_ = preprocess_y(
-            y=y, return_values=False, suppress_warnings=True
-        )[1][[0, -1]]
-        self.index_type_ = type(X_train.index)
-        if isinstance(X_train.index, pd.DatetimeIndex):
-            self.index_freq_ = X_train.index.freqstr
+        self.training_range_ = y.index[[0, -1]]
+        self.index_type_ = type(y.index)
+        if isinstance(y.index, pd.DatetimeIndex):
+            self.index_freq_ = y.index.freqstr
         else: 
-            self.index_freq_ = X_train.index.step
+            self.index_freq_ = y.index.step
 
         if exog is not None:
             self.exog_in_ = True
             self.exog_type_in_ = type(exog)
             self.exog_names_in_ = exog_names_in_
             self.exog_dtypes_in_ = exog_dtypes_in_
+            self.exog_dtypes_out_ = exog_dtypes_out_
             self.X_train_exog_names_out_ = X_train_exog_names_out_
 
         # NOTE: This is done to save time during fit in functions such as backtesting()
@@ -1055,7 +1071,6 @@ class ForecasterRecursive(ForecasterBase):
             If `True`, in-sample residuals will be stored in the forecaster object
             after fitting (`in_sample_residuals_` and `in_sample_residuals_by_bin_`
             attributes).
-            If `False`, only the intervals of the bins are stored.
             If `False`, only the intervals of the bins are stored.
         random_state : int, default 123
             Set a seed for the random generator so that the stored sample 
@@ -1170,18 +1185,17 @@ class ForecasterRecursive(ForecasterBase):
 
         if check_inputs:
             check_predict_input(
-                forecaster_name  = type(self).__name__,
-                steps            = steps,
-                is_fitted        = self.is_fitted,
-                exog_in_         = self.exog_in_,
-                index_type_      = self.index_type_,
-                index_freq_      = self.index_freq_,
-                window_size      = self.window_size,
-                last_window      = last_window,
-                exog             = exog,
-                exog_type_in_    = self.exog_type_in_,
-                exog_names_in_   = self.exog_names_in_,
-                interval         = None
+                forecaster_name = type(self).__name__,
+                steps           = steps,
+                is_fitted       = self.is_fitted,
+                exog_in_        = self.exog_in_,
+                index_type_     = self.index_type_,
+                index_freq_     = self.index_freq_,
+                window_size     = self.window_size,
+                last_window     = last_window,
+                exog            = exog,
+                exog_names_in_  = self.exog_names_in_,
+                interval        = None
             )
 
             if predict_probabilistic:
@@ -1195,11 +1209,9 @@ class ForecasterRecursive(ForecasterBase):
                     out_sample_residuals_by_bin_ = self.out_sample_residuals_by_bin_
                 )
 
-        last_window = last_window.iloc[-self.window_size:].copy()
-        last_window_values, last_window_index = preprocess_last_window(
-                                                    last_window = last_window
-                                                )
-
+        last_window_values = (
+            last_window.iloc[-self.window_size:].to_numpy(copy=True).ravel()
+        )
         last_window_values = transform_numpy(
                                  array             = last_window_values,
                                  transformer       = self.transformer_y,
@@ -1211,20 +1223,28 @@ class ForecasterRecursive(ForecasterBase):
 
         if exog is not None:
             exog = input_to_frame(data=exog, input_name='exog')
-            exog = exog.loc[:, self.exog_names_in_]
+            # TODO: only do the selections if columns are not already selected
+            # if not exog.columns.equals(pd.Index(self.exog_names_in_)):
+            #     exog = exog[self.exog_names_in_]
+            exog = exog[self.exog_names_in_]
             exog = transform_dataframe(
                        df                = exog,
                        transformer       = self.transformer_exog,
                        fit               = False,
                        inverse_transform = False
                    )
+            # TODO: only check dtypes if they are not the same as seen in training
+            # if not exog.dtypes.to_dict() == self.exog_dtypes_out_:
+            #   check_exog_dtypes(exog=exog)
+            # else:
+            #     check_exog(exog=exog, allow_nan=False, series_id=series_id)
             check_exog_dtypes(exog=exog)
             exog_values = exog.to_numpy()[:steps]
         else:
             exog_values = None
 
         prediction_index = expand_index(
-                               index = last_window_index,
+                               index = last_window.index,
                                steps = steps,
                            )
 
@@ -1412,6 +1432,14 @@ class ForecasterRecursive(ForecasterBase):
                         index   = prediction_index
                     )
         
+        if self.exog_in_:
+            categorical_features = any(
+                not pd.api.types.is_numeric_dtype(dtype) or pd.api.types.is_bool_dtype(dtype) 
+                for dtype in set(self.exog_dtypes_out_)
+            )
+            if categorical_features:
+                X_predict = X_predict.astype(self.exog_dtypes_out_)
+
         if self.transformer_y is not None or self.differentiation is not None:
             warnings.warn(
                 "The output matrix is in the transformed scale due to the "
@@ -2275,8 +2303,8 @@ class ForecasterRecursive(ForecasterBase):
             )
         
         check_y(y=y)
-        y_index_range = preprocess_y(
-            y=y, return_values=False, suppress_warnings=True
+        y_index_range = check_extract_values_and_index(
+            data=y, data_label='`y`', return_values=False
         )[1][[0, -1]]
         if not y_index_range.equals(self.training_range_):
             raise IndexError(

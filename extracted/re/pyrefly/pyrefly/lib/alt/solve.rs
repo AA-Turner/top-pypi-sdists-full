@@ -19,7 +19,6 @@ use pyrefly_util::visit::VisitMut;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprBinOp;
 use ruff_python_ast::ExprSubscript;
-use ruff_python_ast::TypeParam;
 use ruff_python_ast::TypeParams;
 use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
@@ -537,7 +536,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .to_owned(),
                     );
                 }
-                ann.qualifiers.insert(0, qualifier);
+                if qualifier != Qualifier::Annotated && ann.qualifiers.contains(&qualifier) {
+                    self.error(
+                        errors,
+                        x.range(),
+                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                        format!("Duplicate qualifier `{qualifier}`"),
+                    );
+                } else {
+                    ann.qualifiers.insert(0, qualifier);
+                }
                 ann
             }
             _ => {
@@ -996,11 +1004,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
     }
 
-    pub fn scoped_type_params(
-        &self,
-        x: Option<&TypeParams>,
-        errors: &ErrorCollector,
-    ) -> Vec<TParam> {
+    pub fn scoped_type_params(&self, x: Option<&TypeParams>) -> Vec<TParam> {
         match x {
             Some(x) => {
                 fn get_quantified(t: &Type) -> Quantified {
@@ -1009,21 +1013,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         _ => unreachable!(),
                     }
                 }
-                let mut type_var_tuple_count = 0;
                 let mut params = Vec::new();
                 for raw_param in x.type_params.iter() {
-                    if matches!(raw_param, TypeParam::TypeVarTuple(_)) {
-                        if type_var_tuple_count == 1 {
-                            self.error(
-                                errors,
-                                raw_param.range(),
-                                ErrorInfo::Kind(ErrorKind::InvalidTypeVarTuple),
-                                "There cannot be more than one TypeVarTuple type parameter"
-                                    .to_owned(),
-                            );
-                        }
-                        type_var_tuple_count += 1;
-                    }
                     let name = raw_param.name();
                     let quantified =
                         get_quantified(self.get(&Key::Definition(ShortIdentifier::new(name))).ty());
@@ -1042,6 +1033,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut last_tparam: Option<&TParam> = None;
         let mut seen = SmallSet::new();
         let mut typevartuple = None;
+        let mut typevartuple_count = 0;
         for tparam in tparams {
             if let Some(p) = last_tparam
                 && p.quantified.default().is_some()
@@ -1103,8 +1095,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             seen.insert(tparam.quantified.name().clone());
             if tparam.quantified.is_type_var_tuple() {
                 typevartuple = Some(tparam.quantified.name().clone());
+                typevartuple_count += 1;
             }
             last_tparam = Some(tparam);
+        }
+        if typevartuple_count > 1 {
+            self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                "There cannot be more than one TypeVarTuple type parameter".to_owned(),
+            );
         }
     }
 
@@ -2787,7 +2788,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         let params_range = params.as_ref().map_or(expr.range(), |x| x.range);
                         Forallable::TypeAlias(ta).forall(self.validated_tparams(
                             params_range,
-                            self.scoped_type_params(params.as_ref(), errors),
+                            self.scoped_type_params(params.as_ref()),
                             errors,
                         ))
                     }
@@ -2914,10 +2915,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Arc<YieldFromResult> {
         match x {
-            BindingYieldFrom::YieldFrom(annot, x) => {
-                // TODO: Error if the function is async
+            BindingYieldFrom::YieldFrom(annot, is_async, x) => {
+                if is_async.is_async() {
+                    self.error(
+                        errors,
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::InvalidYield),
+                        "Invalid `yield from` in async function".to_owned(),
+                    );
+                }
                 let annot = annot.map(|k| self.get_idx(k));
-                let want = annot.as_ref().and_then(|x| x.ty(self.stdlib));
+                let want = annot
+                    .as_ref()
+                    .and_then(|x| x.ty(self.stdlib))
+                    .and_then(|ty| self.decompose_generator(&ty));
 
                 let mut ty = self.expr_infer(&x.value, errors);
                 let res = if let Some(generator) = self.unwrap_generator(&ty) {
@@ -2934,18 +2945,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         .to_type();
                     YieldFromResult::from_iterable(yield_ty)
                 } else {
-                    ty = self.error(
-                        errors,
-                        x.range,
-                        ErrorInfo::Kind(ErrorKind::InvalidYield),
-                        format!(
-                            "yield from value must be iterable, got `{}`",
-                            self.for_display(ty)
-                        ),
-                    );
+                    ty = if is_async.is_async() {
+                        // We already errored above.
+                        Type::any_error()
+                    } else {
+                        self.error(
+                            errors,
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::InvalidYield),
+                            format!(
+                                "yield from value must be iterable, got `{}`",
+                                self.for_display(ty)
+                            ),
+                        )
+                    };
                     YieldFromResult::any_error()
                 };
-                if let Some(want) = want {
+                if let Some((want_yield, want_send, _)) = want {
+                    // We don't need to be compatible with the expected generator return type.
+                    let want = self
+                        .stdlib
+                        .generator(want_yield, want_send, Type::any_implicit())
+                        .to_type();
                     self.check_type(&want, &ty, x.range, errors, &|| {
                         TypeCheckContext::of_kind(TypeCheckKind::YieldFrom)
                     });
@@ -3059,6 +3080,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 range,
                 ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
                 "`Unpack` with a `TypedDict` is only allowed in a **kwargs annotation".to_owned(),
+            );
+        }
+        if type_form_context == TypeFormContext::ParameterKwargsAnnotation
+            && matches!(ty, Type::Unpack(ref inner) if !matches!(**inner, Type::TypedDict(_)))
+        {
+            return self.error(
+                errors,
+                range,
+                ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                "`Unpack` in **kwargs annotation must be used only with a `TypedDict`".to_owned(),
             );
         }
         if type_form_context != TypeFormContext::ParameterKwargsAnnotation

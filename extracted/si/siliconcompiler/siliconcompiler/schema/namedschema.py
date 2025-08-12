@@ -4,6 +4,8 @@
 # SC dependencies outside of its directory, since it may be used by tool drivers
 # that have isolated Python environments.
 
+from typing import Dict, Tuple
+
 from .baseschema import BaseSchema
 
 
@@ -20,6 +22,7 @@ class NamedSchema(BaseSchema):
 
         self.set_name(name)
 
+    @property
     def name(self) -> str:
         '''
         Returns the name of the schema
@@ -40,17 +43,11 @@ class NamedSchema(BaseSchema):
             name (str): name for object
         """
 
-        if self.name() is not None:
+        if self.name is not None:
             raise RuntimeError("Cannot call set_name more than once.")
         if name is not None and "." in name:
             raise ValueError("Named schema object cannot contains: .")
         self.__name = name
-
-    def _reset(self) -> None:
-        """
-        Resets the state of the object
-        """
-        pass
 
     def type(self) -> str:
         """
@@ -59,7 +56,15 @@ class NamedSchema(BaseSchema):
         raise NotImplementedError("Must be implemented by the child classes.")
 
     @classmethod
-    def from_manifest(cls, name, filepath=None, cfg=None):
+    def _getdict_type(cls) -> str:
+        """
+        Returns the meta data for getdict
+        """
+
+        raise NotImplementedError("Must be implemented by the child classes.")
+
+    @classmethod
+    def from_manifest(cls, name: str, filepath: str = None, cfg: Dict = None):
         '''
         Create a new schema based on the provided source files.
 
@@ -74,20 +79,21 @@ class NamedSchema(BaseSchema):
         if not filepath and cfg is None:
             raise RuntimeError("filepath or dictionary is required")
 
-        schema = cls(name)
+        schema = cls()
+        schema.set_name(name)
         if filepath:
             schema.read_manifest(filepath)
         if cfg:
             schema._from_dict(cfg, [])
         return schema
 
-    def _from_dict(self, manifest, keypath, version=None):
+    def _from_dict(self, manifest: Dict, keypath: Tuple[str], version: str = None):
         if keypath:
             self.__name = keypath[-1]
 
         return super()._from_dict(manifest, keypath, version=version)
 
-    def copy(self, key=None):
+    def copy(self, key: Tuple[str] = None) -> "NamedSchema":
         copy = super().copy(key=key)
 
         if key and key[-1] != "default":

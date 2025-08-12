@@ -10,16 +10,60 @@ import System.Collections.Concurrent
 import System.Collections.Generic
 import System.Threading
 
-System_Collections_Concurrent_ConcurrentQueue_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentQueue_T")
 System_Collections_Concurrent_IProducerConsumerCollection_T = typing.TypeVar("System_Collections_Concurrent_IProducerConsumerCollection_T")
+System_Collections_Concurrent_ConcurrentQueue_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentQueue_T")
 System_Collections_Concurrent_OrderablePartitioner_TSource = typing.TypeVar("System_Collections_Concurrent_OrderablePartitioner_TSource")
+System_Collections_Concurrent_ConcurrentBag_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentBag_T")
 System_Collections_Concurrent_BlockingCollection_T = typing.TypeVar("System_Collections_Concurrent_BlockingCollection_T")
+System_Collections_Concurrent_ConcurrentStack_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentStack_T")
+System_Collections_Concurrent_Partitioner_TSource = typing.TypeVar("System_Collections_Concurrent_Partitioner_TSource")
 System_Collections_Concurrent_ConcurrentDictionary_TKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TKey")
 System_Collections_Concurrent_ConcurrentDictionary_TValue = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_TValue")
 System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey = typing.TypeVar("System_Collections_Concurrent_ConcurrentDictionary_AlternateLookup_TAlternateKey")
-System_Collections_Concurrent_Partitioner_TSource = typing.TypeVar("System_Collections_Concurrent_Partitioner_TSource")
-System_Collections_Concurrent_ConcurrentStack_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentStack_T")
-System_Collections_Concurrent_ConcurrentBag_T = typing.TypeVar("System_Collections_Concurrent_ConcurrentBag_T")
+
+
+class IProducerConsumerCollection(typing.Generic[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.Generic.IEnumerable[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.ICollection, metaclass=abc.ABCMeta):
+    """
+    A common interface for all concurrent collections.
+    Defines methods to manipulate thread-safe collections intended for producer/consumer usage.
+    """
+
+    def copy_to(self, array: typing.List[System_Collections_Concurrent_IProducerConsumerCollection_T], index: int) -> None:
+        """
+        Copies the elements of the IProducerConsumerCollection{T} to
+        an
+        Array, starting at a specified index.
+        
+        :param array: The one-dimensional Array that is the destination of the elements copied from the IProducerConsumerCollection{T}. The array must have zero-based indexing.
+        :param index: The zero-based index in  at which copying begins.
+        """
+        ...
+
+    def to_array(self) -> typing.List[System_Collections_Concurrent_IProducerConsumerCollection_T]:
+        """
+        Copies the elements contained in the IProducerConsumerCollection{T} to a new array.
+        
+        :returns: A new array containing the elements copied from the IProducerConsumerCollection{T}.
+        """
+        ...
+
+    def try_add(self, item: System_Collections_Concurrent_IProducerConsumerCollection_T) -> bool:
+        """
+        Attempts to add an object to the IProducerConsumerCollection{T}.
+        
+        :param item: The object to add to the IProducerConsumerCollection{T}.
+        :returns: true if the object was added successfully; otherwise, false.
+        """
+        ...
+
+    def try_take(self, item: typing.Optional[System_Collections_Concurrent_IProducerConsumerCollection_T]) -> typing.Tuple[bool, System_Collections_Concurrent_IProducerConsumerCollection_T]:
+        """
+        Attempts to remove and return an object from the IProducerConsumerCollection{T}.
+        
+        :param item: When this method returns, if the object was removed and returned successfully,  contains the removed object. If no object was available to be removed, the value is unspecified.
+        :returns: true if an object was removed and returned successfully; otherwise, false.
+        """
+        ...
 
 
 class ConcurrentQueue(typing.Generic[System_Collections_Concurrent_ConcurrentQueue_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentQueue_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentQueue_T], typing.Iterable[System_Collections_Concurrent_ConcurrentQueue_T]):
@@ -110,50 +154,6 @@ class ConcurrentQueue(typing.Generic[System_Collections_Concurrent_ConcurrentQue
         ...
 
 
-class IProducerConsumerCollection(typing.Generic[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.Generic.IEnumerable[System_Collections_Concurrent_IProducerConsumerCollection_T], System.Collections.ICollection, metaclass=abc.ABCMeta):
-    """
-    A common interface for all concurrent collections.
-    Defines methods to manipulate thread-safe collections intended for producer/consumer usage.
-    """
-
-    def copy_to(self, array: typing.List[System_Collections_Concurrent_IProducerConsumerCollection_T], index: int) -> None:
-        """
-        Copies the elements of the IProducerConsumerCollection{T} to
-        an
-        Array, starting at a specified index.
-        
-        :param array: The one-dimensional Array that is the destination of the elements copied from the IProducerConsumerCollection{T}. The array must have zero-based indexing.
-        :param index: The zero-based index in  at which copying begins.
-        """
-        ...
-
-    def to_array(self) -> typing.List[System_Collections_Concurrent_IProducerConsumerCollection_T]:
-        """
-        Copies the elements contained in the IProducerConsumerCollection{T} to a new array.
-        
-        :returns: A new array containing the elements copied from the IProducerConsumerCollection{T}.
-        """
-        ...
-
-    def try_add(self, item: System_Collections_Concurrent_IProducerConsumerCollection_T) -> bool:
-        """
-        Attempts to add an object to the IProducerConsumerCollection{T}.
-        
-        :param item: The object to add to the IProducerConsumerCollection{T}.
-        :returns: true if the object was added successfully; otherwise, false.
-        """
-        ...
-
-    def try_take(self, item: typing.Optional[System_Collections_Concurrent_IProducerConsumerCollection_T]) -> typing.Tuple[bool, System_Collections_Concurrent_IProducerConsumerCollection_T]:
-        """
-        Attempts to remove and return an object from the IProducerConsumerCollection{T}.
-        
-        :param item: When this method returns, if the object was removed and returned successfully,  contains the removed object. If no object was available to be removed, the value is unspecified.
-        :returns: true if an object was removed and returned successfully; otherwise, false.
-        """
-        ...
-
-
 class OrderablePartitioner(typing.Generic[System_Collections_Concurrent_OrderablePartitioner_TSource], System.Collections.Concurrent.Partitioner[System_Collections_Concurrent_OrderablePartitioner_TSource], metaclass=abc.ABCMeta):
     """Represents a particular manner of splitting an orderable data source into multiple partitions."""
 
@@ -218,6 +218,95 @@ class OrderablePartitioner(typing.Generic[System_Collections_Concurrent_Orderabl
         
         :param partition_count: The number of partitions to create.
         :returns: A list containing  enumerators.
+        """
+        ...
+
+
+class ConcurrentBag(typing.Generic[System_Collections_Concurrent_ConcurrentBag_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentBag_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentBag_T], typing.Iterable[System_Collections_Concurrent_ConcurrentBag_T]):
+    """Represents a thread-safe, unordered collection of objects."""
+
+    @property
+    def count(self) -> int:
+        """Gets the number of elements contained in the ConcurrentBag{T}."""
+        ...
+
+    @property
+    def is_empty(self) -> bool:
+        """Gets a value that indicates whether the ConcurrentBag{T} is empty."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the ConcurrentBag{T} class."""
+        ...
+
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_ConcurrentBag_T]) -> None:
+        """
+        Initializes a new instance of the ConcurrentBag{T}
+        class that contains elements copied from the specified collection.
+        
+        :param collection: The collection whose elements are copied to the new ConcurrentBag{T}.
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentBag_T]:
+        ...
+
+    def add(self, item: System_Collections_Concurrent_ConcurrentBag_T) -> None:
+        """
+        Adds an object to the ConcurrentBag{T}.
+        
+        :param item: The object to be added to the ConcurrentBag{T}. The value can be a null reference (Nothing in Visual Basic) for reference types.
+        """
+        ...
+
+    def clear(self) -> None:
+        """Removes all values from the ConcurrentBag{T}."""
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_Concurrent_ConcurrentBag_T], index: int) -> None:
+        """
+        Copies the ConcurrentBag{T} elements to an existing
+        one-dimensional System.Array, starting at the specified array
+        index.
+        
+        :param array: The one-dimensional System.Array that is the destination of the elements copied from the ConcurrentBag{T}. The System.Array must have zero-based indexing.
+        :param index: The zero-based index in  at which copying begins.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_Concurrent_ConcurrentBag_T]:
+        """
+        Returns an enumerator that iterates through the ConcurrentBag{T}.
+        
+        :returns: An enumerator for the contents of the ConcurrentBag{T}.
+        """
+        ...
+
+    def to_array(self) -> typing.List[System_Collections_Concurrent_ConcurrentBag_T]:
+        """
+        Copies the ConcurrentBag{T} elements to a new array.
+        
+        :returns: A new array containing a snapshot of elements copied from the ConcurrentBag{T}.
+        """
+        ...
+
+    def try_peek(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentBag_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentBag_T]:
+        """
+        Attempts to return an object from the ConcurrentBag{T} without removing it.
+        
+        :param result: When this method returns,  contains an object from the ConcurrentBag{T} or the default value of T if the operation failed.
+        :returns: true if and object was returned successfully; otherwise, false.
+        """
+        ...
+
+    def try_take(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentBag_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentBag_T]:
+        """
+        Attempts to remove and return an object from the ConcurrentBag{T}.
+        
+        :param result: When this method returns,  contains the object removed from the ConcurrentBag{T} or the default value of T if the operation failed.
+        :returns: true if an object was removed successfully; otherwise, false.
         """
         ...
 
@@ -660,6 +749,193 @@ class BlockingCollection(typing.Generic[System_Collections_Concurrent_BlockingCo
         ...
 
 
+class ConcurrentStack(typing.Generic[System_Collections_Concurrent_ConcurrentStack_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentStack_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentStack_T], typing.Iterable[System_Collections_Concurrent_ConcurrentStack_T]):
+    """Represents a thread-safe last-in, first-out collection of objects."""
+
+    @property
+    def is_empty(self) -> bool:
+        """Gets a value that indicates whether the ConcurrentStack{T} is empty."""
+        ...
+
+    @property
+    def count(self) -> int:
+        """Gets the number of elements contained in the ConcurrentStack{T}."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the ConcurrentStack{T}
+        class.
+        """
+        ...
+
+    @overload
+    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_ConcurrentStack_T]) -> None:
+        """
+        Initializes a new instance of the ConcurrentStack{T}
+        class that contains elements copied from the specified collection
+        
+        :param collection: The collection whose elements are copied to the new ConcurrentStack{T}.
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentStack_T]:
+        ...
+
+    def clear(self) -> None:
+        """Removes all objects from the ConcurrentStack{T}."""
+        ...
+
+    def copy_to(self, array: typing.List[System_Collections_Concurrent_ConcurrentStack_T], index: int) -> None:
+        """
+        Copies the ConcurrentStack{T} elements to an existing one-dimensional System.Array, starting at the specified array index.
+        
+        :param array: The one-dimensional System.Array that is the destination of the elements copied from the ConcurrentStack{T}. The System.Array must have zero-based indexing.
+        :param index: The zero-based index in  at which copying begins.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_Concurrent_ConcurrentStack_T]:
+        """
+        Returns an enumerator that iterates through the ConcurrentStack{T}.
+        
+        :returns: An enumerator for the ConcurrentStack{T}.
+        """
+        ...
+
+    def push(self, item: System_Collections_Concurrent_ConcurrentStack_T) -> None:
+        """
+        Inserts an object at the top of the ConcurrentStack{T}.
+        
+        :param item: The object to push onto the ConcurrentStack{T}. The value can be a null reference (Nothing in Visual Basic) for reference types.
+        """
+        ...
+
+    @overload
+    def push_range(self, items: typing.List[System_Collections_Concurrent_ConcurrentStack_T]) -> None:
+        """
+        Inserts multiple objects at the top of the ConcurrentStack{T} atomically.
+        
+        :param items: The objects to push onto the ConcurrentStack{T}.
+        """
+        ...
+
+    @overload
+    def push_range(self, items: typing.List[System_Collections_Concurrent_ConcurrentStack_T], start_index: int, count: int) -> None:
+        """
+        Inserts multiple objects at the top of the ConcurrentStack{T} atomically.
+        
+        :param items: The objects to push onto the ConcurrentStack{T}.
+        :param start_index: The zero-based offset in  at which to begin inserting elements onto the top of the ConcurrentStack{T}.
+        :param count: The number of elements to be inserted onto the top of the ConcurrentStack{T}.
+        """
+        ...
+
+    def to_array(self) -> typing.List[System_Collections_Concurrent_ConcurrentStack_T]:
+        """
+        Copies the items stored in the ConcurrentStack{T} to a new array.
+        
+        :returns: A new array containing a snapshot of elements copied from the ConcurrentStack{T}.
+        """
+        ...
+
+    def try_peek(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentStack_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentStack_T]:
+        """
+        Attempts to return an object from the top of the ConcurrentStack{T}
+        without removing it.
+        
+        :param result: When this method returns,  contains an object from the top of the System.Collections.Concurrent.ConcurrentStack{T} or an unspecified value if the operation failed.
+        :returns: true if and object was returned successfully; otherwise, false.
+        """
+        ...
+
+    def try_pop(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentStack_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentStack_T]:
+        """
+        Attempts to pop and return the object at the top of the ConcurrentStack{T}.
+        
+        :param result: When this method returns, if the operation was successful,  contains the object removed. If no object was available to be removed, the value is unspecified.
+        :returns: true if an element was removed and returned from the top of the ConcurrentStack{T} successfully; otherwise, false.
+        """
+        ...
+
+    @overload
+    def try_pop_range(self, items: typing.List[System_Collections_Concurrent_ConcurrentStack_T]) -> int:
+        """
+        Attempts to pop and return multiple objects from the top of the ConcurrentStack{T}
+        atomically.
+        
+        :param items: The System.Array to which objects popped from the top of the ConcurrentStack{T} will be added.
+        :returns: The number of objects successfully popped from the top of the ConcurrentStack{T} and inserted in .
+        """
+        ...
+
+    @overload
+    def try_pop_range(self, items: typing.List[System_Collections_Concurrent_ConcurrentStack_T], start_index: int, count: int) -> int:
+        """
+        Attempts to pop and return multiple objects from the top of the ConcurrentStack{T}
+        atomically.
+        
+        :param items: The System.Array to which objects popped from the top of the ConcurrentStack{T} will be added.
+        :param start_index: The zero-based offset in  at which to begin inserting elements from the top of the ConcurrentStack{T}.
+        :param count: The number of elements to be popped from top of the ConcurrentStack{T} and inserted into .
+        :returns: The number of objects successfully popped from the top of the ConcurrentStack{T} and inserted in .
+        """
+        ...
+
+
+class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSource], System.Object, metaclass=abc.ABCMeta):
+    """Represents a particular manner of splitting a data source into multiple partitions."""
+
+    @property
+    def supports_dynamic_partitions(self) -> bool:
+        """Gets whether additional partitions can be created dynamically."""
+        ...
+
+    @staticmethod
+    @overload
+    def create(from_inclusive: int, to_exclusive: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
+        """
+        Creates a partitioner that chunks the user-specified range.
+        
+        :param from_inclusive: The lower, inclusive bound of the range.
+        :param to_exclusive: The upper, exclusive bound of the range.
+        :returns: A partitioner.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def create(from_inclusive: int, to_exclusive: int, range_size: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
+        """
+        Creates a partitioner that chunks the user-specified range.
+        
+        :param from_inclusive: The lower, inclusive bound of the range.
+        :param to_exclusive: The upper, exclusive bound of the range.
+        :param range_size: The size of each subrange.
+        :returns: A partitioner.
+        """
+        ...
+
+    def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_TSource]:
+        """
+        Creates an object that can partition the underlying collection into a variable number of
+        partitions.
+        
+        :returns: An object that can create partitions over the underlying data source.
+        """
+        ...
+
+    def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_Partitioner_TSource]]:
+        """
+        Partitions the underlying collection into the given number of partitions.
+        
+        :param partition_count: The number of partitions to create.
+        :returns: A list containing  enumerators.
+        """
+        ...
+
+
 class ConcurrentDictionary(typing.Generic[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System.Object, System.Collections.Generic.IDictionary[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], System.Collections.IDictionary, System.Collections.Generic.IReadOnlyDictionary[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue], typing.Iterable[System.Collections.Generic.KeyValuePair[System_Collections_Concurrent_ConcurrentDictionary_TKey, System_Collections_Concurrent_ConcurrentDictionary_TValue]]):
     """Represents a thread-safe collection of keys and values."""
 
@@ -1055,282 +1331,6 @@ class EnumerablePartitionerOptions(Enum):
     """
 
     def __int__(self) -> int:
-        ...
-
-
-class Partitioner(typing.Generic[System_Collections_Concurrent_Partitioner_TSource], System.Object, metaclass=abc.ABCMeta):
-    """Represents a particular manner of splitting a data source into multiple partitions."""
-
-    @property
-    def supports_dynamic_partitions(self) -> bool:
-        """Gets whether additional partitions can be created dynamically."""
-        ...
-
-    @staticmethod
-    @overload
-    def create(from_inclusive: int, to_exclusive: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
-        """
-        Creates a partitioner that chunks the user-specified range.
-        
-        :param from_inclusive: The lower, inclusive bound of the range.
-        :param to_exclusive: The upper, exclusive bound of the range.
-        :returns: A partitioner.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create(from_inclusive: int, to_exclusive: int, range_size: int) -> System.Collections.Concurrent.OrderablePartitioner[System.Tuple[int, int]]:
-        """
-        Creates a partitioner that chunks the user-specified range.
-        
-        :param from_inclusive: The lower, inclusive bound of the range.
-        :param to_exclusive: The upper, exclusive bound of the range.
-        :param range_size: The size of each subrange.
-        :returns: A partitioner.
-        """
-        ...
-
-    def get_dynamic_partitions(self) -> System.Collections.Generic.IEnumerable[System_Collections_Concurrent_Partitioner_TSource]:
-        """
-        Creates an object that can partition the underlying collection into a variable number of
-        partitions.
-        
-        :returns: An object that can create partitions over the underlying data source.
-        """
-        ...
-
-    def get_partitions(self, partition_count: int) -> System.Collections.Generic.IList[System.Collections.Generic.IEnumerator[System_Collections_Concurrent_Partitioner_TSource]]:
-        """
-        Partitions the underlying collection into the given number of partitions.
-        
-        :param partition_count: The number of partitions to create.
-        :returns: A list containing  enumerators.
-        """
-        ...
-
-
-class ConcurrentStack(typing.Generic[System_Collections_Concurrent_ConcurrentStack_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentStack_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentStack_T], typing.Iterable[System_Collections_Concurrent_ConcurrentStack_T]):
-    """Represents a thread-safe last-in, first-out collection of objects."""
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets a value that indicates whether the ConcurrentStack{T} is empty."""
-        ...
-
-    @property
-    def count(self) -> int:
-        """Gets the number of elements contained in the ConcurrentStack{T}."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the ConcurrentStack{T}
-        class.
-        """
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_ConcurrentStack_T]) -> None:
-        """
-        Initializes a new instance of the ConcurrentStack{T}
-        class that contains elements copied from the specified collection
-        
-        :param collection: The collection whose elements are copied to the new ConcurrentStack{T}.
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentStack_T]:
-        ...
-
-    def clear(self) -> None:
-        """Removes all objects from the ConcurrentStack{T}."""
-        ...
-
-    def copy_to(self, array: typing.List[System_Collections_Concurrent_ConcurrentStack_T], index: int) -> None:
-        """
-        Copies the ConcurrentStack{T} elements to an existing one-dimensional System.Array, starting at the specified array index.
-        
-        :param array: The one-dimensional System.Array that is the destination of the elements copied from the ConcurrentStack{T}. The System.Array must have zero-based indexing.
-        :param index: The zero-based index in  at which copying begins.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_Concurrent_ConcurrentStack_T]:
-        """
-        Returns an enumerator that iterates through the ConcurrentStack{T}.
-        
-        :returns: An enumerator for the ConcurrentStack{T}.
-        """
-        ...
-
-    def push(self, item: System_Collections_Concurrent_ConcurrentStack_T) -> None:
-        """
-        Inserts an object at the top of the ConcurrentStack{T}.
-        
-        :param item: The object to push onto the ConcurrentStack{T}. The value can be a null reference (Nothing in Visual Basic) for reference types.
-        """
-        ...
-
-    @overload
-    def push_range(self, items: typing.List[System_Collections_Concurrent_ConcurrentStack_T]) -> None:
-        """
-        Inserts multiple objects at the top of the ConcurrentStack{T} atomically.
-        
-        :param items: The objects to push onto the ConcurrentStack{T}.
-        """
-        ...
-
-    @overload
-    def push_range(self, items: typing.List[System_Collections_Concurrent_ConcurrentStack_T], start_index: int, count: int) -> None:
-        """
-        Inserts multiple objects at the top of the ConcurrentStack{T} atomically.
-        
-        :param items: The objects to push onto the ConcurrentStack{T}.
-        :param start_index: The zero-based offset in  at which to begin inserting elements onto the top of the ConcurrentStack{T}.
-        :param count: The number of elements to be inserted onto the top of the ConcurrentStack{T}.
-        """
-        ...
-
-    def to_array(self) -> typing.List[System_Collections_Concurrent_ConcurrentStack_T]:
-        """
-        Copies the items stored in the ConcurrentStack{T} to a new array.
-        
-        :returns: A new array containing a snapshot of elements copied from the ConcurrentStack{T}.
-        """
-        ...
-
-    def try_peek(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentStack_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentStack_T]:
-        """
-        Attempts to return an object from the top of the ConcurrentStack{T}
-        without removing it.
-        
-        :param result: When this method returns,  contains an object from the top of the System.Collections.Concurrent.ConcurrentStack{T} or an unspecified value if the operation failed.
-        :returns: true if and object was returned successfully; otherwise, false.
-        """
-        ...
-
-    def try_pop(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentStack_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentStack_T]:
-        """
-        Attempts to pop and return the object at the top of the ConcurrentStack{T}.
-        
-        :param result: When this method returns, if the operation was successful,  contains the object removed. If no object was available to be removed, the value is unspecified.
-        :returns: true if an element was removed and returned from the top of the ConcurrentStack{T} successfully; otherwise, false.
-        """
-        ...
-
-    @overload
-    def try_pop_range(self, items: typing.List[System_Collections_Concurrent_ConcurrentStack_T]) -> int:
-        """
-        Attempts to pop and return multiple objects from the top of the ConcurrentStack{T}
-        atomically.
-        
-        :param items: The System.Array to which objects popped from the top of the ConcurrentStack{T} will be added.
-        :returns: The number of objects successfully popped from the top of the ConcurrentStack{T} and inserted in .
-        """
-        ...
-
-    @overload
-    def try_pop_range(self, items: typing.List[System_Collections_Concurrent_ConcurrentStack_T], start_index: int, count: int) -> int:
-        """
-        Attempts to pop and return multiple objects from the top of the ConcurrentStack{T}
-        atomically.
-        
-        :param items: The System.Array to which objects popped from the top of the ConcurrentStack{T} will be added.
-        :param start_index: The zero-based offset in  at which to begin inserting elements from the top of the ConcurrentStack{T}.
-        :param count: The number of elements to be popped from top of the ConcurrentStack{T} and inserted into .
-        :returns: The number of objects successfully popped from the top of the ConcurrentStack{T} and inserted in .
-        """
-        ...
-
-
-class ConcurrentBag(typing.Generic[System_Collections_Concurrent_ConcurrentBag_T], System.Object, System.Collections.Concurrent.IProducerConsumerCollection[System_Collections_Concurrent_ConcurrentBag_T], System.Collections.Generic.IReadOnlyCollection[System_Collections_Concurrent_ConcurrentBag_T], typing.Iterable[System_Collections_Concurrent_ConcurrentBag_T]):
-    """Represents a thread-safe, unordered collection of objects."""
-
-    @property
-    def count(self) -> int:
-        """Gets the number of elements contained in the ConcurrentBag{T}."""
-        ...
-
-    @property
-    def is_empty(self) -> bool:
-        """Gets a value that indicates whether the ConcurrentBag{T} is empty."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the ConcurrentBag{T} class."""
-        ...
-
-    @overload
-    def __init__(self, collection: System.Collections.Generic.IEnumerable[System_Collections_Concurrent_ConcurrentBag_T]) -> None:
-        """
-        Initializes a new instance of the ConcurrentBag{T}
-        class that contains elements copied from the specified collection.
-        
-        :param collection: The collection whose elements are copied to the new ConcurrentBag{T}.
-        """
-        ...
-
-    def __iter__(self) -> typing.Iterator[System_Collections_Concurrent_ConcurrentBag_T]:
-        ...
-
-    def add(self, item: System_Collections_Concurrent_ConcurrentBag_T) -> None:
-        """
-        Adds an object to the ConcurrentBag{T}.
-        
-        :param item: The object to be added to the ConcurrentBag{T}. The value can be a null reference (Nothing in Visual Basic) for reference types.
-        """
-        ...
-
-    def clear(self) -> None:
-        """Removes all values from the ConcurrentBag{T}."""
-        ...
-
-    def copy_to(self, array: typing.List[System_Collections_Concurrent_ConcurrentBag_T], index: int) -> None:
-        """
-        Copies the ConcurrentBag{T} elements to an existing
-        one-dimensional System.Array, starting at the specified array
-        index.
-        
-        :param array: The one-dimensional System.Array that is the destination of the elements copied from the ConcurrentBag{T}. The System.Array must have zero-based indexing.
-        :param index: The zero-based index in  at which copying begins.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_Collections_Concurrent_ConcurrentBag_T]:
-        """
-        Returns an enumerator that iterates through the ConcurrentBag{T}.
-        
-        :returns: An enumerator for the contents of the ConcurrentBag{T}.
-        """
-        ...
-
-    def to_array(self) -> typing.List[System_Collections_Concurrent_ConcurrentBag_T]:
-        """
-        Copies the ConcurrentBag{T} elements to a new array.
-        
-        :returns: A new array containing a snapshot of elements copied from the ConcurrentBag{T}.
-        """
-        ...
-
-    def try_peek(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentBag_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentBag_T]:
-        """
-        Attempts to return an object from the ConcurrentBag{T} without removing it.
-        
-        :param result: When this method returns,  contains an object from the ConcurrentBag{T} or the default value of T if the operation failed.
-        :returns: true if and object was returned successfully; otherwise, false.
-        """
-        ...
-
-    def try_take(self, result: typing.Optional[System_Collections_Concurrent_ConcurrentBag_T]) -> typing.Tuple[bool, System_Collections_Concurrent_ConcurrentBag_T]:
-        """
-        Attempts to remove and return an object from the ConcurrentBag{T}.
-        
-        :param result: When this method returns,  contains the object removed from the ConcurrentBag{T} or the default value of T if the operation failed.
-        :returns: true if an object was removed successfully; otherwise, false.
-        """
         ...
 
 

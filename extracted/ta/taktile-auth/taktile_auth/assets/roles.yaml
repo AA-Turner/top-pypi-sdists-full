@@ -56,6 +56,7 @@ taktile_d_admin:
     - w+d:workspace_management/*,*,{env=*,type=*}
     - r+w:workspace_file/*,*,{env=*}
     - r+w:workspace_case_template/*,*
+    - r+w:workspace_case/*,*
 fwd_d/org_id:
     - d_admin/org_id
     - r+w:organization/org_id
@@ -66,6 +67,7 @@ fwd_d/org_id:
     - w+r:workspace_endpoint/org_id,*
     - r+w:workspace_file/org_id,*,{env=*}
     - r+w:workspace_case_template/org_id,*
+    - r+w:workspace_case/org_id,*
 fwd_viewer/org_id:
     - d_member/org_id
     - ws_viewer/org_id,*
@@ -123,6 +125,7 @@ ws_editor/org_id,ws_id:
     - r+w:workspace_file/org_id,ws_id,{env=sandbox}
     - r:workspace_file/org_id,ws_id,{env=live}
     - r:workspace_case_template/org_id,ws_id
+    - r:workspace_case/org_id,ws_id
 ws_admin/org_id,ws_id:
     - ws_editor/org_id,ws_id
     - w:workspace_routing_production/org_id,ws_id
@@ -140,6 +143,7 @@ ws_admin/org_id,ws_id:
     - w+d:workspace_management/org_id,ws_id,{env=*,type=entity}
     - r+w:workspace_file/org_id,ws_id,{env=*}
     - r+w:workspace_case_template/org_id,ws_id
+    - r+w:workspace_case/org_id,ws_id
 api_key_job_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r+w+d:workspace_job/org_id,ws_id

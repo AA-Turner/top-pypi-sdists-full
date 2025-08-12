@@ -43,6 +43,7 @@ def test_forecaster_y_exog_features_stored():
     exog_type_in_ = type(exog)
     exog_names_in_ = ['exog']
     exog_dtypes_in_ = {'exog': exog.dtype}
+    exog_dtypes_out_ = {'exog': exog.dtype}
     X_train_window_features_names_out_ = ['roll_ratio_min_max_4', 'roll_median_4']
     X_train_exog_names_out_ = ['exog']
     X_train_features_names_out_ = [
@@ -54,6 +55,7 @@ def test_forecaster_y_exog_features_stored():
     assert forecaster.exog_type_in_ == exog_type_in_
     assert forecaster.exog_names_in_ == exog_names_in_
     assert forecaster.exog_dtypes_in_ == exog_dtypes_in_
+    assert forecaster.exog_dtypes_out_ == exog_dtypes_out_
     assert forecaster.X_train_window_features_names_out_ == X_train_window_features_names_out_
     assert forecaster.X_train_exog_names_out_ == X_train_exog_names_out_
     assert forecaster.X_train_features_names_out_ == X_train_features_names_out_
@@ -86,8 +88,8 @@ def test_forecaster_index_step_stored():
     results = forecaster.index_freq_
 
     assert results == expected
-    
-    
+
+
 def test_fit_in_sample_residuals_stored():
     """
     Test that values of in_sample_residuals_ are stored after fitting.
@@ -115,8 +117,8 @@ def test_fit_same_residuals_when_residuals_greater_than_10000():
     
     assert isinstance(results_1, np.ndarray)
     assert isinstance(results_2, np.ndarray)
-    assert len(results_1 == 10_000)
-    assert len(results_2 == 10_000)
+    assert len(results_1) == 10_000
+    assert len(results_2) == 10_000
     np.testing.assert_array_almost_equal(results_1, results_2)
 
 

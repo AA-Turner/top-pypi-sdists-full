@@ -14,6 +14,7 @@ from loguru import logger
 import gable.cli.helpers.sca_exceptions as sca_exceptions
 from gable.api.client import GableAPIClient
 from gable.cli.helpers.auth import set_npm_config_credentials
+from gable.cli.helpers.logging import get_winston_log_level
 from gable.cli.local import get_local_sca_path, get_local_sca_prime
 from gable.openapi import CreateTelemetryRequest, TelemetryType
 
@@ -201,24 +202,39 @@ def run_sca_typescript(
             ["typescript", project_root] + options,
         )
         sca_prime_results_future = start_sca_prime(client, project_root, [])
-        result = subprocess.run(
+        result_proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            universal_newlines=True,
+            bufsize=1,
+            env={"LOG_LEVEL": get_winston_log_level(), **os.environ},
         )
-        if result.returncode != 0:
-            logger.debug(result.stderr)
-            raise click.ClickException(f"Error running Gable SCA: {result.stderr}")
-        logger.debug(result.stdout)
-        logger.debug(result.stderr)
+
+        # Stream debug logs from the subprocess stderr from subprocess back to logs
+        result_proc_stderr_lines = []
+        while True:
+            output = "" if not result_proc.stderr else result_proc.stderr.readline()
+            if output == "" and result_proc.poll() is not None:
+                break
+            if output:
+                result_proc_stderr_lines.append(output)
+                logger.debug(output.rstrip())
+
+        result_proc.wait()
+        result_proc_stdout = result_proc.stdout.read() if result_proc.stdout else ""
+        result_proc_stderr = "".join(result_proc_stderr_lines)
+        if result_proc.returncode != 0:
+            raise click.ClickException(f"Error running Gable SCA: {result_proc_stderr}")
+        logger.debug(result_proc_stdout)
 
         # Run sca-prime
         sca_prime_results, _ = get_sca_prime_results(
             sca_prime_results_future, client, project_root, True
         )
         # The sca CLI prints the results to stdout,and everything else to trace/warn/debug/error
-        return (result.stdout, sca_prime_results)
+        return result_proc_stdout, sca_prime_results
     except Exception as e:
         logger.opt(exception=e).debug("Error running Gable SCA")
         raise click.ClickException(

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: openlineage-dbt
-Version: 1.36.0
+Version: 1.37.0
 Summary: OpenLineage integration with dbt
 Author: OpenLineage
 Keywords: openlineage
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: tqdm>=4.62.0
-Requires-Dist: openlineage-integration-common==1.36.0
+Requires-Dist: openlineage-integration-common==1.37.0
 Requires-Dist: dbt-core>=1.0.0
 Provides-Extra: tests
 Requires-Dist: pytest>=7.0.0; extra == "tests"

@@ -5,13 +5,17 @@ class Workers(Facade):
     @classmethod
     def getFacadeAccessor(cls):
         """
-        Returns the binding key for the workers service in the service container.
+        Get the registered name of the component in the service container.
+
+        This method provides the binding key that the service container uses to 
+        resolve the workers service implementation. It serves as the bridge between 
+        the facade and the underlying service registration.
 
         Returns
         -------
         str
-            The identifier string for the workers service, used by the service container
-            to resolve the corresponding implementation.
+            The service container binding key 'x-orionis.services.system.workers' 
+            that identifies the workers service implementation.
         """
 
-        return "core.orionis.workers"
+        return "x-orionis.services.system.workers"

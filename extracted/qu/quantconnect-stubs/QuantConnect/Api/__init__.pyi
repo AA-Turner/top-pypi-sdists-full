@@ -3495,85 +3495,32 @@ class Api(System.Object, QuantConnect.Interfaces.IApi, QuantConnect.Interfaces.I
         ...
 
 
-class EstimateResponseWrapper(QuantConnect.Api.RestResponse):
-    """
-    Wrapper class for Optimizations/* endpoints JSON response
-    Currently used by Optimizations/Estimate
-    """
+class ParameterSetJsonConverter(JsonConverter):
+    """Json converter for ParameterSet which creates a light weight easy to consume serialized version"""
 
-    @property
-    def estimate(self) -> QuantConnect.Api.Estimate:
-        """Estimate object"""
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
         ...
 
-    @estimate.setter
-    def estimate(self, value: QuantConnect.Api.Estimate) -> None:
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
         ...
 
-
-class OptimizationResponseWrapper(QuantConnect.Api.RestResponse):
-    """Wrapper class for Optimizations/Read endpoint JSON response"""
-
-    @property
-    def optimization(self) -> QuantConnect.Api.Optimization:
-        """Optimization object"""
-        ...
-
-    @optimization.setter
-    def optimization(self, value: QuantConnect.Api.Optimization) -> None:
-        ...
-
-
-class OptimizationList(QuantConnect.Api.RestResponse):
-    """Collection container for a list of summarized optimizations for a project"""
-
-    @property
-    def optimizations(self) -> typing.List[QuantConnect.Api.OptimizationSummary]:
-        """Collection of summarized optimization objects"""
-        ...
-
-    @optimizations.setter
-    def optimizations(self, value: typing.List[QuantConnect.Api.OptimizationSummary]) -> None:
-        ...
-
-    @property
-    def count(self) -> int:
-        """The optimization count"""
-        ...
-
-
-class AuthenticationResponse(QuantConnect.Api.RestResponse):
-    """Verify if the credentials are OK."""
-
-
-class LiveResultsData(System.Object):
-    """Holds information about the state and operation of the live running algorithm"""
-
-    @property
-    def version(self) -> int:
-        """Results version"""
-        ...
-
-    @version.setter
-    def version(self, value: int) -> None:
-        ...
-
-    @property
-    def resolution(self) -> QuantConnect.Resolution:
-        """Temporal resolution of the results returned from the Api"""
-        ...
-
-    @resolution.setter
-    def resolution(self, value: QuantConnect.Resolution) -> None:
-        ...
-
-    @property
-    def results(self) -> QuantConnect.Packets.LiveResult:
-        """Class to represent the data groups results return from the Api"""
-        ...
-
-    @results.setter
-    def results(self, value: QuantConnect.Packets.LiveResult) -> None:
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Writes a JSON object from a Parameter set"""
         ...
 
 
@@ -3628,45 +3575,50 @@ class BacktestTags(QuantConnect.Api.RestResponse):
         ...
 
 
-class ParameterSetJsonConverter(JsonConverter):
-    """Json converter for ParameterSet which creates a light weight easy to consume serialized version"""
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Writes a JSON object from a Parameter set"""
-        ...
-
-
-class OrganizationResponse(QuantConnect.Api.RestResponse):
-    """Response wrapper for Organizations/Read"""
+class OptimizationResponseWrapper(QuantConnect.Api.RestResponse):
+    """Wrapper class for Optimizations/Read endpoint JSON response"""
 
     @property
-    def organization(self) -> QuantConnect.Api.Organization:
-        """Organization read from the response"""
+    def optimization(self) -> QuantConnect.Api.Optimization:
+        """Optimization object"""
         ...
 
-    @organization.setter
-    def organization(self, value: QuantConnect.Api.Organization) -> None:
+    @optimization.setter
+    def optimization(self, value: QuantConnect.Api.Optimization) -> None:
+        ...
+
+
+class OptimizationList(QuantConnect.Api.RestResponse):
+    """Collection container for a list of summarized optimizations for a project"""
+
+    @property
+    def optimizations(self) -> typing.List[QuantConnect.Api.OptimizationSummary]:
+        """Collection of summarized optimization objects"""
+        ...
+
+    @optimizations.setter
+    def optimizations(self, value: typing.List[QuantConnect.Api.OptimizationSummary]) -> None:
+        ...
+
+    @property
+    def count(self) -> int:
+        """The optimization count"""
+        ...
+
+
+class EstimateResponseWrapper(QuantConnect.Api.RestResponse):
+    """
+    Wrapper class for Optimizations/* endpoints JSON response
+    Currently used by Optimizations/Estimate
+    """
+
+    @property
+    def estimate(self) -> QuantConnect.Api.Estimate:
+        """Estimate object"""
+        ...
+
+    @estimate.setter
+    def estimate(self, value: QuantConnect.Api.Estimate) -> None:
         ...
 
 
@@ -3692,8 +3644,13 @@ class GetObjectStoreResponse(QuantConnect.Api.RestResponse):
         ...
 
 
-class OptimizationBacktestJsonConverter(JsonConverter):
-    """Json converter for OptimizationBacktest which creates a light weight easy to consume serialized version"""
+class LiveAlgorithmResultsJsonConverter(JsonConverter):
+    """Custom JsonConverter for LiveResults data for live algorithms"""
+
+    @property
+    def can_write(self) -> bool:
+        """Gets a value indicating whether this Newtonsoft.Json.JsonConverter can write JSON."""
+        ...
 
     def can_convert(self, object_type: typing.Type) -> bool:
         """
@@ -3723,6 +3680,82 @@ class OptimizationBacktestJsonConverter(JsonConverter):
         :param writer: The Newtonsoft.Json.JsonWriter to write to.
         :param value: The value.
         :param serializer: The calling serializer.
+        """
+        ...
+
+
+class LiveAlgorithmApiSettingsWrapper(System.Object):
+    """Helper class to put BaseLiveAlgorithmSettings in proper format."""
+
+    @property
+    def version_id(self) -> str:
+        """-1 is master"""
+        ...
+
+    @version_id.setter
+    def version_id(self, value: str) -> None:
+        ...
+
+    @property
+    def project_id(self) -> int:
+        """Project id for the live instance"""
+        ...
+
+    @property
+    def compile_id(self) -> str:
+        """Compile Id for the live algorithm"""
+        ...
+
+    @property
+    def node_id(self) -> str:
+        """Id of the node being used to run live algorithm"""
+        ...
+
+    @property
+    def signature(self) -> str:
+        """Signature of the live algorithm"""
+        ...
+
+    @property
+    def automatic_redeploy(self) -> bool:
+        """
+        True to enable Automatic Re-Deploy of the live algorithm,
+        false otherwise
+        """
+        ...
+
+    @property
+    def brokerage(self) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """The API expects the settings as part of a brokerage object"""
+        ...
+
+    @property
+    def data_providers(self) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Dictionary with the data providers and their corresponding credentials"""
+        ...
+
+    @property
+    def parameters(self) -> System.Collections.Generic.Dictionary[str, str]:
+        """Dictionary with the parameters to be used in the live algorithm"""
+        ...
+
+    @property
+    def notification(self) -> System.Collections.Generic.Dictionary[str, typing.List[str]]:
+        """Dictionary with the lists of events and targets"""
+        ...
+
+    def __init__(self, project_id: int, compile_id: str, node_id: str, settings: System.Collections.Generic.Dictionary[str, System.Object], version: str = "-1", data_providers: System.Collections.Generic.Dictionary[str, System.Object] = None, parameters: System.Collections.Generic.Dictionary[str, str] = None, notification: System.Collections.Generic.Dictionary[str, typing.List[str]] = None) -> None:
+        """
+        Constructor for LiveAlgorithmApiSettingsWrapper
+        
+        :param project_id: Id of project from QuantConnect
+        :param compile_id: Id of compilation of project from QuantConnect
+        :param node_id: Server type to run live Algorithm
+        :param settings: Dictionary with brokerage specific settings. Each brokerage requires certain specific credentials                         in order to process the given orders. Each key in this dictionary represents a required field/credential                         to provide to the brokerage API and its value represents the value of that field. For example: "brokerageSettings: {                         "id": "Binance", "binance-api-secret": "123ABC", "binance-api-key": "ABC123"}. It is worth saying,                         that this dictionary must always contain an entry whose key is "id" and its value is the name of the brokerage                         (see Brokerages.BrokerageName)
+        :param version: The version identifier
+        :param data_providers: Dictionary with data providers credentials. Each data provider requires certain credentials                         in order to retrieve data from their API. Each key in this dictionary describes a data provider name                         and its corresponding value is another dictionary with the required key-value pairs of credential                         names and values. For example: "data_providers: {InteractiveBrokersBrokerage : { "id": 12345, "environement" : "paper",                         "username": "testUsername", "password": "testPassword"}}"
+        :param parameters: Dictionary to specify the parameters for the live algorithm
+        :param notification: Dictionary with the lists of events and targets
         """
         ...
 
@@ -3827,89 +3860,21 @@ class OptimizationNodes(System.Object):
     """8 CPUs 16 GB ram"""
 
 
-class LiveAlgorithmApiSettingsWrapper(System.Object):
-    """Helper class to put BaseLiveAlgorithmSettings in proper format."""
+class OrganizationResponse(QuantConnect.Api.RestResponse):
+    """Response wrapper for Organizations/Read"""
 
     @property
-    def version_id(self) -> str:
-        """-1 is master"""
+    def organization(self) -> QuantConnect.Api.Organization:
+        """Organization read from the response"""
         ...
 
-    @version_id.setter
-    def version_id(self, value: str) -> None:
-        ...
-
-    @property
-    def project_id(self) -> int:
-        """Project id for the live instance"""
-        ...
-
-    @property
-    def compile_id(self) -> str:
-        """Compile Id for the live algorithm"""
-        ...
-
-    @property
-    def node_id(self) -> str:
-        """Id of the node being used to run live algorithm"""
-        ...
-
-    @property
-    def signature(self) -> str:
-        """Signature of the live algorithm"""
-        ...
-
-    @property
-    def automatic_redeploy(self) -> bool:
-        """
-        True to enable Automatic Re-Deploy of the live algorithm,
-        false otherwise
-        """
-        ...
-
-    @property
-    def brokerage(self) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """The API expects the settings as part of a brokerage object"""
-        ...
-
-    @property
-    def data_providers(self) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Dictionary with the data providers and their corresponding credentials"""
-        ...
-
-    @property
-    def parameters(self) -> System.Collections.Generic.Dictionary[str, str]:
-        """Dictionary with the parameters to be used in the live algorithm"""
-        ...
-
-    @property
-    def notification(self) -> System.Collections.Generic.Dictionary[str, typing.List[str]]:
-        """Dictionary with the lists of events and targets"""
-        ...
-
-    def __init__(self, project_id: int, compile_id: str, node_id: str, settings: System.Collections.Generic.Dictionary[str, System.Object], version: str = "-1", data_providers: System.Collections.Generic.Dictionary[str, System.Object] = None, parameters: System.Collections.Generic.Dictionary[str, str] = None, notification: System.Collections.Generic.Dictionary[str, typing.List[str]] = None) -> None:
-        """
-        Constructor for LiveAlgorithmApiSettingsWrapper
-        
-        :param project_id: Id of project from QuantConnect
-        :param compile_id: Id of compilation of project from QuantConnect
-        :param node_id: Server type to run live Algorithm
-        :param settings: Dictionary with brokerage specific settings. Each brokerage requires certain specific credentials                         in order to process the given orders. Each key in this dictionary represents a required field/credential                         to provide to the brokerage API and its value represents the value of that field. For example: "brokerageSettings: {                         "id": "Binance", "binance-api-secret": "123ABC", "binance-api-key": "ABC123"}. It is worth saying,                         that this dictionary must always contain an entry whose key is "id" and its value is the name of the brokerage                         (see Brokerages.BrokerageName)
-        :param version: The version identifier
-        :param data_providers: Dictionary with data providers credentials. Each data provider requires certain credentials                         in order to retrieve data from their API. Each key in this dictionary describes a data provider name                         and its corresponding value is another dictionary with the required key-value pairs of credential                         names and values. For example: "data_providers: {InteractiveBrokersBrokerage : { "id": 12345, "environement" : "paper",                         "username": "testUsername", "password": "testPassword"}}"
-        :param parameters: Dictionary to specify the parameters for the live algorithm
-        :param notification: Dictionary with the lists of events and targets
-        """
+    @organization.setter
+    def organization(self, value: QuantConnect.Api.Organization) -> None:
         ...
 
 
-class LiveAlgorithmResultsJsonConverter(JsonConverter):
-    """Custom JsonConverter for LiveResults data for live algorithms"""
-
-    @property
-    def can_write(self) -> bool:
-        """Gets a value indicating whether this Newtonsoft.Json.JsonConverter can write JSON."""
-        ...
+class OptimizationBacktestJsonConverter(JsonConverter):
+    """Json converter for OptimizationBacktest which creates a light weight easy to consume serialized version"""
 
     def can_convert(self, object_type: typing.Type) -> bool:
         """
@@ -3940,6 +3905,37 @@ class LiveAlgorithmResultsJsonConverter(JsonConverter):
         :param value: The value.
         :param serializer: The calling serializer.
         """
+        ...
+
+
+class LiveResultsData(System.Object):
+    """Holds information about the state and operation of the live running algorithm"""
+
+    @property
+    def version(self) -> int:
+        """Results version"""
+        ...
+
+    @version.setter
+    def version(self, value: int) -> None:
+        ...
+
+    @property
+    def resolution(self) -> QuantConnect.Resolution:
+        """Temporal resolution of the results returned from the Api"""
+        ...
+
+    @resolution.setter
+    def resolution(self, value: QuantConnect.Resolution) -> None:
+        ...
+
+    @property
+    def results(self) -> QuantConnect.Packets.LiveResult:
+        """Class to represent the data groups results return from the Api"""
+        ...
+
+    @results.setter
+    def results(self, value: QuantConnect.Packets.LiveResult) -> None:
         ...
 
 
@@ -3981,5 +3977,9 @@ class Authentication(System.Object):
     def populate_query_string(query_string: System.Collections.Specialized.NameValueCollection, payload: typing.List[System.Collections.Generic.KeyValuePair[str, System.Object]] = None) -> None:
         """Helper method to populate a query string with the given payload"""
         ...
+
+
+class AuthenticationResponse(QuantConnect.Api.RestResponse):
+    """Verify if the credentials are OK."""
 
 

@@ -5,12 +5,19 @@ class Log(Facade):
     @classmethod
     def getFacadeAccessor(cls) -> str:
         """
-        Returns the binding key for the logger service in the service container.
+        Get the registered name of the component.
+
+        This method returns the service container binding key that identifies
+        the logger service implementation. It serves as the bridge between the
+        facade and the actual service instance registered in the container.
 
         Returns
         -------
         str
-            The unique identifier used to resolve the logger service, specifically
-            "core.orionis.logger".
+            The service container binding key "x-orionis.services.log.log_service"
+            used to resolve the logger service instance from the dependency
+            injection container.
         """
-        return "core.orionis.logger"
+
+        # Return the service container binding key for the logger service
+        return "x-orionis.services.log.log_service"

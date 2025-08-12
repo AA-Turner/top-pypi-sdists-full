@@ -9,24 +9,6 @@ import System.Diagnostics
 import System.Reflection
 
 
-class Debugger(System.Object):
-    """This class has no documentation."""
-
-    DEFAULT_CATEGORY: str
-    """Represents the default category of message with a constant."""
-
-    @staticmethod
-    def break_for_user_unhandled_exception(exception: System.Exception) -> None:
-        """
-        Signals a breakpoint to an attached debugger with the  details
-        if a .NET debugger is attached with break on user-unhandled exception enabled and a method
-        attributed with DebuggerDisableUserUnhandledExceptionsAttribute calls this method.
-        
-        :param exception: The user-unhandled exception.
-        """
-        ...
-
-
 class DebugProvider(System.Object):
     """Provides default implementation for Write and Fail methods in Debug class."""
 
@@ -51,97 +33,6 @@ class DebugProvider(System.Object):
         ...
 
     def write_line(self, message: str) -> None:
-        ...
-
-
-class StackFrame(System.Object):
-    """There is no good reason for the methods of this class to be virtual."""
-
-    OFFSET_UNKNOWN: int = -1
-    """Constant returned when the native or IL offset is unknown"""
-
-    @overload
-    def __init__(self) -> None:
-        """Constructs a StackFrame corresponding to the active stack frame."""
-        ...
-
-    @overload
-    def __init__(self, need_file_info: bool) -> None:
-        """Constructs a StackFrame corresponding to the active stack frame."""
-        ...
-
-    @overload
-    def __init__(self, skip_frames: int) -> None:
-        """Constructs a StackFrame corresponding to a calling stack frame."""
-        ...
-
-    @overload
-    def __init__(self, skip_frames: int, need_file_info: bool) -> None:
-        """Constructs a StackFrame corresponding to a calling stack frame."""
-        ...
-
-    @overload
-    def __init__(self, file_name: str, line_number: int) -> None:
-        """
-        Constructs a "fake" stack frame, just containing the given file
-        name and line number.  Use when you don't want to use the
-        debugger's line mapping logic.
-        """
-        ...
-
-    @overload
-    def __init__(self, file_name: str, line_number: int, col_number: int) -> None:
-        """
-        Constructs a "fake" stack frame, just containing the given file
-        name, line number and column number.  Use when you don't want to
-        use the debugger's line mapping logic.
-        """
-        ...
-
-    def get_file_column_number(self) -> int:
-        """
-        Returns the column number in the line containing the code being executed.
-        This information is normally extracted from the debugging symbols
-        for the executable.
-        """
-        ...
-
-    def get_file_line_number(self) -> int:
-        """
-        Returns the line number in the file containing the code being executed.
-        This information is normally extracted from the debugging symbols
-        for the executable.
-        """
-        ...
-
-    def get_file_name(self) -> str:
-        """
-        Returns the file name containing the code being executed.  This
-        information is normally extracted from the debugging symbols
-        for the executable.
-        """
-        ...
-
-    def get_il_offset(self) -> int:
-        """
-        Returns the offset from the start of the IL code for the
-        method being executed.  This offset may be approximate depending
-        on whether the jitter is generating debuggable code or not.
-        """
-        ...
-
-    def get_method(self) -> System.Reflection.MethodBase:
-        ...
-
-    def get_native_offset(self) -> int:
-        """
-        Returns the offset from the start of the native (jitted) code for the
-        method being executed
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Builds a readable representation of the stack frame"""
         ...
 
 
@@ -476,43 +367,36 @@ class Debug(System.Object):
         ...
 
 
-class DebuggableAttribute(System.Attribute):
+class DebuggerHiddenAttribute(System.Attribute):
     """This class has no documentation."""
 
-    class DebuggingModes(Enum):
-        """This class has no documentation."""
-
-        NONE = ...
-
-        DEFAULT = ...
-
-        DISABLE_OPTIMIZATIONS = ...
-
-        IGNORE_SYMBOL_STORE_SEQUENCE_POINTS = ...
-
-        ENABLE_EDIT_AND_CONTINUE = ...
-
-        def __int__(self) -> int:
-            ...
-
-    @property
-    def is_jit_tracking_enabled(self) -> bool:
+    def __init__(self) -> None:
         ...
 
-    @property
-    def is_jit_optimizer_disabled(self) -> bool:
+
+class DebuggerDisableUserUnhandledExceptionsAttribute(System.Attribute):
+    """
+    If a .NET Debugger is attached which supports the Debugger.BreakForUserUnhandledException(Exception) API,
+    this attribute will prevent the debugger from breaking on user-unhandled exceptions when the
+    exception is caught by a method with this attribute, unless BreakForUserUnhandledException is called.
+    """
+
+
+class StackTraceHiddenAttribute(System.Attribute):
+    """
+    Types and Methods attributed with StackTraceHidden will be omitted from the stack trace text shown in StackTrace.ToString()
+    and Exception.StackTrace
+    """
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the StackTraceHiddenAttribute class."""
         ...
 
-    @property
-    def debugging_flags(self) -> System.Diagnostics.DebuggableAttribute.DebuggingModes:
-        ...
 
-    @overload
-    def __init__(self, is_jit_tracking_enabled: bool, is_jit_optimizer_disabled: bool) -> None:
-        ...
+class DebuggerStepperBoundaryAttribute(System.Attribute):
+    """Indicates the code following the attribute is to be executed in run, not step, mode."""
 
-    @overload
-    def __init__(self, modes: System.Diagnostics.DebuggableAttribute.DebuggingModes) -> None:
+    def __init__(self) -> None:
         ...
 
 
@@ -594,14 +478,212 @@ class Stopwatch(System.Object):
         ...
 
 
-class ConditionalAttribute(System.Attribute):
+class DebuggableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    class DebuggingModes(Enum):
+        """This class has no documentation."""
+
+        NONE = ...
+
+        DEFAULT = ...
+
+        DISABLE_OPTIMIZATIONS = ...
+
+        IGNORE_SYMBOL_STORE_SEQUENCE_POINTS = ...
+
+        ENABLE_EDIT_AND_CONTINUE = ...
+
+        def __int__(self) -> int:
+            ...
+
+    @property
+    def is_jit_tracking_enabled(self) -> bool:
+        ...
+
+    @property
+    def is_jit_optimizer_disabled(self) -> bool:
+        ...
+
+    @property
+    def debugging_flags(self) -> System.Diagnostics.DebuggableAttribute.DebuggingModes:
+        ...
+
+    @overload
+    def __init__(self, is_jit_tracking_enabled: bool, is_jit_optimizer_disabled: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, modes: System.Diagnostics.DebuggableAttribute.DebuggingModes) -> None:
+        ...
+
+
+class DebuggerNonUserCodeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class StackFrame(System.Object):
+    """There is no good reason for the methods of this class to be virtual."""
+
+    OFFSET_UNKNOWN: int = -1
+    """Constant returned when the native or IL offset is unknown"""
+
+    @overload
+    def __init__(self) -> None:
+        """Constructs a StackFrame corresponding to the active stack frame."""
+        ...
+
+    @overload
+    def __init__(self, need_file_info: bool) -> None:
+        """Constructs a StackFrame corresponding to the active stack frame."""
+        ...
+
+    @overload
+    def __init__(self, skip_frames: int) -> None:
+        """Constructs a StackFrame corresponding to a calling stack frame."""
+        ...
+
+    @overload
+    def __init__(self, skip_frames: int, need_file_info: bool) -> None:
+        """Constructs a StackFrame corresponding to a calling stack frame."""
+        ...
+
+    @overload
+    def __init__(self, file_name: str, line_number: int) -> None:
+        """
+        Constructs a "fake" stack frame, just containing the given file
+        name and line number.  Use when you don't want to use the
+        debugger's line mapping logic.
+        """
+        ...
+
+    @overload
+    def __init__(self, file_name: str, line_number: int, col_number: int) -> None:
+        """
+        Constructs a "fake" stack frame, just containing the given file
+        name, line number and column number.  Use when you don't want to
+        use the debugger's line mapping logic.
+        """
+        ...
+
+    def get_file_column_number(self) -> int:
+        """
+        Returns the column number in the line containing the code being executed.
+        This information is normally extracted from the debugging symbols
+        for the executable.
+        """
+        ...
+
+    def get_file_line_number(self) -> int:
+        """
+        Returns the line number in the file containing the code being executed.
+        This information is normally extracted from the debugging symbols
+        for the executable.
+        """
+        ...
+
+    def get_file_name(self) -> str:
+        """
+        Returns the file name containing the code being executed.  This
+        information is normally extracted from the debugging symbols
+        for the executable.
+        """
+        ...
+
+    def get_il_offset(self) -> int:
+        """
+        Returns the offset from the start of the IL code for the
+        method being executed.  This offset may be approximate depending
+        on whether the jitter is generating debuggable code or not.
+        """
+        ...
+
+    def get_method(self) -> System.Reflection.MethodBase:
+        ...
+
+    def get_native_offset(self) -> int:
+        """
+        Returns the offset from the start of the native (jitted) code for the
+        method being executed
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Builds a readable representation of the stack frame"""
+        ...
+
+
+class StackFrameExtensions(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def get_native_image_base(stack_frame: System.Diagnostics.StackFrame) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_native_ip(stack_frame: System.Diagnostics.StackFrame) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def has_il_offset(stack_frame: System.Diagnostics.StackFrame) -> bool:
+        ...
+
+    @staticmethod
+    def has_method(stack_frame: System.Diagnostics.StackFrame) -> bool:
+        ...
+
+    @staticmethod
+    def has_native_image(stack_frame: System.Diagnostics.StackFrame) -> bool:
+        ...
+
+    @staticmethod
+    def has_source(stack_frame: System.Diagnostics.StackFrame) -> bool:
+        ...
+
+
+class DebuggerDisplayAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def condition_string(self) -> str:
+    def value(self) -> str:
         ...
 
-    def __init__(self, condition_string: str) -> None:
+    @property
+    def name(self) -> str:
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def type(self) -> str:
+        ...
+
+    @type.setter
+    def type(self, value: str) -> None:
+        ...
+
+    @property
+    def target(self) -> typing.Type:
+        ...
+
+    @target.setter
+    def target(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def target_type_name(self) -> str:
+        ...
+
+    @target_type_name.setter
+    def target_type_name(self, value: str) -> None:
+        ...
+
+    def __init__(self, value: str) -> None:
         ...
 
 
@@ -639,14 +721,151 @@ class DiagnosticMethodInfo(System.Object):
         ...
 
 
-class StackTraceHiddenAttribute(System.Attribute):
+class Debugger(System.Object):
+    """This class has no documentation."""
+
+    DEFAULT_CATEGORY: str
+    """Represents the default category of message with a constant."""
+
+    @staticmethod
+    def break_for_user_unhandled_exception(exception: System.Exception) -> None:
+        """
+        Signals a breakpoint to an attached debugger with the  details
+        if a .NET debugger is attached with break on user-unhandled exception enabled and a method
+        attributed with DebuggerDisableUserUnhandledExceptionsAttribute calls this method.
+        
+        :param exception: The user-unhandled exception.
+        """
+        ...
+
+
+class DebuggerVisualizerAttribute(System.Attribute):
     """
-    Types and Methods attributed with StackTraceHidden will be omitted from the stack trace text shown in StackTrace.ToString()
-    and Exception.StackTrace
+    Signifies that the attributed type has a visualizer which is pointed
+    to by the parameter type name strings.
     """
 
-    def __init__(self) -> None:
-        """Initializes a new instance of the StackTraceHiddenAttribute class."""
+    @property
+    def visualizer_object_source_type_name(self) -> str:
+        ...
+
+    @property
+    def visualizer_type_name(self) -> str:
+        ...
+
+    @property
+    def description(self) -> str:
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def target(self) -> typing.Type:
+        ...
+
+    @target.setter
+    def target(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def target_type_name(self) -> str:
+        ...
+
+    @target_type_name.setter
+    def target_type_name(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer_type_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer_type_name: str, visualizer_object_source_type_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer_type_name: str, visualizer_object_source: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type, visualizer_object_source: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type, visualizer_object_source_type_name: str) -> None:
+        ...
+
+
+class DebuggerTypeProxyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def proxy_type_name(self) -> str:
+        ...
+
+    @property
+    def target(self) -> typing.Type:
+        ...
+
+    @target.setter
+    def target(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def target_type_name(self) -> str:
+        ...
+
+    @target_type_name.setter
+    def target_type_name(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, type_name: str) -> None:
+        ...
+
+
+class DebuggerBrowsableState(Enum):
+    """This class has no documentation."""
+
+    NEVER = 0
+
+    COLLAPSED = 2
+
+    ROOT_HIDDEN = 3
+
+    def __int__(self) -> int:
+        ...
+
+
+class DebuggerBrowsableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def state(self) -> System.Diagnostics.DebuggerBrowsableState:
+        ...
+
+    def __init__(self, state: System.Diagnostics.DebuggerBrowsableState) -> None:
+        ...
+
+
+class ConditionalAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def condition_string(self) -> str:
+        ...
+
+    def __init__(self, condition_string: str) -> None:
         ...
 
 
@@ -753,21 +972,6 @@ class StackTrace(System.Object):
         ...
 
 
-class DebuggerDisableUserUnhandledExceptionsAttribute(System.Attribute):
-    """
-    If a .NET Debugger is attached which supports the Debugger.BreakForUserUnhandledException(Exception) API,
-    this attribute will prevent the debugger from breaking on user-unhandled exceptions when the
-    exception is caught by a method with this attribute, unless BreakForUserUnhandledException is called.
-    """
-
-
-class DebuggerStepThroughAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
 class UnreachableException(System.Exception):
     """Exception thrown when the program executes an instruction that was thought to be unreachable."""
 
@@ -799,214 +1003,10 @@ class UnreachableException(System.Exception):
         ...
 
 
-class DebuggerNonUserCodeAttribute(System.Attribute):
+class DebuggerStepThroughAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
-        ...
-
-
-class DebuggerStepperBoundaryAttribute(System.Attribute):
-    """Indicates the code following the attribute is to be executed in run, not step, mode."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class DebuggerDisplayAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> str:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def type(self) -> str:
-        ...
-
-    @type.setter
-    def type(self, value: str) -> None:
-        ...
-
-    @property
-    def target(self) -> typing.Type:
-        ...
-
-    @target.setter
-    def target(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def target_type_name(self) -> str:
-        ...
-
-    @target_type_name.setter
-    def target_type_name(self, value: str) -> None:
-        ...
-
-    def __init__(self, value: str) -> None:
-        ...
-
-
-class DebuggerBrowsableState(Enum):
-    """This class has no documentation."""
-
-    NEVER = 0
-
-    COLLAPSED = 2
-
-    ROOT_HIDDEN = 3
-
-    def __int__(self) -> int:
-        ...
-
-
-class DebuggerBrowsableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def state(self) -> System.Diagnostics.DebuggerBrowsableState:
-        ...
-
-    def __init__(self, state: System.Diagnostics.DebuggerBrowsableState) -> None:
-        ...
-
-
-class StackFrameExtensions(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def get_native_image_base(stack_frame: System.Diagnostics.StackFrame) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def get_native_ip(stack_frame: System.Diagnostics.StackFrame) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def has_il_offset(stack_frame: System.Diagnostics.StackFrame) -> bool:
-        ...
-
-    @staticmethod
-    def has_method(stack_frame: System.Diagnostics.StackFrame) -> bool:
-        ...
-
-    @staticmethod
-    def has_native_image(stack_frame: System.Diagnostics.StackFrame) -> bool:
-        ...
-
-    @staticmethod
-    def has_source(stack_frame: System.Diagnostics.StackFrame) -> bool:
-        ...
-
-
-class DebuggerHiddenAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class DebuggerVisualizerAttribute(System.Attribute):
-    """
-    Signifies that the attributed type has a visualizer which is pointed
-    to by the parameter type name strings.
-    """
-
-    @property
-    def visualizer_object_source_type_name(self) -> str:
-        ...
-
-    @property
-    def visualizer_type_name(self) -> str:
-        ...
-
-    @property
-    def description(self) -> str:
-        ...
-
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def target(self) -> typing.Type:
-        ...
-
-    @target.setter
-    def target(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def target_type_name(self) -> str:
-        ...
-
-    @target_type_name.setter
-    def target_type_name(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str, visualizer_object_source_type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str, visualizer_object_source: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type, visualizer_object_source: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type, visualizer_object_source_type_name: str) -> None:
-        ...
-
-
-class DebuggerTypeProxyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def proxy_type_name(self) -> str:
-        ...
-
-    @property
-    def target(self) -> typing.Type:
-        ...
-
-    @target.setter
-    def target(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def target_type_name(self) -> str:
-        ...
-
-    @target_type_name.setter
-    def target_type_name(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, type_name: str) -> None:
         ...
 
 

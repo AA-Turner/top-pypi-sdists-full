@@ -23,6 +23,41 @@ System_ComponentModel__EventContainer_Callable = typing.TypeVar("System_Componen
 System_ComponentModel__EventContainer_ReturnType = typing.TypeVar("System_ComponentModel__EventContainer_ReturnType")
 
 
+class EditorBrowsableState(Enum):
+    """This class has no documentation."""
+
+    ALWAYS = 0
+
+    NEVER = 1
+
+    ADVANCED = 2
+
+    def __int__(self) -> int:
+        ...
+
+
+class EditorBrowsableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def state(self) -> System.ComponentModel.EditorBrowsableState:
+        ...
+
+    @overload
+    def __init__(self, state: System.ComponentModel.EditorBrowsableState) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
 class Win32Exception(System.Runtime.InteropServices.ExternalException):
     """The exception that is thrown for a Win32 error code."""
 
@@ -155,102 +190,6 @@ class DefaultValueAttribute(System.Attribute):
         ...
 
 
-class EditorBrowsableState(Enum):
-    """This class has no documentation."""
-
-    ALWAYS = 0
-
-    NEVER = 1
-
-    ADVANCED = 2
-
-    def __int__(self) -> int:
-        ...
-
-
-class EditorBrowsableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def state(self) -> System.ComponentModel.EditorBrowsableState:
-        ...
-
-    @overload
-    def __init__(self, state: System.ComponentModel.EditorBrowsableState) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class PropertyChangingEventArgs(System.EventArgs):
-    """Provides data for the PropertyChanging event."""
-
-    @property
-    def property_name(self) -> str:
-        """Indicates the name of the property that is changing."""
-        ...
-
-    def __init__(self, property_name: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.PropertyChangingEventArgs
-        class.
-        """
-        ...
-
-
-class INotifyPropertyChanging(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def property_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @property_changing.setter
-    def property_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-
-class DataErrorsChangedEventArgs(System.EventArgs):
-    """Provides data for the ErrorsChanged event."""
-
-    @property
-    def property_name(self) -> str:
-        """Indicates the name of the property whose errors changed."""
-        ...
-
-    def __init__(self, property_name: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.DataErrorsChangedEventArgs
-        class.
-        """
-        ...
-
-
-class PropertyChangedEventArgs(System.EventArgs):
-    """Provides data for the PropertyChanged event."""
-
-    @property
-    def property_name(self) -> str:
-        """Indicates the name of the property that changed."""
-        ...
-
-    def __init__(self, property_name: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.PropertyChangedEventArgs
-        class.
-        """
-        ...
-
-
 class TypeDescriptionProviderAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -270,40 +209,6 @@ class TypeDescriptionProviderAttribute(System.Attribute):
     @overload
     def __init__(self, type: typing.Type) -> None:
         """Creates a new TypeDescriptionProviderAttribute object."""
-        ...
-
-
-class INotifyPropertyChanged(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @property_changed.setter
-    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-
-class INotifyDataErrorInfo(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def has_errors(self) -> bool:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def errors_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.DataErrorsChangedEventArgs], typing.Any], typing.Any]:
-        ...
-
-    @errors_changed.setter
-    def errors_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.DataErrorsChangedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    def get_errors(self, property_name: str) -> System.Collections.IEnumerable:
         ...
 
 
@@ -357,6 +262,761 @@ class TypeConverterAttribute(System.Attribute):
         ...
 
     def get_hash_code(self) -> int:
+        ...
+
+
+class PropertyChangingEventArgs(System.EventArgs):
+    """Provides data for the PropertyChanging event."""
+
+    @property
+    def property_name(self) -> str:
+        """Indicates the name of the property that is changing."""
+        ...
+
+    def __init__(self, property_name: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.PropertyChangingEventArgs
+        class.
+        """
+        ...
+
+
+class DataErrorsChangedEventArgs(System.EventArgs):
+    """Provides data for the ErrorsChanged event."""
+
+    @property
+    def property_name(self) -> str:
+        """Indicates the name of the property whose errors changed."""
+        ...
+
+    def __init__(self, property_name: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.DataErrorsChangedEventArgs
+        class.
+        """
+        ...
+
+
+class PropertyChangedEventArgs(System.EventArgs):
+    """Provides data for the PropertyChanged event."""
+
+    @property
+    def property_name(self) -> str:
+        """Indicates the name of the property that changed."""
+        ...
+
+    def __init__(self, property_name: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.PropertyChangedEventArgs
+        class.
+        """
+        ...
+
+
+class INotifyPropertyChanging(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def property_changing(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @property_changing.setter
+    def property_changing(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangingEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+
+class INotifyPropertyChanged(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def property_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @property_changed.setter
+    def property_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.PropertyChangedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+
+class INotifyDataErrorInfo(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def has_errors(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def errors_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.ComponentModel.DataErrorsChangedEventArgs], typing.Any], typing.Any]:
+        ...
+
+    @errors_changed.setter
+    def errors_changed(self, value: _EventContainer[typing.Callable[[System.Object, System.ComponentModel.DataErrorsChangedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def get_errors(self, property_name: str) -> System.Collections.IEnumerable:
+        ...
+
+
+class DataObjectFieldAttribute(System.Attribute):
+    """
+    Represents a field of a DataObject. Use this attribute on a field to indicate
+    properties such as primary key, identity, nullability, and length.
+    """
+
+    @property
+    def is_identity(self) -> bool:
+        ...
+
+    @property
+    def is_nullable(self) -> bool:
+        ...
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @property
+    def primary_key(self) -> bool:
+        ...
+
+    @overload
+    def __init__(self, primary_key: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, primary_key: bool, is_identity: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, primary_key: bool, is_identity: bool, is_nullable: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, primary_key: bool, is_identity: bool, is_nullable: bool, length: int) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class AttributeCollection(System.Object, System.Collections.ICollection):
+    """Represents a collection of attributes."""
+
+    EMPTY: System.ComponentModel.AttributeCollection = ...
+    """An empty AttributeCollection that can used instead of creating a new one."""
+
+    @property
+    def count(self) -> int:
+        """Gets the number of attributes."""
+        ...
+
+    @overload
+    def __getitem__(self, index: int) -> System.Attribute:
+        """Gets the attribute with the specified index number."""
+        ...
+
+    @overload
+    def __getitem__(self, attribute_type: typing.Type) -> System.Attribute:
+        """Gets the attribute with the specified type."""
+        ...
+
+    @overload
+    def __init__(self, *attributes: typing.Union[System.Attribute, typing.Iterable[System.Attribute]]) -> None:
+        """Creates a new AttributeCollection."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    @overload
+    def contains(self, attribute: System.Attribute) -> bool:
+        """Determines if this collection of attributes has the specified attribute."""
+        ...
+
+    @overload
+    def contains(self, attributes: typing.List[System.Attribute]) -> bool:
+        """
+        Determines if this attribute collection contains the all
+        the specified attributes in the attribute array.
+        """
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        """Copies this collection to an array."""
+        ...
+
+    @staticmethod
+    def from_existing(existing: System.ComponentModel.AttributeCollection, *new_attributes: typing.Union[System.Attribute, typing.Iterable[System.Attribute]]) -> System.ComponentModel.AttributeCollection:
+        """Creates a new AttributeCollection from an existing AttributeCollection"""
+        ...
+
+    def get_default_attribute(self, attribute_type: typing.Type) -> System.Attribute:
+        """
+        Returns the default value for an attribute. This uses the following heuristic:
+        1. It looks for a public static field named "Default".
+        
+        This method is protected.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        """Gets an enumerator for this collection."""
+        ...
+
+    @overload
+    def matches(self, attribute: System.Attribute) -> bool:
+        """
+        Determines if a specified attribute is the same as an attribute
+        in the collection.
+        """
+        ...
+
+    @overload
+    def matches(self, attributes: typing.List[System.Attribute]) -> bool:
+        """
+        Determines if the attributes in the specified array are
+        the same as the attributes in the collection.
+        """
+        ...
+
+
+class MemberDescriptor(System.Object, metaclass=abc.ABCMeta):
+    """
+    Declares an array of attributes for a member and defines
+    the properties and methods that give you access to the attributes in the array.
+    All attributes must derive from System.Attribute.
+    """
+
+    @property
+    def attribute_array(self) -> typing.List[System.Attribute]:
+        """
+        Gets or sets an array of attributes.
+        
+        This property is protected.
+        """
+        ...
+
+    @attribute_array.setter
+    def attribute_array(self, value: typing.List[System.Attribute]) -> None:
+        ...
+
+    @property
+    def attributes(self) -> System.ComponentModel.AttributeCollection:
+        """Gets the collection of attributes for this member."""
+        ...
+
+    @property
+    def category(self) -> str:
+        """
+        Gets the name of the category that the member belongs to, as specified
+        in the System.ComponentModel.CategoryAttribute.
+        """
+        ...
+
+    @property
+    def description(self) -> str:
+        """Gets the description of the member as specified in the System.ComponentModel.DescriptionAttribute."""
+        ...
+
+    @property
+    def is_browsable(self) -> bool:
+        """
+        Gets a value indicating whether the member is browsable as specified in the
+        System.ComponentModel.BrowsableAttribute.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Gets the name of the member."""
+        ...
+
+    @property
+    def name_hash_code(self) -> int:
+        """
+        Gets the hash code for the name of the member as specified in string.GetHashCode().
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def design_time_only(self) -> bool:
+        """
+        Determines whether this member should be set only at
+        design time as specified in the System.ComponentModel.DesignOnlyAttribute.
+        """
+        ...
+
+    @property
+    def display_name(self) -> str:
+        """Gets the name that can be displayed in a window like a properties window."""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.MemberDescriptor class with the specified  and no attributes.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, attributes: typing.List[System.Attribute]) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.MemberDescriptor class with the specified  and  array.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, descr: System.ComponentModel.MemberDescriptor) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.MemberDescriptor class with the specified System.ComponentModel.MemberDescriptor.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, old_member_descriptor: System.ComponentModel.MemberDescriptor, new_attributes: typing.List[System.Attribute]) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.MemberDescriptor class with the name in the specified
+        System.ComponentModel.MemberDescriptor and the attributes
+        in both the old System.ComponentModel.MemberDescriptor and the System.Attribute array.
+        
+        This method is protected.
+        """
+        ...
+
+    def create_attribute_collection(self) -> System.ComponentModel.AttributeCollection:
+        """
+        Creates a collection of attributes using the
+        array of attributes that you passed to the constructor.
+        
+        This method is protected.
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Compares this instance to the specified System.ComponentModel.MemberDescriptor to see if they are equivalent.
+        NOTE: If you make a change here, you likely need to change GetHashCode() as well.
+        """
+        ...
+
+    def fill_attributes(self, attribute_list: System.Collections.IList) -> None:
+        """
+        In an inheriting class, adds the attributes of the inheriting class to the
+        specified list of attributes in the parent class. For duplicate attributes,
+        the last one added to the list will be kept.
+        
+        This method is protected.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def find_method(component_class: typing.Type, name: str, args: typing.List[typing.Type], return_type: typing.Type) -> System.Reflection.MethodInfo:
+        """
+        Finds the given method through reflection. This method only looks for public methods.
+        
+        This method is protected.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def find_method(component_class: typing.Type, name: str, args: typing.List[typing.Type], return_type: typing.Type, public_only: bool) -> System.Reflection.MethodInfo:
+        """
+        Finds the given method through reflection.
+        
+        This method is protected.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Try to keep this reasonable in [....] with Equals(). Specifically,
+        if A.Equals(B) returns true, A & B should have the same hash code.
+        """
+        ...
+
+    def get_invocation_target(self, type: typing.Type, instance: typing.Any) -> System.Object:
+        """
+        This method returns the object that should be used during invocation of members.
+        Normally the return value will be the same as the instance passed in. If
+        someone associated another object with this instance, or if the instance is a
+        custom type descriptor, GetInvocationTarget may return a different value.
+        
+        This method is protected.
+        """
+        ...
+
+    @staticmethod
+    def get_invokee(component_class: typing.Type, component: typing.Any) -> System.Object:
+        """
+        This method is protected.
+        
+        MemberDescriptor.GetInvokee has been deprecated. Use GetInvocationTarget instead.
+        """
+        warnings.warn("MemberDescriptor.GetInvokee has been deprecated. Use GetInvocationTarget instead.", DeprecationWarning)
+
+    @staticmethod
+    def get_site(component: typing.Any) -> System.ComponentModel.ISite:
+        """
+        Gets a component site for the given component.
+        
+        This method is protected.
+        """
+        ...
+
+
+class PropertyDescriptorCollection(System.Object, System.Collections.IList, System.Collections.IDictionary):
+    """Represents a collection of properties."""
+
+    EMPTY: System.ComponentModel.PropertyDescriptorCollection = ...
+    """An empty PropertyDescriptorCollection that can used instead of creating a new one with no items."""
+
+    @property
+    def count(self) -> int:
+        """Gets the number of property descriptors in the  collection."""
+        ...
+
+    @overload
+    def __getitem__(self, index: int) -> System.ComponentModel.PropertyDescriptor:
+        """Gets the property with the specified index number."""
+        ...
+
+    @overload
+    def __getitem__(self, name: str) -> System.ComponentModel.PropertyDescriptor:
+        """Gets the property with the specified name."""
+        ...
+
+    @overload
+    def __init__(self, properties: typing.List[System.ComponentModel.PropertyDescriptor]) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.PropertyDescriptorCollection
+        class.
+        """
+        ...
+
+    @overload
+    def __init__(self, properties: typing.List[System.ComponentModel.PropertyDescriptor], read_only: bool) -> None:
+        """
+        Initializes a new instance of a property descriptor collection, and allows you to mark the
+        collection as read-only so it cannot be modified.
+        """
+        ...
+
+    def add(self, value: System.ComponentModel.PropertyDescriptor) -> int:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, value: System.ComponentModel.PropertyDescriptor) -> bool:
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        ...
+
+    def find(self, name: str, ignore_case: bool) -> System.ComponentModel.PropertyDescriptor:
+        """Gets the description of the property with the specified name."""
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        """Gets an enumerator for this System.ComponentModel.PropertyDescriptorCollection."""
+        ...
+
+    def index_of(self, value: System.ComponentModel.PropertyDescriptor) -> int:
+        ...
+
+    def insert(self, index: int, value: System.ComponentModel.PropertyDescriptor) -> None:
+        ...
+
+    @overload
+    def internal_sort(self, names: typing.List[str]) -> None:
+        """
+        Sorts the members of this PropertyDescriptorCollection. Any specified NamedSort arguments will
+        be applied first, followed by sort using the specified IComparer.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def internal_sort(self, sorter: System.Collections.IComparer) -> None:
+        """
+        Sorts the members of this PropertyDescriptorCollection using the specified IComparer.
+        
+        This method is protected.
+        """
+        ...
+
+    def remove(self, value: System.ComponentModel.PropertyDescriptor) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
+        ...
+
+    @overload
+    def sort(self) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        Sorts the members of this PropertyDescriptorCollection, using the default sort for this collection,
+        which is usually alphabetical.
+        """
+        ...
+
+    @overload
+    def sort(self, names: typing.List[str]) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        Sorts the members of this PropertyDescriptorCollection. Any specified NamedSort arguments will
+        be applied first, followed by sort using the specified IComparer.
+        """
+        ...
+
+    @overload
+    def sort(self, names: typing.List[str], comparer: System.Collections.IComparer) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        Sorts the members of this PropertyDescriptorCollection. Any specified NamedSort arguments will
+        be applied first, followed by sort using the specified IComparer.
+        """
+        ...
+
+    @overload
+    def sort(self, comparer: System.Collections.IComparer) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        Sorts the members of this PropertyDescriptorCollection, using the specified IComparer to compare,
+        the PropertyDescriptors contained in the collection.
+        """
+        ...
+
+
+class PropertyDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.ABCMeta):
+    """Provides a description of a property."""
+
+    @property
+    @abc.abstractmethod
+    def component_type(self) -> typing.Type:
+        """
+        When overridden in a derived class, gets the type of the
+        component this property is bound to.
+        """
+        ...
+
+    @property
+    def converter(self) -> System.ComponentModel.TypeConverter:
+        """Gets the type converter for this property."""
+        ...
+
+    @property
+    def converter_from_registered_type(self) -> System.ComponentModel.TypeConverter:
+        """Gets the type converter for this property."""
+        ...
+
+    @property
+    def is_localizable(self) -> bool:
+        """
+        Gets a value
+        indicating whether this property should be localized, as
+        specified in the System.ComponentModel.LocalizableAttribute.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_read_only(self) -> bool:
+        """
+        When overridden in a derived class, gets a value indicating whether this
+        property is read-only.
+        """
+        ...
+
+    @property
+    def serialization_visibility(self) -> System.ComponentModel.DesignerSerializationVisibility:
+        """
+        Gets a value indicating whether this property should be serialized as specified
+        in the System.ComponentModel.DesignerSerializationVisibilityAttribute.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def property_type(self) -> typing.Type:
+        """When overridden in a derived class, gets the type of the property."""
+        ...
+
+    @property
+    def supports_change_events(self) -> bool:
+        """
+        Indicates whether value change notifications for this property may originate from outside the property
+        descriptor, such as from the component itself (value=true), or whether notifications will only originate
+        from direct calls made to PropertyDescriptor.SetValue (value=false). For example, the component may
+        implement the INotifyPropertyChanged interface, or may have an explicit '{name}Changed' event for this property.
+        """
+        ...
+
+    @overload
+    def __init__(self, name: str, attrs: typing.List[System.Attribute]) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.PropertyDescriptor class with the specified name and
+        attributes.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, descr: System.ComponentModel.MemberDescriptor) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.PropertyDescriptor class with
+        the name and attributes in the specified System.ComponentModel.MemberDescriptor.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, descr: System.ComponentModel.MemberDescriptor, attrs: typing.List[System.Attribute]) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.PropertyDescriptor class with
+        the name in the specified System.ComponentModel.MemberDescriptor and the
+        attributes in both the System.ComponentModel.MemberDescriptor and the
+        System.Attribute array.
+        
+        This method is protected.
+        """
+        ...
+
+    def add_value_changed(self, component: typing.Any, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> None:
+        """Allows interested objects to be notified when this property changes."""
+        ...
+
+    def can_reset_value(self, component: typing.Any) -> bool:
+        """
+        When overridden in a derived class, indicates whether
+        resetting the will change the value of the
+        .
+        """
+        ...
+
+    def create_instance(self, type: typing.Type) -> System.Object:
+        """
+        Creates an instance of the specified type.
+        
+        This method is protected.
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Compares this to another System.ComponentModel.PropertyDescriptor
+        to see if they are equivalent.
+        NOTE: If you make a change here, you likely need to change GetHashCode() as well.
+        """
+        ...
+
+    def fill_attributes(self, attribute_list: System.Collections.IList) -> None:
+        """
+        In an inheriting class, adds the attributes of the inheriting class to the
+        specified list of attributes in the parent class. For duplicate attributes,
+        the last one added to the list will be kept.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def get_child_properties(self, instance: typing.Any) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_child_properties(self, instance: typing.Any, filter: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        """Retrieves the properties"""
+        ...
+
+    @overload
+    def get_child_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_child_properties(self, filter: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_editor(self, editor_base_type: typing.Type) -> System.Object:
+        """Gets an editor of the specified type."""
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Try to keep this reasonable in [....] with Equals(). Specifically,
+        if A.Equals(B) returns true, A & B should have the same hash code.
+        """
+        ...
+
+    def get_invocation_target(self, type: typing.Type, instance: typing.Any) -> System.Object:
+        """
+        This method returns the object that should be used during invocation of members.
+        Normally the return value will be the same as the instance passed in. If
+        someone associated another object with this instance, or if the instance is a
+        custom type descriptor, GetInvocationTarget may return a different value.
+        
+        This method is protected.
+        """
+        ...
+
+    def get_type_from_name(self, type_name: str) -> typing.Type:
+        """
+        Gets a type using its name.
+        
+        This method is protected.
+        """
+        ...
+
+    def get_value(self, component: typing.Any) -> System.Object:
+        """When overridden in a derived class, gets the current value of the property on a component."""
+        ...
+
+    def on_value_changed(self, component: typing.Any, e: System.EventArgs) -> None:
+        """
+        This should be called by your property descriptor implementation
+        when the property value has changed.
+        
+        This method is protected.
+        """
+        ...
+
+    def remove_value_changed(self, component: typing.Any, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> None:
+        """Allows interested objects to be notified when this property changes."""
+        ...
+
+    def reset_value(self, component: typing.Any) -> None:
+        """When overridden in a derived class, resets the value for this property of the component."""
+        ...
+
+    def set_value(self, component: typing.Any, value: typing.Any) -> None:
+        """
+        When overridden in a derived class, sets the value of
+        the component to a different value.
+        """
+        ...
+
+    def should_serialize_value(self, component: typing.Any) -> bool:
+        """
+        When overridden in a derived class, indicates whether the
+        value of this property needs to be persisted.
+        """
         ...
 
 
@@ -720,161 +1380,90 @@ class TypeConverter(System.Object):
         ...
 
 
-class ReferenceConverter(System.ComponentModel.TypeConverter):
+class DateTimeOffsetConverter(System.ComponentModel.TypeConverter):
     """
-    Provides a type converter to convert object references to and from various
-    other representations.
+    Provides a type converter to convert System.DateTimeOffset
+    objects to and from various other representations.
     """
-
-    def __init__(self, type: typing.Type) -> None:
-        """Initializes a new instance of the System.ComponentModel.ReferenceConverter class."""
-        ...
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         """
-        Gets a value indicating whether this converter can convert an object in the
-        given source type to a reference object using the specified context.
+        Gets a value indicating whether this converter can convert an
+        object in the given source type to a System.DateTimeOffset
+        object using the specified context.
+        """
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an
+        object to the given destination type using the context.
         """
         ...
 
     def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the given object to the reference type."""
+        """
+        Converts the given value object to a System.DateTime
+        object.
+        """
         ...
 
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given value object to the reference type using the specified context and arguments."""
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        """Gets a collection of standard values for the reference data type."""
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         """
-        Gets a value indicating whether the list of standard values returned from
-        System.ComponentModel.ReferenceConverter.GetStandardValues is an exclusive list.
-        """
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether this object supports a standard set of values
-        that can be picked from a list.
-        """
-        ...
-
-    def is_value_allowed(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
-        """
-        Gets a value indicating whether a particular value can be added to
-        the standard values collection.
-        
-        This method is protected.
+        Converts the given value object to a System.DateTimeOffset
+        object using the arguments.
         """
         ...
 
 
-class IListSource(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def contains_list_collection(self) -> bool:
-        ...
-
-    def get_list(self) -> System.Collections.IList:
-        ...
-
-
-class License(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
+class RecommendedAsConfigurableAttribute(System.Attribute):
     """
-    Provides the abstract base class for all licenses. A license is
-    granted to a specific instance of a component.
+    Specifies that the property can be used as an application setting.
+    
+    RecommendedAsConfigurableAttribute has been deprecated. Use System.ComponentModel.SettingsBindableAttribute instead.
     """
 
     @property
-    @abc.abstractmethod
-    def license_key(self) -> str:
-        """When overridden in a derived class, gets the license key granted to this component."""
-        ...
-
-    def dispose(self) -> None:
-        """When overridden in a derived class, releases the license."""
-        ...
-
-
-class LicenseUsageMode(Enum):
-    """Specifies when the license can be used."""
-
-    RUNTIME = 0
-    """Used during runtime."""
-
-    DESIGNTIME = 1
-    """Used during design time by a visual designer or the compiler."""
-
-    def __int__(self) -> int:
-        ...
-
-
-class LicenseContext(IServiceProvider):
-    """Specifies when the licensed object can be used."""
-
-    @property
-    def usage_mode(self) -> System.ComponentModel.LicenseUsageMode:
-        """When overridden in a derived class, gets a value that specifies when a license can be used."""
-        ...
-
-    def get_saved_license_key(self, type: typing.Type, resource_assembly: System.Reflection.Assembly) -> str:
+    def recommended_as_configurable(self) -> bool:
         """
-        When overridden in a derived class, gets a saved license
-        key for the specified type, from the specified resource assembly.
+        Gets a value indicating whether the property this
+        attribute is bound to can be used as an application setting.
         """
         ...
 
-    def get_service(self, type: typing.Type) -> System.Object:
-        """When overridden in a derived class, will return an object that implements the asked for service."""
-        ...
-
-    def set_saved_license_key(self, type: typing.Type, key: str) -> None:
-        """When overridden in a derived class, sets a license key for the specified type."""
-        ...
-
-
-class LicenseProvider(System.Object, metaclass=abc.ABCMeta):
-    """Provides the abstract base class for implementing a System.ComponentModel.LicenseProvider."""
-
-    def get_license(self, context: System.ComponentModel.LicenseContext, type: typing.Type, instance: typing.Any, allow_exceptions: bool) -> System.ComponentModel.License:
-        """
-        When overridden in a derived class, gets a license for an or 
-        of component.
-        """
-        ...
-
-
-class LicFileLicenseProvider(System.ComponentModel.LicenseProvider):
+    NO: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
     """
-    Provides an implementation of a System.ComponentModel.LicenseProvider. The provider works in
-    a similar fashion to Microsoft .NET Framework standard licensing module.
+    Specifies that a property cannot be used as an application setting. This
+    static field is read-only.
     """
 
-    def get_key(self, type: typing.Type) -> str:
+    YES: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
+    """
+    Specifies
+    that a property can be used as an application setting. This static field is read-only.
+    """
+
+    DEFAULT: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
+    """
+    Specifies the default value for the System.ComponentModel.RecommendedAsConfigurableAttribute, which is System.ComponentModel.RecommendedAsConfigurableAttribute.No. This static field is
+    read-only.
+    """
+
+    def __init__(self, recommended_as_configurable: bool) -> None:
         """
-        Creates a key for the specified type.
-        
-        This method is protected.
+        Initializes a new instance of
+        the System.ComponentModel.RecommendedAsConfigurableAttribute class.
         """
         ...
 
-    def get_license(self, context: System.ComponentModel.LicenseContext, type: typing.Type, instance: typing.Any, allow_exceptions: bool) -> System.ComponentModel.License:
-        """Gets a license for the instance of the component and determines if it is valid."""
+    def equals(self, obj: typing.Any) -> bool:
         ...
 
-    def is_key_valid(self, key: str, type: typing.Type) -> bool:
-        """
-        Determines if the key retrieved by the System.ComponentModel.LicFileLicenseProvider.GetLicense method is valid
-        for the specified type.
-        
-        This method is protected.
-        """
+    def get_hash_code(self) -> int:
+        """Returns the hashcode for this object."""
+        ...
+
+    def is_default_attribute(self) -> bool:
         ...
 
 
@@ -900,6 +1489,13 @@ class BaseNumberConverter(System.ComponentModel.TypeConverter, metaclass=abc.ABC
         ...
 
 
+class HalfConverter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert half-precision, floating point number objects to and
+    from various other representations.
+    """
+
+
 class Int128Converter(System.ComponentModel.BaseNumberConverter):
     """
     Provides a type converter to convert 128-bit signed integer objects to and
@@ -907,11 +1503,17 @@ class Int128Converter(System.ComponentModel.BaseNumberConverter):
     """
 
 
-class UInt64Converter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert 64-bit unsigned integer objects to and
-    from various other representations.
-    """
+class ListSortDirection(Enum):
+    """Specifies the direction of a sort."""
+
+    ASCENDING = 0
+    """Sort in ascending order."""
+
+    DESCENDING = 1
+    """Sort in descending order."""
+
+    def __int__(self) -> int:
+        ...
 
 
 class ListChangedType(Enum):
@@ -932,748 +1534,6 @@ class ListChangedType(Enum):
     PROPERTY_DESCRIPTOR_DELETED = 6
 
     PROPERTY_DESCRIPTOR_CHANGED = 7
-
-    def __int__(self) -> int:
-        ...
-
-
-class INestedSite(System.ComponentModel.ISite, metaclass=abc.ABCMeta):
-    """
-    Nested containers site objects using INestedSite. A nested site is simply a site with
-    an additional property that can retrieve the full nested name of a component.
-    """
-
-    @property
-    @abc.abstractmethod
-    def full_name(self) -> str:
-        """
-        Returns the full name of the component in this site in the format of <owner>.<component>.
-        If this component's site has a null name, FullName also returns null.
-        """
-        ...
-
-
-class ComponentResourceManager(System.Resources.ResourceManager):
-    """
-    The ComponentResourceManager is a resource manager object that
-    provides simple functionality for enumerating resources for
-    a component or object.
-    """
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, t: typing.Type) -> None:
-        ...
-
-    @overload
-    def apply_resources(self, value: typing.Any, object_name: str) -> None:
-        """
-        This method examines all the resources for the current culture.
-        When it finds a resource with a key in the format of
-        "[object_name].[property name]" it will apply that resource's value
-        to the corresponding property on the object. If there is no matching
-        property the resource will be ignored.
-        """
-        ...
-
-    @overload
-    def apply_resources(self, value: typing.Any, object_name: str, culture: System.Globalization.CultureInfo) -> None:
-        """
-        This method examines all the resources for the provided culture.
-        When it finds a resource with a key in the format of
-        "[object_name].[property name]" or "[object_name]-[property name]" it will apply that resource's value
-        to the corresponding property on the object. If there is no matching
-        property the resource will be ignored.
-        """
-        ...
-
-    def apply_resources_to_registered_type(self, value: typing.Any, object_name: str, culture: System.Globalization.CultureInfo) -> None:
-        """
-        This method examines all the resources for the provided culture.
-        When it finds a resource with a key in the format of
-        "[object_name].[property name]" or "[object_name]-[property name]" it will apply that resource's value
-        to the corresponding property on the object. If there is no matching
-        property the resource will be ignored.
-        """
-        ...
-
-
-class DefaultEventAttribute(System.Attribute):
-    """Specifies the default event for a component."""
-
-    @property
-    def name(self) -> str:
-        """Gets the name of the default event for the component this attribute is bound to."""
-        ...
-
-    DEFAULT: System.ComponentModel.DefaultEventAttribute = ...
-    """
-    Specifies the default value for the System.ComponentModel.DefaultEventAttribute, which is
-    null.
-    This static field is read-only.
-    """
-
-    def __init__(self, name: str) -> None:
-        """Initializes a new instance of the System.ComponentModel.DefaultEventAttribute class."""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class AttributeCollection(System.Object, System.Collections.ICollection):
-    """Represents a collection of attributes."""
-
-    EMPTY: System.ComponentModel.AttributeCollection = ...
-    """An empty AttributeCollection that can used instead of creating a new one."""
-
-    @property
-    def count(self) -> int:
-        """Gets the number of attributes."""
-        ...
-
-    @overload
-    def __getitem__(self, index: int) -> System.Attribute:
-        """Gets the attribute with the specified index number."""
-        ...
-
-    @overload
-    def __getitem__(self, attribute_type: typing.Type) -> System.Attribute:
-        """Gets the attribute with the specified type."""
-        ...
-
-    @overload
-    def __init__(self, *attributes: typing.Union[System.Attribute, typing.Iterable[System.Attribute]]) -> None:
-        """Creates a new AttributeCollection."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    @overload
-    def contains(self, attribute: System.Attribute) -> bool:
-        """Determines if this collection of attributes has the specified attribute."""
-        ...
-
-    @overload
-    def contains(self, attributes: typing.List[System.Attribute]) -> bool:
-        """
-        Determines if this attribute collection contains the all
-        the specified attributes in the attribute array.
-        """
-        ...
-
-    def copy_to(self, array: System.Array, index: int) -> None:
-        """Copies this collection to an array."""
-        ...
-
-    @staticmethod
-    def from_existing(existing: System.ComponentModel.AttributeCollection, *new_attributes: typing.Union[System.Attribute, typing.Iterable[System.Attribute]]) -> System.ComponentModel.AttributeCollection:
-        """Creates a new AttributeCollection from an existing AttributeCollection"""
-        ...
-
-    def get_default_attribute(self, attribute_type: typing.Type) -> System.Attribute:
-        """
-        Returns the default value for an attribute. This uses the following heuristic:
-        1. It looks for a public static field named "Default".
-        
-        This method is protected.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        """Gets an enumerator for this collection."""
-        ...
-
-    @overload
-    def matches(self, attribute: System.Attribute) -> bool:
-        """
-        Determines if a specified attribute is the same as an attribute
-        in the collection.
-        """
-        ...
-
-    @overload
-    def matches(self, attributes: typing.List[System.Attribute]) -> bool:
-        """
-        Determines if the attributes in the specified array are
-        the same as the attributes in the collection.
-        """
-        ...
-
-
-class MemberDescriptor(System.Object, metaclass=abc.ABCMeta):
-    """
-    Declares an array of attributes for a member and defines
-    the properties and methods that give you access to the attributes in the array.
-    All attributes must derive from System.Attribute.
-    """
-
-    @property
-    def attribute_array(self) -> typing.List[System.Attribute]:
-        """
-        Gets or sets an array of attributes.
-        
-        This property is protected.
-        """
-        ...
-
-    @attribute_array.setter
-    def attribute_array(self, value: typing.List[System.Attribute]) -> None:
-        ...
-
-    @property
-    def attributes(self) -> System.ComponentModel.AttributeCollection:
-        """Gets the collection of attributes for this member."""
-        ...
-
-    @property
-    def category(self) -> str:
-        """
-        Gets the name of the category that the member belongs to, as specified
-        in the System.ComponentModel.CategoryAttribute.
-        """
-        ...
-
-    @property
-    def description(self) -> str:
-        """Gets the description of the member as specified in the System.ComponentModel.DescriptionAttribute."""
-        ...
-
-    @property
-    def is_browsable(self) -> bool:
-        """
-        Gets a value indicating whether the member is browsable as specified in the
-        System.ComponentModel.BrowsableAttribute.
-        """
-        ...
-
-    @property
-    def name(self) -> str:
-        """Gets the name of the member."""
-        ...
-
-    @property
-    def name_hash_code(self) -> int:
-        """
-        Gets the hash code for the name of the member as specified in string.GetHashCode().
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def design_time_only(self) -> bool:
-        """
-        Determines whether this member should be set only at
-        design time as specified in the System.ComponentModel.DesignOnlyAttribute.
-        """
-        ...
-
-    @property
-    def display_name(self) -> str:
-        """Gets the name that can be displayed in a window like a properties window."""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.MemberDescriptor class with the specified  and no attributes.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, attributes: typing.List[System.Attribute]) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.MemberDescriptor class with the specified  and  array.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, descr: System.ComponentModel.MemberDescriptor) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.MemberDescriptor class with the specified System.ComponentModel.MemberDescriptor.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, old_member_descriptor: System.ComponentModel.MemberDescriptor, new_attributes: typing.List[System.Attribute]) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.MemberDescriptor class with the name in the specified
-        System.ComponentModel.MemberDescriptor and the attributes
-        in both the old System.ComponentModel.MemberDescriptor and the System.Attribute array.
-        
-        This method is protected.
-        """
-        ...
-
-    def create_attribute_collection(self) -> System.ComponentModel.AttributeCollection:
-        """
-        Creates a collection of attributes using the
-        array of attributes that you passed to the constructor.
-        
-        This method is protected.
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Compares this instance to the specified System.ComponentModel.MemberDescriptor to see if they are equivalent.
-        NOTE: If you make a change here, you likely need to change GetHashCode() as well.
-        """
-        ...
-
-    def fill_attributes(self, attribute_list: System.Collections.IList) -> None:
-        """
-        In an inheriting class, adds the attributes of the inheriting class to the
-        specified list of attributes in the parent class. For duplicate attributes,
-        the last one added to the list will be kept.
-        
-        This method is protected.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def find_method(component_class: typing.Type, name: str, args: typing.List[typing.Type], return_type: typing.Type) -> System.Reflection.MethodInfo:
-        """
-        Finds the given method through reflection. This method only looks for public methods.
-        
-        This method is protected.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def find_method(component_class: typing.Type, name: str, args: typing.List[typing.Type], return_type: typing.Type, public_only: bool) -> System.Reflection.MethodInfo:
-        """
-        Finds the given method through reflection.
-        
-        This method is protected.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Try to keep this reasonable in [....] with Equals(). Specifically,
-        if A.Equals(B) returns true, A & B should have the same hash code.
-        """
-        ...
-
-    def get_invocation_target(self, type: typing.Type, instance: typing.Any) -> System.Object:
-        """
-        This method returns the object that should be used during invocation of members.
-        Normally the return value will be the same as the instance passed in. If
-        someone associated another object with this instance, or if the instance is a
-        custom type descriptor, GetInvocationTarget may return a different value.
-        
-        This method is protected.
-        """
-        ...
-
-    @staticmethod
-    def get_invokee(component_class: typing.Type, component: typing.Any) -> System.Object:
-        """
-        This method is protected.
-        
-        MemberDescriptor.GetInvokee has been deprecated. Use GetInvocationTarget instead.
-        """
-        warnings.warn("MemberDescriptor.GetInvokee has been deprecated. Use GetInvocationTarget instead.", DeprecationWarning)
-
-    @staticmethod
-    def get_site(component: typing.Any) -> System.ComponentModel.ISite:
-        """
-        Gets a component site for the given component.
-        
-        This method is protected.
-        """
-        ...
-
-
-class PropertyDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.ABCMeta):
-    """Provides a description of a property."""
-
-    @property
-    @abc.abstractmethod
-    def component_type(self) -> typing.Type:
-        """
-        When overridden in a derived class, gets the type of the
-        component this property is bound to.
-        """
-        ...
-
-    @property
-    def converter(self) -> System.ComponentModel.TypeConverter:
-        """Gets the type converter for this property."""
-        ...
-
-    @property
-    def converter_from_registered_type(self) -> System.ComponentModel.TypeConverter:
-        """Gets the type converter for this property."""
-        ...
-
-    @property
-    def is_localizable(self) -> bool:
-        """
-        Gets a value
-        indicating whether this property should be localized, as
-        specified in the System.ComponentModel.LocalizableAttribute.
-        """
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_read_only(self) -> bool:
-        """
-        When overridden in a derived class, gets a value indicating whether this
-        property is read-only.
-        """
-        ...
-
-    @property
-    def serialization_visibility(self) -> System.ComponentModel.DesignerSerializationVisibility:
-        """
-        Gets a value indicating whether this property should be serialized as specified
-        in the System.ComponentModel.DesignerSerializationVisibilityAttribute.
-        """
-        ...
-
-    @property
-    @abc.abstractmethod
-    def property_type(self) -> typing.Type:
-        """When overridden in a derived class, gets the type of the property."""
-        ...
-
-    @property
-    def supports_change_events(self) -> bool:
-        """
-        Indicates whether value change notifications for this property may originate from outside the property
-        descriptor, such as from the component itself (value=true), or whether notifications will only originate
-        from direct calls made to PropertyDescriptor.SetValue (value=false). For example, the component may
-        implement the INotifyPropertyChanged interface, or may have an explicit '{name}Changed' event for this property.
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, attrs: typing.List[System.Attribute]) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.PropertyDescriptor class with the specified name and
-        attributes.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, descr: System.ComponentModel.MemberDescriptor) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.PropertyDescriptor class with
-        the name and attributes in the specified System.ComponentModel.MemberDescriptor.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, descr: System.ComponentModel.MemberDescriptor, attrs: typing.List[System.Attribute]) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.PropertyDescriptor class with
-        the name in the specified System.ComponentModel.MemberDescriptor and the
-        attributes in both the System.ComponentModel.MemberDescriptor and the
-        System.Attribute array.
-        
-        This method is protected.
-        """
-        ...
-
-    def add_value_changed(self, component: typing.Any, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> None:
-        """Allows interested objects to be notified when this property changes."""
-        ...
-
-    def can_reset_value(self, component: typing.Any) -> bool:
-        """
-        When overridden in a derived class, indicates whether
-        resetting the will change the value of the
-        .
-        """
-        ...
-
-    def create_instance(self, type: typing.Type) -> System.Object:
-        """
-        Creates an instance of the specified type.
-        
-        This method is protected.
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Compares this to another System.ComponentModel.PropertyDescriptor
-        to see if they are equivalent.
-        NOTE: If you make a change here, you likely need to change GetHashCode() as well.
-        """
-        ...
-
-    def fill_attributes(self, attribute_list: System.Collections.IList) -> None:
-        """
-        In an inheriting class, adds the attributes of the inheriting class to the
-        specified list of attributes in the parent class. For duplicate attributes,
-        the last one added to the list will be kept.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def get_child_properties(self, instance: typing.Any) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @overload
-    def get_child_properties(self, instance: typing.Any, filter: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        """Retrieves the properties"""
-        ...
-
-    @overload
-    def get_child_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @overload
-    def get_child_properties(self, filter: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_editor(self, editor_base_type: typing.Type) -> System.Object:
-        """Gets an editor of the specified type."""
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Try to keep this reasonable in [....] with Equals(). Specifically,
-        if A.Equals(B) returns true, A & B should have the same hash code.
-        """
-        ...
-
-    def get_invocation_target(self, type: typing.Type, instance: typing.Any) -> System.Object:
-        """
-        This method returns the object that should be used during invocation of members.
-        Normally the return value will be the same as the instance passed in. If
-        someone associated another object with this instance, or if the instance is a
-        custom type descriptor, GetInvocationTarget may return a different value.
-        
-        This method is protected.
-        """
-        ...
-
-    def get_type_from_name(self, type_name: str) -> typing.Type:
-        """
-        Gets a type using its name.
-        
-        This method is protected.
-        """
-        ...
-
-    def get_value(self, component: typing.Any) -> System.Object:
-        """When overridden in a derived class, gets the current value of the property on a component."""
-        ...
-
-    def on_value_changed(self, component: typing.Any, e: System.EventArgs) -> None:
-        """
-        This should be called by your property descriptor implementation
-        when the property value has changed.
-        
-        This method is protected.
-        """
-        ...
-
-    def remove_value_changed(self, component: typing.Any, handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> None:
-        """Allows interested objects to be notified when this property changes."""
-        ...
-
-    def reset_value(self, component: typing.Any) -> None:
-        """When overridden in a derived class, resets the value for this property of the component."""
-        ...
-
-    def set_value(self, component: typing.Any, value: typing.Any) -> None:
-        """
-        When overridden in a derived class, sets the value of
-        the component to a different value.
-        """
-        ...
-
-    def should_serialize_value(self, component: typing.Any) -> bool:
-        """
-        When overridden in a derived class, indicates whether the
-        value of this property needs to be persisted.
-        """
-        ...
-
-
-class PropertyDescriptorCollection(System.Object, System.Collections.IList, System.Collections.IDictionary):
-    """Represents a collection of properties."""
-
-    EMPTY: System.ComponentModel.PropertyDescriptorCollection = ...
-    """An empty PropertyDescriptorCollection that can used instead of creating a new one with no items."""
-
-    @property
-    def count(self) -> int:
-        """Gets the number of property descriptors in the  collection."""
-        ...
-
-    @overload
-    def __getitem__(self, index: int) -> System.ComponentModel.PropertyDescriptor:
-        """Gets the property with the specified index number."""
-        ...
-
-    @overload
-    def __getitem__(self, name: str) -> System.ComponentModel.PropertyDescriptor:
-        """Gets the property with the specified name."""
-        ...
-
-    @overload
-    def __init__(self, properties: typing.List[System.ComponentModel.PropertyDescriptor]) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.PropertyDescriptorCollection
-        class.
-        """
-        ...
-
-    @overload
-    def __init__(self, properties: typing.List[System.ComponentModel.PropertyDescriptor], read_only: bool) -> None:
-        """
-        Initializes a new instance of a property descriptor collection, and allows you to mark the
-        collection as read-only so it cannot be modified.
-        """
-        ...
-
-    def add(self, value: System.ComponentModel.PropertyDescriptor) -> int:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, value: System.ComponentModel.PropertyDescriptor) -> bool:
-        ...
-
-    def copy_to(self, array: System.Array, index: int) -> None:
-        ...
-
-    def find(self, name: str, ignore_case: bool) -> System.ComponentModel.PropertyDescriptor:
-        """Gets the description of the property with the specified name."""
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        """Gets an enumerator for this System.ComponentModel.PropertyDescriptorCollection."""
-        ...
-
-    def index_of(self, value: System.ComponentModel.PropertyDescriptor) -> int:
-        ...
-
-    def insert(self, index: int, value: System.ComponentModel.PropertyDescriptor) -> None:
-        ...
-
-    @overload
-    def internal_sort(self, names: typing.List[str]) -> None:
-        """
-        Sorts the members of this PropertyDescriptorCollection. Any specified NamedSort arguments will
-        be applied first, followed by sort using the specified IComparer.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def internal_sort(self, sorter: System.Collections.IComparer) -> None:
-        """
-        Sorts the members of this PropertyDescriptorCollection using the specified IComparer.
-        
-        This method is protected.
-        """
-        ...
-
-    def remove(self, value: System.ComponentModel.PropertyDescriptor) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
-        ...
-
-    @overload
-    def sort(self) -> System.ComponentModel.PropertyDescriptorCollection:
-        """
-        Sorts the members of this PropertyDescriptorCollection, using the default sort for this collection,
-        which is usually alphabetical.
-        """
-        ...
-
-    @overload
-    def sort(self, names: typing.List[str]) -> System.ComponentModel.PropertyDescriptorCollection:
-        """
-        Sorts the members of this PropertyDescriptorCollection. Any specified NamedSort arguments will
-        be applied first, followed by sort using the specified IComparer.
-        """
-        ...
-
-    @overload
-    def sort(self, names: typing.List[str], comparer: System.Collections.IComparer) -> System.ComponentModel.PropertyDescriptorCollection:
-        """
-        Sorts the members of this PropertyDescriptorCollection. Any specified NamedSort arguments will
-        be applied first, followed by sort using the specified IComparer.
-        """
-        ...
-
-    @overload
-    def sort(self, comparer: System.Collections.IComparer) -> System.ComponentModel.PropertyDescriptorCollection:
-        """
-        Sorts the members of this PropertyDescriptorCollection, using the specified IComparer to compare,
-        the PropertyDescriptors contained in the collection.
-        """
-        ...
-
-
-class IDataErrorInfo(metaclass=abc.ABCMeta):
-    """
-    Suppose that you have some data that can be indexed by use of string:
-    then there are two types of errors:
-    1. an error for each piece of data that can be indexed
-    2. an error that is valid on the entire data
-    """
-
-    @property
-    @abc.abstractmethod
-    def error(self) -> str:
-        ...
-
-    def __getitem__(self, column_name: str) -> str:
-        ...
-
-
-class UInt32Converter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert 32-bit unsigned integer objects to and
-    from various other representations.
-    """
-
-
-class ListSortDirection(Enum):
-    """Specifies the direction of a sort."""
-
-    ASCENDING = 0
-    """Sort in ascending order."""
-
-    DESCENDING = 1
-    """Sort in descending order."""
 
     def __int__(self) -> int:
         ...
@@ -1791,928 +1651,97 @@ class IBindingList(System.Collections.IList, metaclass=abc.ABCMeta):
         ...
 
 
-class ListSortDescription(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def property_descriptor(self) -> System.ComponentModel.PropertyDescriptor:
-        ...
-
-    @property_descriptor.setter
-    def property_descriptor(self, value: System.ComponentModel.PropertyDescriptor) -> None:
-        ...
-
-    @property
-    def sort_direction(self) -> System.ComponentModel.ListSortDirection:
-        ...
-
-    @sort_direction.setter
-    def sort_direction(self, value: System.ComponentModel.ListSortDirection) -> None:
-        ...
-
-    def __init__(self, property: System.ComponentModel.PropertyDescriptor, direction: System.ComponentModel.ListSortDirection) -> None:
-        ...
-
-
-class ListSortDescriptionCollection(System.Object, System.Collections.IList):
-    """This class has no documentation."""
-
-    @property
-    def count(self) -> int:
-        ...
-
-    def __getitem__(self, index: int) -> System.ComponentModel.ListSortDescription:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, sorts: typing.List[System.ComponentModel.ListSortDescription]) -> None:
-        ...
-
-    def __setitem__(self, index: int, value: System.ComponentModel.ListSortDescription) -> None:
-        ...
-
-    def contains(self, value: typing.Any) -> bool:
-        ...
-
-    def copy_to(self, array: System.Array, index: int) -> None:
-        ...
-
-    def index_of(self, value: typing.Any) -> int:
-        ...
-
-
-class IBindingListView(System.ComponentModel.IBindingList, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def filter(self) -> str:
-        ...
-
-    @filter.setter
-    def filter(self, value: str) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def sort_descriptions(self) -> System.ComponentModel.ListSortDescriptionCollection:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def supports_advanced_sorting(self) -> bool:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def supports_filtering(self) -> bool:
-        ...
-
-    def apply_sort(self, sorts: System.ComponentModel.ListSortDescriptionCollection) -> None:
-        ...
-
-    def remove_filter(self) -> None:
-        ...
-
-
-class BindableSupport(Enum):
+class INestedContainer(System.ComponentModel.IContainer, metaclass=abc.ABCMeta):
     """
-    Specifies which values to say if property or event value can be bound to a data
-    element or another property or event's value.
+    A "nested container" is an object that logically contains zero or more child
+    components and is controlled (owned) by some parent component.
+    
+    In this context, "containment" refers to logical containment, not visual
+    containment. Components and containers can be used in a variety of
+    scenarios, including both visual and non-visual scenarios.
     """
 
-    NO = ...
-    """The property or event is bindable."""
+    @property
+    @abc.abstractmethod
+    def owner(self) -> System.ComponentModel.IComponent:
+        """The component that owns this nested container."""
+        ...
 
-    YES = ...
-    """The property or event is not bindable."""
 
-    DEFAULT = ...
-    """The property or event is the default."""
+class CollectionChangeAction(Enum):
+    """Specifies how the collection is changed."""
+
+    ADD = 1
+    """Specifies that an element is added to the collection."""
+
+    REMOVE = 2
+    """Specifies that an element is removed from the collection."""
+
+    REFRESH = 3
+    """Specifies that the entire collection has changed."""
 
     def __int__(self) -> int:
         ...
 
 
-class EventDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.ABCMeta):
-    """Provides a description of an event."""
-
-    @property
-    @abc.abstractmethod
-    def component_type(self) -> typing.Type:
-        """When overridden in a derived class, gets the type of the component this event is bound to."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def event_type(self) -> typing.Type:
-        """When overridden in a derived class, gets the type of delegate for the event."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_multicast(self) -> bool:
-        """
-        When overridden in a derived class, gets a value indicating whether the event delegate is
-        a multicast delegate.
-        """
-        ...
-
-    @overload
-    def __init__(self, name: str, attrs: typing.List[System.Attribute]) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.EventDescriptor class with the
-        specified name and attribute array.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, descr: System.ComponentModel.MemberDescriptor) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.EventDescriptor class with the name and attributes in
-        the specified System.ComponentModel.MemberDescriptor.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, descr: System.ComponentModel.MemberDescriptor, attrs: typing.List[System.Attribute]) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.EventDescriptor class with
-        the name in the specified System.ComponentModel.MemberDescriptor and the
-        attributes in both the System.ComponentModel.MemberDescriptor and the System.Attribute array.
-        
-        This method is protected.
-        """
-        ...
-
-    def add_event_handler(self, component: typing.Any, value: System.Delegate) -> None:
-        """When overridden in a derived class, binds the event to the component."""
-        ...
-
-    def remove_event_handler(self, component: typing.Any, value: System.Delegate) -> None:
-        """
-        When overridden in a derived class, unbinds the delegate from the component
-        so that the delegate will no longer receive events from the component.
-        """
-        ...
-
-
-class EventDescriptorCollection(System.Object, System.Collections.IList):
-    """Represents a collection of events."""
-
-    EMPTY: System.ComponentModel.EventDescriptorCollection = ...
-    """An empty AttributeCollection that can used instead of creating a new one with no items."""
-
-    @property
-    def count(self) -> int:
-        """Gets the number of event descriptors in the collection."""
-        ...
-
-    @overload
-    def __getitem__(self, index: int) -> System.ComponentModel.EventDescriptor:
-        """Gets the event with the specified index number."""
-        ...
-
-    @overload
-    def __getitem__(self, name: str) -> System.ComponentModel.EventDescriptor:
-        """Gets the event with the specified name."""
-        ...
-
-    @overload
-    def __init__(self, events: typing.List[System.ComponentModel.EventDescriptor]) -> None:
-        """Initializes a new instance of the System.ComponentModel.EventDescriptorCollection class."""
-        ...
-
-    @overload
-    def __init__(self, events: typing.List[System.ComponentModel.EventDescriptor], read_only: bool) -> None:
-        """
-        Initializes a new instance of an event descriptor collection, and allows you to mark the
-        collection as read-only so it cannot be modified.
-        """
-        ...
-
-    def add(self, value: System.ComponentModel.EventDescriptor) -> int:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, value: System.ComponentModel.EventDescriptor) -> bool:
-        ...
-
-    def find(self, name: str, ignore_case: bool) -> System.ComponentModel.EventDescriptor:
-        """
-        Gets the description of the event with the specified
-        name in the collection.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        """Gets an enumerator for this System.ComponentModel.EventDescriptorCollection."""
-        ...
-
-    def index_of(self, value: System.ComponentModel.EventDescriptor) -> int:
-        ...
-
-    def insert(self, index: int, value: System.ComponentModel.EventDescriptor) -> None:
-        ...
-
-    @overload
-    def internal_sort(self, names: typing.List[str]) -> None:
-        """
-        Sorts the members of this EventDescriptorCollection. Any specified NamedSort arguments will
-        be applied first, followed by sort using the specified IComparer.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def internal_sort(self, sorter: System.Collections.IComparer) -> None:
-        """
-        Sorts the members of this EventDescriptorCollection using the specified IComparer.
-        
-        This method is protected.
-        """
-        ...
-
-    def remove(self, value: System.ComponentModel.EventDescriptor) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
-        ...
-
-    @overload
-    def sort(self) -> System.ComponentModel.EventDescriptorCollection:
-        """
-        Sorts the members of this EventDescriptorCollection, using the default sort for this collection,
-        which is usually alphabetical.
-        """
-        ...
-
-    @overload
-    def sort(self, names: typing.List[str]) -> System.ComponentModel.EventDescriptorCollection:
-        """
-        Sorts the members of this EventDescriptorCollection. Any specified NamedSort arguments will
-        be applied first, followed by sort using the specified IComparer.
-        """
-        ...
-
-    @overload
-    def sort(self, names: typing.List[str], comparer: System.Collections.IComparer) -> System.ComponentModel.EventDescriptorCollection:
-        """
-        Sorts the members of this EventDescriptorCollection. Any specified NamedSort arguments will
-        be applied first, followed by sort using the specified IComparer.
-        """
-        ...
-
-    @overload
-    def sort(self, comparer: System.Collections.IComparer) -> System.ComponentModel.EventDescriptorCollection:
-        """
-        Sorts the members of this EventDescriptorCollection, using the specified IComparer to compare,
-        the EventDescriptors contained in the collection.
-        """
-        ...
-
-
-class ICustomTypeDescriptor(metaclass=abc.ABCMeta):
-    """Provides an interface that provides custom type information for an object."""
-
-    @property
-    @abc.abstractmethod
-    def require_registered_types(self) -> typing.Optional[bool]:
-        """Whether types are required to be registered through TypeDescriptionProvider.RegisterType{T}."""
-        ...
-
-    def get_attributes(self) -> System.ComponentModel.AttributeCollection:
-        """
-        Gets a collection of type System.Attribute with the attributes
-        for this object.
-        """
-        ...
-
-    def get_class_name(self) -> str:
-        """Gets the class name of this object."""
-        ...
-
-    def get_component_name(self) -> str:
-        """Gets the name of this object."""
-        ...
-
-    def get_converter(self) -> System.ComponentModel.TypeConverter:
-        """Gets a type converter for this object."""
-        ...
-
-    def get_converter_from_registered_type(self) -> System.ComponentModel.TypeConverter:
-        """Gets a type converter for this object that may be registered."""
-        ...
-
-    def get_default_event(self) -> System.ComponentModel.EventDescriptor:
-        """Gets the default event for this object."""
-        ...
-
-    def get_default_property(self) -> System.ComponentModel.PropertyDescriptor:
-        """Gets the default property for this object."""
-        ...
-
-    def get_editor(self, editor_base_type: typing.Type) -> System.Object:
-        """Gets an editor of the specified type for this object."""
-        ...
-
-    @overload
-    def get_events(self) -> System.ComponentModel.EventDescriptorCollection:
-        """Gets the events for this instance of a component."""
-        ...
-
-    @overload
-    def get_events(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
-        """
-        Gets the events for this instance of a component using the attribute array as a
-        filter.
-        """
-        ...
-
-    def get_events_from_registered_type(self) -> System.ComponentModel.EventDescriptorCollection:
-        """Gets the events for this instance of a component that may be registered."""
-        ...
-
-    @overload
-    def get_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
-        """Gets the properties for this instance of a component."""
-        ...
-
-    @overload
-    def get_properties(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        """Gets the properties for this instance of a component using the attribute array as a filter."""
-        ...
-
-    def get_properties_from_registered_type(self) -> System.ComponentModel.PropertyDescriptorCollection:
-        """Gets the properties for this instance of a component that may be registered."""
-        ...
-
-    def get_property_owner(self, pd: System.ComponentModel.PropertyDescriptor) -> System.Object:
-        """Gets the object that directly depends on this value being edited."""
-        ...
-
-
-class TypeDescriptionProvider(System.Object, metaclass=abc.ABCMeta):
+class CultureInfoConverter(System.ComponentModel.TypeConverter):
     """
-    The TypeDescriptionProvider class can be thought of as a "plug-in" for
-    TypeDescriptor. There can be multiple type description provider classes
-    all offering metadata to TypeDescriptor
-    """
-
-    @property
-    def require_registered_types(self) -> typing.Optional[bool]:
-        """
-        Whether the provider uses reflection and requires types to be registered through TypeDescriptor.RegisterType{T}
-        to support trimmed applications. For backwards compatibility, this is typically only enforced when calling members that have
-        a "FromRegisteredType" suffix.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        There are two versions of the constructor for this class. The empty
-        constructor is identical to using TypeDescriptionProvider(null).
-        If a child type description provider is passed into the constructor,
-        the "base" versions of all methods will call to this parent provider.
-        If no such provider is given, the base versions of the methods will
-        return empty, but valid values.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, parent: System.ComponentModel.TypeDescriptionProvider) -> None:
-        """
-        There are two versions of the constructor for this class. The empty
-        constructor is identical to using TypeDescriptionProvider(null).
-        If a child type description provider is passed into the constructor,
-        the "base" versions of all methods will call to this parent provider.
-        If no such provider is given, the base versions of the methods will
-        return empty, but valid values.
-        
-        This method is protected.
-        """
-        ...
-
-    def create_instance(self, provider: typing.Optional[IServiceProvider], object_type: typing.Type, arg_types: typing.List[typing.Type], args: typing.List[System.Object]) -> System.Object:
-        """
-        This method is used to create an instance that can substitute for another
-        data type. If the method is not interested in providing a substitute
-        instance, it should call base.
-        
-        This method is prototyped as virtual, and by default returns null if no
-        parent provider was passed. If a parent provider was passed, this
-        method will invoke the parent provider's CreateInstance method.
-        """
-        ...
-
-    def get_cache(self, instance: typing.Any) -> System.Collections.IDictionary:
-        """
-        TypeDescriptor may need to perform complex operations on collections of metadata.
-        Since types are not unloaded for the life of a domain, TypeDescriptor will
-        automatically cache the results of these operations based on type. There are a
-        number of operations that use live object instances, however. These operations
-        cannot be cached within TypeDescriptor because caching them would prevent the
-        object from garbage collecting. Instead, TypeDescriptor allows for a per-object
-        cache, accessed as an IDictionary of key/value pairs, to exist on an object.
-        The GetCache method returns an instance of this cache. GetCache will return
-        null if there is no supported cache for an object.
-        """
-        ...
-
-    def get_extended_type_descriptor(self, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
-        """
-        This method returns an extended custom type descriptor for the given object.
-        An extended type descriptor is a custom type descriptor that offers properties
-        that other objects have added to this object, but are not actually defined on
-        the object. For example, in the .NET Framework Component Model, objects that
-        implement the interface IExtenderProvider can "attach" properties to other
-        objects that reside in the same logical container. The GetTypeDescriptor
-        method does not return a type descriptor that provides these extra extended
-        properties. GetExtendedTypeDescriptor returns the set of these extended
-        properties. TypeDescriptor will automatically merge the results of these
-        two property collections. Note that while the .NET Framework component
-        model only supports extended properties this API can be used for extended
-        attributes and events as well, if the type description provider supports it.
-        """
-        ...
-
-    def get_extended_type_descriptor_from_registered_type(self, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
-        """
-        This method returns an extended custom type descriptor for the given object.
-        An extended type descriptor is a custom type descriptor that offers properties
-        that other objects have added to this object, but are not actually defined on
-        the object. For example, in the .NET Framework Component Model, objects that
-        implement the interface IExtenderProvider can "attach" properties to other
-        objects that reside in the same logical container. The GetTypeDescriptor
-        method does not return a type descriptor that provides these extra extended
-        properties. GetExtendedTypeDescriptor returns the set of these extended
-        properties. TypeDescriptor will automatically merge the results of these
-        two property collections. Note that while the .NET Framework component
-        model only supports extended properties this API can be used for extended
-        attributes and events as well, if the type description provider supports it.
-        """
-        ...
-
-    def get_full_component_name(self, component: typing.Any) -> str:
-        """
-        The name of the specified component, or null if the component has no name.
-        In many cases this will return the same value as GetComponentName. If the
-        component resides in a nested container or has other nested semantics, it may
-        return a different fully qualified name.
-        
-        If not overridden, the default implementation of this method will call
-        GetTypeDescriptor.GetComponentName.
-        """
-        ...
-
-    @overload
-    def get_reflection_type(self, instance: typing.Any) -> typing.Type:
-        """
-        The GetReflection method is a lower level version of GetTypeDescriptor.
-        If no custom type descriptor can be located for an object, GetReflectionType
-        is called to perform normal reflection against the object.
-        
-        This method is prototyped as virtual, and by default returns the
-        object type if no parent provider was passed. If a parent provider was passed, this
-        method will invoke the parent provider's GetReflectionType method.
-        """
-        ...
-
-    @overload
-    def get_reflection_type(self, object_type: typing.Type, instance: typing.Any) -> typing.Type:
-        """
-        The GetReflection method is a lower level version of GetTypeDescriptor.
-        If no custom type descriptor can be located for an object, GetReflectionType
-        is called to perform normal reflection against the object.
-        
-        This method is prototyped as virtual, and by default returns the
-        object type if no parent provider was passed. If a parent provider was passed, this
-        method will invoke the parent provider's GetReflectionType method.
-        """
-        ...
-
-    @overload
-    def get_reflection_type(self, object_type: typing.Type) -> typing.Type:
-        """
-        The GetReflection method is a lower level version of GetTypeDescriptor.
-        If no custom type descriptor can be located for an object, GetReflectionType
-        is called to perform normal reflection against the object.
-        """
-        ...
-
-    def get_runtime_type(self, reflection_type: typing.Type) -> typing.Type:
-        """
-        The GetRuntimeType method reverses GetReflectionType to convert a reflection type
-        back into a runtime type. Historically the Type.UnderlyingSystemType property has
-        been used to return the runtime type. This isn't exactly correct, but it needs
-        to be preserved unless all type description providers are revised.
-        """
-        ...
-
-    @overload
-    def get_type_descriptor(self, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
-        """
-        This method returns a custom type descriptor for the given type / object.
-        The objectType parameter is always valid, but the instance parameter may
-        be null if no instance was passed to TypeDescriptor. The method should
-        return a custom type descriptor for the object. If the method is not
-        interested in providing type information for the object it should
-        return base.
-        """
-        ...
-
-    @overload
-    def get_type_descriptor(self, object_type: typing.Type, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
-        """
-        This method returns a custom type descriptor for the given type / object.
-        The object_type parameter is always valid, but the instance parameter may
-        be null if no instance was passed to TypeDescriptor. The method should
-        return a custom type descriptor for the object. If the method is not
-        interested in providing type information for the object it should
-        return base.
-        
-        This method is prototyped as virtual, and by default returns a
-        custom type descriptor that returns empty collections for all values
-        if no parent provider was passed. If a parent provider was passed,
-        this method will invoke the parent provider's GetTypeDescriptor
-        method.
-        """
-        ...
-
-    @overload
-    def get_type_descriptor(self, object_type: typing.Type) -> System.ComponentModel.ICustomTypeDescriptor:
-        """
-        This method returns a custom type descriptor for the given type / object.
-        The object_type parameter is always valid, but the instance parameter may
-        be null if no instance was passed to TypeDescriptor. The method should
-        return a custom type descriptor for the object. If the method is not
-        interested in providing type information for the object it should
-        return base.
-        """
-        ...
-
-    @overload
-    def get_type_descriptor_from_registered_type(self, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
-        """
-        This method returns a custom type descriptor for the given type / object.
-        The objectType parameter is always valid, but the instance parameter may
-        be null if no instance was passed to TypeDescriptor. The method should
-        return a custom type descriptor for the object. If the method is not
-        interested in providing type information for the object it should
-        return base.
-        """
-        ...
-
-    @overload
-    def get_type_descriptor_from_registered_type(self, object_type: typing.Type, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
-        """
-        This method returns a custom type descriptor for the given type / object.
-        The object_type parameter is always valid, but the instance parameter may
-        be null if no instance was passed to TypeDescriptor. The method should
-        return a custom type descriptor for the object. If the method is not
-        interested in providing type information for the object it should
-        return base.
-        
-        This method is prototyped as virtual, and by default returns a
-        custom type descriptor that returns empty collections for all values
-        if no parent provider was passed. If a parent provider was passed,
-        this method will invoke the parent provider's GetTypeDescriptorFromRegisteredType
-        method.
-        """
-        ...
-
-    @overload
-    def get_type_descriptor_from_registered_type(self, object_type: typing.Type) -> System.ComponentModel.ICustomTypeDescriptor:
-        """
-        This method returns a custom type descriptor for the given type / object.
-        The object_type parameter is always valid, but the instance parameter may
-        be null if no instance was passed to TypeDescriptor. The method should
-        return a custom type descriptor for the object. If the method is not
-        interested in providing type information for the object it should
-        return base.
-        """
-        ...
-
-    def is_registered_type(self, type: typing.Type) -> bool:
-        """Returns whether the type was registered with its provider through TypeDescriptor.RegisterType{T}."""
-        ...
-
-    def is_supported_type(self, type: typing.Type) -> bool:
-        """
-        This method returns true if the type is "supported" by the type descriptor
-        and its chain of type description providers.
-        """
-        ...
-
-
-class LicenseManager(System.Object):
-    """
-    Provides properties and methods to add a license
-    to a component and to manage a System.ComponentModel.LicenseProvider. This class cannot be inherited.
-    """
-
-    current_context: System.ComponentModel.LicenseContext
-    """
-    Gets or sets the current System.ComponentModel.LicenseContext which specifies when the licensed object can be
-    used.
-    """
-
-    USAGE_MODE: System.ComponentModel.LicenseUsageMode
-    """
-    Gets the System.ComponentModel.LicenseUsageMode that
-    specifies when the licensed object can be used, for the System.ComponentModel.LicenseManager.CurrentContext.
-    """
-
-    @staticmethod
-    @overload
-    def create_with_context(type: typing.Type, creation_context: System.ComponentModel.LicenseContext) -> System.Object:
-        """
-        Creates an instance of the specified type, using
-        creation_context
-        as the context in which the licensed instance can be used.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def create_with_context(type: typing.Type, creation_context: System.ComponentModel.LicenseContext, args: typing.List[System.Object]) -> System.Object:
-        """
-        Creates an instance of the specified type with the
-        specified arguments, using creation_context as the context in which the licensed
-        instance can be used.
-        """
-        ...
-
-    @staticmethod
-    def is_licensed(type: typing.Type) -> bool:
-        """Determines if the given type has a valid license or not."""
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(type: typing.Type, instance: typing.Any, license: typing.Optional[System.ComponentModel.License]) -> typing.Tuple[bool, System.ComponentModel.License]:
-        """
-        Determines if a valid license can be granted for the
-        specified instance of the type. This method creates a valid System.ComponentModel.License.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(type: typing.Type) -> bool:
-        """Determines if a valid license can be granted for the specified type."""
-        ...
-
-    @staticmethod
-    def lock_context(context_user: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    def unlock_context(context_user: typing.Any) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def validate(type: typing.Type, instance: typing.Any) -> System.ComponentModel.License:
-        """Determines if a license can be granted for the instance of the specified type."""
-        ...
-
-    @staticmethod
-    @overload
-    def validate(type: typing.Type) -> None:
-        """Determines if a license can be granted for the specified type."""
-        ...
-
-
-class TimeSpanConverter(System.ComponentModel.TypeConverter):
-    """
-    Provides a type converter to convert System.TimeSpan objects to and from
-    various other representations.
+    Provides a type converter to convert System.Globalization.CultureInfo
+    objects to and from various other representations.
     """
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         """
-        Gets a value indicating whether this converter can
-        convert an object in the given source type to a System.TimeSpan object using the
-        specified context.
+        Gets a value indicating whether this converter can convert an object in the given
+        source type to a System.Globalization.CultureInfo object using the specified context.
         """
         ...
 
     def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
         """
-        Gets a value indicating whether this converter can convert an object to the given
-        destination type using the context.
+        Gets a value indicating whether this converter can convert an object to
+        the given destination type using the context.
         """
         ...
 
     def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
         """
-        Converts the given object to a System.TimeSpan
+        Converts the specified value object to a System.Globalization.CultureInfo
         object.
         """
         ...
 
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """Converts the given value object to the specified destination type."""
+        ...
+
+    def get_culture_name(self, culture: System.Globalization.CultureInfo) -> str:
         """
-        Converts the given object to another type. The most common types to convert
-        are to and from a string object. The default implementation will make a call
-        to ToString on the object if the object is valid and if the destination
-        type is string. If this cannot convert to the destination type, this will
-        throw a NotSupportedException.
-        """
-        ...
-
-
-class DataObjectMethodType(Enum):
-    """This class has no documentation."""
-
-    FILL = 0
-
-    SELECT = 1
-
-    UPDATE = 2
-
-    INSERT = 3
-
-    DELETE = 4
-
-    def __int__(self) -> int:
-        ...
-
-
-class DataObjectMethodAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def is_default(self) -> bool:
-        ...
-
-    @property
-    def method_type(self) -> System.ComponentModel.DataObjectMethodType:
-        ...
-
-    @overload
-    def __init__(self, method_type: System.ComponentModel.DataObjectMethodType) -> None:
-        ...
-
-    @overload
-    def __init__(self, method_type: System.ComponentModel.DataObjectMethodType, is_default: bool) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def match(self, obj: typing.Any) -> bool:
-        ...
-
-
-class DataObjectAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    DATA_OBJECT: System.ComponentModel.DataObjectAttribute = ...
-
-    NON_DATA_OBJECT: System.ComponentModel.DataObjectAttribute = ...
-
-    DEFAULT: System.ComponentModel.DataObjectAttribute = ...
-
-    @property
-    def is_data_object(self) -> bool:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, is_data_object: bool) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class IExtenderProvider(metaclass=abc.ABCMeta):
-    """Defines the interface for extending properties to other components in a container."""
-
-    def can_extend(self, extendee: typing.Any) -> bool:
-        """
-        Specifies whether this object can provide its extender properties to
-        the specified object.
+        Retrieves the Name for a input CultureInfo.
+        
+        This method is protected.
         """
         ...
 
-
-class ExtenderProvidedPropertyAttribute(System.Attribute):
-    """
-    ExtenderProvidedPropertyAttribute is an attribute that marks that a property
-    was actually offered up by and extender provider.
-    """
-
-    @property
-    def extender_property(self) -> System.ComponentModel.PropertyDescriptor:
-        """PropertyDescriptor of the property that is being provided."""
-        ...
-
-    @property
-    def provider(self) -> System.ComponentModel.IExtenderProvider:
-        """Extender provider that is providing the property."""
-        ...
-
-    @property
-    def receiver_type(self) -> typing.Type:
-        """The type of object that can receive these properties."""
-        ...
-
-    def __init__(self) -> None:
-        """Creates an empty ExtenderProvidedPropertyAttribute."""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class ExpandableObjectConverter(System.ComponentModel.TypeConverter):
-    """
-    Provides a type converter to convert expandable objects to and from various
-    other representations.
-    """
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the System.ComponentModel.ExpandableObjectConverter class."""
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
         """
-        Gets a collection of properties for the type of object
-        specified by the value parameter.
+        Gets a collection of standard values collection for a System.Globalization.CultureInfo
+        object using the specified context.
         """
         ...
 
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         """
-        Gets a value indicating whether this object supports properties using the
-        specified context.
+        Gets a value indicating whether the list of standard values returned from
+        System.ComponentModel.CultureInfoConverter.GetStandardValues is an exclusive list.
         """
         ...
 
-
-class UInt128Converter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert 128-bit unsigned integer objects to and
-    from various other representations.
-    """
-
-
-class InstallerTypeAttribute(System.Attribute):
-    """Specifies the installer to use for a type to install components."""
-
-    @property
-    def installer_type(self) -> typing.Type:
-        """Gets the type of installer associated with this attribute."""
-        ...
-
-    @overload
-    def __init__(self, installer_type: typing.Type) -> None:
-        """Initializes a new instance of the System.Windows.Forms.ComponentModel.InstallerTypeAttribute class."""
-        ...
-
-    @overload
-    def __init__(self, type_name: str) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether this object supports a standard set
+        of values that can be picked from a list using the specified context.
+        """
         ...
 
 
@@ -2780,471 +1809,27 @@ class LookupBindingPropertiesAttribute(System.Attribute):
         ...
 
 
-class UInt16Converter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert 16-bit unsigned integer objects to and
-    from various other representations.
-    """
-
-
-class Container(System.Object, System.ComponentModel.IContainer):
-    """Encapsulates zero or more components."""
+class InstallerTypeAttribute(System.Attribute):
+    """Specifies the installer to use for a type to install components."""
 
     @property
-    def components(self) -> System.ComponentModel.ComponentCollection:
-        """Gets all the components in the System.ComponentModel.Container."""
+    def installer_type(self) -> typing.Type:
+        """Gets the type of installer associated with this attribute."""
         ...
 
     @overload
-    def add(self, component: System.ComponentModel.IComponent) -> None:
-        """
-        Adds the specified component to the System.ComponentModel.Container
-        The component is unnamed.
-        """
+    def __init__(self, installer_type: typing.Type) -> None:
+        """Initializes a new instance of the System.Windows.Forms.ComponentModel.InstallerTypeAttribute class."""
         ...
 
     @overload
-    def add(self, component: System.ComponentModel.IComponent, name: str) -> None:
-        ...
-
-    def create_site(self, component: System.ComponentModel.IComponent, name: str) -> System.ComponentModel.ISite:
-        """
-        Creates a Site System.ComponentModel.ISite for the given System.ComponentModel.IComponent
-        and assigns the given name to the site.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def dispose(self) -> None:
-        """
-        Disposes of the container. A call to the Dispose method indicates that
-        the user of the container has no further need for it.
-        
-        The implementation of Dispose must:
-        
-        (1) Remove any references the container is holding to other components.
-        This is typically accomplished by assigning null to any fields that
-        contain references to other components.
-        
-        (2) Release any system resources that are associated with the container,
-        such as file handles, window handles, or database connections.
-        
-        (3) Dispose of child components by calling the Dispose method of each.
-        
-        Ideally, a call to Dispose will revert a container to the state it was
-        in immediately after it was created. However, this is not a requirement.
-        Following a call to its Dispose method, a container is permitted to raise
-        exceptions for operations that cannot meaningfully be performed.
-        """
-        ...
-
-    @overload
-    def dispose(self, disposing: bool) -> None:
-        """This method is protected."""
-        ...
-
-    def get_service(self, service: typing.Type) -> System.Object:
-        """This method is protected."""
-        ...
-
-    def remove(self, component: System.ComponentModel.IComponent) -> None:
-        """Removes a component from the System.ComponentModel.Container."""
-        ...
-
-    def remove_without_unsiting(self, component: System.ComponentModel.IComponent) -> None:
-        """This method is protected."""
-        ...
-
-    def validate_name(self, component: System.ComponentModel.IComponent, name: str) -> None:
-        """
-        Validates that the given name is valid for a component. The default implementation
-        verifies that name is either null or unique compared to the names of other
-        components in the container.
-        
-        This method is protected.
-        """
-        ...
-
-
-class TypeListConverter(System.ComponentModel.TypeConverter, metaclass=abc.ABCMeta):
-    """Provides a type converter that can be used to populate a list box with available types."""
-
-    def __init__(self, types: typing.List[typing.Type]) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.TypeListConverter class using
-        the type array as the available types.
-        
-        This method is protected.
-        """
-        ...
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter
-        can convert an object in the given source type to an enumeration object using
-        the specified context.
-        """
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object
-        to the given destination type using the context.
-        """
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the specified value object to an enumeration object."""
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given value object to the specified destination type."""
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        """Gets a collection of standard values for the data type this validator is designed for."""
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether the list of standard values returned from
-        System.ComponentModel.TypeListConverter.GetStandardValues is an exclusive list.
-        """
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether this object supports a standard set of values that can be
-        picked from a list using the specified context.
-        """
-        ...
-
-
-class DefaultPropertyAttribute(System.Attribute):
-    """Specifies the default property for a component."""
-
-    @property
-    def name(self) -> str:
-        """
-        Gets the name of the default property for the component this attribute is
-        bound to.
-        """
-        ...
-
-    DEFAULT: System.ComponentModel.DefaultPropertyAttribute = ...
-    """
-    Specifies the default value for the System.ComponentModel.DefaultPropertyAttribute, which is null. This
-    static field is read-only.
-    """
-
-    def __init__(self, name: str) -> None:
-        """Initializes a new instance of the System.ComponentModel.DefaultPropertyAttribute class."""
+    def __init__(self, type_name: str) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
-        ...
-
-
-class EnumConverter(System.ComponentModel.TypeConverter):
-    """
-    Provides a type converter to convert System.Enum objects to and
-    from various other representations
-    """
-
-    @property
-    def enum_type(self) -> typing.Type:
-        """This property is protected."""
-        ...
-
-    @property
-    def values(self) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        """This property is protected."""
-        ...
-
-    @values.setter
-    def values(self, value: System.ComponentModel.TypeConverter.StandardValuesCollection) -> None:
-        ...
-
-    @property
-    def comparer(self) -> System.Collections.IComparer:
-        """
-        Gets an System.Collections.IComparer interface that can
-        be used to sort the values of the enumerator.
-        
-        This property is protected.
-        """
-        ...
-
-    def __init__(self, type: typing.Type) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.EnumConverter class for the given
-        type.
-        """
-        ...
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object in the given
-        source type to an enumeration object using the specified context.
-        """
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object to the
-        given destination type using the context.
-        """
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the specified value object to an enumeration object."""
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given value object to the specified destination type."""
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        """
-        Gets a collection of standard values for the data type this validator is
-        designed for.
-        """
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether the list of standard values returned from
-        System.ComponentModel.TypeConverter.GetStandardValues()
-        is an exclusive list using the specified context.
-        """
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether this object supports a standard set of values
-        that can be picked from a list using the specified context.
-        """
-        ...
-
-    def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
-        """Gets a value indicating whether the given object value is valid for this type."""
-        ...
-
-
-class IComNativeDescriptorHandler(metaclass=abc.ABCMeta):
-    """
-    Top level mapping layer between a COM object and TypeDescriptor.
-    
-    IComNativeDescriptorHandler has been deprecated. Add a TypeDescriptionProvider to handle type TypeDescriptor.ComObjectType instead.
-    """
-
-    def get_attributes(self, component: typing.Any) -> System.ComponentModel.AttributeCollection:
-        ...
-
-    def get_class_name(self, component: typing.Any) -> str:
-        ...
-
-    def get_converter(self, component: typing.Any) -> System.ComponentModel.TypeConverter:
-        ...
-
-    def get_default_event(self, component: typing.Any) -> System.ComponentModel.EventDescriptor:
-        ...
-
-    def get_default_property(self, component: typing.Any) -> System.ComponentModel.PropertyDescriptor:
-        ...
-
-    def get_editor(self, component: typing.Any, base_editor_type: typing.Type) -> System.Object:
-        ...
-
-    @overload
-    def get_events(self, component: typing.Any) -> System.ComponentModel.EventDescriptorCollection:
-        ...
-
-    @overload
-    def get_events(self, component: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
-        ...
-
-    def get_name(self, component: typing.Any) -> str:
-        ...
-
-    def get_properties(self, component: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    @overload
-    def get_property_value(self, component: typing.Any, property_name: str, success: bool) -> System.Object:
-        ...
-
-    @overload
-    def get_property_value(self, component: typing.Any, dispid: int, success: bool) -> System.Object:
-        ...
-
-
-class InheritanceLevel(Enum):
-    """Specifies numeric IDs for different inheritance levels."""
-
-    INHERITED = 1
-    """Indicates that the object is inherited."""
-
-    INHERITED_READ_ONLY = 2
-    """Indicates that the object is inherited, but has read-only access."""
-
-    NOT_INHERITED = 3
-    """Indicates that the object is not inherited."""
-
-    def __int__(self) -> int:
-        ...
-
-
-class InheritanceAttribute(System.Attribute):
-    """
-    Marks instances of objects that are inherited from their base class. This
-    class cannot be inherited.
-    """
-
-    INHERITED: System.ComponentModel.InheritanceAttribute = ...
-    """
-    Specifies that the component is inherited. This field is
-    read-only.
-    """
-
-    INHERITED_READ_ONLY: System.ComponentModel.InheritanceAttribute = ...
-    """
-    Specifies that
-    the component is inherited and is read-only. This field is
-    read-only.
-    """
-
-    NOT_INHERITED: System.ComponentModel.InheritanceAttribute = ...
-    """
-    Specifies that the component is not inherited. This field is
-    read-only.
-    """
-
-    DEFAULT: System.ComponentModel.InheritanceAttribute = ...
-    """
-    Specifies the default value for
-    the InheritanceAttribute as NotInherited.
-    """
-
-    @property
-    def inheritance_level(self) -> System.ComponentModel.InheritanceLevel:
-        """
-        Gets or sets
-        the current inheritance level stored in this attribute.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.Design.InheritanceAttribute
-        class.
-        """
-        ...
-
-    @overload
-    def __init__(self, inheritance_level: System.ComponentModel.InheritanceLevel) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.Design.InheritanceAttribute class
-        with the specified inheritance
-        level.
-        """
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        """Override to test for equality."""
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns the hashcode for this object."""
-        ...
-
-    def is_default_attribute(self) -> bool:
-        """Gets whether this attribute is the default."""
-        ...
-
-    def to_string(self) -> str:
-        """Converts this attribute to a string."""
-        ...
-
-
-class BindingDirection(Enum):
-    """Specifies whether the template can be bound one-way or two-way."""
-
-    ONE_WAY = 0
-    """The template can only accept property values. Used with a generic ITemplate."""
-
-    TWO_WAY = 1
-    """The template can accept and expose property values. Used with an IBindableTemplate."""
-
-    def __int__(self) -> int:
-        ...
-
-
-class BindableAttribute(System.Attribute):
-    """Specifies whether a property is appropriate to bind data to."""
-
-    YES: System.ComponentModel.BindableAttribute = ...
-    """
-    Specifies that a property is appropriate to bind data to. This
-    static field is read-only.
-    """
-
-    NO: System.ComponentModel.BindableAttribute = ...
-    """
-    Specifies that a property is not appropriate to bind data to.
-    This static field is read-only.
-    """
-
-    DEFAULT: System.ComponentModel.BindableAttribute = ...
-    """
-    Specifies the default value for the System.ComponentModel.BindableAttribute, which
-    is System.ComponentModel.BindableAttribute.No. This static field is
-    read-only.
-    """
-
-    @property
-    def bindable(self) -> bool:
-        """Gets a value indicating whether a property is appropriate to bind data to."""
-        ...
-
-    @property
-    def direction(self) -> System.ComponentModel.BindingDirection:
-        """Gets a value indicating the direction(s) this property be bound to data."""
-        ...
-
-    @overload
-    def __init__(self, bindable: bool) -> None:
-        """Initializes a new instance of the System.ComponentModel.BindableAttribute class."""
-        ...
-
-    @overload
-    def __init__(self, bindable: bool, direction: System.ComponentModel.BindingDirection) -> None:
-        """Initializes a new instance of the System.ComponentModel.BindableAttribute class."""
-        ...
-
-    @overload
-    def __init__(self, flags: System.ComponentModel.BindableSupport) -> None:
-        """Initializes a new instance of the System.ComponentModel.BindableAttribute class."""
-        ...
-
-    @overload
-    def __init__(self, flags: System.ComponentModel.BindableSupport, direction: System.ComponentModel.BindingDirection) -> None:
-        """Initializes a new instance of the System.ComponentModel.BindableAttribute class."""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def is_default_attribute(self) -> bool:
         ...
 
 
@@ -3887,202 +2472,136 @@ class MaskedTextProvider(System.Object, System.ICloneable):
         ...
 
 
-class DateTimeConverter(System.ComponentModel.TypeConverter):
+class LicenseUsageMode(Enum):
+    """Specifies when the license can be used."""
+
+    RUNTIME = 0
+    """Used during runtime."""
+
+    DESIGNTIME = 1
+    """Used during design time by a visual designer or the compiler."""
+
+    def __int__(self) -> int:
+        ...
+
+
+class LicenseContext(IServiceProvider):
+    """Specifies when the licensed object can be used."""
+
+    @property
+    def usage_mode(self) -> System.ComponentModel.LicenseUsageMode:
+        """When overridden in a derived class, gets a value that specifies when a license can be used."""
+        ...
+
+    def get_saved_license_key(self, type: typing.Type, resource_assembly: System.Reflection.Assembly) -> str:
+        """
+        When overridden in a derived class, gets a saved license
+        key for the specified type, from the specified resource assembly.
+        """
+        ...
+
+    def get_service(self, type: typing.Type) -> System.Object:
+        """When overridden in a derived class, will return an object that implements the asked for service."""
+        ...
+
+    def set_saved_license_key(self, type: typing.Type, key: str) -> None:
+        """When overridden in a derived class, sets a license key for the specified type."""
+        ...
+
+
+class License(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
     """
-    Provides a type converter to convert System.DateTime
-    objects to and from various other representations.
+    Provides the abstract base class for all licenses. A license is
+    granted to a specific instance of a component.
     """
 
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an
-        object in the given source type to a System.DateTime
-        object using the specified context.
-        """
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object
-        to the given destination type using the context.
-        """
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the given value object to a System.DateTime object."""
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """
-        Converts the given value object to a System.DateTime
-        object using the arguments.
-        """
-        ...
-
-
-class ProvidePropertyAttribute(System.Attribute):
-    """Specifies which methods are extender properties."""
-
     @property
-    def property_name(self) -> str:
-        """Gets the name of a property that this class provides."""
+    @abc.abstractmethod
+    def license_key(self) -> str:
+        """When overridden in a derived class, gets the license key granted to this component."""
         ...
 
-    @property
-    def receiver_type_name(self) -> str:
-        """Gets the name of the data type this property can extend"""
+    def dispose(self) -> None:
+        """When overridden in a derived class, releases the license."""
         ...
 
-    @property
-    def type_id(self) -> System.Object:
-        ...
 
+class LicenseManager(System.Object):
+    """
+    Provides properties and methods to add a license
+    to a component and to manage a System.ComponentModel.LicenseProvider. This class cannot be inherited.
+    """
+
+    current_context: System.ComponentModel.LicenseContext
+    """
+    Gets or sets the current System.ComponentModel.LicenseContext which specifies when the licensed object can be
+    used.
+    """
+
+    USAGE_MODE: System.ComponentModel.LicenseUsageMode
+    """
+    Gets the System.ComponentModel.LicenseUsageMode that
+    specifies when the licensed object can be used, for the System.ComponentModel.LicenseManager.CurrentContext.
+    """
+
+    @staticmethod
     @overload
-    def __init__(self, property_name: str, receiver_type: typing.Type) -> None:
-        """Initializes a new instance of the System.ComponentModel.ProvidePropertyAttribute class."""
+    def create_with_context(type: typing.Type, creation_context: System.ComponentModel.LicenseContext) -> System.Object:
+        """
+        Creates an instance of the specified type, using
+        creation_context
+        as the context in which the licensed instance can be used.
+        """
         ...
 
+    @staticmethod
     @overload
-    def __init__(self, property_name: str, receiver_type_name: str) -> None:
-        """Initializes a new instance of the System.ComponentModel.ProvidePropertyAttribute class."""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class DateTimeOffsetConverter(System.ComponentModel.TypeConverter):
-    """
-    Provides a type converter to convert System.DateTimeOffset
-    objects to and from various other representations.
-    """
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+    def create_with_context(type: typing.Type, creation_context: System.ComponentModel.LicenseContext, args: typing.List[System.Object]) -> System.Object:
         """
-        Gets a value indicating whether this converter can convert an
-        object in the given source type to a System.DateTimeOffset
-        object using the specified context.
+        Creates an instance of the specified type with the
+        specified arguments, using creation_context as the context in which the licensed
+        instance can be used.
         """
         ...
 
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an
-        object to the given destination type using the context.
-        """
+    @staticmethod
+    def is_licensed(type: typing.Type) -> bool:
+        """Determines if the given type has a valid license or not."""
         ...
 
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """
-        Converts the given value object to a System.DateTime
-        object.
-        """
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """
-        Converts the given value object to a System.DateTimeOffset
-        object using the arguments.
-        """
-        ...
-
-
-class SettingsBindableAttribute(System.Attribute):
-    """
-    Use this attribute to specify typical properties on components that can be bound
-    to application settings.
-    """
-
-    YES: System.ComponentModel.SettingsBindableAttribute = ...
-    """Specifies that a property is appropriate to bind settings to."""
-
-    NO: System.ComponentModel.SettingsBindableAttribute = ...
-    """Specifies that a property is not appropriate to bind settings to."""
-
-    @property
-    def bindable(self) -> bool:
-        """Gets a value indicating whether a property is appropriate to bind settings to."""
-        ...
-
-    def __init__(self, bindable: bool) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class AttributeProviderAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def type_name(self) -> str:
-        """
-        The TypeName property returns the assembly qualified type name
-        passed into the constructor.
-        """
-        ...
-
-    @property
-    def property_name(self) -> str:
-        """The TypeName property returns the property name that will be used to query attributes from."""
-        ...
-
+    @staticmethod
     @overload
-    def __init__(self, type_name: str) -> None:
-        """Creates a new AttributeProviderAttribute object."""
-        ...
-
-    @overload
-    def __init__(self, type_name: str, property_name: str) -> None:
-        """Creates a new AttributeProviderAttribute object."""
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        """Creates a new AttributeProviderAttribute object."""
-        ...
-
-
-class CollectionConverter(System.ComponentModel.TypeConverter):
-    """
-    Provides a type converter to convert collection objects to and from various other
-    representations.
-    """
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given value object to the specified destination type."""
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+    def is_valid(type: typing.Type, instance: typing.Any, license: typing.Optional[System.ComponentModel.License]) -> typing.Tuple[bool, System.ComponentModel.License]:
         """
-        Gets a collection of properties for the type of array specified by the value
-        parameter using the specified context and attributes.
+        Determines if a valid license can be granted for the
+        specified instance of the type. This method creates a valid System.ComponentModel.License.
         """
         ...
 
-
-class ArrayConverter(System.ComponentModel.CollectionConverter):
-    """
-    Provides a type converter to convert System.Array
-    objects to and from various other representations.
-    """
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given value object to the specified destination type."""
+    @staticmethod
+    @overload
+    def is_valid(type: typing.Type) -> bool:
+        """Determines if a valid license can be granted for the specified type."""
         ...
 
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        """Gets a collection of properties for the type of array specified by the value parameter."""
+    @staticmethod
+    def lock_context(context_user: typing.Any) -> None:
         ...
 
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """Gets a value indicating whether this object supports properties."""
+    @staticmethod
+    def unlock_context(context_user: typing.Any) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def validate(type: typing.Type, instance: typing.Any) -> System.ComponentModel.License:
+        """Determines if a license can be granted for the instance of the specified type."""
+        ...
+
+    @staticmethod
+    @overload
+    def validate(type: typing.Type) -> None:
+        """Determines if a license can be granted for the specified type."""
         ...
 
 
@@ -4207,797 +2726,6 @@ class ToolboxItemFilterAttribute(System.Attribute):
         ...
 
 
-class RunInstallerAttribute(System.Attribute):
-    """
-    Specifies whether an installer should be invoked during
-    installation of an assembly.
-    """
-
-    @property
-    def run_installer(self) -> bool:
-        """
-        Gets a value indicating whether an installer should be
-        invoked during installation of an assembly.
-        """
-        ...
-
-    YES: System.ComponentModel.RunInstallerAttribute = ...
-    """
-    Specifies that a
-    component is visible in a visual designer. This static field is
-    read-only.
-    """
-
-    NO: System.ComponentModel.RunInstallerAttribute = ...
-    """
-    Specifies that a
-    component
-    is not visible in a visual designer. This static field is
-    read-only.
-    """
-
-    DEFAULT: System.ComponentModel.RunInstallerAttribute = ...
-    """
-    Specifies the default visibility, which is System.ComponentModel.RunInstallerAttribute.No. This static field is
-    read-only.
-    """
-
-    def __init__(self, run_installer: bool) -> None:
-        """
-        Initializes a new instance of
-        the System.ComponentModel.RunInstallerAttribute class.
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns the hashcode for this object."""
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class MarshalByValueComponent(System.Object, System.ComponentModel.IComponent, IServiceProvider):
-    """
-    Provides the base implementation for System.ComponentModel.IComponent,
-    which is the base class for all components in Win Forms.
-    """
-
-    @property
-    def disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        """Adds an event handler to listen to the Disposed event on the component."""
-        ...
-
-    @disposed.setter
-    def disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def events(self) -> System.ComponentModel.EventHandlerList:
-        """
-        Gets the list of event handlers that are attached to this component.
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def site(self) -> System.ComponentModel.ISite:
-        """Gets or sets the site of the component."""
-        ...
-
-    @site.setter
-    def site(self, value: System.ComponentModel.ISite) -> None:
-        ...
-
-    @property
-    def container(self) -> System.ComponentModel.IContainer:
-        """Gets the container for the component."""
-        ...
-
-    @property
-    def design_mode(self) -> bool:
-        """Gets a value indicating whether the component is currently in design mode."""
-        ...
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the System.ComponentModel.MarshalByValueComponent class."""
-        ...
-
-    @overload
-    def dispose(self) -> None:
-        """Disposes of the resources (other than memory) used by the component."""
-        ...
-
-    @overload
-    def dispose(self, disposing: bool) -> None:
-        """
-        Disposes all the resources associated with this component.
-        If disposing is false then you must never touch any other
-        managed objects, as they may already be finalized. When
-        in this state you should dispose any native resources
-        that you have a reference to.
-        
-        
-        When disposing is true then you should dispose all data
-        and objects you have references to. The normal implementation
-        of this method would look something like:
-        
-        
-        public void Dispose() {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-        }
-        
-        protected virtual void Dispose(bool disposing) {
-        if (disposing) {
-          if (myobject != null) {
-              myobject.Dispose();
-              myobject = null;
-          }
-        }
-        if (myhandle != IntPtr.Zero) {
-          NativeMethods.Release(myhandle);
-          myhandle = IntPtr.Zero;
-        }
-        }
-        
-        ~MyClass() {
-        Dispose(false);
-        }
-        
-        
-        For base classes, you should never override the Finalizer (~Class in C#)
-        or the Dispose method that takes no arguments, rather you should
-        always override the Dispose method that takes a bool.
-        
-        
-        protected override void Dispose(bool disposing) {
-        if (disposing) {
-          if (myobject != null) {
-              myobject.Dispose();
-              myobject = null;
-          }
-        }
-        if (myhandle != IntPtr.Zero) {
-          NativeMethods.Release(myhandle);
-          myhandle = IntPtr.Zero;
-        }
-        base.Dispose(disposing);
-        }
-        
-        This method is protected.
-        """
-        ...
-
-    def get_service(self, service: typing.Type) -> System.Object:
-        """Gets the implementer of the System.IServiceProvider."""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string containing the name of the System.ComponentModel.Component , if any. This method should not be
-        overridden. For
-        internal use only.
-        """
-        ...
-
-
-class AddingNewEventArgs(System.EventArgs):
-    """
-    Provides data for an event that signals the adding of a new object
-    to a list, allowing any event handler to supply the new object. If
-    no event handler supplies a new object to use, the list should create
-    one itself.
-    """
-
-    @property
-    def new_object(self) -> System.Object:
-        """Gets or sets the new object that will be added to the list."""
-        ...
-
-    @new_object.setter
-    def new_object(self, value: System.Object) -> None:
-        ...
-
-    @overload
-    def __init__(self, new_object: typing.Any) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.AddingNewEventArgs class,
-        with the specified object defined as the default new object.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.AddingNewEventArgs class,
-        with no new object defined.
-        """
-        ...
-
-
-class DefaultBindingPropertyAttribute(System.Attribute):
-    """Specifies the default binding property for a component."""
-
-    @property
-    def name(self) -> str:
-        """
-        Gets the name of the default binding property for the component this attribute is
-        bound to.
-        """
-        ...
-
-    DEFAULT: System.ComponentModel.DefaultBindingPropertyAttribute = ...
-    """
-    Specifies the default value for the System.ComponentModel.DefaultBindingPropertyAttribute, which is null. This
-    static field is read-only.
-    """
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the System.ComponentModel.DefaultBindingPropertyAttribute class."""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """Initializes a new instance of the System.ComponentModel.DefaultBindingPropertyAttribute class."""
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class InstanceCreationEditor(System.Object, metaclass=abc.ABCMeta):
-    """
-    An InstanceCreationEditor allows the user to create an instance of a particular type of property from a dropdown
-    Within the PropertyGrid. Usually, the text specified by InstanceCreationEditor.Text will be displayed on the
-    dropdown from the PropertyGrid as a link or button. When clicked, the InstanceCreationEditor.CreateInstance
-    method will be called with the Type of the object to create.
-    """
-
-    @property
-    def text(self) -> str:
-        ...
-
-    def create_instance(self, context: System.ComponentModel.ITypeDescriptorContext, instance_type: typing.Type) -> System.Object:
-        """
-        This method is invoked when you user chooses the link displayed by the PropertyGrid for the InstanceCreationEditor.
-        The object returned from this method must be an instance of the specified type, or null in which case the editor will do nothing.
-        """
-        ...
-
-
-class Int32Converter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert 32-bit signed integer objects to and
-    from various other representations.
-    """
-
-
-class DecimalConverter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert decimal
-    objects to and from various other representations.
-    """
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an
-        object to the given destination type using the context.
-        """
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """
-        Converts the given object to another type. The most common types to convert
-        are to and from a string object. The default implementation will make a call
-        to ToString on the object if the object is valid and if the destination
-        type is string. If this cannot convert to the destination type, this will
-        throw a NotSupportedException.
-        """
-        ...
-
-
-class SingleConverter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert single-precision, floating point number objects to and
-    from various other representations.
-    """
-
-
-class LicenseProviderAttribute(System.Attribute):
-    """
-    Specifies the System.ComponentModel.LicenseProvider
-    to use with a class.
-    """
-
-    DEFAULT: System.ComponentModel.LicenseProviderAttribute = ...
-    """Specifies the default value, which is no provider. This static field is read-only."""
-
-    @property
-    def license_provider(self) -> typing.Type:
-        """Gets the license provider to use with the associated class."""
-        ...
-
-    @property
-    def type_id(self) -> System.Object:
-        """
-        This defines a unique ID for this attribute type. It is used
-        by filtering algorithms to identify two attributes that are
-        the same type. For most attributes, this just returns the
-        Type instance for the attribute. LicenseProviderAttribute overrides this to include the type name and the
-        provider type name.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.LicenseProviderAttribute class without a license
-        provider.
-        """
-        ...
-
-    @overload
-    def __init__(self, type_name: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.LicenseProviderAttribute class with
-        the specified type.
-        """
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.LicenseProviderAttribute class with
-        the specified type of license provider.
-        """
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns the hashcode for this object."""
-        ...
-
-
-class DataObjectFieldAttribute(System.Attribute):
-    """
-    Represents a field of a DataObject. Use this attribute on a field to indicate
-    properties such as primary key, identity, nullability, and length.
-    """
-
-    @property
-    def is_identity(self) -> bool:
-        ...
-
-    @property
-    def is_nullable(self) -> bool:
-        ...
-
-    @property
-    def length(self) -> int:
-        ...
-
-    @property
-    def primary_key(self) -> bool:
-        ...
-
-    @overload
-    def __init__(self, primary_key: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, primary_key: bool, is_identity: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, primary_key: bool, is_identity: bool, is_nullable: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, primary_key: bool, is_identity: bool, is_nullable: bool, length: int) -> None:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class StringConverter(System.ComponentModel.TypeConverter):
-    """
-    Provides a type converter to convert string objects to and from various other
-    representations.
-    """
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object in the
-        given source type to a string using the specified context.
-        """
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the specified value object to a string object."""
-        ...
-
-
-class RecommendedAsConfigurableAttribute(System.Attribute):
-    """
-    Specifies that the property can be used as an application setting.
-    
-    RecommendedAsConfigurableAttribute has been deprecated. Use System.ComponentModel.SettingsBindableAttribute instead.
-    """
-
-    @property
-    def recommended_as_configurable(self) -> bool:
-        """
-        Gets a value indicating whether the property this
-        attribute is bound to can be used as an application setting.
-        """
-        ...
-
-    NO: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
-    """
-    Specifies that a property cannot be used as an application setting. This
-    static field is read-only.
-    """
-
-    YES: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
-    """
-    Specifies
-    that a property can be used as an application setting. This static field is read-only.
-    """
-
-    DEFAULT: System.ComponentModel.RecommendedAsConfigurableAttribute = ...
-    """
-    Specifies the default value for the System.ComponentModel.RecommendedAsConfigurableAttribute, which is System.ComponentModel.RecommendedAsConfigurableAttribute.No. This static field is
-    read-only.
-    """
-
-    def __init__(self, recommended_as_configurable: bool) -> None:
-        """
-        Initializes a new instance of
-        the System.ComponentModel.RecommendedAsConfigurableAttribute class.
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns the hashcode for this object."""
-        ...
-
-    def is_default_attribute(self) -> bool:
-        ...
-
-
-class DoubleConverter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert double-precision, floating point number objects
-    to and from various other representations.
-    """
-
-
-class INestedContainer(System.ComponentModel.IContainer, metaclass=abc.ABCMeta):
-    """
-    A "nested container" is an object that logically contains zero or more child
-    components and is controlled (owned) by some parent component.
-    
-    In this context, "containment" refers to logical containment, not visual
-    containment. Components and containers can be used in a variety of
-    scenarios, including both visual and non-visual scenarios.
-    """
-
-    @property
-    @abc.abstractmethod
-    def owner(self) -> System.ComponentModel.IComponent:
-        """The component that owns this nested container."""
-        ...
-
-
-class NestedContainer(System.ComponentModel.Container, System.ComponentModel.INestedContainer):
-    """
-    A nested container is a container that is owned by another component. Nested
-    containers can be found by querying a component site's services for NestedConainter.
-    Nested containers are a useful tool to establish owner relationships among components.
-    All components within a nested container are named with the owning component's name
-    as a prefix.
-    """
-
-    @property
-    def owner(self) -> System.ComponentModel.IComponent:
-        """The component that owns this nested container."""
-        ...
-
-    @property
-    def owner_name(self) -> str:
-        """
-        Retrieves the name of the owning component. This may be overridden to
-        provide a custom owner name. The default searches the owner's site for
-        INestedSite and calls FullName, or ISite.Name if there is no nested site.
-        If neither is available, this returns null.
-        
-        This property is protected.
-        """
-        ...
-
-    def __init__(self, owner: System.ComponentModel.IComponent) -> None:
-        """Creates a new NestedContainer."""
-        ...
-
-    def create_site(self, component: System.ComponentModel.IComponent, name: str) -> System.ComponentModel.ISite:
-        """
-        Creates a site for the component within the container.
-        
-        This method is protected.
-        """
-        ...
-
-    def dispose(self, disposing: bool) -> None:
-        """
-        Override of Container's dispose.
-        
-        This method is protected.
-        """
-        ...
-
-    def get_service(self, service: typing.Type) -> System.Object:
-        """This method is protected."""
-        ...
-
-
-class PasswordPropertyTextAttribute(System.Attribute):
-    """
-    If this attribute is placed on a property or a type, its text representation in a property window
-    will appear as dots or asterisks to indicate a password field. This indication in no way
-    represents any type of encryption or security.
-    """
-
-    YES: System.ComponentModel.PasswordPropertyTextAttribute = ...
-    """
-    Sets the System.ComponentModel.Design.PasswordPropertyText
-    attribute by default to true.
-    """
-
-    NO: System.ComponentModel.PasswordPropertyTextAttribute = ...
-    """
-    Sets the System.ComponentModel.Design.PasswordPropertyText
-    attribute by default to false.
-    """
-
-    DEFAULT: System.ComponentModel.PasswordPropertyTextAttribute = ...
-    """
-    Sets the System.ComponentModel.Design.PasswordPropertyText
-    attribute by default to false.
-    """
-
-    @property
-    def password(self) -> bool:
-        """Gets a value indicating if the property this attribute is defined for should be shown as password text."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a default PasswordPropertyTextAttribute."""
-        ...
-
-    @overload
-    def __init__(self, password: bool) -> None:
-        """Creates a PasswordPropertyTextAttribute with the given password value."""
-        ...
-
-    def equals(self, o: typing.Any) -> bool:
-        """Overload for object equality"""
-        ...
-
-    def get_hash_code(self) -> int:
-        """Returns the hashcode for this object."""
-        ...
-
-    def is_default_attribute(self) -> bool:
-        """Gets a value indicating whether this attribute is set to true by default."""
-        ...
-
-
-class Int64Converter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert 64-bit signed integer objects to and
-    from various other representations.
-    """
-
-
-class ISupportInitializeNotification(System.ComponentModel.ISupportInitialize, metaclass=abc.ABCMeta):
-    """Extends ISupportInitialize to allow dependent components to be notified when initialization is complete."""
-
-    @property
-    @abc.abstractmethod
-    def is_initialized(self) -> bool:
-        """Indicates whether initialization is complete yet."""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def initialized(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        """Sent when initialization is complete."""
-        ...
-
-    @initialized.setter
-    def initialized(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-
-class AmbientValueAttribute(System.Attribute):
-    """
-    Specifies the ambient value for a property. The ambient value is the value you
-    can set into a property to make it inherit its ambient.
-    """
-
-    @property
-    def value(self) -> System.Object:
-        """Gets the ambient value of the property this attribute is bound to."""
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute
-        class.
-        """
-        ...
-
-    @overload
-    def __init__(self, type: typing.Type, value: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class, converting the
-        specified value to the specified type, and using the U.S. English culture as the
-        translation context.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class using a Unicode
-        character.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: int) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class using an 8-bit unsigned
-        integer.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: float) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class using a
-        single-precision floating point number.
-        """
-        ...
-
-    @overload
-    def __init__(self, value: bool) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class using a bool
-        value.
-        """
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class WarningException(System.SystemException):
-    """Specifies an exception that is handled as a warning instead of an error."""
-
-    @property
-    def help_url(self) -> str:
-        """Specifies the Help file associated with the warning. This field is read-only."""
-        ...
-
-    @property
-    def help_topic(self) -> str:
-        """Specifies the Help topic associated with the warning. This field is read-only."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.WarningException class with the last Win32 error
-        that occurred.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.WarningException class with
-        the specified message and no Help file.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, help_url: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.WarningException class with
-        the specified message, and with access to the specified Help file.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the Exception class with a specified error message and a
-        reference to the inner exception that is the cause of this exception.
-        FxCop CA1032: Multiple constructors are required to correctly implement a custom exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, help_url: str, help_topic: str) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.WarningException class with the
-        specified message, and with access to the specified Help file and topic.
-        """
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        Need this constructor since Exception implements ISerializable.
-        
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class Int16Converter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert 16-bit signed integer objects to and
-    from various other representations.
-    """
-
-
-class CollectionChangeAction(Enum):
-    """Specifies how the collection is changed."""
-
-    ADD = 1
-    """Specifies that an element is added to the collection."""
-
-    REMOVE = 2
-    """Specifies that an element is removed from the collection."""
-
-    REFRESH = 3
-    """Specifies that the entire collection has changed."""
-
-    def __int__(self) -> int:
-        ...
-
-
 class NullableConverter(System.ComponentModel.TypeConverter):
     """TypeConverter to convert Nullable types to and from strings or the underlying simple type."""
 
@@ -5086,52 +2814,6 @@ class NullableConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class IRaiseItemChangedEvents(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def raises_item_changed_events(self) -> bool:
-        ...
-
-
-class CollectionChangeEventArgs(System.EventArgs):
-    """Provides data for the CollectionChange  event."""
-
-    @property
-    def action(self) -> System.ComponentModel.CollectionChangeAction:
-        """Gets an action that specifies how the collection changed."""
-        ...
-
-    @property
-    def element(self) -> System.Object:
-        """Gets the instance of the collection with the change."""
-        ...
-
-    def __init__(self, action: System.ComponentModel.CollectionChangeAction, element: typing.Any) -> None:
-        """Initializes a new instance of the System.ComponentModel.CollectionChangeEventArgs class."""
-        ...
-
-
-class MultilineStringConverter(System.ComponentModel.TypeConverter):
-    """Provides a type converter to convert multiline strings to a simple string."""
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given value object to the specified destination type."""
-        ...
-
-    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        """
-        Gets a collection of properties for the type of array specified by the value
-        parameter using the specified context and attributes.
-        """
-        ...
-
-    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """Gets a value indicating whether this object supports properties."""
-        ...
-
-
 class IIntellisenseBuilder(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -5150,6 +2832,53 @@ class IIntellisenseBuilder(metaclass=abc.ABCMeta):
         value - expression being edited
         new_value - return the new value
         """
+        ...
+
+
+class CollectionConverter(System.ComponentModel.TypeConverter):
+    """
+    Provides a type converter to convert collection objects to and from various other
+    representations.
+    """
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """Converts the given value object to the specified destination type."""
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        Gets a collection of properties for the type of array specified by the value
+        parameter using the specified context and attributes.
+        """
+        ...
+
+
+class ArrayConverter(System.ComponentModel.CollectionConverter):
+    """
+    Provides a type converter to convert System.Array
+    objects to and from various other representations.
+    """
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """Converts the given value object to the specified destination type."""
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        """Gets a collection of properties for the type of array specified by the value parameter."""
+        ...
+
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """Gets a value indicating whether this object supports properties."""
+        ...
+
+
+class ITypedList(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_item_properties(self, list_accessors: typing.List[System.ComponentModel.PropertyDescriptor]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    def get_list_name(self, list_accessors: typing.List[System.ComponentModel.PropertyDescriptor]) -> str:
         ...
 
 
@@ -5178,40 +2907,459 @@ class SyntaxCheck(System.Object):
         ...
 
 
-class ToolboxItemAttribute(System.Attribute):
-    """Specifies attributes for a toolbox item."""
-
-    DEFAULT: System.ComponentModel.ToolboxItemAttribute = ...
-    """Initializes a new instance of ToolboxItemAttribute and sets the type to"""
-
-    NONE: System.ComponentModel.ToolboxItemAttribute = ...
-    """
-    Initializes a new instance of ToolboxItemAttribute and sets the type to
-    null.
-    """
+class EventDescriptor(System.ComponentModel.MemberDescriptor, metaclass=abc.ABCMeta):
+    """Provides a description of an event."""
 
     @property
-    def toolbox_item_type(self) -> typing.Type:
-        """Gets the toolbox item's type."""
+    @abc.abstractmethod
+    def component_type(self) -> typing.Type:
+        """When overridden in a derived class, gets the type of the component this event is bound to."""
         ...
 
     @property
-    def toolbox_item_type_name(self) -> str:
+    @abc.abstractmethod
+    def event_type(self) -> typing.Type:
+        """When overridden in a derived class, gets the type of delegate for the event."""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_multicast(self) -> bool:
+        """
+        When overridden in a derived class, gets a value indicating whether the event delegate is
+        a multicast delegate.
+        """
         ...
 
     @overload
-    def __init__(self, default_type: bool) -> None:
-        """Initializes a new instance of ToolboxItemAttribute and specifies if default values should be used."""
+    def __init__(self, name: str, attrs: typing.List[System.Attribute]) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.EventDescriptor class with the
+        specified name and attribute array.
+        
+        This method is protected.
+        """
         ...
 
     @overload
-    def __init__(self, toolbox_item_type_name: str) -> None:
-        """Initializes a new instance of ToolboxItemAttribute and specifies the name of the type."""
+    def __init__(self, descr: System.ComponentModel.MemberDescriptor) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.EventDescriptor class with the name and attributes in
+        the specified System.ComponentModel.MemberDescriptor.
+        
+        This method is protected.
+        """
         ...
 
     @overload
-    def __init__(self, toolbox_item_type: typing.Type) -> None:
-        """Initializes a new instance of ToolboxItemAttribute and specifies the type of the toolbox item."""
+    def __init__(self, descr: System.ComponentModel.MemberDescriptor, attrs: typing.List[System.Attribute]) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.EventDescriptor class with
+        the name in the specified System.ComponentModel.MemberDescriptor and the
+        attributes in both the System.ComponentModel.MemberDescriptor and the System.Attribute array.
+        
+        This method is protected.
+        """
+        ...
+
+    def add_event_handler(self, component: typing.Any, value: System.Delegate) -> None:
+        """When overridden in a derived class, binds the event to the component."""
+        ...
+
+    def remove_event_handler(self, component: typing.Any, value: System.Delegate) -> None:
+        """
+        When overridden in a derived class, unbinds the delegate from the component
+        so that the delegate will no longer receive events from the component.
+        """
+        ...
+
+
+class ComponentResourceManager(System.Resources.ResourceManager):
+    """
+    The ComponentResourceManager is a resource manager object that
+    provides simple functionality for enumerating resources for
+    a component or object.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, t: typing.Type) -> None:
+        ...
+
+    @overload
+    def apply_resources(self, value: typing.Any, object_name: str) -> None:
+        """
+        This method examines all the resources for the current culture.
+        When it finds a resource with a key in the format of
+        "[object_name].[property name]" it will apply that resource's value
+        to the corresponding property on the object. If there is no matching
+        property the resource will be ignored.
+        """
+        ...
+
+    @overload
+    def apply_resources(self, value: typing.Any, object_name: str, culture: System.Globalization.CultureInfo) -> None:
+        """
+        This method examines all the resources for the provided culture.
+        When it finds a resource with a key in the format of
+        "[object_name].[property name]" or "[object_name]-[property name]" it will apply that resource's value
+        to the corresponding property on the object. If there is no matching
+        property the resource will be ignored.
+        """
+        ...
+
+    def apply_resources_to_registered_type(self, value: typing.Any, object_name: str, culture: System.Globalization.CultureInfo) -> None:
+        """
+        This method examines all the resources for the provided culture.
+        When it finds a resource with a key in the format of
+        "[object_name].[property name]" or "[object_name]-[property name]" it will apply that resource's value
+        to the corresponding property on the object. If there is no matching
+        property the resource will be ignored.
+        """
+        ...
+
+
+class CollectionChangeEventArgs(System.EventArgs):
+    """Provides data for the CollectionChange  event."""
+
+    @property
+    def action(self) -> System.ComponentModel.CollectionChangeAction:
+        """Gets an action that specifies how the collection changed."""
+        ...
+
+    @property
+    def element(self) -> System.Object:
+        """Gets the instance of the collection with the change."""
+        ...
+
+    def __init__(self, action: System.ComponentModel.CollectionChangeAction, element: typing.Any) -> None:
+        """Initializes a new instance of the System.ComponentModel.CollectionChangeEventArgs class."""
+        ...
+
+
+class AmbientValueAttribute(System.Attribute):
+    """
+    Specifies the ambient value for a property. The ambient value is the value you
+    can set into a property to make it inherit its ambient.
+    """
+
+    @property
+    def value(self) -> System.Object:
+        """Gets the ambient value of the property this attribute is bound to."""
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute
+        class.
+        """
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type, value: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class, converting the
+        specified value to the specified type, and using the U.S. English culture as the
+        translation context.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class using a Unicode
+        character.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: int) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class using an 8-bit unsigned
+        integer.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: float) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class using a
+        single-precision floating point number.
+        """
+        ...
+
+    @overload
+    def __init__(self, value: bool) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.AmbientValueAttribute class using a bool
+        value.
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class DecimalConverter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert decimal
+    objects to and from various other representations.
+    """
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an
+        object to the given destination type using the context.
+        """
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """
+        Converts the given object to another type. The most common types to convert
+        are to and from a string object. The default implementation will make a call
+        to ToString on the object if the object is valid and if the destination
+        type is string. If this cannot convert to the destination type, this will
+        throw a NotSupportedException.
+        """
+        ...
+
+
+class EventDescriptorCollection(System.Object, System.Collections.IList):
+    """Represents a collection of events."""
+
+    EMPTY: System.ComponentModel.EventDescriptorCollection = ...
+    """An empty AttributeCollection that can used instead of creating a new one with no items."""
+
+    @property
+    def count(self) -> int:
+        """Gets the number of event descriptors in the collection."""
+        ...
+
+    @overload
+    def __getitem__(self, index: int) -> System.ComponentModel.EventDescriptor:
+        """Gets the event with the specified index number."""
+        ...
+
+    @overload
+    def __getitem__(self, name: str) -> System.ComponentModel.EventDescriptor:
+        """Gets the event with the specified name."""
+        ...
+
+    @overload
+    def __init__(self, events: typing.List[System.ComponentModel.EventDescriptor]) -> None:
+        """Initializes a new instance of the System.ComponentModel.EventDescriptorCollection class."""
+        ...
+
+    @overload
+    def __init__(self, events: typing.List[System.ComponentModel.EventDescriptor], read_only: bool) -> None:
+        """
+        Initializes a new instance of an event descriptor collection, and allows you to mark the
+        collection as read-only so it cannot be modified.
+        """
+        ...
+
+    def add(self, value: System.ComponentModel.EventDescriptor) -> int:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, value: System.ComponentModel.EventDescriptor) -> bool:
+        ...
+
+    def find(self, name: str, ignore_case: bool) -> System.ComponentModel.EventDescriptor:
+        """
+        Gets the description of the event with the specified
+        name in the collection.
+        """
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        """Gets an enumerator for this System.ComponentModel.EventDescriptorCollection."""
+        ...
+
+    def index_of(self, value: System.ComponentModel.EventDescriptor) -> int:
+        ...
+
+    def insert(self, index: int, value: System.ComponentModel.EventDescriptor) -> None:
+        ...
+
+    @overload
+    def internal_sort(self, names: typing.List[str]) -> None:
+        """
+        Sorts the members of this EventDescriptorCollection. Any specified NamedSort arguments will
+        be applied first, followed by sort using the specified IComparer.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def internal_sort(self, sorter: System.Collections.IComparer) -> None:
+        """
+        Sorts the members of this EventDescriptorCollection using the specified IComparer.
+        
+        This method is protected.
+        """
+        ...
+
+    def remove(self, value: System.ComponentModel.EventDescriptor) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
+        ...
+
+    @overload
+    def sort(self) -> System.ComponentModel.EventDescriptorCollection:
+        """
+        Sorts the members of this EventDescriptorCollection, using the default sort for this collection,
+        which is usually alphabetical.
+        """
+        ...
+
+    @overload
+    def sort(self, names: typing.List[str]) -> System.ComponentModel.EventDescriptorCollection:
+        """
+        Sorts the members of this EventDescriptorCollection. Any specified NamedSort arguments will
+        be applied first, followed by sort using the specified IComparer.
+        """
+        ...
+
+    @overload
+    def sort(self, names: typing.List[str], comparer: System.Collections.IComparer) -> System.ComponentModel.EventDescriptorCollection:
+        """
+        Sorts the members of this EventDescriptorCollection. Any specified NamedSort arguments will
+        be applied first, followed by sort using the specified IComparer.
+        """
+        ...
+
+    @overload
+    def sort(self, comparer: System.Collections.IComparer) -> System.ComponentModel.EventDescriptorCollection:
+        """
+        Sorts the members of this EventDescriptorCollection, using the specified IComparer to compare,
+        the EventDescriptors contained in the collection.
+        """
+        ...
+
+
+class IComNativeDescriptorHandler(metaclass=abc.ABCMeta):
+    """
+    Top level mapping layer between a COM object and TypeDescriptor.
+    
+    IComNativeDescriptorHandler has been deprecated. Add a TypeDescriptionProvider to handle type TypeDescriptor.ComObjectType instead.
+    """
+
+    def get_attributes(self, component: typing.Any) -> System.ComponentModel.AttributeCollection:
+        ...
+
+    def get_class_name(self, component: typing.Any) -> str:
+        ...
+
+    def get_converter(self, component: typing.Any) -> System.ComponentModel.TypeConverter:
+        ...
+
+    def get_default_event(self, component: typing.Any) -> System.ComponentModel.EventDescriptor:
+        ...
+
+    def get_default_property(self, component: typing.Any) -> System.ComponentModel.PropertyDescriptor:
+        ...
+
+    def get_editor(self, component: typing.Any, base_editor_type: typing.Type) -> System.Object:
+        ...
+
+    @overload
+    def get_events(self, component: typing.Any) -> System.ComponentModel.EventDescriptorCollection:
+        ...
+
+    @overload
+    def get_events(self, component: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
+        ...
+
+    def get_name(self, component: typing.Any) -> str:
+        ...
+
+    def get_properties(self, component: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        ...
+
+    @overload
+    def get_property_value(self, component: typing.Any, property_name: str, success: bool) -> System.Object:
+        ...
+
+    @overload
+    def get_property_value(self, component: typing.Any, dispid: int, success: bool) -> System.Object:
+        ...
+
+
+class IListSource(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def contains_list_collection(self) -> bool:
+        ...
+
+    def get_list(self) -> System.Collections.IList:
+        ...
+
+
+class AttributeProviderAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def type_name(self) -> str:
+        """
+        The TypeName property returns the assembly qualified type name
+        passed into the constructor.
+        """
+        ...
+
+    @property
+    def property_name(self) -> str:
+        """The TypeName property returns the property name that will be used to query attributes from."""
+        ...
+
+    @overload
+    def __init__(self, type_name: str) -> None:
+        """Creates a new AttributeProviderAttribute object."""
+        ...
+
+    @overload
+    def __init__(self, type_name: str, property_name: str) -> None:
+        """Creates a new AttributeProviderAttribute object."""
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type) -> None:
+        """Creates a new AttributeProviderAttribute object."""
+        ...
+
+
+class DataObjectAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    DATA_OBJECT: System.ComponentModel.DataObjectAttribute = ...
+
+    NON_DATA_OBJECT: System.ComponentModel.DataObjectAttribute = ...
+
+    DEFAULT: System.ComponentModel.DataObjectAttribute = ...
+
+    @property
+    def is_data_object(self) -> bool:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, is_data_object: bool) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
@@ -5221,335 +3369,32 @@ class ToolboxItemAttribute(System.Attribute):
         ...
 
     def is_default_attribute(self) -> bool:
-        """Gets whether the attribute is the default attribute."""
         ...
 
 
-class ComplexBindingPropertiesAttribute(System.Attribute):
-    """Specifies the data source and data member properties for a component."""
+class DefaultEventAttribute(System.Attribute):
+    """Specifies the default event for a component."""
 
     @property
-    def data_source(self) -> str:
-        """
-        Gets the name of the data source property for the component this attribute is
-        bound to.
-        """
+    def name(self) -> str:
+        """Gets the name of the default event for the component this attribute is bound to."""
         ...
 
-    @property
-    def data_member(self) -> str:
-        """
-        Gets the name of the data member property for the component this attribute is
-        bound to.
-        """
-        ...
-
-    DEFAULT: System.ComponentModel.ComplexBindingPropertiesAttribute = ...
+    DEFAULT: System.ComponentModel.DefaultEventAttribute = ...
     """
-    Specifies the default value for the System.ComponentModel.ComplexBindingPropertiesAttribute, which is null. This
-    static field is read-only.
+    Specifies the default value for the System.ComponentModel.DefaultEventAttribute, which is
+    null.
+    This static field is read-only.
     """
 
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the System.ComponentModel.ComplexBindingPropertiesAttribute class."""
-        ...
-
-    @overload
-    def __init__(self, data_source: str) -> None:
-        """Initializes a new instance of the System.ComponentModel.ComplexBindingPropertiesAttribute class."""
-        ...
-
-    @overload
-    def __init__(self, data_source: str, data_member: str) -> None:
-        """Initializes a new instance of the System.ComponentModel.ComplexBindingPropertiesAttribute class."""
+    def __init__(self, name: str) -> None:
+        """Initializes a new instance of the System.ComponentModel.DefaultEventAttribute class."""
         ...
 
     def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
-        ...
-
-
-class ComponentEditor(System.Object, metaclass=abc.ABCMeta):
-    """Provides the base class for a custom component editor."""
-
-    @overload
-    def edit_component(self, component: typing.Any) -> bool:
-        """Gets a value indicating whether the component was modified."""
-        ...
-
-    @overload
-    def edit_component(self, context: System.ComponentModel.ITypeDescriptorContext, component: typing.Any) -> bool:
-        """Gets a value indicating whether the component was modified."""
-        ...
-
-
-class ITypedList(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_item_properties(self, list_accessors: typing.List[System.ComponentModel.PropertyDescriptor]) -> System.ComponentModel.PropertyDescriptorCollection:
-        ...
-
-    def get_list_name(self, list_accessors: typing.List[System.ComponentModel.PropertyDescriptor]) -> str:
-        ...
-
-
-class CustomTypeDescriptor(System.Object, System.ComponentModel.ICustomTypeDescriptor, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def require_registered_types(self) -> typing.Optional[bool]:
-        """Whether types are required to be registered through TypeDescriptionProvider.RegisterType{T}."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Creates a new CustomTypeDescriptor object. There are two versions
-        of this constructor. The version that takes no parameters simply
-        calls the version that takes a parent and passes null as the
-        parent value. If the parent is null, CustomTypeDescriptor returns
-        the defined default values for each method. If the parent is
-        non-null, CustomTypeDescriptor calls the parent's version of
-        the method.
-        
-        This method is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self, parent: System.ComponentModel.ICustomTypeDescriptor) -> None:
-        """
-        Creates a new CustomTypeDescriptor object. There are two versions
-        of this constructor. The version that takes no parameters simply
-        calls the version that takes a parent and passes null as the
-        parent value. If the parent is null, CustomTypeDescriptor returns
-        the defined default values for each method. If the parent is
-        non-null, CustomTypeDescriptor calls the parent's version of
-        the method.
-        
-        This method is protected.
-        """
-        ...
-
-    def get_attributes(self) -> System.ComponentModel.AttributeCollection:
-        """
-        The GetAttributes method returns the type-level attributes for
-        the type this custom type descriptor is providing information for.
-        You must always return a valid collection from this method.
-        """
-        ...
-
-    def get_class_name(self) -> str:
-        """
-        The GetClassName method returns the fully qualified name of the
-        class this type descriptor is representing. Returning null from
-        this method causes the TypeDescriptor object to return the
-        default class name.
-        """
-        ...
-
-    def get_component_name(self) -> str:
-        """
-        The GetComponentName method returns the name of the component instance
-        this type descriptor is describing.
-        """
-        ...
-
-    def get_converter(self) -> System.ComponentModel.TypeConverter:
-        """
-        The GetConverter method returns a type converter for the type this type
-        descriptor is representing.
-        """
-        ...
-
-    def get_converter_from_registered_type(self) -> System.ComponentModel.TypeConverter:
-        """
-        The GetConverterFromRegisteredType method returns a type converter for the type this type
-        descriptor is representing.
-        """
-        ...
-
-    def get_default_event(self) -> System.ComponentModel.EventDescriptor:
-        """
-        The GetDefaultEvent method returns the event descriptor for the default
-        event on the object this type descriptor is representing.
-        """
-        ...
-
-    def get_default_property(self) -> System.ComponentModel.PropertyDescriptor:
-        """
-        The GetDefaultProperty method returns the property descriptor for the
-        default property on the object this type descriptor is representing.
-        """
-        ...
-
-    def get_editor(self, editor_base_type: typing.Type) -> System.Object:
-        """
-        The GetEditor method returns an editor of the given type that is
-        to be associated with the class this type descriptor is representing.
-        """
-        ...
-
-    @overload
-    def get_events(self) -> System.ComponentModel.EventDescriptorCollection:
-        """
-        The GetEvents method returns a collection of event descriptors
-        for the object this type descriptor is representing.
-        """
-        ...
-
-    @overload
-    def get_events(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
-        """
-        The GetEvents method returns a collection of event descriptors
-        for the object this type descriptor is representing. An optional
-        attribute array may be provided to filter the collection that is
-        returned. If no parent is provided,this will return an empty
-        event collection.
-        """
-        ...
-
-    def get_events_from_registered_type(self) -> System.ComponentModel.EventDescriptorCollection:
-        """
-        Returns a collection of event descriptors
-        for the object this type descriptor is representing.
-        """
-        ...
-
-    @overload
-    def get_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
-        """
-        The GetProperties method returns a collection of property descriptors
-        for the object this type descriptor is representing.
-        """
-        ...
-
-    @overload
-    def get_properties(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
-        """
-        The GetProperties method returns a collection of property descriptors
-        for the object this type descriptor is representing. An optional
-        attribute array may be provided to filter the collection that is returned.
-        If no parent is provided,this will return an empty
-        property collection.
-        """
-        ...
-
-    def get_properties_from_registered_type(self) -> System.ComponentModel.PropertyDescriptorCollection:
-        """
-        The GetProperties method returns a collection of property descriptors
-        for the object this type descriptor is representing.
-        """
-        ...
-
-    def get_property_owner(self, pd: System.ComponentModel.PropertyDescriptor) -> System.Object:
-        """
-        The GetPropertyOwner method returns an instance of an object that
-        owns the given property for the object this type descriptor is representing.
-        An optional attribute array may be provided to filter the collection that is
-        returned. Returning null from this method causes the TypeDescriptor object
-        to use its default type description services.
-        """
-        ...
-
-
-class BooleanConverter(System.ComponentModel.TypeConverter):
-    """Provides a type converter to convert Boolean objects to and from various other representations."""
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object
-        in the given source type to a Boolean object using the specified context.
-        """
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """
-        Converts the given value
-        object to a Boolean object.
-        """
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        """Gets a collection of standard values for the Boolean data type."""
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether the list of standard values returned from
-        System.ComponentModel.BooleanConverter.GetStandardValues is an exclusive list.
-        """
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether this object supports a standard set of values that can
-        be picked from a list.
-        """
-        ...
-
-
-class CultureInfoConverter(System.ComponentModel.TypeConverter):
-    """
-    Provides a type converter to convert System.Globalization.CultureInfo
-    objects to and from various other representations.
-    """
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object in the given
-        source type to a System.Globalization.CultureInfo object using the specified context.
-        """
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object to
-        the given destination type using the context.
-        """
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """
-        Converts the specified value object to a System.Globalization.CultureInfo
-        object.
-        """
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given value object to the specified destination type."""
-        ...
-
-    def get_culture_name(self, culture: System.Globalization.CultureInfo) -> str:
-        """
-        Retrieves the Name for a input CultureInfo.
-        
-        This method is protected.
-        """
-        ...
-
-    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
-        """
-        Gets a collection of standard values collection for a System.Globalization.CultureInfo
-        object using the specified context.
-        """
-        ...
-
-    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether the list of standard values returned from
-        System.ComponentModel.CultureInfoConverter.GetStandardValues is an exclusive list.
-        """
-        ...
-
-    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
-        """
-        Gets a value indicating whether this object supports a standard set
-        of values that can be picked from a list using the specified context.
-        """
         ...
 
 
@@ -5575,6 +3420,49 @@ class ICancelAddNew(metaclass=abc.ABCMeta):
         """
         If a new item has been added to the list, and  is the position of that item,
         then this method should leave it in the list and complete the add operation.
+        """
+        ...
+
+
+class IRaiseItemChangedEvents(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def raises_item_changed_events(self) -> bool:
+        ...
+
+
+class AddingNewEventArgs(System.EventArgs):
+    """
+    Provides data for an event that signals the adding of a new object
+    to a list, allowing any event handler to supply the new object. If
+    no event handler supplies a new object to use, the list should create
+    one itself.
+    """
+
+    @property
+    def new_object(self) -> System.Object:
+        """Gets or sets the new object that will be added to the list."""
+        ...
+
+    @new_object.setter
+    def new_object(self, value: System.Object) -> None:
+        ...
+
+    @overload
+    def __init__(self, new_object: typing.Any) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.AddingNewEventArgs class,
+        with the specified object defined as the default new object.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.AddingNewEventArgs class,
+        with no new object defined.
         """
         ...
 
@@ -5754,6 +3642,167 @@ class BindingList(typing.Generic[System_ComponentModel_BindingList_T], System.Co
         ...
 
 
+class ProvidePropertyAttribute(System.Attribute):
+    """Specifies which methods are extender properties."""
+
+    @property
+    def property_name(self) -> str:
+        """Gets the name of a property that this class provides."""
+        ...
+
+    @property
+    def receiver_type_name(self) -> str:
+        """Gets the name of the data type this property can extend"""
+        ...
+
+    @property
+    def type_id(self) -> System.Object:
+        ...
+
+    @overload
+    def __init__(self, property_name: str, receiver_type: typing.Type) -> None:
+        """Initializes a new instance of the System.ComponentModel.ProvidePropertyAttribute class."""
+        ...
+
+    @overload
+    def __init__(self, property_name: str, receiver_type_name: str) -> None:
+        """Initializes a new instance of the System.ComponentModel.ProvidePropertyAttribute class."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class ISupportInitializeNotification(System.ComponentModel.ISupportInitialize, metaclass=abc.ABCMeta):
+    """Extends ISupportInitialize to allow dependent components to be notified when initialization is complete."""
+
+    @property
+    @abc.abstractmethod
+    def is_initialized(self) -> bool:
+        """Indicates whether initialization is complete yet."""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def initialized(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        """Sent when initialization is complete."""
+        ...
+
+    @initialized.setter
+    def initialized(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+
+class Int32Converter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert 32-bit signed integer objects to and
+    from various other representations.
+    """
+
+
+class PasswordPropertyTextAttribute(System.Attribute):
+    """
+    If this attribute is placed on a property or a type, its text representation in a property window
+    will appear as dots or asterisks to indicate a password field. This indication in no way
+    represents any type of encryption or security.
+    """
+
+    YES: System.ComponentModel.PasswordPropertyTextAttribute = ...
+    """
+    Sets the System.ComponentModel.Design.PasswordPropertyText
+    attribute by default to true.
+    """
+
+    NO: System.ComponentModel.PasswordPropertyTextAttribute = ...
+    """
+    Sets the System.ComponentModel.Design.PasswordPropertyText
+    attribute by default to false.
+    """
+
+    DEFAULT: System.ComponentModel.PasswordPropertyTextAttribute = ...
+    """
+    Sets the System.ComponentModel.Design.PasswordPropertyText
+    attribute by default to false.
+    """
+
+    @property
+    def password(self) -> bool:
+        """Gets a value indicating if the property this attribute is defined for should be shown as password text."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a default PasswordPropertyTextAttribute."""
+        ...
+
+    @overload
+    def __init__(self, password: bool) -> None:
+        """Creates a PasswordPropertyTextAttribute with the given password value."""
+        ...
+
+    def equals(self, o: typing.Any) -> bool:
+        """Overload for object equality"""
+        ...
+
+    def get_hash_code(self) -> int:
+        """Returns the hashcode for this object."""
+        ...
+
+    def is_default_attribute(self) -> bool:
+        """Gets a value indicating whether this attribute is set to true by default."""
+        ...
+
+
+class SettingsBindableAttribute(System.Attribute):
+    """
+    Use this attribute to specify typical properties on components that can be bound
+    to application settings.
+    """
+
+    YES: System.ComponentModel.SettingsBindableAttribute = ...
+    """Specifies that a property is appropriate to bind settings to."""
+
+    NO: System.ComponentModel.SettingsBindableAttribute = ...
+    """Specifies that a property is not appropriate to bind settings to."""
+
+    @property
+    def bindable(self) -> bool:
+        """Gets a value indicating whether a property is appropriate to bind settings to."""
+        ...
+
+    def __init__(self, bindable: bool) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class ContainerFilterService(System.Object, metaclass=abc.ABCMeta):
+    """
+    The Container and NestedContainer classes will call GetService for ContainerFilterService
+    each time they need to construct a Components collection for return to a caller.
+    ContainerFilterService may return an updated collection of components. This allows
+    an external service to modify the view of components that are returned from a container.
+    """
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    def filter_components(self, components: System.ComponentModel.ComponentCollection) -> System.ComponentModel.ComponentCollection:
+        """
+        Filters the components collection by optionally returning a new, modified collection.
+        The default implementation returns the input collection, thereby performing no filtering.
+        """
+        ...
+
+
 class DateOnlyConverter(System.ComponentModel.TypeConverter):
     """Provides a type converter to convert System.DateOnly objects to and from various other representations."""
 
@@ -5776,25 +3825,420 @@ class DateOnlyConverter(System.ComponentModel.TypeConverter):
         ...
 
 
-class CharConverter(System.ComponentModel.TypeConverter):
+class GuidConverter(System.ComponentModel.TypeConverter):
     """
-    Provides a type converter to convert Unicode character objects to and from various
+    Provides a type converter to convert globally unique identifier objects to and from various
     other representations.
     """
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         """
-        Gets a value indicating whether this converter can convert an object in the given
-        source type to a Unicode character object using the specified context.
+        Gets a value indicating whether this converter can convert an object in the given source
+        type to a globally unique identifier object using the context.
+        """
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object to
+        the given destination type using the context.
         """
         ...
 
     def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the given object to a Unicode character object."""
+        """Converts the given object to a globally unique identifier object."""
         ...
 
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given object to another type."""
+        """
+        Converts the given object to another type. The most common types to convert
+        are to and from a string object. The default implementation will make a call
+        to ToString on the object if the object is valid and if the destination
+        type is string. If this cannot convert to the destination type, this will
+        throw a NotSupportedException.
+        """
+        ...
+
+
+class BindableSupport(Enum):
+    """
+    Specifies which values to say if property or event value can be bound to a data
+    element or another property or event's value.
+    """
+
+    NO = ...
+    """The property or event is bindable."""
+
+    YES = ...
+    """The property or event is not bindable."""
+
+    DEFAULT = ...
+    """The property or event is the default."""
+
+    def __int__(self) -> int:
+        ...
+
+
+class INestedSite(System.ComponentModel.ISite, metaclass=abc.ABCMeta):
+    """
+    Nested containers site objects using INestedSite. A nested site is simply a site with
+    an additional property that can retrieve the full nested name of a component.
+    """
+
+    @property
+    @abc.abstractmethod
+    def full_name(self) -> str:
+        """
+        Returns the full name of the component in this site in the format of <owner>.<component>.
+        If this component's site has a null name, FullName also returns null.
+        """
+        ...
+
+
+class IExtenderProvider(metaclass=abc.ABCMeta):
+    """Defines the interface for extending properties to other components in a container."""
+
+    def can_extend(self, extendee: typing.Any) -> bool:
+        """
+        Specifies whether this object can provide its extender properties to
+        the specified object.
+        """
+        ...
+
+
+class ICustomTypeDescriptor(metaclass=abc.ABCMeta):
+    """Provides an interface that provides custom type information for an object."""
+
+    @property
+    @abc.abstractmethod
+    def require_registered_types(self) -> typing.Optional[bool]:
+        """Whether types are required to be registered through TypeDescriptionProvider.RegisterType{T}."""
+        ...
+
+    def get_attributes(self) -> System.ComponentModel.AttributeCollection:
+        """
+        Gets a collection of type System.Attribute with the attributes
+        for this object.
+        """
+        ...
+
+    def get_class_name(self) -> str:
+        """Gets the class name of this object."""
+        ...
+
+    def get_component_name(self) -> str:
+        """Gets the name of this object."""
+        ...
+
+    def get_converter(self) -> System.ComponentModel.TypeConverter:
+        """Gets a type converter for this object."""
+        ...
+
+    def get_converter_from_registered_type(self) -> System.ComponentModel.TypeConverter:
+        """Gets a type converter for this object that may be registered."""
+        ...
+
+    def get_default_event(self) -> System.ComponentModel.EventDescriptor:
+        """Gets the default event for this object."""
+        ...
+
+    def get_default_property(self) -> System.ComponentModel.PropertyDescriptor:
+        """Gets the default property for this object."""
+        ...
+
+    def get_editor(self, editor_base_type: typing.Type) -> System.Object:
+        """Gets an editor of the specified type for this object."""
+        ...
+
+    @overload
+    def get_events(self) -> System.ComponentModel.EventDescriptorCollection:
+        """Gets the events for this instance of a component."""
+        ...
+
+    @overload
+    def get_events(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
+        """
+        Gets the events for this instance of a component using the attribute array as a
+        filter.
+        """
+        ...
+
+    def get_events_from_registered_type(self) -> System.ComponentModel.EventDescriptorCollection:
+        """Gets the events for this instance of a component that may be registered."""
+        ...
+
+    @overload
+    def get_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
+        """Gets the properties for this instance of a component."""
+        ...
+
+    @overload
+    def get_properties(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        """Gets the properties for this instance of a component using the attribute array as a filter."""
+        ...
+
+    def get_properties_from_registered_type(self) -> System.ComponentModel.PropertyDescriptorCollection:
+        """Gets the properties for this instance of a component that may be registered."""
+        ...
+
+    def get_property_owner(self, pd: System.ComponentModel.PropertyDescriptor) -> System.Object:
+        """Gets the object that directly depends on this value being edited."""
+        ...
+
+
+class TypeDescriptionProvider(System.Object, metaclass=abc.ABCMeta):
+    """
+    The TypeDescriptionProvider class can be thought of as a "plug-in" for
+    TypeDescriptor. There can be multiple type description provider classes
+    all offering metadata to TypeDescriptor
+    """
+
+    @property
+    def require_registered_types(self) -> typing.Optional[bool]:
+        """
+        Whether the provider uses reflection and requires types to be registered through TypeDescriptor.RegisterType{T}
+        to support trimmed applications. For backwards compatibility, this is typically only enforced when calling members that have
+        a "FromRegisteredType" suffix.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        There are two versions of the constructor for this class. The empty
+        constructor is identical to using TypeDescriptionProvider(null).
+        If a child type description provider is passed into the constructor,
+        the "base" versions of all methods will call to this parent provider.
+        If no such provider is given, the base versions of the methods will
+        return empty, but valid values.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, parent: System.ComponentModel.TypeDescriptionProvider) -> None:
+        """
+        There are two versions of the constructor for this class. The empty
+        constructor is identical to using TypeDescriptionProvider(null).
+        If a child type description provider is passed into the constructor,
+        the "base" versions of all methods will call to this parent provider.
+        If no such provider is given, the base versions of the methods will
+        return empty, but valid values.
+        
+        This method is protected.
+        """
+        ...
+
+    def create_instance(self, provider: typing.Optional[IServiceProvider], object_type: typing.Type, arg_types: typing.List[typing.Type], args: typing.List[System.Object]) -> System.Object:
+        """
+        This method is used to create an instance that can substitute for another
+        data type. If the method is not interested in providing a substitute
+        instance, it should call base.
+        
+        This method is prototyped as virtual, and by default returns null if no
+        parent provider was passed. If a parent provider was passed, this
+        method will invoke the parent provider's CreateInstance method.
+        """
+        ...
+
+    def get_cache(self, instance: typing.Any) -> System.Collections.IDictionary:
+        """
+        TypeDescriptor may need to perform complex operations on collections of metadata.
+        Since types are not unloaded for the life of a domain, TypeDescriptor will
+        automatically cache the results of these operations based on type. There are a
+        number of operations that use live object instances, however. These operations
+        cannot be cached within TypeDescriptor because caching them would prevent the
+        object from garbage collecting. Instead, TypeDescriptor allows for a per-object
+        cache, accessed as an IDictionary of key/value pairs, to exist on an object.
+        The GetCache method returns an instance of this cache. GetCache will return
+        null if there is no supported cache for an object.
+        """
+        ...
+
+    def get_extended_type_descriptor(self, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
+        """
+        This method returns an extended custom type descriptor for the given object.
+        An extended type descriptor is a custom type descriptor that offers properties
+        that other objects have added to this object, but are not actually defined on
+        the object. For example, in the .NET Framework Component Model, objects that
+        implement the interface IExtenderProvider can "attach" properties to other
+        objects that reside in the same logical container. The GetTypeDescriptor
+        method does not return a type descriptor that provides these extra extended
+        properties. GetExtendedTypeDescriptor returns the set of these extended
+        properties. TypeDescriptor will automatically merge the results of these
+        two property collections. Note that while the .NET Framework component
+        model only supports extended properties this API can be used for extended
+        attributes and events as well, if the type description provider supports it.
+        """
+        ...
+
+    def get_extended_type_descriptor_from_registered_type(self, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
+        """
+        This method returns an extended custom type descriptor for the given object.
+        An extended type descriptor is a custom type descriptor that offers properties
+        that other objects have added to this object, but are not actually defined on
+        the object. For example, in the .NET Framework Component Model, objects that
+        implement the interface IExtenderProvider can "attach" properties to other
+        objects that reside in the same logical container. The GetTypeDescriptor
+        method does not return a type descriptor that provides these extra extended
+        properties. GetExtendedTypeDescriptor returns the set of these extended
+        properties. TypeDescriptor will automatically merge the results of these
+        two property collections. Note that while the .NET Framework component
+        model only supports extended properties this API can be used for extended
+        attributes and events as well, if the type description provider supports it.
+        """
+        ...
+
+    def get_full_component_name(self, component: typing.Any) -> str:
+        """
+        The name of the specified component, or null if the component has no name.
+        In many cases this will return the same value as GetComponentName. If the
+        component resides in a nested container or has other nested semantics, it may
+        return a different fully qualified name.
+        
+        If not overridden, the default implementation of this method will call
+        GetTypeDescriptor.GetComponentName.
+        """
+        ...
+
+    @overload
+    def get_reflection_type(self, instance: typing.Any) -> typing.Type:
+        """
+        The GetReflection method is a lower level version of GetTypeDescriptor.
+        If no custom type descriptor can be located for an object, GetReflectionType
+        is called to perform normal reflection against the object.
+        
+        This method is prototyped as virtual, and by default returns the
+        object type if no parent provider was passed. If a parent provider was passed, this
+        method will invoke the parent provider's GetReflectionType method.
+        """
+        ...
+
+    @overload
+    def get_reflection_type(self, object_type: typing.Type, instance: typing.Any) -> typing.Type:
+        """
+        The GetReflection method is a lower level version of GetTypeDescriptor.
+        If no custom type descriptor can be located for an object, GetReflectionType
+        is called to perform normal reflection against the object.
+        
+        This method is prototyped as virtual, and by default returns the
+        object type if no parent provider was passed. If a parent provider was passed, this
+        method will invoke the parent provider's GetReflectionType method.
+        """
+        ...
+
+    @overload
+    def get_reflection_type(self, object_type: typing.Type) -> typing.Type:
+        """
+        The GetReflection method is a lower level version of GetTypeDescriptor.
+        If no custom type descriptor can be located for an object, GetReflectionType
+        is called to perform normal reflection against the object.
+        """
+        ...
+
+    def get_runtime_type(self, reflection_type: typing.Type) -> typing.Type:
+        """
+        The GetRuntimeType method reverses GetReflectionType to convert a reflection type
+        back into a runtime type. Historically the Type.UnderlyingSystemType property has
+        been used to return the runtime type. This isn't exactly correct, but it needs
+        to be preserved unless all type description providers are revised.
+        """
+        ...
+
+    @overload
+    def get_type_descriptor(self, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
+        """
+        This method returns a custom type descriptor for the given type / object.
+        The objectType parameter is always valid, but the instance parameter may
+        be null if no instance was passed to TypeDescriptor. The method should
+        return a custom type descriptor for the object. If the method is not
+        interested in providing type information for the object it should
+        return base.
+        """
+        ...
+
+    @overload
+    def get_type_descriptor(self, object_type: typing.Type, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
+        """
+        This method returns a custom type descriptor for the given type / object.
+        The object_type parameter is always valid, but the instance parameter may
+        be null if no instance was passed to TypeDescriptor. The method should
+        return a custom type descriptor for the object. If the method is not
+        interested in providing type information for the object it should
+        return base.
+        
+        This method is prototyped as virtual, and by default returns a
+        custom type descriptor that returns empty collections for all values
+        if no parent provider was passed. If a parent provider was passed,
+        this method will invoke the parent provider's GetTypeDescriptor
+        method.
+        """
+        ...
+
+    @overload
+    def get_type_descriptor(self, object_type: typing.Type) -> System.ComponentModel.ICustomTypeDescriptor:
+        """
+        This method returns a custom type descriptor for the given type / object.
+        The object_type parameter is always valid, but the instance parameter may
+        be null if no instance was passed to TypeDescriptor. The method should
+        return a custom type descriptor for the object. If the method is not
+        interested in providing type information for the object it should
+        return base.
+        """
+        ...
+
+    @overload
+    def get_type_descriptor_from_registered_type(self, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
+        """
+        This method returns a custom type descriptor for the given type / object.
+        The objectType parameter is always valid, but the instance parameter may
+        be null if no instance was passed to TypeDescriptor. The method should
+        return a custom type descriptor for the object. If the method is not
+        interested in providing type information for the object it should
+        return base.
+        """
+        ...
+
+    @overload
+    def get_type_descriptor_from_registered_type(self, object_type: typing.Type, instance: typing.Any) -> System.ComponentModel.ICustomTypeDescriptor:
+        """
+        This method returns a custom type descriptor for the given type / object.
+        The object_type parameter is always valid, but the instance parameter may
+        be null if no instance was passed to TypeDescriptor. The method should
+        return a custom type descriptor for the object. If the method is not
+        interested in providing type information for the object it should
+        return base.
+        
+        This method is prototyped as virtual, and by default returns a
+        custom type descriptor that returns empty collections for all values
+        if no parent provider was passed. If a parent provider was passed,
+        this method will invoke the parent provider's GetTypeDescriptorFromRegisteredType
+        method.
+        """
+        ...
+
+    @overload
+    def get_type_descriptor_from_registered_type(self, object_type: typing.Type) -> System.ComponentModel.ICustomTypeDescriptor:
+        """
+        This method returns a custom type descriptor for the given type / object.
+        The object_type parameter is always valid, but the instance parameter may
+        be null if no instance was passed to TypeDescriptor. The method should
+        return a custom type descriptor for the object. If the method is not
+        interested in providing type information for the object it should
+        return base.
+        """
+        ...
+
+    def is_registered_type(self, type: typing.Type) -> bool:
+        """Returns whether the type was registered with its provider through TypeDescriptor.RegisterType{T}."""
+        ...
+
+    def is_supported_type(self, type: typing.Type) -> bool:
+        """
+        This method returns true if the type is "supported" by the type descriptor
+        and its chain of type description providers.
+        """
         ...
 
 
@@ -5825,35 +4269,6 @@ class RefreshEventArgs(System.EventArgs):
         Initializes a new instance of the System.ComponentModel.RefreshEventArgs class with
         the type of component that has changed.
         """
-        ...
-
-
-class SByteConverter(System.ComponentModel.BaseNumberConverter):
-    """
-    Provides a type converter to convert 8-bit unsigned integer objects to and from
-    various other representations.
-    """
-
-
-class TimeOnlyConverter(System.ComponentModel.TypeConverter):
-    """Provides a type converter to convert System.TimeOnly objects to and from various other representations."""
-
-    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object in the given source type to a System.TimeOnly
-        object using the specified context.
-        """
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        ...
-
-    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the given value object to a System.TimeOnly object."""
-        ...
-
-    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """Converts the given value object from a System.TimeOnly object using the arguments."""
         ...
 
 
@@ -6421,71 +4836,437 @@ class TypeDescriptor(System.Object):
         ...
 
 
-class ListBindableAttribute(System.Attribute):
+class DataObjectMethodType(Enum):
     """This class has no documentation."""
 
-    YES: System.ComponentModel.ListBindableAttribute = ...
+    FILL = 0
 
-    NO: System.ComponentModel.ListBindableAttribute = ...
+    SELECT = 1
 
-    DEFAULT: System.ComponentModel.ListBindableAttribute = ...
+    UPDATE = 2
+
+    INSERT = 3
+
+    DELETE = 4
+
+    def __int__(self) -> int:
+        ...
+
+
+class DataObjectMethodAttribute(System.Attribute):
+    """This class has no documentation."""
 
     @property
-    def list_bindable(self) -> bool:
+    def is_default(self) -> bool:
+        ...
+
+    @property
+    def method_type(self) -> System.ComponentModel.DataObjectMethodType:
         ...
 
     @overload
-    def __init__(self, list_bindable: bool) -> None:
+    def __init__(self, method_type: System.ComponentModel.DataObjectMethodType) -> None:
         ...
 
     @overload
-    def __init__(self, flags: System.ComponentModel.BindableSupport) -> None:
+    def __init__(self, method_type: System.ComponentModel.DataObjectMethodType, is_default: bool) -> None:
         ...
 
     def equals(self, obj: typing.Any) -> bool:
         ...
 
     def get_hash_code(self) -> int:
-        """Returns the hashcode for this object."""
         ...
 
-    def is_default_attribute(self) -> bool:
+    def match(self, obj: typing.Any) -> bool:
         ...
 
 
-class ContainerFilterService(System.Object, metaclass=abc.ABCMeta):
+class DefaultPropertyAttribute(System.Attribute):
+    """Specifies the default property for a component."""
+
+    @property
+    def name(self) -> str:
+        """
+        Gets the name of the default property for the component this attribute is
+        bound to.
+        """
+        ...
+
+    DEFAULT: System.ComponentModel.DefaultPropertyAttribute = ...
     """
-    The Container and NestedContainer classes will call GetService for ContainerFilterService
-    each time they need to construct a Components collection for return to a caller.
-    ContainerFilterService may return an updated collection of components. This allows
-    an external service to modify the view of components that are returned from a container.
+    Specifies the default value for the System.ComponentModel.DefaultPropertyAttribute, which is null. This
+    static field is read-only.
     """
 
+    def __init__(self, name: str) -> None:
+        """Initializes a new instance of the System.ComponentModel.DefaultPropertyAttribute class."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class WarningException(System.SystemException):
+    """Specifies an exception that is handled as a warning instead of an error."""
+
+    @property
+    def help_url(self) -> str:
+        """Specifies the Help file associated with the warning. This field is read-only."""
+        ...
+
+    @property
+    def help_topic(self) -> str:
+        """Specifies the Help topic associated with the warning. This field is read-only."""
+        ...
+
+    @overload
     def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def filter_components(self, components: System.ComponentModel.ComponentCollection) -> System.ComponentModel.ComponentCollection:
         """
-        Filters the components collection by optionally returning a new, modified collection.
-        The default implementation returns the input collection, thereby performing no filtering.
+        Initializes a new instance of the System.ComponentModel.WarningException class with the last Win32 error
+        that occurred.
         """
         ...
 
+    @overload
+    def __init__(self, message: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.WarningException class with
+        the specified message and no Help file.
+        """
+        ...
 
-class ComponentConverter(System.ComponentModel.ReferenceConverter):
+    @overload
+    def __init__(self, message: str, help_url: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.WarningException class with
+        the specified message, and with access to the specified Help file.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the Exception class with a specified error message and a
+        reference to the inner exception that is the cause of this exception.
+        FxCop CA1032: Multiple constructors are required to correctly implement a custom exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, help_url: str, help_topic: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.WarningException class with the
+        specified message, and with access to the specified Help file and topic.
+        """
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        Need this constructor since Exception implements ISerializable.
+        
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class CustomTypeDescriptor(System.Object, System.ComponentModel.ICustomTypeDescriptor, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def require_registered_types(self) -> typing.Optional[bool]:
+        """Whether types are required to be registered through TypeDescriptionProvider.RegisterType{T}."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Creates a new CustomTypeDescriptor object. There are two versions
+        of this constructor. The version that takes no parameters simply
+        calls the version that takes a parent and passes null as the
+        parent value. If the parent is null, CustomTypeDescriptor returns
+        the defined default values for each method. If the parent is
+        non-null, CustomTypeDescriptor calls the parent's version of
+        the method.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, parent: System.ComponentModel.ICustomTypeDescriptor) -> None:
+        """
+        Creates a new CustomTypeDescriptor object. There are two versions
+        of this constructor. The version that takes no parameters simply
+        calls the version that takes a parent and passes null as the
+        parent value. If the parent is null, CustomTypeDescriptor returns
+        the defined default values for each method. If the parent is
+        non-null, CustomTypeDescriptor calls the parent's version of
+        the method.
+        
+        This method is protected.
+        """
+        ...
+
+    def get_attributes(self) -> System.ComponentModel.AttributeCollection:
+        """
+        The GetAttributes method returns the type-level attributes for
+        the type this custom type descriptor is providing information for.
+        You must always return a valid collection from this method.
+        """
+        ...
+
+    def get_class_name(self) -> str:
+        """
+        The GetClassName method returns the fully qualified name of the
+        class this type descriptor is representing. Returning null from
+        this method causes the TypeDescriptor object to return the
+        default class name.
+        """
+        ...
+
+    def get_component_name(self) -> str:
+        """
+        The GetComponentName method returns the name of the component instance
+        this type descriptor is describing.
+        """
+        ...
+
+    def get_converter(self) -> System.ComponentModel.TypeConverter:
+        """
+        The GetConverter method returns a type converter for the type this type
+        descriptor is representing.
+        """
+        ...
+
+    def get_converter_from_registered_type(self) -> System.ComponentModel.TypeConverter:
+        """
+        The GetConverterFromRegisteredType method returns a type converter for the type this type
+        descriptor is representing.
+        """
+        ...
+
+    def get_default_event(self) -> System.ComponentModel.EventDescriptor:
+        """
+        The GetDefaultEvent method returns the event descriptor for the default
+        event on the object this type descriptor is representing.
+        """
+        ...
+
+    def get_default_property(self) -> System.ComponentModel.PropertyDescriptor:
+        """
+        The GetDefaultProperty method returns the property descriptor for the
+        default property on the object this type descriptor is representing.
+        """
+        ...
+
+    def get_editor(self, editor_base_type: typing.Type) -> System.Object:
+        """
+        The GetEditor method returns an editor of the given type that is
+        to be associated with the class this type descriptor is representing.
+        """
+        ...
+
+    @overload
+    def get_events(self) -> System.ComponentModel.EventDescriptorCollection:
+        """
+        The GetEvents method returns a collection of event descriptors
+        for the object this type descriptor is representing.
+        """
+        ...
+
+    @overload
+    def get_events(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.EventDescriptorCollection:
+        """
+        The GetEvents method returns a collection of event descriptors
+        for the object this type descriptor is representing. An optional
+        attribute array may be provided to filter the collection that is
+        returned. If no parent is provided,this will return an empty
+        event collection.
+        """
+        ...
+
+    def get_events_from_registered_type(self) -> System.ComponentModel.EventDescriptorCollection:
+        """
+        Returns a collection of event descriptors
+        for the object this type descriptor is representing.
+        """
+        ...
+
+    @overload
+    def get_properties(self) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        The GetProperties method returns a collection of property descriptors
+        for the object this type descriptor is representing.
+        """
+        ...
+
+    @overload
+    def get_properties(self, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        The GetProperties method returns a collection of property descriptors
+        for the object this type descriptor is representing. An optional
+        attribute array may be provided to filter the collection that is returned.
+        If no parent is provided,this will return an empty
+        property collection.
+        """
+        ...
+
+    def get_properties_from_registered_type(self) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        The GetProperties method returns a collection of property descriptors
+        for the object this type descriptor is representing.
+        """
+        ...
+
+    def get_property_owner(self, pd: System.ComponentModel.PropertyDescriptor) -> System.Object:
+        """
+        The GetPropertyOwner method returns an instance of an object that
+        owns the given property for the object this type descriptor is representing.
+        An optional attribute array may be provided to filter the collection that is
+        returned. Returning null from this method causes the TypeDescriptor object
+        to use its default type description services.
+        """
+        ...
+
+
+class SByteConverter(System.ComponentModel.BaseNumberConverter):
     """
-    Provides a type converter to convert component objects to and
-    from various other representations.
+    Provides a type converter to convert 8-bit unsigned integer objects to and from
+    various other representations.
     """
 
-    def __init__(self, type: typing.Type) -> None:
-        """Initializes a new instance of the System.ComponentModel.ComponentConverter class."""
+
+class ListSortDescription(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def property_descriptor(self) -> System.ComponentModel.PropertyDescriptor:
+        ...
+
+    @property_descriptor.setter
+    def property_descriptor(self, value: System.ComponentModel.PropertyDescriptor) -> None:
+        ...
+
+    @property
+    def sort_direction(self) -> System.ComponentModel.ListSortDirection:
+        ...
+
+    @sort_direction.setter
+    def sort_direction(self, value: System.ComponentModel.ListSortDirection) -> None:
+        ...
+
+    def __init__(self, property: System.ComponentModel.PropertyDescriptor, direction: System.ComponentModel.ListSortDirection) -> None:
+        ...
+
+
+class ListSortDescriptionCollection(System.Object, System.Collections.IList):
+    """This class has no documentation."""
+
+    @property
+    def count(self) -> int:
+        ...
+
+    def __getitem__(self, index: int) -> System.ComponentModel.ListSortDescription:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, sorts: typing.List[System.ComponentModel.ListSortDescription]) -> None:
+        ...
+
+    def __setitem__(self, index: int, value: System.ComponentModel.ListSortDescription) -> None:
+        ...
+
+    def contains(self, value: typing.Any) -> bool:
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        ...
+
+    def index_of(self, value: typing.Any) -> int:
+        ...
+
+
+class IBindingListView(System.ComponentModel.IBindingList, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def filter(self) -> str:
+        ...
+
+    @filter.setter
+    def filter(self, value: str) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def sort_descriptions(self) -> System.ComponentModel.ListSortDescriptionCollection:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def supports_advanced_sorting(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def supports_filtering(self) -> bool:
+        ...
+
+    def apply_sort(self, sorts: System.ComponentModel.ListSortDescriptionCollection) -> None:
+        ...
+
+    def remove_filter(self) -> None:
+        ...
+
+
+class MultilineStringConverter(System.ComponentModel.TypeConverter):
+    """Provides a type converter to convert multiline strings to a simple string."""
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """Converts the given value object to the specified destination type."""
         ...
 
     def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
         """
-        Gets a collection of properties for the type of component
+        Gets a collection of properties for the type of array specified by the value
+        parameter using the specified context and attributes.
+        """
+        ...
+
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """Gets a value indicating whether this object supports properties."""
+        ...
+
+
+class ExpandableObjectConverter(System.ComponentModel.TypeConverter):
+    """
+    Provides a type converter to convert expandable objects to and from various
+    other representations.
+    """
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the System.ComponentModel.ExpandableObjectConverter class."""
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        Gets a collection of properties for the type of object
         specified by the value parameter.
         """
         ...
@@ -6495,6 +5276,110 @@ class ComponentConverter(System.ComponentModel.ReferenceConverter):
         Gets a value indicating whether this object supports properties using the
         specified context.
         """
+        ...
+
+
+class StringConverter(System.ComponentModel.TypeConverter):
+    """
+    Provides a type converter to convert string objects to and from various other
+    representations.
+    """
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object in the
+        given source type to a string using the specified context.
+        """
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        """Converts the specified value object to a string object."""
+        ...
+
+
+class EnumConverter(System.ComponentModel.TypeConverter):
+    """
+    Provides a type converter to convert System.Enum objects to and
+    from various other representations
+    """
+
+    @property
+    def enum_type(self) -> typing.Type:
+        """This property is protected."""
+        ...
+
+    @property
+    def values(self) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        """This property is protected."""
+        ...
+
+    @values.setter
+    def values(self, value: System.ComponentModel.TypeConverter.StandardValuesCollection) -> None:
+        ...
+
+    @property
+    def comparer(self) -> System.Collections.IComparer:
+        """
+        Gets an System.Collections.IComparer interface that can
+        be used to sort the values of the enumerator.
+        
+        This property is protected.
+        """
+        ...
+
+    def __init__(self, type: typing.Type) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.EnumConverter class for the given
+        type.
+        """
+        ...
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object in the given
+        source type to an enumeration object using the specified context.
+        """
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object to the
+        given destination type using the context.
+        """
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        """Converts the specified value object to an enumeration object."""
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """Converts the given value object to the specified destination type."""
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        """
+        Gets a collection of standard values for the data type this validator is
+        designed for.
+        """
+        ...
+
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether the list of standard values returned from
+        System.ComponentModel.TypeConverter.GetStandardValues()
+        is an exclusive list using the specified context.
+        """
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether this object supports a standard set of values
+        that can be picked from a list using the specified context.
+        """
+        ...
+
+    def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
+        """Gets a value indicating whether the given object value is valid for this type."""
         ...
 
 
@@ -6558,6 +5443,948 @@ class LicenseException(System.SystemException):
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
+class UInt16Converter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert 16-bit unsigned integer objects to and
+    from various other representations.
+    """
+
+
+class TypeListConverter(System.ComponentModel.TypeConverter, metaclass=abc.ABCMeta):
+    """Provides a type converter that can be used to populate a list box with available types."""
+
+    def __init__(self, types: typing.List[typing.Type]) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.TypeListConverter class using
+        the type array as the available types.
+        
+        This method is protected.
+        """
+        ...
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter
+        can convert an object in the given source type to an enumeration object using
+        the specified context.
+        """
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object
+        to the given destination type using the context.
+        """
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        """Converts the specified value object to an enumeration object."""
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """Converts the given value object to the specified destination type."""
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        """Gets a collection of standard values for the data type this validator is designed for."""
+        ...
+
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether the list of standard values returned from
+        System.ComponentModel.TypeListConverter.GetStandardValues is an exclusive list.
+        """
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether this object supports a standard set of values that can be
+        picked from a list using the specified context.
+        """
+        ...
+
+
+class UInt128Converter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert 128-bit unsigned integer objects to and
+    from various other representations.
+    """
+
+
+class DateTimeConverter(System.ComponentModel.TypeConverter):
+    """
+    Provides a type converter to convert System.DateTime
+    objects to and from various other representations.
+    """
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an
+        object in the given source type to a System.DateTime
+        object using the specified context.
+        """
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object
+        to the given destination type using the context.
+        """
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        """Converts the given value object to a System.DateTime object."""
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """
+        Converts the given value object to a System.DateTime
+        object using the arguments.
+        """
+        ...
+
+
+class SingleConverter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert single-precision, floating point number objects to and
+    from various other representations.
+    """
+
+
+class Int16Converter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert 16-bit signed integer objects to and
+    from various other representations.
+    """
+
+
+class RunInstallerAttribute(System.Attribute):
+    """
+    Specifies whether an installer should be invoked during
+    installation of an assembly.
+    """
+
+    @property
+    def run_installer(self) -> bool:
+        """
+        Gets a value indicating whether an installer should be
+        invoked during installation of an assembly.
+        """
+        ...
+
+    YES: System.ComponentModel.RunInstallerAttribute = ...
+    """
+    Specifies that a
+    component is visible in a visual designer. This static field is
+    read-only.
+    """
+
+    NO: System.ComponentModel.RunInstallerAttribute = ...
+    """
+    Specifies that a
+    component
+    is not visible in a visual designer. This static field is
+    read-only.
+    """
+
+    DEFAULT: System.ComponentModel.RunInstallerAttribute = ...
+    """
+    Specifies the default visibility, which is System.ComponentModel.RunInstallerAttribute.No. This static field is
+    read-only.
+    """
+
+    def __init__(self, run_installer: bool) -> None:
+        """
+        Initializes a new instance of
+        the System.ComponentModel.RunInstallerAttribute class.
+        """
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        """Returns the hashcode for this object."""
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class LicenseProvider(System.Object, metaclass=abc.ABCMeta):
+    """Provides the abstract base class for implementing a System.ComponentModel.LicenseProvider."""
+
+    def get_license(self, context: System.ComponentModel.LicenseContext, type: typing.Type, instance: typing.Any, allow_exceptions: bool) -> System.ComponentModel.License:
+        """
+        When overridden in a derived class, gets a license for an or 
+        of component.
+        """
+        ...
+
+
+class HandledEventArgs(System.EventArgs):
+    """
+    Provides data for the System.ComponentModel.HandledEventArgs.Handled
+    event.
+    """
+
+    @property
+    def handled(self) -> bool:
+        """Gets or sets a value indicating whether the event was handled in the application's event handler."""
+        ...
+
+    @handled.setter
+    def handled(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.HandledEventArgs class with
+        handled set to false.
+        """
+        ...
+
+    @overload
+    def __init__(self, default_handled_value: bool) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.HandledEventArgs class with
+        handled set to the given value.
+        """
+        ...
+
+
+class BindingDirection(Enum):
+    """Specifies whether the template can be bound one-way or two-way."""
+
+    ONE_WAY = 0
+    """The template can only accept property values. Used with a generic ITemplate."""
+
+    TWO_WAY = 1
+    """The template can accept and expose property values. Used with an IBindableTemplate."""
+
+    def __int__(self) -> int:
+        ...
+
+
+class BindableAttribute(System.Attribute):
+    """Specifies whether a property is appropriate to bind data to."""
+
+    YES: System.ComponentModel.BindableAttribute = ...
+    """
+    Specifies that a property is appropriate to bind data to. This
+    static field is read-only.
+    """
+
+    NO: System.ComponentModel.BindableAttribute = ...
+    """
+    Specifies that a property is not appropriate to bind data to.
+    This static field is read-only.
+    """
+
+    DEFAULT: System.ComponentModel.BindableAttribute = ...
+    """
+    Specifies the default value for the System.ComponentModel.BindableAttribute, which
+    is System.ComponentModel.BindableAttribute.No. This static field is
+    read-only.
+    """
+
+    @property
+    def bindable(self) -> bool:
+        """Gets a value indicating whether a property is appropriate to bind data to."""
+        ...
+
+    @property
+    def direction(self) -> System.ComponentModel.BindingDirection:
+        """Gets a value indicating the direction(s) this property be bound to data."""
+        ...
+
+    @overload
+    def __init__(self, bindable: bool) -> None:
+        """Initializes a new instance of the System.ComponentModel.BindableAttribute class."""
+        ...
+
+    @overload
+    def __init__(self, bindable: bool, direction: System.ComponentModel.BindingDirection) -> None:
+        """Initializes a new instance of the System.ComponentModel.BindableAttribute class."""
+        ...
+
+    @overload
+    def __init__(self, flags: System.ComponentModel.BindableSupport) -> None:
+        """Initializes a new instance of the System.ComponentModel.BindableAttribute class."""
+        ...
+
+    @overload
+    def __init__(self, flags: System.ComponentModel.BindableSupport, direction: System.ComponentModel.BindingDirection) -> None:
+        """Initializes a new instance of the System.ComponentModel.BindableAttribute class."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class UInt32Converter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert 32-bit unsigned integer objects to and
+    from various other representations.
+    """
+
+
+class IDataErrorInfo(metaclass=abc.ABCMeta):
+    """
+    Suppose that you have some data that can be indexed by use of string:
+    then there are two types of errors:
+    1. an error for each piece of data that can be indexed
+    2. an error that is valid on the entire data
+    """
+
+    @property
+    @abc.abstractmethod
+    def error(self) -> str:
+        ...
+
+    def __getitem__(self, column_name: str) -> str:
+        ...
+
+
+class ExtenderProvidedPropertyAttribute(System.Attribute):
+    """
+    ExtenderProvidedPropertyAttribute is an attribute that marks that a property
+    was actually offered up by and extender provider.
+    """
+
+    @property
+    def extender_property(self) -> System.ComponentModel.PropertyDescriptor:
+        """PropertyDescriptor of the property that is being provided."""
+        ...
+
+    @property
+    def provider(self) -> System.ComponentModel.IExtenderProvider:
+        """Extender provider that is providing the property."""
+        ...
+
+    @property
+    def receiver_type(self) -> typing.Type:
+        """The type of object that can receive these properties."""
+        ...
+
+    def __init__(self) -> None:
+        """Creates an empty ExtenderProvidedPropertyAttribute."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        ...
+
+
+class TimeOnlyConverter(System.ComponentModel.TypeConverter):
+    """Provides a type converter to convert System.TimeOnly objects to and from various other representations."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object in the given source type to a System.TimeOnly
+        object using the specified context.
+        """
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        """Converts the given value object to a System.TimeOnly object."""
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """Converts the given value object from a System.TimeOnly object using the arguments."""
+        ...
+
+
+class LicenseProviderAttribute(System.Attribute):
+    """
+    Specifies the System.ComponentModel.LicenseProvider
+    to use with a class.
+    """
+
+    DEFAULT: System.ComponentModel.LicenseProviderAttribute = ...
+    """Specifies the default value, which is no provider. This static field is read-only."""
+
+    @property
+    def license_provider(self) -> typing.Type:
+        """Gets the license provider to use with the associated class."""
+        ...
+
+    @property
+    def type_id(self) -> System.Object:
+        """
+        This defines a unique ID for this attribute type. It is used
+        by filtering algorithms to identify two attributes that are
+        the same type. For most attributes, this just returns the
+        Type instance for the attribute. LicenseProviderAttribute overrides this to include the type name and the
+        provider type name.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.LicenseProviderAttribute class without a license
+        provider.
+        """
+        ...
+
+    @overload
+    def __init__(self, type_name: str) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.LicenseProviderAttribute class with
+        the specified type.
+        """
+        ...
+
+    @overload
+    def __init__(self, type: typing.Type) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.LicenseProviderAttribute class with
+        the specified type of license provider.
+        """
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        """Returns the hashcode for this object."""
+        ...
+
+
+class Container(System.Object, System.ComponentModel.IContainer):
+    """Encapsulates zero or more components."""
+
+    @property
+    def components(self) -> System.ComponentModel.ComponentCollection:
+        """Gets all the components in the System.ComponentModel.Container."""
+        ...
+
+    @overload
+    def add(self, component: System.ComponentModel.IComponent) -> None:
+        """
+        Adds the specified component to the System.ComponentModel.Container
+        The component is unnamed.
+        """
+        ...
+
+    @overload
+    def add(self, component: System.ComponentModel.IComponent, name: str) -> None:
+        ...
+
+    def create_site(self, component: System.ComponentModel.IComponent, name: str) -> System.ComponentModel.ISite:
+        """
+        Creates a Site System.ComponentModel.ISite for the given System.ComponentModel.IComponent
+        and assigns the given name to the site.
+        
+        This method is protected.
+        """
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        """
+        Disposes of the container. A call to the Dispose method indicates that
+        the user of the container has no further need for it.
+        
+        The implementation of Dispose must:
+        
+        (1) Remove any references the container is holding to other components.
+        This is typically accomplished by assigning null to any fields that
+        contain references to other components.
+        
+        (2) Release any system resources that are associated with the container,
+        such as file handles, window handles, or database connections.
+        
+        (3) Dispose of child components by calling the Dispose method of each.
+        
+        Ideally, a call to Dispose will revert a container to the state it was
+        in immediately after it was created. However, this is not a requirement.
+        Following a call to its Dispose method, a container is permitted to raise
+        exceptions for operations that cannot meaningfully be performed.
+        """
+        ...
+
+    @overload
+    def dispose(self, disposing: bool) -> None:
+        """This method is protected."""
+        ...
+
+    def get_service(self, service: typing.Type) -> System.Object:
+        """This method is protected."""
+        ...
+
+    def remove(self, component: System.ComponentModel.IComponent) -> None:
+        """Removes a component from the System.ComponentModel.Container."""
+        ...
+
+    def remove_without_unsiting(self, component: System.ComponentModel.IComponent) -> None:
+        """This method is protected."""
+        ...
+
+    def validate_name(self, component: System.ComponentModel.IComponent, name: str) -> None:
+        """
+        Validates that the given name is valid for a component. The default implementation
+        verifies that name is either null or unique compared to the names of other
+        components in the container.
+        
+        This method is protected.
+        """
+        ...
+
+
+class NestedContainer(System.ComponentModel.Container, System.ComponentModel.INestedContainer):
+    """
+    A nested container is a container that is owned by another component. Nested
+    containers can be found by querying a component site's services for NestedConainter.
+    Nested containers are a useful tool to establish owner relationships among components.
+    All components within a nested container are named with the owning component's name
+    as a prefix.
+    """
+
+    @property
+    def owner(self) -> System.ComponentModel.IComponent:
+        """The component that owns this nested container."""
+        ...
+
+    @property
+    def owner_name(self) -> str:
+        """
+        Retrieves the name of the owning component. This may be overridden to
+        provide a custom owner name. The default searches the owner's site for
+        INestedSite and calls FullName, or ISite.Name if there is no nested site.
+        If neither is available, this returns null.
+        
+        This property is protected.
+        """
+        ...
+
+    def __init__(self, owner: System.ComponentModel.IComponent) -> None:
+        """Creates a new NestedContainer."""
+        ...
+
+    def create_site(self, component: System.ComponentModel.IComponent, name: str) -> System.ComponentModel.ISite:
+        """
+        Creates a site for the component within the container.
+        
+        This method is protected.
+        """
+        ...
+
+    def dispose(self, disposing: bool) -> None:
+        """
+        Override of Container's dispose.
+        
+        This method is protected.
+        """
+        ...
+
+    def get_service(self, service: typing.Type) -> System.Object:
+        """This method is protected."""
+        ...
+
+
+class Int64Converter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert 64-bit signed integer objects to and
+    from various other representations.
+    """
+
+
+class TimeSpanConverter(System.ComponentModel.TypeConverter):
+    """
+    Provides a type converter to convert System.TimeSpan objects to and from
+    various other representations.
+    """
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can
+        convert an object in the given source type to a System.TimeSpan object using the
+        specified context.
+        """
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object to the given
+        destination type using the context.
+        """
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        """
+        Converts the given object to a System.TimeSpan
+        object.
+        """
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """
+        Converts the given object to another type. The most common types to convert
+        are to and from a string object. The default implementation will make a call
+        to ToString on the object if the object is valid and if the destination
+        type is string. If this cannot convert to the destination type, this will
+        throw a NotSupportedException.
+        """
+        ...
+
+
+class VersionConverter(System.ComponentModel.TypeConverter):
+    """
+    Provides a type converter to convert Version objects to and
+          from various other representations.
+    """
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object in the
+              given source type to a Version.
+        """
+        ...
+
+    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can
+              convert an object to the given destination type using the context.
+        """
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        """Converts the given object to a Version."""
+        ...
+
+    def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """
+        Converts the given value object to
+              the specified destination type using the specified context and arguments.
+        """
+        ...
+
+    def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
+        ...
+
+
+class DoubleConverter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert double-precision, floating point number objects
+    to and from various other representations.
+    """
+
+
+class MarshalByValueComponent(System.Object, System.ComponentModel.IComponent, IServiceProvider):
+    """
+    Provides the base implementation for System.ComponentModel.IComponent,
+    which is the base class for all components in Win Forms.
+    """
+
+    @property
+    def disposed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        """Adds an event handler to listen to the Disposed event on the component."""
+        ...
+
+    @disposed.setter
+    def disposed(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def events(self) -> System.ComponentModel.EventHandlerList:
+        """
+        Gets the list of event handlers that are attached to this component.
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def site(self) -> System.ComponentModel.ISite:
+        """Gets or sets the site of the component."""
+        ...
+
+    @site.setter
+    def site(self, value: System.ComponentModel.ISite) -> None:
+        ...
+
+    @property
+    def container(self) -> System.ComponentModel.IContainer:
+        """Gets the container for the component."""
+        ...
+
+    @property
+    def design_mode(self) -> bool:
+        """Gets a value indicating whether the component is currently in design mode."""
+        ...
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the System.ComponentModel.MarshalByValueComponent class."""
+        ...
+
+    @overload
+    def dispose(self) -> None:
+        """Disposes of the resources (other than memory) used by the component."""
+        ...
+
+    @overload
+    def dispose(self, disposing: bool) -> None:
+        """
+        Disposes all the resources associated with this component.
+        If disposing is false then you must never touch any other
+        managed objects, as they may already be finalized. When
+        in this state you should dispose any native resources
+        that you have a reference to.
+        
+        
+        When disposing is true then you should dispose all data
+        and objects you have references to. The normal implementation
+        of this method would look something like:
+        
+        
+        public void Dispose() {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+        }
+        
+        protected virtual void Dispose(bool disposing) {
+        if (disposing) {
+          if (myobject != null) {
+              myobject.Dispose();
+              myobject = null;
+          }
+        }
+        if (myhandle != IntPtr.Zero) {
+          NativeMethods.Release(myhandle);
+          myhandle = IntPtr.Zero;
+        }
+        }
+        
+        ~MyClass() {
+        Dispose(false);
+        }
+        
+        
+        For base classes, you should never override the Finalizer (~Class in C#)
+        or the Dispose method that takes no arguments, rather you should
+        always override the Dispose method that takes a bool.
+        
+        
+        protected override void Dispose(bool disposing) {
+        if (disposing) {
+          if (myobject != null) {
+              myobject.Dispose();
+              myobject = null;
+          }
+        }
+        if (myhandle != IntPtr.Zero) {
+          NativeMethods.Release(myhandle);
+          myhandle = IntPtr.Zero;
+        }
+        base.Dispose(disposing);
+        }
+        
+        This method is protected.
+        """
+        ...
+
+    def get_service(self, service: typing.Type) -> System.Object:
+        """Gets the implementer of the System.IServiceProvider."""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string containing the name of the System.ComponentModel.Component , if any. This method should not be
+        overridden. For
+        internal use only.
+        """
+        ...
+
+
+class ToolboxItemAttribute(System.Attribute):
+    """Specifies attributes for a toolbox item."""
+
+    DEFAULT: System.ComponentModel.ToolboxItemAttribute = ...
+    """Initializes a new instance of ToolboxItemAttribute and sets the type to"""
+
+    NONE: System.ComponentModel.ToolboxItemAttribute = ...
+    """
+    Initializes a new instance of ToolboxItemAttribute and sets the type to
+    null.
+    """
+
+    @property
+    def toolbox_item_type(self) -> typing.Type:
+        """Gets the toolbox item's type."""
+        ...
+
+    @property
+    def toolbox_item_type_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, default_type: bool) -> None:
+        """Initializes a new instance of ToolboxItemAttribute and specifies if default values should be used."""
+        ...
+
+    @overload
+    def __init__(self, toolbox_item_type_name: str) -> None:
+        """Initializes a new instance of ToolboxItemAttribute and specifies the name of the type."""
+        ...
+
+    @overload
+    def __init__(self, toolbox_item_type: typing.Type) -> None:
+        """Initializes a new instance of ToolboxItemAttribute and specifies the type of the toolbox item."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def is_default_attribute(self) -> bool:
+        """Gets whether the attribute is the default attribute."""
+        ...
+
+
+class InheritanceLevel(Enum):
+    """Specifies numeric IDs for different inheritance levels."""
+
+    INHERITED = 1
+    """Indicates that the object is inherited."""
+
+    INHERITED_READ_ONLY = 2
+    """Indicates that the object is inherited, but has read-only access."""
+
+    NOT_INHERITED = 3
+    """Indicates that the object is not inherited."""
+
+    def __int__(self) -> int:
+        ...
+
+
+class InheritanceAttribute(System.Attribute):
+    """
+    Marks instances of objects that are inherited from their base class. This
+    class cannot be inherited.
+    """
+
+    INHERITED: System.ComponentModel.InheritanceAttribute = ...
+    """
+    Specifies that the component is inherited. This field is
+    read-only.
+    """
+
+    INHERITED_READ_ONLY: System.ComponentModel.InheritanceAttribute = ...
+    """
+    Specifies that
+    the component is inherited and is read-only. This field is
+    read-only.
+    """
+
+    NOT_INHERITED: System.ComponentModel.InheritanceAttribute = ...
+    """
+    Specifies that the component is not inherited. This field is
+    read-only.
+    """
+
+    DEFAULT: System.ComponentModel.InheritanceAttribute = ...
+    """
+    Specifies the default value for
+    the InheritanceAttribute as NotInherited.
+    """
+
+    @property
+    def inheritance_level(self) -> System.ComponentModel.InheritanceLevel:
+        """
+        Gets or sets
+        the current inheritance level stored in this attribute.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.Design.InheritanceAttribute
+        class.
+        """
+        ...
+
+    @overload
+    def __init__(self, inheritance_level: System.ComponentModel.InheritanceLevel) -> None:
+        """
+        Initializes a new instance of the System.ComponentModel.Design.InheritanceAttribute class
+        with the specified inheritance
+        level.
+        """
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        """Override to test for equality."""
+        ...
+
+    def get_hash_code(self) -> int:
+        """Returns the hashcode for this object."""
+        ...
+
+    def is_default_attribute(self) -> bool:
+        """Gets whether this attribute is the default."""
+        ...
+
+    def to_string(self) -> str:
+        """Converts this attribute to a string."""
+        ...
+
+
+class BooleanConverter(System.ComponentModel.TypeConverter):
+    """Provides a type converter to convert Boolean objects to and from various other representations."""
+
+    def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
+        """
+        Gets a value indicating whether this converter can convert an object
+        in the given source type to a Boolean object using the specified context.
+        """
+        ...
+
+    def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
+        """
+        Converts the given value
+        object to a Boolean object.
+        """
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        """Gets a collection of standard values for the Boolean data type."""
+        ...
+
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether the list of standard values returned from
+        System.ComponentModel.BooleanConverter.GetStandardValues is an exclusive list.
+        """
+        ...
+
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether this object supports a standard set of values that can
+        be picked from a list.
+        """
+        ...
+
+
 class DesignTimeVisibleAttribute(System.Attribute):
     """
     DesignTimeVisibileAttribute marks a component's visibility. If
@@ -6608,70 +6435,164 @@ class DesignTimeVisibleAttribute(System.Attribute):
         ...
 
 
-class HandledEventArgs(System.EventArgs):
+class ReferenceConverter(System.ComponentModel.TypeConverter):
     """
-    Provides data for the System.ComponentModel.HandledEventArgs.Handled
-    event.
+    Provides a type converter to convert object references to and from various
+    other representations.
     """
 
-    @property
-    def handled(self) -> bool:
-        """Gets or sets a value indicating whether the event was handled in the application's event handler."""
+    def __init__(self, type: typing.Type) -> None:
+        """Initializes a new instance of the System.ComponentModel.ReferenceConverter class."""
         ...
-
-    @handled.setter
-    def handled(self, value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.HandledEventArgs class with
-        handled set to false.
-        """
-        ...
-
-    @overload
-    def __init__(self, default_handled_value: bool) -> None:
-        """
-        Initializes a new instance of the System.ComponentModel.HandledEventArgs class with
-        handled set to the given value.
-        """
-        ...
-
-
-class VersionConverter(System.ComponentModel.TypeConverter):
-    """
-    Provides a type converter to convert Version objects to and
-          from various other representations.
-    """
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         """
         Gets a value indicating whether this converter can convert an object in the
-              given source type to a Version.
-        """
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can
-              convert an object to the given destination type using the context.
+        given source type to a reference object using the specified context.
         """
         ...
 
     def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the given object to a Version."""
+        """Converts the given object to the reference type."""
         ...
 
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
+        """Converts the given value object to the reference type using the specified context and arguments."""
+        ...
+
+    def get_standard_values(self, context: System.ComponentModel.ITypeDescriptorContext) -> System.ComponentModel.TypeConverter.StandardValuesCollection:
+        """Gets a collection of standard values for the reference data type."""
+        ...
+
+    def get_standard_values_exclusive(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
         """
-        Converts the given value object to
-              the specified destination type using the specified context and arguments.
+        Gets a value indicating whether the list of standard values returned from
+        System.ComponentModel.ReferenceConverter.GetStandardValues is an exclusive list.
         """
         ...
 
-    def is_valid(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
+    def get_standard_values_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether this object supports a standard set of values
+        that can be picked from a list.
+        """
+        ...
+
+    def is_value_allowed(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any) -> bool:
+        """
+        Gets a value indicating whether a particular value can be added to
+        the standard values collection.
+        
+        This method is protected.
+        """
+        ...
+
+
+class UInt64Converter(System.ComponentModel.BaseNumberConverter):
+    """
+    Provides a type converter to convert 64-bit unsigned integer objects to and
+    from various other representations.
+    """
+
+
+class LicFileLicenseProvider(System.ComponentModel.LicenseProvider):
+    """
+    Provides an implementation of a System.ComponentModel.LicenseProvider. The provider works in
+    a similar fashion to Microsoft .NET Framework standard licensing module.
+    """
+
+    def get_key(self, type: typing.Type) -> str:
+        """
+        Creates a key for the specified type.
+        
+        This method is protected.
+        """
+        ...
+
+    def get_license(self, context: System.ComponentModel.LicenseContext, type: typing.Type, instance: typing.Any, allow_exceptions: bool) -> System.ComponentModel.License:
+        """Gets a license for the instance of the component and determines if it is valid."""
+        ...
+
+    def is_key_valid(self, key: str, type: typing.Type) -> bool:
+        """
+        Determines if the key retrieved by the System.ComponentModel.LicFileLicenseProvider.GetLicense method is valid
+        for the specified type.
+        
+        This method is protected.
+        """
+        ...
+
+
+class DefaultBindingPropertyAttribute(System.Attribute):
+    """Specifies the default binding property for a component."""
+
+    @property
+    def name(self) -> str:
+        """
+        Gets the name of the default binding property for the component this attribute is
+        bound to.
+        """
+        ...
+
+    DEFAULT: System.ComponentModel.DefaultBindingPropertyAttribute = ...
+    """
+    Specifies the default value for the System.ComponentModel.DefaultBindingPropertyAttribute, which is null. This
+    static field is read-only.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the System.ComponentModel.DefaultBindingPropertyAttribute class."""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """Initializes a new instance of the System.ComponentModel.DefaultBindingPropertyAttribute class."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class ComponentConverter(System.ComponentModel.ReferenceConverter):
+    """
+    Provides a type converter to convert component objects to and
+    from various other representations.
+    """
+
+    def __init__(self, type: typing.Type) -> None:
+        """Initializes a new instance of the System.ComponentModel.ComponentConverter class."""
+        ...
+
+    def get_properties(self, context: System.ComponentModel.ITypeDescriptorContext, value: typing.Any, attributes: typing.List[System.Attribute]) -> System.ComponentModel.PropertyDescriptorCollection:
+        """
+        Gets a collection of properties for the type of component
+        specified by the value parameter.
+        """
+        ...
+
+    def get_properties_supported(self, context: System.ComponentModel.ITypeDescriptorContext) -> bool:
+        """
+        Gets a value indicating whether this object supports properties using the
+        specified context.
+        """
+        ...
+
+
+class ComponentEditor(System.Object, metaclass=abc.ABCMeta):
+    """Provides the base class for a custom component editor."""
+
+    @overload
+    def edit_component(self, component: typing.Any) -> bool:
+        """Gets a value indicating whether the component was modified."""
+        ...
+
+    @overload
+    def edit_component(self, context: System.ComponentModel.ITypeDescriptorContext, component: typing.Any) -> bool:
+        """Gets a value indicating whether the component was modified."""
         ...
 
 
@@ -6682,45 +6603,124 @@ class ByteConverter(System.ComponentModel.BaseNumberConverter):
     """
 
 
-class HalfConverter(System.ComponentModel.BaseNumberConverter):
+class ComplexBindingPropertiesAttribute(System.Attribute):
+    """Specifies the data source and data member properties for a component."""
+
+    @property
+    def data_source(self) -> str:
+        """
+        Gets the name of the data source property for the component this attribute is
+        bound to.
+        """
+        ...
+
+    @property
+    def data_member(self) -> str:
+        """
+        Gets the name of the data member property for the component this attribute is
+        bound to.
+        """
+        ...
+
+    DEFAULT: System.ComponentModel.ComplexBindingPropertiesAttribute = ...
     """
-    Provides a type converter to convert half-precision, floating point number objects to and
-    from various other representations.
+    Specifies the default value for the System.ComponentModel.ComplexBindingPropertiesAttribute, which is null. This
+    static field is read-only.
     """
 
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the System.ComponentModel.ComplexBindingPropertiesAttribute class."""
+        ...
 
-class GuidConverter(System.ComponentModel.TypeConverter):
+    @overload
+    def __init__(self, data_source: str) -> None:
+        """Initializes a new instance of the System.ComponentModel.ComplexBindingPropertiesAttribute class."""
+        ...
+
+    @overload
+    def __init__(self, data_source: str, data_member: str) -> None:
+        """Initializes a new instance of the System.ComponentModel.ComplexBindingPropertiesAttribute class."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class InstanceCreationEditor(System.Object, metaclass=abc.ABCMeta):
     """
-    Provides a type converter to convert globally unique identifier objects to and from various
+    An InstanceCreationEditor allows the user to create an instance of a particular type of property from a dropdown
+    Within the PropertyGrid. Usually, the text specified by InstanceCreationEditor.Text will be displayed on the
+    dropdown from the PropertyGrid as a link or button. When clicked, the InstanceCreationEditor.CreateInstance
+    method will be called with the Type of the object to create.
+    """
+
+    @property
+    def text(self) -> str:
+        ...
+
+    def create_instance(self, context: System.ComponentModel.ITypeDescriptorContext, instance_type: typing.Type) -> System.Object:
+        """
+        This method is invoked when you user chooses the link displayed by the PropertyGrid for the InstanceCreationEditor.
+        The object returned from this method must be an instance of the specified type, or null in which case the editor will do nothing.
+        """
+        ...
+
+
+class CharConverter(System.ComponentModel.TypeConverter):
+    """
+    Provides a type converter to convert Unicode character objects to and from various
     other representations.
     """
 
     def can_convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, source_type: typing.Type) -> bool:
         """
-        Gets a value indicating whether this converter can convert an object in the given source
-        type to a globally unique identifier object using the context.
-        """
-        ...
-
-    def can_convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, destination_type: typing.Type) -> bool:
-        """
-        Gets a value indicating whether this converter can convert an object to
-        the given destination type using the context.
+        Gets a value indicating whether this converter can convert an object in the given
+        source type to a Unicode character object using the specified context.
         """
         ...
 
     def convert_from(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any) -> System.Object:
-        """Converts the given object to a globally unique identifier object."""
+        """Converts the given object to a Unicode character object."""
         ...
 
     def convert_to(self, context: System.ComponentModel.ITypeDescriptorContext, culture: System.Globalization.CultureInfo, value: typing.Any, destination_type: typing.Type) -> System.Object:
-        """
-        Converts the given object to another type. The most common types to convert
-        are to and from a string object. The default implementation will make a call
-        to ToString on the object if the object is valid and if the destination
-        type is string. If this cannot convert to the destination type, this will
-        throw a NotSupportedException.
-        """
+        """Converts the given object to another type."""
+        ...
+
+
+class ListBindableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    YES: System.ComponentModel.ListBindableAttribute = ...
+
+    NO: System.ComponentModel.ListBindableAttribute = ...
+
+    DEFAULT: System.ComponentModel.ListBindableAttribute = ...
+
+    @property
+    def list_bindable(self) -> bool:
+        ...
+
+    @overload
+    def __init__(self, list_bindable: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, flags: System.ComponentModel.BindableSupport) -> None:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        """Returns the hashcode for this object."""
+        ...
+
+    def is_default_attribute(self) -> bool:
         ...
 
 

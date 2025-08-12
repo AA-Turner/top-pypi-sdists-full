@@ -378,9 +378,13 @@ def notebook_dir() -> pathlib.Path | None:
         # return the current working directory
         return pathlib.Path().absolute()
 
-    filename = ctx.filename
+    # NB: __file__ is patched by runner, so always bound to be correct.
+    filename = ctx.globals.get("__file__", None) or ctx.filename
     if filename is not None:
-        return pathlib.Path(filename).parent.absolute()
+        path = pathlib.Path(filename).resolve()
+        while not path.is_dir():
+            path = path.parent
+        return path
 
     return None
 
@@ -758,6 +762,15 @@ class Kernel:
     def _install_execution_context(
         self, cell_id: CellId_t, setting_element_value: bool = False
     ) -> Iterator[ExecutionContext]:
+        """NB: When installed, KeyboardInterrupts may be raised, which MUST be caught.
+
+        try:
+            with self._install_execution_context():
+                # Keyboard interrupts may be raised!
+                ...
+        except KeyboardInterrupt:
+            ...
+        """
         ctx = get_context()
         assert isinstance(ctx, KernelRuntimeContext)
         ctx.execution_context = (

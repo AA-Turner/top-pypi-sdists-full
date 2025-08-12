@@ -47,6 +47,7 @@ class SourceType(str, Enum):
     kotlin = "kotlin"
     swift = "swift"
     php = "php"
+    golang = "golang"
 
 
 class ActionTriggerSourceType(BaseModel):
@@ -4241,4 +4242,4 @@ DataAssetFieldProfile.model_rebuild()
 FullComponent.model_rebuild()
 
 # OpenAPI schema version used to generate this file
-OPENAPI_SCHEMA_VERSION = "0.2.6"
+OPENAPI_SCHEMA_VERSION = "0.2.8"

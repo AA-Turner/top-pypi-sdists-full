@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING
 
 from packaging.requirements import Requirement
 
-from cx_Freeze._compat import IS_MINGW, IS_WINDOWS
+from cx_Freeze._compat import IS_MACOS, IS_MINGW, IS_WINDOWS
 from cx_Freeze.exception import ModuleError, OptionError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterator, Sequence
     from types import CodeType
 
 __all__ = ["ConstantsModule", "Module", "ModuleHook"]
@@ -140,16 +140,22 @@ class DistributionCache(metadata.PathDistribution):
             file.write("\n".join(record))
 
     @property
-    def binary_files(self) -> list[str]:
+    def binary_files(self) -> list[metadata.PackagePath]:
         """Return the binary files included in the package."""
         files = self.original.files or []
+
         if IS_MINGW or IS_WINDOWS:
+            # all .dll's
             return [file for file in files if file.suffix.lower() == ".dll"]
+
+        # Linux and macOS
         extensions = tuple([ext for ext in EXTENSION_SUFFIXES if ext != ".so"])
+        # all .so* or .dylib as long as it is not a python extension
         return [
             file
             for file in files
-            if file.match("*.so*") and not file.name.endswith(extensions)
+            if (file.match("*.so*") or file.match("*.dylib"))
+            and not file.name.endswith(extensions)
         ]
 
     @property
@@ -236,6 +242,23 @@ class Module:
         if not filename:
             return None
         return Path(filename)
+
+    @property
+    def in_file_system(self) -> int:
+        """Returns a value indicating where the module/package will be stored:
+        0. in a zip file (not directly in the file system)
+        1. in the file system, package with modules and data
+        2. in the file system, only detected modules.
+        """
+        if self.parent is not None:
+            return self.parent.in_file_system
+        if self.path is None:
+            return 0
+        return self._in_file_system
+
+    @in_file_system.setter
+    def in_file_system(self, value: int) -> None:
+        self._in_file_system: int = value
 
     @cached_property
     def root_dir(self) -> Path | None:
@@ -324,63 +347,90 @@ class Module:
                 lines.append(line)
         return "\n".join([*lines, ""]) if lines else None
 
-    @property
-    def in_file_system(self) -> int:
-        """Returns a value indicating where the module/package will be stored:
-        0. in a zip file (not directly in the file system)
-        1. in the file system, package with modules and data
-        2. in the file system, only detected modules.
-        """
-        if self.parent is not None:
-            return self.parent.in_file_system
-        if self.path is None:
-            return 0
-        return self._in_file_system
+    def libs(self) -> Iterator[tuple(Path, str)]:
+        """Dynamic libraries distributed along with the package/module."""
+        distribution = self.distribution
+        if distribution:
+            if self.in_file_system == 0:
+                # the module is in zip file and binary files are
+                for source in distribution.binary_files:
+                    # .. not in library directories
+                    if not source.parent.name.endswith((".libs", ".dylibs")):
+                        target = f"lib/{source.name}"
+                    else:
+                        target = f"lib/{source.as_posix()}"
+                    yield source.locate().resolve(), target
+            else:
+                # the module is in file system, so consider
+                # mirroring the binary files to the lib directory
+                for source in distribution.binary_files:
+                    target = f"lib/{source.as_posix()}"
+                    yield source.locate().resolve(), target
+            return
 
-    @in_file_system.setter
-    def in_file_system(self, value: int) -> None:
-        self._in_file_system: int = value
+        module_dir = self.file.parent
+        for name in self.libs_dirs():
+            source_dir = module_dir.parent / name
+            target_dir = "lib" / name
+            for source in source_dir.iterdir():
+                yield source, f"{target_dir}/{source.name}"
+
+    def libs_dirs(self) -> list[str]:
+        """Return the directories where binary files of the package are
+        stored.
+        """
+        distribution = self.distribution
+        if distribution:
+            return list(
+                {file.parent.as_posix() for file in distribution.binary_files}
+            )
+
+        module_dir = self.file.parent
+        names = {
+            f"../{self.name}.libs",  # numpy >=1.26.0, scipy >=1.9.2
+            f"{self.name}/.libs",  # old numpy, scipy <1.9.2
+            f"{self.name}/lib",  # torch
+        }
+        if IS_MACOS:
+            names.add(f"{self.name}/.dylibs")  # scipy, pillow, etc on macos
+        if distribution:
+            names.update(
+                [
+                    f"../{distribution.normalized_name}.libs",  # pillow >=10.2
+                    f"../{distribution.name}.libs",  # Pillow <10.2
+                ]
+            )
+        valid_dirs = []
+        for name in names:
+            source_dir = module_dir.joinpath(name).resolve()
+            if source_dir.exists():
+                valid_dirs.append(
+                    source_dir.relative_to(module_dir.parent).as_posix()
+                )
+        return valid_dirs
 
     def load_hook(self) -> None:
         """Load hook for the given module if one is present.
 
-        For instance, a load hook for PyQt5.QtCore:
+        For instance, to load a hook for PIL.Image:
         - Using ModuleHook class:
             # module and hook methods are lowercased.
-            hook = pyqt5.Hook()
-            hook.qt_qtcore()
+            from cx_Freeze.hooks import _pil_ as pil
+            hook = pil.Hook()
+            hook.pil_image(...)
         - For functions present in hooks.__init__:
             # module and load hook functions use the original case.
-            load_PyQt5_QtCore()
-        - For functions in a separated module:
-            # module and load hook functions are lowercased.
-            pyqt5.load_pyqt5_qtcore()
+            from cx_Freeze.hooks import load_PIL_Image
+            load_PIL_Image(...)
         """
         if not isinstance(self.root.hook, ModuleHook):
             try:
                 # new style hook using ModuleHook class - top-level call
                 root_name = self.root.name.lower()
-                try:
-                    hook_cls = resolve_name(
-                        f"cx_Freeze.hooks._{root_name}_:Hook"
-                    )
-                except (AttributeError, ValueError):
-                    hook_cls = None
-                if hook_cls and issubclass(hook_cls, ModuleHook):
+                hook_cls = resolve_name(f"cx_Freeze.hooks._{root_name}_:Hook")
+                if issubclass(hook_cls, ModuleHook):
                     self.root.hook = hook_cls(self.root)
-                else:
-                    # old style hook with lowercased functions
-                    name = self.name.replace(".", "_").lower()
-                    try:
-                        func = resolve_name(
-                            f"cx_Freeze.hooks._{root_name}_:load_{name}"
-                        )
-                    except (AttributeError, ValueError):
-                        pass
-                    else:
-                        self.hook = partial(func, module=self)
-                    return
-            except ImportError:
+            except (AttributeError, ValueError, ImportError):
                 # old style hook with functions at hooks.__init__
                 name = self.name.replace(".", "_")
                 try:
@@ -423,7 +473,7 @@ class ModuleHook:
     """The Module Hook class."""
 
     def __init__(self, module: Module) -> None:
-        self.module = module
+        self.module = module  # the root module
         self.name = module.name.replace(".", "_").lower()
 
     def __call__(self, finder) -> None:

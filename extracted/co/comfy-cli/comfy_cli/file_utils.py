@@ -7,7 +7,7 @@ from typing import Optional
 import httpx
 import requests
 
-from comfy_cli import ui
+from comfy_cli import constants, ui
 
 
 class DownloadException(Exception):
@@ -25,9 +25,7 @@ def guess_status_code_reason(status_code: int, message: str) -> str:
                     input_data = input_data.decode("utf-8")
 
                 # Parse the string as JSON
-                json_object = json.loads(input_data)
-
-                return json_object
+                return json.loads(input_data)
 
             except json.JSONDecodeError as e:
                 # Handle JSON decoding error
@@ -36,12 +34,12 @@ def guess_status_code_reason(status_code: int, message: str) -> str:
         msg_json = parse_json(message)
         if msg_json is not None:
             if "message" in msg_json:
-                return f"Unauthorized download ({status_code}).\n{msg_json['message']}\nor you can set civitai api token using `comfy model download --set-civitai-api-token <token>`"
-        return f"Unauthorized download ({status_code}), you might need to manually log into browser to download one"
+                return f"Unauthorized download ({status_code}).\n{msg_json['message']}\nor you can set a CivitAI API token using `comfy model download --set-civitai-api-token` or via the `{constants.CIVITAI_API_TOKEN_ENV_KEY}` environment variable"
+        return f"Unauthorized download ({status_code}), you might need to manually log into a browser to download this"
     elif status_code == 403:
-        return f"Forbidden url ({status_code}), you might need to manually log into browser to download one"
+        return f"Forbidden url ({status_code}), you might need to manually log into a browser to download this"
     elif status_code == 404:
-        return "Sorry, your file is in another castle (404)"
+        return "File not found on server (404)"
     return f"Unknown error occurred (status code: {status_code})"
 
 

@@ -7,6 +7,7 @@ post-processing scenarios.
 
 from .people_counting import PeopleCountingUseCase, PeopleCountingConfig
 from .intrusion_detection import IntrusionUseCase, IntrusionConfig
+from .proximity_detection import ProximityUseCase, ProximityConfig
 from .customer_service import CustomerServiceUseCase, CustomerServiceConfig
 from .advanced_customer_service import AdvancedCustomerServiceUseCase
 from .basic_counting_tracking import BasicCountingTrackingUseCase
@@ -86,6 +87,7 @@ from .Histopathological_Cancer_Detection_img import HistopathologicalCancerDetec
 __all__ = [
     'PeopleCountingUseCase',
     'IntrusionUseCase',
+    'ProximityUseCase',
     'CustomerServiceUseCase',
     'AdvancedCustomerServiceUseCase',
     'BasicCountingTrackingUseCase',
@@ -157,6 +159,7 @@ __all__ = [
 
     'PeopleCountingConfig',
     'IntrusionConfig',
+    'ProximityConfig',
     'ParkingSpaceConfig',
     'CustomerServiceConfig',
     'AdvancedCustomerServiceConfig',

@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.17.0.1+obcheckpoint(0.2.4);ob(v1)                                                    #
-# Generated on 2025-08-06T15:19:48.625181                                                            #
+# MF version: 2.17.1.0+obcheckpoint(0.2.4);ob(v1)                                                    #
+# Generated on 2025-08-11T21:26:28.607107                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow
+    import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core
     import metaflow.events
     import typing
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core
-    import metaflow.metaflow_current
-    import metaflow.plugins.cards.component_serializer
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import metaflow
+    import metaflow.metaflow_current
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
 
 
 TYPE_CHECKING: bool
@@ -229,19 +229,44 @@ class Current(object, metaclass=type):
     def graph(self):
         ...
     @property
-    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+    def parallel(self) -> "metaflow.metaflow_current.Parallel":
         """
-        (only in the presence of the @model decorator)
+        (only in the presence of the @parallel decorator)
         
-        The object used for loading / saving models.
-        `current.model` exposes a `save` method to save models and a `load` method to load models.
-        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
-        or models loaded via `current.model.load`.
+        Returns a namedtuple with relevant information about the parallel task.
+        
+        Returns
+        -------
+        Parallel
+            `namedtuple` with the following fields:
+                - main_ip (`str`)
+                    The IP address of the control task.
+                - num_nodes (`int`)
+                    The total number of tasks created by @parallel
+                - node_index (`int`)
+                    The index of the current task in all the @parallel tasks.
+                - control_task_id (`Optional[str]`)
+                    The task ID of the control task. Available to all tasks.
+        """
+        ...
+    @property
+    def is_parallel(self) -> bool:
+        """
+        (only in the presence of the @parallel decorator)
+        
+        True if the current step is a @parallel step.
+        """
+        ...
+    @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.apps":
+        """
+        (only in the presence of the @app_deploy decorator)
+        
         
         Returns
         ----------
-        ModelSerializer
-            The object used for loading / saving models.
+        apps
+            The object carrying the Deployer class to deploy apps.
         """
         ...
     @property
@@ -260,18 +285,6 @@ class Current(object, metaclass=type):
         ----------
         CurrentCheckpointer
             The object for handling checkpointing within a step.
-        """
-        ...
-    @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.apps":
-        """
-        (only in the presence of the @app_deploy decorator)
-        
-        
-        Returns
-        ----------
-        apps
-            The object carrying the Deployer class to deploy apps.
         """
         ...
     @property
@@ -302,32 +315,19 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def parallel(self) -> "metaflow.metaflow_current.Parallel":
+    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
         """
-        (only in the presence of the @parallel decorator)
+        (only in the presence of the @model decorator)
         
-        Returns a namedtuple with relevant information about the parallel task.
+        The object used for loading / saving models.
+        `current.model` exposes a `save` method to save models and a `load` method to load models.
+        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
+        or models loaded via `current.model.load`.
         
         Returns
-        -------
-        Parallel
-            `namedtuple` with the following fields:
-                - main_ip (`str`)
-                    The IP address of the control task.
-                - num_nodes (`int`)
-                    The total number of tasks created by @parallel
-                - node_index (`int`)
-                    The index of the current task in all the @parallel tasks.
-                - control_task_id (`Optional[str]`)
-                    The task ID of the control task. Available to all tasks.
-        """
-        ...
-    @property
-    def is_parallel(self) -> bool:
-        """
-        (only in the presence of the @parallel decorator)
-        
-        True if the current step is a @parallel step.
+        ----------
+        ModelSerializer
+            The object used for loading / saving models.
         """
         ...
     @property
@@ -400,7 +400,7 @@ class Current(object, metaclass=type):
     @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

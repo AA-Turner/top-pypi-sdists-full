@@ -37,8 +37,7 @@ from ..utils import (
     check_predict_input,
     check_residuals_input,
     check_interval,
-    preprocess_y,
-    preprocess_last_window,
+    check_extract_values_and_index,
     input_to_frame,
     exog_to_direct,
     exog_to_direct_numpy,
@@ -129,10 +128,13 @@ class ForecasterDirectMultiVariate(ForecasterBase):
     regressors_ : dict
         Dictionary with regressors trained for each step. They are initialized 
         as a copy of `regressor`.
-    steps : int
-        Number of future steps the forecaster will predict when using method
-        `predict()`. Since a different model is created for each step, this value
-        should be defined before training.
+    steps : numpy array
+        Future steps the forecaster will predict when using method `predict()`. 
+        Since a different model is created for each step, this value should be 
+        defined before training.
+    max_step : int
+        Maximum step the forecaster is able to predict. It is the maximum value
+        included in `steps`.
     lags : numpy ndarray, dict
         Lags used as predictors.
     lags_ : dict
@@ -204,17 +206,22 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         Frequency of Index of the input used in training.
     training_range_: pandas Index
         First and last values of index of the data used during training.
+    series_names_in_ : list
+        Names of the series used during training.
     exog_in_ : bool
         If the forecaster has been trained using exogenous variable/s.
+    exog_names_in_ : list
+        Names of the exogenous variables used during training.
     exog_type_in_ : type
         Type of exogenous variable/s used in training.
     exog_dtypes_in_ : dict
-        Type of each exogenous variable/s used in training. If `transformer_exog` 
-        is used, the dtypes are calculated after the transformation.
-    exog_names_in_ : list
-        Names of the exogenous variables used during training.
-    series_names_in_ : list
-        Names of the series used during training.
+        Type of each exogenous variable/s used in training before the transformation
+        applied by `transformer_exog`. If `transformer_exog` is not used, it
+        is equal to `exog_dtypes_out_`.
+    exog_dtypes_out_ : dict
+        Type of each exogenous variable/s used in training after the transformation 
+        applied by `transformer_exog`. If `transformer_exog` is not used, it 
+        is equal to `exog_dtypes_in_`.
     X_train_series_names_in_ : list
         Names of the series added to `X_train` when creating the training
         matrices with `_create_train_X_y` method. It is a subset of 
@@ -323,7 +330,6 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         
         self.regressor                          = copy(regressor)
         self.level                              = level
-        self.steps                              = steps
         self.lags_                              = None
         self.transformer_series                 = transformer_series
         self.transformer_series_                = None
@@ -343,6 +349,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         self.exog_names_in_                     = None
         self.exog_type_in_                      = None
         self.exog_dtypes_in_                    = None
+        self.exog_dtypes_out_                   = None
         self.X_train_series_names_in_           = None
         self.X_train_window_features_names_out_ = None
         self.X_train_exog_names_out_            = None
@@ -378,7 +385,10 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 f"`steps` argument must be greater than or equal to 1. Got {steps}."
             )
         
-        self.regressors_ = {step: clone(self.regressor) for step in range(1, steps + 1)}
+        self.steps    = np.arange(steps) + 1
+        self.max_step = steps
+        
+        self.regressors_ = {step: clone(self.regressor) for step in self.steps}
 
         if isinstance(lags, dict):
             self.lags = {}
@@ -506,7 +516,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
             f"Lags: {self.lags} \n"
             f"Window features: {self.window_features_names} \n"
             f"Window size: {self.window_size} \n"
-            f"Maximum steps to predict: {self.steps} \n"
+            f"Maximum steps to predict: {self.max_step} \n"
             f"Multivariate series: {series_names_in_} \n"
             f"Exogenous included: {self.exog_in_} \n"
             f"Exogenous names: {exog_names_in_} \n"
@@ -527,7 +537,6 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         )
 
         return info
-
 
     def _repr_html_(self):
         """
@@ -561,7 +570,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                     <li><strong>Lags:</strong> {self.lags}</li>
                     <li><strong>Window features:</strong> {self.window_features_names}</li>
                     <li><strong>Window size:</strong> {self.window_size}</li>
-                    <li><strong>Maximum steps to predict:</strong> {self.steps}</li>
+                    <li><strong>Maximum steps to predict:</strong> {self.max_step}</li>
                     <li><strong>Exogenous included:</strong> {self.exog_in_}</li>
                     <li><strong>Weight function included:</strong> {self.weight_func is not None}</li>
                     <li><strong>Differentiation order:</strong> {self.differentiation}</li>
@@ -693,7 +702,6 @@ class ForecasterDirectMultiVariate(ForecasterBase):
 
         return data_to_return_dict, X_train_series_names_in_
 
-
     def _create_lags(
         self, 
         y: np.ndarray,
@@ -728,7 +736,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         y_data = None
         if data_to_return is not None:
 
-            n_rows = len(y) - self.window_size - (self.steps - 1)
+            n_rows = len(y) - self.window_size - (self.max_step - 1)
 
             if data_to_return != 'y':
                 # If `data_to_return` is not 'y', it means is 'X' or 'both', X_data is created
@@ -736,14 +744,14 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                     shape=(n_rows, len(lags)), fill_value=np.nan, order='F', dtype=float
                 )
                 for i, lag in enumerate(lags):
-                    X_data[:, i] = y[self.window_size - lag : -(lag + self.steps - 1)]
+                    X_data[:, i] = y[self.window_size - lag : -(lag + self.max_step - 1)]
 
             if data_to_return != 'X':
                 # If `data_to_return` is not 'X', it means is 'y' or 'both', y_data is created
                 y_data = np.full(
-                    shape=(n_rows, self.steps), fill_value=np.nan, order='F', dtype=float
+                    shape=(n_rows, self.max_step), fill_value=np.nan, order='F', dtype=float
                 )
-                for step in range(self.steps):
+                for step in range(self.max_step):
                     y_data[:, step] = y[self.window_size + step : self.window_size + step + n_rows]
         
         return X_data, y_data
@@ -817,6 +825,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         list[str], 
         list[str], 
         list[str], 
+        dict[str, type], 
         dict[str, type]
     ]:
         """
@@ -856,8 +865,13 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         X_train_features_names_out_ : list
             Names of the columns of the matrix created internally for training.
         exog_dtypes_in_ : dict
-            Type of each exogenous variable/s used in training. If `transformer_exog` 
-            is used, the dtypes are calculated before the transformation.
+            Type of each exogenous variable/s used in training before the transformation
+            applied by `transformer_exog`. If `transformer_exog` is not used, it
+            is equal to `exog_dtypes_out_`.
+        exog_dtypes_out_ : dict
+            Type of each exogenous variable/s used in training after the transformation 
+            applied by `transformer_exog`. If `transformer_exog` is not used, it 
+            is equal to `exog_dtypes_in_`.
         
         """
 
@@ -866,19 +880,22 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 f"`series` must be a pandas DataFrame. Got {type(series)}."
             )
 
-        if len(series) < self.window_size + self.steps:
+        if len(series) < self.window_size + self.max_step:
             raise ValueError(
                 f"Minimum length of `series` for training this forecaster is "
-                f"{self.window_size + self.steps}. Reduce the number of "
-                f"predicted steps, {self.steps}, or the maximum "
+                f"{self.window_size + self.max_step}. Reduce the number of "
+                f"predicted steps, {self.max_step}, or the maximum "
                 f"window_size, {self.window_size}, if no more data is available.\n"
                 f"    Length `series`: {len(series)}.\n"
-                f"    Max step : {self.steps}.\n"
+                f"    Max step : {self.max_step}.\n"
                 f"    Max window size: {self.window_size}.\n"
                 f"    Lags window size: {self.max_lag}.\n"
                 f"    Window features window size: {self.max_size_window_features}."
             )
         
+        _, series_index = check_extract_values_and_index(
+            data=series, data_label="`series`", return_values=False
+        )
         series_names_in_ = list(series.columns)
 
         if self.level not in series_names_in_:
@@ -919,12 +936,16 @@ class ForecasterDirectMultiVariate(ForecasterBase):
 
         exog_names_in_ = None
         exog_dtypes_in_ = None
+        exog_dtypes_out_ = None
         X_as_pandas = False
         if exog is not None:
             check_exog(exog=exog, allow_nan=True)
             exog = input_to_frame(data=exog, input_name='exog')
+            _, exog_index = check_extract_values_and_index(
+                data=exog, data_label='`exog`', ignore_freq=True, return_values=False
+            )
             
-            series_index_no_ws = series.index[self.window_size:]
+            series_index_no_ws = series_index[self.window_size:]
             len_series = len(series)
             len_series_no_ws = len_series - self.window_size
             len_exog = len(exog)
@@ -933,8 +954,8 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                     f"Length of `exog` must be equal to the length of `series` (if "
                     f"index is fully aligned) or length of `series` - `window_size` "
                     f"(if `exog` starts after the first `window_size` values).\n"
-                    f"    `exog`                   : ({exog.index[0]} -- {exog.index[-1]})  (n={len_exog})\n"
-                    f"    `series`                 : ({series.index[0]} -- {series.index[-1]})  (n={len_series})\n"
+                    f"    `exog`                   : ({exog_index[0]} -- {exog_index[-1]})  (n={len_exog})\n"
+                    f"    `series`                 : ({series_index[0]} -- {series_index[-1]})  (n={len_series})\n"
                     f"    `series` - `window_size` : ({series_index_no_ws[0]} -- {series_index_no_ws[-1]})  (n={len_series_no_ws})"
                 )
             
@@ -959,14 +980,14 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                    )
                 
             check_exog_dtypes(exog, call_check_exog=True)
+            exog_dtypes_out_ = get_exog_dtypes(exog=exog)
             X_as_pandas = any(
                 not pd.api.types.is_numeric_dtype(dtype) or pd.api.types.is_bool_dtype(dtype) 
                 for dtype in set(exog.dtypes)
             )
 
-            # Use .index as series.index is not yet preprocessed with preprocess_y
             if len_exog == len_series:
-                if not (exog.index == series.index).all():
+                if not (exog_index == series_index).all():
                     raise ValueError(
                         "When `exog` has the same length as `series`, the index "
                         "of `exog` must be aligned with the index of `series` "
@@ -976,7 +997,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 # exog since they are not in X_train.
                 exog = exog.iloc[self.window_size:, ]
             else:
-                if not (exog.index == series_index_no_ws).all():
+                if not (exog_index == series_index_no_ws).all():
                     raise ValueError(
                         "When `exog` doesn't contain the first `window_size` "
                         "observations, the index of `exog` must be aligned with "
@@ -987,9 +1008,10 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         X_train_autoreg = []
         X_train_window_features_names_out_ = [] if self.window_features is not None else None
         X_train_features_names_out_ = []
+        train_index = series_index[self.window_size + (self.max_step - 1):]
         for col in series_to_create_autoreg_features_and_y:
-            
-            y_values, y_index = preprocess_y(y=series[col])
+
+            y_values = series[col].to_numpy(copy=True).ravel()
             if np.isnan(y_values).any():
                 raise ValueError(f"Column '{col}' has missing values.")
 
@@ -1008,7 +1030,6 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                     y_values = differentiator.fit_transform(y_values)
 
             X_train_autoreg_col = []
-            train_index = y_index[self.window_size + (self.steps - 1):]
 
             X_train_lags, y_train_values = self._create_lags(
                 y=y_values, lags=self.lags_[col], data_to_return=data_to_return_dict.get(col, None)
@@ -1022,9 +1043,9 @@ class ForecasterDirectMultiVariate(ForecasterBase):
 
             if self.window_features is not None:
                 n_diff = 0 if self.differentiation is None else self.differentiation
-                end_wf = None if self.steps == 1 else -(self.steps - 1)
+                end_wf = None if self.max_step == 1 else -(self.max_step - 1)
                 y_window_features = pd.Series(
-                    y_values[n_diff:end_wf], index=y_index[n_diff:end_wf], name=col
+                    y_values[n_diff:end_wf], index=series_index[n_diff:end_wf], name=col
                 )
                 X_train_window_features, X_train_wf_names_out_ = (
                     self._create_window_features(
@@ -1067,12 +1088,12 @@ class ForecasterDirectMultiVariate(ForecasterBase):
             X_train_exog_names_out_ = exog.columns.to_list()
             if X_as_pandas:
                 exog_direct, X_train_direct_exog_names_out_ = exog_to_direct(
-                    exog=exog, steps=self.steps
+                    exog=exog, steps=self.max_step
                 )
                 exog_direct.index = train_index
             else:
                 exog_direct, X_train_direct_exog_names_out_ = exog_to_direct_numpy(
-                    exog=exog, steps=self.steps
+                    exog=exog, steps=self.max_step
                 )
 
             # NOTE: Need here for filter_train_X_y_for_step to work without fitting
@@ -1101,10 +1122,10 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         y_train = {
             step: pd.Series(
                       data  = y_train[:, step - 1], 
-                      index = y_index[self.window_size + step - 1:][:len_train_index],
+                      index = series_index[self.window_size + step - 1:][:len_train_index],
                       name  = f"{self.level}_step_{step}"
                   )
-            for step in range(1, self.steps + 1)
+            for step in self.steps
         }
 
         return (
@@ -1115,7 +1136,8 @@ class ForecasterDirectMultiVariate(ForecasterBase):
             exog_names_in_,
             X_train_exog_names_out_,
             X_train_features_names_out_,
-            exog_dtypes_in_
+            exog_dtypes_in_,
+            exog_dtypes_out_
         )
 
 
@@ -1203,10 +1225,10 @@ class ForecasterDirectMultiVariate(ForecasterBase):
 
         """
 
-        if (step < 1) or (step > self.steps):
+        if (step < 1) or (step > self.max_step):
             raise ValueError(
                 f"Invalid value `step`. For this forecaster, minimum value is 1 "
-                f"and the maximum step is {self.steps}."
+                f"and the maximum step is {self.max_step}."
             )
 
         y_train_step = y_train[step]
@@ -1222,7 +1244,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 len(self.X_train_window_features_names_out_) if self.window_features is not None else 0
             )
             idx_columns_autoreg = np.arange(n_lags + n_window_features)
-            n_exog = len(self.X_train_direct_exog_names_out_) / self.steps
+            n_exog = len(self.X_train_direct_exog_names_out_) / self.max_step
             idx_columns_exog = (
                 np.arange((step - 1) * n_exog, (step) * n_exog) + idx_columns_autoreg[-1] + 1 
             )
@@ -1443,6 +1465,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         self.exog_names_in_                     = None
         self.exog_type_in_                      = None
         self.exog_dtypes_in_                    = None
+        self.exog_dtypes_out_                   = None
         self.X_train_series_names_in_           = None
         self.X_train_window_features_names_out_ = None
         self.X_train_exog_names_out_            = None
@@ -1463,7 +1486,8 @@ class ForecasterDirectMultiVariate(ForecasterBase):
             exog_names_in_,
             X_train_exog_names_out_,
             X_train_features_names_out_,
-            exog_dtypes_in_
+            exog_dtypes_in_,
+            exog_dtypes_out_
         ) = self._create_train_X_y(series=series, exog=exog)
 
         def fit_forecaster(regressor, X_train, y_train, step):
@@ -1527,7 +1551,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 y_train   = y_train,
                 step      = step
             )
-            for step in range(1, self.steps + 1))
+            for step in self.steps)
         )
 
         self.regressors_ = {step: regressor for step, regressor, *_ in results_fit}
@@ -1558,20 +1582,19 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         
         self.is_fitted = True
         self.fit_date = pd.Timestamp.today().strftime('%Y-%m-%d %H:%M:%S')
-        self.training_range_ = preprocess_y(
-            y=series[self.level], return_values=False, suppress_warnings=True
-        )[1][[0, -1]]
-        self.index_type_ = type(X_train.index)
-        if isinstance(X_train.index, pd.DatetimeIndex):
-            self.index_freq_ = X_train.index.freqstr
+        self.training_range_ = series.index[[0, -1]]
+        self.index_type_ = type(series.index)
+        if isinstance(series.index, pd.DatetimeIndex):
+            self.index_freq_ = series.index.freqstr
         else: 
-            self.index_freq_ = X_train.index.step
+            self.index_freq_ = series.index.step
         
         if exog is not None:
             self.exog_in_ = True
             self.exog_names_in_ = exog_names_in_
             self.exog_type_in_ = type(exog)
             self.exog_dtypes_in_ = exog_dtypes_in_
+            self.exog_dtypes_out_ = exog_dtypes_out_
             self.X_train_exog_names_out_ = X_train_exog_names_out_
 
         if store_last_window:
@@ -1724,7 +1747,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         
         steps = prepare_steps_direct(
                     steps    = steps,
-                    max_step = self.steps
+                    max_step = self.max_step
                 )
 
         if last_window is None:
@@ -1741,10 +1764,9 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 window_size      = self.window_size,
                 last_window      = last_window,
                 exog             = exog,
-                exog_type_in_    = self.exog_type_in_,
                 exog_names_in_   = self.exog_names_in_,
                 interval         = None,
-                max_steps        = self.steps,
+                max_step         = self.max_step,
                 series_names_in_ = self.X_train_series_names_in_
             )
 
@@ -1797,12 +1819,9 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 Xs_col_names.extend([f"{series}_{wf}" for wf in self.window_features_names])
             
         X_autoreg = np.concatenate(X_autoreg).reshape(1, -1)
-        _, last_window_index = preprocess_last_window(
-            last_window=last_window, return_values=False
-        )
         if exog is not None:
             exog = input_to_frame(data=exog, input_name='exog')
-            exog = exog.loc[:, self.exog_names_in_]
+            exog = exog[self.exog_names_in_]
             exog = transform_dataframe(
                        df                = exog,
                        transformer       = self.transformer_exog,
@@ -1835,14 +1854,14 @@ class ForecasterDirectMultiVariate(ForecasterBase):
             Xs = [X_autoreg] * len(steps)
 
         prediction_index = expand_index(
-                               index = last_window_index,
+                               index = last_window.index,
                                steps = max(steps)
                            )[np.array(steps) - 1]
-        if isinstance(last_window_index, pd.DatetimeIndex) and np.array_equal(
+        if isinstance(last_window.index, pd.DatetimeIndex) and np.array_equal(
             steps, np.arange(min(steps), max(steps) + 1)
         ):
-            prediction_index.freq = last_window_index.freq
-        
+            prediction_index.freq = last_window.index.freq
+
         # HACK: Why no use self.X_train_features_names_out_ as Xs_col_names?
         return Xs, Xs_col_names, steps, prediction_index
 
@@ -1916,6 +1935,14 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                         index   = prediction_index
                     )
         X_predict.insert(0, 'level', np.tile([self.level], len(steps)))
+        
+        if self.exog_in_:
+            categorical_features = any(
+                not pd.api.types.is_numeric_dtype(dtype) or pd.api.types.is_bool_dtype(dtype) 
+                for dtype in set(self.exog_dtypes_out_)
+            )
+            if categorical_features:
+                X_predict = X_predict.astype(self.exog_dtypes_out_)
         
         if self.transformer_series is not None or self.differentiation is not None:
             warnings.warn(
@@ -2719,8 +2746,10 @@ class ForecasterDirectMultiVariate(ForecasterBase):
 
         self.regressor = clone(self.regressor)
         self.regressor.set_params(**params)
-        self.regressors_ = {step: clone(self.regressor)
-                            for step in range(1, self.steps + 1)}
+        self.regressors_ = {
+            step: clone(self.regressor)
+            for step in self.steps
+        }
 
     def set_fit_kwargs(
         self, 
@@ -2921,17 +2950,17 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 "arguments before using `set_in_sample_residuals()`."
             )
         
-        check_y(y=series[self.level])
-        y_index_range = preprocess_y(
-            y=series[self.level], return_values=False, suppress_warnings=True
+        check_y(y=series[self.level], series_id='`series`')
+        series_index_range = check_extract_values_and_index(
+            data=series, data_label='`series`', return_values=False
         )[1][[0, -1]]
-        if not y_index_range.equals(self.training_range_):
+        if not series_index_range.equals(self.training_range_):
             raise IndexError(
                 f"The index range of `series` does not match the range "
                 f"used during training. Please ensure the index is aligned "
                 f"with the training data.\n"
                 f"    Expected : {self.training_range_}\n"
-                f"    Received : {y_index_range}"
+                f"    Received : {series_index_range}"
             )
         
         # NOTE: This attributes are modified in _create_train_X_y, store original values
@@ -2969,7 +2998,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
         y_true_steps = []
         y_pred_steps = []
         self.in_sample_residuals_ = {}
-        for step in range(1, self.steps + 1):
+        for step in self.steps:
             X_train_step, y_train_step = self.filter_train_X_y_for_step(
                                              step          = step,
                                              X_train       = X_train,
@@ -2997,8 +3026,8 @@ class ForecasterDirectMultiVariate(ForecasterBase):
 
     def set_out_sample_residuals(
         self,
-        y_true: dict[int, np.ndarray | pd.Series],
-        y_pred: dict[int, np.ndarray | pd.Series],
+        y_true: dict[str, np.ndarray | pd.Series],
+        y_pred: dict[str, np.ndarray | pd.Series],
         append: bool = False,
         random_state: int = 123
     ) -> None:
@@ -3091,7 +3120,7 @@ class ForecasterDirectMultiVariate(ForecasterBase):
             )
         
         y_true = deepcopy(y_true[self.level])
-        y_pred = deepcopy(y_pred[self.level])        
+        y_pred = deepcopy(y_pred[self.level])
         if not isinstance(y_pred, np.ndarray):
             y_pred = y_pred.to_numpy()
         if not isinstance(y_true, np.ndarray):
@@ -3233,10 +3262,10 @@ class ForecasterDirectMultiVariate(ForecasterBase):
                 "arguments before using `get_feature_importances()`."
             )
 
-        if (step < 1) or (step > self.steps):
+        if (step < 1) or (step > self.max_step):
             raise ValueError(
                 f"The step must have a value from 1 to the maximum number of steps "
-                f"({self.steps}). Got {step}."
+                f"({self.max_step}). Got {step}."
             )
 
         if isinstance(self.regressor, Pipeline):

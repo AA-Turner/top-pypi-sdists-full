@@ -13,6 +13,18 @@ QuantConnect_Lean_Engine_Storage__EventContainer_Callable = typing.TypeVar("Quan
 QuantConnect_Lean_Engine_Storage__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Lean_Engine_Storage__EventContainer_ReturnType")
 
 
+class StorageLimitExceededException(System.Exception):
+    """Exception thrown when the object store storage limit has been exceeded"""
+
+    def __init__(self, message: str) -> None:
+        """
+        Creates a new instance of the storage limit exceeded exception
+        
+        :param message: The associated message
+        """
+        ...
+
+
 class FileHandler(System.Object):
     """Raw file handler"""
 
@@ -245,18 +257,6 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         Storage root path
         
         This method is protected.
-        """
-        ...
-
-
-class StorageLimitExceededException(System.Exception):
-    """Exception thrown when the object store storage limit has been exceeded"""
-
-    def __init__(self, message: str) -> None:
-        """
-        Creates a new instance of the storage limit exceeded exception
-        
-        :param message: The associated message
         """
         ...
 

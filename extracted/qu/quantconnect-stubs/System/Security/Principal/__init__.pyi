@@ -6,6 +6,23 @@ import System
 import System.Security.Principal
 
 
+class TokenImpersonationLevel(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    ANONYMOUS = 1
+
+    IDENTIFICATION = 2
+
+    IMPERSONATION = 3
+
+    DELEGATION = 4
+
+    def __int__(self) -> int:
+        ...
+
+
 class IIdentity(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -45,23 +62,6 @@ class PrincipalPolicy(Enum):
     NO_PRINCIPAL = 1
 
     WINDOWS_PRINCIPAL = 2
-
-    def __int__(self) -> int:
-        ...
-
-
-class TokenImpersonationLevel(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    ANONYMOUS = 1
-
-    IDENTIFICATION = 2
-
-    IMPERSONATION = 3
-
-    DELEGATION = 4
 
     def __int__(self) -> int:
         ...

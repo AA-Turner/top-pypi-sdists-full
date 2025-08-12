@@ -39,19 +39,25 @@ from edgar.core import get_identity, edgar_mode, strtobool
 from edgar.httpclient_cache import get_cache_controller
 from edgar.httpclient_ratelimiter import RateLimitingTransport, AsyncRateLimitingTransport, create_rate_limiter
 from pathlib import Path
-from pyrate_limiter import Limiter, BucketAsyncWrapper
 from .core import edgar_data_dir
 
 log = logging.getLogger(__name__)
 
-HTTPX_PARAMS = {"timeout": edgar_mode.http_timeout, "limits": edgar_mode.limits, "default_encoding": "utf-8"}
+try: 
+    # enable http2 if h2 is installed
+    import h2  # type: ignore  # noqa 
+    http2 = True
+except ImportError: 
+    http2 = False
+
+HTTPX_PARAMS = {"timeout": edgar_mode.http_timeout, "limits": edgar_mode.limits, "default_encoding": "utf-8", "http2": http2}
 
 CACHE_ENABLED = True
 
 
 def get_cache_directory():
     if CACHE_ENABLED:
-        cachedir = Path(edgar_data_dir) / "_cache"
+        cachedir = Path(edgar_data_dir) / "_pcache"
         cachedir.mkdir(exist_ok=True)
 
         return str(cachedir)
@@ -63,27 +69,11 @@ _DEFAULT_REQUEST_PER_SEC_LIMIT = 9
 _MAX_DELAY = 1000 * 60  # 1 minute
 
 _RATE_LIMITER = create_rate_limiter(requests_per_second=_DEFAULT_REQUEST_PER_SEC_LIMIT, max_delay=_MAX_DELAY)
-_ASYNC_RATE_LIMITER = None  # Will be created lazily when needed
-
-
-def _get_async_rate_limiter():
-    """Get or create the async rate limiter lazily"""
-    global _ASYNC_RATE_LIMITER
-    if _ASYNC_RATE_LIMITER is None:
-        # Extract current rate from sync limiter to stay in sync
-        current_rate = _RATE_LIMITER.bucket_factory.bucket.rates[0].limit
-        _ASYNC_RATE_LIMITER = create_rate_limiter(
-            requests_per_second=current_rate, 
-            max_delay=_MAX_DELAY, 
-            async_bucket=True
-        )
-    return _ASYNC_RATE_LIMITER
 
 
 def update_rate_limiter(requests_per_second: int):
-    global _RATE_LIMITER, _ASYNC_RATE_LIMITER
+    global _RATE_LIMITER
     _RATE_LIMITER = create_rate_limiter(requests_per_second=requests_per_second, max_delay=_MAX_DELAY)
-    _ASYNC_RATE_LIMITER = None  # Reset async limiter to be recreated when needed
 
     close_clients()
 
@@ -107,22 +97,22 @@ def get_http_params():
     }
 
 
-def edgar_client_factory(**kwargs) -> httpx.Client:
+def edgar_client_factory(bypass_cache: bool, **kwargs) -> httpx.Client:
     params = get_http_params()
     params.update(**kwargs)
 
     if "transport" not in params:
-        params["transport"] = get_transport()
+        params["transport"] = get_transport(bypass_cache=bypass_cache)
 
     return httpx.Client(**params)
 
 
-def edgar_client_factory_async(**kwargs) -> httpx.AsyncClient:
+def edgar_client_factory_async(bypass_cache: bool, **kwargs) -> httpx.AsyncClient:
     params = get_http_params()
     params.update(**kwargs)
 
     if "transport" not in params:
-        params["transport"] = get_async_transport()
+        params["transport"] = get_async_transport(bypass_cache=bypass_cache)
 
     return httpx.AsyncClient(**params)
 
@@ -133,39 +123,22 @@ def _http_client_manager():
 
     This function is used for all synchronous requests.
     """
-    client = None
-    lock = threading.Lock()
 
     @contextmanager
-    def _get_client(**kwargs):
-        nonlocal client
-
-        if client is None:
-            with lock:
-                # Locking: not super critical, since worst case might be extra httpx clients created,
-                # but future proofing against TOCTOU races in free-threading world
-                if client is None:
-                    log.info("Creating new HTTPX Client")
-                    client = edgar_client_factory(**kwargs)
-
-        yield client
+    def _get_client(bypass_cache: bool = False, **kwargs):
+        log.info("Creating new HTTPX Client")
+        yield edgar_client_factory(bypass_cache=bypass_cache, **kwargs)
 
     def _close_client():
-        nonlocal client
-
-        if client is not None:
-            try:
-                client.close()
-            except Exception:
-                log.exception("Exception closing client")
-
-            client = None
+        pass  # noop, to deprecate
 
     return _get_client, _close_client
 
 
 @asynccontextmanager
-async def async_http_client(client: Optional[httpx.AsyncClient] = None, **kwargs) -> AsyncGenerator[httpx.AsyncClient, None]:
+async def async_http_client(
+    client: Optional[httpx.AsyncClient] = None, bypass_cache: bool = False, **kwargs
+) -> AsyncGenerator[httpx.AsyncClient, None]:
     """
     Async callers should create a single client for a group of tasks, rather than creating a single client per task.
 
@@ -175,16 +148,15 @@ async def async_http_client(client: Optional[httpx.AsyncClient] = None, **kwargs
     if client is not None:
         yield nullcontext(client)  # type: ignore # Caller is responsible for closing
 
-    async with edgar_client_factory_async(**kwargs) as client:
+    async with edgar_client_factory_async(bypass_cache=bypass_cache, **kwargs) as client:
         yield client
 
 
-def get_transport() -> httpx.BaseTransport:
-
+def get_transport(bypass_cache: bool) -> httpx.BaseTransport:
     cache_dir = get_cache_directory()
-    if cache_dir:
+    if cache_dir and not bypass_cache:
         log.info(f"Cache is ENABLED, writing to {cache_dir}")
-        storage = hishel.FileStorage(base_path=Path(cache_dir))
+        storage = hishel.FileStorage(base_path=Path(cache_dir), serializer=hishel.PickleSerializer())
         controller = get_cache_controller()
         rate_limit_transport = RateLimitingTransport(_RATE_LIMITER)
         return hishel.CacheTransport(transport=rate_limit_transport, storage=storage, controller=controller)
@@ -193,18 +165,17 @@ def get_transport() -> httpx.BaseTransport:
         return RateLimitingTransport(_RATE_LIMITER)
 
 
-def get_async_transport() -> httpx.AsyncBaseTransport:
-
+def get_async_transport(bypass_cache: bool) -> httpx.AsyncBaseTransport:
     cache_dir = get_cache_directory()
-    if cache_dir:
+    if cache_dir and not bypass_cache:
         log.info(f"Cache is ENABLED, writing to {cache_dir}")
         storage = hishel.AsyncFileStorage(base_path=Path(cache_dir))
         controller = get_cache_controller()
-        rate_limit_transport = AsyncRateLimitingTransport(_get_async_rate_limiter())
+        rate_limit_transport = AsyncRateLimitingTransport(_RATE_LIMITER)
         return hishel.AsyncCacheTransport(transport=rate_limit_transport, storage=storage, controller=controller)
     else:
         log.info("Cache is DISABLED, rate limiting only")
-        return AsyncRateLimitingTransport(_get_async_rate_limiter())
+        return AsyncRateLimitingTransport(_RATE_LIMITER)
 
 
 http_client, _close_client = _http_client_manager()

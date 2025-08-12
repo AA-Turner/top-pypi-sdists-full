@@ -172,6 +172,25 @@ class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
         ...
 
 
+class Initializer(System.Object):
+    """Helper class to initialize a Lean engine"""
+
+    @staticmethod
+    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
+        """Get and initializes Algorithm Handler"""
+        ...
+
+    @staticmethod
+    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """Get and initializes System Handler"""
+        ...
+
+    @staticmethod
+    def start() -> None:
+        """Basic common Lean initialization"""
+        ...
+
+
 class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResultProvider):
     """
     Provides an implementation of IIsolatorLimitResultProvider that tracks the algorithm
@@ -357,25 +376,6 @@ class Engine(System.Object):
         :param assembly_path: The path to the algorithm's assembly
         :param worker_thread: The worker thread instance
         """
-        ...
-
-
-class Initializer(System.Object):
-    """Helper class to initialize a Lean engine"""
-
-    @staticmethod
-    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
-        """Get and initializes Algorithm Handler"""
-        ...
-
-    @staticmethod
-    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """Get and initializes System Handler"""
-        ...
-
-    @staticmethod
-    def start() -> None:
-        """Basic common Lean initialization"""
         ...
 
 

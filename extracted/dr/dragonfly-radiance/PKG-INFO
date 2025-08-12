@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dragonfly-radiance
-Version: 0.4.50
+Version: 0.4.52
 Summary: Dragonfly extension for radiance simulation.
 Home-page: https://github.com/ladybug-tools/dragonfly-radiance
 Author: Ladybug Tools
@@ -14,8 +14,8 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dragonfly-core==1.67.5
-Requires-Dist: honeybee-radiance==1.66.184
+Requires-Dist: dragonfly-core==1.67.7
+Requires-Dist: honeybee-radiance==1.66.186
 
 ![Dragonfly](https://www.ladybug.tools/assets/img/dragonfly.png)
 

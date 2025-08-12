@@ -320,6 +320,19 @@ reveal_type(x2) # E: revealed type: (x: int, y: str) -> None
 );
 
 testcase!(
+    bug = "We should contextually type *args and **kwargs here based on the paramspec",
+    test_context_lambda_paramspec_args_kwargs,
+    r#"
+from typing import Callable, assert_type
+def f[**P, R](f: Callable[P, R], g: Callable[P, R]) -> Callable[P, R]: ...
+def g1(x: int, *args: int): ...
+def g2(x: int, **kwargs: str): ...
+x1 = f(g1, lambda x, *args: assert_type(args, tuple[int, ...])) # E: assert_type(Any, tuple[int, ...]) failed
+x2 = f(g2, lambda x, **kwargs: assert_type(kwargs, dict[str, str])) # E: assert_type(Any, dict[str, str]) failed
+    "#,
+);
+
+testcase!(
     test_context_return,
     r#"
 class A: ...
@@ -494,6 +507,18 @@ class Identity(Protocol):
     def __call__[T](self, x: T) -> T:
         return x
 x: Identity = lambda x: x  # E: `(x: Unknown) -> Unknown` is not assignable to `Identity`
+    "#,
+);
+
+testcase!(
+    bug = "We should contextually type *args and **kwargs here based on the Protocol",
+    test_context_lambda_args_kwargs_protocol,
+    r#"
+from typing import Protocol, assert_type, Any
+class Identity(Protocol):
+    def __call__(self, *args: int, **kwargs: int) -> Any: ...
+x: Identity = lambda *args, **kwargs: assert_type(args, tuple[int, ...]) # E: assert_type(Any, tuple[int, ...]) failed
+y: Identity = lambda *args, **kwargs: assert_type(kwargs, dict[str, int]) # E: assert_type(Any, dict[str, int]) failed
     "#,
 );
 

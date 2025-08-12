@@ -11,7 +11,7 @@ from reflex.components.core.breakpoints import Breakpoints
 from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
-LUCIDE_LIBRARY = "lucide-react@0.534.0"
+LUCIDE_LIBRARY = "lucide-react@0.536.0"
 
 class LucideIconComponent(Component):
     @classmethod
@@ -125,6 +125,7 @@ class DynamicIcon(LucideIconComponent):
         cls,
         *children,
         name: Var[str] | str | None = None,
+        size: Var[int] | int | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -939,6 +940,7 @@ LUCIDE_ICON_LIST = [
     "hamburger",
     "hammer",
     "hand_coins",
+    "hand_fist",
     "hand_heart",
     "hand_helping",
     "hand_metal",
@@ -1709,6 +1711,7 @@ LUCIDE_ICON_LIST = [
     "truck_electric",
     "truck",
     "turkish_lira",
+    "turntable",
     "turtle",
     "tv_2",
     "tv_minimal_play",

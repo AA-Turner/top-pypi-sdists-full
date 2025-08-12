@@ -2,7 +2,7 @@
 import codecs
 import os
 
-__version__ = '1.4.21'
+__version__ = '1.4.23'
 __author__ = 'Jimmy Liu'
 
 """

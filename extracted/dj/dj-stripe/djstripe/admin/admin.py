@@ -2,7 +2,7 @@
 Django Administration interface definitions
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from django.contrib import admin
 from django.db import IntegrityError, transaction
@@ -75,6 +75,7 @@ class StripeModelAdmin(CustomActionMixin, admin.ModelAdmin):
     change_form_template = "djstripe/admin/change_form.html"
     add_form_template = "djstripe/admin/add_form.html"
     actions = ("_resync_instances", "_sync_all_instances")
+    search_fields = ("id",)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -82,14 +83,17 @@ class StripeModelAdmin(CustomActionMixin, admin.ModelAdmin):
         self.raw_id_fields = get_forward_relation_fields_for_model(self.model)
 
     def get_list_display(self, request):
-        return (
-            ("__str__", "id", "djstripe_owner_account")
-            + self.list_display
-            + ("created", "livemode")
-        )
+        return [
+            "__str__",
+            "id",
+            "djstripe_owner_account",
+            *self.list_display,
+            "created",
+            "livemode",
+        ]
 
     def get_list_filter(self, request):
-        return self.list_filter + ("created", "livemode")
+        return [*self.list_filter, "created", "livemode"]
 
     def get_readonly_fields(self, request, obj=None):
         if obj is None:
@@ -104,20 +108,21 @@ class StripeModelAdmin(CustomActionMixin, admin.ModelAdmin):
                 and name not in properties
             ):
                 properties.append(name)
-        return list(self.readonly_fields) + properties
+
+        return [*self.readonly_fields, *properties]
 
     def get_search_fields(self, request):
-        return self.search_fields + ("id",)
+        return [*self.search_fields, "id"]
 
     def get_fieldsets(self, request, obj=None):
         common_fields = ("livemode", "id", "djstripe_owner_account", "created")
         # Have to remove the fields from the common set,
         # otherwise they'll show up twice.
         fields = [f for f in self.get_fields(request, obj) if f not in common_fields]
-        return (
+        return [
             (None, {"fields": common_fields}),
             (self.model.__name__, {"fields": fields}),
-        )
+        ]
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("djstripe_owner_account")
@@ -126,7 +131,7 @@ class StripeModelAdmin(CustomActionMixin, admin.ModelAdmin):
 @admin.register(models.Account)
 class AccountAdmin(StripeModelAdmin):
     list_display = ("business_url", "country", "default_currency")
-    list_filter = ("details_submitted",)
+
     search_fields = ("settings", "business_profile")
 
 
@@ -178,9 +183,8 @@ class BalanceTransactionAdmin(ReadOnlyMixin, StripeModelAdmin):
         "fee",
         "currency",
         "available_on",
-        "status",
     )
-    list_filter = ("status", "type")
+    list_filter = ("type",)
 
 
 @admin.register(models.Charge)
@@ -191,14 +195,12 @@ class ChargeAdmin(StripeModelAdmin):
         "invoice",
         "payment_method",
         "description",
-        "paid",
         "disputed",
-        "refunded",
         "fee",
     )
 
     search_fields = ("customer__id", "invoice__id")
-    list_filter = ("status", "paid", "refunded", "captured")
+    list_filter = ("status",)
 
     def get_queryset(self, request):
         return (
@@ -221,51 +223,36 @@ class CouponAdmin(StripeModelAdmin):
         "percent_off",
         "duration",
         "duration_in_months",
-        "redeem_by",
         "max_redemptions",
         "times_redeemed",
     )
-    list_filter = ("duration", "redeem_by")
-    radio_fields = {"duration": admin.HORIZONTAL}
 
 
 @admin.register(models.Customer)
 class CustomerAdmin(StripeModelAdmin):
     list_display = (
-        "deleted",
         "subscriber",
         "email",
         "currency",
         "default_source",
         "default_payment_method",
-        "coupon",
-        "balance",
     )
 
-    list_filter = ("deleted",)
-    search_fields = ("email", "description", "deleted")
+    search_fields = ("email", "description")
     inlines = (SubscriptionInline, SubscriptionScheduleInline, TaxIdInline)
 
     def get_queryset(self, request):
         return (
             super()
             .get_queryset(request)
-            .select_related(
-                "subscriber", "default_source", "default_payment_method", "coupon"
-            )
+            .select_related("subscriber", "default_source", "default_payment_method")
         )
 
 
 @admin.register(models.Discount)
 class DiscountAdmin(ReadOnlyMixin, StripeModelAdmin):
-    list_display = (
-        "customer",
-        "coupon",
-        "invoice_item",
-        "promotion_code",
-        "subscription",
-    )
-    list_filter = ("customer", "start", "end", "promotion_code", "coupon")
+    list_display = ("customer", "promotion_code", "subscription")
+    list_filter = ("customer", "promotion_code")
 
     def get_actions(self, request):
         """
@@ -282,8 +269,7 @@ class DiscountAdmin(ReadOnlyMixin, StripeModelAdmin):
 
 @admin.register(models.Dispute)
 class DisputeAdmin(ReadOnlyMixin, StripeModelAdmin):
-    list_display = ("reason", "status", "amount", "currency", "is_charge_refundable")
-    list_filter = ("is_charge_refundable", "reason", "status")
+    list_display = ("reason", "status", "amount", "currency")
 
 
 @admin.register(models.Event)
@@ -296,14 +282,11 @@ class EventAdmin(ReadOnlyMixin, StripeModelAdmin):
 @admin.register(models.File)
 class FileAdmin(StripeModelAdmin):
     list_display = ("purpose", "size", "type")
-    list_filter = ("purpose", "type")
-    search_fields = ("filename",)
 
 
 @admin.register(models.FileLink)
 class FileLinkAdmin(StripeModelAdmin):
     list_display = ("url",)
-    list_filter = ("expires_at",)
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("file")
@@ -311,27 +294,10 @@ class FileLinkAdmin(StripeModelAdmin):
 
 @admin.register(models.PaymentIntent)
 class PaymentIntentAdmin(StripeModelAdmin):
-    list_display = (
-        "on_behalf_of",
-        "customer",
-        "amount",
-        "payment_method",
-        "currency",
-        "description",
-        "amount_capturable",
-        "amount_received",
-        "receipt_email",
-    )
-    search_fields = ("customer__id", "invoice__id")
+    list_display = ("customer", "on_behalf_of")
 
     def get_queryset(self, request):
-        return (
-            super()
-            .get_queryset(request)
-            .select_related(
-                "customer", "payment_method", "payment_method__customer", "on_behalf_of"
-            )
-        )
+        return super().get_queryset(request).select_related("customer", "on_behalf_of")
 
 
 @admin.register(models.Payout)
@@ -344,8 +310,6 @@ class PayoutAdmin(StripeModelAdmin):
         "status",
         "type",
     )
-    list_filter = ("destination__id", "original_payout")
-    search_fields = ("destination__id", "balance_transaction__id")
 
     def get_queryset(self, request):
         return (
@@ -363,36 +327,13 @@ class PayoutAdmin(StripeModelAdmin):
 
 @admin.register(models.SetupIntent)
 class SetupIntentAdmin(StripeModelAdmin):
-    list_display = (
-        "created",
-        "customer",
-        "description",
-        "on_behalf_of",
-        "payment_method",
-        "payment_method_types",
-        "status",
-    )
-    list_filter = ("status",)
-    search_fields = ("customer__id", "status")
-
-    def get_queryset(self, request):
-        return (
-            super()
-            .get_queryset(request)
-            .select_related(
-                "on_behalf_of",
-                "customer",
-                "customer__subscriber",
-                "payment_method",
-                "payment_method__customer",
-            )
-        )
+    list_display = ("customer", "on_behalf_of")
 
 
 @admin.register(models.Session)
 class SessionAdmin(StripeModelAdmin):
     list_display = ("customer", "customer_email", "subscription")
-    list_filter = ("customer", "mode")
+    list_filter = ("customer",)
     search_fields = ("customer__id", "customer_email")
 
     def get_queryset(self, request):
@@ -408,18 +349,9 @@ class InvoiceAdmin(StripeModelAdmin):
         "currency",
         "number",
         "customer",
-        "due_date",
     )
-    list_filter = (
-        "status",
-        "paid",
-        "attempted",
-        "created",
-        "due_date",
-        "period_start",
-        "period_end",
-    )
-    search_fields = ("customer__id", "number", "receipt_number")
+    list_filter = ("created",)
+    search_fields = ("number", "receipt_number")
     inlines = (InvoiceItemInline,)
 
     @admin.display(description="Default Tax Rates")
@@ -444,16 +376,14 @@ class LineItemAdmin(StripeModelAdmin):
         "invoice_item",
         "subscription",
         "subscription_item",
-        "type",
     )
-    list_filter = ("type", "invoice_item", "subscription", "subscription_item")
+    list_filter = ("invoice_item", "subscription", "subscription_item")
     list_select_related = ("invoice_item", "subscription", "subscription_item")
 
 
 @admin.register(models.Mandate)
 class MandateAdmin(StripeModelAdmin):
     list_display = ("status", "type", "payment_method")
-    list_filter = ("multi_use", "single_use")
     search_fields = ("payment_method__id",)
 
     def get_queryset(self, request):
@@ -475,10 +405,9 @@ class MandateAdmin(StripeModelAdmin):
 @admin.register(models.Price)
 class PriceAdmin(StripeModelAdmin):
     list_display = ("product", "currency", "active")
-    list_filter = ("active", "type", "billing_scheme", "tiers_mode")
+    list_filter = ("active",)
     raw_id_fields = ("product",)
     search_fields = ("nickname",)
-    radio_fields = {"type": admin.HORIZONTAL}
 
     def get_queryset(self, request):
         return (
@@ -491,16 +420,9 @@ class PriceAdmin(StripeModelAdmin):
 
 @admin.register(models.Product)
 class ProductAdmin(StripeModelAdmin):
-    list_display = (
-        "name",
-        "default_price",
-        "type",
-        "active",
-        "url",
-        "statement_descriptor",
-    )
-    list_filter = ("type", "active", "shippable")
-    search_fields = ("name", "statement_descriptor")
+    list_display = ("name", "default_price", "type", "active", "url")
+    list_filter = ("active",)
+    search_fields = ("name",)
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related("prices")
@@ -523,8 +445,6 @@ class RefundAdmin(StripeModelAdmin):
         "status",
         "failure_reason",
     )
-    list_filter = ("reason", "status")
-    search_fields = ("receipt_number",)
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("charge")
@@ -533,7 +453,6 @@ class RefundAdmin(StripeModelAdmin):
 @admin.register(models.PaymentMethod)
 class PaymentMethodAdmin(StripeModelAdmin):
     list_display = ("customer", "type", "billing_details")
-    list_filter = ("type",)
     search_fields = ("customer__id",)
 
     def get_queryset(self, request):
@@ -582,15 +501,13 @@ class BankAccountAdmin(StripeModelAdmin):
 
 @admin.register(models.ShippingRate)
 class ShippingRateAdmin(StripeModelAdmin):
-    list_display = ("display_name", "active", "tax_behavior", "tax_code")
-    list_filter = ("active", "tax_behavior")
+    list_display = ("display_name", "tax_code")
     list_select_related = ("tax_code",)
 
 
 @admin.register(models.Subscription)
 class SubscriptionAdmin(StripeModelAdmin):
-    list_display = ("customer", "status")
-    list_filter = ("status", "cancel_at_period_end")
+    list_display = ("customer",)
 
     inlines = (SubscriptionItemInline, SubscriptionScheduleInline, LineItemInline)
 
@@ -616,14 +533,12 @@ class SubscriptionScheduleAdmin(StripeModelAdmin):
 
 @admin.register(models.TaxCode)
 class TaxCodeAdmin(StripeModelAdmin):
-    list_display = ("name", "description")
-    list_filter = ("name",)
+    list_display = ("description",)
 
 
 @admin.register(models.TaxRate)
 class TaxRateAdmin(StripeModelAdmin):
-    list_display = ("active", "display_name", "inclusive", "jurisdiction", "percentage")
-    list_filter = ("active", "inclusive", "jurisdiction")
+    list_display = ("display_name", "percentage")
 
 
 @admin.register(models.Transfer)
@@ -644,36 +559,6 @@ class ApplicationFeeAdmin(StripeModelAdmin):
 @admin.register(models.ApplicationFeeRefund)
 class ApplicationFeeReversalAdmin(StripeModelAdmin):
     list_display = ("amount", "fee")
-
-
-@admin.register(models.UsageRecord)
-class UsageRecordAdmin(StripeModelAdmin):
-    list_display = ("quantity", "subscription_item", "timestamp")
-
-    def get_queryset(self, request):
-        return super().get_queryset(request).select_related("subscription_item")
-
-    def get_actions(self, request):
-        """
-        Returns _resync_instances only for
-        models with a defined model.stripe_class.retrieve
-        """
-        actions = super().get_actions(request)
-
-        # remove "_sync_all_instances" as UsageRecords cannot be listed
-        actions.pop("_sync_all_instances", None)
-
-        return actions
-
-
-@admin.register(models.UsageRecordSummary)
-class UsageRecordSummaryAdmin(StripeModelAdmin):
-    list_display = ("invoice", "subscription_item", "total_usage")
-
-    def get_queryset(self, request):
-        return (
-            super().get_queryset(request).select_related("invoice", "subscription_item")
-        )
 
 
 @admin.register(models.WebhookEndpoint)
@@ -701,7 +586,7 @@ class WebhookEndpointAdmin(CustomActionMixin, admin.ModelAdmin):
             del actions["delete_selected"]
         return actions
 
-    def get_form(self, request, obj=None, **kwargs):
+    def get_form(self, request, obj=None, *args, **kwargs):
         if obj:
             return WebhookEndpointAdminEditForm
         return WebhookEndpointAdminCreateForm
@@ -732,19 +617,12 @@ class WebhookEndpointAdmin(CustomActionMixin, admin.ModelAdmin):
                 "djstripe_validation_method",
             ]
             if obj.djstripe_uuid:
-                core_fields = [
-                    "enabled",
-                    "base_url",
-                    "description",
-                ]
+                core_fields = ["enabled", "base_url"]
             else:
-                core_fields = [
-                    "enabled",
-                    "description",
-                ]
+                core_fields = ["enabled"]
         else:
             header_fields = ["djstripe_owner_account", "livemode"]
-            core_fields = ["description", "base_url", "connect"]
+            core_fields = ["base_url", "connect"]
             advanced_fields = [
                 "metadata",
                 "api_version",
@@ -762,7 +640,7 @@ class WebhookEndpointAdmin(CustomActionMixin, admin.ModelAdmin):
             ),
         ]
 
-    def get_changeform_initial_data(self, request) -> Dict[str, str]:
+    def get_changeform_initial_data(self, request) -> dict[str, str]:
         ret = super().get_changeform_initial_data(request)
         base_url = f"{request.scheme}://{request.get_host()}"
         ret.setdefault("base_url", base_url)
@@ -772,7 +650,9 @@ class WebhookEndpointAdmin(CustomActionMixin, admin.ModelAdmin):
         try:
             obj._api_delete()
         except InvalidRequestError as e:
-            if e.user_message.startswith("No such webhook endpoint: "):
+            if e.user_message and e.user_message.startswith(
+                "No such webhook endpoint: "
+            ):
                 # Webhook was already deleted in Stripe
                 pass
             else:

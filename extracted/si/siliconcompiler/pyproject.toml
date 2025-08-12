@@ -41,16 +41,16 @@ dependencies = [
     "packaging >= 21.3, < 25",
     "psutil >= 5.8.0",
     "Pillow == 11.3.0",
-    "GitPython == 3.1.44",
+    "GitPython >= 3.1.44, < 3.2",
     "lambdapdk >= 0.1.47",
-    "PyGithub == 2.6.1",
+    "PyGithub == 2.7.0",
     "urllib3 >= 1.26.0", # Required for PyGithub
     "fasteners == 0.19",
     "fastjsonschema == 2.21.1",
     "docker == 7.1.0",
     "importlib_metadata; python_version < '3.10'",
-    "orjson == 3.11.0",
-    "pyslang == 8.1.0",
+    "orjson >= 3.11.0, < 4",
+    "pyslang == 9.0.0",
 
     # dashboard, streamlit does not support 3.9.7
     "streamlit == 1.46.1; python_full_version != '3.9.7'",
@@ -85,6 +85,9 @@ smake = "siliconcompiler.apps.smake:main"
 
 [project.entry-points."siliconcompiler.show"]
 scsetup = "siliconcompiler.utils.showtools:setup"
+
+[project.entry-points."siliconcompiler.showtask"]
+scsetup = "siliconcompiler.utils.showtools:showtasks"
 
 [project.entry-points."siliconcompiler.target"]
 targets = "siliconcompiler.targets:get_targets"

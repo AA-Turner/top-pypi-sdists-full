@@ -46,6 +46,17 @@ class SecurityPermissionFlag(Enum):
         ...
 
 
+class PermissionState(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    UNRESTRICTED = 1
+
+    def __int__(self) -> int:
+        ...
+
+
 class SecurityAction(Enum):
     """Obsoletions.CodeAccessSecurityMessage"""
 
@@ -103,17 +114,6 @@ class CodeAccessSecurityAttribute(System.Security.Permissions.SecurityAttribute,
 
     def __init__(self, action: System.Security.Permissions.SecurityAction) -> None:
         """This method is protected."""
-        ...
-
-
-class PermissionState(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    UNRESTRICTED = 1
-
-    def __int__(self) -> int:
         ...
 
 

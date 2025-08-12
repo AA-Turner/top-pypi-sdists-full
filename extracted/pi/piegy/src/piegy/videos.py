@@ -19,11 +19,10 @@ others not documented here.
 
 from . import figures
 from .tools import file_tools as file_t
-from .tools import figure_tools as figure_t
 
 import matplotlib as mpl
+# switched to Agg in make_video
 import matplotlib.pyplot as plt
-import matplotlib.style as mplstyle
 import numpy as np
 import os
 from cv2 import imread, VideoWriter, VideoWriter_fourcc
@@ -40,14 +39,14 @@ FUNC_DICT = {'UV_hmap': figures.UV_hmap, 'UV_bar': figures.UV_bar, 'UV_hist': fi
 
 
 # Map some color maps to regular colors, used to change colors when an invalid color name is given
-SNS_PLT_COLOR_DICT = {'Greens': 'green', 'Purples': 'purple', 'BuPu': 'violet', 'YlGn': 'yellowgreen'}
+CMP_COLOR_DICT = {'Greens': 'green', 'Purples': 'purple', 'BuPu': 'violet', 'YlGn': 'yellowgreen'}
 # Map regular colors to color maps
-PLT_SNS_COLOR_DICT = {'green': 'Greens', 'purple': 'Purples', 'violet': 'BuPu', 'yellowgreen': 'YlGn'}
+COLOR_CMP_DICT = {'green': 'Greens', 'purple': 'Purples', 'violet': 'BuPu', 'yellowgreen': 'YlGn'}
 
 
 
 
-def convert_color(func_name, U_color, V_color):
+def convert_color(func_name, color_H, color_D):
     '''
     Converts some invalid colors.
     If making heatmap videos but gave single colors, map to color maps.
@@ -56,25 +55,25 @@ def convert_color(func_name, U_color, V_color):
 
     if 'hmap' in func_name:
         # if making heatmaps but give regular colors
-        if U_color in PLT_SNS_COLOR_DICT.keys():
-            print('Making heatmaps, changed \'' + U_color + '\' to \'' + PLT_SNS_COLOR_DICT[U_color] + '\'')
-            U_color = PLT_SNS_COLOR_DICT[U_color]
-        if V_color in PLT_SNS_COLOR_DICT.keys():
-            print('Making heatmaps, changed \'' + V_color + '\' to \'' + PLT_SNS_COLOR_DICT[V_color] + '\'')
-            V_color = PLT_SNS_COLOR_DICT[V_color]
+        if color_H in COLOR_CMP_DICT.keys():
+            print('Making heatmaps, changed \'' + color_H + '\' to \'' + COLOR_CMP_DICT[color_H] + '\'')
+            color_H = COLOR_CMP_DICT[color_H]
+        if color_D in COLOR_CMP_DICT.keys():
+            print('Making heatmaps, changed \'' + color_D + '\' to \'' + COLOR_CMP_DICT[color_D] + '\'')
+            color_D = COLOR_CMP_DICT[color_D]
         
-        return U_color, V_color
+        return color_H, color_D
 
     elif 'hmap' not in func_name:
         # if making barplots or histogram
-        if U_color in SNS_PLT_COLOR_DICT.keys():
-            print('Not making heatmaps, changed \'' + U_color + '\' to \'' + SNS_PLT_COLOR_DICT[U_color] + '\'')
-            U_color = SNS_PLT_COLOR_DICT[U_color]
-        if V_color in SNS_PLT_COLOR_DICT.keys():
-            print('Not making heatmaps, changed \'' + V_color + '\' to \'' + SNS_PLT_COLOR_DICT[V_color] + '\'')
-            V_color = SNS_PLT_COLOR_DICT[V_color]
+        if color_H in CMP_COLOR_DICT.keys():
+            print('Not making heatmaps, changed \'' + color_H + '\' to \'' + CMP_COLOR_DICT[color_H] + '\'')
+            color_H = CMP_COLOR_DICT[color_H]
+        if color_D in CMP_COLOR_DICT.keys():
+            print('Not making heatmaps, changed \'' + color_D + '\' to \'' + CMP_COLOR_DICT[color_D] + '\'')
+            color_D = CMP_COLOR_DICT[color_D]
 
-        return U_color, V_color
+        return color_H, color_D
 
 
 
@@ -120,31 +119,31 @@ def frame_lim(mod, func, frames):
     '''
     
     # take 10 samples and store their lims in list
-    U_xlist = []
-    U_ylist = []
+    H_xlist = []
+    H_ylist = []
     V_xlist = []
     V_ylist = []
     
     for i in range(10):
-        fig_U, ax_U = plt.subplots()
-        fig_V, ax_V = plt.subplots()
-        ax_U, ax_V = func(mod, ax_U = ax_U, ax_V = ax_V, start = i / 10, end = (i / 10 + 1 / frames))
+        fig_H, ax_H = plt.subplots()
+        fig_D, ax_D = plt.subplots()
+        ax_H, ax_D = func(mod, ax_H = ax_H, ax_D = ax_D, start = i / 10, end = (i / 10 + 1 / frames))
 
-        U_xlist.append(ax_U.get_xlim())
-        U_ylist.append(ax_U.get_ylim())
-        V_xlist.append(ax_V.get_xlim())
-        V_ylist.append(ax_V.get_ylim())
+        H_xlist.append(ax_H.get_xlim())
+        H_ylist.append(ax_H.get_ylim())
+        V_xlist.append(ax_D.get_xlim())
+        V_ylist.append(ax_D.get_ylim())
 
-        plt.close(fig_U)
-        plt.close(fig_V)
+        plt.close(fig_H)
+        plt.close(fig_D)
     
     # get the largest 'range' based on the lists
-    U_xlim = get_max_lim(U_xlist)
-    U_ylim = get_max_lim(U_ylist)
+    H_xlim = get_max_lim(H_xlist)
+    H_ylim = get_max_lim(H_ylist)
     V_xlim = get_max_lim(V_xlist)
     V_ylim = get_max_lim(V_ylist)
 
-    return U_xlim, U_ylim, V_xlim, V_ylim
+    return H_xlim, H_ylim, V_xlim, V_ylim
 
 
 
@@ -161,24 +160,24 @@ def frame_heatmap_lim(mod, func, frames):
         clim for U and V
     '''
 
-    U_list = []
+    H_list = []
     V_list = []
 
     for i in range(10):
-        fig_U, ax_U = plt.subplots()
-        fig_V, ax_V = plt.subplots()
-        func(mod, ax_U = ax_U, ax_V = ax_V, start = i / 10, end = (i / 10 + 1 / frames))
+        fig_H, ax_H = plt.subplots()
+        fig_D, ax_D = plt.subplots()
+        func(mod, ax_H = ax_H, ax_D = ax_D, start = i / 10, end = (i / 10 + 1 / frames))
 
-        U_list.append(ax_U.images[0].get_clim())
-        V_list.append(ax_V.images[0].get_clim())
+        H_list.append(ax_H.images[0].get_clim())
+        V_list.append(ax_D.images[0].get_clim())
 
-        plt.close(fig_U)
-        plt.close(fig_V)
+        plt.close(fig_H)
+        plt.close(fig_D)
 
-    U_clim = get_max_lim(U_list)
-    V_clim = get_max_lim(V_list)
+    H_clim = get_max_lim(H_list)
+    D_clim = get_max_lim(V_list)
 
-    return U_clim, V_clim
+    return H_clim, D_clim
 
 
 
@@ -213,28 +212,34 @@ def make_mp4(video_dir, frame_dir, fps):
 
 
 
-def make_video(mod, func_name = 'UV_hmap', frames = 100, dpi = 200, fps = 30, U_color = 'Greens', V_color = 'Purples', del_frames = False, dirs = 'videos'):
+def make_video(mod, func_name = None, frames = 100, dpi = 200, fps = 30, color_H = 'Greens', color_D = 'Purples', del_frames = False, dirs = 'videos'):
     '''
     Make a mp4 video based on simulation results.
 
     Inputs:
     - mod:            a simulation.model object, the simulation results.
-    - func_name:      what function to use to make the frames. Should be one of the functions in figures.py
+    - func_name:      what function to use to make the frames. Should be one of the functions in figures.py. Default is UV_hmap (for 2D) or UV_bar (1D).
     - frames:         how many frames to make. Use more frames for more smooth evolutions.
     - dpi:            dots per inch.
     - fps:            frames per second.
-    - U_color:        color for U's videos. Color maps or regular colors, based on what function you use.
-    - V_color:        color for V's videos.
+    - color_H:        color for U's videos. Color maps or regular colors, based on what function you use.
+    - color_D:        color for V's videos.
     - del_frames:     whether to delete frames after making video.
     - dirs:           where to store the frames and videos.
     '''
+    
+    if func_name == None:
+        if mod.N == 1:
+            func_name = "UV_bar"
+        else:
+            func_name = "UV_hmap"
     
     if func_name not in FUNC_DICT.keys():
         raise ValueError(func_name + ' not supported for videos.')
     func = FUNC_DICT[func_name]
 
     # convert color if invalid colors are given
-    U_color, V_color = convert_color(func_name, U_color, V_color)
+    color_H, color_D = convert_color(func_name, color_H, color_D)
 
     # set Agg backend for faster speed
     original_backend = mpl.get_backend()
@@ -246,18 +251,18 @@ def make_video(mod, func_name = 'UV_hmap', frames = 100, dpi = 200, fps = 30, U_
     
     if 'hmap' in func_name:
         # make sure a fixed color bar for all frames
-        U_clim, V_clim = frame_heatmap_lim(mod, func, frames)
+        H_clim, D_clim = frame_heatmap_lim(mod, func, frames)
     else:
         # make sure y axis not changing if not making heatmaps
-        U_xlim, U_ylim, V_xlim, V_ylim = frame_lim(mod, func, frames)
+        H_xlim, H_ylim, V_xlim, V_ylim = frame_lim(mod, func, frames)
 
     
-    U_frame_dirs = dirs + '/U-' + func_name
+    H_frame_dirs = dirs + '/U-' + func_name
     V_frame_dirs = dirs + '/V-' + func_name
     
-    if os.path.exists(U_frame_dirs):
-        file_t.del_dirs(U_frame_dirs)
-    os.makedirs(U_frame_dirs)
+    if os.path.exists(H_frame_dirs):
+        file_t.del_dirs(H_frame_dirs)
+    os.makedirs(H_frame_dirs)
     if os.path.exists(V_frame_dirs):
         file_t.del_dirs(V_frame_dirs)
     os.makedirs(V_frame_dirs)
@@ -274,34 +279,34 @@ def make_video(mod, func_name = 'UV_hmap', frames = 100, dpi = 200, fps = 30, U_
         
         if ('bar' in func_name) and (mod.M > 60):
             figsize = (min(mod.M * 0.12, 7.2), 4.8)
-            fig_U, ax_U = plt.subplots(figsize = figsize)
-            fig_V, ax_V = plt.subplots(figsize = figsize)
+            fig_H, ax_H = plt.subplots(figsize = figsize)
+            fig_D, ax_D = plt.subplots(figsize = figsize)
         else:
-            fig_U, ax_U = plt.subplots(figsize = figsize)
-            fig_V, ax_V = plt.subplots(figsize = figsize)
+            fig_H, ax_H = plt.subplots(figsize = figsize)
+            fig_D, ax_D = plt.subplots(figsize = figsize)
             
         if 'hmap' in func_name:
-            func(mod, ax_U = ax_U, ax_V = ax_V, U_color = U_color, V_color = V_color, start = i / frames, end = (i + 1) / frames, vrange_U = U_clim, vrange_V = V_clim)
+            func(mod, ax_H = ax_H, ax_D = ax_D, color_H = color_H, color_D = color_D, start = i / frames, end = (i + 1) / frames, vrange_H = H_clim, vrange_D = D_clim)
         else:
-            func(mod, ax_U = ax_U, ax_V = ax_V, U_color = U_color, V_color = V_color, start = i / frames, end = (i + 1) / frames)
+            func(mod, ax_H = ax_H, ax_D = ax_D, color_H = color_H, color_D = color_D, start = i / frames, end = (i + 1) / frames)
         
         if 'hmap' in func_name:
             # color map lim already set at function call
             pass
         else:
             # make sure y axis not changing if not heatmap and not UV_pi
-            ax_U.set_ylim(U_ylim)
-            ax_V.set_ylim(V_ylim)
+            ax_H.set_ylim(H_ylim)
+            ax_D.set_ylim(V_ylim)
             if ('hist' in func_name) or (func_name == 'UV_pi'):
                 # need to set xlim as well for UV_pi and histograms
-                ax_V.set_xlim(U_xlim)
-                ax_V.set_xlim(V_xlim)
+                ax_D.set_xlim(H_xlim)
+                ax_D.set_xlim(V_xlim)
 
-        fig_U.savefig(U_frame_dirs + '/' + 'U_frame_' + str(i) + '.png', pad_inches = 0.25, dpi = dpi)
-        fig_V.savefig(V_frame_dirs + '/' + 'V_frame_' + str(i) + '.png', pad_inches = 0.25, dpi = dpi)
+        fig_H.savefig(H_frame_dirs + '/' + 'H_frame_' + str(i) + '.png', pad_inches = 0.25, dpi = dpi)
+        fig_D.savefig(V_frame_dirs + '/' + 'V_frame_' + str(i) + '.png', pad_inches = 0.25, dpi = dpi)
         
-        plt.close(fig_U)
-        plt.close(fig_V)
+        plt.close(fig_H)
+        plt.close(fig_D)
         
     #### for loop ends ####
 
@@ -312,11 +317,11 @@ def make_video(mod, func_name = 'UV_hmap', frames = 100, dpi = 200, fps = 30, U_
     print('making mp4...      ', end = '\r')
     
     # make videos based on frames
-    make_mp4(dirs + '/U-' + func_name + '.mp4', U_frame_dirs, fps)
+    make_mp4(dirs + '/U-' + func_name + '.mp4', H_frame_dirs, fps)
     make_mp4(dirs + '/V-' + func_name + '.mp4', V_frame_dirs, fps)
     
     if del_frames:
-        file_t.del_dirs(U_frame_dirs)
+        file_t.del_dirs(H_frame_dirs)
         file_t.del_dirs(V_frame_dirs)
         print('video saved: ' + dirs + ', frames deleted')
     else:

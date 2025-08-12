@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skforecast
-Version: 0.16.0
+Version: 0.17.0
 Summary: Skforecast is a Python library for time series forecasting using machine learning models. It works with any regressor compatible with the scikit-learn API, including popular options like LightGBM, XGBoost, CatBoost, Keras, and many others.
 Author-email: Joaquin Amat Rodrigo <j.amatrodrigo@gmail.com>, Javier Escobar Ortiz <javier.escobar.ortiz@gmail.com>
 Maintainer-email: Joaquin Amat Rodrigo <j.amatrodrigo@gmail.com>, Javier Escobar Ortiz <javier.escobar.ortiz@gmail.com>
@@ -9,6 +9,8 @@ Project-URL: Homepage, https://www.skforecast.org
 Project-URL: Repository, https://github.com/skforecast/skforecast
 Project-URL: Documentation, https://www.skforecast.org
 Project-URL: Release Notes, https://skforecast.org/latest/releases/releases
+Project-URL: Download, https://pypi.org/project/skforecast/#files
+Project-URL: Tracker, https://github.com/skforecast/skforecast/issues
 Keywords: data-science,machine-learning,data-mining,time-series,scikit-learn,forecasting,time-series-analysis,time-series-regression
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
@@ -40,25 +42,27 @@ Requires-Dist: matplotlib<3.11,>=3.3; extra == "plotting"
 Requires-Dist: seaborn<0.14,>=0.11; extra == "plotting"
 Requires-Dist: statsmodels<0.15,>=0.12; extra == "plotting"
 Provides-Extra: deeplearning
+Requires-Dist: keras<4.0,>=3.0; extra == "deeplearning"
 Requires-Dist: matplotlib<3.11,>=3.3; extra == "deeplearning"
-Requires-Dist: keras<4.0,>=2.6; extra == "deeplearning"
 Provides-Extra: all
 Requires-Dist: matplotlib<3.11,>=3.3; extra == "all"
 Requires-Dist: seaborn<0.14,>=0.11; extra == "all"
 Requires-Dist: statsmodels<0.15,>=0.12; extra == "all"
-Requires-Dist: keras<4.0,>=2.6; extra == "all"
+Requires-Dist: keras<4.0,>=3.0; extra == "all"
+Requires-Dist: tensorflow<2.20,>=2.18; python_version < "3.13" and extra == "all"
+Requires-Dist: torch<2.8,>=2.4; python_version < "3.13" and extra == "all"
 Provides-Extra: full
 Requires-Dist: matplotlib<3.11,>=3.3; extra == "full"
 Requires-Dist: seaborn<0.14,>=0.11; extra == "full"
 Requires-Dist: statsmodels<0.15,>=0.12; extra == "full"
-Requires-Dist: keras<4.0,>=2.6; extra == "full"
+Requires-Dist: keras<4.0,>=3.0; extra == "full"
 Provides-Extra: docs
 Requires-Dist: mike==2.1.3; extra == "docs"
 Requires-Dist: mkdocs==1.6.1; extra == "docs"
 Requires-Dist: mkdocs-jupyter==0.25.1; extra == "docs"
-Requires-Dist: mkdocs-material==9.6.7; extra == "docs"
-Requires-Dist: mkdocstrings==0.29.0; extra == "docs"
-Requires-Dist: mkdocstrings-python==1.16.5; extra == "docs"
+Requires-Dist: mkdocs-material==9.6.16; extra == "docs"
+Requires-Dist: mkdocstrings==0.30.0; extra == "docs"
+Requires-Dist: mkdocstrings-python==1.16.12; extra == "docs"
 Requires-Dist: notebook==6.5.7; extra == "docs"
 Requires-Dist: jupyter-contrib-nbextensions==0.7.0; extra == "docs"
 Requires-Dist: black==25.1.0; extra == "docs"
@@ -66,10 +70,11 @@ Provides-Extra: test
 Requires-Dist: pytest>=7.3; extra == "test"
 Requires-Dist: pytest-cov>=4.1; extra == "test"
 Requires-Dist: pytest-xdist>=3.3; extra == "test"
-Requires-Dist: lightgbm<4.7,>=4.0; extra == "test"
+Requires-Dist: lightgbm<5.0,>=4.0; extra == "test"
 Requires-Dist: xgboost<4.0,>=2.1; extra == "test"
-Requires-Dist: tensorflow<2.20,>=2.13; python_version < "3.13" and extra == "test"
-Requires-Dist: torch<2.8,>=2.2; extra == "test"
+Requires-Dist: keras<4.0,>=3.0; extra == "test"
+Requires-Dist: tensorflow<2.20,>=2.18; python_version < "3.13" and extra == "test"
+Requires-Dist: torch<2.9,>=2.4; extra == "test"
 Requires-Dist: tomli>=2.0; extra == "test"
 Requires-Dist: pandas[parquet]>=1.5; extra == "test"
 Dynamic: license-file
@@ -81,12 +86,12 @@ Dynamic: license-file
 
 | | |
 | --- | --- |
-| Package | ![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue) [![PyPI](https://img.shields.io/pypi/v/skforecast)](https://pypi.org/project/skforecast/) [![Downloads](https://static.pepy.tech/badge/skforecast)](https://pepy.tech/project/skforecast) [![Downloads](https://img.shields.io/pypi/dm/skforecast?style=flat-square&color=blue&label=downloads%2Fmonth)](https://pypistats.org/packages/skforecast) [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/skforecast/skforecast/graphs/commit-activity) [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) |
+| Package | ![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue) [![PyPI](https://img.shields.io/pypi/v/skforecast)](https://pypi.org/project/skforecast/) [![Conda](https://img.shields.io/conda/v/conda-forge/skforecast?logo=Anaconda)](https://anaconda.org/conda-forge/skforecast) [![Downloads](https://static.pepy.tech/badge/skforecast)](https://pepy.tech/project/skforecast) [![Downloads](https://img.shields.io/pypi/dm/skforecast?style=flat-square&color=blue&label=downloads%2Fmonth)](https://pypistats.org/packages/skforecast) [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/skforecast/skforecast/graphs/commit-activity) [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active) |
 | Meta | [![License](https://img.shields.io/github/license/skforecast/skforecast)](https://github.com/skforecast/skforecast/blob/master/LICENSE) [![DOI](https://zenodo.org/badge/337705968.svg)](https://zenodo.org/doi/10.5281/zenodo.8382787) |
 | Testing | [![Build status](https://github.com/skforecast/skforecast/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/skforecast/skforecast/actions/workflows/unit-tests.yml/badge.svg) [![codecov](https://codecov.io/gh/skforecast/skforecast/branch/master/graph/badge.svg)](https://codecov.io/gh/skforecast/skforecast) |
 |Donation | [![paypal](https://img.shields.io/static/v1?style=social&amp;label=Donate&amp;message=%E2%9D%A4&amp;logo=Paypal&amp;color&amp;link=%3curl%3e)](https://www.paypal.com/donate/?hosted_button_id=D2JZSWRLTZDL6) [![buymeacoffee](https://img.shields.io/badge/-Buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee)](https://www.buymeacoffee.com/skforecast) ![GitHub Sponsors](https://img.shields.io/github/sponsors/joaquinamatrodrigo?logo=github&label=Github%20sponsors&link=https%3A%2F%2Fgithub.com%2Fsponsors%2FJoaquinAmatRodrigo) |
-|Community | [![!slack](https://img.shields.io/static/v1?logo=linkedin&label=LinkedIn&message=news&color=lightblue)](https://www.linkedin.com/company/skforecast/)
-|Affiliation | [![NumFOCUS Affiliated](https://img.shields.io/badge/NumFOCUS-Affiliated%20Project-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org/sponsored-projects/affiliated-projects)
+|Community | [![!linkedin](https://img.shields.io/static/v1?logo=linkedin&label=LinkedIn&message=news&color=lightblue)](https://www.linkedin.com/company/skforecast/) [![!discord](https://img.shields.io/static/v1?logo=discord&label=discord&message=chat&color=lightgreen)](https://discord.gg/3V52qpNkuj)
+|Affiliation | [![NumFOCUS Affiliated](https://img.shields.io/badge/NumFOCUS-Affiliated%20Project-orange.svg?style=flat&colorA=E1523D&colorB=007D8A)](https://numfocus.org/sponsored-projects/affiliated-projects) [![GC.OS Affiliated](https://img.shields.io/badge/GC.OS-Affiliated%20Project-orange.svg?style=flat&colorA=0eac92&colorB=2077b4)](https://gc-os-ai.github.io/)
 
 
 # Table of Contents
@@ -94,7 +99,7 @@ Dynamic: license-file
 - :information_source: [About The Project](#about-the-project)
 - :books: [Documentation](#documentation)
 - :computer: [Installation & Dependencies](#installation--dependencies)
-- :sparkles: [What is new in skforecast 0.16?](#what-is-new-in-skforecast-015)
+- :sparkles: [What is new in skforecast 0.17?](#what-is-new-in-skforecast-017)
 - :crystal_ball: [Forecasters](#forecasters)
 - :mortar_board: [Examples and tutorials](#examples-and-tutorials)
 - :handshake: [How to contribute](#how-to-contribute)
@@ -167,7 +172,7 @@ pip install skforecast
 For more installation options, including dependencies and additional features, check out our [Installation Guide](https://skforecast.org/latest/quick-start/how-to-install.html).
 
 
-# What is new in skforecast 0.16?
+# What is new in skforecast 0.17?
 
 All significant changes to this project are documented in the release file.
 
@@ -178,17 +183,17 @@ All significant changes to this project are documented in the release file.
 
 # Forecasters
 
-A **Forecaster** object in the skforecast library is a comprehensive container that provides essential functionality and methods for training a forecasting model and generating predictions for future points in time.
+A **Forecaster** object in the skforecast library is a comprehensive **container that provides essential functionality and methods** for training a forecasting model and generating predictions for future points in time.
 
-The **skforecast** library offers a variety of forecaster types, each tailored to specific requirements such as single or multiple time series, direct or recursive strategies, or custom predictors. Regardless of the specific forecaster type, all instances share the same API.
+The **skforecast** library offers a **variety of forecaster** types, each tailored to specific requirements such as single or multiple time series, direct or recursive strategies, or custom predictors. Regardless of the specific forecaster type, all instances share the same API.
 
 | Forecaster | Single series | Multiple series | Recursive strategy | Direct strategy | Probabilistic prediction | Time series differentiation | Exogenous features | Window features |
 |:-----------|:-------------:|:---------------:|:------------------:|:---------------:|:------------------------:|:---------------------------:|:------------------:|:---------------:|
 |[ForecasterRecursive]|:heavy_check_mark:||:heavy_check_mark:||:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|[ForecasterDirect]|:heavy_check_mark:|||:heavy_check_mark:|:heavy_check_mark:||:heavy_check_mark:|:heavy_check_mark:|
+|[ForecasterDirect]|:heavy_check_mark:|||:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
 |[ForecasterRecursiveMultiSeries]||:heavy_check_mark:|:heavy_check_mark:||:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|[ForecasterDirectMultiVariate]||:heavy_check_mark:||:heavy_check_mark:|:heavy_check_mark:||:heavy_check_mark:|:heavy_check_mark:|
-|[ForecasterRNN]||:heavy_check_mark:||:heavy_check_mark:|||||
+|[ForecasterDirectMultiVariate]||:heavy_check_mark:||:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
+|[ForecasterRNN]||:heavy_check_mark:||:heavy_check_mark:|:heavy_check_mark:||:heavy_check_mark:||
 |[ForecasterSarimax]|:heavy_check_mark:||:heavy_check_mark:||:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:||
 
 [ForecasterRecursive]: https://skforecast.org/latest/user_guides/autoregresive-forecaster.html
@@ -227,25 +232,25 @@ If you use skforecast for a scientific publication, we would appreciate citation
 **Zenodo**
 
 ```
-Amat Rodrigo, Joaquin, & Escobar Ortiz, Javier. (2025). skforecast (v0.16.0). Zenodo. https://doi.org/10.5281/zenodo.8382788
+Amat Rodrigo, Joaquin, & Escobar Ortiz, Javier. (2025). skforecast (v0.17.0). Zenodo. https://doi.org/10.5281/zenodo.8382788
 ```
 
 **APA**:
 ```
-Amat Rodrigo, J., & Escobar Ortiz, J. (2025). skforecast (Version 0.16.0) [Computer software]. https://doi.org/10.5281/zenodo.8382788
+Amat Rodrigo, J., & Escobar Ortiz, J. (2025). skforecast (Version 0.17.0) [Computer software]. https://doi.org/10.5281/zenodo.8382788
 ```
 
 **BibTeX**:
 ```
 @software{skforecast,
-author = {Amat Rodrigo, Joaquin and Escobar Ortiz, Javier},
-title = {skforecast},
-version = {0.16.0},
-month = {5},
-year = {2025},
-license = {BSD-3-Clause},
-url = {https://skforecast.org/},
-doi = {10.5281/zenodo.8382788}
+  author  = {Amat Rodrigo, Joaquin and Escobar Ortiz, Javier},
+  title   = {skforecast},
+  version = {0.17.0},
+  month   = {8},
+  year    = {2025},
+  license = {BSD-3-Clause},
+  url     = {https://skforecast.org/},
+  doi     = {10.5281/zenodo.8382788}
 }
 ```
 
@@ -257,7 +262,7 @@ View the [citation file](https://github.com/skforecast/skforecast/blob/master/CI
 If you found **skforecast** useful, you can support us with a donation. Your contribution will help us **continue developing, maintaining, and improving** this project. Every contribution, no matter the size, makes a difference. **Thank you for your support!**
 
 <a href="https://www.buymeacoffee.com/skforecast" target="_blank" title="Buy me a coffee skforecast">
-    <img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=skforecast&button_colour=f79939&font_colour=000000&font_family=Poppins&outline_colour=000000&coffee_colour=FFDD00" />
+    <img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=skforecast&button_colour=f79939&font_colour=000000&font_family=Poppins&outline_colour=000000&coffee_colour=FFDD00">
 </a>
 <br>
 <a href="https://github.com/sponsors/JoaquinAmatRodrigo" target="_blank" title="Become a GitHub Sponsor">
@@ -268,6 +273,7 @@ If you found **skforecast** useful, you can support us with a donation. Your con
     <img style="margin-bottom: 1em; ; width: 240px;" src="./images/github_sponsor_button.png" alt="Become a GitHub Sponsor">
 </a>
 <br>
+
 
 [![paypal](https://www.paypalobjects.com/en_US/ES/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=D2JZSWRLTZDL6)
 

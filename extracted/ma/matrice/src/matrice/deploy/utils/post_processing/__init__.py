@@ -56,6 +56,7 @@ from .core.config import (
     BaseConfig,
     PeopleCountingConfig,
     CustomerServiceConfig,
+    ProximityConfig,
     ZoneConfig,
     TrackingConfig,
     AlertConfig,
@@ -130,6 +131,7 @@ from .usecases.Histopathological_Cancer_Detection_img import HistopathologicalCa
 from .usecases import (
     PeopleCountingUseCase,
     CustomerServiceUseCase,
+    ProximityUseCase,
     AdvancedCustomerServiceUseCase,
     BasicCountingTrackingUseCase,
     LicensePlateUseCase,
@@ -193,6 +195,7 @@ from .usecases import (
 # Register use cases automatically
 _people_counting = PeopleCountingUseCase()
 _customer_service = CustomerServiceUseCase()
+_proximity_detection = ProximityUseCase()
 _advanced_customer_service = AdvancedCustomerServiceUseCase()
 _basic_counting_tracking = BasicCountingTrackingUseCase()
 _license_plate = LicensePlateUseCase()
@@ -248,7 +251,7 @@ _flower_segmentation = FlowerUseCase()
 _leaf_det = LeafUseCase()
 _smoker_detection = SmokerDetectionUseCase()
 _litter_detection = LitterDetectionUseCase()
-_abandoned_object_detection  = AbandonedObjectDetectionUseCase()
+_abandoned_object_detection = AbandonedObjectDetectionUseCase()
 _human_activity_recognition = HumanActivityUseCase()
 _gas_leak_detection = GasLeakDetectionUseCase()
 
@@ -262,6 +265,7 @@ _histopathological_cancer_detection = HistopathologicalCancerDetectionUseCase()
 registry.register_use_case(_abandoned_object_detection.category, _abandoned_object_detection.name, AbandonedObjectDetectionUseCase)
 registry.register_use_case(_litter_detection.category, _litter_detection.name, LitterDetectionUseCase)
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
+registry.register_use_case(_proximity_detection.category, _proximity_detection.name, ProximityUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
 registry.register_use_case(_advanced_customer_service.category, _advanced_customer_service.name, AdvancedCustomerServiceUseCase)
 registry.register_use_case(_basic_counting_tracking.category, _basic_counting_tracking.name, BasicCountingTrackingUseCase)
@@ -373,6 +377,7 @@ from .utils import (  # noqa: E402
     # New utilities
     create_people_counting_config,
     create_intrusion_detection_config,
+    create_proximity_detection_config,
     create_customer_service_config,
     create_advanced_customer_service_config,
     create_basic_counting_tracking_config,
@@ -457,7 +462,8 @@ __all__ = [
     
     # Configuration classes
     'BaseConfig',
-    'PeopleCountingConfig', 
+    'PeopleCountingConfig',
+    'ProximityConfig', 
     'CustomerServiceConfig',
     'ColorDetectionConfig',
     'LicensePlateConfig',
@@ -524,6 +530,7 @@ __all__ = [
     # Use case classes
     'PeopleCountingUseCase',
     'CustomerServiceUseCase',
+    'ProximityUseCase',
     'AdvancedCustomerServiceUseCase',
     'BasicCountingTrackingUseCase',
     'LicensePlateUseCase',
@@ -643,6 +650,7 @@ __all__ = [
     # New utilities
     'create_people_counting_config',
     'create_intrusion_detection_config',
+    'create_proximity_detection_config',
     'create_customer_service_config',
     'create_advanced_customer_service_config',
     'create_basic_counting_tracking_config',

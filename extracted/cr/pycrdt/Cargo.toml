@@ -1,7 +1,8 @@
 [package]
 name = "pycrdt"
-version = "0.12.26"
+version = "0.12.27"
 edition = "2021"
+readme = "README.md"
 
 [lib]
 name = "pycrdt"

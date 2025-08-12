@@ -10,54 +10,6 @@ import System.Runtime.ConstrainedExecution
 import System.Threading
 
 
-class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
-    """This class has no documentation."""
-
-    def __init__(self, size_in_megabytes: int) -> None:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-
-class GCLargeObjectHeapCompactionMode(Enum):
-    """This class has no documentation."""
-
-    DEFAULT = 1
-
-    COMPACT_ONCE = 2
-
-    def __int__(self) -> int:
-        ...
-
-
-class GCLatencyMode(Enum):
-    """This class has no documentation."""
-
-    BATCH = 0
-
-    INTERACTIVE = 1
-
-    LOW_LATENCY = 2
-
-    SUSTAINED_LOW_LATENCY = 3
-
-    NO_GC_REGION = 4
-
-    def __int__(self) -> int:
-        ...
-
-
-class GCSettings(System.Object):
-    """This class has no documentation."""
-
-    latency_mode: System.Runtime.GCLatencyMode
-
-    large_object_heap_compaction_mode: System.Runtime.GCLargeObjectHeapCompactionMode
-
-    IS_SERVER_GC: bool
-
-
 class ProfileOptimization(System.Object):
     """This class has no documentation."""
 
@@ -67,6 +19,16 @@ class ProfileOptimization(System.Object):
 
     @staticmethod
     def start_profile(profile: str) -> None:
+        ...
+
+
+class MemoryFailPoint(System.Runtime.ConstrainedExecution.CriticalFinalizerObject, System.IDisposable):
+    """This class has no documentation."""
+
+    def __init__(self, size_in_megabytes: int) -> None:
+        ...
+
+    def dispose(self) -> None:
         ...
 
 
@@ -107,22 +69,6 @@ class JitInfo(System.Object):
         ...
 
 
-class AmbiguousImplementationException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
 class AssemblyTargetedPatchBandAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -143,6 +89,60 @@ class TargetedPatchingOptOutAttribute(System.Attribute):
 
     def __init__(self, reason: str) -> None:
         ...
+
+
+class AmbiguousImplementationException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class GCLargeObjectHeapCompactionMode(Enum):
+    """This class has no documentation."""
+
+    DEFAULT = 1
+
+    COMPACT_ONCE = 2
+
+    def __int__(self) -> int:
+        ...
+
+
+class GCLatencyMode(Enum):
+    """This class has no documentation."""
+
+    BATCH = 0
+
+    INTERACTIVE = 1
+
+    LOW_LATENCY = 2
+
+    SUSTAINED_LOW_LATENCY = 3
+
+    NO_GC_REGION = 4
+
+    def __int__(self) -> int:
+        ...
+
+
+class GCSettings(System.Object):
+    """This class has no documentation."""
+
+    latency_mode: System.Runtime.GCLatencyMode
+
+    large_object_heap_compaction_mode: System.Runtime.GCLargeObjectHeapCompactionMode
+
+    IS_SERVER_GC: bool
 
 
 class ControlledExecution(System.Object):

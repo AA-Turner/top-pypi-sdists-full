@@ -8,7 +8,7 @@ on:
         required: false
         type: string
       python_version:
-        default: '3.13.5'
+        default: '3.13.6'
         description: 'Python version to use'
         required: false
         type: string
@@ -36,7 +36,7 @@ on:
         required: false
         type: string
       python_version:
-        default: '3.13.5'
+        default: '3.13.6'
         description: 'Python version to use'
         required: true
         type: string
@@ -64,11 +64,11 @@ jobs:
         echo "PYTHON_MAJOR_MINOR=$majorMinor" >> $env:GITHUB_ENV
         echo "BUILD_PATH=build\exe.win-amd64-$majorMinor" >> $env:GITHUB_ENV
     - name: Checkout arelle
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v4.3.0
       with:
         fetch-depth: 0
     - name: Checkout EDGAR
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v4.3.0
       with:
         repository: Arelle/EDGAR
         path: arelle/plugin/EDGAR
@@ -76,7 +76,7 @@ jobs:
     - shell: cmd
       run: rmdir /s /q arelle\plugin\EDGAR\.git
     - name: Checkout xule
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v4.3.0
       with:
         repository: xbrlus/xule
         path: xule

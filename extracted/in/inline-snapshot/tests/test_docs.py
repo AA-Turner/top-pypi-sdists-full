@@ -16,6 +16,7 @@ from typing import Optional
 from typing import TypeVar
 
 import pytest
+from executing import is_pytest_compatible
 
 from inline_snapshot import snapshot
 from inline_snapshot._external._external_file import external_file
@@ -23,6 +24,7 @@ from inline_snapshot._flags import Flags
 from inline_snapshot._global_state import snapshot_env
 from inline_snapshot.extra import raises
 from inline_snapshot.testing import Example
+from inline_snapshot.version import is_insider
 
 
 @dataclass
@@ -366,11 +368,9 @@ uuid.uuid4=f
 
             options = set(block.code_header.split())
 
-            # if "requires_assert" in options and not is_pytest_compatible():
-            #    return block
-
-            if "requires_assert" in options:
-                # we can not test the features of the insider version
+            if "requires_assert" in options and (
+                not is_pytest_compatible() or not is_insider
+            ):
                 return block
 
             flags = options & Flags.all().to_set()
@@ -410,7 +410,7 @@ uuid.uuid4=f
 
             new_code = code
             if flags:
-                new_code = example.read_text("test_example.py")
+                new_code = example.read_file("test_example.py")
             new_code.replace("\n\n", "\n")
 
             if "show_error" in options:

@@ -2,8 +2,9 @@
 
 import pytest
 import json
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from arxiv_mcp_server.tools import handle_search
+from arxiv_mcp_server.tools.search import _validate_categories, _build_date_filter
 
 
 @pytest.mark.asyncio
@@ -59,25 +60,89 @@ async def test_search_with_invalid_dates(mock_client):
             {"query": "test query", "date_from": "invalid-date", "max_results": 1}
         )
 
-        assert result[0].text.startswith("Error: Invalid date format")
+        assert result[0].text.startswith("Error: Invalid date")
+
+
+def test_validate_categories():
+    """Test category validation function."""
+    # Valid categories
+    assert _validate_categories(["cs.AI", "cs.LG"])
+    assert _validate_categories(["math.CO", "physics.gen-ph"])
+
+    # Invalid categories
+    assert not _validate_categories(["invalid.category"])
+    assert not _validate_categories(["cs.AI", "invalid.test"])
+
+
+def test_build_date_filter():
+    """Test date filter construction."""
+    # Test with both dates
+    filter_str = _build_date_filter("2023-01-01", "2023-12-31")
+    assert "submittedDate:[20230101" in filter_str
+    assert "20231231" in filter_str
+
+    # Test with only start date
+    filter_str = _build_date_filter("2023-01-01", None)
+    assert "submittedDate:[20230101" in filter_str
+
+    # Test with no dates
+    assert _build_date_filter(None, None) == ""
+
+    # Test with invalid date
+    with pytest.raises(ValueError):
+        _build_date_filter("invalid-date", None)
 
 
 @pytest.mark.asyncio
-async def test_search_query_field_specifier_fix(mock_client):
-    """Test that plain queries get field specifiers for better relevance (issue #33)."""
+async def test_search_with_invalid_categories(mock_client):
+    """Test search with invalid categories."""
     with patch("arxiv.Client", return_value=mock_client):
-        with patch("arxiv.Search") as search_mock:
-            # Test multi-word query
-            await handle_search({"query": "quantum computing", "max_results": 1})
-            search_mock.assert_called()
-            assert search_mock.call_args[1]["query"] == "all:quantum AND all:computing"
+        result = await handle_search(
+            {
+                "query": "test query",
+                "categories": ["invalid.category"],
+                "max_results": 1,
+            }
+        )
 
-            # Test single word query
-            search_mock.reset_mock()
-            await handle_search({"query": "transformer", "max_results": 1})
-            assert search_mock.call_args[1]["query"] == "all:transformer"
+        assert "Error: Invalid category" in result[0].text
 
-            # Test query with existing field specifier (should not be modified)
-            search_mock.reset_mock()
-            await handle_search({"query": "ti:neural networks", "max_results": 1})
-            assert search_mock.call_args[1]["query"] == "ti:neural networks"
+
+@pytest.mark.asyncio
+async def test_search_empty_query(mock_client):
+    """Test search with empty query but categories."""
+    with patch("arxiv.Client", return_value=mock_client):
+        result = await handle_search(
+            {"query": "", "categories": ["cs.AI"], "max_results": 1}
+        )
+
+        # Should still work with just categories
+        content = json.loads(result[0].text)
+        assert "papers" in content
+
+
+@pytest.mark.asyncio
+async def test_search_arxiv_error(mock_client):
+    """Test handling of arXiv API errors."""
+    import arxiv
+
+    # Create proper ArxivError with required parameters
+    error = arxiv.ArxivError("http://example.com", retry=3, message="API Error")
+    mock_client.results.side_effect = error
+
+    with patch("arxiv.Client", return_value=mock_client):
+        result = await handle_search({"query": "test", "max_results": 1})
+
+        assert "ArXiv API error" in result[0].text
+
+
+@pytest.mark.asyncio
+async def test_search_max_results_limiting(mock_client):
+    """Test that max_results is properly limited."""
+    with patch("arxiv.Client", return_value=mock_client):
+        # Test that very large max_results gets capped
+        result = await handle_search({"query": "test", "max_results": 1000})
+
+        # Should not fail and should be limited by settings.MAX_RESULTS
+        content = json.loads(result[0].text)
+        assert "papers" in content

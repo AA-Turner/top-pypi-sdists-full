@@ -43,39 +43,6 @@ class NeutralResourcesLanguageAttribute(System.Attribute):
         ...
 
 
-class MissingSatelliteAssemblyException(System.SystemException):
-    """The exception that is thrown when the satellite assembly for the resources of the default culture is missing."""
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
 class IResourceReader(System.Collections.IEnumerable, System.IDisposable, metaclass=abc.ABCMeta):
     """Abstraction to read streams of resources."""
 
@@ -283,6 +250,39 @@ class MissingManifestResourceException(System.SystemException):
 
     @overload
     def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class MissingSatelliteAssemblyException(System.SystemException):
+    """The exception that is thrown when the satellite assembly for the resources of the default culture is missing."""
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, culture_name: str) -> None:
         ...
 
     @overload

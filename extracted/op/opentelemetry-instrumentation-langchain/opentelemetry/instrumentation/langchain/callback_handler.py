@@ -37,6 +37,7 @@ from opentelemetry.instrumentation.langchain.span_utils import (
     SpanHolder,
     _set_span_attribute,
     extract_model_name_from_response_metadata,
+    _extract_model_name_from_association_metadata,
     set_chat_request,
     set_chat_response,
     set_chat_response_usage,
@@ -66,6 +67,7 @@ from opentelemetry.semconv_ai import (
 from opentelemetry.trace import SpanKind, Tracer, set_span_in_context
 from opentelemetry.trace.span import Span
 from opentelemetry.trace.status import Status, StatusCode
+from opentelemetry.semconv.attributes.error_attributes import ERROR_TYPE
 
 
 def _extract_class_name_from_serialized(serialized: Optional[dict[str, Any]]) -> str:
@@ -240,7 +242,11 @@ class TraceloopCallbackHandler(BaseCallbackHandler):
         # Set metadata as span attributes if available
         if metadata is not None:
             for key, value in sanitized_metadata.items():
-                _set_span_attribute(span, f"{SpanAttributes.TRACELOOP_ASSOCIATION_PROPERTIES}.{key}", value)
+                _set_span_attribute(
+                    span,
+                    f"{SpanAttributes.TRACELOOP_ASSOCIATION_PROPERTIES}.{key}",
+                    value,
+                )
 
         self.spans[run_id] = SpanHolder(
             span, token, None, [], workflow_name, entity_name, entity_path
@@ -300,7 +306,9 @@ class TraceloopCallbackHandler(BaseCallbackHandler):
             metadata=metadata,
         )
 
-        vendor = detect_vendor_from_class(_extract_class_name_from_serialized(serialized))
+        vendor = detect_vendor_from_class(
+            _extract_class_name_from_serialized(serialized)
+        )
 
         _set_span_attribute(span, SpanAttributes.LLM_SYSTEM, vendor)
         _set_span_attribute(span, SpanAttributes.LLM_REQUEST_TYPE, request_type.value)
@@ -425,7 +433,12 @@ class TraceloopCallbackHandler(BaseCallbackHandler):
 
         name = self._get_name_from_callback(serialized, kwargs=kwargs)
         span = self._create_llm_span(
-            run_id, parent_run_id, name, LLMRequestTypeValues.CHAT, metadata=metadata, serialized=serialized
+            run_id,
+            parent_run_id,
+            name,
+            LLMRequestTypeValues.CHAT,
+            metadata=metadata,
+            serialized=serialized,
         )
         set_request_params(span, kwargs, self.spans[run_id])
         if should_emit_events():
@@ -451,7 +464,11 @@ class TraceloopCallbackHandler(BaseCallbackHandler):
 
         name = self._get_name_from_callback(serialized, kwargs=kwargs)
         span = self._create_llm_span(
-            run_id, parent_run_id, name, LLMRequestTypeValues.COMPLETION, serialized=serialized
+            run_id,
+            parent_run_id,
+            name,
+            LLMRequestTypeValues.COMPLETION,
+            serialized=serialized,
         )
         set_request_params(span, kwargs, self.spans[run_id])
         if should_emit_events():
@@ -479,7 +496,9 @@ class TraceloopCallbackHandler(BaseCallbackHandler):
                 "model_name"
             ) or response.llm_output.get("model_id")
             if model_name is not None:
-                _set_span_attribute(span, SpanAttributes.LLM_RESPONSE_MODEL, model_name or "unknown")
+                _set_span_attribute(
+                    span, SpanAttributes.LLM_RESPONSE_MODEL, model_name or "unknown"
+                )
 
                 if self.spans[run_id].request_model is None:
                     _set_span_attribute(
@@ -490,6 +509,9 @@ class TraceloopCallbackHandler(BaseCallbackHandler):
                 _set_span_attribute(span, GEN_AI_RESPONSE_ID, id)
         if model_name is None:
             model_name = extract_model_name_from_response_metadata(response)
+        if model_name is None and hasattr(context_api, "get_value"):
+            association_properties = context_api.get_value("association_properties") or {}
+            model_name = _extract_model_name_from_association_metadata(association_properties)
         token_usage = (response.llm_output or {}).get("token_usage") or (
             response.llm_output or {}
         ).get("usage")
@@ -539,7 +561,9 @@ class TraceloopCallbackHandler(BaseCallbackHandler):
                         SpanAttributes.LLM_RESPONSE_MODEL: model_name or "unknown",
                     },
                 )
-        set_chat_response_usage(span, response, self.token_histogram, token_usage is None, model_name)
+        set_chat_response_usage(
+            span, response, self.token_histogram, token_usage is None, model_name
+        )
         if should_emit_events():
             self._emit_llm_end_events(response)
         else:
@@ -705,6 +729,8 @@ class TraceloopCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         """Run when tool errors."""
+        span = self._get_span(run_id)
+        span.set_attribute(ERROR_TYPE, type(error).__name__)
         self._handle_error(error, run_id, parent_run_id, **kwargs)
 
     @dont_throw

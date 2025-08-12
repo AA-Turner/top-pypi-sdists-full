@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "edgartools"
 description = 'Navigate Edgar filings with ease'
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = ["sec", "edgar", "filings", "company", "python", "finance", "financial", "reports"]
 authors = [
@@ -15,10 +15,10 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "License :: OSI Approved :: MIT License",
@@ -47,6 +47,17 @@ dependencies = [
   "packaging==24.2"
 ]
 dynamic = ["version"]
+
+[project.optional-dependencies]
+ai = [
+    "mcp==1.12.3; python_version>='3.10'",  # Model Context Protocol (Python 3.10+ only)
+    "tiktoken>=0.10.0",                      # Token counting for OpenAI models
+]
+
+ai-dev = [
+    "pytest-mock>=3.12.0",       # For mocking AI responses
+    "responses>=0.24.0",         # HTTP response mocking
+]
 
 [project.urls]
 Documentation = "https://dgunning.github.io/edgartools/"
@@ -89,6 +100,12 @@ dependencies = [
   "mkdocstrings[python]",
   "mkdocs-material"
 ]
+
+features = [
+    "ai",
+    "ai-dev"
+]
+
 [tool.hatch.envs.default.scripts]
 cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=edgar --cov=tests --ignore=tests/legacy {args}"
 no-cov = "cov --no-cov {args}"

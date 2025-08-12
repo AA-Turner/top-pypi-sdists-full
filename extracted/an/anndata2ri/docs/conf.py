@@ -1,7 +1,9 @@
 """Sphinx configuration."""
 
+from __future__ import annotations
+
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from importlib.metadata import metadata
 from pathlib import Path
 
@@ -20,7 +22,7 @@ sys.path[:0] = [str(HERE / 'ext')]
 project = 'anndata2ri'
 meta = metadata(project)
 author = meta['author-email'].split('"')[1]
-copyright = f'{datetime.now(tz=timezone.utc):%Y}, {author}.'  # noqa: A001
+copyright = f'{datetime.now(tz=UTC):%Y}, {author}.'  # noqa: A001
 version = meta['version']
 release = version
 
@@ -35,11 +37,15 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.autosummary',
+    'sphinx.ext.napoleon',
     'sphinx_autodoc_typehints',
     'scanpydoc',
     *[p.stem for p in (HERE / 'ext').glob('*.py')],
 ]
 
+always_use_bars_union = True
+typehints_document_rtype_none = False
+typehints_use_rtype = False
 # Generate the API documentation when building
 autosummary_generate = True
 autodoc_member_order = 'bysource'
@@ -49,15 +55,21 @@ napoleon_include_init_with_doc = False
 napoleon_use_rtype = True  # having a separate entry generally helps readability
 napoleon_use_param = True
 todo_include_todos = False
+napoleon_custom_sections = ['Supports']
 
 intersphinx_mapping = dict(
     anndata=('https://anndata.readthedocs.io/en/latest/', None),
+    ipython=('https://ipython.readthedocs.io/en/stable/', None),
     numpy=('https://docs.scipy.org/doc/numpy/', None),
     pandas=('http://pandas.pydata.org/pandas-docs/stable/', None),
     python=('https://docs.python.org/3', None),
     rpy2=('https://rpy2.github.io/doc/latest/html/', None),
     scipy=('https://docs.scipy.org/doc/scipy/reference/', None),
 )
+
+qualname_overrides = {
+    'rpy2.robjects.conversion.Converter': ('py:mod', 'rpy2.robjects.conversion'),
+}
 
 
 # -- Options for HTML output ----------------------------------------------

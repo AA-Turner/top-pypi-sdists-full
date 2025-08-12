@@ -5,16 +5,19 @@ class Inspire(Facade):
     @classmethod
     def getFacadeAccessor(cls):
         """
-        Retrieves the binding key used to resolve the 'inspire' service from the service container.
+        Get the registered name of the component.
 
-        This method provides the unique identifier string that the service container uses to locate
-        and return the implementation associated with the 'inspire' service. It is typically used
-        internally by the Facade base class to delegate calls to the appropriate service instance.
+        This method returns the service container binding key that identifies the
+        inspirational service implementation. The facade system uses this accessor
+        to resolve the underlying service instance from the IoC container when
+        facade methods are called.
 
         Returns
         -------
         str
-            The binding key "core.orionis.inspire" that identifies the 'inspire' service in the container.
+            The service container binding key 'x-orionis.services.inspirational.inspire'
+            used to resolve the inspirational service instance.
         """
 
-        return "core.orionis.inspire"
+        # Return the service container binding key for the inspirational service
+        return "x-orionis.services.inspirational.inspire"

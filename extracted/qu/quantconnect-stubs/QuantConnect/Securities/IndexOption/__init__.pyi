@@ -60,19 +60,6 @@ class IndexOptionSymbol(System.Object):
         ...
 
 
-class IndexOptionPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
-    """The index option price variation model"""
-
-    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
-        """
-        Get the minimum price variation from a security
-        
-        :param parameters: An object containing the method parameters
-        :returns: Decimal minimum price variation of a given security.
-        """
-        ...
-
-
 class IndexOptionSymbolProperties(QuantConnect.Securities.Option.OptionSymbolProperties):
     """Index Option Symbol Properties"""
 
@@ -131,6 +118,19 @@ class IndexOption(QuantConnect.Securities.Option.Option):
         This method is protected.
         
         :param data: Market price data
+        """
+        ...
+
+
+class IndexOptionPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
+    """The index option price variation model"""
+
+    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+        """
+        Get the minimum price variation from a security
+        
+        :param parameters: An object containing the method parameters
+        :returns: Decimal minimum price variation of a given security.
         """
         ...
 

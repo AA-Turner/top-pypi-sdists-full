@@ -1,12 +1,12 @@
-"""Tests for cx_Freeze.hooks of pyarrow."""
+"""Tests for hooks of pyarrow."""
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 
-from cx_Freeze._compat import ABI_THREAD, IS_ARM_64, IS_WINDOWS
+from cx_Freeze._compat import IS_ARM_64, IS_CONDA, IS_WINDOWS
+
+TIMEOUT_SLOW = 60 if IS_CONDA else 20
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -31,6 +31,10 @@ pyproject.toml
     [project]
     name = "test_pyarrow"
     version = "0.1.2.3"
+    dependencies = [
+        "pyarrow;python_version < '3.13'",
+        "pyarrow>=20;python_version >= '3.13'",
+    ]
 
     [tool.cxfreeze]
     executables = ["test_pyarrow.py"]
@@ -45,9 +49,10 @@ pyproject.toml
 @pytest.mark.xfail(
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,
-    reason="pyarrow not supported in windows arm64",
+    reason="pyarrow does not support Windows arm64",
     strict=True,
 )
+@pytest.mark.venv
 @zip_packages
 def test_pyarrow(tmp_package, zip_packages: bool) -> None:
     """Test if pyarrow hook is working correctly."""
@@ -57,15 +62,19 @@ def test_pyarrow(tmp_package, zip_packages: bool) -> None:
         buf = pyproject.read_bytes().decode().splitlines()
         buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
         pyproject.write_bytes("\n".join(buf).encode("utf_8"))
-    if IS_WINDOWS and sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t":
-        tmp_package.install("pyarrow>=20")
-    else:
-        tmp_package.install("pyarrow")
-    output = tmp_package.run()
+    tmp_package.freeze()
     executable = tmp_package.executable("test_pyarrow")
     assert executable.is_file()
-    output = tmp_package.run(executable, timeout=20)
-    lines = output.splitlines()
-    assert lines[0] == "Hello from cx_Freeze"
-    assert lines[1].startswith("pyarrow version")
-    assert len(lines) == 8, lines[1:]
+    result = tmp_package.run(executable, timeout=TIMEOUT_SLOW)
+    result.stdout.fnmatch_lines(
+        [
+            "Hello from cx_Freeze",
+            "pyarrow version *",
+            "pyarrow.Table",
+            "col1: int64",
+            "col2: string",
+            "----",
+            "col1: *",
+            "col2: *",
+        ]
+    )

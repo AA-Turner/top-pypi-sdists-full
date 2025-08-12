@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvista
-Version: 0.46.0
+Version: 0.46.1
 Summary: Easier Pythonic interface to VTK
 Author-email: PyVista Developers <info@pyvista.org>
 License-Expression: MIT
@@ -29,7 +29,7 @@ Requires-Dist: numpy>=1.21.0
 Requires-Dist: pillow
 Requires-Dist: pooch
 Requires-Dist: scooby>=0.5.1
-Requires-Dist: typing-extensions
+Requires-Dist: typing-extensions>=4.10
 Requires-Dist: vtk!=9.4.0
 Requires-Dist: vtk!=9.4.1
 Requires-Dist: vtk<9.6.0

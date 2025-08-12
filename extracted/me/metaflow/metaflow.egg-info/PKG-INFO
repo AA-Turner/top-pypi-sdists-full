@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metaflow
-Version: 2.17.0
+Version: 2.17.1
 Summary: Metaflow: More AI and ML, Less Engineering
 Author: Metaflow Developers
 Author-email: help@metaflow.org
@@ -26,7 +26,7 @@ License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: boto3
 Provides-Extra: stubs
-Requires-Dist: metaflow-stubs==2.17.0; extra == "stubs"
+Requires-Dist: metaflow-stubs==2.17.1; extra == "stubs"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

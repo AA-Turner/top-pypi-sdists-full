@@ -5,7 +5,7 @@ package_dir = PACKAGE_NAME.replace("-", "_")
 
 setuptools.setup(
     name=PACKAGE_NAME,  # https://pypi.org/project/database-mysql-local
-    version='0.1.49',
+    version='0.1.50',
     author="Circles",
     author_email="info@circlez.ai",
     url=f"https://github.com/circles-zone/{PACKAGE_NAME}-python-package",
@@ -28,6 +28,7 @@ setuptools.setup(
         "database-infrastructure-local>=0.1.4",
         "language-remote>=0.0.24",  # https://pypi.org/project/language-remote/
         "sql-to-code-local>=0.0.18",  # https://pypi.org/project/sql-to-code-local/
+        # TODO Change all == to >=
         "python-sdk-remote==0.0.145",
         # Commented because of a problem with serverless, TODO We should add a test to spot such case
         # "sshtunnel>=0.4.0", # https://pypi.org/project/sshtunnel/

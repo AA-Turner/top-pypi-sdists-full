@@ -71,6 +71,12 @@ SYM_LF = b"\n"
 SYM_EMPTY = b""
 
 
+def parse_url(url: str):
+    from .._parsers.url_parser import parse_url
+
+    return parse_url(url, async_connection=True)
+
+
 class _Sentinel(enum.Enum):
     sentinel = object()
 
@@ -247,8 +253,12 @@ class AbstractConnection:
         Internal method to silently close the connection without waiting
         """
         if self._writer:
-            self._writer.close()
-            self._writer = self._reader = None
+            try:
+                self._writer.close()
+                self._writer = self._reader = None
+            # raised if the event loop is already closed
+            except RuntimeError:  # noqa
+                pass
 
     def __repr__(self):
         repr_args = ",".join((f"{k}={v}" for k, v in self.repr_pieces()))
@@ -1017,9 +1027,8 @@ class ConnectionPool:
         class initializer. In the case of conflicting arguments, querystring
         arguments always win.
         """
-        from .._parsers.url_parser import parse_url
 
-        url_options = parse_url(url, True)
+        url_options = parse_url(url)
         kwargs.update(url_options)
         return cls(**kwargs)
 

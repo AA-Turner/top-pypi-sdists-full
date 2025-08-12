@@ -31,12 +31,12 @@ def wd(wd: WorkDir) -> WorkDir:
 
 archival_mapping = {
     "1.0": {"tag": "1.0"},
-    "1.1.0.dev3+h000000000000": {
+    "1.1.0.dev3+h0000000000": {
         "latesttag": "1.0",
         "latesttagdistance": "3",
         "node": "0" * 20,
     },
-    "1.0.1.dev3+h000000000000": {
+    "1.0.1.dev3+h0000000000": {
         "latesttag": "1.0.0",
         "latesttagdistance": "3",
         "branch": "1.0",
@@ -65,6 +65,36 @@ def test_hg_gone(wd: WorkDir, monkeypatch: pytest.MonkeyPatch) -> None:
         parse(wd.cwd, config=config)
 
     assert wd.get_version(fallback_version="1.0") == "1.0"
+
+
+def test_hg_command_from_env(
+    wd: WorkDir,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+    hg_exe: str,
+) -> None:
+    wd.write("pyproject.toml", "[tool.setuptools_scm]")
+    # Need to commit something first for versioning to work
+    wd.commit_testfile()
+
+    monkeypatch.setenv("SETUPTOOLS_SCM_HG_COMMAND", hg_exe)
+    monkeypatch.setenv("PATH", str(wd.cwd / "not-existing"))
+    version = wd.get_version()
+    assert version.startswith("0.1.dev1+")
+
+
+def test_hg_command_from_env_is_invalid(
+    wd: WorkDir, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    with monkeypatch.context() as m:
+        m.setenv("SETUPTOOLS_SCM_HG_COMMAND", str(wd.cwd / "not-existing"))
+        # No module reloading needed - runtime configuration works immediately
+        config = Configuration()
+        wd.write("pyproject.toml", "[tool.setuptools_scm]")
+        with pytest.raises(CommandNotFoundError, match=r"test.*hg.*not-existing"):
+            parse(wd.cwd, config=config)
+
+        assert wd.get_version(fallback_version="1.0") == "1.0"
 
 
 def test_find_files_stop_at_root_hg(
@@ -133,7 +163,7 @@ latesttagdistance: 3
 """,
     )
 
-    assert wd.get_version() == "0.2.dev3+h000000000000"
+    assert wd.get_version() == "0.2.dev3+h0000000000"
 
 
 @pytest.mark.issue("#72")

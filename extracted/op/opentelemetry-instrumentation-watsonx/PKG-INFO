@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: opentelemetry-instrumentation-watsonx
-Version: 0.44.1
+Version: 0.44.2
 Summary: OpenTelemetry IBM Watsonx Instrumentation
 License: Apache-2.0
 Author: Guangya Liu

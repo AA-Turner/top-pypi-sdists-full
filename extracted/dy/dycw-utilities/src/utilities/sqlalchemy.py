@@ -95,6 +95,7 @@ from utilities.iterables import (
     merge_str_mappings,
     one,
 )
+from utilities.os import is_pytest
 from utilities.reprlib import get_repr
 from utilities.text import secret_str, snake_case
 from utilities.types import (
@@ -133,11 +134,15 @@ def check_connect(engine: Engine, /) -> bool:
 
 
 async def check_connect_async(
-    engine: AsyncEngine, /, *, timeout: Delta | None = None
+    engine: AsyncEngine,
+    /,
+    *,
+    timeout: Delta | None = None,
+    error: MaybeType[BaseException] = TimeoutError,
 ) -> bool:
     """Check if an engine can connect."""
     try:
-        async with timeout_td(timeout), engine.connect() as conn:
+        async with timeout_td(timeout, error=error), engine.connect() as conn:
             return bool((await conn.execute(_SELECT)).scalar_one())
     except (
         gaierror,
@@ -976,8 +981,6 @@ async def yield_connection(
         async with timeout_td(timeout, error=error), engine.begin() as conn:
             yield conn
     except GeneratorExit:  # pragma: no cover
-        from utilities.pytest import is_pytest
-
         if not is_pytest():
             raise
         return

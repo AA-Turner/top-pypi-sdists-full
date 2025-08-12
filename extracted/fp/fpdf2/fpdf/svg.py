@@ -4,6 +4,8 @@ Utilities to parse SVG graphics into fpdf.drawing objects.
 The contents of this module are internal to fpdf2, and not part of the public API.
 They may change at any time without prior warning or any deprecation period,
 in non-backward-compatible ways.
+
+Usage documentation at: <https://py-pdf.github.io/fpdf2/SVG.html>
 """
 
 import logging, math, re, warnings
@@ -57,8 +59,7 @@ _HANDY_NAMESPACES = {
 
 NUMBER_SPLIT = re.compile(r"(?:\s+,\s+|\s+,|,\s+|\s+|,)")
 TRANSFORM_GETTER = re.compile(
-    r"(matrix|rotate|scale|scaleX|scaleY|skew|skewX|skewY|translate|translateX|translateY)"
-    r"\(((?:\s*(?:[-+]?[\d\.]+,?)+\s*)+)\)"
+    r"(matrix|rotate|scale|scaleX|scaleY|skew|skewX|skewY|translate|translateX|translateY)\(([\d\.,\s+-]+)\)"
 )
 
 
@@ -465,6 +466,7 @@ def convert_transforms(tfstr):
     # pylint: disable=redefined-loop-name
     transform = Transform.identity()
     for tf_type, args in parsed:
+        args = args.strip()
         if tf_type == "matrix":
             a, b, c, d, e, f = tuple(float(n) for n in NUMBER_SPLIT.split(args))
             transform = Transform(a, b, c, d, e, f) @ transform
@@ -719,7 +721,7 @@ class SVGObject:
         If the SVG document size is specified in absolute units, then it is not scaled.
 
         Args:
-            pdf (fpdf.FPDF): the pdf to use the page size of.
+            pdf (fpdf.fpdf.FPDF): the pdf to use the page size of.
             align_viewbox (bool): if True, mimic some of the SVG alignment rules if the
                 viewbox aspect ratio does not match that of the viewport.
 
@@ -820,7 +822,7 @@ class SVGObject:
         The page viewport is used for sizing the SVG.
 
         Args:
-            pdf (fpdf.FPDF): the document to which the converted SVG is rendered.
+            pdf (fpdf.fpdf.FPDF): the document to which the converted SVG is rendered.
             x (Number): abscissa of the converted SVG's top-left corner.
             y (Number): ordinate of the converted SVG's top-left corner.
             debug_stream (io.TextIO): the stream to which rendering debug info will be
@@ -847,6 +849,13 @@ class SVGObject:
         """Produce lookups for groups and paths inside the <defs> tag"""
         for child in defs:
             if child.tag in xmlns_lookup("svg", "g"):
+                self.build_group(child)
+            elif child.tag in xmlns_lookup("svg", "a"):
+                # <a> tags aren't supported but we need to recurse into them to
+                # render nested elements.
+                LOGGER.warning(
+                    "Ignoring unsupported SVG tag: <a> (contributions are welcome to add support for it)",
+                )
                 self.build_group(child)
             elif child.tag in xmlns_lookup("svg", "path"):
                 self.build_path(child)
@@ -917,6 +926,13 @@ class SVGObject:
             if child.tag in xmlns_lookup("svg", "defs"):
                 self.handle_defs(child)
             elif child.tag in xmlns_lookup("svg", "g"):
+                pdf_group.add_item(self.build_group(child), False)
+            elif child.tag in xmlns_lookup("svg", "a"):
+                # <a> tags aren't supported but we need to recurse into them to
+                # render nested elements.
+                LOGGER.warning(
+                    "Ignoring unsupported SVG tag: <a> (contributions are welcome to add support for it)",
+                )
                 pdf_group.add_item(self.build_group(child), False)
             elif child.tag in xmlns_lookup("svg", "path"):
                 pdf_group.add_item(self.build_path(child), False)

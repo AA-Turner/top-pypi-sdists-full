@@ -5,7 +5,7 @@ PATH := $(shell python -c "import sysconfig; print(sysconfig.get_path('scripts')
 PY_PLATFORM := $(shell python -c "import sysconfig; print(sysconfig.get_platform())")
 PRE_COMMIT_OPTIONS := --show-diff-on-failure --color=always --all-files --hook-stage=manual
 
-COV_TMPDIR := $(shell python -c "import tempfile; print(tempfile.mkdtemp())")
+COV_TMPDIR := $(shell mktemp -d)
 
 .PHONY: all
 all: install
@@ -67,23 +67,23 @@ doc:
 tests:
 	./ci/install-tools.sh --tests
 	./ci/build-wheel.sh
-	mkdir -p $(COV_TMPDIR)
 	cp pyproject.toml $(COV_TMPDIR)/
-	cp -a samples/ $(COV_TMPDIR)/
-	cp -a tests/ $(COV_TMPDIR)/
-	cd $(COV_TMPDIR) && pytest -nauto --no-cov || true
+	cp -a samples $(COV_TMPDIR)/
+	cp -a tests $(COV_TMPDIR)/
+	cp -a wheelhouse $(COV_TMPDIR)/
+	cd $(COV_TMPDIR) && pytest --dist=loadfile -nauto -v || true
 
 .PHONY: cov
 cov:
 	./ci/install-tools.sh --tests
 	./ci/build-wheel.sh
 	@rm -rf build/coverage_html_report
-	mkdir -p $(COV_TMPDIR)
 	cp pyproject.toml $(COV_TMPDIR)/
-	cp -a samples/ $(COV_TMPDIR)/
-	cp -a tests/ $(COV_TMPDIR)/
-	cd $(COV_TMPDIR) && pytest -nauto --cov="cx_Freeze" || true
-	coverage combine -a $(COV_TMPDIR)/.coverage
+	cp -a samples $(COV_TMPDIR)/
+	cp -a tests $(COV_TMPDIR)/
+	cp -a wheelhouse $(COV_TMPDIR)/
+	cd $(COV_TMPDIR) && coverage run ||true
+	coverage combine --keep -a $(COV_TMPDIR)/
 	coverage report
 	coverage html
 

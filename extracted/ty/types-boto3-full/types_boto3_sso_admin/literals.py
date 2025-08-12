@@ -63,6 +63,7 @@ __all__ = (
     "StatusValuesType",
     "TargetTypeType",
     "TrustedTokenIssuerTypeType",
+    "UserBackgroundSessionApplicationStatusType",
 )
 
 
@@ -126,6 +127,7 @@ SignInOriginType = Literal["APPLICATION", "IDENTITY_CENTER"]
 StatusValuesType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 TargetTypeType = Literal["AWS_ACCOUNT"]
 TrustedTokenIssuerTypeType = Literal["OIDC_JWT"]
+UserBackgroundSessionApplicationStatusType = Literal["DISABLED", "ENABLED"]
 SSOAdminServiceName = Literal["sso-admin"]
 ServiceName = Literal[
     "accessanalyzer",

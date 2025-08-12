@@ -89,13 +89,57 @@ TEST(CanonicalizePath, PathSamples) {
   EXPECT_EQ("/foo", path);
 #endif
 
+  path = "..";
+  CanonicalizePath(&path);
+  EXPECT_EQ("..", path);
+
+  path = "../";
+  CanonicalizePath(&path);
+  EXPECT_EQ("..", path);
+
+  path = "../foo";
+  CanonicalizePath(&path);
+  EXPECT_EQ("../foo", path);
+
+  path = "../foo/";
+  CanonicalizePath(&path);
+  EXPECT_EQ("../foo", path);
+
+  path = "../..";
+  CanonicalizePath(&path);
+  EXPECT_EQ("../..", path);
+
+  path = "../../";
+  CanonicalizePath(&path);
+  EXPECT_EQ("../..", path);
+
+  path = "./../";
+  CanonicalizePath(&path);
+  EXPECT_EQ("..", path);
+
+  path = "/..";
+  CanonicalizePath(&path);
+  EXPECT_EQ("/..", path);
+
+  path = "/../";
+  CanonicalizePath(&path);
+  EXPECT_EQ("/..", path);
+
+  path = "/../..";
+  CanonicalizePath(&path);
+  EXPECT_EQ("/../..", path);
+
+  path = "/../../";
+  CanonicalizePath(&path);
+  EXPECT_EQ("/../..", path);
+
   path = "/";
   CanonicalizePath(&path);
-  EXPECT_EQ("", path);
+  EXPECT_EQ("/", path);
 
   path = "/foo/..";
   CanonicalizePath(&path);
-  EXPECT_EQ("", path);
+  EXPECT_EQ("/", path);
 
   path = ".";
   CanonicalizePath(&path);
@@ -108,6 +152,10 @@ TEST(CanonicalizePath, PathSamples) {
   path = "foo/..";
   CanonicalizePath(&path);
   EXPECT_EQ(".", path);
+
+  path = "foo/.._bar";
+  CanonicalizePath(&path);
+  EXPECT_EQ("foo/.._bar", path);
 }
 
 #ifdef _WIN32
@@ -171,7 +219,7 @@ TEST(CanonicalizePath, PathSamplesWindows) {
 
   path = "\\";
   CanonicalizePath(&path);
-  EXPECT_EQ("", path);
+  EXPECT_EQ("/", path);
 }
 
 TEST(CanonicalizePath, SlashTracking) {
@@ -302,7 +350,7 @@ TEST(CanonicalizePath, TooManyComponents) {
       "a\\.\\a\\.\\a\\.\\a\\.\\a\\.\\a\\.\\a\\.\\a\\.\\"
       "a\\.\\a\\.\\a\\.\\a\\.\\a\\.\\a\\.\\a\\.\\a\\.\\x\\y.h";
   CanonicalizePath(&path, &slash_bits);
-  EXPECT_EQ(slash_bits, 0x1ffffffff);
+  EXPECT_EQ(slash_bits, uint64_t(0x1ffffffff));
 
 
   // 59 after canonicalization is OK.
@@ -320,9 +368,54 @@ TEST(CanonicalizePath, TooManyComponents) {
       "a\\a\\a\\a\\a\\a\\a\\a\\a\\x\\y.h";
   EXPECT_EQ(58, std::count(path.begin(), path.end(), '\\'));
   CanonicalizePath(&path, &slash_bits);
-  EXPECT_EQ(slash_bits, 0x3ffffffffffffff);
+  EXPECT_EQ(slash_bits, uint64_t(0x3ffffffffffffff));
+
+  // More than 60 components is now completely ok too.
+  path =
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a\\"
+      "a\\a\\a\\a\\a\\a\\a\\a\\a\\x\\y.h";
+  EXPECT_EQ(218, std::count(path.begin(), path.end(), '\\'));
+  CanonicalizePath(&path, &slash_bits);
+  EXPECT_EQ(slash_bits, 0xffffffffffffffff);
 }
-#endif
+#else   // !_WIN32
+TEST(CanonicalizePath, TooManyComponents) {
+  string path;
+  uint64_t slash_bits;
+
+  // More than 60 components is now completely ok.
+  path =
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/"
+      "a/a/a/a/a/a/a/a/a/x/y.h";
+  EXPECT_EQ(218, std::count(path.begin(), path.end(), '/'));
+  CanonicalizePath(&path, &slash_bits);
+  EXPECT_EQ(slash_bits, 0x0);
+}
+#endif  // !_WIN32
 
 TEST(CanonicalizePath, UpDir) {
   string path, err;
@@ -353,11 +446,13 @@ TEST(CanonicalizePath, NotNullTerminated) {
   EXPECT_EQ(strlen("foo"), len);
   EXPECT_EQ("foo/. bar/.", string(path));
 
+  // Verify that foo/..file gets canonicalized to 'file' without
+  // touching the rest of the string.
   path = "foo/../file bar/.";
   len = strlen("foo/../file");
   CanonicalizePath(&path[0], &len, &unused);
   EXPECT_EQ(strlen("file"), len);
-  EXPECT_EQ("file ./file bar/.", string(path));
+  EXPECT_EQ("file../file bar/.", string(path));
 }
 
 TEST(PathEscaping, TortureTest) {
@@ -406,21 +501,4 @@ TEST(StripAnsiEscapeCodes, StripColors) {
   string stripped = StripAnsiEscapeCodes(input);
   EXPECT_EQ("affixmgr.cxx:286:15: warning: using the result... [-Wparentheses]",
             stripped);
-}
-
-TEST(ElideMiddle, NothingToElide) {
-  string input = "Nothing to elide in this short string.";
-  EXPECT_EQ(input, ElideMiddle(input, 80));
-  EXPECT_EQ(input, ElideMiddle(input, 38));
-  EXPECT_EQ("", ElideMiddle(input, 0));
-  EXPECT_EQ(".", ElideMiddle(input, 1));
-  EXPECT_EQ("..", ElideMiddle(input, 2));
-  EXPECT_EQ("...", ElideMiddle(input, 3));
-}
-
-TEST(ElideMiddle, ElideInTheMiddle) {
-  string input = "01234567890123456789";
-  string elided = ElideMiddle(input, 10);
-  EXPECT_EQ("012...789", elided);
-  EXPECT_EQ("01234567...23456789", ElideMiddle(input, 19));
 }

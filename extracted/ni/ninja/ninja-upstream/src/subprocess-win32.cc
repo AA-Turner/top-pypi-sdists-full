@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "exit_status.h"
 #include "subprocess.h"
-#include "tokenpool.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -199,9 +199,8 @@ ExitStatus Subprocess::Finish() {
   CloseHandle(child_);
   child_ = NULL;
 
-  return exit_code == 0              ? ExitSuccess :
-         exit_code == CONTROL_C_EXIT ? ExitInterrupted :
-                                       ExitFailure;
+  return exit_code == CONTROL_C_EXIT ? ExitInterrupted :
+                                       static_cast<ExitStatus>(exit_code);
 }
 
 bool Subprocess::Done() const {
@@ -252,13 +251,10 @@ Subprocess *SubprocessSet::Add(const string& command, bool use_console) {
   return subprocess;
 }
 
-bool SubprocessSet::DoWork(TokenPool* tokens) {
+bool SubprocessSet::DoWork() {
   DWORD bytes_read;
   Subprocess* subproc;
   OVERLAPPED* overlapped;
-
-  if (tokens)
-    tokens->WaitForTokenAvailability(ioport_);
 
   if (!GetQueuedCompletionStatus(ioport_, &bytes_read, (PULONG_PTR)&subproc,
                                  &overlapped, INFINITE)) {
@@ -269,11 +265,6 @@ bool SubprocessSet::DoWork(TokenPool* tokens) {
   if (!subproc) // A NULL subproc indicates that we were interrupted and is
                 // delivered by NotifyInterrupted above.
     return true;
-
-  if (tokens && tokens->TokenIsAvailable((ULONG_PTR)subproc)) {
-    token_available_ = true;
-    return false;
-  }
 
   subproc->OnPipeReady();
 

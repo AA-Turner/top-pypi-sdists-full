@@ -1,4 +1,4 @@
-"""Tests for multiprocessing."""
+"""Tests for hooks of multiprocessing."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+
+TIMEOUT = 10
 
 SOURCE = """\
 sample0.py
@@ -107,13 +109,15 @@ def test_multiprocessing(
     """Provides test cases for multiprocessing."""
     tmp_package.create(source)
     if zip_packages:
-        output = tmp_package.run(
-            "cxfreeze build_exe"
-            " --zip-include-packages=* --zip-exclude-packages="
-        )
-    else:
-        output = tmp_package.run()
+        pyproject = tmp_package.path / "pyproject.toml"
+        buf = pyproject.read_bytes().decode().splitlines()
+        buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
+        pyproject.write_bytes("\n".join(buf).encode("utf_8"))
+    tmp_package.freeze()
+
     executable = tmp_package.executable(sample)
     assert executable.is_file()
-    output = tmp_package.run(executable, cwd=executable.parent, timeout=10)
-    assert output.splitlines()[-1] == expected
+    result = tmp_package.run(
+        executable, cwd=executable.parent, timeout=TIMEOUT
+    )
+    result.stdout.fnmatch_lines(expected)

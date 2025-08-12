@@ -271,6 +271,25 @@ class CustomRequest(BaseModel, t.Generic[BaseModelType]):
 
     request: BaseModelType
 
+    @classmethod
+    def model_json_schema(cls, **kwargs) -> dict[str, t.Any]:  # type: ignore[override]
+        """
+        We need to add x-capability-level to the request model in a way that is compatible with the
+        info_module.py. Since the request_model is contained here, we find the ref and add the
+        capability leve that way.
+        """
+        schema = super().model_json_schema(**kwargs)
+
+        request_ref = schema.get("properties", {}).get("request", {}).get("$ref")
+        if request_ref and "$defs" in schema:
+            request_model_name = request_ref.split("/")[-1]
+
+            # only add to the specific request model
+            if request_model_name in schema["$defs"]:
+                schema["$defs"][request_model_name]["x-capability-level"] = "write"
+
+        return schema
+
 
 class CustomResponse(BaseModel, t.Generic[BaseModelType]):
     page: Page | None = None

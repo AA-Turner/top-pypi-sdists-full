@@ -217,7 +217,8 @@ class PDFXObject(PDFContentStream):
 
 
 class PDFICCProfile(PDFContentStream):
-    """holds values for ICC Profile Stream
+    """
+    Holds values for ICC Profile Stream
     Args:
         contents (str): stream content
         n (int): [1|3|4], # the numbers for colors 1=Gray, 3=RGB, 4=CMYK
@@ -245,6 +246,10 @@ class PDFICCProfile(PDFContentStream):
 
 
 class PDFPageLabel:
+    """
+    This will be displayed by some PDF readers to identify pages.
+    """
+
     __slots__ = ("_style", "_prefix", "st")  # RAM usage optimization
 
     def __init__(
@@ -451,7 +456,8 @@ class PDFXrefAndTrailer(ContentWithoutID):
 
 
 class OutputIntentDictionary:
-    """The optional OutputIntents (PDF 1.4) entry in the document
+    """
+    The optional OutputIntents (PDF 1.4) entry in the document
     catalog dictionary holds an array of output intent dictionaries,
     each describing the colour reproduction characteristics of a possible
     output device.

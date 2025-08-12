@@ -574,14 +574,27 @@ class Parameter:
 
         if self.__pernode == PerNode.REQUIRED and (step is None or index is None):
             return None
-        if not self.__pernode.is_never():
-            value = self.get(step=step, index=index)
-        else:
-            value = self.get()
 
-        return NodeType.to_tcl(value, self.__type)
+        if isinstance(index, int):
+            index = str(index)
 
-    def getvalues(self, return_defvalue=True):
+        try:
+            return self.__node[step][index].gettcl()
+        except KeyError:
+            if self.__pernode == PerNode.REQUIRED:
+                return self.__defvalue.gettcl()
+
+        try:
+            return self.__node[step][Parameter.GLOBAL_KEY].gettcl()
+        except KeyError:
+            pass
+
+        try:
+            return self.__node[Parameter.GLOBAL_KEY][Parameter.GLOBAL_KEY].gettcl()
+        except KeyError:
+            return self.__defvalue.gettcl()
+
+    def getvalues(self, return_defvalue=True, return_values=True):
         """
         Returns all values (global and pernode) associated with a particular parameter.
 
@@ -599,10 +612,16 @@ class Parameter:
                 index_arg = None if index == Parameter.GLOBAL_KEY else index
                 if step_arg is None and index_arg is None:
                     has_global = True
-                vals.append((self.__node[step][index].get(), step_arg, index_arg))
+                if return_values:
+                    vals.append((self.__node[step][index].get(), step_arg, index_arg))
+                else:
+                    vals.append((self.__node[step][index], step_arg, index_arg))
 
-        if (self.__pernode != PerNode.REQUIRED) and not has_global and return_defvalue:
-            vals.append((self.__defvalue.get(), None, None))
+        if self.__pernode != PerNode.REQUIRED and not has_global and return_defvalue:
+            if return_values:
+                vals.append((self.__defvalue.get(), None, None))
+            else:
+                vals.append((self.__defvalue, None, None))
 
         return vals
 
@@ -655,6 +674,33 @@ class Parameter:
         return step in self.__node and \
             index in self.__node[step] and \
             self.__node[step][index]
+
+    def has_value(self, step=None, index=None) -> bool:
+        '''
+        Returns whether the parameter as a value.
+
+        A value counts as set if a user has set a global value OR a value for
+        the provided step/index.
+        '''
+
+        if isinstance(index, int):
+            index = str(index)
+
+        try:
+            return self.__node[step][index].has_value
+        except KeyError:
+            if self.__pernode == PerNode.REQUIRED:
+                return self.__defvalue.has_value
+
+        try:
+            return self.__node[step][Parameter.GLOBAL_KEY].has_value
+        except KeyError:
+            pass
+
+        try:
+            return self.__node[Parameter.GLOBAL_KEY][Parameter.GLOBAL_KEY].has_value
+        except KeyError:
+            return self.__defvalue.has_value
 
     @property
     def default(self):

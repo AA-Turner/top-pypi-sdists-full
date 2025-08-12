@@ -10,8 +10,8 @@ set -o pipefail
 MY_DIR=$(dirname "${BASH_SOURCE[0]}")
 source $MY_DIR/utils.sh
 
-OPENSSL_ROOT=openssl-3.0.16
-OPENSSL_HASH=57e03c50feab5d31b152af2b764f10379aecd8ee92f16c985983ce4a99f7ef86
+OPENSSL_ROOT=openssl-3.5.2
+OPENSSL_HASH=c53a47e5e441c930c3928cf7bf6fb00e5d129b630e0aa873b08258656e7345ec
 
 cd /tmp
 

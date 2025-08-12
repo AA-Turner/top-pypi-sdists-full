@@ -28,176 +28,25 @@ QuantConnect_Lean_Engine_DataFeeds__EventContainer_Callable = typing.TypeVar("Qu
 QuantConnect_Lean_Engine_DataFeeds__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Lean_Engine_DataFeeds__EventContainer_ReturnType")
 
 
-class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDatesNotifier, QuantConnect.Interfaces.IDataProviderEvents):
-    """Subscription data reader is a wrapper on the stream reader class to download, unpack and iterate over a data file."""
+class ReaderErrorEventArgs(System.EventArgs):
+    """Event arguments for the TextSubscriptionDataSourceReader.ReaderError event."""
 
     @property
-    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]:
-        """Event fired when an invalid configuration has been detected"""
-        ...
-
-    @invalid_configuration_detected.setter
-    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]) -> None:
+    def line(self) -> str:
+        """Gets the line that caused the error"""
         ...
 
     @property
-    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]:
-        """Event fired when the numerical precision in the factor file has been limited"""
+    def exception(self) -> System.Exception:
+        """Gets the exception that was caught"""
         ...
 
-    @numerical_precision_limited.setter
-    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]:
-        """Event fired when the start date has been limited"""
-        ...
-
-    @start_date_limited.setter
-    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]:
-        """Event fired when there was an error downloading a remote file"""
-        ...
-
-    @download_failed.setter
-    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]:
-        """Event fired when there was an error reading the data"""
-        ...
-
-    @reader_error_detected.setter
-    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def new_tradable_date(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]:
-        """Event fired when there is a new tradable date"""
-        ...
-
-    @new_tradable_date.setter
-    def new_tradable_date(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def current(self) -> QuantConnect.Data.BaseData:
-        """Last read BaseData object from this type and source"""
-        ...
-
-    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, data_request: QuantConnect.Data.BaseDataRequest, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, data_provider: QuantConnect.Interfaces.IDataProvider, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+    def __init__(self, line: str, exception: System.Exception) -> None:
         """
-        Subscription data reader takes a subscription request, loads the type, accepts the data source and enumerate on the results.
+        Initializes a new instance of the ReaderErrorEventArgs class
         
-        :param config: Subscription configuration object
-        :param data_request: The data request
-        :param map_file_provider: Used for resolving the correct map files
-        :param factor_file_provider: Used for getting factor files
-        :param data_cache_provider: Used for caching files
-        :param data_provider: The data provider to use
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Dispose of the Stream Reader and close out the source stream and file connections."""
-        ...
-
-    def initialize(self) -> None:
-        """Initializes the SubscriptionDataReader instance"""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def on_download_failed(self, e: QuantConnect.DownloadFailedEventArgs) -> None:
-        """
-        Event invocator for the DownloadFailed event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the DownloadFailed event
-        """
-        ...
-
-    def on_invalid_configuration_detected(self, e: QuantConnect.InvalidConfigurationDetectedEventArgs) -> None:
-        """
-        Event invocator for the InvalidConfigurationDetected event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the InvalidConfigurationDetected event
-        """
-        ...
-
-    def on_new_tradable_date(self, e: QuantConnect.NewTradableDateEventArgs) -> None:
-        """
-        Event invocator for the NewTradableDate event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the NewTradableDate event
-        """
-        ...
-
-    def on_numerical_precision_limited(self, e: QuantConnect.NumericalPrecisionLimitedEventArgs) -> None:
-        """
-        Event invocator for the NumericalPrecisionLimited event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the NumericalPrecisionLimited event
-        """
-        ...
-
-    def on_reader_error_detected(self, e: QuantConnect.ReaderErrorDetectedEventArgs) -> None:
-        """
-        Event invocator for the ReaderErrorDetected event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the ReaderErrorDetected event
-        """
-        ...
-
-    def on_start_date_limited(self, e: QuantConnect.StartDateLimitedEventArgs) -> None:
-        """
-        Event invocator for the StartDateLimited event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the StartDateLimited event
-        """
-        ...
-
-    def reset(self) -> None:
-        """Reset the IEnumeration"""
-        ...
-
-
-class CachingOptionChainProvider(System.Object, QuantConnect.Interfaces.IOptionChainProvider):
-    """An implementation of IOptionChainProvider that will cache by date option contracts returned by another option chain provider."""
-
-    def __init__(self, option_chain_provider: QuantConnect.Interfaces.IOptionChainProvider) -> None:
-        """Initializes a new instance of the CachingOptionChainProvider class"""
-        ...
-
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Gets the list of option contracts for a given underlying symbol
-        
-        :param symbol: The option or the underlying symbol to get the option chain for. Providing the option allows targetting an option ticker different than the default e.g. SPXW
-        :param date: The date for which to request the option chain (only used in backtesting)
-        :returns: The list of option contracts.
+        :param line: The line that caused the error
+        :param exception: The exception that was caught during the read
         """
         ...
 
@@ -509,6 +358,53 @@ class SubscriptionCollection(System.Object, typing.Iterable[QuantConnect.Lean.En
         ...
 
 
+class UniverseSelection(System.Object):
+    """Provides methods for apply the results of universe selection to an algorithm"""
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, security_service: QuantConnect.Interfaces.ISecurityService, data_permission_manager: QuantConnect.Interfaces.IDataPermissionManager, data_provider: QuantConnect.Interfaces.IDataProvider, internal_config_resolution: QuantConnect.Resolution = ...) -> None:
+        """
+        Initializes a new instance of the UniverseSelection class
+        
+        :param algorithm: The algorithm to add securities to
+        :param security_service: The security service
+        :param data_permission_manager: The data permissions manager
+        :param data_provider: The data provider to use
+        :param internal_config_resolution: The resolution to use for internal configuration
+        """
+        ...
+
+    def add_pending_internal_data_feeds(self, utc_start: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        """
+        Will add any pending internal currency subscriptions
+        
+        :param utc_start: The current date time in utc
+        :returns: Will return true if any subscription was added.
+        """
+        ...
+
+    def apply_universe_selection(self, universe: QuantConnect.Data.UniverseSelection.Universe, date_time_utc: typing.Union[datetime.datetime, datetime.date], universe_data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
+        """
+        Applies universe selection the the data feed and algorithm
+        
+        :param universe: The universe to perform selection on
+        :param date_time_utc: The current date time in utc
+        :param universe_data: The data provided to perform selection with
+        """
+        ...
+
+    def ensure_currency_data_feeds(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data"""
+        ...
+
+    def handle_delisting(self, data: QuantConnect.Data.BaseData, is_internal_feed: bool) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
+        """Handles the delisting process of the given data symbol from the algorithm securities"""
+        ...
+
+    def set_data_manager(self, data_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager) -> None:
+        """Sets the data manager"""
+        ...
+
+
 class IDataFeedSubscriptionManager(metaclass=abc.ABCMeta):
     """DataFeedSubscriptionManager interface will manage the subscriptions for the Data Feed"""
 
@@ -564,50 +460,357 @@ class IDataFeedSubscriptionManager(metaclass=abc.ABCMeta):
         ...
 
 
-class UniverseSelection(System.Object):
-    """Provides methods for apply the results of universe selection to an algorithm"""
+class SubscriptionFrontierTimeProvider(System.Object, QuantConnect.ITimeProvider):
+    """A time provider which updates 'now' time based on the current data emit time of all subscriptions"""
 
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, security_service: QuantConnect.Interfaces.ISecurityService, data_permission_manager: QuantConnect.Interfaces.IDataPermissionManager, data_provider: QuantConnect.Interfaces.IDataProvider, internal_config_resolution: QuantConnect.Resolution = ...) -> None:
+    def __init__(self, utc_now: typing.Union[datetime.datetime, datetime.date], subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager) -> None:
         """
-        Initializes a new instance of the UniverseSelection class
+        Creates a new instance of the SubscriptionFrontierTimeProvider
         
-        :param algorithm: The algorithm to add securities to
-        :param security_service: The security service
-        :param data_permission_manager: The data permissions manager
-        :param data_provider: The data provider to use
-        :param internal_config_resolution: The resolution to use for internal configuration
+        :param utc_now: Initial UTC now time
+        :param subscription_manager: Subscription manager. Will be used to obtain current subscriptions
         """
         ...
 
-    def add_pending_internal_data_feeds(self, utc_start: typing.Union[datetime.datetime, datetime.date]) -> bool:
+    def get_utc_now(self) -> datetime.datetime:
         """
-        Will add any pending internal currency subscriptions
+        Gets the current time in UTC
         
-        :param utc_start: The current date time in utc
-        :returns: Will return true if any subscription was added.
+        :returns: The current time in UTC.
         """
         ...
 
-    def apply_universe_selection(self, universe: QuantConnect.Data.UniverseSelection.Universe, date_time_utc: typing.Union[datetime.datetime, datetime.date], universe_data: QuantConnect.Data.UniverseSelection.BaseDataCollection) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
+
+class CreateStreamReaderErrorEventArgs(System.EventArgs):
+    """Event arguments for the TextSubscriptionDataSourceReader's CreateStreamReader event"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """Gets the date of the source"""
+        ...
+
+    @property
+    def source(self) -> QuantConnect.Data.SubscriptionDataSource:
+        """Gets the source that caused the error"""
+        ...
+
+    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], source: QuantConnect.Data.SubscriptionDataSource) -> None:
         """
-        Applies universe selection the the data feed and algorithm
+        Initializes a new instance of the CreateStreamReaderErrorEventArgs class
         
-        :param universe: The universe to perform selection on
-        :param date_time_utc: The current date time in utc
-        :param universe_data: The data provided to perform selection with
+        :param date: The date of the source
+        :param source: The source that cause the error
         """
         ...
 
-    def ensure_currency_data_feeds(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """Checks the current subscriptions and adds necessary currency pair feeds to provide real time conversion data"""
+
+class InvalidSourceEventArgs(System.EventArgs):
+    """Event arguments for the ISubscriptionDataSourceReader.InvalidSource event"""
+
+    @property
+    def source(self) -> QuantConnect.Data.SubscriptionDataSource:
+        """Gets the source that was considered invalid"""
         ...
 
-    def handle_delisting(self, data: QuantConnect.Data.BaseData, is_internal_feed: bool) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
-        """Handles the delisting process of the given data symbol from the algorithm securities"""
+    @property
+    def exception(self) -> System.Exception:
+        """Gets the exception that was encountered"""
         ...
 
-    def set_data_manager(self, data_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager) -> None:
-        """Sets the data manager"""
+    def __init__(self, source: QuantConnect.Data.SubscriptionDataSource, exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the InvalidSourceEventArgs class
+        
+        :param source: The source that was considered invalid
+        :param exception: The exception that was encountered
+        """
+        ...
+
+
+class ISubscriptionDataSourceReader(metaclass=abc.ABCMeta):
+    """
+    Represents a type responsible for accepting an input SubscriptionDataSource
+    and returning an enumerable of the source's BaseData
+    """
+
+    @property
+    @abc.abstractmethod
+    def invalid_source(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]:
+        """
+        Event fired when the specified source is considered invalid, this may
+        be from a missing file or failure to download a remote source
+        """
+        ...
+
+    @invalid_source.setter
+    def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Reads the specified
+        
+        :param source: The source to be read
+        :returns: An IEnumerable{BaseData} that contains the data in the source.
+        """
+        ...
+
+
+class DataFeedPacket(System.Object):
+    """Defines a container type to hold data produced by a data feed subscription"""
+
+    @property
+    def security(self) -> QuantConnect.Interfaces.ISecurityPrice:
+        """The security"""
+        ...
+
+    @property
+    def configuration(self) -> QuantConnect.Data.SubscriptionDataConfig:
+        """The subscription configuration that produced this data"""
+        ...
+
+    @property
+    def count(self) -> int:
+        """Gets the number of data points held within this packet"""
+        ...
+
+    @property
+    def data(self) -> typing.List[QuantConnect.Data.BaseData]:
+        """The data for the security"""
+        ...
+
+    @property
+    def is_subscription_removed(self) -> bool:
+        """Gets whether or not this packet should be filtered out due to the subscription being removed"""
+        ...
+
+    @overload
+    def __init__(self, security: QuantConnect.Interfaces.ISecurityPrice, configuration: QuantConnect.Data.SubscriptionDataConfig, is_subscription_removed: QuantConnect.Util.IReadOnlyRef[bool] = None) -> None:
+        """
+        Initializes a new instance of the DataFeedPacket class
+        
+        :param security: The security whose data is held in this packet
+        :param configuration: The subscription configuration that produced this data
+        :param is_subscription_removed: Reference to whether or not the subscription has since been removed, defaults to false
+        """
+        ...
+
+    @overload
+    def __init__(self, security: QuantConnect.Interfaces.ISecurityPrice, configuration: QuantConnect.Data.SubscriptionDataConfig, data: typing.List[QuantConnect.Data.BaseData], is_subscription_removed: QuantConnect.Util.IReadOnlyRef[bool] = None) -> None:
+        """
+        Initializes a new instance of the DataFeedPacket class
+        
+        :param security: The security whose data is held in this packet
+        :param configuration: The subscription configuration that produced this data
+        :param data: The data to add to this packet. The list reference is reused internally and NOT copied.
+        :param is_subscription_removed: Reference to whether or not the subscription has since been removed, defaults to false
+        """
+        ...
+
+    def add(self, data: QuantConnect.Data.BaseData) -> None:
+        """
+        Adds the specified data to this packet
+        
+        :param data: The data to be added to this packet
+        """
+        ...
+
+
+class TimeSlice(System.Object):
+    """Represents a grouping of data emitted at a certain time."""
+
+    @property
+    def data_point_count(self) -> int:
+        """Gets the count of data points in this TimeSlice"""
+        ...
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Gets the UTC time this data was emitted"""
+        ...
+
+    @property
+    def data(self) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.DataFeedPacket]:
+        """Gets the data in the time slice"""
+        ...
+
+    @property
+    def slice(self) -> QuantConnect.Data.Slice:
+        """Gets the Slice that will be used as input for the algorithm"""
+        ...
+
+    @property
+    def securities_update_data(self) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Interfaces.ISecurityPrice]]:
+        """Gets the data used to update securities"""
+        ...
+
+    @property
+    def consolidator_update_data(self) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Data.SubscriptionDataConfig]]:
+        """Gets the data used to update the consolidators"""
+        ...
+
+    @property
+    def custom_data(self) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Interfaces.ISecurityPrice]]:
+        """Gets all the custom data in this TimeSlice"""
+        ...
+
+    @property
+    def security_changes(self) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
+        """Gets the changes to the data subscriptions as a result of universe selection"""
+        ...
+
+    @property
+    def universe_data(self) -> System.Collections.Generic.Dictionary[QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.BaseDataCollection]:
+        """Gets the universe data generated this time step."""
+        ...
+
+    @property
+    def is_time_pulse(self) -> bool:
+        """True indicates this time slice is a time pulse for the algorithm containing no data"""
+        ...
+
+    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], data_point_count: int, slice: QuantConnect.Data.Slice, data: typing.List[QuantConnect.Lean.Engine.DataFeeds.DataFeedPacket], securities_update_data: typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Interfaces.ISecurityPrice]], consolidator_update_data: typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Data.SubscriptionDataConfig]], custom_data: typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Interfaces.ISecurityPrice]], security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges, universe_data: System.Collections.Generic.Dictionary[QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.BaseDataCollection], is_time_pulse: bool = False) -> None:
+        """Initializes a new TimeSlice containing the specified data"""
+        ...
+
+
+class ISynchronizer(metaclass=abc.ABCMeta):
+    """Interface which provides the data to stream to the algorithm"""
+
+    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
+        """Returns an enumerable which provides the data to stream to the algorithm"""
+        ...
+
+
+class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISubscriptionDataSourceReader, metaclass=abc.ABCMeta):
+    """A base class for implementations of the ISubscriptionDataSourceReader"""
+
+    @property
+    def is_live_mode(self) -> bool:
+        """
+        True if we're in live mode, false for backtesting
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def data_cache_provider(self) -> QuantConnect.Interfaces.IDataCacheProvider:
+        """
+        The data cache provider to use
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def object_store(self) -> QuantConnect.Interfaces.IObjectStore:
+        """
+        The object store to use
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def invalid_source(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]:
+        """
+        Event fired when the specified source is considered invalid, this may
+        be from a missing file or failure to download a remote source
+        """
+        ...
+
+    @invalid_source.setter
+    def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+        """
+        Creates a new instance
+        
+        This method is protected.
+        """
+        ...
+
+    def create_stream_reader(self, subscription_data_source: QuantConnect.Data.SubscriptionDataSource) -> QuantConnect.Interfaces.IStreamReader:
+        """
+        Creates a new IStreamReader for the specified
+        
+        This method is protected.
+        
+        :param subscription_data_source: The source to produce an IStreamReader for
+        :returns: A new instance of IStreamReader to read the source, or null if there was an error.
+        """
+        ...
+
+    def on_invalid_source(self, source: QuantConnect.Data.SubscriptionDataSource, exception: System.Exception) -> None:
+        """
+        Event invocator for the InvalidSource event
+        
+        This method is protected.
+        
+        :param source: The SubscriptionDataSource that was invalid
+        :param exception: The exception if one was raised, otherwise null
+        """
+        ...
+
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Reads the specified
+        
+        :param source: The source to be read
+        :returns: An IEnumerable{BaseData} that contains the data in the source.
+        """
+        ...
+
+
+class IndexSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSubscriptionDataSourceReader):
+    """
+    This ISubscriptionDataSourceReader implementation supports
+    the FileFormat.Index and IndexedBaseData types.
+    Handles the layer of indirection for the index data source and forwards
+    the target source to the corresponding ISubscriptionDataSourceReader
+    """
+
+    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, data_provider: QuantConnect.Interfaces.IDataProvider, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+        """Creates a new instance of this ISubscriptionDataSourceReader"""
+        ...
+
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Reads the specified
+        
+        :param source: The source to be read
+        :returns: An IEnumerable{BaseData} that contains the data in the source.
+        """
+        ...
+
+
+class CachingOptionChainProvider(System.Object, QuantConnect.Interfaces.IOptionChainProvider):
+    """An implementation of IOptionChainProvider that will cache by date option contracts returned by another option chain provider."""
+
+    def __init__(self, option_chain_provider: QuantConnect.Interfaces.IOptionChainProvider) -> None:
+        """Initializes a new instance of the CachingOptionChainProvider class"""
+        ...
+
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Gets the list of option contracts for a given underlying symbol
+        
+        :param symbol: The option or the underlying symbol to get the option chain for. Providing the option allows targetting an option ticker different than the default e.g. SPXW
+        :param date: The date for which to request the option chain (only used in backtesting)
+        :returns: The list of option contracts.
+        """
+        ...
+
+
+class IDataManager(metaclass=abc.ABCMeta):
+    """IDataManager is the engines view of the Data Manager."""
+
+    @property
+    @abc.abstractmethod
+    def universe_selection(self) -> QuantConnect.Lean.Engine.DataFeeds.UniverseSelection:
+        """Get the universe selection instance"""
         ...
 
 
@@ -738,382 +941,6 @@ class BaseDataExchange(System.Object):
         ...
 
 
-class DataFeedPacket(System.Object):
-    """Defines a container type to hold data produced by a data feed subscription"""
-
-    @property
-    def security(self) -> QuantConnect.Interfaces.ISecurityPrice:
-        """The security"""
-        ...
-
-    @property
-    def configuration(self) -> QuantConnect.Data.SubscriptionDataConfig:
-        """The subscription configuration that produced this data"""
-        ...
-
-    @property
-    def count(self) -> int:
-        """Gets the number of data points held within this packet"""
-        ...
-
-    @property
-    def data(self) -> typing.List[QuantConnect.Data.BaseData]:
-        """The data for the security"""
-        ...
-
-    @property
-    def is_subscription_removed(self) -> bool:
-        """Gets whether or not this packet should be filtered out due to the subscription being removed"""
-        ...
-
-    @overload
-    def __init__(self, security: QuantConnect.Interfaces.ISecurityPrice, configuration: QuantConnect.Data.SubscriptionDataConfig, is_subscription_removed: QuantConnect.Util.IReadOnlyRef[bool] = None) -> None:
-        """
-        Initializes a new instance of the DataFeedPacket class
-        
-        :param security: The security whose data is held in this packet
-        :param configuration: The subscription configuration that produced this data
-        :param is_subscription_removed: Reference to whether or not the subscription has since been removed, defaults to false
-        """
-        ...
-
-    @overload
-    def __init__(self, security: QuantConnect.Interfaces.ISecurityPrice, configuration: QuantConnect.Data.SubscriptionDataConfig, data: typing.List[QuantConnect.Data.BaseData], is_subscription_removed: QuantConnect.Util.IReadOnlyRef[bool] = None) -> None:
-        """
-        Initializes a new instance of the DataFeedPacket class
-        
-        :param security: The security whose data is held in this packet
-        :param configuration: The subscription configuration that produced this data
-        :param data: The data to add to this packet. The list reference is reused internally and NOT copied.
-        :param is_subscription_removed: Reference to whether or not the subscription has since been removed, defaults to false
-        """
-        ...
-
-    def add(self, data: QuantConnect.Data.BaseData) -> None:
-        """
-        Adds the specified data to this packet
-        
-        :param data: The data to be added to this packet
-        """
-        ...
-
-
-class TimeSlice(System.Object):
-    """Represents a grouping of data emitted at a certain time."""
-
-    @property
-    def data_point_count(self) -> int:
-        """Gets the count of data points in this TimeSlice"""
-        ...
-
-    @property
-    def time(self) -> datetime.datetime:
-        """Gets the UTC time this data was emitted"""
-        ...
-
-    @property
-    def data(self) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.DataFeedPacket]:
-        """Gets the data in the time slice"""
-        ...
-
-    @property
-    def slice(self) -> QuantConnect.Data.Slice:
-        """Gets the Slice that will be used as input for the algorithm"""
-        ...
-
-    @property
-    def securities_update_data(self) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Interfaces.ISecurityPrice]]:
-        """Gets the data used to update securities"""
-        ...
-
-    @property
-    def consolidator_update_data(self) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Data.SubscriptionDataConfig]]:
-        """Gets the data used to update the consolidators"""
-        ...
-
-    @property
-    def custom_data(self) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Interfaces.ISecurityPrice]]:
-        """Gets all the custom data in this TimeSlice"""
-        ...
-
-    @property
-    def security_changes(self) -> QuantConnect.Data.UniverseSelection.SecurityChanges:
-        """Gets the changes to the data subscriptions as a result of universe selection"""
-        ...
-
-    @property
-    def universe_data(self) -> System.Collections.Generic.Dictionary[QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.BaseDataCollection]:
-        """Gets the universe data generated this time step."""
-        ...
-
-    @property
-    def is_time_pulse(self) -> bool:
-        """True indicates this time slice is a time pulse for the algorithm containing no data"""
-        ...
-
-    def __init__(self, time: typing.Union[datetime.datetime, datetime.date], data_point_count: int, slice: QuantConnect.Data.Slice, data: typing.List[QuantConnect.Lean.Engine.DataFeeds.DataFeedPacket], securities_update_data: typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Interfaces.ISecurityPrice]], consolidator_update_data: typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Data.SubscriptionDataConfig]], custom_data: typing.List[QuantConnect.Lean.Engine.DataFeeds.UpdateData[QuantConnect.Interfaces.ISecurityPrice]], security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges, universe_data: System.Collections.Generic.Dictionary[QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.BaseDataCollection], is_time_pulse: bool = False) -> None:
-        """Initializes a new TimeSlice containing the specified data"""
-        ...
-
-
-class ISubscriptionSynchronizer(metaclass=abc.ABCMeta):
-    """Provides the ability to synchronize subscriptions into time slices"""
-
-    @property
-    @abc.abstractmethod
-    def subscription_finished(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
-        """Event fired when a subscription is finished"""
-        ...
-
-    @subscription_finished.setter
-    def subscription_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
-        ...
-
-    def sync(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
-        """
-        Syncs the specified subscriptions. The frontier time used for synchronization is
-        managed internally and dependent upon previous synchronization operations.
-        
-        :param subscriptions: The subscriptions to sync
-        :param cancellation_token: The cancellation token to stop enumeration
-        """
-        ...
-
-
-class PrecalculatedSubscriptionData(QuantConnect.Lean.Engine.DataFeeds.SubscriptionData):
-    """Store data both raw and adjusted and the time at which it should be synchronized"""
-
-    @property
-    def data(self) -> QuantConnect.Data.BaseData:
-        """Gets the data"""
-        ...
-
-    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, raw_data: QuantConnect.Data.BaseData, normalized_data: QuantConnect.Data.BaseData, normalization_mode: QuantConnect.DataNormalizationMode, emit_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the PrecalculatedSubscriptionData class
-        
-        :param configuration: The subscription's configuration
-        :param raw_data: The base data
-        :param normalized_data: The normalized calculated based on raw data
-        :param normalization_mode: Specifies how data is normalized
-        :param emit_time_utc: The emit time for the data
-        """
-        ...
-
-
-class ChainProviderInitializeParameters(System.Object):
-    """DTO for initializing the BacktestingOptionChainProvider"""
-
-    @property
-    def map_file_provider(self) -> QuantConnect.Interfaces.IMapFileProvider:
-        """The map file provider instance to us"""
-        ...
-
-    @map_file_provider.setter
-    def map_file_provider(self, value: QuantConnect.Interfaces.IMapFileProvider) -> None:
-        ...
-
-    @property
-    def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
-        """The history provider to use"""
-        ...
-
-    @history_provider.setter
-    def history_provider(self, value: QuantConnect.Interfaces.IHistoryProvider) -> None:
-        ...
-
-    def __init__(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, history_provider: QuantConnect.Interfaces.IHistoryProvider) -> None:
-        """
-        Initializes a new instance of the ChainProviderInitializeParameters class
-        
-        :param map_file_provider: The map file provider instance to use
-        :param history_provider: The history provider to use
-        """
-        ...
-
-
-class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
-    """Base backtesting cache provider which will source symbols from local zip files"""
-
-    @property
-    def map_file_provider(self) -> QuantConnect.Interfaces.IMapFileProvider:
-        """
-        The map file provider instance to use
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
-        """
-        The history provider instance to use
-        
-        This property is protected.
-        """
-        ...
-
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the BacktestingChainProvider class
-        
-        This method is protected.
-        """
-        ...
-
-    def get_symbols(self, canonical_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Get the contract symbols associated with the given canonical symbol and date
-        
-        This method is protected.
-        
-        :param canonical_symbol: The canonical symbol
-        :param date: The date to search for
-        """
-        ...
-
-    def initialize(self, parameters: QuantConnect.Lean.Engine.DataFeeds.ChainProviderInitializeParameters) -> None:
-        """
-        Initializes a new instance of the BacktestingChainProvider class
-        
-        :param parameters: The initialization parameters
-        """
-        ...
-
-    @staticmethod
-    def is_contract_expired(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> bool:
-        """
-        Helper method to determine if a contract is expired for the requested date
-        
-        This method is protected.
-        """
-        ...
-
-
-class BacktestingFutureChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingChainProvider, QuantConnect.Interfaces.IFutureChainProvider):
-    """An implementation of IFutureChainProvider that reads the list of contracts from open interest zip data files"""
-
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Gets the list of future contracts for a given underlying symbol
-        
-        :param symbol: The underlying symbol
-        :param date: The date for which to request the future chain (only used in backtesting)
-        :returns: The list of future contracts.
-        """
-        ...
-
-    @staticmethod
-    def get_symbol(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Symbol:
-        """
-        Helper method to get the symbol to use
-        
-        This method is protected.
-        """
-        ...
-
-
-class LiveFutureChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingFutureChainProvider):
-    """
-    An implementation of IFutureChainProvider that fetches the list of contracts
-    from an external source
-    """
-
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Gets the list of future contracts for a given underlying symbol
-        
-        :param symbol: The underlying symbol
-        :param date: The date for which to request the future chain (only used in backtesting)
-        :returns: The list of future contracts.
-        """
-        ...
-
-
-class TimeSliceFactory(System.Object):
-    """Instance base class that will provide methods for creating new TimeSlice"""
-
-    def __init__(self, time_zone: typing.Any) -> None:
-        """
-        Creates a new instance
-        
-        :param time_zone: The time zone required for computing algorithm and slice time
-        """
-        ...
-
-    def create(self, utc_date_time: typing.Union[datetime.datetime, datetime.date], data: typing.List[QuantConnect.Lean.Engine.DataFeeds.DataFeedPacket], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, universe_data: System.Collections.Generic.Dictionary[QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.BaseDataCollection]) -> QuantConnect.Lean.Engine.DataFeeds.TimeSlice:
-        """
-        Creates a new TimeSlice for the specified time using the specified data
-        
-        :param utc_date_time: The UTC frontier date time
-        :param data: The data in this TimeSlice
-        :param changes: The new changes that are seen in this time slice as a result of universe selection
-        :returns: A new TimeSlice containing the specified data.
-        """
-        ...
-
-    def create_time_pulse(self, utc_date_time: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Lean.Engine.DataFeeds.TimeSlice:
-        """
-        Creates a new empty TimeSlice to be used as a time pulse
-        
-        :param utc_date_time: The UTC frontier date time
-        :returns: A new TimeSlice time pulse.
-        """
-        ...
-
-
-class InvalidSourceEventArgs(System.EventArgs):
-    """Event arguments for the ISubscriptionDataSourceReader.InvalidSource event"""
-
-    @property
-    def source(self) -> QuantConnect.Data.SubscriptionDataSource:
-        """Gets the source that was considered invalid"""
-        ...
-
-    @property
-    def exception(self) -> System.Exception:
-        """Gets the exception that was encountered"""
-        ...
-
-    def __init__(self, source: QuantConnect.Data.SubscriptionDataSource, exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the InvalidSourceEventArgs class
-        
-        :param source: The source that was considered invalid
-        :param exception: The exception that was encountered
-        """
-        ...
-
-
-class ISubscriptionDataSourceReader(metaclass=abc.ABCMeta):
-    """
-    Represents a type responsible for accepting an input SubscriptionDataSource
-    and returning an enumerable of the source's BaseData
-    """
-
-    @property
-    @abc.abstractmethod
-    def invalid_source(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]:
-        """
-        Event fired when the specified source is considered invalid, this may
-        be from a missing file or failure to download a remote source
-        """
-        ...
-
-    @invalid_source.setter
-    def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Reads the specified
-        
-        :param source: The source to be read
-        :returns: An IEnumerable{BaseData} that contains the data in the source.
-        """
-        ...
-
-
 class SubscriptionDataSourceReader(System.Object):
     """Provides a factory method for creating ISubscriptionDataSourceReader instances"""
 
@@ -1139,93 +966,23 @@ class SubscriptionDataSourceReader(System.Object):
         ...
 
 
-class CurrencySubscriptionDataConfigManager(System.Object):
-    """
-    Helper class to keep track of required internal currency SubscriptionDataConfig.
-    This class is used by the UniverseSelection
-    """
+class CompositeTimeProvider(System.Object, QuantConnect.ITimeProvider):
+    """The composite time provider will source it's current time using the smallest time from the given providers"""
 
-    def __init__(self, cash_book: QuantConnect.Securities.CashBook, security_manager: QuantConnect.Securities.SecurityManager, subscription_manager: QuantConnect.Data.SubscriptionManager, security_service: QuantConnect.Interfaces.ISecurityService, default_resolution: QuantConnect.Resolution) -> None:
+    def __init__(self, time_providers: typing.List[QuantConnect.ITimeProvider]) -> None:
         """
         Creates a new instance
         
-        :param cash_book: The cash book instance
-        :param security_manager: The SecurityManager, required by the cash book for creating new securities
-        :param subscription_manager: The SubscriptionManager, required by the cash book for creating new subscription data configs
-        :param security_service: The SecurityService, required by the cash book for creating new securities
-        :param default_resolution: The default resolution to use for the internal subscriptions
+        :param time_providers: The time providers to use. Will default to the real time provider if empty
         """
         ...
 
-    def ensure_currency_subscription_data_configs(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges, brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> None:
-        """Checks the current SubscriptionDataConfig and adds new necessary currency pair feeds to provide real time conversion data"""
-        ...
-
-    def get_pending_subscription_data_configs(self) -> typing.Iterable[QuantConnect.Data.SubscriptionDataConfig]:
+    def get_utc_now(self) -> datetime.datetime:
         """
-        Will return any pending internal currency SubscriptionDataConfig and remove them as pending.
+        Gets the current time in UTC
         
-        :returns: Will return the SubscriptionDataConfig to be added.
+        :returns: The current time in UTC.
         """
-        ...
-
-    def get_subscription_data_config_to_remove(self, added_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        Will verify if there are any SubscriptionDataConfig to be removed
-        for a given added Symbol.
-        
-        :param added_symbol: The symbol that was added to the data feed system
-        :returns: The SubscriptionDataConfig to be removed, null if none.
-        """
-        ...
-
-    def update_pending_subscription_data_configs(self, brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> bool:
-        """
-        Will update pending currency SubscriptionDataConfig
-        
-        :returns: True when there are pending currency subscriptions GetPendingSubscriptionDataConfigs.
-        """
-        ...
-
-
-class BacktestingOptionChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingChainProvider, QuantConnect.Interfaces.IOptionChainProvider):
-    """An implementation of IOptionChainProvider that reads the list of contracts from open interest zip data files"""
-
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Gets the list of option contracts for a given underlying symbol
-        
-        :param symbol: The option or the underlying symbol to get the option chain for. Providing the option allows targeting an option ticker different than the default e.g. SPXW
-        :param date: The date for which to request the option chain (only used in backtesting)
-        :returns: The list of option contracts.
-        """
-        ...
-
-
-class LiveOptionChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingOptionChainProvider):
-    """
-    An implementation of IOptionChainProvider that fetches the list of contracts
-    from the Options Clearing Corporation (OCC) website
-    """
-
-    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Gets the option chain associated with the underlying Symbol
-        
-        :param symbol: The option or the underlying symbol to get the option chain for. Providing the option allows targetting an option ticker different than the default e.g. SPXW
-        :param date: The date to ask for the option contract list for
-        :returns: Option chain.
-        """
-        ...
-
-
-class IDataManager(metaclass=abc.ABCMeta):
-    """IDataManager is the engines view of the Data Manager."""
-
-    @property
-    @abc.abstractmethod
-    def universe_selection(self) -> QuantConnect.Lean.Engine.DataFeeds.UniverseSelection:
-        """Get the universe selection instance"""
         ...
 
 
@@ -1276,255 +1033,6 @@ class IDataFeed(metaclass=abc.ABCMeta):
         Removes the subscription from the data feed, if it exists
         
         :param subscription: The subscription to remove
-        """
-        ...
-
-
-class DataManager(System.Object, QuantConnect.Interfaces.IAlgorithmSubscriptionManager, QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager, QuantConnect.Lean.Engine.DataFeeds.IDataManager):
-    """DataManager will manage the subscriptions for both the DataFeeds and the SubscriptionManager"""
-
-    @property
-    def subscription_added(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
-        """Event fired when a new subscription is added"""
-        ...
-
-    @subscription_added.setter
-    def subscription_added(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def subscription_removed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
-        """Event fired when an existing subscription is removed"""
-        ...
-
-    @subscription_removed.setter
-    def subscription_removed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def data_feed_subscriptions(self) -> QuantConnect.Lean.Engine.DataFeeds.SubscriptionCollection:
-        """Gets the data feed subscription collection"""
-        ...
-
-    @property
-    def subscription_manager_subscriptions(self) -> typing.Iterable[QuantConnect.Data.SubscriptionDataConfig]:
-        """Gets all the current data config subscriptions that are being processed for the SubscriptionManager"""
-        ...
-
-    @property
-    def available_data_types(self) -> System.Collections.Generic.Dictionary[QuantConnect.SecurityType, typing.List[QuantConnect.TickType]]:
-        """The different TickType each SecurityType supports"""
-        ...
-
-    @property
-    def universe_selection(self) -> QuantConnect.Lean.Engine.DataFeeds.UniverseSelection:
-        """Get the universe selection instance"""
-        ...
-
-    def __init__(self, data_feed: QuantConnect.Lean.Engine.DataFeeds.IDataFeed, universe_selection: QuantConnect.Lean.Engine.DataFeeds.UniverseSelection, algorithm: QuantConnect.Interfaces.IAlgorithm, time_keeper: QuantConnect.Interfaces.ITimeKeeper, market_hours_database: QuantConnect.Securities.MarketHoursDatabase, live_mode: bool, registered_types_provider: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, data_permission_manager: QuantConnect.Interfaces.IDataPermissionManager) -> None:
-        """Creates a new instance of the DataManager"""
-        ...
-
-    @overload
-    def add(self, data_type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, is_filtered_subscription: bool = True, is_internal_feed: bool = False, is_custom_data: bool = False, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        Creates and adds a list of SubscriptionDataConfig for a given symbol and configuration.
-        Can optionally pass in desired subscription data type to use.
-        If the config already existed will return existing instance instead
-        """
-        ...
-
-    @overload
-    def add(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, is_filtered_subscription: bool = True, is_internal_feed: bool = False, is_custom_data: bool = False, subscription_data_types: typing.List[System.Tuple[typing.Type, QuantConnect.TickType]] = None, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
-        """
-        Creates and adds a list of SubscriptionDataConfig for a given symbol and configuration.
-        Can optionally pass in desired subscription data types to use.
-         If the config already existed will return existing instance instead
-        """
-        ...
-
-    def add_subscription(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> bool:
-        """
-        Adds a new Subscription to provide data for the specified security.
-        
-        :param request: Defines the SubscriptionRequest to be added
-        :returns: True if the subscription was created and added successfully, false otherwise.
-        """
-        ...
-
-    def get_subscription_data_configs(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, include_internal_configs: bool = False) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
-        """Gets a list of all registered SubscriptionDataConfig for a given Symbol"""
-        ...
-
-    def lookup_subscription_config_data_types(self, symbol_security_type: QuantConnect.SecurityType, resolution: QuantConnect.Resolution, is_canonical: bool) -> typing.List[System.Tuple[typing.Type, QuantConnect.TickType]]:
-        """
-        Get the data feed types for a given SecurityTypeResolution
-        
-        :param symbol_security_type: The SecurityType used to determine the types
-        :param resolution: The resolution of the data requested
-        :param is_canonical: Indicates whether the security is Canonical (future and options)
-        :returns: Types that should be added to the SubscriptionDataConfig.
-        """
-        ...
-
-    def remove_all_subscriptions(self) -> None:
-        """Will remove all current Subscription"""
-        ...
-
-    def remove_subscription(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe: QuantConnect.Data.UniverseSelection.Universe = None) -> bool:
-        """
-        Removes the Subscription, if it exists
-        
-        :param configuration: The SubscriptionDataConfig of the subscription to remove
-        :param universe: Universe requesting to remove Subscription. Default value, null, will remove all universes
-        :returns: True if the subscription was successfully removed, false otherwise.
-        """
-        ...
-
-    def subscription_manager_count(self) -> int:
-        """Returns the amount of data config subscriptions processed for the SubscriptionManager"""
-        ...
-
-    def subscription_manager_get_or_add(self, new_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.SubscriptionDataConfig:
-        """
-        Gets existing or adds new SubscriptionDataConfig
-        
-        :returns: Returns the SubscriptionDataConfig instance used.
-        """
-        ...
-
-
-class DefaultDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider, System.IDisposable):
-    """Default file provider functionality that retrieves data from disc to be used in an algorithm"""
-
-    @property
-    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
-        """Event raised each time data fetch is finished (successfully or not)"""
-        ...
-
-    @new_data_request.setter
-    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    def dispose(self) -> None:
-        """
-        The stream created by this type is passed up the stack to the IStreamReader
-        The stream is closed when the StreamReader that wraps this stream is disposed
-        """
-        ...
-
-    def fetch(self, key: str) -> System.IO.Stream:
-        """
-        Retrieves data from disc to be used in an algorithm
-        
-        :param key: A string representing where the data is stored
-        :returns: A Stream of the data requested.
-        """
-        ...
-
-    def on_new_data_request(self, e: QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs) -> None:
-        """
-        Event invocator for the NewDataRequest event
-        
-        This method is protected.
-        """
-        ...
-
-
-class BaseDownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.DefaultDataProvider, metaclass=abc.ABCMeta):
-    """Base downloader implementation with some helper methods"""
-
-    def download_once(self, key: str, download: typing.Callable[[str], typing.Any]) -> System.IO.Stream:
-        """
-        Helper method which guarantees each requested key is downloaded only once concurrently if required based on NeedToDownload
-        
-        This method is protected.
-        
-        :param key: A string representing where the data is stored
-        :param download: The download operation we want to perform once concurrently per key
-        :returns: A Stream of the data requested.
-        """
-        ...
-
-    def get_stream(self, key: str) -> System.IO.Stream:
-        """
-        Get's the stream for a given file path
-        
-        This method is protected.
-        """
-        ...
-
-    def need_to_download(self, file_path: str) -> bool:
-        """
-        Main filter to determine if this file needs to be downloaded
-        
-        This method is protected.
-        
-        :param file_path: File we are looking at
-        :returns: True if should download.
-        """
-        ...
-
-
-class ApiDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDataProvider):
-    """An instance of the IDataProvider that will download and update data files as needed via QC's Api."""
-
-    def __init__(self) -> None:
-        """Initialize a new instance of the ApiDataProvider"""
-        ...
-
-    def download_data(self, file_path: str) -> bool:
-        """
-        Attempt to download data using the Api for and return a FileStream of that data.
-        
-        This method is protected.
-        
-        :param file_path: The path to store the file
-        :returns: A FileStream of the data.
-        """
-        ...
-
-    def fetch(self, key: str) -> System.IO.Stream:
-        """
-        Retrieves data to be used in an algorithm.
-        If file does not exist, an attempt is made to download them from the api
-        
-        :param key: File path representing where the data requested
-        :returns: A Stream of the data requested.
-        """
-        ...
-
-    def need_to_download(self, file_path: str) -> bool:
-        """
-        Main filter to determine if this file needs to be downloaded
-        
-        This method is protected.
-        
-        :param file_path: File we are looking at
-        :returns: True if should download.
-        """
-        ...
-
-
-class CreateStreamReaderErrorEventArgs(System.EventArgs):
-    """Event arguments for the TextSubscriptionDataSourceReader's CreateStreamReader event"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """Gets the date of the source"""
-        ...
-
-    @property
-    def source(self) -> QuantConnect.Data.SubscriptionDataSource:
-        """Gets the source that caused the error"""
-        ...
-
-    def __init__(self, date: typing.Union[datetime.datetime, datetime.date], source: QuantConnect.Data.SubscriptionDataSource) -> None:
-        """
-        Initializes a new instance of the CreateStreamReaderErrorEventArgs class
-        
-        :param date: The date of the source
-        :param source: The source that cause the error
         """
         ...
 
@@ -1666,74 +1174,384 @@ class LiveTradingDataFeed(QuantConnect.Lean.Engine.DataFeeds.FileSystemDataFeed)
         ...
 
 
-class DataChannelProvider(System.Object, QuantConnect.Interfaces.IDataChannelProvider):
-    """Specifies data channel settings"""
+class CompositeDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider):
+    """This data provider will wrap and use multiple data providers internally in the provided order"""
 
-    def initialize(self, packet: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+    @property
+    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
+        """Event raised each time data fetch is finished (successfully or not)"""
+        ...
+
+    @new_data_request.setter
+    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Creates a new instance and initialize data providers used"""
+        ...
+
+    def fetch(self, key: str) -> System.IO.Stream:
         """
-        Initializes the instance with an algorithm node packet
+        Retrieves data to be used in an algorithm
         
-        :param packet: Algorithm node packet
+        :param key: A string representing where the data is stored
+        :returns: A Stream of the data requested.
         """
         ...
 
-    @staticmethod
-    def is_streaming_type(configuration: QuantConnect.Data.SubscriptionDataConfig) -> bool:
+
+class DefaultDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider, System.IDisposable):
+    """Default file provider functionality that retrieves data from disc to be used in an algorithm"""
+
+    @property
+    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
+        """Event raised each time data fetch is finished (successfully or not)"""
+        ...
+
+    @new_data_request.setter
+    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def dispose(self) -> None:
         """
-        Returns true if the data type for the given subscription configuration supports streaming
+        The stream created by this type is passed up the stack to the IStreamReader
+        The stream is closed when the StreamReader that wraps this stream is disposed
+        """
+        ...
+
+    def fetch(self, key: str) -> System.IO.Stream:
+        """
+        Retrieves data from disc to be used in an algorithm
+        
+        :param key: A string representing where the data is stored
+        :returns: A Stream of the data requested.
+        """
+        ...
+
+    def on_new_data_request(self, e: QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs) -> None:
+        """
+        Event invocator for the NewDataRequest event
         
         This method is protected.
         """
         ...
 
-    def should_stream_subscription(self, config: QuantConnect.Data.SubscriptionDataConfig) -> bool:
-        """True if this subscription request should be streamed"""
-        ...
 
+class BaseDownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.DefaultDataProvider, metaclass=abc.ABCMeta):
+    """Base downloader implementation with some helper methods"""
 
-class UpdateData(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_UpdateData_T], System.Object):
-    """
-    Transport type for algorithm update data. This is intended to provide a
-    list of base data used to perform updates against the specified target
-    """
-
-    @property
-    def contains_fill_forward_data(self) -> typing.Optional[bool]:
-        """Flag indicating whether Data contains any fill forward bar or not"""
-        ...
-
-    @property
-    def target(self) -> QuantConnect_Lean_Engine_DataFeeds_UpdateData_T:
-        """The target, such as a security or subscription data config"""
-        ...
-
-    @property
-    def data(self) -> typing.Sequence[QuantConnect.Data.BaseData]:
-        """The data used to update the target"""
-        ...
-
-    @property
-    def data_type(self) -> typing.Type:
-        """The type of data in the data list"""
-        ...
-
-    @property
-    def is_internal_config(self) -> bool:
+    def download_once(self, key: str, download: typing.Callable[[str], typing.Any]) -> System.IO.Stream:
         """
-        True if this update data corresponds to an internal subscription
-        such as currency or security benchmark
-        """
-        ...
-
-    def __init__(self, target: QuantConnect_Lean_Engine_DataFeeds_UpdateData_T, data_type: typing.Type, data: typing.Sequence[QuantConnect.Data.BaseData], is_internal_config: bool, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
-        """
-        Initializes a new instance of the UpdateData{T} class
+        Helper method which guarantees each requested key is downloaded only once concurrently if required based on NeedToDownload
         
-        :param target: The end consumer/user of the dat
-        :param data_type: The type of data in the list
-        :param data: The update data
-        :param is_internal_config: True if this update data corresponds to an internal subscription such as currency or security benchmark
-        :param contains_fill_forward_data: True if this update data contains fill forward bars
+        This method is protected.
+        
+        :param key: A string representing where the data is stored
+        :param download: The download operation we want to perform once concurrently per key
+        :returns: A Stream of the data requested.
+        """
+        ...
+
+    def get_stream(self, key: str) -> System.IO.Stream:
+        """
+        Get's the stream for a given file path
+        
+        This method is protected.
+        """
+        ...
+
+    def need_to_download(self, file_path: str) -> bool:
+        """
+        Main filter to determine if this file needs to be downloaded
+        
+        This method is protected.
+        
+        :param file_path: File we are looking at
+        :returns: True if should download.
+        """
+        ...
+
+
+class ApiDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDataProvider):
+    """An instance of the IDataProvider that will download and update data files as needed via QC's Api."""
+
+    def __init__(self) -> None:
+        """Initialize a new instance of the ApiDataProvider"""
+        ...
+
+    def download_data(self, file_path: str) -> bool:
+        """
+        Attempt to download data using the Api for and return a FileStream of that data.
+        
+        This method is protected.
+        
+        :param file_path: The path to store the file
+        :returns: A FileStream of the data.
+        """
+        ...
+
+    def fetch(self, key: str) -> System.IO.Stream:
+        """
+        Retrieves data to be used in an algorithm.
+        If file does not exist, an attempt is made to download them from the api
+        
+        :param key: File path representing where the data requested
+        :returns: A Stream of the data requested.
+        """
+        ...
+
+    def need_to_download(self, file_path: str) -> bool:
+        """
+        Main filter to determine if this file needs to be downloaded
+        
+        This method is protected.
+        
+        :param file_path: File we are looking at
+        :returns: True if should download.
+        """
+        ...
+
+
+class DataManager(System.Object, QuantConnect.Interfaces.IAlgorithmSubscriptionManager, QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager, QuantConnect.Lean.Engine.DataFeeds.IDataManager):
+    """DataManager will manage the subscriptions for both the DataFeeds and the SubscriptionManager"""
+
+    @property
+    def subscription_added(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
+        """Event fired when a new subscription is added"""
+        ...
+
+    @subscription_added.setter
+    def subscription_added(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def subscription_removed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
+        """Event fired when an existing subscription is removed"""
+        ...
+
+    @subscription_removed.setter
+    def subscription_removed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def data_feed_subscriptions(self) -> QuantConnect.Lean.Engine.DataFeeds.SubscriptionCollection:
+        """Gets the data feed subscription collection"""
+        ...
+
+    @property
+    def subscription_manager_subscriptions(self) -> typing.Iterable[QuantConnect.Data.SubscriptionDataConfig]:
+        """Gets all the current data config subscriptions that are being processed for the SubscriptionManager"""
+        ...
+
+    @property
+    def available_data_types(self) -> System.Collections.Generic.Dictionary[QuantConnect.SecurityType, typing.List[QuantConnect.TickType]]:
+        """The different TickType each SecurityType supports"""
+        ...
+
+    @property
+    def universe_selection(self) -> QuantConnect.Lean.Engine.DataFeeds.UniverseSelection:
+        """Get the universe selection instance"""
+        ...
+
+    def __init__(self, data_feed: QuantConnect.Lean.Engine.DataFeeds.IDataFeed, universe_selection: QuantConnect.Lean.Engine.DataFeeds.UniverseSelection, algorithm: QuantConnect.Interfaces.IAlgorithm, time_keeper: QuantConnect.Interfaces.ITimeKeeper, market_hours_database: QuantConnect.Securities.MarketHoursDatabase, live_mode: bool, registered_types_provider: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, data_permission_manager: QuantConnect.Interfaces.IDataPermissionManager) -> None:
+        """Creates a new instance of the DataManager"""
+        ...
+
+    @overload
+    def add(self, data_type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, is_filtered_subscription: bool = True, is_internal_feed: bool = False, is_custom_data: bool = False, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        Creates and adds a list of SubscriptionDataConfig for a given symbol and configuration.
+        Can optionally pass in desired subscription data type to use.
+        If the config already existed will return existing instance instead
+        """
+        ...
+
+    @overload
+    def add(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, extended_market_hours: bool = False, is_filtered_subscription: bool = True, is_internal_feed: bool = False, is_custom_data: bool = False, subscription_data_types: typing.List[System.Tuple[typing.Type, QuantConnect.TickType]] = None, data_normalization_mode: QuantConnect.DataNormalizationMode = ..., data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+        """
+        Creates and adds a list of SubscriptionDataConfig for a given symbol and configuration.
+        Can optionally pass in desired subscription data types to use.
+         If the config already existed will return existing instance instead
+        """
+        ...
+
+    def add_subscription(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> bool:
+        """
+        Adds a new Subscription to provide data for the specified security.
+        
+        :param request: Defines the SubscriptionRequest to be added
+        :returns: True if the subscription was created and added successfully, false otherwise.
+        """
+        ...
+
+    def get_subscription_data_configs(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, include_internal_configs: bool = False) -> typing.List[QuantConnect.Data.SubscriptionDataConfig]:
+        """Gets a list of all registered SubscriptionDataConfig for a given Symbol"""
+        ...
+
+    def lookup_subscription_config_data_types(self, symbol_security_type: QuantConnect.SecurityType, resolution: QuantConnect.Resolution, is_canonical: bool) -> typing.List[System.Tuple[typing.Type, QuantConnect.TickType]]:
+        """
+        Get the data feed types for a given SecurityTypeResolution
+        
+        :param symbol_security_type: The SecurityType used to determine the types
+        :param resolution: The resolution of the data requested
+        :param is_canonical: Indicates whether the security is Canonical (future and options)
+        :returns: Types that should be added to the SubscriptionDataConfig.
+        """
+        ...
+
+    def remove_all_subscriptions(self) -> None:
+        """Will remove all current Subscription"""
+        ...
+
+    def remove_subscription(self, configuration: QuantConnect.Data.SubscriptionDataConfig, universe: QuantConnect.Data.UniverseSelection.Universe = None) -> bool:
+        """
+        Removes the Subscription, if it exists
+        
+        :param configuration: The SubscriptionDataConfig of the subscription to remove
+        :param universe: Universe requesting to remove Subscription. Default value, null, will remove all universes
+        :returns: True if the subscription was successfully removed, false otherwise.
+        """
+        ...
+
+    def subscription_manager_count(self) -> int:
+        """Returns the amount of data config subscriptions processed for the SubscriptionManager"""
+        ...
+
+    def subscription_manager_get_or_add(self, new_config: QuantConnect.Data.SubscriptionDataConfig) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        Gets existing or adds new SubscriptionDataConfig
+        
+        :returns: Returns the SubscriptionDataConfig instance used.
+        """
+        ...
+
+
+class CachingFutureChainProvider(System.Object, QuantConnect.Interfaces.IFutureChainProvider):
+    """An implementation of IFutureChainProvider that will cache by date future contracts returned by another future chain provider."""
+
+    def __init__(self, future_chain_provider: QuantConnect.Interfaces.IFutureChainProvider) -> None:
+        """Initializes a new instance of the CachingFutureChainProvider class"""
+        ...
+
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Gets the list of future contracts for a given underlying symbol
+        
+        :param symbol: The underlying symbol
+        :param date: The date for which to request the future chain (only used in backtesting)
+        :returns: The list of future contracts.
+        """
+        ...
+
+
+class ChainProviderInitializeParameters(System.Object):
+    """DTO for initializing the BacktestingOptionChainProvider"""
+
+    @property
+    def map_file_provider(self) -> QuantConnect.Interfaces.IMapFileProvider:
+        """The map file provider instance to us"""
+        ...
+
+    @map_file_provider.setter
+    def map_file_provider(self, value: QuantConnect.Interfaces.IMapFileProvider) -> None:
+        ...
+
+    @property
+    def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
+        """The history provider to use"""
+        ...
+
+    @history_provider.setter
+    def history_provider(self, value: QuantConnect.Interfaces.IHistoryProvider) -> None:
+        ...
+
+    def __init__(self, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, history_provider: QuantConnect.Interfaces.IHistoryProvider) -> None:
+        """
+        Initializes a new instance of the ChainProviderInitializeParameters class
+        
+        :param map_file_provider: The map file provider instance to use
+        :param history_provider: The history provider to use
+        """
+        ...
+
+
+class BacktestingChainProvider(System.Object, metaclass=abc.ABCMeta):
+    """Base backtesting cache provider which will source symbols from local zip files"""
+
+    @property
+    def map_file_provider(self) -> QuantConnect.Interfaces.IMapFileProvider:
+        """
+        The map file provider instance to use
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def history_provider(self) -> QuantConnect.Interfaces.IHistoryProvider:
+        """
+        The history provider instance to use
+        
+        This property is protected.
+        """
+        ...
+
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the BacktestingChainProvider class
+        
+        This method is protected.
+        """
+        ...
+
+    def get_symbols(self, canonical_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Get the contract symbols associated with the given canonical symbol and date
+        
+        This method is protected.
+        
+        :param canonical_symbol: The canonical symbol
+        :param date: The date to search for
+        """
+        ...
+
+    def initialize(self, parameters: QuantConnect.Lean.Engine.DataFeeds.ChainProviderInitializeParameters) -> None:
+        """
+        Initializes a new instance of the BacktestingChainProvider class
+        
+        :param parameters: The initialization parameters
+        """
+        ...
+
+    @staticmethod
+    def is_contract_expired(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> bool:
+        """
+        Helper method to determine if a contract is expired for the requested date
+        
+        This method is protected.
+        """
+        ...
+
+
+class BacktestingFutureChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingChainProvider, QuantConnect.Interfaces.IFutureChainProvider):
+    """An implementation of IFutureChainProvider that reads the list of contracts from open interest zip data files"""
+
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Gets the list of future contracts for a given underlying symbol
+        
+        :param symbol: The underlying symbol
+        :param date: The date for which to request the future chain (only used in backtesting)
+        :returns: The list of future contracts.
+        """
+        ...
+
+    @staticmethod
+    def get_symbol(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Symbol:
+        """
+        Helper method to get the symbol to use
+        
+        This method is protected.
         """
         ...
 
@@ -1804,374 +1622,6 @@ class AggregationManager(System.Object, QuantConnect.Data.IDataAggregator):
         ...
 
 
-class BaseSubscriptionDataSourceReader(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISubscriptionDataSourceReader, metaclass=abc.ABCMeta):
-    """A base class for implementations of the ISubscriptionDataSourceReader"""
-
-    @property
-    def is_live_mode(self) -> bool:
-        """
-        True if we're in live mode, false for backtesting
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def data_cache_provider(self) -> QuantConnect.Interfaces.IDataCacheProvider:
-        """
-        The data cache provider to use
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def object_store(self) -> QuantConnect.Interfaces.IObjectStore:
-        """
-        The object store to use
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def invalid_source(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]:
-        """
-        Event fired when the specified source is considered invalid, this may
-        be from a missing file or failure to download a remote source
-        """
-        ...
-
-    @invalid_source.setter
-    def invalid_source(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.InvalidSourceEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
-        """
-        Creates a new instance
-        
-        This method is protected.
-        """
-        ...
-
-    def create_stream_reader(self, subscription_data_source: QuantConnect.Data.SubscriptionDataSource) -> QuantConnect.Interfaces.IStreamReader:
-        """
-        Creates a new IStreamReader for the specified
-        
-        This method is protected.
-        
-        :param subscription_data_source: The source to produce an IStreamReader for
-        :returns: A new instance of IStreamReader to read the source, or null if there was an error.
-        """
-        ...
-
-    def on_invalid_source(self, source: QuantConnect.Data.SubscriptionDataSource, exception: System.Exception) -> None:
-        """
-        Event invocator for the InvalidSource event
-        
-        This method is protected.
-        
-        :param source: The SubscriptionDataSource that was invalid
-        :param exception: The exception if one was raised, otherwise null
-        """
-        ...
-
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Reads the specified
-        
-        :param source: The source to be read
-        :returns: An IEnumerable{BaseData} that contains the data in the source.
-        """
-        ...
-
-
-class ZipEntryNameSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSubscriptionDataSourceReader):
-    """Provides an implementation of ISubscriptionDataSourceReader that reads zip entry names"""
-
-    def __init__(self, data_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool) -> None:
-        """
-        Initializes a new instance of the ZipEntryNameSubscriptionDataSourceReader class
-        
-        :param data_provider: Used to fetch data
-        :param config: The subscription's configuration
-        :param date: The date this factory was produced to read data for
-        :param is_live_mode: True if we're in live mode, false for backtesting
-        """
-        ...
-
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Reads the specified
-        
-        :param source: The source to be read
-        :returns: An IEnumerable{BaseData} that contains the data in the source.
-        """
-        ...
-
-
-class ReaderErrorEventArgs(System.EventArgs):
-    """Event arguments for the TextSubscriptionDataSourceReader.ReaderError event."""
-
-    @property
-    def line(self) -> str:
-        """Gets the line that caused the error"""
-        ...
-
-    @property
-    def exception(self) -> System.Exception:
-        """Gets the exception that was caught"""
-        ...
-
-    def __init__(self, line: str, exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the ReaderErrorEventArgs class
-        
-        :param line: The line that caused the error
-        :param exception: The exception that was caught during the read
-        """
-        ...
-
-
-class CollectionSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSubscriptionDataSourceReader):
-    """
-    Collection Subscription Factory takes a BaseDataCollection from BaseData factories
-    and yields it one point at a time to the algorithm
-    """
-
-    @property
-    def reader_error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]:
-        """
-        Event fired when an exception is thrown during a call to
-        BaseData.Reader(SubscriptionDataConfig, string, DateTime, bool)
-        """
-        ...
-
-    @reader_error.setter
-    def reader_error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
-        """
-        Initializes a new instance of the CollectionSubscriptionDataSourceReader class
-        
-        :param data_cache_provider: Used to cache data for requested from the IDataProvider
-        :param config: The subscription's configuration
-        :param date: The date this factory was produced to read data for
-        :param is_live_mode: True if we're in live mode, false for backtesting
-        """
-        ...
-
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Reads the specified
-        
-        :param source: The source to be read
-        :returns: An IEnumerable{BaseData} that contains the data in the source.
-        """
-        ...
-
-
-class DownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDataProvider):
-    """Data provider which downloads data using an IDataDownloader or IBrokerage implementation"""
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance"""
-        ...
-
-    @overload
-    def __init__(self, data_downloader: QuantConnect.IDataDownloader) -> None:
-        """Creates a new instance using a target data downloader used for testing"""
-        ...
-
-    def fetch(self, key: str) -> System.IO.Stream:
-        """
-        Determines if it should downloads new data and retrieves data from disc
-        
-        :param key: A string representing where the data is stored
-        :returns: A Stream of the data requested.
-        """
-        ...
-
-    @staticmethod
-    def filter_and_group_download_data_by_symbol(download_data: typing.List[QuantConnect.Data.BaseData], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], data_type: typing.Type, exchange_time_zone: typing.Any, data_time_zone: typing.Any, downloader_start_time_utc: typing.Union[datetime.datetime, datetime.date], downloader_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[System.Linq.IGrouping[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
-        """
-        Filters and groups the provided download data by symbol, based on specified criteria.
-        
-        :param download_data: The collection of download data to process.
-        :param symbol: The symbol to filter the data for.
-        :param data_type: The type of data to filter for.
-        :param exchange_time_zone: The time zone of the exchange.
-        :param data_time_zone: The desired time zone for the data.
-        :param downloader_start_time_utc: The start time of data downloading in UTC.
-        :param downloader_end_time_utc: The end time of data downloading in UTC.
-        :returns: An enumerable collection of groupings of download data, grouped by symbol.
-        """
-        ...
-
-    def get_downloaded_data(self, downloader_data_parameters: typing.List[QuantConnect.DataDownloaderGetParameters], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_time_zone: typing.Any, data_time_zone: typing.Any, data_type: typing.Type) -> typing.Iterable[System.Linq.IGrouping[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
-        """
-        Retrieves downloaded data grouped by symbol based on IDownloadProvider.
-        
-        :param downloader_data_parameters: Parameters specifying the data to be retrieved.
-        :param symbol: Represents a unique security identifier, generate by ticker name.
-        :param exchange_time_zone: The time zone of the exchange where the symbol is traded.
-        :param data_time_zone: The time zone in which the data is represented.
-        :param data_type: The type of data to be retrieved. (e.g. Data.Market.TradeBar)
-        :returns: An IEnumerable containing groups of data grouped by symbol. Each group contains data related to a specific symbol.
-        """
-        ...
-
-    def get_stream(self, key: str) -> System.IO.Stream:
-        """
-        Get's the stream for a given file path
-        
-        This method is protected.
-        """
-        ...
-
-    def need_to_download(self, file_path: str) -> bool:
-        """
-        Main filter to determine if this file needs to be downloaded
-        
-        This method is protected.
-        
-        :param file_path: File we are looking at
-        :returns: True if should download.
-        """
-        ...
-
-
-class PendingRemovalsManager(System.Object):
-    """Helper class used to managed pending security removals UniverseSelection"""
-
-    class RemovedMember(System.Object):
-        """Helper class used to report removed universe members"""
-
-        @property
-        def universe(self) -> QuantConnect.Data.UniverseSelection.Universe:
-            """Universe the security was removed from"""
-            ...
-
-        @property
-        def security(self) -> QuantConnect.Securities.Security:
-            """Security that is removed"""
-            ...
-
-        def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, security: QuantConnect.Securities.Security) -> None:
-            """
-            Initialize a new instance of RemovedMember
-            
-            :param universe: Universe the security was removed from
-            :param security: Security that is removed
-            """
-            ...
-
-    @property
-    def pending_removals(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.Data.UniverseSelection.Universe, typing.List[QuantConnect.Securities.Security]]:
-        """Current pending removals"""
-        ...
-
-    def __init__(self, order_provider: QuantConnect.Securities.IOrderProvider) -> None:
-        """
-        Create a new instance
-        
-        :param order_provider: The order provider used to determine if it is safe to remove a security
-        """
-        ...
-
-    def check_pending_removals(self, selected_symbols: System.Collections.Generic.HashSet[QuantConnect.Symbol], current_universe: QuantConnect.Data.UniverseSelection.Universe) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.PendingRemovalsManager.RemovedMember]:
-        """
-        Will check pending security removals
-        
-        :param selected_symbols: Currently selected symbols
-        :param current_universe: Current universe
-        :returns: The members to be removed.
-        """
-        ...
-
-    def try_remove_member(self, member: QuantConnect.Securities.Security, universe: QuantConnect.Data.UniverseSelection.Universe) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.PendingRemovalsManager.RemovedMember]:
-        """
-        Will determine if the Security can be removed.
-        If it can be removed will add it to PendingRemovals
-        
-        :param member: The security to remove
-        :param universe: The universe which the security is a member of
-        :returns: The member to remove.
-        """
-        ...
-
-
-class SubscriptionFrontierTimeProvider(System.Object, QuantConnect.ITimeProvider):
-    """A time provider which updates 'now' time based on the current data emit time of all subscriptions"""
-
-    def __init__(self, utc_now: typing.Union[datetime.datetime, datetime.date], subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager) -> None:
-        """
-        Creates a new instance of the SubscriptionFrontierTimeProvider
-        
-        :param utc_now: Initial UTC now time
-        :param subscription_manager: Subscription manager. Will be used to obtain current subscriptions
-        """
-        ...
-
-    def get_utc_now(self) -> datetime.datetime:
-        """
-        Gets the current time in UTC
-        
-        :returns: The current time in UTC.
-        """
-        ...
-
-
-class CompositeTimeProvider(System.Object, QuantConnect.ITimeProvider):
-    """The composite time provider will source it's current time using the smallest time from the given providers"""
-
-    def __init__(self, time_providers: typing.List[QuantConnect.ITimeProvider]) -> None:
-        """
-        Creates a new instance
-        
-        :param time_providers: The time providers to use. Will default to the real time provider if empty
-        """
-        ...
-
-    def get_utc_now(self) -> datetime.datetime:
-        """
-        Gets the current time in UTC
-        
-        :returns: The current time in UTC.
-        """
-        ...
-
-
-class LiveTimeProvider(System.Object, QuantConnect.ITimeProvider):
-    """Live time provide which supports an initial warmup period using the given time provider SubscriptionFrontierTimeProvider, used by the LiveSynchronizer"""
-
-    def __init__(self, real_time: QuantConnect.ITimeProvider) -> None:
-        """
-        Creates a new instance
-        
-        :param real_time: Real time provider
-        """
-        ...
-
-    def get_utc_now(self) -> datetime.datetime:
-        """
-        Gets the current time in UTC
-        
-        :returns: The current time in UTC.
-        """
-        ...
-
-    def initialize(self, warmup_time_provider: QuantConnect.ITimeProvider) -> None:
-        """
-        Fully initializes this instance providing the initial warmup time provider to use
-        
-        :param warmup_time_provider: The warmup provider to use
-        """
-        ...
-
-
 class ProcessedDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider, System.IDisposable):
     """A data provider that will check the processed data folder first"""
 
@@ -2212,205 +1662,110 @@ class ProcessedDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider
         ...
 
 
-class PredicateTimeProvider(System.Object, QuantConnect.ITimeProvider):
-    """
-    Will generate time steps around the desired ITimeProvider
-    Provided step evaluator should return true when the next time step
-    is valid and time can advance
-    """
+class InternalSubscriptionManager(System.Object):
+    """Class in charge of handling Leans internal subscriptions"""
 
-    def __init__(self, underlying_time_provider: QuantConnect.ITimeProvider, custom_step_evaluator: typing.Callable[[datetime.datetime], bool]) -> None:
+    @property
+    def added(self) -> typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]:
+        """Event fired when a new internal subscription request is to be added"""
+        ...
+
+    @added.setter
+    def added(self, value: typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]) -> None:
+        ...
+
+    @property
+    def removed(self) -> typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]:
+        """Event fired when an existing internal subscription should be removed"""
+        ...
+
+    @removed.setter
+    def removed(self, value: typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]) -> None:
+        ...
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, resolution: QuantConnect.Resolution) -> None:
+        """
+        Creates a new instances
+        
+        :param algorithm: The associated algorithm
+        :param resolution: The resolution to use for the internal subscriptions
+        """
+        ...
+
+    def added_subscription_request(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> None:
+        """
+        Notifies about a removed subscription request
+        
+        :param request: The removed subscription request
+        """
+        ...
+
+    def removed_subscription_request(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> None:
+        """
+        Notifies about an added subscription request
+        
+        :param request: The added subscription request
+        """
+        ...
+
+
+class NullDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IDataFeed):
+    """Null data feed implementation."""
+
+    @property
+    def should_throw(self) -> bool:
+        """Allows specifying if this implementation should throw always or not"""
+        ...
+
+    @should_throw.setter
+    def should_throw(self, value: bool) -> None:
+        ...
+
+    @property
+    def is_active(self) -> bool:
+        ...
+
+    def create_subscription(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> QuantConnect.Lean.Engine.DataFeeds.Subscription:
+        ...
+
+    def exit(self) -> None:
+        ...
+
+    def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.AlgorithmNodePacket, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager, data_feed_time_provider: QuantConnect.Lean.Engine.DataFeeds.IDataFeedTimeProvider, data_channel_provider: QuantConnect.Interfaces.IDataChannelProvider) -> None:
+        ...
+
+    def remove_subscription(self, subscription: QuantConnect.Lean.Engine.DataFeeds.Subscription) -> None:
+        ...
+
+
+class TimeSliceFactory(System.Object):
+    """Instance base class that will provide methods for creating new TimeSlice"""
+
+    def __init__(self, time_zone: typing.Any) -> None:
         """
         Creates a new instance
         
-        :param underlying_time_provider: The timer provider instance to wrap
-        :param custom_step_evaluator: Function to evaluate whether or not to advance time. Should return true if provided DateTime is a valid new next time. False will avoid time advancing
+        :param time_zone: The time zone required for computing algorithm and slice time
         """
         ...
 
-    def get_utc_now(self) -> datetime.datetime:
-        """Gets the current utc time step"""
-        ...
-
-
-class TextSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSubscriptionDataSourceReader):
-    """
-    Provides an implementations of ISubscriptionDataSourceReader that uses the
-    BaseData.Reader(SubscriptionDataConfig,string,DateTime,bool)
-    method to read lines of text from a SubscriptionDataSource
-    """
-
-    @property
-    def config(self) -> QuantConnect.Data.SubscriptionDataConfig:
+    def create(self, utc_date_time: typing.Union[datetime.datetime, datetime.date], data: typing.List[QuantConnect.Lean.Engine.DataFeeds.DataFeedPacket], changes: QuantConnect.Data.UniverseSelection.SecurityChanges, universe_data: System.Collections.Generic.Dictionary[QuantConnect.Data.UniverseSelection.Universe, QuantConnect.Data.UniverseSelection.BaseDataCollection]) -> QuantConnect.Lean.Engine.DataFeeds.TimeSlice:
         """
-        The requested subscription configuration
+        Creates a new TimeSlice for the specified time using the specified data
         
-        This property is protected.
+        :param utc_date_time: The UTC frontier date time
+        :param data: The data in this TimeSlice
+        :param changes: The new changes that are seen in this time slice as a result of universe selection
+        :returns: A new TimeSlice containing the specified data.
         """
         ...
 
-    @config.setter
-    def config(self, value: QuantConnect.Data.SubscriptionDataConfig) -> None:
-        ...
-
-    @property
-    def reader_error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]:
+    def create_time_pulse(self, utc_date_time: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Lean.Engine.DataFeeds.TimeSlice:
         """
-        Event fired when an exception is thrown during a call to
-        BaseData.Reader(SubscriptionDataConfig,string,DateTime,bool)
-        """
-        ...
-
-    @reader_error.setter
-    def reader_error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
-        """
-        Initializes a new instance of the TextSubscriptionDataSourceReader class
+        Creates a new empty TimeSlice to be used as a time pulse
         
-        :param data_cache_provider: This provider caches files if needed
-        :param config: The subscription's configuration
-        :param date: The date this factory was produced to read data for
-        :param is_live_mode: True if we're in live mode, false for backtesting
-        :param object_store: The object storage for data persistence.
-        """
-        ...
-
-    @staticmethod
-    def clear_cache() -> None:
-        """
-        Will clear the data cache.
-        Used for testing different time zones for the same data set and allow a clean fresh start for each backtest
-        """
-        ...
-
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Reads the specified
-        
-        :param source: The source to be read
-        :returns: An IEnumerable{BaseData} that contains the data in the source.
-        """
-        ...
-
-    @staticmethod
-    def set_cache_size(mega_bytes_to_use: int) -> None:
-        """Set the cache size to use"""
-        ...
-
-
-class BaseDataCollectionAggregatorReader(QuantConnect.Lean.Engine.DataFeeds.TextSubscriptionDataSourceReader):
-    """Data source reader that will aggregate data points into a base data collection"""
-
-    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
-        """
-        Initializes a new instance of the TextSubscriptionDataSourceReader class
-        
-        :param data_cache_provider: This provider caches files if needed
-        :param config: The subscription's configuration
-        :param date: The date this factory was produced to read data for
-        :param is_live_mode: True if we're in live mode, false for backtesting
-        :param object_store: The object storage for data persistence
-        """
-        ...
-
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Reads the specified
-        
-        :param source: The source to be read
-        :returns: An IEnumerable{BaseData} that contains the data in the source.
-        """
-        ...
-
-
-class DataPermissionManager(System.Object, QuantConnect.Interfaces.IDataPermissionManager):
-    """Entity in charge of handling data permissions"""
-
-    @property
-    def data_channel_provider(self) -> QuantConnect.Interfaces.IDataChannelProvider:
-        """The data channel provider instance"""
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def assert_configuration(self, subscription_request: QuantConnect.Data.SubscriptionDataConfig, start_time_local: typing.Union[datetime.datetime, datetime.date], end_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Will assert the requested configuration is valid for the current job
-        
-        :param subscription_request: The data subscription configuration to assert
-        :param start_time_local: The start time of this request
-        :param end_time_local: The end time of this request
-        """
-        ...
-
-    def initialize(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """
-        Initialize the data permission manager
-        
-        :param job: The job packet
-        """
-        ...
-
-
-class SingleEntryDataCacheProvider(System.Object, QuantConnect.Interfaces.IDataCacheProvider):
-    """
-    Default implementation of the IDataCacheProvider
-    Does not cache data.  If the data is a zip, the first entry is returned
-    """
-
-    @property
-    def is_data_ephemeral(self) -> bool:
-        """Property indicating the data is temporary in nature and should not be cached."""
-        ...
-
-    def __init__(self, data_provider: QuantConnect.Interfaces.IDataProvider, is_data_ephemeral: bool = True) -> None:
-        """Constructor that takes the IDataProvider to be used to retrieve data"""
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def fetch(self, key: str) -> System.IO.Stream:
-        """
-        Fetch data from the cache
-        
-        :param key: A string representing the key of the cached data
-        :returns: An Stream of the cached data.
-        """
-        ...
-
-    def get_zip_entries(self, zip_file: str) -> typing.List[str]:
-        """Returns a list of zip entries in a provided zip file"""
-        ...
-
-    def store(self, key: str, data: typing.List[int]) -> None:
-        """
-        Not implemented
-        
-        :param key: The source of the data, used as a key to retrieve data in the cache
-        :param data: The data to cache as a byte array
-        """
-        ...
-
-
-class CachingFutureChainProvider(System.Object, QuantConnect.Interfaces.IFutureChainProvider):
-    """An implementation of IFutureChainProvider that will cache by date future contracts returned by another future chain provider."""
-
-    def __init__(self, future_chain_provider: QuantConnect.Interfaces.IFutureChainProvider) -> None:
-        """Initializes a new instance of the CachingFutureChainProvider class"""
-        ...
-
-    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Gets the list of future contracts for a given underlying symbol
-        
-        :param symbol: The underlying symbol
-        :param date: The date for which to request the future chain (only used in backtesting)
-        :returns: The list of future contracts.
+        :param utc_date_time: The UTC frontier date time
+        :returns: A new TimeSlice time pulse.
         """
         ...
 
@@ -2525,40 +1880,27 @@ class DataQueueHandlerManager(System.Object, QuantConnect.Interfaces.IDataQueueH
         ...
 
 
-class SubscriptionUtils(System.Object):
-    """Utilities related to data Subscription"""
+class ISubscriptionSynchronizer(metaclass=abc.ABCMeta):
+    """Provides the ability to synchronize subscriptions into time slices"""
 
-    @staticmethod
-    def create(request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], daily_strict_end_time_enabled: bool) -> QuantConnect.Lean.Engine.DataFeeds.Subscription:
-        """
-        Creates a new Subscription which will directly consume the provided enumerator
-        
-        :param request: The subscription data request
-        :param enumerator: The data enumerator stack
-        :returns: A new subscription instance ready to consume.
-        """
+    @property
+    @abc.abstractmethod
+    def subscription_finished(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]:
+        """Event fired when a subscription is finished"""
         ...
 
-    @staticmethod
-    def create_and_schedule_worker(request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, enable_price_scale: bool, daily_strict_end_time_enabled: bool) -> QuantConnect.Lean.Engine.DataFeeds.Subscription:
-        """
-        Setups a new Subscription which will consume a blocking EnqueueableEnumerator{T}
-        that will be feed by a worker task
-        
-        :param request: The subscription data request
-        :param enumerator: The data enumerator stack
-        :param factor_file_provider: The factor file provider
-        :param enable_price_scale: Enables price factoring
-        :returns: A new subscription instance ready to consume.
-        """
+    @subscription_finished.setter
+    def subscription_finished(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.Subscription], typing.Any], typing.Any]) -> None:
         ...
 
-
-class ISynchronizer(metaclass=abc.ABCMeta):
-    """Interface which provides the data to stream to the algorithm"""
-
-    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
-        """Returns an enumerable which provides the data to stream to the algorithm"""
+    def sync(self, subscriptions: typing.List[QuantConnect.Lean.Engine.DataFeeds.Subscription], cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
+        """
+        Syncs the specified subscriptions. The frontier time used for synchronization is
+        managed internally and dependent upon previous synchronization operations.
+        
+        :param subscriptions: The subscriptions to sync
+        :param cancellation_token: The cancellation token to stop enumeration
+        """
         ...
 
 
@@ -2618,28 +1960,6 @@ class SubscriptionSynchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds
         
         :param subscriptions: The subscriptions to sync
         :param cancellation_token: The cancellation token to stop enumeration
-        """
-        ...
-
-
-class IndexSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSubscriptionDataSourceReader):
-    """
-    This ISubscriptionDataSourceReader implementation supports
-    the FileFormat.Index and IndexedBaseData types.
-    Handles the layer of indirection for the index data source and forwards
-    the target source to the corresponding ISubscriptionDataSourceReader
-    """
-
-    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, data_provider: QuantConnect.Interfaces.IDataProvider, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
-        """Creates a new instance of this ISubscriptionDataSourceReader"""
-        ...
-
-    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Reads the specified
-        
-        :param source: The source to be read
-        :returns: An IEnumerable{BaseData} that contains the data in the source.
         """
         ...
 
@@ -2741,90 +2061,278 @@ class Synchronizer(System.Object, QuantConnect.Lean.Engine.DataFeeds.ISynchroniz
         ...
 
 
-class LiveSynchronizer(QuantConnect.Lean.Engine.DataFeeds.Synchronizer):
-    """Implementation of the ISynchronizer interface which provides the mechanism to stream live data to the algorithm"""
-
-    BATCHING_DELAY: int = ...
-    """Consumer batching timeout in ms"""
+class PrecalculatedSubscriptionData(QuantConnect.Lean.Engine.DataFeeds.SubscriptionData):
+    """Store data both raw and adjusted and the time at which it should be synchronized"""
 
     @property
-    def time_provider(self) -> QuantConnect.ITimeProvider:
-        """Continuous UTC time provider"""
+    def data(self) -> QuantConnect.Data.BaseData:
+        """Gets the data"""
         ...
 
-    def dispose(self) -> None:
-        """Free resources"""
-        ...
-
-    def get_pulse_due_time(self, now: typing.Union[datetime.datetime, datetime.date]) -> int:
+    def __init__(self, configuration: QuantConnect.Data.SubscriptionDataConfig, raw_data: QuantConnect.Data.BaseData, normalized_data: QuantConnect.Data.BaseData, normalization_mode: QuantConnect.DataNormalizationMode, emit_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
-        Will return the amount of milliseconds that are missing for the next time pulse
+        Initializes a new instance of the PrecalculatedSubscriptionData class
         
-        This method is protected.
+        :param configuration: The subscription's configuration
+        :param raw_data: The base data
+        :param normalized_data: The normalized calculated based on raw data
+        :param normalization_mode: Specifies how data is normalized
+        :param emit_time_utc: The emit time for the data
         """
         ...
 
-    def get_time_provider(self) -> QuantConnect.ITimeProvider:
-        """
-        Gets the ITimeProvider to use. By default this will load the
-        RealTimeProvider for live mode, else SubscriptionFrontierTimeProvider
-        
-        This method is protected.
-        
-        :returns: The ITimeProvider to use.
-        """
-        ...
 
-    def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, data_feed_subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager) -> None:
-        """Initializes the instance of the Synchronizer class"""
-        ...
-
-    def on_subscription_new_data_available(self, sender: typing.Any, args: System.EventArgs) -> None:
-        """
-        Trigger new data event
-        
-        This method is protected.
-        
-        :param sender: Sender of the event
-        :param args: Event information
-        """
-        ...
-
-    def post_initialize(self) -> None:
-        """
-        Performs additional initialization steps after algorithm initialization
-        
-        This method is protected.
-        """
-        ...
-
-    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
-        """Returns an enumerable which provides the data to stream to the algorithm"""
-        ...
-
-
-class CompositeDataProvider(System.Object, QuantConnect.Interfaces.IDataProvider):
-    """This data provider will wrap and use multiple data providers internally in the provided order"""
+class TextSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSubscriptionDataSourceReader):
+    """
+    Provides an implementations of ISubscriptionDataSourceReader that uses the
+    BaseData.Reader(SubscriptionDataConfig,string,DateTime,bool)
+    method to read lines of text from a SubscriptionDataSource
+    """
 
     @property
-    def new_data_request(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]:
-        """Event raised each time data fetch is finished (successfully or not)"""
+    def config(self) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        The requested subscription configuration
+        
+        This property is protected.
+        """
         ...
 
-    @new_data_request.setter
-    def new_data_request(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs], typing.Any], typing.Any]) -> None:
+    @config.setter
+    def config(self, value: QuantConnect.Data.SubscriptionDataConfig) -> None:
         ...
 
+    @property
+    def reader_error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]:
+        """
+        Event fired when an exception is thrown during a call to
+        BaseData.Reader(SubscriptionDataConfig,string,DateTime,bool)
+        """
+        ...
+
+    @reader_error.setter
+    def reader_error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+        """
+        Initializes a new instance of the TextSubscriptionDataSourceReader class
+        
+        :param data_cache_provider: This provider caches files if needed
+        :param config: The subscription's configuration
+        :param date: The date this factory was produced to read data for
+        :param is_live_mode: True if we're in live mode, false for backtesting
+        :param object_store: The object storage for data persistence.
+        """
+        ...
+
+    @staticmethod
+    def clear_cache() -> None:
+        """
+        Will clear the data cache.
+        Used for testing different time zones for the same data set and allow a clean fresh start for each backtest
+        """
+        ...
+
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Reads the specified
+        
+        :param source: The source to be read
+        :returns: An IEnumerable{BaseData} that contains the data in the source.
+        """
+        ...
+
+    @staticmethod
+    def set_cache_size(mega_bytes_to_use: int) -> None:
+        """Set the cache size to use"""
+        ...
+
+
+class SubscriptionUtils(System.Object):
+    """Utilities related to data Subscription"""
+
+    @staticmethod
+    def create(request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], daily_strict_end_time_enabled: bool) -> QuantConnect.Lean.Engine.DataFeeds.Subscription:
+        """
+        Creates a new Subscription which will directly consume the provided enumerator
+        
+        :param request: The subscription data request
+        :param enumerator: The data enumerator stack
+        :returns: A new subscription instance ready to consume.
+        """
+        ...
+
+    @staticmethod
+    def create_and_schedule_worker(request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, enumerator: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, enable_price_scale: bool, daily_strict_end_time_enabled: bool) -> QuantConnect.Lean.Engine.DataFeeds.Subscription:
+        """
+        Setups a new Subscription which will consume a blocking EnqueueableEnumerator{T}
+        that will be feed by a worker task
+        
+        :param request: The subscription data request
+        :param enumerator: The data enumerator stack
+        :param factor_file_provider: The factor file provider
+        :param enable_price_scale: Enables price factoring
+        :returns: A new subscription instance ready to consume.
+        """
+        ...
+
+
+class LiveTimeProvider(System.Object, QuantConnect.ITimeProvider):
+    """Live time provide which supports an initial warmup period using the given time provider SubscriptionFrontierTimeProvider, used by the LiveSynchronizer"""
+
+    def __init__(self, real_time: QuantConnect.ITimeProvider) -> None:
+        """
+        Creates a new instance
+        
+        :param real_time: Real time provider
+        """
+        ...
+
+    def get_utc_now(self) -> datetime.datetime:
+        """
+        Gets the current time in UTC
+        
+        :returns: The current time in UTC.
+        """
+        ...
+
+    def initialize(self, warmup_time_provider: QuantConnect.ITimeProvider) -> None:
+        """
+        Fully initializes this instance providing the initial warmup time provider to use
+        
+        :param warmup_time_provider: The warmup provider to use
+        """
+        ...
+
+
+class PendingRemovalsManager(System.Object):
+    """Helper class used to managed pending security removals UniverseSelection"""
+
+    class RemovedMember(System.Object):
+        """Helper class used to report removed universe members"""
+
+        @property
+        def universe(self) -> QuantConnect.Data.UniverseSelection.Universe:
+            """Universe the security was removed from"""
+            ...
+
+        @property
+        def security(self) -> QuantConnect.Securities.Security:
+            """Security that is removed"""
+            ...
+
+        def __init__(self, universe: QuantConnect.Data.UniverseSelection.Universe, security: QuantConnect.Securities.Security) -> None:
+            """
+            Initialize a new instance of RemovedMember
+            
+            :param universe: Universe the security was removed from
+            :param security: Security that is removed
+            """
+            ...
+
+    @property
+    def pending_removals(self) -> System.Collections.Generic.IReadOnlyDictionary[QuantConnect.Data.UniverseSelection.Universe, typing.List[QuantConnect.Securities.Security]]:
+        """Current pending removals"""
+        ...
+
+    def __init__(self, order_provider: QuantConnect.Securities.IOrderProvider) -> None:
+        """
+        Create a new instance
+        
+        :param order_provider: The order provider used to determine if it is safe to remove a security
+        """
+        ...
+
+    def check_pending_removals(self, selected_symbols: System.Collections.Generic.HashSet[QuantConnect.Symbol], current_universe: QuantConnect.Data.UniverseSelection.Universe) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.PendingRemovalsManager.RemovedMember]:
+        """
+        Will check pending security removals
+        
+        :param selected_symbols: Currently selected symbols
+        :param current_universe: Current universe
+        :returns: The members to be removed.
+        """
+        ...
+
+    def try_remove_member(self, member: QuantConnect.Securities.Security, universe: QuantConnect.Data.UniverseSelection.Universe) -> typing.List[QuantConnect.Lean.Engine.DataFeeds.PendingRemovalsManager.RemovedMember]:
+        """
+        Will determine if the Security can be removed.
+        If it can be removed will add it to PendingRemovals
+        
+        :param member: The security to remove
+        :param universe: The universe which the security is a member of
+        :returns: The member to remove.
+        """
+        ...
+
+
+class DownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDataProvider):
+    """Data provider which downloads data using an IDataDownloader or IBrokerage implementation"""
+
+    @overload
     def __init__(self) -> None:
-        """Creates a new instance and initialize data providers used"""
+        """Creates a new instance"""
+        ...
+
+    @overload
+    def __init__(self, data_downloader: QuantConnect.IDataDownloader) -> None:
+        """Creates a new instance using a target data downloader used for testing"""
         ...
 
     def fetch(self, key: str) -> System.IO.Stream:
         """
-        Retrieves data to be used in an algorithm
+        Determines if it should downloads new data and retrieves data from disc
         
         :param key: A string representing where the data is stored
         :returns: A Stream of the data requested.
+        """
+        ...
+
+    @staticmethod
+    def filter_and_group_download_data_by_symbol(download_data: typing.List[QuantConnect.Data.BaseData], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], data_type: typing.Type, exchange_time_zone: typing.Any, data_time_zone: typing.Any, downloader_start_time_utc: typing.Union[datetime.datetime, datetime.date], downloader_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[System.Linq.IGrouping[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
+        """
+        Filters and groups the provided download data by symbol, based on specified criteria.
+        
+        :param download_data: The collection of download data to process.
+        :param symbol: The symbol to filter the data for.
+        :param data_type: The type of data to filter for.
+        :param exchange_time_zone: The time zone of the exchange.
+        :param data_time_zone: The desired time zone for the data.
+        :param downloader_start_time_utc: The start time of data downloading in UTC.
+        :param downloader_end_time_utc: The end time of data downloading in UTC.
+        :returns: An enumerable collection of groupings of download data, grouped by symbol.
+        """
+        ...
+
+    def get_downloaded_data(self, downloader_data_parameters: typing.List[QuantConnect.DataDownloaderGetParameters], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], exchange_time_zone: typing.Any, data_time_zone: typing.Any, data_type: typing.Type) -> typing.Iterable[System.Linq.IGrouping[QuantConnect.Symbol, QuantConnect.Data.BaseData]]:
+        """
+        Retrieves downloaded data grouped by symbol based on IDownloadProvider.
+        
+        :param downloader_data_parameters: Parameters specifying the data to be retrieved.
+        :param symbol: Represents a unique security identifier, generate by ticker name.
+        :param exchange_time_zone: The time zone of the exchange where the symbol is traded.
+        :param data_time_zone: The time zone in which the data is represented.
+        :param data_type: The type of data to be retrieved. (e.g. Data.Market.TradeBar)
+        :returns: An IEnumerable containing groups of data grouped by symbol. Each group contains data related to a specific symbol.
+        """
+        ...
+
+    def get_stream(self, key: str) -> System.IO.Stream:
+        """
+        Get's the stream for a given file path
+        
+        This method is protected.
+        """
+        ...
+
+    def need_to_download(self, file_path: str) -> bool:
+        """
+        Main filter to determine if this file needs to be downloaded
+        
+        This method is protected.
+        
+        :param file_path: File we are looking at
+        :returns: True if should download.
         """
         ...
 
@@ -2896,40 +2404,53 @@ class ManualTimeProvider(System.Object, QuantConnect.ITimeProvider):
         ...
 
 
-class RealTimeScheduleEventService(System.Object, System.IDisposable):
-    """
-    Allows to setup a real time scheduled event, internally using a Thread,
-    that is guaranteed to trigger at or after the requested time, never before.
-    """
+class BaseDataCollectionAggregatorReader(QuantConnect.Lean.Engine.DataFeeds.TextSubscriptionDataSourceReader):
+    """Data source reader that will aggregate data points into a base data collection"""
 
-    @property
-    def new_event(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        """Event fired when the scheduled time is past"""
-        ...
-
-    @new_event.setter
-    def new_event(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    def __init__(self, time_provider: QuantConnect.ITimeProvider) -> None:
+    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
         """
-        Creates a new instance
+        Initializes a new instance of the TextSubscriptionDataSourceReader class
         
-        :param time_provider: The time provider to use
+        :param data_cache_provider: This provider caches files if needed
+        :param config: The subscription's configuration
+        :param date: The date this factory was produced to read data for
+        :param is_live_mode: True if we're in live mode, false for backtesting
+        :param object_store: The object storage for data persistence
         """
         ...
 
-    def dispose(self) -> None:
-        """Disposes of the underlying Timer instance"""
-        ...
-
-    def schedule_event(self, due_time: datetime.timedelta, utc_now: typing.Union[datetime.datetime, datetime.date]) -> None:
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
         """
-        Schedules a new event
+        Reads the specified
         
-        :param due_time: The desired due time
-        :param utc_now: Current utc time
+        :param source: The source to be read
+        :returns: An IEnumerable{BaseData} that contains the data in the source.
         """
+        ...
+
+
+class DataChannelProvider(System.Object, QuantConnect.Interfaces.IDataChannelProvider):
+    """Specifies data channel settings"""
+
+    def initialize(self, packet: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+        """
+        Initializes the instance with an algorithm node packet
+        
+        :param packet: Algorithm node packet
+        """
+        ...
+
+    @staticmethod
+    def is_streaming_type(configuration: QuantConnect.Data.SubscriptionDataConfig) -> bool:
+        """
+        Returns true if the data type for the given subscription configuration supports streaming
+        
+        This method is protected.
+        """
+        ...
+
+    def should_stream_subscription(self, config: QuantConnect.Data.SubscriptionDataConfig) -> bool:
+        """True if this subscription request should be streamed"""
         ...
 
 
@@ -2967,78 +2488,557 @@ class ZipDataCacheProvider(System.Object, QuantConnect.Interfaces.IDataCacheProv
         ...
 
 
-class NullDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IDataFeed):
-    """Null data feed implementation."""
+class SingleEntryDataCacheProvider(System.Object, QuantConnect.Interfaces.IDataCacheProvider):
+    """
+    Default implementation of the IDataCacheProvider
+    Does not cache data.  If the data is a zip, the first entry is returned
+    """
 
     @property
-    def should_throw(self) -> bool:
-        """Allows specifying if this implementation should throw always or not"""
+    def is_data_ephemeral(self) -> bool:
+        """Property indicating the data is temporary in nature and should not be cached."""
         ...
 
-    @should_throw.setter
-    def should_throw(self, value: bool) -> None:
+    def __init__(self, data_provider: QuantConnect.Interfaces.IDataProvider, is_data_ephemeral: bool = True) -> None:
+        """Constructor that takes the IDataProvider to be used to retrieve data"""
         ...
 
-    @property
-    def is_active(self) -> bool:
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
         ...
 
-    def create_subscription(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> QuantConnect.Lean.Engine.DataFeeds.Subscription:
-        ...
-
-    def exit(self) -> None:
-        ...
-
-    def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, job: QuantConnect.Packets.AlgorithmNodePacket, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_provider: QuantConnect.Interfaces.IDataProvider, subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager, data_feed_time_provider: QuantConnect.Lean.Engine.DataFeeds.IDataFeedTimeProvider, data_channel_provider: QuantConnect.Interfaces.IDataChannelProvider) -> None:
-        ...
-
-    def remove_subscription(self, subscription: QuantConnect.Lean.Engine.DataFeeds.Subscription) -> None:
-        ...
-
-
-class InternalSubscriptionManager(System.Object):
-    """Class in charge of handling Leans internal subscriptions"""
-
-    @property
-    def added(self) -> typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]:
-        """Event fired when a new internal subscription request is to be added"""
-        ...
-
-    @added.setter
-    def added(self, value: typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]) -> None:
-        ...
-
-    @property
-    def removed(self) -> typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]:
-        """Event fired when an existing internal subscription should be removed"""
-        ...
-
-    @removed.setter
-    def removed(self, value: typing.Callable[[System.Object, QuantConnect.Data.UniverseSelection.SubscriptionRequest], typing.Any]) -> None:
-        ...
-
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm, resolution: QuantConnect.Resolution) -> None:
+    def fetch(self, key: str) -> System.IO.Stream:
         """
-        Creates a new instances
+        Fetch data from the cache
         
-        :param algorithm: The associated algorithm
-        :param resolution: The resolution to use for the internal subscriptions
+        :param key: A string representing the key of the cached data
+        :returns: An Stream of the cached data.
         """
         ...
 
-    def added_subscription_request(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> None:
+    def get_zip_entries(self, zip_file: str) -> typing.List[str]:
+        """Returns a list of zip entries in a provided zip file"""
+        ...
+
+    def store(self, key: str, data: typing.List[int]) -> None:
         """
-        Notifies about a removed subscription request
+        Not implemented
         
-        :param request: The removed subscription request
+        :param key: The source of the data, used as a key to retrieve data in the cache
+        :param data: The data to cache as a byte array
         """
         ...
 
-    def removed_subscription_request(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest) -> None:
+
+class LiveSynchronizer(QuantConnect.Lean.Engine.DataFeeds.Synchronizer):
+    """Implementation of the ISynchronizer interface which provides the mechanism to stream live data to the algorithm"""
+
+    BATCHING_DELAY: int = ...
+    """Consumer batching timeout in ms"""
+
+    @property
+    def time_provider(self) -> QuantConnect.ITimeProvider:
+        """Continuous UTC time provider"""
+        ...
+
+    def dispose(self) -> None:
+        """Free resources"""
+        ...
+
+    def get_pulse_due_time(self, now: typing.Union[datetime.datetime, datetime.date]) -> int:
         """
-        Notifies about an added subscription request
+        Will return the amount of milliseconds that are missing for the next time pulse
         
-        :param request: The added subscription request
+        This method is protected.
+        """
+        ...
+
+    def get_time_provider(self) -> QuantConnect.ITimeProvider:
+        """
+        Gets the ITimeProvider to use. By default this will load the
+        RealTimeProvider for live mode, else SubscriptionFrontierTimeProvider
+        
+        This method is protected.
+        
+        :returns: The ITimeProvider to use.
+        """
+        ...
+
+    def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, data_feed_subscription_manager: QuantConnect.Lean.Engine.DataFeeds.IDataFeedSubscriptionManager) -> None:
+        """Initializes the instance of the Synchronizer class"""
+        ...
+
+    def on_subscription_new_data_available(self, sender: typing.Any, args: System.EventArgs) -> None:
+        """
+        Trigger new data event
+        
+        This method is protected.
+        
+        :param sender: Sender of the event
+        :param args: Event information
+        """
+        ...
+
+    def post_initialize(self) -> None:
+        """
+        Performs additional initialization steps after algorithm initialization
+        
+        This method is protected.
+        """
+        ...
+
+    def stream_data(self, cancellation_token: System.Threading.CancellationToken) -> typing.Iterable[QuantConnect.Lean.Engine.DataFeeds.TimeSlice]:
+        """Returns an enumerable which provides the data to stream to the algorithm"""
+        ...
+
+
+class LiveFutureChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingFutureChainProvider):
+    """
+    An implementation of IFutureChainProvider that fetches the list of contracts
+    from an external source
+    """
+
+    def get_future_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Gets the list of future contracts for a given underlying symbol
+        
+        :param symbol: The underlying symbol
+        :param date: The date for which to request the future chain (only used in backtesting)
+        :returns: The list of future contracts.
+        """
+        ...
+
+
+class UpdateData(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_UpdateData_T], System.Object):
+    """
+    Transport type for algorithm update data. This is intended to provide a
+    list of base data used to perform updates against the specified target
+    """
+
+    @property
+    def contains_fill_forward_data(self) -> typing.Optional[bool]:
+        """Flag indicating whether Data contains any fill forward bar or not"""
+        ...
+
+    @property
+    def target(self) -> QuantConnect_Lean_Engine_DataFeeds_UpdateData_T:
+        """The target, such as a security or subscription data config"""
+        ...
+
+    @property
+    def data(self) -> typing.Sequence[QuantConnect.Data.BaseData]:
+        """The data used to update the target"""
+        ...
+
+    @property
+    def data_type(self) -> typing.Type:
+        """The type of data in the data list"""
+        ...
+
+    @property
+    def is_internal_config(self) -> bool:
+        """
+        True if this update data corresponds to an internal subscription
+        such as currency or security benchmark
+        """
+        ...
+
+    def __init__(self, target: QuantConnect_Lean_Engine_DataFeeds_UpdateData_T, data_type: typing.Type, data: typing.Sequence[QuantConnect.Data.BaseData], is_internal_config: bool, contains_fill_forward_data: typing.Optional[bool] = None) -> None:
+        """
+        Initializes a new instance of the UpdateData{T} class
+        
+        :param target: The end consumer/user of the dat
+        :param data_type: The type of data in the list
+        :param data: The update data
+        :param is_internal_config: True if this update data corresponds to an internal subscription such as currency or security benchmark
+        :param contains_fill_forward_data: True if this update data contains fill forward bars
+        """
+        ...
+
+
+class PredicateTimeProvider(System.Object, QuantConnect.ITimeProvider):
+    """
+    Will generate time steps around the desired ITimeProvider
+    Provided step evaluator should return true when the next time step
+    is valid and time can advance
+    """
+
+    def __init__(self, underlying_time_provider: QuantConnect.ITimeProvider, custom_step_evaluator: typing.Callable[[datetime.datetime], bool]) -> None:
+        """
+        Creates a new instance
+        
+        :param underlying_time_provider: The timer provider instance to wrap
+        :param custom_step_evaluator: Function to evaluate whether or not to advance time. Should return true if provided DateTime is a valid new next time. False will avoid time advancing
+        """
+        ...
+
+    def get_utc_now(self) -> datetime.datetime:
+        """Gets the current utc time step"""
+        ...
+
+
+class DataPermissionManager(System.Object, QuantConnect.Interfaces.IDataPermissionManager):
+    """Entity in charge of handling data permissions"""
+
+    @property
+    def data_channel_provider(self) -> QuantConnect.Interfaces.IDataChannelProvider:
+        """The data channel provider instance"""
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def assert_configuration(self, subscription_request: QuantConnect.Data.SubscriptionDataConfig, start_time_local: typing.Union[datetime.datetime, datetime.date], end_time_local: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Will assert the requested configuration is valid for the current job
+        
+        :param subscription_request: The data subscription configuration to assert
+        :param start_time_local: The start time of this request
+        :param end_time_local: The end time of this request
+        """
+        ...
+
+    def initialize(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+        """
+        Initialize the data permission manager
+        
+        :param job: The job packet
+        """
+        ...
+
+
+class CurrencySubscriptionDataConfigManager(System.Object):
+    """
+    Helper class to keep track of required internal currency SubscriptionDataConfig.
+    This class is used by the UniverseSelection
+    """
+
+    def __init__(self, cash_book: QuantConnect.Securities.CashBook, security_manager: QuantConnect.Securities.SecurityManager, subscription_manager: QuantConnect.Data.SubscriptionManager, security_service: QuantConnect.Interfaces.ISecurityService, default_resolution: QuantConnect.Resolution) -> None:
+        """
+        Creates a new instance
+        
+        :param cash_book: The cash book instance
+        :param security_manager: The SecurityManager, required by the cash book for creating new securities
+        :param subscription_manager: The SubscriptionManager, required by the cash book for creating new subscription data configs
+        :param security_service: The SecurityService, required by the cash book for creating new securities
+        :param default_resolution: The default resolution to use for the internal subscriptions
+        """
+        ...
+
+    def ensure_currency_subscription_data_configs(self, security_changes: QuantConnect.Data.UniverseSelection.SecurityChanges, brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> None:
+        """Checks the current SubscriptionDataConfig and adds new necessary currency pair feeds to provide real time conversion data"""
+        ...
+
+    def get_pending_subscription_data_configs(self) -> typing.Iterable[QuantConnect.Data.SubscriptionDataConfig]:
+        """
+        Will return any pending internal currency SubscriptionDataConfig and remove them as pending.
+        
+        :returns: Will return the SubscriptionDataConfig to be added.
+        """
+        ...
+
+    def get_subscription_data_config_to_remove(self, added_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.SubscriptionDataConfig:
+        """
+        Will verify if there are any SubscriptionDataConfig to be removed
+        for a given added Symbol.
+        
+        :param added_symbol: The symbol that was added to the data feed system
+        :returns: The SubscriptionDataConfig to be removed, null if none.
+        """
+        ...
+
+    def update_pending_subscription_data_configs(self, brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> bool:
+        """
+        Will update pending currency SubscriptionDataConfig
+        
+        :returns: True when there are pending currency subscriptions GetPendingSubscriptionDataConfigs.
+        """
+        ...
+
+
+class ZipEntryNameSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSubscriptionDataSourceReader):
+    """Provides an implementation of ISubscriptionDataSourceReader that reads zip entry names"""
+
+    def __init__(self, data_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool) -> None:
+        """
+        Initializes a new instance of the ZipEntryNameSubscriptionDataSourceReader class
+        
+        :param data_provider: Used to fetch data
+        :param config: The subscription's configuration
+        :param date: The date this factory was produced to read data for
+        :param is_live_mode: True if we're in live mode, false for backtesting
+        """
+        ...
+
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Reads the specified
+        
+        :param source: The source to be read
+        :returns: An IEnumerable{BaseData} that contains the data in the source.
+        """
+        ...
+
+
+class BacktestingOptionChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingChainProvider, QuantConnect.Interfaces.IOptionChainProvider):
+    """An implementation of IOptionChainProvider that reads the list of contracts from open interest zip data files"""
+
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Gets the list of option contracts for a given underlying symbol
+        
+        :param symbol: The option or the underlying symbol to get the option chain for. Providing the option allows targeting an option ticker different than the default e.g. SPXW
+        :param date: The date for which to request the option chain (only used in backtesting)
+        :returns: The list of option contracts.
+        """
+        ...
+
+
+class LiveOptionChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingOptionChainProvider):
+    """
+    An implementation of IOptionChainProvider that fetches the list of contracts
+    from the Options Clearing Corporation (OCC) website
+    """
+
+    def get_option_contract_list(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Gets the option chain associated with the underlying Symbol
+        
+        :param symbol: The option or the underlying symbol to get the option chain for. Providing the option allows targetting an option ticker different than the default e.g. SPXW
+        :param date: The date to ask for the option contract list for
+        :returns: Option chain.
+        """
+        ...
+
+
+class RealTimeScheduleEventService(System.Object, System.IDisposable):
+    """
+    Allows to setup a real time scheduled event, internally using a Thread,
+    that is guaranteed to trigger at or after the requested time, never before.
+    """
+
+    @property
+    def new_event(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
+        """Event fired when the scheduled time is past"""
+        ...
+
+    @new_event.setter
+    def new_event(self, value: _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def __init__(self, time_provider: QuantConnect.ITimeProvider) -> None:
+        """
+        Creates a new instance
+        
+        :param time_provider: The time provider to use
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Disposes of the underlying Timer instance"""
+        ...
+
+    def schedule_event(self, due_time: datetime.timedelta, utc_now: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Schedules a new event
+        
+        :param due_time: The desired due time
+        :param utc_now: Current utc time
+        """
+        ...
+
+
+class SubscriptionDataReader(System.Object, System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], QuantConnect.Lean.Engine.DataFeeds.Enumerators.ITradableDatesNotifier, QuantConnect.Interfaces.IDataProviderEvents):
+    """Subscription data reader is a wrapper on the stream reader class to download, unpack and iterate over a data file."""
+
+    @property
+    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]:
+        """Event fired when an invalid configuration has been detected"""
+        ...
+
+    @invalid_configuration_detected.setter
+    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]:
+        """Event fired when the numerical precision in the factor file has been limited"""
+        ...
+
+    @numerical_precision_limited.setter
+    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]:
+        """Event fired when the start date has been limited"""
+        ...
+
+    @start_date_limited.setter
+    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]:
+        """Event fired when there was an error downloading a remote file"""
+        ...
+
+    @download_failed.setter
+    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]:
+        """Event fired when there was an error reading the data"""
+        ...
+
+    @reader_error_detected.setter
+    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def new_tradable_date(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]:
+        """Event fired when there is a new tradable date"""
+        ...
+
+    @new_tradable_date.setter
+    def new_tradable_date(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NewTradableDateEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def current(self) -> QuantConnect.Data.BaseData:
+        """Last read BaseData object from this type and source"""
+        ...
+
+    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, data_request: QuantConnect.Data.BaseDataRequest, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, data_provider: QuantConnect.Interfaces.IDataProvider, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+        """
+        Subscription data reader takes a subscription request, loads the type, accepts the data source and enumerate on the results.
+        
+        :param config: Subscription configuration object
+        :param data_request: The data request
+        :param map_file_provider: Used for resolving the correct map files
+        :param factor_file_provider: Used for getting factor files
+        :param data_cache_provider: Used for caching files
+        :param data_provider: The data provider to use
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Dispose of the Stream Reader and close out the source stream and file connections."""
+        ...
+
+    def initialize(self) -> None:
+        """Initializes the SubscriptionDataReader instance"""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def on_download_failed(self, e: QuantConnect.DownloadFailedEventArgs) -> None:
+        """
+        Event invocator for the DownloadFailed event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the DownloadFailed event
+        """
+        ...
+
+    def on_invalid_configuration_detected(self, e: QuantConnect.InvalidConfigurationDetectedEventArgs) -> None:
+        """
+        Event invocator for the InvalidConfigurationDetected event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the InvalidConfigurationDetected event
+        """
+        ...
+
+    def on_new_tradable_date(self, e: QuantConnect.NewTradableDateEventArgs) -> None:
+        """
+        Event invocator for the NewTradableDate event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the NewTradableDate event
+        """
+        ...
+
+    def on_numerical_precision_limited(self, e: QuantConnect.NumericalPrecisionLimitedEventArgs) -> None:
+        """
+        Event invocator for the NumericalPrecisionLimited event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the NumericalPrecisionLimited event
+        """
+        ...
+
+    def on_reader_error_detected(self, e: QuantConnect.ReaderErrorDetectedEventArgs) -> None:
+        """
+        Event invocator for the ReaderErrorDetected event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the ReaderErrorDetected event
+        """
+        ...
+
+    def on_start_date_limited(self, e: QuantConnect.StartDateLimitedEventArgs) -> None:
+        """
+        Event invocator for the StartDateLimited event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the StartDateLimited event
+        """
+        ...
+
+    def reset(self) -> None:
+        """Reset the IEnumeration"""
+        ...
+
+
+class CollectionSubscriptionDataSourceReader(QuantConnect.Lean.Engine.DataFeeds.BaseSubscriptionDataSourceReader):
+    """
+    Collection Subscription Factory takes a BaseDataCollection from BaseData factories
+    and yields it one point at a time to the algorithm
+    """
+
+    @property
+    def reader_error(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]:
+        """
+        Event fired when an exception is thrown during a call to
+        BaseData.Reader(SubscriptionDataConfig, string, DateTime, bool)
+        """
+        ...
+
+    @reader_error.setter
+    def reader_error(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Lean.Engine.DataFeeds.ReaderErrorEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    def __init__(self, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, config: QuantConnect.Data.SubscriptionDataConfig, date: typing.Union[datetime.datetime, datetime.date], is_live_mode: bool, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
+        """
+        Initializes a new instance of the CollectionSubscriptionDataSourceReader class
+        
+        :param data_cache_provider: Used to cache data for requested from the IDataProvider
+        :param config: The subscription's configuration
+        :param date: The date this factory was produced to read data for
+        :param is_live_mode: True if we're in live mode, false for backtesting
+        """
+        ...
+
+    def read(self, source: QuantConnect.Data.SubscriptionDataSource) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Reads the specified
+        
+        :param source: The source to be read
+        :returns: An IEnumerable{BaseData} that contains the data in the source.
         """
         ...
 

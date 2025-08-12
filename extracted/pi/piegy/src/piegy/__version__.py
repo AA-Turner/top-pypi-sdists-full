@@ -47,4 +47,5 @@ version history:
 2.3.8: bug fix for 2.3.7 update.
 2.3.9: now use xoshiro256+ as RNG.
 2.3.10: remove requirement for init population being equal in combine_mod. Change function name to combine_mod (from combine_sim).
+2.3.11: debugging and renameed some variables.
 '''

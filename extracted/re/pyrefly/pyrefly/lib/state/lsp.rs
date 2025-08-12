@@ -54,6 +54,7 @@ use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
+use serde::Deserialize;
 use starlark_map::ordered_set::OrderedSet;
 use starlark_map::small_map::SmallMap;
 
@@ -79,6 +80,36 @@ use crate::types::callable::Param;
 use crate::types::callable::Params;
 use crate::types::module::ModuleType;
 use crate::types::types::Type;
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InlayHintConfig {
+    #[serde(default)]
+    #[expect(unused)]
+    pub call_argument_names: bool,
+    #[serde(default = "default_true")]
+    pub function_return_types: bool,
+    #[serde(default)]
+    #[expect(unused)]
+    pub pytest_parameters: bool,
+    #[serde(default = "default_true")]
+    pub variable_types: bool,
+}
+
+impl Default for InlayHintConfig {
+    fn default() -> Self {
+        Self {
+            call_argument_names: false,
+            function_return_types: true,
+            pytest_parameters: false,
+            variable_types: true,
+        }
+    }
+}
 
 const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
@@ -921,11 +952,29 @@ impl<'a> Transaction<'a> {
     ) -> Option<(Handle, Export)> {
         let bindings = self.get_bindings(handle)?;
         let intermediate_definition = key_to_intermediate_definition(&bindings, key)?;
-        self.resolve_intermediate_definition(
+        let (definition_handle, mut export) = self.resolve_intermediate_definition(
             handle,
             intermediate_definition,
             jump_through_renamed_import,
-        )
+        )?;
+        if let Export {
+            symbol_kind: Some(symbol_kind),
+            ..
+        } = &export
+            && *symbol_kind == SymbolKind::Variable
+            && let Some(type_) = self.get_type(handle, key)
+        {
+            let symbol_kind = match type_ {
+                Type::Callable(_) | Type::Function(_) => SymbolKind::Function,
+                Type::BoundMethod(_) => SymbolKind::Method,
+                Type::ClassDef(_) | Type::Type(_) => SymbolKind::Class,
+                Type::Module(_) => SymbolKind::Module,
+                Type::TypeAlias(_) => SymbolKind::TypeAlias,
+                _ => *symbol_kind,
+            };
+            export.symbol_kind = Some(symbol_kind);
+        }
+        Some((definition_handle, export))
     }
 
     // This is for cases where we are 100% certain that `identifier` points to a "real" name
@@ -2040,7 +2089,11 @@ impl<'a> Transaction<'a> {
         Some(res)
     }
 
-    pub fn inlay_hints(&self, handle: &Handle) -> Option<Vec<(TextSize, String)>> {
+    pub fn inlay_hints(
+        &self,
+        handle: &Handle,
+        inlay_hint_config: InlayHintConfig,
+    ) -> Option<Vec<(TextSize, String)>> {
         let is_interesting_type = |x: &Type| !x.is_error();
         let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
 
@@ -2049,20 +2102,25 @@ impl<'a> Transaction<'a> {
         for idx in bindings.keys::<Key>() {
             match bindings.idx_to_key(idx) {
                 key @ Key::ReturnType(id) => {
-                    match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
-                        Binding::Function(x, _pred, _class_meta) => {
-                            if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
-                                && let Some(ty) = self.get_type(handle, key)
-                                && is_interesting_type(&ty)
-                            {
-                                let fun = bindings.get(*x);
-                                res.push((fun.def.parameters.range.end(), format!(" -> {ty}")));
+                    if inlay_hint_config.function_return_types {
+                        match bindings.get(bindings.key_to_idx(&Key::Definition(id.clone()))) {
+                            Binding::Function(x, _pred, _class_meta) => {
+                                if matches!(&bindings.get(idx), Binding::ReturnType(ret) if !ret.kind.has_return_annotation())
+                                    && let Some(ty) = self.get_type(handle, key)
+                                    && is_interesting_type(&ty)
+                                {
+                                    let fun = bindings.get(*x);
+                                    res.push((fun.def.parameters.range.end(), format!(" -> {ty}")));
+                                }
                             }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
-                key @ Key::Definition(_) if let Some(ty) = self.get_type(handle, key) => {
+                key @ Key::Definition(_)
+                    if inlay_hint_config.variable_types
+                        && let Some(ty) = self.get_type(handle, key) =>
+                {
                     let e = match bindings.get(idx) {
                         Binding::NameAssign(_, None, e) => Some(&**e),
                         Binding::Expr(None, e) => Some(e),
@@ -2106,7 +2164,7 @@ impl<'a> Transaction<'a> {
                 builder.process_key(&key, definition_handle.module(), symbol_kind)
             }
         }
-        builder.process_ast(&ast);
+        builder.process_ast(&ast, &|range| self.get_type_trace(handle, range));
         Some(
             legends
                 .convert_tokens_into_lsp_semantic_tokens(&builder.all_tokens_sorted(), module_info),

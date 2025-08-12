@@ -4,9 +4,12 @@ Vector drawing: managing colors, graphics states, paths, transforms...
 The contents of this module are internal to fpdf2, and not part of the public API.
 They may change at any time without prior warning or any deprecation period,
 in non-backward-compatible ways.
+
+Usage documentation at: <https://py-pdf.github.io/fpdf2/Drawing.html>
 """
 
-import copy, decimal, math, re
+import decimal, math, re
+from copy import deepcopy
 from collections import OrderedDict
 
 from collections.abc import Sequence
@@ -3120,7 +3123,7 @@ class DrawingContext:
             raise TypeError(f"{item} doesn't belong in a DrawingContext")
 
         if _copy:
-            item = copy.deepcopy(item)
+            item = deepcopy(item)
 
         self._subitems.append(item)
 
@@ -3289,7 +3292,7 @@ class PaintedPath:
             raise RuntimeError(f"cannot copy path {self} while it is being modified")
 
         copied = self.__class__()
-        copied._root_graphics_context = copy.deepcopy(self._root_graphics_context, memo)
+        copied._root_graphics_context = deepcopy(self._root_graphics_context, memo)
         copied._graphics_context = copied._root_graphics_context
         copied._closed = self._closed
         copied._close_context = copied._graphics_context
@@ -3945,11 +3948,11 @@ class GraphicsContext:
 
     def __deepcopy__(self, memo):
         copied = self.__class__()
-        copied.style = copy.deepcopy(self.style, memo)
-        copied.path_items = copy.deepcopy(self.path_items, memo)
+        copied.style = deepcopy(self.style, memo)
+        copied.path_items = deepcopy(self.path_items, memo)
 
-        copied._transform = copy.deepcopy(self.transform, memo)
-        copied._clipping_path = copy.deepcopy(self.clipping_path, memo)
+        copied._transform = deepcopy(self.transform, memo)
+        copied._clipping_path = deepcopy(self.clipping_path, memo)
 
         return copied
 
@@ -3983,7 +3986,7 @@ class GraphicsContext:
                 caution.
         """
         if _copy:
-            item = copy.deepcopy(item)
+            item = deepcopy(item)
 
         self.path_items.append(item)
 
@@ -4068,7 +4071,7 @@ class GraphicsContext:
 
             emit_style = self.style
             if merged_style.allow_transparency != self.style.allow_transparency:
-                emit_style = copy.deepcopy(self.style)
+                emit_style = deepcopy(self.style)
                 emit_style.allow_transparency = merged_style.allow_transparency
 
             # in order to decouple the dash pattern and the dash phase at the API layer,
@@ -4081,7 +4084,7 @@ class GraphicsContext:
                 dash_phase != style.stroke_dash_phase
             ):
                 if emit_style is self.style:
-                    emit_style = copy.deepcopy(emit_style)
+                    emit_style = deepcopy(emit_style)
                 emit_style.stroke_dash_pattern = dash_pattern
                 emit_style.stroke_dash_phase = dash_phase
 

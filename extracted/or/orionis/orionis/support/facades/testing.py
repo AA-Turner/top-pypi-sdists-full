@@ -5,12 +5,18 @@ class Test(Facade):
     @classmethod
     def getFacadeAccessor(cls) -> str:
         """
-        Returns the binding key for the testing component in the service container.
+        Get the registered name of the component.
+
+        This method returns the service container binding key that identifies
+        the testing component implementation. The facade uses this key to
+        resolve the appropriate testing service from the container when
+        static methods are called on the facade.
 
         Returns
         -------
         str
-            The unique string identifier for the testing component, used by the service
-            container to resolve the appropriate implementation.
+            The service container binding key "x-orionis.test.core.unit_test"
+            used to resolve the testing component implementation.
         """
-        return "core.orionis.testing"
+
+        return "x-orionis.test.core.unit_test"

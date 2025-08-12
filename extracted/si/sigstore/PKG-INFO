@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sigstore
-Version: 3.6.4
+Version: 3.6.5
 Summary: A tool for signing Python package distributions
 Author-email: Sigstore Authors <sigstore-dev@googlegroups.com>
 Requires-Python: >=3.9
@@ -18,7 +18,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Security
 Classifier: Topic :: Security :: Cryptography
 License-File: LICENSE
-Requires-Dist: cryptography >= 42, < 45
+Requires-Dist: cryptography >= 42, < 46
 Requires-Dist: id >= 1.1.0
 Requires-Dist: importlib_resources ~= 5.7; python_version < '3.11'
 Requires-Dist: pyasn1 ~= 0.6

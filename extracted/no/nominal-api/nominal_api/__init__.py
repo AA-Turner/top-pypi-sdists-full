@@ -52,6 +52,8 @@ __all__ = [
     'scout_plotting',
     'scout_rids_api',
     'scout_run_api',
+    'scout_savedviews',
+    'scout_savedviews_api',
     'scout_template_api',
     'scout_units_api',
     'scout_versioning_api',
@@ -78,5 +80,5 @@ __all__ = [
 
 __conjure_generator_version__ = "4.17.0"
 
-__version__ = "0.819.0"
+__version__ = "0.823.0"
 

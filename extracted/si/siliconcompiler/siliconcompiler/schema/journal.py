@@ -1,7 +1,7 @@
 import copy
 import json
 
-from typing import Tuple, Set
+from typing import Tuple, Set, Dict, List
 
 
 class Journal:
@@ -45,7 +45,7 @@ class Journal:
         child.__parent = self.__parent
         return child
 
-    def from_dict(self, manifest):
+    def from_dict(self, manifest: Dict):
         '''
         Import a journal from a manifest dictionary
 
@@ -55,7 +55,7 @@ class Journal:
 
         self.__journal = manifest
 
-    def get(self):
+    def get(self) -> List[Dict]:
         """
         Returns a copy of the current journal
         """
@@ -123,6 +123,9 @@ class Journal:
 
         if record_type not in self.__parent.__record_types:
             return
+
+        if isinstance(value, set):
+            value = list(value)
 
         self.__parent.__journal.append({
             "type": record_type,
@@ -204,7 +207,7 @@ class Journal:
                 raise ValueError(f'Unknown record type {record_type}')
 
     @staticmethod
-    def access(schema) -> None:
+    def access(schema) -> "Journal":
         '''
         Access a journal from a schema
 

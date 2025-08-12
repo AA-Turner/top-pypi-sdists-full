@@ -884,134 +884,6 @@ class TaskFactory(typing.Generic[System_Threading_Tasks_TaskFactory_TResult], Sy
         ...
 
 
-class TaskSchedulerException(System.Exception):
-    """
-    Represents an exception used to communicate an invalid operation by a
-    TaskScheduler.
-    """
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the TaskSchedulerException class."""
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the TaskSchedulerException
-        class with a specified error message.
-        
-        :param message: The error message that explains the reason for the exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the TaskSchedulerException
-        class using the default error message and a reference to the inner exception that is the cause of
-        this exception.
-        
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the TaskSchedulerException
-        class with a specified error message and a reference to the inner exception that is the cause of
-        this exception.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        Initializes a new instance of the TaskSchedulerException
-        class with serialized data.
-        
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        
-        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
-        :param context: The StreamingContext that contains contextual information about the source or destination.
-        """
-        ...
-
-
-class ConcurrentExclusiveSchedulerPair(System.Object):
-    """
-    Provides concurrent and exclusive task schedulers that coordinate to execute
-    tasks while ensuring that concurrent tasks may run concurrently and exclusive tasks never do.
-    """
-
-    @property
-    def completion(self) -> System.Threading.Tasks.Task:
-        """Gets a Task that will complete when the scheduler has completed processing."""
-        ...
-
-    @property
-    def concurrent_scheduler(self) -> System.Threading.Tasks.TaskScheduler:
-        """
-        Gets a TaskScheduler that can be used to schedule tasks to this pair
-        that may run concurrently with other tasks on this pair.
-        """
-        ...
-
-    @property
-    def exclusive_scheduler(self) -> System.Threading.Tasks.TaskScheduler:
-        """
-        Gets a TaskScheduler that can be used to schedule tasks to this pair
-        that must run exclusively with regards to other tasks on this pair.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes the ConcurrentExclusiveSchedulerPair."""
-        ...
-
-    @overload
-    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler) -> None:
-        """
-        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler.
-        
-        :param task_scheduler: The target scheduler on which this pair should execute.
-        """
-        ...
-
-    @overload
-    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler, max_concurrency_level: int) -> None:
-        """
-        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler with a maximum concurrency level.
-        
-        :param task_scheduler: The target scheduler on which this pair should execute.
-        :param max_concurrency_level: The maximum number of tasks to run concurrently.
-        """
-        ...
-
-    @overload
-    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler, max_concurrency_level: int, max_items_per_task: int) -> None:
-        """
-        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler with a maximum
-        concurrency level and a maximum number of scheduled tasks that may be processed as a unit.
-        
-        :param task_scheduler: The target scheduler on which this pair should execute.
-        :param max_concurrency_level: The maximum number of tasks to run concurrently.
-        :param max_items_per_task: The maximum number of tasks to process for each underlying scheduled task used by the pair.
-        """
-        ...
-
-    def complete(self) -> None:
-        """Informs the scheduler pair that it should not accept any more tasks."""
-        ...
-
-
 class TaskCompletionSource(typing.Generic[System_Threading_Tasks_TaskCompletionSource_TResult], System.Object):
     """
     Represents the producer side of a Task{TResult} unbound to a
@@ -1200,17 +1072,76 @@ class TaskCompletionSource(typing.Generic[System_Threading_Tasks_TaskCompletionS
         ...
 
 
-class TaskAsyncEnumerableExtensions(System.Object):
-    """Provides a set of static methods for configuring Task-related behaviors on asynchronous enumerables and disposables."""
+class TaskCanceledException(System.OperationCanceledException):
+    """Represents an exception used to communicate task cancellation."""
 
-    @staticmethod
-    def configure_await(source: System.IAsyncDisposable, continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredAsyncDisposable:
+    @property
+    def task(self) -> System.Threading.Tasks.Task:
+        """Gets the task associated with this exception."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the TaskCanceledException class."""
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
         """
-        Configures how awaits on the tasks returned from an async disposable will be performed.
+        Initializes a new instance of the TaskCanceledException
+        class with a specified error message.
         
-        :param source: The source async disposable.
-        :param continue_on_captured_context: true to capture and marshal back to the current context; otherwise, false.
-        :returns: The configured async disposable.
+        :param message: The error message that explains the reason for the exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the TaskCanceledException
+        class with a specified error message and a reference to the inner exception that is the cause of
+        this exception.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exception: The exception that is the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception, token: System.Threading.CancellationToken) -> None:
+        """
+        Initializes a new instance of the TaskCanceledException
+        class with a specified error message, a reference to the inner exception that is the cause of
+        this exception, and the CancellationToken that triggered the cancellation.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exception: The exception that is the cause of the current exception.
+        :param token: The CancellationToken that triggered the cancellation.
+        """
+        ...
+
+    @overload
+    def __init__(self, task: System.Threading.Tasks.Task) -> None:
+        """
+        Initializes a new instance of the TaskCanceledException class
+        with a reference to the Tasks.Task that has been canceled.
+        
+        :param task: A task that has been canceled.
+        """
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        Initializes a new instance of the TaskCanceledException
+        class with serialized data.
+        
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        
+        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
+        :param context: The StreamingContext that contains contextual information about the source or destination.
         """
         ...
 
@@ -2259,6 +2190,81 @@ class Task(typing.Generic[System_Threading_Tasks_Task_TResult], System_Threading
         ...
 
 
+class TaskAsyncEnumerableExtensions(System.Object):
+    """Provides a set of static methods for configuring Task-related behaviors on asynchronous enumerables and disposables."""
+
+    @staticmethod
+    def configure_await(source: System.IAsyncDisposable, continue_on_captured_context: bool) -> System.Runtime.CompilerServices.ConfiguredAsyncDisposable:
+        """
+        Configures how awaits on the tasks returned from an async disposable will be performed.
+        
+        :param source: The source async disposable.
+        :param continue_on_captured_context: true to capture and marshal back to the current context; otherwise, false.
+        :returns: The configured async disposable.
+        """
+        ...
+
+
+class TaskSchedulerException(System.Exception):
+    """
+    Represents an exception used to communicate an invalid operation by a
+    TaskScheduler.
+    """
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the TaskSchedulerException class."""
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """
+        Initializes a new instance of the TaskSchedulerException
+        class with a specified error message.
+        
+        :param message: The error message that explains the reason for the exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the TaskSchedulerException
+        class using the default error message and a reference to the inner exception that is the cause of
+        this exception.
+        
+        :param inner_exception: The exception that is the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the TaskSchedulerException
+        class with a specified error message and a reference to the inner exception that is the cause of
+        this exception.
+        
+        :param message: The error message that explains the reason for the exception.
+        :param inner_exception: The exception that is the cause of the current exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        Initializes a new instance of the TaskSchedulerException
+        class with serialized data.
+        
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        
+        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
+        :param context: The StreamingContext that contains contextual information about the source or destination.
+        """
+        ...
+
+
 class ValueTask(typing.Generic[System_Threading_Tasks_ValueTask_TResult], System.IEquatable[System_Threading_Tasks_ValueTask]):
     """Provides a value type that can represent a synchronously available value or a task object."""
 
@@ -2421,6 +2427,74 @@ class ValueTask(typing.Generic[System_Threading_Tasks_ValueTask_TResult], System
         ...
 
 
+class ConcurrentExclusiveSchedulerPair(System.Object):
+    """
+    Provides concurrent and exclusive task schedulers that coordinate to execute
+    tasks while ensuring that concurrent tasks may run concurrently and exclusive tasks never do.
+    """
+
+    @property
+    def completion(self) -> System.Threading.Tasks.Task:
+        """Gets a Task that will complete when the scheduler has completed processing."""
+        ...
+
+    @property
+    def concurrent_scheduler(self) -> System.Threading.Tasks.TaskScheduler:
+        """
+        Gets a TaskScheduler that can be used to schedule tasks to this pair
+        that may run concurrently with other tasks on this pair.
+        """
+        ...
+
+    @property
+    def exclusive_scheduler(self) -> System.Threading.Tasks.TaskScheduler:
+        """
+        Gets a TaskScheduler that can be used to schedule tasks to this pair
+        that must run exclusively with regards to other tasks on this pair.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes the ConcurrentExclusiveSchedulerPair."""
+        ...
+
+    @overload
+    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler) -> None:
+        """
+        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler.
+        
+        :param task_scheduler: The target scheduler on which this pair should execute.
+        """
+        ...
+
+    @overload
+    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler, max_concurrency_level: int) -> None:
+        """
+        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler with a maximum concurrency level.
+        
+        :param task_scheduler: The target scheduler on which this pair should execute.
+        :param max_concurrency_level: The maximum number of tasks to run concurrently.
+        """
+        ...
+
+    @overload
+    def __init__(self, task_scheduler: System.Threading.Tasks.TaskScheduler, max_concurrency_level: int, max_items_per_task: int) -> None:
+        """
+        Initializes the ConcurrentExclusiveSchedulerPair to target the specified scheduler with a maximum
+        concurrency level and a maximum number of scheduled tasks that may be processed as a unit.
+        
+        :param task_scheduler: The target scheduler on which this pair should execute.
+        :param max_concurrency_level: The maximum number of tasks to run concurrently.
+        :param max_items_per_task: The maximum number of tasks to process for each underlying scheduled task used by the pair.
+        """
+        ...
+
+    def complete(self) -> None:
+        """Informs the scheduler pair that it should not accept any more tasks."""
+        ...
+
+
 class TaskExtensions(System.Object):
     """Provides a set of static methods for working with specific kinds of Task instances."""
 
@@ -2431,80 +2505,6 @@ class TaskExtensions(System.Object):
         
         :param task: The Task{Task} to unwrap.
         :returns: A Task that represents the asynchronous operation of the provided Task{Task}.
-        """
-        ...
-
-
-class TaskCanceledException(System.OperationCanceledException):
-    """Represents an exception used to communicate task cancellation."""
-
-    @property
-    def task(self) -> System.Threading.Tasks.Task:
-        """Gets the task associated with this exception."""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the TaskCanceledException class."""
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException
-        class with a specified error message.
-        
-        :param message: The error message that explains the reason for the exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException
-        class with a specified error message and a reference to the inner exception that is the cause of
-        this exception.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exception: The exception that is the cause of the current exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception, token: System.Threading.CancellationToken) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException
-        class with a specified error message, a reference to the inner exception that is the cause of
-        this exception, and the CancellationToken that triggered the cancellation.
-        
-        :param message: The error message that explains the reason for the exception.
-        :param inner_exception: The exception that is the cause of the current exception.
-        :param token: The CancellationToken that triggered the cancellation.
-        """
-        ...
-
-    @overload
-    def __init__(self, task: System.Threading.Tasks.Task) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException class
-        with a reference to the Tasks.Task that has been canceled.
-        
-        :param task: A task that has been canceled.
-        """
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        Initializes a new instance of the TaskCanceledException
-        class with serialized data.
-        
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        
-        :param info: The SerializationInfo that holds the serialized object data about the exception being thrown.
-        :param context: The StreamingContext that contains contextual information about the source or destination.
         """
         ...
 

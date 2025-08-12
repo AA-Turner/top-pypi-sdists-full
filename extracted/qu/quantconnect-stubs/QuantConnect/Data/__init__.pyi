@@ -22,67 +22,114 @@ import System.IO
 import System.Reflection
 import System.Threading.Tasks
 
-IDynamicMetaObjectProvider = typing.Any
-QuantConnect_Data_SubscriptionDataConfig = typing.Any
 DynamicMetaObject = typing.Any
 QuantConnect_Data_SubscriptionDataSource = typing.Any
 PyObject = typing.Any
+QuantConnect_Data_SubscriptionDataConfig = typing.Any
+IDynamicMetaObjectProvider = typing.Any
 
 QuantConnect_Data_DataHistory_T = typing.TypeVar("QuantConnect_Data_DataHistory_T")
 QuantConnect_Data__EventContainer_Callable = typing.TypeVar("QuantConnect_Data__EventContainer_Callable")
 QuantConnect_Data__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Data__EventContainer_ReturnType")
 
 
-class IDividendYieldModel(metaclass=abc.ABCMeta):
-    """Represents a model that provides dividend yield data"""
+class FileFormat(Enum):
+    """Specifies the format of data in a subscription"""
 
-    @overload
-    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Get dividend yield by a given date of a given symbol
-        
-        :param date: The date
-        :returns: Dividend yield on the given date of the given symbol.
-        """
+    CSV = 0
+    """Comma separated values (0)"""
+
+    BINARY = 1
+    """Binary file data (1)"""
+
+    ZIP_ENTRY_NAME = 2
+    """Only the zip entry names are read in as symbols (2)"""
+
+    UNFOLDING_COLLECTION = 3
+    """Reader returns a BaseDataCollection object (3)"""
+
+    INDEX = 4
+    """Data stored using an intermediate index source (4)"""
+
+    FOLDING_COLLECTION = 5
+    """
+    Data type inherits from BaseDataCollection.
+    Reader method can return a non BaseDataCollection type which will be folded, based on unique time,
+    into an instance of the data type (5)
+    """
+
+    def __int__(self) -> int:
         ...
 
-    @overload
-    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date], security_price: float) -> float:
-        """
-        Get dividend yield at given date and security price
-        
-        :param date: The date
-        :param security_price: The security price at the given date
-        :returns: Dividend yield on the given date of the given symbol.
-        """
+
+class BaseDataRequest(System.Object, metaclass=abc.ABCMeta):
+    """Abstract sharing logic for data requests"""
+
+    @property
+    def start_time_utc(self) -> datetime.datetime:
+        """Gets the beginning of the requested time interval in UTC"""
         ...
 
-
-class ConstantDividendYieldModel(System.Object, QuantConnect.Data.IDividendYieldModel):
-    """Constant dividend yield model"""
-
-    def __init__(self, dividend_yield: float) -> None:
-        """Instantiates a ConstantDividendYieldModel with the specified dividend yield"""
+    @start_time_utc.setter
+    def start_time_utc(self, value: datetime.datetime) -> None:
         ...
 
-    @overload
-    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Get dividend yield by a given date of a given symbol
-        
-        :param date: The date
-        :returns: Dividend yield on the given date of the given symbol.
-        """
+    @property
+    def end_time_utc(self) -> datetime.datetime:
+        """Gets the end of the requested time interval in UTC"""
         ...
 
-    @overload
-    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date], security_price: float) -> float:
+    @end_time_utc.setter
+    def end_time_utc(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def start_time_local(self) -> datetime.datetime:
+        """Gets the StartTimeUtc in the security's exchange time zone"""
+        ...
+
+    @property
+    def end_time_local(self) -> datetime.datetime:
+        """Gets the EndTimeUtc in the security's exchange time zone"""
+        ...
+
+    @property
+    def exchange_hours(self) -> QuantConnect.Securities.SecurityExchangeHours:
+        """Gets the exchange hours used for processing fill forward requests"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def tradable_days_in_data_time_zone(self) -> typing.Iterable[datetime.datetime]:
+        """Gets the tradable days specified by this request, in the security's data time zone"""
+        ...
+
+    @property
+    def is_custom_data(self) -> bool:
+        """Gets true if this is a custom data request, false for normal QC data"""
+        ...
+
+    @property
+    def data_type(self) -> typing.Type:
+        """The data type of this request"""
+        ...
+
+    @data_type.setter
+    def data_type(self, value: typing.Type) -> None:
+        ...
+
+    def __init__(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, tick_type: QuantConnect.TickType, is_custom_data: bool, data_type: typing.Type) -> None:
         """
-        Get dividend yield at given date and security price
+        Initializes the base data request
         
-        :param date: The date
-        :param security_price: The security price at the given date
-        :returns: Dividend yield on the given date of the given symbol.
+        This method is protected.
+        
+        :param start_time_utc: The start time for this request,
+        :param end_time_utc: The start time for this request
+        :param exchange_hours: The exchange hours for this request
+        :param tick_type: The tick type of this request
+        :param is_custom_data: True if this subscription is for custom data
+        :param data_type: The data type of the output data
         """
         ...
 
@@ -342,54 +389,244 @@ class SubscriptionDataConfig(System.Object, System.IEquatable[QuantConnect_Data_
         ...
 
 
-class SubscriptionDataConfigList(typing.List[QuantConnect.Data.SubscriptionDataConfig]):
-    """Provides convenient methods for holding several SubscriptionDataConfig"""
+class HistoryRequest(QuantConnect.Data.BaseDataRequest):
+    """Represents a request for historical data"""
 
     @property
     def symbol(self) -> QuantConnect.Symbol:
-        """Symbol for which this class holds SubscriptionDataConfig"""
+        """Gets the symbol to request data for"""
+        ...
+
+    @symbol.setter
+    def symbol(self, value: QuantConnect.Symbol) -> None:
         ...
 
     @property
-    def is_internal_feed(self) -> bool:
-        """Assume that the InternalDataFeed is the same for both SubscriptionDataConfig"""
+    def resolution(self) -> QuantConnect.Resolution:
+        """Gets the requested data resolution"""
         ...
 
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
-        """Default constructor that specifies the Symbol that the SubscriptionDataConfig represent"""
+    @resolution.setter
+    def resolution(self, value: QuantConnect.Resolution) -> None:
         ...
 
-    def set_data_normalization_mode(self, normalization_mode: QuantConnect.DataNormalizationMode) -> None:
-        """Sets the DataNormalizationMode for all SubscriptionDataConfig contained in the list"""
+    @property
+    def fill_forward_resolution(self) -> typing.Optional[QuantConnect.Resolution]:
+        """
+        Gets the requested fill forward resolution, set to null for no fill forward behavior.
+        Will always return null when Resolution is set to Tick.
+        """
+        ...
+
+    @fill_forward_resolution.setter
+    def fill_forward_resolution(self, value: typing.Optional[QuantConnect.Resolution]) -> None:
+        ...
+
+    @property
+    def include_extended_market_hours(self) -> bool:
+        """Gets whether or not to include extended market hours data, set to false for only normal market hours"""
+        ...
+
+    @include_extended_market_hours.setter
+    def include_extended_market_hours(self, value: bool) -> None:
+        ...
+
+    @property
+    def data_time_zone(self) -> typing.Any:
+        """Gets the time zone of the time stamps on the raw input data"""
+        ...
+
+    @data_time_zone.setter
+    def data_time_zone(self, value: typing.Any) -> None:
+        ...
+
+    @property
+    def tick_type(self) -> QuantConnect.TickType:
+        """TickType of the history request"""
+        ...
+
+    @tick_type.setter
+    def tick_type(self, value: QuantConnect.TickType) -> None:
+        ...
+
+    @property
+    def data_normalization_mode(self) -> QuantConnect.DataNormalizationMode:
+        """Gets the normalization mode used for this subscription"""
+        ...
+
+    @data_normalization_mode.setter
+    def data_normalization_mode(self, value: QuantConnect.DataNormalizationMode) -> None:
+        ...
+
+    @property
+    def data_mapping_mode(self) -> QuantConnect.DataMappingMode:
+        """Gets the data mapping mode used for this subscription"""
+        ...
+
+    @data_mapping_mode.setter
+    def data_mapping_mode(self, value: QuantConnect.DataMappingMode) -> None:
+        ...
+
+    @property
+    def contract_depth_offset(self) -> int:
+        """
+        The continuous contract desired offset from the current front month.
+        For example, 0 (default) will use the front month, 1 will use the back month contract
+        """
+        ...
+
+    @contract_depth_offset.setter
+    def contract_depth_offset(self, value: int) -> None:
+        ...
+
+    @property
+    def tradable_days_in_data_time_zone(self) -> typing.Iterable[datetime.datetime]:
+        """Gets the tradable days specified by this request, in the security's data time zone"""
+        ...
+
+    @overload
+    def __init__(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], data_type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: QuantConnect.Resolution, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, data_time_zone: typing.Any, fill_forward_resolution: typing.Optional[QuantConnect.Resolution], include_extended_market_hours: bool, is_custom_data: bool, data_normalization_mode: QuantConnect.DataNormalizationMode, tick_type: QuantConnect.TickType, data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> None:
+        """
+        Initializes a new instance of the HistoryRequest class from the specified parameters
+        
+        :param start_time_utc: The start time for this request,
+        :param end_time_utc: The end time for this request
+        :param data_type: The data type of the output data
+        :param symbol: The symbol to request data for
+        :param resolution: The requested data resolution
+        :param exchange_hours: The exchange hours used in fill forward processing
+        :param data_time_zone: The time zone of the data
+        :param fill_forward_resolution: The requested fill forward resolution for this request
+        :param include_extended_market_hours: True to include data from pre/post market hours
+        :param is_custom_data: True for custom user data, false for normal QC data
+        :param data_normalization_mode: Specifies normalization mode used for this subscription
+        :param tick_type: The tick type used to created the SubscriptionDataConfig for the retrieval of history data
+        :param data_mapping_mode: The contract mapping mode to use for the security
+        :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
+        """
+        ...
+
+    @overload
+    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, hours: QuantConnect.Securities.SecurityExchangeHours, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the HistoryRequest class from the specified config and exchange hours
+        
+        :param config: The subscription data config used to initialize this request
+        :param hours: The exchange hours used for fill forward processing
+        :param start_time_utc: The start time for this request,
+        :param end_time_utc: The end time for this request
+        """
+        ...
+
+    @overload
+    def __init__(self, request: QuantConnect.Data.HistoryRequest, new_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], new_start_time_utc: typing.Union[datetime.datetime, datetime.date], new_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the HistoryRequest class with new Symbol, StartTimeUtc, EndTimeUtc
+        
+        :param request: Represents a request for historical data
+        :param new_start_time_utc: The start time for this request
+        :param new_end_time_utc: The end time for this request
+        """
         ...
 
 
-class FileFormat(Enum):
-    """Specifies the format of data in a subscription"""
+class HistoryRequestFactory(System.Object):
+    """Helper class used to create new HistoryRequest"""
 
-    CSV = 0
-    """Comma separated values (0)"""
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+        """
+        Creates a new instance
+        
+        :param algorithm: The algorithm instance to use
+        """
+        ...
 
-    BINARY = 1
-    """Binary file data (1)"""
+    def create_history_request(self, subscription: QuantConnect.Data.SubscriptionDataConfig, start_algo_tz: typing.Union[datetime.datetime, datetime.date], end_algo_tz: typing.Union[datetime.datetime, datetime.date], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> QuantConnect.Data.HistoryRequest:
+        """
+        Creates a new history request
+        
+        :param subscription: The config
+        :param start_algo_tz: History request start time in algorithm time zone
+        :param end_algo_tz: History request end time in algorithm time zone
+        :param exchange_hours: Security exchange hours
+        :param resolution: The resolution to use. If null will use SubscriptionDataConfig.Resolution
+        :param fill_forward: True to fill forward missing data, false otherwise
+        :param extended_market_hours: True to include extended market hours data, false otherwise
+        :param data_mapping_mode: The contract mapping mode to use for the security history request
+        :param data_normalization_mode: The price scaling mode to use for the securities history
+        :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
+        :returns: The new HistoryRequest.
+        """
+        ...
 
-    ZIP_ENTRY_NAME = 2
-    """Only the zip entry names are read in as symbols (2)"""
+    @overload
+    def get_start_time_algo_tz(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], periods: int, resolution: QuantConnect.Resolution, exchange: QuantConnect.Securities.SecurityExchangeHours, data_time_zone: typing.Any, data_type: typing.Type, extended_market_hours: typing.Optional[bool] = None) -> datetime.datetime:
+        """
+        Gets the start time required for the specified bar count in terms of the algorithm's time zone
+        
+        :param symbol: The symbol to select proper SubscriptionDataConfig config
+        :param periods: The number of bars requested
+        :param resolution: The length of each bar
+        :param exchange: The exchange hours used for market open hours
+        :param data_time_zone: The time zone in which data are stored
+        :param data_type: The data type to request
+        :param extended_market_hours: True to include extended market hours data, false otherwise. If not passed, the config will be used to determined whether to include extended market hours.
+        :returns: The start time that would provide the specified number of bars ending at the algorithm's current time.
+        """
+        ...
 
-    UNFOLDING_COLLECTION = 3
-    """Reader returns a BaseDataCollection object (3)"""
+    @overload
+    def get_start_time_algo_tz(self, reference_utc_time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], periods: int, resolution: QuantConnect.Resolution, exchange: QuantConnect.Securities.SecurityExchangeHours, data_time_zone: typing.Any, data_type: typing.Type, extended_market_hours: typing.Optional[bool] = None) -> datetime.datetime:
+        """
+        Gets the start time required for the specified bar count in terms of the algorithm's time zone
+        
+        :param reference_utc_time: The end time in utc
+        :param symbol: The symbol to select proper SubscriptionDataConfig config
+        :param periods: The number of bars requested
+        :param resolution: The length of each bar
+        :param exchange: The exchange hours used for market open hours
+        :param data_time_zone: The time zone in which data are stored
+        :param data_type: The data type to request
+        :param extended_market_hours: True to include extended market hours data, false otherwise. If not passed, the config will be used to determined whether to include extended market hours.
+        :returns: The start time that would provide the specified number of bars ending at the algorithm's current time.
+        """
+        ...
 
-    INDEX = 4
-    """Data stored using an intermediate index source (4)"""
 
-    FOLDING_COLLECTION = 5
+class GetSetPropertyDynamicMetaObject(DynamicMetaObject):
     """
-    Data type inherits from BaseDataCollection.
-    Reader method can return a non BaseDataCollection type which will be folded, based on unique time,
-    into an instance of the data type (5)
+    Provides an implementation of DynamicMetaObject that uses get/set methods to update
+    values in the dynamic object.
     """
 
-    def __int__(self) -> int:
+    def __init__(self, expression: typing.Any, value: typing.Any, set_property_method_info: System.Reflection.MethodInfo, get_property_method_info: System.Reflection.MethodInfo) -> None:
+        """
+        Initializes a new instance of the QuantConnect.Data.GetSetPropertyDynamicMetaObject class.
+        
+        :param expression: The expression representing this System.Dynamic.DynamicMetaObject
+        :param value: The value represented by the System.Dynamic.DynamicMetaObject
+        :param set_property_method_info: The set method to use for updating this dynamic object
+        :param get_property_method_info: The get method to use for updating this dynamic object
+        """
+        ...
+
+    def bind_get_member(self, binder: typing.Any) -> typing.Any:
+        """
+        Performs the binding of the dynamic get member operation.
+        
+        :param binder: An instance of the System.Dynamic.GetMemberBinder that represents the details of the dynamic operation.
+        :returns: The new System.Dynamic.DynamicMetaObject representing the result of the binding.
+        """
+        ...
+
+    def bind_set_member(self, binder: typing.Any, value: typing.Any) -> typing.Any:
+        """
+        Performs the binding of the dynamic set member operation.
+        
+        :param binder: An instance of the System.Dynamic.SetMemberBinder that represents the details of the dynamic operation.
+        :param value: The System.Dynamic.DynamicMetaObject representing the value for the set member operation.
+        :returns: The new System.Dynamic.DynamicMetaObject representing the result of the binding.
+        """
         ...
 
 
@@ -525,6 +762,45 @@ class SubscriptionDataSource(System.Object, System.IEquatable[QuantConnect_Data_
         
         :returns: A string that represents the current object.
         """
+        ...
+
+
+class IDividendYieldModel(metaclass=abc.ABCMeta):
+    """Represents a model that provides dividend yield data"""
+
+    @overload
+    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Get dividend yield by a given date of a given symbol
+        
+        :param date: The date
+        :returns: Dividend yield on the given date of the given symbol.
+        """
+        ...
+
+    @overload
+    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date], security_price: float) -> float:
+        """
+        Get dividend yield at given date and security price
+        
+        :param date: The date
+        :param security_price: The security price at the given date
+        :returns: Dividend yield on the given date of the given symbol.
+        """
+        ...
+
+
+class ISymbolProvider(metaclass=abc.ABCMeta):
+    """Base data with a symbol"""
+
+    @property
+    @abc.abstractmethod
+    def symbol(self) -> QuantConnect.Symbol:
+        """Gets the Symbol"""
+        ...
+
+    @symbol.setter
+    def symbol(self, value: QuantConnect.Symbol) -> None:
         ...
 
 
@@ -784,6 +1060,471 @@ class BaseData(System.Object, QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta
         :param last_trade: The price of the last trade
         :param trade_size: The quantity traded
         """
+        ...
+
+
+class IBaseData(QuantConnect.Data.ISymbolProvider, metaclass=abc.ABCMeta):
+    """Base Data Class: Type, Timestamp, Key -- Base Features."""
+
+    @property
+    @abc.abstractmethod
+    def data_type(self) -> QuantConnect.MarketDataType:
+        """Market Data Type of this data - does it come in individual price packets or is it grouped into OHLC."""
+        ...
+
+    @data_type.setter
+    def data_type(self, value: QuantConnect.MarketDataType) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def time(self) -> datetime.datetime:
+        """Time keeper of data -- all data is timeseries based."""
+        ...
+
+    @time.setter
+    def time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def end_time(self) -> datetime.datetime:
+        """End time of data"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def value(self) -> float:
+        """All timeseries data is a time-value pair:"""
+        ...
+
+    @value.setter
+    def value(self, value: float) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def price(self) -> float:
+        """Alias of Value."""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Return a new instance clone of this object"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+
+class DividendYieldProvider(System.Object, QuantConnect.Data.IDividendYieldModel):
+    """Estimated annualized continuous dividend yield at given date"""
+
+    default_symbol: QuantConnect.Symbol
+    """The default symbol to use as a dividend yield provider"""
+
+    _corporate_events_cache: System.Collections.Generic.Dictionary[QuantConnect.Symbol, typing.List[QuantConnect.Data.BaseData]]
+    """
+    The dividends by symbol
+    
+    This field is protected.
+    """
+
+    _cache_clear_task: System.Threading.Tasks.Task
+    """
+    Task to clear the cache
+    
+    This field is protected.
+    """
+
+    DEFAULT_DIVIDEND_YIELD_RATE: float = 0.0
+    """Default no dividend payout"""
+
+    @property
+    def cache_refresh_period(self) -> datetime.timedelta:
+        """
+        The cached refresh period for the dividend yield rate
+        
+        This property is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance using the default symbol"""
+        ...
+
+    @overload
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+        """Instantiates a DividendYieldProvider with the specified Symbol"""
+        ...
+
+    @staticmethod
+    def create_for_option(option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.IDividendYieldModel:
+        """Creates a new instance for the given option symbol"""
+        ...
+
+    @overload
+    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Get dividend yield by a given date of a given symbol.
+        It will get the dividend yield at the time of the most recent dividend since no price is provided.
+        In order to get more accurate dividend yield, provide the security price at the given date to
+        the GetDividendYield(DateTime, decimal) or GetDividendYield(IBaseData) methods.
+        
+        :param date: The date
+        :returns: Dividend yield on the given date of the given symbol.
+        """
+        ...
+
+    @overload
+    def get_dividend_yield(self, price_data: QuantConnect.Data.IBaseData) -> float:
+        """
+        Gets the dividend yield at the date of the specified data, using the data price as the security price
+        
+        :param price_data: Price data instance
+        :returns: Dividend yield on the given date of the given symbol.
+        """
+        ...
+
+    @overload
+    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date], security_price: float) -> float:
+        """
+        Get dividend yield at given date and security price
+        
+        :param date: The date
+        :param security_price: The security price at the given date
+        :returns: Dividend yield on the given date of the given symbol.
+        """
+        ...
+
+    def load_corporate_events(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.List[QuantConnect.Data.BaseData]:
+        """
+        Generate the corporate events from the corporate factor file for the specified symbol
+        
+        This method is protected.
+        """
+        ...
+
+
+class HistoryProviderInitializeParameters(System.Object):
+    """Represents the set of parameters for the IHistoryProvider.Initialize method"""
+
+    @property
+    def job(self) -> QuantConnect.Packets.AlgorithmNodePacket:
+        """The job"""
+        ...
+
+    @property
+    def api(self) -> QuantConnect.Interfaces.IApi:
+        """The API instance"""
+        ...
+
+    @property
+    def data_provider(self) -> QuantConnect.Interfaces.IDataProvider:
+        """The provider used to get data when it is not present on disk"""
+        ...
+
+    @property
+    def data_cache_provider(self) -> QuantConnect.Interfaces.IDataCacheProvider:
+        """The provider used to cache history data files"""
+        ...
+
+    @property
+    def map_file_provider(self) -> QuantConnect.Interfaces.IMapFileProvider:
+        """The provider used to get a map file resolver to handle equity mapping"""
+        ...
+
+    @property
+    def factor_file_provider(self) -> QuantConnect.Interfaces.IFactorFileProvider:
+        """The provider used to get factor files to handle equity price scaling"""
+        ...
+
+    @property
+    def status_update_action(self) -> typing.Callable[[int], typing.Any]:
+        """A function used to send status updates"""
+        ...
+
+    @property
+    def parallel_history_requests_enabled(self) -> bool:
+        """True if parallel history requests are enabled"""
+        ...
+
+    @property
+    def data_permission_manager(self) -> QuantConnect.Interfaces.IDataPermissionManager:
+        """The data permission manager"""
+        ...
+
+    @property
+    def object_store(self) -> QuantConnect.Interfaces.IObjectStore:
+        """The object store"""
+        ...
+
+    @property
+    def algorithm_settings(self) -> QuantConnect.Interfaces.IAlgorithmSettings:
+        """The algorithm settings instance to use"""
+        ...
+
+    def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, api: QuantConnect.Interfaces.IApi, data_provider: QuantConnect.Interfaces.IDataProvider, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, status_update_action: typing.Callable[[int], typing.Any], parallel_history_requests_enabled: bool, data_permission_manager: QuantConnect.Interfaces.IDataPermissionManager, object_store: QuantConnect.Interfaces.IObjectStore, algorithm_settings: QuantConnect.Interfaces.IAlgorithmSettings) -> None:
+        """
+        Initializes a new instance of the HistoryProviderInitializeParameters class from the specified parameters
+        
+        :param job: The job
+        :param api: The API instance
+        :param data_provider: Provider used to get data when it is not present on disk
+        :param data_cache_provider: Provider used to cache history data files
+        :param map_file_provider: Provider used to get a map file resolver to handle equity mapping
+        :param factor_file_provider: Provider used to get factor files to handle equity price scaling
+        :param status_update_action: Function used to send status updates
+        :param parallel_history_requests_enabled: True if parallel history requests are enabled
+        :param data_permission_manager: The data permission manager to use
+        :param object_store: The object store to use
+        :param algorithm_settings: The algorithm settings instance to use
+        """
+        ...
+
+
+class Channel(System.Object):
+    """Represents a subscription channel"""
+
+    single: str = "common"
+    """Represents an internal channel name for all brokerage channels in case we don't differentiate them"""
+
+    @property
+    def name(self) -> str:
+        """The name of the channel"""
+        ...
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """The ticker symbol of the channel"""
+        ...
+
+    def __init__(self, channel_name: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+        """
+        Creates an instance of subscription channel
+        
+        :param channel_name: Socket channel name
+        :param symbol: Associated symbol
+        """
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: QuantConnect.Data.Channel) -> bool:
+        """
+        Indicates whether the current object is equal to another object of the same type.
+        
+        :param other: An object to compare with this object.
+        :returns: true if the current object is equal to the  parameter; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Serves as the default hash function.
+        
+        :returns: A hash code for the current object.
+        """
+        ...
+
+
+class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
+    """Count number of subscribers for each channel (Symbol, Socket) pair"""
+
+    @property
+    def subscribers_by_channel(self) -> System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Data.Channel, int]:
+        """
+        Counter
+        
+        This property is protected.
+        """
+        ...
+
+    def channel_name_from_tick_type(self, tick_type: QuantConnect.TickType) -> str:
+        """
+        Brokerage maps TickType to real socket/api channel
+        
+        This method is protected.
+        
+        :param tick_type: Type of tick data
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    @overload
+    def get_subscribed_symbols(self) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Returns subscribed symbols
+        
+        :returns: list of Symbol currently subscribed.
+        """
+        ...
+
+    @overload
+    def get_subscribed_symbols(self, tick_type: QuantConnect.TickType) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Retrieves the list of unique Symbol instances that are currently subscribed for a specific TickType.
+        
+        :param tick_type: The type of tick data to filter subscriptions by.
+        :returns: A collection of unique Symbol objects that match the specified .
+        """
+        ...
+
+    def is_subscribed(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tick_type: QuantConnect.TickType) -> bool:
+        """
+        Checks if there is existing subscriber for current channel
+        
+        :param symbol: Symbol
+        :param tick_type: Type of tick data
+        :returns: return true if there is one subscriber at least; otherwise false.
+        """
+        ...
+
+    @overload
+    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+        """
+        Increment number of subscribers for current TickType
+        
+        :param data_config: defines the subscription configuration data.
+        """
+        ...
+
+    @overload
+    def subscribe(self, symbols: typing.List[QuantConnect.Symbol], tick_type: QuantConnect.TickType) -> bool:
+        """
+        Describes the way IDataQueueHandler implements subscription
+        
+        This method is protected.
+        
+        :param symbols: Symbols to subscribe
+        :param tick_type: Type of tick data
+        :returns: Returns true if subsribed; otherwise false.
+        """
+        ...
+
+    @overload
+    def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+        """
+        Decrement number of subscribers for current TickType
+        
+        :param data_config: defines the subscription configuration data.
+        """
+        ...
+
+    @overload
+    def unsubscribe(self, symbols: typing.List[QuantConnect.Symbol], tick_type: QuantConnect.TickType) -> bool:
+        """
+        Describes the way IDataQueueHandler implements unsubscription
+        
+        This method is protected.
+        
+        :param symbols: Symbols to unsubscribe
+        :param tick_type: Type of tick data
+        :returns: Returns true if unsubsribed; otherwise false.
+        """
+        ...
+
+
+class IndexedBaseData(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
+    """
+    Abstract indexed base data class of QuantConnect.
+    It is intended to be extended to define customizable data types which are stored
+    using an intermediate index source
+    """
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Returns the index source for a date
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: The SubscriptionDataSource instance to use.
+        """
+        ...
+
+    def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Returns the source for a given index value
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param index: The index value for which we want to fetch the source
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: The SubscriptionDataSource instance to use.
+        """
+        ...
+
+
+class DataHistory(typing.Generic[QuantConnect_Data_DataHistory_T], System.Object, typing.Iterable[QuantConnect_Data_DataHistory_T]):
+    """Historical data abstraction"""
+
+    @property
+    def data(self) -> typing.Iterable[QuantConnect_Data_DataHistory_T]:
+        """
+        The data we hold
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def count(self) -> int:
+        """The current data point count"""
+        ...
+
+    @property
+    def data_frame(self) -> typing.Any:
+        """This data pandas data frame"""
+        ...
+
+    def __init__(self, data: typing.List[QuantConnect_Data_DataHistory_T], dataframe: System.Lazy[PyObject]) -> None:
+        """Creates a new instance"""
+        ...
+
+    def __iter__(self) -> typing.Iterator[QuantConnect_Data_DataHistory_T]:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Data_DataHistory_T]:
+        """Returns an enumerator for the data"""
+        ...
+
+    def to_string(self) -> str:
+        """Default to string implementation"""
         ...
 
 
@@ -1176,762 +1917,6 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         ...
 
 
-class SliceExtensions(System.Object):
-    """Provides extension methods to slices and slice enumerables"""
-
-    @staticmethod
-    @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None) -> typing.Iterable[typing.Any]:
-        """
-        Gets the data dictionaries or points of the requested type in each slice
-        
-        :param slices: The enumerable of slice
-        :param type: Data type of the data that will be fetched
-        :param symbol: The symbol to retrieve
-        :returns: An enumerable of data dictionary or data point of the requested type.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
-        """
-        Gets an enumerable of TradeBar for the given symbol. This method does not verify
-        that the specified symbol points to a TradeBar
-        
-        :param slices: The enumerable of slice
-        :param symbol: The symbol to retrieve
-        :returns: An enumerable of TradeBar for the matching symbol, of no TradeBar found for symbol, empty enumerable is returned.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], field: typing.Callable[[QuantConnect.Data.BaseData], float]) -> typing.Iterable[float]:
-        """
-        Gets an enumerable of decimal by accessing the slice for the symbol and then retrieving the specified
-        field on each piece of data
-        
-        :param slices: The enumerable of slice
-        :param symbol: The symbol to retrieve
-        :param field: The field selector used to access the dats
-        :returns: An enumerable of decimal.
-        """
-        ...
-
-    @staticmethod
-    def get_universe_data(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.UniverseSelection.BaseDataCollection]]:
-        """
-        Gets the data dictionaries or points of the requested type in each slice
-        
-        :param slices: The enumerable of slice
-        :returns: An enumerable of data dictionary or data point of the requested type.
-        """
-        ...
-
-    @staticmethod
-    def push_through(slices: typing.List[QuantConnect.Data.Slice], handler: typing.Callable[[QuantConnect.Data.BaseData], typing.Any], data_type: typing.Type = None) -> None:
-        """
-        Loops through the specified slices and pushes the data into the consolidators. This can be used to
-        easily warm up indicators from a history call that returns slice objects.
-        
-        :param slices: The data to send into the consolidators, likely result of a history request
-        :param handler: Delegate handles each data piece from the slice
-        :param data_type: Defines the type of the data that should be pushed
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def push_through_consolidators(slices: typing.List[QuantConnect.Data.Slice], consolidators_by_symbol: System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect.Data.Consolidators.IDataConsolidator]) -> None:
-        """
-        Loops through the specified slices and pushes the data into the consolidators. This can be used to
-        easily warm up indicators from a history call that returns slice objects.
-        
-        :param slices: The data to send into the consolidators, likely result of a history request
-        :param consolidators_by_symbol: Dictionary of consolidators keyed by symbol
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def push_through_consolidators(slices: typing.List[QuantConnect.Data.Slice], consolidators_provider: typing.Callable[[QuantConnect.Symbol], QuantConnect.Data.Consolidators.IDataConsolidator]) -> None:
-        """
-        Loops through the specified slices and pushes the data into the consolidators. This can be used to
-        easily warm up indicators from a history call that returns slice objects.
-        
-        :param slices: The data to send into the consolidators, likely result of a history request
-        :param consolidators_provider: Delegate that fetches the consolidators by a symbol
-        """
-        ...
-
-    @staticmethod
-    def ticks(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.Ticks]:
-        """
-        Selects into the slice and returns the Ticks that have data in order
-        
-        :param slices: The enumerable of slice
-        :returns: An enumerable of Ticks.
-        """
-        ...
-
-    @staticmethod
-    def to_double_array(decimals: typing.List[float]) -> typing.List[float]:
-        """
-        Converts the specified enumerable of decimals into a double array
-        
-        :param decimals: The enumerable of decimal
-        :returns: Double array representing the enumerable of decimal.
-        """
-        ...
-
-    @staticmethod
-    def trade_bars(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.TradeBars]:
-        """
-        Selects into the slice and returns the TradeBars that have data in order
-        
-        :param slices: The enumerable of slice
-        :returns: An enumerable of TradeBars.
-        """
-        ...
-
-    @staticmethod
-    def try_get(slice: QuantConnect.Data.Slice, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], data: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
-        """
-        Tries to get the data for the specified symbol and type
-        
-        :param slice: The slice
-        :param type: The type of data we seek
-        :param symbol: The symbol data is sought for
-        :param data: The found data
-        :returns: True if data was found for the specified type and symbol.
-        """
-        ...
-
-
-class DynamicData(QuantConnect.Data.BaseData, IDynamicMetaObjectProvider, metaclass=abc.ABCMeta):
-    """Dynamic Data Class: Accept flexible data, adapting to the columns provided by source."""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def get_meta_object(self, parameter: typing.Any) -> typing.Any:
-        """Get the metaObject required for Dynamism."""
-        ...
-
-    def get_property(self, name: str) -> System.Object:
-        """
-        Gets the property's value with the specified name. This is a case-insensitve search.
-        
-        :param name: The property name to access
-        :returns: object value of BaseData.
-        """
-        ...
-
-    def get_storage_dictionary(self) -> System.Collections.Generic.IDictionary[str, System.Object]:
-        """
-        Gets the storage dictionary
-        Python algorithms need this information since DynamicMetaObject does not work
-        
-        :returns: Dictionary that stores the paramenters names and values.
-        """
-        ...
-
-    def has_property(self, name: str) -> bool:
-        """
-        Gets whether or not this dynamic data instance has a property with the specified name.
-        This is a case-insensitve search.
-        
-        :param name: The property name to check for
-        :returns: True if the property exists, false otherwise.
-        """
-        ...
-
-    def set_property(self, name: str, value: typing.Any) -> System.Object:
-        """
-        Sets the property with the specified name to the value. This is a case-insensitve search.
-        
-        :param name: The property name to set
-        :param value: The new property value
-        :returns: Returns the input value back to the caller.
-        """
-        ...
-
-
-class IRiskFreeInterestRateModel(metaclass=abc.ABCMeta):
-    """Represents a model that provides risk free interest rate data"""
-
-    def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Get interest rate by a given date
-        
-        :param date: The date
-        :returns: Interest rate on the given date.
-        """
-        ...
-
-
-class FuncRiskFreeRateInterestRateModel(System.Object, QuantConnect.Data.IRiskFreeInterestRateModel):
-    """Constant risk free rate interest rate model"""
-
-    @overload
-    def __init__(self, get_interest_rate_func: typing.Any) -> None:
-        """Create class instance of interest rate provider with given PyObject"""
-        ...
-
-    @overload
-    def __init__(self, get_interest_rate_func: typing.Callable[[datetime.datetime], float]) -> None:
-        """Create class instance of interest rate provider"""
-        ...
-
-    def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Get interest rate by a given date
-        
-        :param date: The date
-        :returns: Interest rate on the given date.
-        """
-        ...
-
-
-class IndexedBaseData(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
-    """
-    Abstract indexed base data class of QuantConnect.
-    It is intended to be extended to define customizable data types which are stored
-    using an intermediate index source
-    """
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Returns the index source for a date
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: The SubscriptionDataSource instance to use.
-        """
-        ...
-
-    def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Returns the source for a given index value
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param index: The index value for which we want to fetch the source
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: The SubscriptionDataSource instance to use.
-        """
-        ...
-
-
-class InterestRateProvider(System.Object, QuantConnect.Data.IRiskFreeInterestRateModel):
-    """Fed US Primary Credit Rate at given date"""
-
-    DEFAULT_RISK_FREE_RATE: float = 0.01
-    """Default Risk Free Rate of 1%"""
-
-    @staticmethod
-    def from_csv_file(file: str, first_interest_rate: typing.Optional[float]) -> typing.Tuple[System.Collections.Generic.Dictionary[datetime.datetime, float], float]:
-        """
-        Reads Fed primary credit rate file and returns a dictionary of historical rate changes
-        
-        :param file: The csv file to be read
-        :param first_interest_rate: The first interest rate on file
-        :returns: Dictionary of historical credit rate change events.
-        """
-        ...
-
-    def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Get interest rate by a given date
-        
-        :param date: The date
-        :returns: Interest rate on the given date.
-        """
-        ...
-
-    @staticmethod
-    def get_interest_rate_provider() -> System.Collections.Generic.Dictionary[datetime.datetime, float]:
-        """
-        Generate the daily historical US primary credit rate
-        
-        This method is protected.
-        """
-        ...
-
-    @staticmethod
-    def try_parse(csv_line: str, date: typing.Optional[typing.Union[datetime.datetime, datetime.date]], interest_rate: typing.Optional[float]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date], float]:
-        """
-        Parse the string into the interest rate date and value
-        
-        :param csv_line: The csv line to be parsed
-        :param date: Parsed interest rate date
-        :param interest_rate: Parsed interest rate value
-        """
-        ...
-
-
-class BaseDataRequest(System.Object, metaclass=abc.ABCMeta):
-    """Abstract sharing logic for data requests"""
-
-    @property
-    def start_time_utc(self) -> datetime.datetime:
-        """Gets the beginning of the requested time interval in UTC"""
-        ...
-
-    @start_time_utc.setter
-    def start_time_utc(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def end_time_utc(self) -> datetime.datetime:
-        """Gets the end of the requested time interval in UTC"""
-        ...
-
-    @end_time_utc.setter
-    def end_time_utc(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def start_time_local(self) -> datetime.datetime:
-        """Gets the StartTimeUtc in the security's exchange time zone"""
-        ...
-
-    @property
-    def end_time_local(self) -> datetime.datetime:
-        """Gets the EndTimeUtc in the security's exchange time zone"""
-        ...
-
-    @property
-    def exchange_hours(self) -> QuantConnect.Securities.SecurityExchangeHours:
-        """Gets the exchange hours used for processing fill forward requests"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def tradable_days_in_data_time_zone(self) -> typing.Iterable[datetime.datetime]:
-        """Gets the tradable days specified by this request, in the security's data time zone"""
-        ...
-
-    @property
-    def is_custom_data(self) -> bool:
-        """Gets true if this is a custom data request, false for normal QC data"""
-        ...
-
-    @property
-    def data_type(self) -> typing.Type:
-        """The data type of this request"""
-        ...
-
-    @data_type.setter
-    def data_type(self, value: typing.Type) -> None:
-        ...
-
-    def __init__(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, tick_type: QuantConnect.TickType, is_custom_data: bool, data_type: typing.Type) -> None:
-        """
-        Initializes the base data request
-        
-        This method is protected.
-        
-        :param start_time_utc: The start time for this request,
-        :param end_time_utc: The start time for this request
-        :param exchange_hours: The exchange hours for this request
-        :param tick_type: The tick type of this request
-        :param is_custom_data: True if this subscription is for custom data
-        :param data_type: The data type of the output data
-        """
-        ...
-
-
-class HistoryRequest(QuantConnect.Data.BaseDataRequest):
-    """Represents a request for historical data"""
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """Gets the symbol to request data for"""
-        ...
-
-    @symbol.setter
-    def symbol(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def resolution(self) -> QuantConnect.Resolution:
-        """Gets the requested data resolution"""
-        ...
-
-    @resolution.setter
-    def resolution(self, value: QuantConnect.Resolution) -> None:
-        ...
-
-    @property
-    def fill_forward_resolution(self) -> typing.Optional[QuantConnect.Resolution]:
-        """
-        Gets the requested fill forward resolution, set to null for no fill forward behavior.
-        Will always return null when Resolution is set to Tick.
-        """
-        ...
-
-    @fill_forward_resolution.setter
-    def fill_forward_resolution(self, value: typing.Optional[QuantConnect.Resolution]) -> None:
-        ...
-
-    @property
-    def include_extended_market_hours(self) -> bool:
-        """Gets whether or not to include extended market hours data, set to false for only normal market hours"""
-        ...
-
-    @include_extended_market_hours.setter
-    def include_extended_market_hours(self, value: bool) -> None:
-        ...
-
-    @property
-    def data_time_zone(self) -> typing.Any:
-        """Gets the time zone of the time stamps on the raw input data"""
-        ...
-
-    @data_time_zone.setter
-    def data_time_zone(self, value: typing.Any) -> None:
-        ...
-
-    @property
-    def tick_type(self) -> QuantConnect.TickType:
-        """TickType of the history request"""
-        ...
-
-    @tick_type.setter
-    def tick_type(self, value: QuantConnect.TickType) -> None:
-        ...
-
-    @property
-    def data_normalization_mode(self) -> QuantConnect.DataNormalizationMode:
-        """Gets the normalization mode used for this subscription"""
-        ...
-
-    @data_normalization_mode.setter
-    def data_normalization_mode(self, value: QuantConnect.DataNormalizationMode) -> None:
-        ...
-
-    @property
-    def data_mapping_mode(self) -> QuantConnect.DataMappingMode:
-        """Gets the data mapping mode used for this subscription"""
-        ...
-
-    @data_mapping_mode.setter
-    def data_mapping_mode(self, value: QuantConnect.DataMappingMode) -> None:
-        ...
-
-    @property
-    def contract_depth_offset(self) -> int:
-        """
-        The continuous contract desired offset from the current front month.
-        For example, 0 (default) will use the front month, 1 will use the back month contract
-        """
-        ...
-
-    @contract_depth_offset.setter
-    def contract_depth_offset(self, value: int) -> None:
-        ...
-
-    @property
-    def tradable_days_in_data_time_zone(self) -> typing.Iterable[datetime.datetime]:
-        """Gets the tradable days specified by this request, in the security's data time zone"""
-        ...
-
-    @overload
-    def __init__(self, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date], data_type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: QuantConnect.Resolution, exchange_hours: QuantConnect.Securities.SecurityExchangeHours, data_time_zone: typing.Any, fill_forward_resolution: typing.Optional[QuantConnect.Resolution], include_extended_market_hours: bool, is_custom_data: bool, data_normalization_mode: QuantConnect.DataNormalizationMode, tick_type: QuantConnect.TickType, data_mapping_mode: QuantConnect.DataMappingMode = ..., contract_depth_offset: int = 0) -> None:
-        """
-        Initializes a new instance of the HistoryRequest class from the specified parameters
-        
-        :param start_time_utc: The start time for this request,
-        :param end_time_utc: The end time for this request
-        :param data_type: The data type of the output data
-        :param symbol: The symbol to request data for
-        :param resolution: The requested data resolution
-        :param exchange_hours: The exchange hours used in fill forward processing
-        :param data_time_zone: The time zone of the data
-        :param fill_forward_resolution: The requested fill forward resolution for this request
-        :param include_extended_market_hours: True to include data from pre/post market hours
-        :param is_custom_data: True for custom user data, false for normal QC data
-        :param data_normalization_mode: Specifies normalization mode used for this subscription
-        :param tick_type: The tick type used to created the SubscriptionDataConfig for the retrieval of history data
-        :param data_mapping_mode: The contract mapping mode to use for the security
-        :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-        """
-        ...
-
-    @overload
-    def __init__(self, config: QuantConnect.Data.SubscriptionDataConfig, hours: QuantConnect.Securities.SecurityExchangeHours, start_time_utc: typing.Union[datetime.datetime, datetime.date], end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the HistoryRequest class from the specified config and exchange hours
-        
-        :param config: The subscription data config used to initialize this request
-        :param hours: The exchange hours used for fill forward processing
-        :param start_time_utc: The start time for this request,
-        :param end_time_utc: The end time for this request
-        """
-        ...
-
-    @overload
-    def __init__(self, request: QuantConnect.Data.HistoryRequest, new_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], new_start_time_utc: typing.Union[datetime.datetime, datetime.date], new_end_time_utc: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the HistoryRequest class with new Symbol, StartTimeUtc, EndTimeUtc
-        
-        :param request: Represents a request for historical data
-        :param new_start_time_utc: The start time for this request
-        :param new_end_time_utc: The end time for this request
-        """
-        ...
-
-
-class HistoryRequestFactory(System.Object):
-    """Helper class used to create new HistoryRequest"""
-
-    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
-        """
-        Creates a new instance
-        
-        :param algorithm: The algorithm instance to use
-        """
-        ...
-
-    def create_history_request(self, subscription: QuantConnect.Data.SubscriptionDataConfig, start_algo_tz: typing.Union[datetime.datetime, datetime.date], end_algo_tz: typing.Union[datetime.datetime, datetime.date], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, resolution: typing.Optional[QuantConnect.Resolution], fill_forward: typing.Optional[bool] = None, extended_market_hours: typing.Optional[bool] = None, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: typing.Optional[int] = None) -> QuantConnect.Data.HistoryRequest:
-        """
-        Creates a new history request
-        
-        :param subscription: The config
-        :param start_algo_tz: History request start time in algorithm time zone
-        :param end_algo_tz: History request end time in algorithm time zone
-        :param exchange_hours: Security exchange hours
-        :param resolution: The resolution to use. If null will use SubscriptionDataConfig.Resolution
-        :param fill_forward: True to fill forward missing data, false otherwise
-        :param extended_market_hours: True to include extended market hours data, false otherwise
-        :param data_mapping_mode: The contract mapping mode to use for the security history request
-        :param data_normalization_mode: The price scaling mode to use for the securities history
-        :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 will use the front month, 1 will use the back month contract
-        :returns: The new HistoryRequest.
-        """
-        ...
-
-    @overload
-    def get_start_time_algo_tz(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], periods: int, resolution: QuantConnect.Resolution, exchange: QuantConnect.Securities.SecurityExchangeHours, data_time_zone: typing.Any, data_type: typing.Type, extended_market_hours: typing.Optional[bool] = None) -> datetime.datetime:
-        """
-        Gets the start time required for the specified bar count in terms of the algorithm's time zone
-        
-        :param symbol: The symbol to select proper SubscriptionDataConfig config
-        :param periods: The number of bars requested
-        :param resolution: The length of each bar
-        :param exchange: The exchange hours used for market open hours
-        :param data_time_zone: The time zone in which data are stored
-        :param data_type: The data type to request
-        :param extended_market_hours: True to include extended market hours data, false otherwise. If not passed, the config will be used to determined whether to include extended market hours.
-        :returns: The start time that would provide the specified number of bars ending at the algorithm's current time.
-        """
-        ...
-
-    @overload
-    def get_start_time_algo_tz(self, reference_utc_time: typing.Union[datetime.datetime, datetime.date], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], periods: int, resolution: QuantConnect.Resolution, exchange: QuantConnect.Securities.SecurityExchangeHours, data_time_zone: typing.Any, data_type: typing.Type, extended_market_hours: typing.Optional[bool] = None) -> datetime.datetime:
-        """
-        Gets the start time required for the specified bar count in terms of the algorithm's time zone
-        
-        :param reference_utc_time: The end time in utc
-        :param symbol: The symbol to select proper SubscriptionDataConfig config
-        :param periods: The number of bars requested
-        :param resolution: The length of each bar
-        :param exchange: The exchange hours used for market open hours
-        :param data_time_zone: The time zone in which data are stored
-        :param data_type: The data type to request
-        :param extended_market_hours: True to include extended market hours data, false otherwise. If not passed, the config will be used to determined whether to include extended market hours.
-        :returns: The start time that would provide the specified number of bars ending at the algorithm's current time.
-        """
-        ...
-
-
-class ISymbolProvider(metaclass=abc.ABCMeta):
-    """Base data with a symbol"""
-
-    @property
-    @abc.abstractmethod
-    def symbol(self) -> QuantConnect.Symbol:
-        """Gets the Symbol"""
-        ...
-
-    @symbol.setter
-    def symbol(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-
-class IBaseData(QuantConnect.Data.ISymbolProvider, metaclass=abc.ABCMeta):
-    """Base Data Class: Type, Timestamp, Key -- Base Features."""
-
-    @property
-    @abc.abstractmethod
-    def data_type(self) -> QuantConnect.MarketDataType:
-        """Market Data Type of this data - does it come in individual price packets or is it grouped into OHLC."""
-        ...
-
-    @data_type.setter
-    def data_type(self, value: QuantConnect.MarketDataType) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def time(self) -> datetime.datetime:
-        """Time keeper of data -- all data is timeseries based."""
-        ...
-
-    @time.setter
-    def time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def end_time(self) -> datetime.datetime:
-        """End time of data"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def value(self) -> float:
-        """All timeseries data is a time-value pair:"""
-        ...
-
-    @value.setter
-    def value(self, value: float) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def price(self) -> float:
-        """Alias of Value."""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Return a new instance clone of this object"""
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-
-class DividendYieldProvider(System.Object, QuantConnect.Data.IDividendYieldModel):
-    """Estimated annualized continuous dividend yield at given date"""
-
-    default_symbol: QuantConnect.Symbol
-    """The default symbol to use as a dividend yield provider"""
-
-    _corporate_events_cache: System.Collections.Generic.Dictionary[QuantConnect.Symbol, typing.List[QuantConnect.Data.BaseData]]
-    """
-    The dividends by symbol
-    
-    This field is protected.
-    """
-
-    _cache_clear_task: System.Threading.Tasks.Task
-    """
-    Task to clear the cache
-    
-    This field is protected.
-    """
-
-    DEFAULT_DIVIDEND_YIELD_RATE: float = 0.0
-    """Default no dividend payout"""
-
-    @property
-    def cache_refresh_period(self) -> datetime.timedelta:
-        """
-        The cached refresh period for the dividend yield rate
-        
-        This property is protected.
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance using the default symbol"""
-        ...
-
-    @overload
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
-        """Instantiates a DividendYieldProvider with the specified Symbol"""
-        ...
-
-    @staticmethod
-    def create_for_option(option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.IDividendYieldModel:
-        """Creates a new instance for the given option symbol"""
-        ...
-
-    @overload
-    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Get dividend yield by a given date of a given symbol.
-        It will get the dividend yield at the time of the most recent dividend since no price is provided.
-        In order to get more accurate dividend yield, provide the security price at the given date to
-        the GetDividendYield(DateTime, decimal) or GetDividendYield(IBaseData) methods.
-        
-        :param date: The date
-        :returns: Dividend yield on the given date of the given symbol.
-        """
-        ...
-
-    @overload
-    def get_dividend_yield(self, price_data: QuantConnect.Data.IBaseData) -> float:
-        """
-        Gets the dividend yield at the date of the specified data, using the data price as the security price
-        
-        :param price_data: Price data instance
-        :returns: Dividend yield on the given date of the given symbol.
-        """
-        ...
-
-    @overload
-    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date], security_price: float) -> float:
-        """
-        Get dividend yield at given date and security price
-        
-        :param date: The date
-        :param security_price: The security price at the given date
-        :returns: Dividend yield on the given date of the given symbol.
-        """
-        ...
-
-    def load_corporate_events(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.List[QuantConnect.Data.BaseData]:
-        """
-        Generate the corporate events from the corporate factor file for the specified symbol
-        
-        This method is protected.
-        """
-        ...
-
-
 class SubscriptionDataConfigExtensions(System.Object):
     """
     Helper methods used to determine different configurations properties
@@ -2033,6 +2018,66 @@ class SubscriptionDataConfigExtensions(System.Object):
         ...
 
 
+class IRiskFreeInterestRateModel(metaclass=abc.ABCMeta):
+    """Represents a model that provides risk free interest rate data"""
+
+    def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Get interest rate by a given date
+        
+        :param date: The date
+        :returns: Interest rate on the given date.
+        """
+        ...
+
+
+class InterestRateProvider(System.Object, QuantConnect.Data.IRiskFreeInterestRateModel):
+    """Fed US Primary Credit Rate at given date"""
+
+    DEFAULT_RISK_FREE_RATE: float = 0.01
+    """Default Risk Free Rate of 1%"""
+
+    @staticmethod
+    def from_csv_file(file: str, first_interest_rate: typing.Optional[float]) -> typing.Tuple[System.Collections.Generic.Dictionary[datetime.datetime, float], float]:
+        """
+        Reads Fed primary credit rate file and returns a dictionary of historical rate changes
+        
+        :param file: The csv file to be read
+        :param first_interest_rate: The first interest rate on file
+        :returns: Dictionary of historical credit rate change events.
+        """
+        ...
+
+    def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Get interest rate by a given date
+        
+        :param date: The date
+        :returns: Interest rate on the given date.
+        """
+        ...
+
+    @staticmethod
+    def get_interest_rate_provider() -> System.Collections.Generic.Dictionary[datetime.datetime, float]:
+        """
+        Generate the daily historical US primary credit rate
+        
+        This method is protected.
+        """
+        ...
+
+    @staticmethod
+    def try_parse(csv_line: str, date: typing.Optional[typing.Union[datetime.datetime, datetime.date]], interest_rate: typing.Optional[float]) -> typing.Tuple[bool, typing.Union[datetime.datetime, datetime.date], float]:
+        """
+        Parse the string into the interest rate date and value
+        
+        :param csv_line: The csv line to be parsed
+        :param date: Parsed interest rate date
+        :param interest_rate: Parsed interest rate value
+        """
+        ...
+
+
 class LeanDataWriter(System.Object):
     """Data writer for saving an IEnumerable of BaseData into the LEAN data directory."""
 
@@ -2088,6 +2133,23 @@ class LeanDataWriter(System.Object):
         ...
 
 
+class ConstantRiskFreeRateInterestRateModel(System.Object, QuantConnect.Data.IRiskFreeInterestRateModel):
+    """Constant risk free rate interest rate model"""
+
+    def __init__(self, risk_free_rate: float) -> None:
+        """Instantiates a ConstantRiskFreeRateInterestRateModel with the specified risk free rate"""
+        ...
+
+    def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Get interest rate by a given date
+        
+        :param date: The date
+        :returns: Interest rate on the given date.
+        """
+        ...
+
+
 class DataAggregatorInitializeParameters(System.Object):
     """The IDataAggregator parameters initialize dto"""
 
@@ -2101,156 +2163,326 @@ class DataAggregatorInitializeParameters(System.Object):
         ...
 
 
-class Channel(System.Object):
-    """Represents a subscription channel"""
-
-    single: str = "common"
-    """Represents an internal channel name for all brokerage channels in case we don't differentiate them"""
+class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvider, metaclass=abc.ABCMeta):
+    """Provides a base type for all history providers"""
 
     @property
-    def name(self) -> str:
-        """The name of the channel"""
+    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]:
+        """Event fired when an invalid configuration has been detected"""
+        ...
+
+    @invalid_configuration_detected.setter
+    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]) -> None:
         ...
 
     @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """The ticker symbol of the channel"""
+    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]:
+        """Event fired when the numerical precision in the factor file has been limited"""
         ...
 
-    def __init__(self, channel_name: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
-        """
-        Creates an instance of subscription channel
-        
-        :param channel_name: Socket channel name
-        :param symbol: Associated symbol
-        """
+    @numerical_precision_limited.setter
+    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]) -> None:
         ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: QuantConnect.Data.Channel) -> bool:
-        """
-        Indicates whether the current object is equal to another object of the same type.
-        
-        :param other: An object to compare with this object.
-        :returns: true if the current object is equal to the  parameter; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Serves as the default hash function.
-        
-        :returns: A hash code for the current object.
-        """
-        ...
-
-
-class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
-    """Count number of subscribers for each channel (Symbol, Socket) pair"""
 
     @property
-    def subscribers_by_channel(self) -> System.Collections.Concurrent.ConcurrentDictionary[QuantConnect.Data.Channel, int]:
+    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]:
+        """Event fired when the start date has been limited"""
+        ...
+
+    @start_date_limited.setter
+    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]:
+        """Event fired when there was an error downloading a remote file"""
+        ...
+
+    @download_failed.setter
+    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]:
+        """Event fired when there was an error reading the data"""
+        ...
+
+    @reader_error_detected.setter
+    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def data_point_count(self) -> int:
+        """Gets the total number of data points emitted by this history provider"""
+        ...
+
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
         """
-        Counter
+        Gets the history for the requested securities
         
-        This property is protected.
+        :param requests: The historical data requests
+        :param slice_time_zone: The time zone used when time stamping the slice instances
+        :returns: An enumerable of the slices of data covering the span specified in each request.
         """
         ...
 
-    def channel_name_from_tick_type(self, tick_type: QuantConnect.TickType) -> str:
+    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
         """
-        Brokerage maps TickType to real socket/api channel
+        Initializes this history provider to work for the specified job
+        
+        :param parameters: The initialization parameters
+        """
+        ...
+
+    def on_download_failed(self, e: QuantConnect.DownloadFailedEventArgs) -> None:
+        """
+        Event invocator for the DownloadFailed event
         
         This method is protected.
         
-        :param tick_type: Type of tick data
+        :param e: Event arguments for the DownloadFailed event
+        """
+        ...
+
+    def on_invalid_configuration_detected(self, e: QuantConnect.InvalidConfigurationDetectedEventArgs) -> None:
+        """
+        Event invocator for the InvalidConfigurationDetected event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the InvalidConfigurationDetected event
+        """
+        ...
+
+    def on_numerical_precision_limited(self, e: QuantConnect.NumericalPrecisionLimitedEventArgs) -> None:
+        """
+        Event invocator for the NumericalPrecisionLimited event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the NumericalPrecisionLimited event
+        """
+        ...
+
+    def on_reader_error_detected(self, e: QuantConnect.ReaderErrorDetectedEventArgs) -> None:
+        """
+        Event invocator for the ReaderErrorDetected event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the ReaderErrorDetected event
+        """
+        ...
+
+    def on_start_date_limited(self, e: QuantConnect.StartDateLimitedEventArgs) -> None:
+        """
+        Event invocator for the StartDateLimited event
+        
+        This method is protected.
+        
+        :param e: Event arguments for the StartDateLimited event
+        """
+        ...
+
+
+class DataMonitor(System.Object, QuantConnect.Interfaces.IDataMonitor):
+    """Monitors data requests and reports on missing data"""
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the DataMonitor class"""
+        ...
+
+    def dispose(self) -> None:
+        """Disposes this object"""
+        ...
+
+    def exit(self) -> None:
+        """Terminates the data monitor generating a final report"""
+        ...
+
+    def on_new_data_request(self, sender: typing.Any, e: QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs) -> None:
+        """Event handler for the IDataProvider.NewDataRequest event"""
+        ...
+
+    def strip_data_folder(self, path: str) -> str:
+        """
+        Strips the given data folder path
+        
+        This method is protected.
+        """
+        ...
+
+
+class ISubscriptionEnumeratorFactory(metaclass=abc.ABCMeta):
+    """Create an IEnumerator{BaseData}"""
+
+    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
+        """
+        Creates an enumerator to read the specified request
+        
+        :param request: The subscription request to be read
+        :param data_provider: Provider used to get data when it is not present on disk
+        :returns: An enumerator reading the subscription request.
+        """
+        ...
+
+
+class DownloaderExtensions(System.Object):
+    """Contains extension methods for the Downloader functionality."""
+
+    @staticmethod
+    def get_data_downloader_parameter_for_all_mapped_symbols(data_downloader_parameter: QuantConnect.DataDownloaderGetParameters, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, exchange_time_zone: typing.Any) -> typing.Iterable[QuantConnect.DataDownloaderGetParameters]:
+        """
+        Get DataDownloaderGetParameters for all mapped  with appropriate ticker name in specific date time range.
+        
+        :param data_downloader_parameter: Generated class in "Lean.Engine.DataFeeds.DownloaderDataProvider"
+        :param map_file_provider: Provides instances of MapFileResolver at run time
+        :param exchange_time_zone: Provides the time zone this exchange
+        :returns: Return DataDownloaderGetParameters with different DataDownloaderGetParameters.StartUtc -  range and.
+        """
+        ...
+
+
+class DiskDataCacheProvider(System.Object, QuantConnect.Interfaces.IDataCacheProvider):
+    """
+    Simple data cache provider, writes and reads directly from disk
+    Used as default for LeanDataWriter
+    """
+
+    @property
+    def is_data_ephemeral(self) -> bool:
+        """Property indicating the data is temporary in nature and should not be cached."""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance"""
+        ...
+
+    @overload
+    def __init__(self, locker: QuantConnect.Util.KeyStringSynchronizer) -> None:
+        """
+        Creates a new instance using the given synchronizer
+        
+        :param locker: The synchronizer instance to use
         """
         ...
 
     def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        """Dispose for this class"""
         ...
 
-    @overload
-    def get_subscribed_symbols(self) -> typing.Iterable[QuantConnect.Symbol]:
+    def fetch(self, key: str) -> System.IO.Stream:
         """
-        Returns subscribed symbols
+        Fetch data from the cache
         
-        :returns: list of Symbol currently subscribed.
+        :param key: A string representing the key of the cached data
+        :returns: An Stream of the cached data.
         """
         ...
 
-    @overload
-    def get_subscribed_symbols(self, tick_type: QuantConnect.TickType) -> typing.Iterable[QuantConnect.Symbol]:
+    def get_zip_entries(self, zip_file: str) -> typing.List[str]:
+        """Returns a list of zip entries in a provided zip file"""
+        ...
+
+    def store(self, key: str, data: typing.List[int]) -> None:
         """
-        Retrieves the list of unique Symbol instances that are currently subscribed for a specific TickType.
+        Store the data in the cache. Not implemented in this instance of the IDataCacheProvider
         
-        :param tick_type: The type of tick data to filter subscriptions by.
-        :returns: A collection of unique Symbol objects that match the specified .
+        :param key: The source of the data, used as a key to retrieve data in the cache
+        :param data: The data as a byte array
         """
         ...
 
-    def is_subscribed(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tick_type: QuantConnect.TickType) -> bool:
+
+class IDataAggregator(System.IDisposable, metaclass=abc.ABCMeta):
+    """Aggregates ticks and bars based on given subscriptions."""
+
+    def add(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
         """
-        Checks if there is existing subscriber for current channel
+        Add new subscription to current IDataAggregator instance
         
-        :param symbol: Symbol
-        :param tick_type: Type of tick data
-        :returns: return true if there is one subscriber at least; otherwise false.
+        :param data_config: defines the parameters to subscribe to a data feed
+        :param new_data_available_handler: handler to be fired on new data available
+        :returns: The new enumerator for this subscription request.
         """
         ...
 
-    @overload
-    def subscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
+    def initialize(self, parameters: QuantConnect.Data.DataAggregatorInitializeParameters) -> None:
         """
-        Increment number of subscribers for current TickType
+        Initialize this instance
+        
+        :param parameters: The parameters dto instance
+        """
+        ...
+
+    def remove(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> bool:
+        """
+        Remove the given subscription
         
         :param data_config: defines the subscription configuration data.
+        :returns: Returns true if given SubscriptionDataConfig was found and succesfully removed; otherwise false.
+        """
+        ...
+
+    def update(self, input: QuantConnect.Data.BaseData) -> None:
+        """
+        Adds new BaseData input into aggregator.
+        
+        :param input: The new data
+        """
+        ...
+
+
+class ConstantDividendYieldModel(System.Object, QuantConnect.Data.IDividendYieldModel):
+    """Constant dividend yield model"""
+
+    def __init__(self, dividend_yield: float) -> None:
+        """Instantiates a ConstantDividendYieldModel with the specified dividend yield"""
+        ...
+
+    @overload
+    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Get dividend yield by a given date of a given symbol
+        
+        :param date: The date
+        :returns: Dividend yield on the given date of the given symbol.
         """
         ...
 
     @overload
-    def subscribe(self, symbols: typing.List[QuantConnect.Symbol], tick_type: QuantConnect.TickType) -> bool:
+    def get_dividend_yield(self, date: typing.Union[datetime.datetime, datetime.date], security_price: float) -> float:
         """
-        Describes the way IDataQueueHandler implements subscription
+        Get dividend yield at given date and security price
         
-        This method is protected.
-        
-        :param symbols: Symbols to subscribe
-        :param tick_type: Type of tick data
-        :returns: Returns true if subsribed; otherwise false.
+        :param date: The date
+        :param security_price: The security price at the given date
+        :returns: Dividend yield on the given date of the given symbol.
         """
         ...
 
-    @overload
-    def unsubscribe(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> None:
-        """
-        Decrement number of subscribers for current TickType
-        
-        :param data_config: defines the subscription configuration data.
-        """
+
+class IndicatorHistory(QuantConnect.Data.DataHistory[QuantConnect.Indicators.IndicatorDataPoints]):
+    """Provides historical values of an indicator"""
+
+    @property
+    def current(self) -> typing.List[QuantConnect.Indicators.IndicatorDataPoint]:
+        """The indicators historical values"""
         ...
 
-    @overload
-    def unsubscribe(self, symbols: typing.List[QuantConnect.Symbol], tick_type: QuantConnect.TickType) -> bool:
+    def __getitem__(self, name: str) -> typing.List[QuantConnect.Indicators.IndicatorDataPoint]:
+        """Access the historical indicator values per indicator property name"""
+        ...
+
+    def __init__(self, indicators_data_points_by_time: typing.List[QuantConnect.Indicators.IndicatorDataPoints], indicators_data_point_per_property: typing.List[QuantConnect.Indicators.InternalIndicatorValues], dataframe: System.Lazy[PyObject]) -> None:
         """
-        Describes the way IDataQueueHandler implements unsubscription
+        Creates a new instance
         
-        This method is protected.
-        
-        :param symbols: Symbols to unsubscribe
-        :param tick_type: Type of tick data
-        :returns: Returns true if unsubsribed; otherwise false.
+        :param indicators_data_points_by_time: Indicators data points by time
+        :param indicators_data_point_per_property: Indicators data points by property name
+        :param dataframe: The lazy data frame constructor
         """
         ...
 
@@ -2321,6 +2553,28 @@ class EventBasedDataQueueHandlerSubscriptionManager(QuantConnect.Data.DataQueueH
         :param symbols: Symbols to unsubscribe
         :param tick_type: Type of tick data
         """
+        ...
+
+
+class SubscriptionDataConfigList(typing.List[QuantConnect.Data.SubscriptionDataConfig]):
+    """Provides convenient methods for holding several SubscriptionDataConfig"""
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """Symbol for which this class holds SubscriptionDataConfig"""
+        ...
+
+    @property
+    def is_internal_feed(self) -> bool:
+        """Assume that the InternalDataFeed is the same for both SubscriptionDataConfig"""
+        ...
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
+        """Default constructor that specifies the Symbol that the SubscriptionDataConfig represent"""
+        ...
+
+    def set_data_normalization_mode(self, normalization_mode: QuantConnect.DataNormalizationMode) -> None:
+        """Sets the DataNormalizationMode for all SubscriptionDataConfig contained in the list"""
         ...
 
 
@@ -2475,176 +2729,6 @@ class SubscriptionManager(System.Object):
         ...
 
 
-class HistoryProviderInitializeParameters(System.Object):
-    """Represents the set of parameters for the IHistoryProvider.Initialize method"""
-
-    @property
-    def job(self) -> QuantConnect.Packets.AlgorithmNodePacket:
-        """The job"""
-        ...
-
-    @property
-    def api(self) -> QuantConnect.Interfaces.IApi:
-        """The API instance"""
-        ...
-
-    @property
-    def data_provider(self) -> QuantConnect.Interfaces.IDataProvider:
-        """The provider used to get data when it is not present on disk"""
-        ...
-
-    @property
-    def data_cache_provider(self) -> QuantConnect.Interfaces.IDataCacheProvider:
-        """The provider used to cache history data files"""
-        ...
-
-    @property
-    def map_file_provider(self) -> QuantConnect.Interfaces.IMapFileProvider:
-        """The provider used to get a map file resolver to handle equity mapping"""
-        ...
-
-    @property
-    def factor_file_provider(self) -> QuantConnect.Interfaces.IFactorFileProvider:
-        """The provider used to get factor files to handle equity price scaling"""
-        ...
-
-    @property
-    def status_update_action(self) -> typing.Callable[[int], typing.Any]:
-        """A function used to send status updates"""
-        ...
-
-    @property
-    def parallel_history_requests_enabled(self) -> bool:
-        """True if parallel history requests are enabled"""
-        ...
-
-    @property
-    def data_permission_manager(self) -> QuantConnect.Interfaces.IDataPermissionManager:
-        """The data permission manager"""
-        ...
-
-    @property
-    def object_store(self) -> QuantConnect.Interfaces.IObjectStore:
-        """The object store"""
-        ...
-
-    @property
-    def algorithm_settings(self) -> QuantConnect.Interfaces.IAlgorithmSettings:
-        """The algorithm settings instance to use"""
-        ...
-
-    def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, api: QuantConnect.Interfaces.IApi, data_provider: QuantConnect.Interfaces.IDataProvider, data_cache_provider: QuantConnect.Interfaces.IDataCacheProvider, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, factor_file_provider: QuantConnect.Interfaces.IFactorFileProvider, status_update_action: typing.Callable[[int], typing.Any], parallel_history_requests_enabled: bool, data_permission_manager: QuantConnect.Interfaces.IDataPermissionManager, object_store: QuantConnect.Interfaces.IObjectStore, algorithm_settings: QuantConnect.Interfaces.IAlgorithmSettings) -> None:
-        """
-        Initializes a new instance of the HistoryProviderInitializeParameters class from the specified parameters
-        
-        :param job: The job
-        :param api: The API instance
-        :param data_provider: Provider used to get data when it is not present on disk
-        :param data_cache_provider: Provider used to cache history data files
-        :param map_file_provider: Provider used to get a map file resolver to handle equity mapping
-        :param factor_file_provider: Provider used to get factor files to handle equity price scaling
-        :param status_update_action: Function used to send status updates
-        :param parallel_history_requests_enabled: True if parallel history requests are enabled
-        :param data_permission_manager: The data permission manager to use
-        :param object_store: The object store to use
-        :param algorithm_settings: The algorithm settings instance to use
-        """
-        ...
-
-
-class ConstantRiskFreeRateInterestRateModel(System.Object, QuantConnect.Data.IRiskFreeInterestRateModel):
-    """Constant risk free rate interest rate model"""
-
-    def __init__(self, risk_free_rate: float) -> None:
-        """Instantiates a ConstantRiskFreeRateInterestRateModel with the specified risk free rate"""
-        ...
-
-    def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
-        """
-        Get interest rate by a given date
-        
-        :param date: The date
-        :returns: Interest rate on the given date.
-        """
-        ...
-
-
-class GetSetPropertyDynamicMetaObject(DynamicMetaObject):
-    """
-    Provides an implementation of DynamicMetaObject that uses get/set methods to update
-    values in the dynamic object.
-    """
-
-    def __init__(self, expression: typing.Any, value: typing.Any, set_property_method_info: System.Reflection.MethodInfo, get_property_method_info: System.Reflection.MethodInfo) -> None:
-        """
-        Initializes a new instance of the QuantConnect.Data.GetSetPropertyDynamicMetaObject class.
-        
-        :param expression: The expression representing this System.Dynamic.DynamicMetaObject
-        :param value: The value represented by the System.Dynamic.DynamicMetaObject
-        :param set_property_method_info: The set method to use for updating this dynamic object
-        :param get_property_method_info: The get method to use for updating this dynamic object
-        """
-        ...
-
-    def bind_get_member(self, binder: typing.Any) -> typing.Any:
-        """
-        Performs the binding of the dynamic get member operation.
-        
-        :param binder: An instance of the System.Dynamic.GetMemberBinder that represents the details of the dynamic operation.
-        :returns: The new System.Dynamic.DynamicMetaObject representing the result of the binding.
-        """
-        ...
-
-    def bind_set_member(self, binder: typing.Any, value: typing.Any) -> typing.Any:
-        """
-        Performs the binding of the dynamic set member operation.
-        
-        :param binder: An instance of the System.Dynamic.SetMemberBinder that represents the details of the dynamic operation.
-        :param value: The System.Dynamic.DynamicMetaObject representing the value for the set member operation.
-        :returns: The new System.Dynamic.DynamicMetaObject representing the result of the binding.
-        """
-        ...
-
-
-class IDataAggregator(System.IDisposable, metaclass=abc.ABCMeta):
-    """Aggregates ticks and bars based on given subscriptions."""
-
-    def add(self, data_config: QuantConnect.Data.SubscriptionDataConfig, new_data_available_handler: typing.Callable[[System.Object, System.EventArgs], typing.Any]) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Add new subscription to current IDataAggregator instance
-        
-        :param data_config: defines the parameters to subscribe to a data feed
-        :param new_data_available_handler: handler to be fired on new data available
-        :returns: The new enumerator for this subscription request.
-        """
-        ...
-
-    def initialize(self, parameters: QuantConnect.Data.DataAggregatorInitializeParameters) -> None:
-        """
-        Initialize this instance
-        
-        :param parameters: The parameters dto instance
-        """
-        ...
-
-    def remove(self, data_config: QuantConnect.Data.SubscriptionDataConfig) -> bool:
-        """
-        Remove the given subscription
-        
-        :param data_config: defines the subscription configuration data.
-        :returns: Returns true if given SubscriptionDataConfig was found and succesfully removed; otherwise false.
-        """
-        ...
-
-    def update(self, input: QuantConnect.Data.BaseData) -> None:
-        """
-        Adds new BaseData input into aggregator.
-        
-        :param input: The new data
-        """
-        ...
-
-
 class RiskFreeInterestRateModelExtensions(System.Object):
     """Provide extension and static methods for IRiskFreeInterestRateModel"""
 
@@ -2670,6 +2754,29 @@ class RiskFreeInterestRateModelExtensions(System.Object):
         ...
 
 
+class FuncRiskFreeRateInterestRateModel(System.Object, QuantConnect.Data.IRiskFreeInterestRateModel):
+    """Constant risk free rate interest rate model"""
+
+    @overload
+    def __init__(self, get_interest_rate_func: typing.Any) -> None:
+        """Create class instance of interest rate provider with given PyObject"""
+        ...
+
+    @overload
+    def __init__(self, get_interest_rate_func: typing.Callable[[datetime.datetime], float]) -> None:
+        """Create class instance of interest rate provider"""
+        ...
+
+    def get_interest_rate(self, date: typing.Union[datetime.datetime, datetime.date]) -> float:
+        """
+        Get interest rate by a given date
+        
+        :param date: The date
+        :returns: Interest rate on the given date.
+        """
+        ...
+
+
 class HistoryExtensions(System.Object):
     """Helper extension methods for objects related with Histotical data"""
 
@@ -2690,296 +2797,189 @@ class HistoryExtensions(System.Object):
         ...
 
 
-class DownloaderExtensions(System.Object):
-    """Contains extension methods for the Downloader functionality."""
+class DynamicData(QuantConnect.Data.BaseData, IDynamicMetaObjectProvider, metaclass=abc.ABCMeta):
+    """Dynamic Data Class: Accept flexible data, adapting to the columns provided by source."""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+    def get_meta_object(self, parameter: typing.Any) -> typing.Any:
+        """Get the metaObject required for Dynamism."""
+        ...
+
+    def get_property(self, name: str) -> System.Object:
+        """
+        Gets the property's value with the specified name. This is a case-insensitve search.
+        
+        :param name: The property name to access
+        :returns: object value of BaseData.
+        """
+        ...
+
+    def get_storage_dictionary(self) -> System.Collections.Generic.IDictionary[str, System.Object]:
+        """
+        Gets the storage dictionary
+        Python algorithms need this information since DynamicMetaObject does not work
+        
+        :returns: Dictionary that stores the paramenters names and values.
+        """
+        ...
+
+    def has_property(self, name: str) -> bool:
+        """
+        Gets whether or not this dynamic data instance has a property with the specified name.
+        This is a case-insensitve search.
+        
+        :param name: The property name to check for
+        :returns: True if the property exists, false otherwise.
+        """
+        ...
+
+    def set_property(self, name: str, value: typing.Any) -> System.Object:
+        """
+        Sets the property with the specified name to the value. This is a case-insensitve search.
+        
+        :param name: The property name to set
+        :param value: The new property value
+        :returns: Returns the input value back to the caller.
+        """
+        ...
+
+
+class SliceExtensions(System.Object):
+    """Provides extension methods to slices and slice enumerables"""
 
     @staticmethod
-    def get_data_downloader_parameter_for_all_mapped_symbols(data_downloader_parameter: QuantConnect.DataDownloaderGetParameters, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, exchange_time_zone: typing.Any) -> typing.Iterable[QuantConnect.DataDownloaderGetParameters]:
-        """
-        Get DataDownloaderGetParameters for all mapped  with appropriate ticker name in specific date time range.
-        
-        :param data_downloader_parameter: Generated class in "Lean.Engine.DataFeeds.DownloaderDataProvider"
-        :param map_file_provider: Provides instances of MapFileResolver at run time
-        :param exchange_time_zone: Provides the time zone this exchange
-        :returns: Return DataDownloaderGetParameters with different DataDownloaderGetParameters.StartUtc -  range and.
-        """
-        ...
-
-
-class HistoryProviderBase(System.Object, QuantConnect.Interfaces.IHistoryProvider, metaclass=abc.ABCMeta):
-    """Provides a base type for all history providers"""
-
-    @property
-    def invalid_configuration_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]:
-        """Event fired when an invalid configuration has been detected"""
-        ...
-
-    @invalid_configuration_detected.setter
-    def invalid_configuration_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.InvalidConfigurationDetectedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def numerical_precision_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]:
-        """Event fired when the numerical precision in the factor file has been limited"""
-        ...
-
-    @numerical_precision_limited.setter
-    def numerical_precision_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.NumericalPrecisionLimitedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def start_date_limited(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]:
-        """Event fired when the start date has been limited"""
-        ...
-
-    @start_date_limited.setter
-    def start_date_limited(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.StartDateLimitedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def download_failed(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]:
-        """Event fired when there was an error downloading a remote file"""
-        ...
-
-    @download_failed.setter
-    def download_failed(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.DownloadFailedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def reader_error_detected(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]:
-        """Event fired when there was an error reading the data"""
-        ...
-
-    @reader_error_detected.setter
-    def reader_error_detected(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.ReaderErrorDetectedEventArgs], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def data_point_count(self) -> int:
-        """Gets the total number of data points emitted by this history provider"""
-        ...
-
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
-        """
-        Gets the history for the requested securities
-        
-        :param requests: The historical data requests
-        :param slice_time_zone: The time zone used when time stamping the slice instances
-        :returns: An enumerable of the slices of data covering the span specified in each request.
-        """
-        ...
-
-    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
-        """
-        Initializes this history provider to work for the specified job
-        
-        :param parameters: The initialization parameters
-        """
-        ...
-
-    def on_download_failed(self, e: QuantConnect.DownloadFailedEventArgs) -> None:
-        """
-        Event invocator for the DownloadFailed event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the DownloadFailed event
-        """
-        ...
-
-    def on_invalid_configuration_detected(self, e: QuantConnect.InvalidConfigurationDetectedEventArgs) -> None:
-        """
-        Event invocator for the InvalidConfigurationDetected event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the InvalidConfigurationDetected event
-        """
-        ...
-
-    def on_numerical_precision_limited(self, e: QuantConnect.NumericalPrecisionLimitedEventArgs) -> None:
-        """
-        Event invocator for the NumericalPrecisionLimited event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the NumericalPrecisionLimited event
-        """
-        ...
-
-    def on_reader_error_detected(self, e: QuantConnect.ReaderErrorDetectedEventArgs) -> None:
-        """
-        Event invocator for the ReaderErrorDetected event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the ReaderErrorDetected event
-        """
-        ...
-
-    def on_start_date_limited(self, e: QuantConnect.StartDateLimitedEventArgs) -> None:
-        """
-        Event invocator for the StartDateLimited event
-        
-        This method is protected.
-        
-        :param e: Event arguments for the StartDateLimited event
-        """
-        ...
-
-
-class DataHistory(typing.Generic[QuantConnect_Data_DataHistory_T], System.Object, typing.Iterable[QuantConnect_Data_DataHistory_T]):
-    """Historical data abstraction"""
-
-    @property
-    def data(self) -> typing.Iterable[QuantConnect_Data_DataHistory_T]:
-        """
-        The data we hold
-        
-        This property is protected.
-        """
-        ...
-
-    @property
-    def count(self) -> int:
-        """The current data point count"""
-        ...
-
-    @property
-    def data_frame(self) -> typing.Any:
-        """This data pandas data frame"""
-        ...
-
-    def __init__(self, data: typing.List[QuantConnect_Data_DataHistory_T], dataframe: System.Lazy[PyObject]) -> None:
-        """Creates a new instance"""
-        ...
-
-    def __iter__(self) -> typing.Iterator[QuantConnect_Data_DataHistory_T]:
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Data_DataHistory_T]:
-        """Returns an enumerator for the data"""
-        ...
-
-    def to_string(self) -> str:
-        """Default to string implementation"""
-        ...
-
-
-class ISubscriptionEnumeratorFactory(metaclass=abc.ABCMeta):
-    """Create an IEnumerator{BaseData}"""
-
-    def create_enumerator(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, data_provider: QuantConnect.Interfaces.IDataProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
-        """
-        Creates an enumerator to read the specified request
-        
-        :param request: The subscription request to be read
-        :param data_provider: Provider used to get data when it is not present on disk
-        :returns: An enumerator reading the subscription request.
-        """
-        ...
-
-
-class IndicatorHistory(QuantConnect.Data.DataHistory[QuantConnect.Indicators.IndicatorDataPoints]):
-    """Provides historical values of an indicator"""
-
-    @property
-    def current(self) -> typing.List[QuantConnect.Indicators.IndicatorDataPoint]:
-        """The indicators historical values"""
-        ...
-
-    def __getitem__(self, name: str) -> typing.List[QuantConnect.Indicators.IndicatorDataPoint]:
-        """Access the historical indicator values per indicator property name"""
-        ...
-
-    def __init__(self, indicators_data_points_by_time: typing.List[QuantConnect.Indicators.IndicatorDataPoints], indicators_data_point_per_property: typing.List[QuantConnect.Indicators.InternalIndicatorValues], dataframe: System.Lazy[PyObject]) -> None:
-        """
-        Creates a new instance
-        
-        :param indicators_data_points_by_time: Indicators data points by time
-        :param indicators_data_point_per_property: Indicators data points by property name
-        :param dataframe: The lazy data frame constructor
-        """
-        ...
-
-
-class DataMonitor(System.Object, QuantConnect.Interfaces.IDataMonitor):
-    """Monitors data requests and reports on missing data"""
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the DataMonitor class"""
-        ...
-
-    def dispose(self) -> None:
-        """Disposes this object"""
-        ...
-
-    def exit(self) -> None:
-        """Terminates the data monitor generating a final report"""
-        ...
-
-    def on_new_data_request(self, sender: typing.Any, e: QuantConnect.Interfaces.DataProviderNewDataRequestEventArgs) -> None:
-        """Event handler for the IDataProvider.NewDataRequest event"""
-        ...
-
-    def strip_data_folder(self, path: str) -> str:
-        """
-        Strips the given data folder path
-        
-        This method is protected.
-        """
-        ...
-
-
-class DiskDataCacheProvider(System.Object, QuantConnect.Interfaces.IDataCacheProvider):
-    """
-    Simple data cache provider, writes and reads directly from disk
-    Used as default for LeanDataWriter
-    """
-
-    @property
-    def is_data_ephemeral(self) -> bool:
-        """Property indicating the data is temporary in nature and should not be cached."""
-        ...
-
     @overload
-    def __init__(self) -> None:
-        """Creates a new instance"""
+    def get(slices: typing.List[QuantConnect.Data.Slice], type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None) -> typing.Iterable[typing.Any]:
+        """
+        Gets the data dictionaries or points of the requested type in each slice
+        
+        :param slices: The enumerable of slice
+        :param type: Data type of the data that will be fetched
+        :param symbol: The symbol to retrieve
+        :returns: An enumerable of data dictionary or data point of the requested type.
+        """
         ...
 
+    @staticmethod
     @overload
-    def __init__(self, locker: QuantConnect.Util.KeyStringSynchronizer) -> None:
+    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.Iterable[QuantConnect.Data.Market.TradeBar]:
         """
-        Creates a new instance using the given synchronizer
+        Gets an enumerable of TradeBar for the given symbol. This method does not verify
+        that the specified symbol points to a TradeBar
         
-        :param locker: The synchronizer instance to use
+        :param slices: The enumerable of slice
+        :param symbol: The symbol to retrieve
+        :returns: An enumerable of TradeBar for the matching symbol, of no TradeBar found for symbol, empty enumerable is returned.
         """
         ...
 
-    def dispose(self) -> None:
-        """Dispose for this class"""
-        ...
-
-    def fetch(self, key: str) -> System.IO.Stream:
+    @staticmethod
+    @overload
+    def get(slices: typing.List[QuantConnect.Data.Slice], symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], field: typing.Callable[[QuantConnect.Data.BaseData], float]) -> typing.Iterable[float]:
         """
-        Fetch data from the cache
+        Gets an enumerable of decimal by accessing the slice for the symbol and then retrieving the specified
+        field on each piece of data
         
-        :param key: A string representing the key of the cached data
-        :returns: An Stream of the cached data.
+        :param slices: The enumerable of slice
+        :param symbol: The symbol to retrieve
+        :param field: The field selector used to access the dats
+        :returns: An enumerable of decimal.
         """
         ...
 
-    def get_zip_entries(self, zip_file: str) -> typing.List[str]:
-        """Returns a list of zip entries in a provided zip file"""
-        ...
-
-    def store(self, key: str, data: typing.List[int]) -> None:
+    @staticmethod
+    def get_universe_data(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.UniverseSelection.BaseDataCollection]]:
         """
-        Store the data in the cache. Not implemented in this instance of the IDataCacheProvider
+        Gets the data dictionaries or points of the requested type in each slice
         
-        :param key: The source of the data, used as a key to retrieve data in the cache
-        :param data: The data as a byte array
+        :param slices: The enumerable of slice
+        :returns: An enumerable of data dictionary or data point of the requested type.
+        """
+        ...
+
+    @staticmethod
+    def push_through(slices: typing.List[QuantConnect.Data.Slice], handler: typing.Callable[[QuantConnect.Data.BaseData], typing.Any], data_type: typing.Type = None) -> None:
+        """
+        Loops through the specified slices and pushes the data into the consolidators. This can be used to
+        easily warm up indicators from a history call that returns slice objects.
+        
+        :param slices: The data to send into the consolidators, likely result of a history request
+        :param handler: Delegate handles each data piece from the slice
+        :param data_type: Defines the type of the data that should be pushed
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def push_through_consolidators(slices: typing.List[QuantConnect.Data.Slice], consolidators_by_symbol: System.Collections.Generic.Dictionary[QuantConnect.Symbol, QuantConnect.Data.Consolidators.IDataConsolidator]) -> None:
+        """
+        Loops through the specified slices and pushes the data into the consolidators. This can be used to
+        easily warm up indicators from a history call that returns slice objects.
+        
+        :param slices: The data to send into the consolidators, likely result of a history request
+        :param consolidators_by_symbol: Dictionary of consolidators keyed by symbol
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def push_through_consolidators(slices: typing.List[QuantConnect.Data.Slice], consolidators_provider: typing.Callable[[QuantConnect.Symbol], QuantConnect.Data.Consolidators.IDataConsolidator]) -> None:
+        """
+        Loops through the specified slices and pushes the data into the consolidators. This can be used to
+        easily warm up indicators from a history call that returns slice objects.
+        
+        :param slices: The data to send into the consolidators, likely result of a history request
+        :param consolidators_provider: Delegate that fetches the consolidators by a symbol
+        """
+        ...
+
+    @staticmethod
+    def ticks(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.Ticks]:
+        """
+        Selects into the slice and returns the Ticks that have data in order
+        
+        :param slices: The enumerable of slice
+        :returns: An enumerable of Ticks.
+        """
+        ...
+
+    @staticmethod
+    def to_double_array(decimals: typing.List[float]) -> typing.List[float]:
+        """
+        Converts the specified enumerable of decimals into a double array
+        
+        :param decimals: The enumerable of decimal
+        :returns: Double array representing the enumerable of decimal.
+        """
+        ...
+
+    @staticmethod
+    def trade_bars(slices: typing.List[QuantConnect.Data.Slice]) -> typing.Iterable[QuantConnect.Data.Market.TradeBars]:
+        """
+        Selects into the slice and returns the TradeBars that have data in order
+        
+        :param slices: The enumerable of slice
+        :returns: An enumerable of TradeBars.
+        """
+        ...
+
+    @staticmethod
+    def try_get(slice: QuantConnect.Data.Slice, type: typing.Type, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], data: typing.Optional[typing.Any]) -> typing.Tuple[bool, typing.Any]:
+        """
+        Tries to get the data for the specified symbol and type
+        
+        :param slice: The slice
+        :param type: The type of data we seek
+        :param symbol: The symbol data is sought for
+        :param data: The found data
+        :returns: True if data was found for the specified type and symbol.
         """
         ...
 

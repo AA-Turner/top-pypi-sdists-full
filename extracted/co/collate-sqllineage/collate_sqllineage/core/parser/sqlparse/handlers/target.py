@@ -39,7 +39,7 @@ class TargetHandler(NextTokenBaseHandler):
             return token.normalized in self.TARGET_TABLE_TOKENS
 
     def _handle(self, token: Token, holder: SubQueryLineageHolder) -> None:
-        if self.special_token:
+        if self.special_token and isinstance(token, Identifier):
             holder.add_destination(SqlParseTable.of(token))
             return
         if isinstance(token, Function):

@@ -3,6 +3,7 @@ import fnmatch
 from functools import cached_property
 import importlib
 import inspect
+import json
 import logging
 import os
 from uuid import UUID
@@ -15,12 +16,14 @@ from vellum.workflows.constants import undefined
 from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.edges import Edge
 from vellum.workflows.events.workflow import NodeEventDisplayContext, WorkflowEventDisplayContext
+from vellum.workflows.inputs.base import BaseInputs
 from vellum.workflows.nodes.bases import BaseNode
 from vellum.workflows.nodes.displayable.bases.utils import primitive_to_vellum_value
 from vellum.workflows.nodes.displayable.final_output_node.node import FinalOutputNode
 from vellum.workflows.nodes.utils import get_unadorned_node, get_unadorned_port, get_wrapped_node
 from vellum.workflows.ports import Port
 from vellum.workflows.references import OutputReference, WorkflowInputReference
+from vellum.workflows.state.encoder import DefaultStateEncoder
 from vellum.workflows.types.core import Json, JsonArray, JsonObject
 from vellum.workflows.types.generics import WorkflowType
 from vellum.workflows.types.utils import get_original_base
@@ -72,6 +75,7 @@ IGNORE_PATTERNS = [
 class WorkflowSerializationResult(UniversalBaseModel):
     exec_config: Dict[str, Any]
     errors: List[str]
+    dataset: Optional[List[Dict[str, Any]]] = None
 
 
 class BaseWorkflowDisplay(Generic[WorkflowType]):
@@ -194,6 +198,7 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
                 serialized_node = node_display.serialize(self.display_context)
             except (NotImplementedError, NodeValidationError) as e:
                 self.display_context.add_error(e)
+                self.display_context.add_invalid_node(node)
                 continue
 
             serialized_nodes[node_display.node_id] = serialized_node
@@ -319,6 +324,10 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         # Add an edge for each edge in the workflow
         for target_node, entrypoint_display in self.display_context.entrypoint_displays.items():
             unadorned_target_node = get_unadorned_node(target_node)
+            # Skip edges to invalid nodes
+            if self._is_node_invalid(unadorned_target_node):
+                continue
+
             target_node_display = self.display_context.node_displays[unadorned_target_node]
             edges.append(
                 {
@@ -334,6 +343,12 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         for (source_node_port, target_node), edge_display in self.display_context.edge_displays.items():
             unadorned_source_node_port = get_unadorned_port(source_node_port)
             unadorned_target_node = get_unadorned_node(target_node)
+
+            # Skip edges that reference invalid nodes
+            if self._is_node_invalid(unadorned_target_node) or self._is_node_invalid(
+                unadorned_source_node_port.node_class
+            ):
+                continue
 
             source_node_port_display = self.display_context.port_displays[unadorned_source_node_port]
             target_node_display = self.display_context.node_displays[unadorned_target_node]
@@ -881,9 +896,25 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         if additional_files:
             exec_config["module_data"] = {"additional_files": cast(JsonObject, additional_files)}
 
+        dataset = None
+        try:
+            sandbox_module_path = f"{module}.sandbox"
+            sandbox_module = importlib.import_module(sandbox_module_path)
+            if hasattr(sandbox_module, "dataset"):
+                dataset_attr = getattr(sandbox_module, "dataset")
+                if dataset_attr and isinstance(dataset_attr, list):
+                    dataset = []
+                    for i, inputs_obj in enumerate(dataset_attr):
+                        if isinstance(inputs_obj, BaseInputs):
+                            serialized_inputs = json.loads(json.dumps(inputs_obj, cls=DefaultStateEncoder))
+                            dataset.append({"label": f"Scenario {i + 1}", "inputs": serialized_inputs})
+        except (ImportError, AttributeError):
+            pass
+
         return WorkflowSerializationResult(
             exec_config=exec_config,
             errors=[str(error) for error in workflow_display.display_context.errors],
+            dataset=dataset,
         )
 
     def _gather_additional_module_files(self, module_path: str) -> Dict[str, str]:
@@ -938,6 +969,10 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         is_optional = type(None) in reference.types
         is_required = not has_default and not is_optional
         return is_required
+
+    def _is_node_invalid(self, node: Type[BaseNode]) -> bool:
+        """Check if a node failed to serialize and should be considered invalid."""
+        return node in self.display_context.invalid_nodes
 
 
 register_workflow_display_class(workflow_class=BaseWorkflow, workflow_display_class=BaseWorkflowDisplay)

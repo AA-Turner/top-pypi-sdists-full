@@ -3804,9 +3804,10 @@ class CreateCoipCidrRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class CreateDefaultSubnetRequestTypeDef(TypedDict):
-    AvailabilityZone: str
+    AvailabilityZone: NotRequired[str]
     DryRun: NotRequired[bool]
     Ipv6Native: NotRequired[bool]
+    AvailabilityZoneId: NotRequired[str]
 
 class CreateDefaultVpcRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
@@ -4872,6 +4873,7 @@ class DescribeSpotFleetRequestsRequestTypeDef(TypedDict):
 
 class SpotPriceTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     InstanceType: NotRequired[InstanceTypeType]
     ProductDescription: NotRequired[RIProductDescriptionType]
     SpotPrice: NotRequired[str]
@@ -5546,6 +5548,7 @@ class FleetLaunchTemplateSpecificationTypeDef(TypedDict):
     Version: NotRequired[str]
 
 class PlacementTypeDef(TypedDict):
+    AvailabilityZoneId: NotRequired[str]
     Affinity: NotRequired[str]
     GroupName: NotRequired[str]
     PartitionNumber: NotRequired[int]
@@ -6289,6 +6292,7 @@ class LaunchTemplateNetworkPerformanceOptionsTypeDef(TypedDict):
 
 class LaunchTemplatePlacementRequestTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     Affinity: NotRequired[str]
     GroupName: NotRequired[str]
     HostId: NotRequired[str]
@@ -6300,6 +6304,7 @@ class LaunchTemplatePlacementRequestTypeDef(TypedDict):
 
 class LaunchTemplatePlacementTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     Affinity: NotRequired[str]
     GroupName: NotRequired[str]
     HostId: NotRequired[str]
@@ -11281,6 +11286,7 @@ class DescribeSpotInstanceRequestsRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 class DescribeSpotPriceHistoryRequestPaginateTypeDef(TypedDict):
+    AvailabilityZoneId: NotRequired[str]
     DryRun: NotRequired[bool]
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
@@ -11291,6 +11297,7 @@ class DescribeSpotPriceHistoryRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeSpotPriceHistoryRequestTypeDef(TypedDict):
+    AvailabilityZoneId: NotRequired[str]
     DryRun: NotRequired[bool]
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
@@ -12519,14 +12526,16 @@ class DiskImageTypeDef(TypedDict):
     Volume: NotRequired[VolumeDetailTypeDef]
 
 class ImportVolumeRequestTypeDef(TypedDict):
-    AvailabilityZone: str
     Image: DiskImageDetailTypeDef
     Volume: VolumeDetailTypeDef
+    AvailabilityZoneId: NotRequired[str]
     DryRun: NotRequired[bool]
+    AvailabilityZone: NotRequired[str]
     Description: NotRequired[str]
 
 class ImportInstanceVolumeDetailItemTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     BytesConverted: NotRequired[int]
     Description: NotRequired[str]
     Image: NotRequired[DiskImageDescriptionTypeDef]
@@ -12536,6 +12545,7 @@ class ImportInstanceVolumeDetailItemTypeDef(TypedDict):
 
 class ImportVolumeTaskDetailsTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     BytesConverted: NotRequired[int]
     Description: NotRequired[str]
     Image: NotRequired[DiskImageDescriptionTypeDef]
@@ -13597,6 +13607,7 @@ ServiceDetailTypeDef = TypedDict(
         "ServiceId": NotRequired[str],
         "ServiceType": NotRequired[List[ServiceTypeDetailTypeDef]],
         "ServiceRegion": NotRequired[str],
+        "AvailabilityZoneIds": NotRequired[List[str]],
         "AvailabilityZones": NotRequired[List[str]],
         "Owner": NotRequired[str],
         "BaseEndpointDnsNames": NotRequired[List[str]],
@@ -13618,6 +13629,7 @@ ServiceConfigurationTypeDef = TypedDict(
         "ServiceId": NotRequired[str],
         "ServiceName": NotRequired[str],
         "ServiceState": NotRequired[ServiceStateType],
+        "AvailabilityZoneIds": NotRequired[List[str]],
         "AvailabilityZones": NotRequired[List[str]],
         "AcceptanceRequired": NotRequired[bool],
         "ManagesVpcEndpoints": NotRequired[bool],
@@ -13935,6 +13947,7 @@ class VerifiedAccessLogOptionsTypeDef(TypedDict):
     IncludeTrustContext: NotRequired[bool]
 
 class VolumeResponseTypeDef(TypedDict):
+    AvailabilityZoneId: str
     OutpostArn: str
     Iops: int
     Tags: List[TagTypeDef]
@@ -13957,6 +13970,7 @@ class VolumeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VolumeTypeDef(TypedDict):
+    AvailabilityZoneId: NotRequired[str]
     OutpostArn: NotRequired[str]
     Iops: NotRequired[int]
     Tags: NotRequired[List[TagTypeDef]]
@@ -15415,6 +15429,7 @@ class UnmonitorInstancesResultTypeDef(TypedDict):
 
 class InstanceStatusTypeDef(TypedDict):
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     OutpostArn: NotRequired[str]
     Operator: NotRequired[OperatorResponseTypeDef]
     Events: NotRequired[List[InstanceStatusEventTypeDef]]
@@ -17164,7 +17179,8 @@ class CreateVerifiedAccessTrustProviderRequestTypeDef(TypedDict):
     ]
 
 class CreateVolumeRequestServiceResourceCreateVolumeTypeDef(TypedDict):
-    AvailabilityZone: str
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     Encrypted: NotRequired[bool]
     Iops: NotRequired[int]
     KmsKeyId: NotRequired[str]
@@ -17181,7 +17197,8 @@ class CreateVolumeRequestServiceResourceCreateVolumeTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class CreateVolumeRequestTypeDef(TypedDict):
-    AvailabilityZone: str
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     Encrypted: NotRequired[bool]
     Iops: NotRequired[int]
     KmsKeyId: NotRequired[str]
@@ -18303,6 +18320,7 @@ SpotInstanceRequestTypeDef = TypedDict(
         "LaunchGroup": NotRequired[str],
         "LaunchSpecification": NotRequired[LaunchSpecificationTypeDef],
         "LaunchedAvailabilityZone": NotRequired[str],
+        "LaunchedAvailabilityZoneId": NotRequired[str],
         "ProductDescription": NotRequired[RIProductDescriptionType],
         "SpotInstanceRequestId": NotRequired[str],
         "SpotPrice": NotRequired[str],

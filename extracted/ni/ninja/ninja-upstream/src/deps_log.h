@@ -72,7 +72,8 @@ struct DepsLog {
   // Writing (build-time) interface.
   bool OpenForWrite(const std::string& path, std::string* err);
   bool RecordDeps(Node* node, TimeStamp mtime, const std::vector<Node*>& nodes);
-  bool RecordDeps(Node* node, TimeStamp mtime, int node_count, Node** nodes);
+  bool RecordDeps(Node* node, TimeStamp mtime, int node_count,
+                  Node* const* nodes);
   void Close();
 
   // Reading (startup-time) interface.
@@ -97,7 +98,7 @@ struct DepsLog {
   /// past but are no longer part of the manifest.  This function returns if
   /// this is the case for a given node.  This function is slow, don't call
   /// it from code that runs on every build.
-  bool IsDepsEntryLiveFor(Node* node);
+  static bool IsDepsEntryLiveFor(const Node* node);
 
   /// Used for tests.
   const std::vector<Node*>& nodes() const { return nodes_; }

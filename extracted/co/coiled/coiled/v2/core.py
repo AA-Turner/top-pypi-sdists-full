@@ -640,6 +640,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         extra_user_container_ignore_entrypoint: bool | None = None,
         host_setup_script_content: str | None = None,
         pause_on_exit: bool | None = None,
+        cluster_timeout_seconds: int | None = None,
     ) -> Tuple[int, bool]:
         # TODO (Declarative): support these args, or decide not to
         # https://gitlab.com/coiled/cloud/-/issues/4305
@@ -677,6 +678,7 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
             "extra_user_container_ignore_entrypoint": extra_user_container_ignore_entrypoint,
             "host_setup_script": host_setup_script_content,
             "pause_on_exit": pause_on_exit,
+            "cluster_timeout_seconds": cluster_timeout_seconds,
         }
 
         try:

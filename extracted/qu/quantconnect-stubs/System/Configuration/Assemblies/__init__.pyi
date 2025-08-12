@@ -4,6 +4,19 @@ import System
 import System.Configuration.Assemblies
 
 
+class AssemblyVersionCompatibility(Enum):
+    """This class has no documentation."""
+
+    SAME_MACHINE = 1
+
+    SAME_PROCESS = 2
+
+    SAME_DOMAIN = 3
+
+    def __int__(self) -> int:
+        ...
+
+
 class AssemblyHashAlgorithm(Enum):
     """This class has no documentation."""
 
@@ -18,19 +31,6 @@ class AssemblyHashAlgorithm(Enum):
     SHA_384 = ...
 
     SHA_512 = ...
-
-    def __int__(self) -> int:
-        ...
-
-
-class AssemblyVersionCompatibility(Enum):
-    """This class has no documentation."""
-
-    SAME_MACHINE = 1
-
-    SAME_PROCESS = 2
-
-    SAME_DOMAIN = 3
 
     def __int__(self) -> int:
         ...

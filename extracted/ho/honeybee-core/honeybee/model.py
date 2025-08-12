@@ -181,7 +181,7 @@ class Model(_Base):
             rooms = []
             for r in data['rooms']:
                 try:
-                    rooms.append(Room.from_dict(r, tol, angle_tol))
+                    rooms.append(Room.from_dict(r, tol))
                 except Exception as e:
                     invalid_dict_error(r, e)
         orphaned_faces = None  # import orphaned faces
@@ -2239,7 +2239,7 @@ class Model(_Base):
         msgs.append(self.check_sub_faces_valid(tol, ang_tol, False, detailed))
         msgs.append(self.check_sub_faces_overlapping(tol, False, detailed))
         msgs.append(self.check_upside_down_faces(ang_tol, False, detailed))
-        msgs.append(self.check_rooms_solid(tol, ang_tol, False, detailed))
+        msgs.append(self.check_rooms_solid(tol, raise_exception=False, detailed=detailed))
 
         # perform checks related to adjacency relationships
         msgs.append(self.check_room_volume_collisions(tol, False, detailed))
@@ -2619,9 +2619,7 @@ class Model(_Base):
             tolerance: tolerance: The maximum difference between x, y, and z values
                 at which face vertices are considered equivalent. If None, the Model
                 tolerance will be used. (Default: None).
-            angle_tolerance: The max angle difference in degrees that vertices are
-                allowed to differ from one another in order to consider them colinear.
-                If None, the Model angle_tolerance will be used. (Default: None).
+            angle_tolerance: Deprecated input that is no longer used.
             raise_exception: Boolean to note whether a ValueError should be raised
                 if the room geometry does not form a closed solid. (Default: True).
             detailed: Boolean for whether the returned object is a detailed list of
@@ -2631,12 +2629,10 @@ class Model(_Base):
             A string with the message or a list with a dictionary if detailed is True.
         """
         tolerance = self.tolerance if tolerance is None else tolerance
-        angle_tolerance = self.angle_tolerance \
-            if angle_tolerance is None else angle_tolerance
         detailed = False if raise_exception else detailed
         msgs = []
         for room in self._rooms:
-            msg = room.check_solid(tolerance, angle_tolerance, False, detailed)
+            msg = room.check_solid(tolerance, raise_exception=False, detailed=detailed)
             if detailed:
                 msgs.extend(msg)
             elif msg != '':
@@ -3497,11 +3493,6 @@ class Model(_Base):
             json_output: Boolean to note whether the output validation report
                 should be formatted as a JSON object instead of plain text.
         """
-        # first get the function to call on this class
-        check_func = getattr(Model, check_function, None)
-        assert check_func is not None, \
-            'Honeybee Model class has no method {}'.format(check_function)
-
         # process the input model if it's not already serialized
         report = ''
         if isinstance(model, str):
@@ -3518,8 +3509,22 @@ class Model(_Base):
         elif not isinstance(model, Model):
             report = 'Input Model for validation is not a Model object, ' \
                 'file path to a Model or a Model HBJSON string.'
+
+        # get the function to call to do checks
+        if '.' in check_function:  # nested attribute
+            attributes = check_function.split('.')  # get all the sub-attributes
+            check_func = model
+            for attribute in attributes:
+                if check_func is None:
+                    continue
+                check_func = getattr(check_func, attribute, None)
+        else:
+            check_func = getattr(model, check_function, None)
+        assert check_func is not None, \
+            'Honeybee Model class has no method {}'.format(check_function)
+
         # process the arguments and options
-        args = [model] if check_args is None else [model] + list(check_args)
+        args = [] if check_args is None else [] + list(check_args)
         kwargs = {'raise_exception': False}
 
         # create the report
@@ -3530,9 +3535,8 @@ class Model(_Base):
             ver_msg = 'Validating Model using honeybee-core=={} and ' \
                 'honeybee-schema=={}'.format(c_ver, s_ver)
             # run the check function
-            if isinstance(args[0], Model):
-                kwargs['detailed'] = False
-                report = check_func(*args, **kwargs)
+            kwargs['detailed'] = False
+            report = check_func(*args, **kwargs)
             # format the results of the check
             if report == '':
                 full_msg = ver_msg + '\nCongratulations! Your Model is valid!'

@@ -81,7 +81,7 @@ static double single_init(const model_t* restrict mod, patch_t* restrict world, 
     // init world
     for (size_t i = 0; i < N; i++) {
         for (size_t j = 0; j < M; j++) {
-            patch_init(&world[ij_out], mod->I[ij_out * 2], mod->I[ij_out * 2 + 1], i, j, &(mod->X[ij_out * 4]), &(mod->P[ij_out * 6]));
+            patch_init(&world[ij_out], mod->init_popu[ij_out * 2], mod->init_popu[ij_out * 2 + 1], &(mod->matrices[ij_out * 4]), &(mod->patch_params[ij_out * 6]));
             ij_out++;
         }
     }
@@ -172,10 +172,10 @@ static double single_init(const model_t* restrict mod, patch_t* restrict world, 
         for (size_t ij = 0; ij < NM; ij++) {
             size_t ij_max_record = ij * max_record;
             for (size_t k = 0; k < recod_idx; k++) {
-                mod->U1d[ij_max_record + k] += world[ij].U;
-                mod->V1d[ij_max_record + k] += world[ij].V;
-                mod->Upi_1d[ij_max_record + k] += world[ij].U_pi;
-                mod->Vpi_1d[ij_max_record + k] += world[ij].V_pi;
+                mod->U1d[ij_max_record + k] += world[ij].U_ph;
+                mod->V1d[ij_max_record + k] += world[ij].V_ph;
+                mod->Hpi_1d[ij_max_record + k] += world[ij].Hpi_ph;
+                mod->Dpi_1d[ij_max_record + k] += world[ij].Dpi_ph;
             }
         }
     }
@@ -196,8 +196,8 @@ static uint8_t single_test(model_t* restrict mod, char* message) {
     bool boundary = mod->boundary;
     double* mod_U1d = mod->U1d;
     double* mod_V1d = mod->V1d;
-    double* mod_Upi_1d = mod->Upi_1d;
-    double* mod_Vpi_1d = mod->Vpi_1d;
+    double* mod_Hpi_1d = mod->Hpi_1d;
+    double* mod_Dpi_1d = mod->Dpi_1d;
 
     // update sum of rates every 1e5 rounds
     // many rates are updated each time, rather than re-calculated. 
@@ -247,7 +247,7 @@ static uint8_t single_test(model_t* restrict mod, char* message) {
         single_test_free(&world, &nb_indices, &patch_rates,  &sum_rates_by_row);
         return SIM_OVERFLOW;
     } else if (time == -1 * ACCURACY_ERROR) {
-            fprintf(stdout, "\nError: accuracy too low at t = 0, simulation stopped\n");
+            fprintf(stdout, "\nError: accuracy too low at time 0, simulation stopped\n");
             fflush(stdout);
             single_test_free(&world, &nb_indices, &patch_rates,  &sum_rates_by_row);
             return ACCURACY_ERROR;
@@ -283,17 +283,17 @@ static uint8_t single_test(model_t* restrict mod, char* message) {
             // update sum
             update_sum_freq = UPDATE_SUM_ROUNDS_LG;  // assume can make it larger
             for (size_t ij = 0; ij < NM; ij++) {
-                double sum_U_weight = 0;
-                double sum_V_weight = 0;
+                double sum_H_weight = 0;
+                double sum_D_weight = 0;
                 for (size_t k = 0; k < 4; k++) {
-                    sum_U_weight += world[ij].U_weight[k];
-                    sum_V_weight += world[ij].V_weight[k];
+                    sum_H_weight += world[ij].H_weight[k];
+                    sum_D_weight += world[ij].D_weight[k];
                 }
-                if (sum_U_weight > ACCURATE_BOUND || sum_V_weight > ACCURATE_BOUND) {
+                if (sum_H_weight > ACCURATE_BOUND || sum_D_weight > ACCURATE_BOUND) {
                     update_sum_freq = UPDATE_SUM_ROUNDS_SM;  // values too large, put back the small update frequency
                 }
-                world[ij].sum_U_weight = sum_U_weight;
-                world[ij].sum_V_weight = sum_V_weight;
+                world[ij].sum_H_weight = sum_H_weight;
+                world[ij].sum_D_weight = sum_D_weight;
                 // patch_rates are updated every time a patch is changed
             }
             size_t ij_out = 0;
@@ -342,7 +342,7 @@ static uint8_t single_test(model_t* restrict mod, char* message) {
             if (update_mig_weight_rate(&world[sij1], rela_loc) == SIM_OVERFLOW || 
                 update_mig_weight_rate(&world[sij2], rela_loc ^ 1) == SIM_OVERFLOW) {
 
-                fprintf(stdout, "\nError: overflow at t = %f\n", time);
+                fprintf(stdout, "\nError: overflow at time %f\n", time);
                 fflush(stdout);
                 single_test_free(&world, &nb_indices, &patch_rates,  &sum_rates_by_row);
                 return SIM_OVERFLOW;
@@ -439,10 +439,10 @@ static uint8_t single_test(model_t* restrict mod, char* message) {
                 for (size_t ij = 0; ij < NM; ij++) {
                     size_t ij_max_record = ij * max_record;
                     for (size_t k = record_index; k < upper; k++) {
-                        mod_U1d[ij_max_record + k] += world[ij].U;
-                        mod_V1d[ij_max_record + k] += world[ij].V;
-                        mod_Upi_1d[ij_max_record + k] += world[ij].U_pi;
-                        mod_Vpi_1d[ij_max_record + k] += world[ij].V_pi;
+                        mod_U1d[ij_max_record + k] += world[ij].U_ph;
+                        mod_V1d[ij_max_record + k] += world[ij].V_ph;
+                        mod_Hpi_1d[ij_max_record + k] += world[ij].Hpi_ph;
+                        mod_Dpi_1d[ij_max_record + k] += world[ij].Dpi_ph;
                     }
                 }
                 record_index += multi_records;
@@ -453,10 +453,10 @@ static uint8_t single_test(model_t* restrict mod, char* message) {
             for (size_t ij = 0; ij < NM; ij++) {
                 size_t ij_max_record = ij * max_record;
                 for (size_t k = record_index; k < max_record; k++) {
-                    mod_U1d[ij_max_record + k] += world[ij].U;
-                    mod_V1d[ij_max_record + k] += world[ij].V;
-                    mod_Upi_1d[ij_max_record + k] += world[ij].U_pi;
-                    mod_Vpi_1d[ij_max_record + k] += world[ij].V_pi;
+                    mod_U1d[ij_max_record + k] += world[ij].U_ph;
+                    mod_V1d[ij_max_record + k] += world[ij].V_ph;
+                    mod_Hpi_1d[ij_max_record + k] += world[ij].Hpi_ph;
+                    mod_Dpi_1d[ij_max_record + k] += world[ij].Dpi_ph;
                 }
             }
         }

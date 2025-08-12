@@ -52,13 +52,15 @@ class StreamWorker:
         if consumer_group_suffix:
             consumer_group_id += f"-{consumer_group_suffix}"
 
+        custom_request_service_id = self.inference_pipeline_id if (self.inference_pipeline_id and self.inference_pipeline_id != "000000000000000000000000") else deployment_id 
+        
         self.kafka_deployment = MatriceKafkaDeployment(
             session,
             deployment_id,
             "server",
             consumer_group_id,
             f"{deployment_instance_id}-{worker_id}",
-            custom_request_service_id=self.inference_pipeline_id or deployment_id
+            custom_request_service_id=custom_request_service_id
         )
 
         # Worker state

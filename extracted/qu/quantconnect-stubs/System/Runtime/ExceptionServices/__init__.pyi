@@ -6,10 +6,32 @@ import System
 import System.Runtime.ExceptionServices
 
 
-class HandleProcessCorruptedStateExceptionsAttribute(System.Attribute):
-    """Obsoletions.CorruptedStateRecoveryMessage"""
+class FirstChanceExceptionEventArgs(System.EventArgs):
+    """This class has no documentation."""
 
-    def __init__(self) -> None:
+    @property
+    def exception(self) -> System.Exception:
+        ...
+
+    def __init__(self, exception: System.Exception) -> None:
+        ...
+
+
+class ExceptionHandling(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def raise_app_domain_unhandled_exception_event(exception: typing.Any) -> None:
+        """
+        Raises the AppDomain.UnhandledException event.
+        
+        :param exception: Exception to pass to event handlers.
+        """
+        ...
+
+    @staticmethod
+    def set_unhandled_exception_handler(handler: typing.Callable[[System.Exception], bool]) -> None:
+        """Sets a handler for unhandled exceptions."""
         ...
 
 
@@ -55,32 +77,10 @@ class ExceptionDispatchInfo(System.Object):
         ...
 
 
-class FirstChanceExceptionEventArgs(System.EventArgs):
-    """This class has no documentation."""
+class HandleProcessCorruptedStateExceptionsAttribute(System.Attribute):
+    """Obsoletions.CorruptedStateRecoveryMessage"""
 
-    @property
-    def exception(self) -> System.Exception:
-        ...
-
-    def __init__(self, exception: System.Exception) -> None:
-        ...
-
-
-class ExceptionHandling(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def raise_app_domain_unhandled_exception_event(exception: typing.Any) -> None:
-        """
-        Raises the AppDomain.UnhandledException event.
-        
-        :param exception: Exception to pass to event handlers.
-        """
-        ...
-
-    @staticmethod
-    def set_unhandled_exception_handler(handler: typing.Callable[[System.Exception], bool]) -> None:
-        """Sets a handler for unhandled exceptions."""
+    def __init__(self) -> None:
         ...
 
 

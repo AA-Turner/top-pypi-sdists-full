@@ -1875,7 +1875,9 @@ class Runs(Authenticated):
                             "metadata": merged_metadata,
                         },
                     ),
-                    "context": configurable,
+                    "context": Runs._merge_jsonb(
+                        assistant.get("context", {}), kwargs.get("context", {})
+                    ),
                 },
             ),
             multitask_strategy=multitask_strategy,

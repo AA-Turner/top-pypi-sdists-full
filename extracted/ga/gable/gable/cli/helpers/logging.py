@@ -1,9 +1,24 @@
-from importlib import metadata
 import sys
 import time
+from importlib import metadata
+from typing import Literal
 
 import click
 from loguru import logger
+
+# Used to track what the current log level is so it can be accessed in plugin code
+# We need to track separately as there's no way to access the level from the loguru
+# public API https://github.com/Delgan/loguru/issues/774#issuecomment-1373652135
+CURRENT_LOG_LEVEL: Literal["INFO", "DEBUG", "TRACE"] = "INFO"
+
+
+def get_winston_log_level() -> Literal["info", "verbose", "debug"]:
+    """Maps loguru log levels to their equivalent Winston levels"""
+    if CURRENT_LOG_LEVEL == "INFO":
+        return "info"
+    elif CURRENT_LOG_LEVEL == "DEBUG":
+        return "verbose"
+    return "debug"
 
 
 def configure_default_click_logging():
@@ -17,6 +32,8 @@ def configure_default_click_logging():
 
     # Remove the default loguru sink
     logger.remove()
+    global CURRENT_LOG_LEVEL
+    CURRENT_LOG_LEVEL = "INFO"
     # Add a new sink for click.echo() to use
     logger.add(
         click_echo_sink,
@@ -41,6 +58,8 @@ def configure_debug_logger(ctx, param, value):
 
     if value:
         # Add the new sink with level set to DEBUG
+        global CURRENT_LOG_LEVEL
+        CURRENT_LOG_LEVEL = "DEBUG"
         logger.add(
             sys.stderr,
             level="DEBUG",
@@ -67,6 +86,8 @@ def configure_trace_logger(ctx, param, value):
 
     if value:
         # Add the new sink with level set to DEBUG
+        global CURRENT_LOG_LEVEL
+        CURRENT_LOG_LEVEL = "TRACE"
         logger.add(
             sys.stderr,
             level="TRACE",

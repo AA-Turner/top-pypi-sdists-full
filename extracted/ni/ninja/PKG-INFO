@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ninja
-Version: 1.11.1.4
+Version: 1.13.0
 Summary: Ninja is a small build system with a focus on speed
 Keywords: build,c++,cross-compilation,cross-platform,fortran,ninja
 Author-Email: Jean-Christophe Fillion-Robin <scikit-build@googlegroups.com>, Henry Schreiner <henryfs@princeton.edu>
@@ -21,7 +21,7 @@ Project-URL: Download, https://github.com/ninja-build/ninja/releases
 Project-URL: Homepage, http://ninja-build.org/
 Project-URL: Mailing list, https://groups.google.com/forum/#!forum/scikit-build
 Project-URL: Source Code, https://github.com/scikit-build/ninja-python-distributions
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 
 ==========================
@@ -30,7 +30,7 @@ Ninja Python Distributions
 
 `Ninja <http://www.ninja-build.org>`_ is a small build system with a focus on speed.
 
-The latest Ninja python wheels provide `ninja 1.11.1.g95dee.kitware.jobserver-1 <https://ninja-build.org/manual.html>`_ executable
+The latest Ninja python wheels provide `ninja 1.13.0.gd74ef.kitware.jobserver-pipe-1 <https://ninja-build.org/manual.html>`_ executable
 and `ninja_syntax.py` for generating `.ninja` files.
 
 .. image:: https://raw.githubusercontent.com/scikit-build/ninja-python-distributions/master/ninja-python-distributions-logo.png
@@ -78,6 +78,7 @@ Python Version Support
 ----------------------
 
 Versions after 1.11.1.1 no longer support Python 2-3.6, and require manylinux2010+ on linux.
+Versions after 1.13 no longer support Python 3.7, and require manylinux2014+/musllinux_1_2+ on linux.
 
 License
 -------

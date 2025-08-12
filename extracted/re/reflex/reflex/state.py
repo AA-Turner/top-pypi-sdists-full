@@ -60,6 +60,7 @@ from reflex.utils.exceptions import (
 )
 from reflex.utils.exceptions import ImmutableStateError as ImmutableStateError
 from reflex.utils.exec import is_testing_env
+from reflex.utils.monitoring import is_pyleak_enabled, monitor_loopblocks
 from reflex.utils.types import _isinstance, is_union, value_inside_optional
 from reflex.vars import Field, VarData, field
 from reflex.vars.base import (
@@ -508,7 +509,7 @@ class BaseState(EvenMoreBasicBaseState):
 
         new_backend_vars = {
             name: value
-            for name, value in cls.__dict__.items()
+            for name, value in list(cls.__dict__.items())
             if types.is_backend_base_variable(name, cls)
         }
         # Add annotated backend vars that may not have a default value.
@@ -1784,7 +1785,11 @@ class BaseState(EvenMoreBasicBaseState):
         from reflex.utils import telemetry
 
         # Get the function to process the event.
-        fn = functools.partial(handler.fn, state)
+        if is_pyleak_enabled():
+            console.debug(f"Monitoring leaks for handler: {handler.fn.__qualname__}")
+            fn = functools.partial(monitor_loopblocks(handler.fn), state)
+        else:
+            fn = functools.partial(handler.fn, state)
 
         try:
             type_hints = typing.get_type_hints(handler.fn)
@@ -2463,16 +2468,30 @@ class OnLoadInternalState(State):
     This is a separate substate to avoid deserializing the entire state tree for every page navigation.
     """
 
+    # Cannot properly annotate this as `App` due to circular import issues.
+    _app_ref: ClassVar[Any] = None
+
     def on_load_internal(self) -> list[Event | EventSpec | event.EventCallback] | None:
         """Queue on_load handlers for the current page.
 
         Returns:
             The list of events to queue for on load handling.
+
+        Raises:
+            TypeError: If the app reference is not of type App.
         """
-        # Do not app._compile()!  It should be already compiled by now.
-        load_events = prerequisites.get_and_validate_app().app.get_load_events(
-            self.router._page.path
-        )
+        from reflex.app import App
+
+        app = type(self)._app_ref or prerequisites.get_and_validate_app().app
+        if not isinstance(app, App):
+            msg = (
+                f"Expected app to be of type {App.__name__}, got {type(app).__name__}."
+            )
+            raise TypeError(msg)
+        # Cache the app reference for subsequent calls.
+        if type(self)._app_ref is None:
+            type(self)._app_ref = app
+        load_events = app.get_load_events(self.router._page.path)
         if not load_events:
             self.is_hydrated = True
             return None  # Fast path for navigation with no on_load events defined.
@@ -2646,6 +2665,9 @@ def reload_state_module(
         state: Recursive argument for the state class to reload.
 
     """
+    # Reset the _app_ref of OnLoadInternalState to avoid stale references.
+    if state is OnLoadInternalState:
+        state._app_ref = None
     # Clean out all potentially dirty states of reloaded modules.
     for pd_state in tuple(state._potentially_dirty_states):
         with contextlib.suppress(ValueError):

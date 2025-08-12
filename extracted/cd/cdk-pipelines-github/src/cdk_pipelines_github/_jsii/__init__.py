@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "cdk-pipelines-github",
-    "0.4.130",
+    "0.4.131",
     __name__[0:-6],
-    "cdk-pipelines-github@0.4.130.jsii.tgz",
+    "cdk-pipelines-github@0.4.131.jsii.tgz",
 )
 
 __all__ = [

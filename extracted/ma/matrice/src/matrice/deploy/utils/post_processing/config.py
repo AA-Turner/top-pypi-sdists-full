@@ -1,6 +1,7 @@
 APP_NAME_TO_USECASE = {
     "people_counting": "people_counting",
     "intrusion_detection": "intrusion_detection",
+    "proximity_detection": "proximity_detection",
     "mask_detection": "mask_detection",
     "pipeline_detection": "pipeline_detection",
     "vehicle_monitoring": "vehicle_monitoring",
@@ -46,7 +47,7 @@ APP_NAME_TO_USECASE = {
     "waterbody_segmentation": "waterbody_segmentation",
     "litter_detection" : "litter_detection",
     "leak_detection": "leak_detection",
-    "fire_smoke_detection": "fire_smoke_detection",
+    "Fire Safety Monitoring": "fire_smoke_detection",
     "human_activity_recognition": "human_activity_recognition",
     "abandoned_object_detection" : "abandoned_object_detection",
     "gas_leak_detection": "gas_leak_detection",
@@ -55,6 +56,7 @@ APP_NAME_TO_USECASE = {
 APP_NAME_TO_CATEGORY = {
     "people_counting": "general",
     "intrusion_detection": "security",
+    "proximity_detection": "security",
     "mask_detection": "mask_detection",
     "pipeline_detection": "pipeline_detection",
     "vehicle_monitoring": "traffic",
@@ -100,7 +102,7 @@ APP_NAME_TO_CATEGORY = {
     "waterbody_segmentation": "agriculture",
     "litter_detection" : "litter_detection",
     "leak_detection": "oil_gas",
-    "fire_smoke_detection": "hazard",
+    "Fire Safety Monitoring": "hazard",
     "human_activity_recognition": "general",
     "abandoned_object_detection" : "security",
     "gas_leak_detection": "oil_gas",

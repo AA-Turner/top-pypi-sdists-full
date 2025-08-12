@@ -8,49 +8,37 @@ import System.Runtime.Versioning
 System_Runtime_Versioning_FrameworkName = typing.Any
 
 
-class ResourceScope(Enum):
+class ComponentGuaranteesOptions(Enum):
     """This class has no documentation."""
 
     NONE = 0
 
-    MACHINE = ...
+    EXCHANGE = ...
 
-    PROCESS = ...
+    STABLE = ...
 
-    APP_DOMAIN = ...
-
-    LIBRARY = ...
-
-    PRIVATE = ...
-
-    ASSEMBLY = ...
+    SIDE_BY_SIDE = ...
 
     def __int__(self) -> int:
         ...
 
 
-class VersioningHelper(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    @overload
-    def make_version_safe_name(name: str, _from: System.Runtime.Versioning.ResourceScope, to: System.Runtime.Versioning.ResourceScope) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def make_version_safe_name(name: str, _from: System.Runtime.Versioning.ResourceScope, to: System.Runtime.Versioning.ResourceScope, type: typing.Type) -> str:
-        ...
-
-
-class ResourceExposureAttribute(System.Attribute):
-    """This class has no documentation."""
+class TargetFrameworkAttribute(System.Attribute):
+    """Identifies the version of .NET that a particular assembly was compiled against."""
 
     @property
-    def resource_exposure_level(self) -> System.Runtime.Versioning.ResourceScope:
+    def framework_name(self) -> str:
         ...
 
-    def __init__(self, exposure_level: System.Runtime.Versioning.ResourceScope) -> None:
+    @property
+    def framework_display_name(self) -> str:
+        ...
+
+    @framework_display_name.setter
+    def framework_display_name(self, value: str) -> None:
+        ...
+
+    def __init__(self, framework_name: str) -> None:
         ...
 
 
@@ -106,29 +94,24 @@ class FrameworkName(System.Object, System.IEquatable[System_Runtime_Versioning_F
         ...
 
 
-class ComponentGuaranteesOptions(Enum):
+class ResourceScope(Enum):
     """This class has no documentation."""
 
     NONE = 0
 
-    EXCHANGE = ...
+    MACHINE = ...
 
-    STABLE = ...
+    PROCESS = ...
 
-    SIDE_BY_SIDE = ...
+    APP_DOMAIN = ...
+
+    LIBRARY = ...
+
+    PRIVATE = ...
+
+    ASSEMBLY = ...
 
     def __int__(self) -> int:
-        ...
-
-
-class ComponentGuaranteesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def guarantees(self) -> System.Runtime.Versioning.ComponentGuaranteesOptions:
-        ...
-
-    def __init__(self, guarantees: System.Runtime.Versioning.ComponentGuaranteesOptions) -> None:
         ...
 
 
@@ -152,22 +135,39 @@ class ResourceConsumptionAttribute(System.Attribute):
         ...
 
 
-class TargetFrameworkAttribute(System.Attribute):
-    """Identifies the version of .NET that a particular assembly was compiled against."""
+class VersioningHelper(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    @overload
+    def make_version_safe_name(name: str, _from: System.Runtime.Versioning.ResourceScope, to: System.Runtime.Versioning.ResourceScope) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def make_version_safe_name(name: str, _from: System.Runtime.Versioning.ResourceScope, to: System.Runtime.Versioning.ResourceScope, type: typing.Type) -> str:
+        ...
+
+
+class ComponentGuaranteesAttribute(System.Attribute):
+    """This class has no documentation."""
 
     @property
-    def framework_name(self) -> str:
+    def guarantees(self) -> System.Runtime.Versioning.ComponentGuaranteesOptions:
         ...
+
+    def __init__(self, guarantees: System.Runtime.Versioning.ComponentGuaranteesOptions) -> None:
+        ...
+
+
+class ResourceExposureAttribute(System.Attribute):
+    """This class has no documentation."""
 
     @property
-    def framework_display_name(self) -> str:
+    def resource_exposure_level(self) -> System.Runtime.Versioning.ResourceScope:
         ...
 
-    @framework_display_name.setter
-    def framework_display_name(self, value: str) -> None:
-        ...
-
-    def __init__(self, framework_name: str) -> None:
+    def __init__(self, exposure_level: System.Runtime.Versioning.ResourceScope) -> None:
         ...
 
 

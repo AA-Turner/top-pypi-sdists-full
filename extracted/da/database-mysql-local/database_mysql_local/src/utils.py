@@ -323,10 +323,11 @@ def add_env_to_suffix(name: Optional[str]) -> Optional[str]:
     return name
 
 
-
 def generate_id_column_name(table_name: Optional[str]) -> Optional[str]:
     if table_name:
+        # TODO Why play1_ with _ and dvlp1 without _?
         if "_play1_" in table_name or "_dvlp1" in table_name:
+            # TODO Why we have environment_name in the table_name in the first place? We should not add the environment_name to the table_name
             table_name = table_name.replace(f"_{get_environment_name()}_", "_")
         column_name = table_name.replace("_table", "_id")
         return column_name

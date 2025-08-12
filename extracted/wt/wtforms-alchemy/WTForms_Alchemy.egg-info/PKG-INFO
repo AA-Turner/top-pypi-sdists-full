@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: WTForms-Alchemy
-Version: 0.19.0
+Version: 0.19.1
 Summary: Generates WTForms forms from SQLAlchemy models.
 Home-page: https://github.com/kvesteri/wtforms-alchemy
 Author: Konsta Vesterinen
@@ -56,9 +56,18 @@ Provides-Extra: color
 Requires-Dist: colour>=0.0.4; extra == "color"
 Provides-Extra: i18n
 Requires-Dist: SQLAlchemy-i18n>=0.8.2; extra == "i18n"
-Provides-Extra: ipaddress
 Provides-Extra: timezone
 Requires-Dist: python-dateutil; extra == "timezone"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 
 WTForms-Alchemy

@@ -724,6 +724,8 @@ class Freezer:
                 # otherwise, write to the zip file
                 elif module.code is not None:
                     zip_time = time.localtime(mtime)[:6]
+                    if zip_time[0] < 1980:
+                        zip_time = (1980, 1, 1, 0, 0, 0)
                     target_name = "/".join(mod_name_parts)
                     if module.path:
                         target_name += "/__init__"
@@ -784,12 +786,11 @@ class Freezer:
         finder: ModuleFinder = self.finder
 
         # Add the executables to target
-        for i, executable in enumerate(self.executables):
+        executables = []
+        for executable in self.executables:
             self._freeze_executable(executable)
-            finder.add_constant(
-                f"_EXECUTABLE_NAME_{i}", executable.target_name
-            )
-        finder.add_constant("_EXECUTABLES_NUMBER", len(self.executables))
+            executables.append(executable.target_name)
+        finder.add_constant("__EXECUTABLES__", os.pathsep.join(executables))
 
         # Write the modules
         self._write_modules()

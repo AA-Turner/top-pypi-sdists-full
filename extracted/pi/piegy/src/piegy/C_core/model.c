@@ -13,7 +13,7 @@
 
 bool mod_init(model_t* mod, size_t N, size_t M,
                 double maxtime, double record_itv, size_t sim_time, bool boundary,
-                const uint32_t* I, const double* X, const double* P,
+                const uint32_t* init_popu, const double* matrices, const double* patch_params,
                 int32_t print_pct, int32_t seed) {
 
     mod->N = N;
@@ -28,15 +28,15 @@ bool mod_init(model_t* mod, size_t N, size_t M,
     size_t NM = N * M;
 
     // I, X, P
-    mod->I = (uint32_t*) malloc(sizeof(uint32_t) * NM * 2);
-    mod->X = (double*) malloc(sizeof(double) * NM * 4);
-    mod->P = (double*) malloc(sizeof(double) * NM * 6);
+    mod->init_popu = (uint32_t*) malloc(sizeof(uint32_t) * NM * 2);
+    mod->matrices = (double*) malloc(sizeof(double) * NM * 4);
+    mod->patch_params = (double*) malloc(sizeof(double) * NM * 6);
 
-    if (!mod->I || !mod->X || !mod->P) return false;
+    if (!mod->init_popu || !mod->matrices || !mod->patch_params) return false;
 
-    memcpy(mod->I, I, sizeof(uint32_t) * NM * 2);
-    memcpy(mod->X, X, sizeof(double) * NM * 4);
-    memcpy(mod->P, P, sizeof(double) * NM * 6);
+    memcpy(mod->init_popu, init_popu, sizeof(uint32_t) * NM * 2);
+    memcpy(mod->matrices, matrices, sizeof(double) * NM * 4);
+    memcpy(mod->patch_params, patch_params, sizeof(double) * NM * 6);
 
     // Data
     mod->data_empty = true;
@@ -46,10 +46,10 @@ bool mod_init(model_t* mod, size_t N, size_t M,
 
     mod->U1d     = (double*) calloc(mod->arr_size, sizeof(double));
     mod->V1d     = (double*) calloc(mod->arr_size, sizeof(double));
-    mod->Upi_1d  = (double*) calloc(mod->arr_size, sizeof(double));
-    mod->Vpi_1d  = (double*) calloc(mod->arr_size, sizeof(double));
+    mod->Hpi_1d  = (double*) calloc(mod->arr_size, sizeof(double));
+    mod->Dpi_1d  = (double*) calloc(mod->arr_size, sizeof(double));
 
-    if (!mod->U1d || !mod->V1d || !mod->Upi_1d || !mod->Vpi_1d) {
+    if (!mod->U1d || !mod->V1d || !mod->Hpi_1d || !mod->Dpi_1d) {
         fprintf(stdout, "Error: allocating memory in mod_init.\n");
         fflush(stdout);
         exit(EXIT_FAILURE);
@@ -63,15 +63,15 @@ bool mod_init(model_t* mod, size_t N, size_t M,
 void mod_free(model_t* mod) {
     if (!mod) return;
 
-    free(mod->I);
-    free(mod->X);
-    free(mod->P);
+    free(mod->init_popu);
+    free(mod->matrices);
+    free(mod->patch_params);
     free(mod->U1d);
     free(mod->V1d);
-    free(mod->Upi_1d);
-    free(mod->Vpi_1d);
-    mod->I = NULL;
-    mod->X = mod->P = mod->U1d = mod->V1d = mod->Upi_1d = mod->Vpi_1d = NULL;
+    free(mod->Hpi_1d);
+    free(mod->Dpi_1d);
+    mod->init_popu = NULL;
+    mod->matrices = mod->patch_params = mod->U1d = mod->V1d = mod->Hpi_1d = mod->Dpi_1d = NULL;
 
     free(mod);
 }
@@ -82,15 +82,15 @@ void mod_free_py(model_t* mod) {
     // the same as mod_free except for not having free(mod)
     if (!mod) return;
 
-    free(mod->I);
-    free(mod->X);
-    free(mod->P);
+    free(mod->init_popu);
+    free(mod->matrices);
+    free(mod->patch_params);
     free(mod->U1d);
     free(mod->V1d);
-    free(mod->Upi_1d);
-    free(mod->Vpi_1d);
-    mod->I = NULL;
-    mod->X = mod->P = mod->U1d = mod->V1d = mod->Upi_1d = mod->Vpi_1d = NULL;
+    free(mod->Hpi_1d);
+    free(mod->Dpi_1d);
+    mod->init_popu = NULL;
+    mod->matrices = mod->patch_params = mod->U1d = mod->V1d = mod->Hpi_1d = mod->Dpi_1d = NULL;
 }
 
 
@@ -100,8 +100,8 @@ void calculate_ave(model_t* mod) {
     for (size_t i = 0; i < mod->arr_size; i++) {
         mod->U1d[i]    /= mod->sim_time;
         mod->V1d[i]    /= mod->sim_time;
-        mod->Upi_1d[i] /= mod->sim_time;
-        mod->Vpi_1d[i] /= mod->sim_time;
+        mod->Hpi_1d[i] /= mod->sim_time;
+        mod->Dpi_1d[i] /= mod->sim_time;
     }
 }
 

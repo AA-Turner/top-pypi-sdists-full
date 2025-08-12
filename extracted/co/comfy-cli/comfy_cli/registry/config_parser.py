@@ -45,6 +45,11 @@ def create_comfynode_config():
     comfy["Icon"] = ""
     comfy["includes"] = tomlkit.array()
 
+    # Add uncommentable hint for ComfyUI version compatibility, below of "[tool.comfy].includes" field.
+    comfy["includes"].comment("""
+# "requires-comfyui" = ">=1.0.0"  # ComfyUI version compatibility
+""")
+
     tool.add("comfy", comfy)
     document.add("tool", tool)
 
@@ -60,7 +65,7 @@ def create_comfynode_config():
     try:
         with open("pyproject.toml", "w") as toml_file:
             toml_file.write(tomlkit.dumps(document))
-    except IOError as e:
+    except OSError as e:
         raise Exception("Failed to write 'pyproject.toml'") from e
 
 
@@ -161,7 +166,7 @@ def validate_version(version: str, field_name: str) -> str:
 def initialize_project_config():
     create_comfynode_config()
 
-    with open("pyproject.toml", "r") as file:
+    with open("pyproject.toml") as file:
         document = tomlkit.parse(file.read())
 
     # Get the current git remote URL
@@ -181,6 +186,9 @@ def initialize_project_config():
     project = document.get("project", tomlkit.table())
     urls = project.get("urls", tomlkit.table())
     urls["Repository"] = git_remote_url
+    urls["Documentation"] = git_remote_url + "/wiki"
+    urls["Bug Tracker"] = git_remote_url + "/issues"
+
     project["urls"] = urls
     project["name"] = sanitize_node_name(repo_name)
     project["description"] = ""
@@ -191,6 +199,36 @@ def initialize_project_config():
     license_table["file"] = "LICENSE"
     project["license"] = license_table
 
+    # [project].classifiers Classifiers uncommentable hint for OS/GPU support
+    # Attach classifiers comments to the project, below of "license" field.
+    # will generate a comment like this:
+    #
+    # [project]
+    # ...
+    # license = {file = "LICENSE"}
+    # # classifiers = [
+    # #     # For OS-independent nodes (works on all operating systems)
+    # ...
+
+    project["license"].comment("""
+# classifiers = [
+#     # For OS-independent nodes (works on all operating systems)
+#     "Operating System :: OS Independent",
+#
+#     # OR for OS-specific nodes, specify the supported systems:
+#     "Operating System :: Microsoft :: Windows",  # Windows specific
+#     "Operating System :: POSIX :: Linux",  # Linux specific
+#     "Operating System :: MacOS",  # macOS specific
+#
+#     # GPU Accelerator support. Pick the ones that are supported by your extension.
+#     "Environment :: GPU :: NVIDIA CUDA",    # NVIDIA CUDA support
+#     "Environment :: GPU :: AMD ROCm",       # AMD ROCm support
+#     "Environment :: GPU :: Intel Arc",      # Intel Arc support
+#     "Environment :: NPU :: Huawei Ascend",  # Huawei Ascend support
+#     "Environment :: GPU :: Apple Metal",    # Apple Metal support
+# ]
+""")
+
     tool = document.get("tool", tomlkit.table())
     comfy = tool.get("comfy", tomlkit.table())
     comfy["DisplayName"] = repo_name
@@ -199,7 +237,7 @@ def initialize_project_config():
 
     # Handle dependencies
     if os.path.exists("requirements.txt"):
-        with open("requirements.txt", "r") as req_file:
+        with open("requirements.txt") as req_file:
             dependencies = [line.strip() for line in req_file if line.strip()]
         project["dependencies"] = dependencies
     else:
@@ -210,8 +248,8 @@ def initialize_project_config():
         with open("pyproject.toml", "w") as toml_file:
             toml_file.write(tomlkit.dumps(document))
         print("pyproject.toml has been created successfully in the current directory.")
-    except IOError as e:
-        raise IOError("Failed to write 'pyproject.toml'") from e
+    except OSError as e:
+        raise OSError("Failed to write 'pyproject.toml'") from e
 
 
 def extract_node_configuration(
@@ -221,7 +259,7 @@ def extract_node_configuration(
         ui.display_error_message("No pyproject.toml file found in the current directory.")
         return None
 
-    with open(path, "r") as file:
+    with open(path) as file:
         data = tomlkit.load(file)
 
     project_data = data.get("project", {})
@@ -295,6 +333,8 @@ def extract_node_configuration(
         icon=comfy_data.get("Icon", ""),
         models=[Model(location=m["location"], model_url=m["model_url"]) for m in comfy_data.get("Models", [])],
         includes=comfy_data.get("includes", []),
+        banner_url=comfy_data.get("Banner", ""),
+        web=comfy_data.get("web", ""),
     )
 
     return PyProjectConfig(project=project, tool_comfy=comfy)

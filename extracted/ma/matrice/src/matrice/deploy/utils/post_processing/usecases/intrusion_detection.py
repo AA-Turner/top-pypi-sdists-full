@@ -422,13 +422,10 @@ class IntrusionUseCase(BaseProcessor):
                         self._ascending_alert_list.append(0)
 
                     human_text_lines.append(f"\t\t- Zone name: {zone_name}")
-                    if zone_name == "Boarding Entrance":
-                        human_text_lines.append(f"\t\t\t- Total count in Prohibited Boarding Gate: {zone_total}")
-                    elif zone_name == "Boarding Booth":
-                        human_text_lines.append(f"\t\t\t- Total count in Prohibited Boarding Booth: {zone_total}")
+                    human_text_lines.append(f"\t\t\t- Total count in Prohibited Boarding Gate: {zone_total-1}")
                     # Main people counting incident
                     human_text = "\n".join(human_text_lines)
-                    event= self.create_incident(incident_id=self.CASE_TYPE+'_'+'zone_'+zone_name+str(frame_id), incident_type=self.CASE_TYPE,
+                    event = self.create_incident(incident_id=self.CASE_TYPE+'_'+'zone_'+zone_name+str(frame_id), incident_type=self.CASE_TYPE,
                             severity_level=zone_level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
                             start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
                             level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
@@ -557,17 +554,14 @@ class IntrusionUseCase(BaseProcessor):
                     return zone_count
                 else:
                     return 0
-            human_text_lines.append(f"\t- Total count in Prohibited Boarding Area: {total_people}")
+            human_text_lines.append(f"\t- Person detected in Prohibited Boarding Gate: {total_people}")
             human_text_lines.append("")
             human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
                 
             for zone_name, zone_count in zone_analysis.items():
                 zone_total = robust_zone_total(zone_count)
                 human_text_lines.append(f"\t- Zone name: {zone_name}")
-                if zone_name == "Boarding Entrance":
-                    human_text_lines.append(f"\t\t\t- Total count in Prohibited Boarding Gate: {zone_total}")
-                elif zone_name == "Boarding Booth":
-                    human_text_lines.append(f"\t\t\t- Total count in Prohibited Boarding Booth: {zone_total}")
+                human_text_lines.append(f"\t\t\t- Total person detected in Prohibited Boarding Gate: {zone_total-1}")
                         # human_text_lines.append(f"\t\t- Total count in Prohibited Boarding Gate: {zone_total-1}")
 
                 
@@ -1491,7 +1485,7 @@ class IntrusionUseCase(BaseProcessor):
                 "person_categories": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "default": ["person", "people", "human"],
+                    "default": ["person"],
                     "description": "Category names that represent people"
                 },
                 "enable_unique_counting": {
@@ -1553,7 +1547,7 @@ class IntrusionUseCase(BaseProcessor):
             "enable_analytics": True,
             "enable_unique_counting": True,
             "time_window_minutes": 60,
-            "person_categories": ["person", "people", "human"],
+            "person_categories": ["person"],
         }
         defaults.update(overrides)
         return IntrusionConfig(**defaults)

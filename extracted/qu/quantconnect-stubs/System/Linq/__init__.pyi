@@ -7,13 +7,13 @@ import System
 import System.Collections.Generic
 import System.Linq
 
-System_Linq_IOrderedEnumerable_TElement = typing.TypeVar("System_Linq_IOrderedEnumerable_TElement")
-System_Linq_IGrouping_TKey = typing.TypeVar("System_Linq_IGrouping_TKey")
-System_Linq_IGrouping_TElement = typing.TypeVar("System_Linq_IGrouping_TElement")
 System_Linq_ILookup_TKey = typing.TypeVar("System_Linq_ILookup_TKey")
 System_Linq_ILookup_TElement = typing.TypeVar("System_Linq_ILookup_TElement")
 System_Linq_Lookup_TKey = typing.TypeVar("System_Linq_Lookup_TKey")
 System_Linq_Lookup_TElement = typing.TypeVar("System_Linq_Lookup_TElement")
+System_Linq_IOrderedEnumerable_TElement = typing.TypeVar("System_Linq_IOrderedEnumerable_TElement")
+System_Linq_IGrouping_TKey = typing.TypeVar("System_Linq_IGrouping_TKey")
+System_Linq_IGrouping_TElement = typing.TypeVar("System_Linq_IGrouping_TElement")
 
 
 class ImmutableArrayExtensions(System.Object):
@@ -108,19 +108,6 @@ class Enumerable(System.Object):
         ...
 
 
-class IOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_TElement], System.Collections.Generic.IEnumerable[System_Linq_IOrderedEnumerable_TElement], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IGrouping(typing.Generic[System_Linq_IGrouping_TKey, System_Linq_IGrouping_TElement], System.Collections.Generic.IEnumerable[System_Linq_IGrouping_TElement], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def key(self) -> System_Linq_IGrouping_TKey:
-        ...
-
-
 class ILookup(typing.Generic[System_Linq_ILookup_TKey, System_Linq_ILookup_TElement], System.Collections.Generic.IEnumerable[System.Linq.IGrouping[System_Linq_ILookup_TKey, System_Linq_ILookup_TElement]], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -153,6 +140,19 @@ class Lookup(typing.Generic[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System.Linq.IGrouping[System_Linq_Lookup_TKey, System_Linq_Lookup_TElement]]:
+        ...
+
+
+class IOrderedEnumerable(typing.Generic[System_Linq_IOrderedEnumerable_TElement], System.Collections.Generic.IEnumerable[System_Linq_IOrderedEnumerable_TElement], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IGrouping(typing.Generic[System_Linq_IGrouping_TKey, System_Linq_IGrouping_TElement], System.Collections.Generic.IEnumerable[System_Linq_IGrouping_TElement], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def key(self) -> System_Linq_IGrouping_TKey:
         ...
 
 

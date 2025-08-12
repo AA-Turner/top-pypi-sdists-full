@@ -14,60 +14,77 @@ System_IO_Enumeration_FileSystemEnumerable_TResult = typing.TypeVar("System_IO_E
 
 
 class FileSystemEntry:
-    """Lower level view of FileSystemInfo used for processing and filtering find results."""
-
-    @property
-    def file_name(self) -> System.ReadOnlySpan[str]:
-        ...
+    """Provides a lower level view of FileSystemInfo to help process and filter find results."""
 
     @property
     def directory(self) -> System.ReadOnlySpan[str]:
-        """The full path of the directory this entry resides in."""
+        """Gets the full path of the directory this entry resides in."""
         ...
 
     @property
     def root_directory(self) -> System.ReadOnlySpan[str]:
-        """The full path of the root directory used for the enumeration."""
+        """Gets the full path of the root directory used for the enumeration."""
         ...
 
     @property
     def original_root_directory(self) -> System.ReadOnlySpan[str]:
-        """The root directory for the enumeration as specified in the constructor."""
+        """Gets the root directory for the enumeration as specified in the constructor."""
+        ...
+
+    @property
+    def file_name(self) -> System.ReadOnlySpan[str]:
+        """Gets the file name for this entry."""
         ...
 
     @property
     def attributes(self) -> System.IO.FileAttributes:
+        """Gets the attributes for this entry."""
         ...
 
     @property
     def length(self) -> int:
+        """Gets the length of the file, in bytes."""
         ...
 
     @property
     def creation_time_utc(self) -> System.DateTimeOffset:
+        """Gets the creation time for the entry or the oldest available time stamp if the operating system does not support creation time stamps."""
         ...
 
     @property
     def last_access_time_utc(self) -> System.DateTimeOffset:
+        """Gets a datetime offset that represents the last access time in UTC."""
         ...
 
     @property
     def last_write_time_utc(self) -> System.DateTimeOffset:
-        ...
-
-    @property
-    def is_hidden(self) -> bool:
+        """Gets a datetime offset that represents the last write time in UTC."""
         ...
 
     @property
     def is_directory(self) -> bool:
+        """Gets a value that indicates whether this entry is a directory."""
+        ...
+
+    @property
+    def is_hidden(self) -> bool:
+        """Gets a value that indicates whether the file has the hidden attribute."""
         ...
 
     def to_file_system_info(self) -> System.IO.FileSystemInfo:
+        """
+        Converts the value of this instance to a FileSystemInfo.
+        
+        :returns: The value of this instance as a FileSystemInfo.
+        """
         ...
 
     def to_full_path(self) -> str:
-        """Returns the full path of the find result."""
+        """
+        Returns the full path of the find result.
+        
+        :returns: A string representing the full path.
+        """
         ...
 
     def to_specified_full_path(self) -> str:
@@ -75,44 +92,6 @@ class FileSystemEntry:
         Returns the full path for the find results, based on the initially provided path.
         
         :returns: A string representing the full path.
-        """
-        ...
-
-
-class FileSystemName(System.Object):
-    """Provides methods for matching file system names."""
-
-    @staticmethod
-    def matches_simple_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
-        """
-        Verifies whether the given expression matches the given name. Supports the following wildcards: '*' and '?'. The backslash character '\\\\' escapes.
-        
-        :param expression: The expression to match with.
-        :param name: The name to check against the expression.
-        :param ignore_case: true to ignore case (default); false if the match should be case-sensitive.
-        :returns: true if the given expression matches the given name; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def matches_win_32_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
-        """
-        Verifies whether the given Win32 expression matches the given name. Supports the following wildcards: '*', '?', '<', '>', '"'. The backslash character '\\' escapes.
-        
-        :param expression: The expression to match with, such as "*.foo".
-        :param name: The name to check against the expression.
-        :param ignore_case: true to ignore case (default), false if the match should be case-sensitive.
-        :returns: true if the given expression matches the given name; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def translate_win_32_expression(expression: str) -> str:
-        """
-        Translates the given Win32 expression. Change '*' and '?' to '<', '>' and '"' to match Win32 behavior.
-        
-        :param expression: The expression to translate.
-        :returns: A string with the translated Win32 expression.
         """
         ...
 
@@ -162,6 +141,11 @@ class FileSystemEnumerator(typing.Generic[System_IO_Enumeration_FileSystemEnumer
         ...
 
     def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next item of the FileSystemEnumerator{T}.
+        
+        :returns: true if the enumerator successfully advanced to the next item; false if the end of the enumerator has been passed.
+        """
         ...
 
     def on_directory_finished(self, directory: System.ReadOnlySpan[str]) -> None:
@@ -246,6 +230,44 @@ class FileSystemEnumerable(typing.Generic[System_IO_Enumeration_FileSystemEnumer
         ...
 
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[System_IO_Enumeration_FileSystemEnumerable_TResult]:
+        ...
+
+
+class FileSystemName(System.Object):
+    """Provides methods for matching file system names."""
+
+    @staticmethod
+    def matches_simple_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
+        """
+        Verifies whether the given expression matches the given name. Supports the following wildcards: '*' and '?'. The backslash character '\\\\' escapes.
+        
+        :param expression: The expression to match with.
+        :param name: The name to check against the expression.
+        :param ignore_case: true to ignore case (default); false if the match should be case-sensitive.
+        :returns: true if the given expression matches the given name; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def matches_win_32_expression(expression: System.ReadOnlySpan[str], name: System.ReadOnlySpan[str], ignore_case: bool = True) -> bool:
+        """
+        Verifies whether the given Win32 expression matches the given name. Supports the following wildcards: '*', '?', '<', '>', '"'. The backslash character '\\' escapes.
+        
+        :param expression: The expression to match with, such as "*.foo".
+        :param name: The name to check against the expression.
+        :param ignore_case: true to ignore case (default), false if the match should be case-sensitive.
+        :returns: true if the given expression matches the given name; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def translate_win_32_expression(expression: str) -> str:
+        """
+        Translates the given Win32 expression. Change '*' and '?' to '<', '>' and '"' to match Win32 behavior.
+        
+        :param expression: The expression to translate.
+        :returns: A string with the translated Win32 expression.
+        """
         ...
 
 

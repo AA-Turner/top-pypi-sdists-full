@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arxiv-mcp-server
-Version: 0.2.11
+Version: 0.3.0
 Summary: A flexible arXiv search and analysis service with MCP protocol support
 Author-email: Joseph Blazick <blazickjp@amazon.com>
 License: MIT

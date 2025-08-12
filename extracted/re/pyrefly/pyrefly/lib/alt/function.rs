@@ -177,11 +177,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         def: &StmtFunctionDef,
         stub_or_impl: FunctionStubOrImpl,
         class_key: Option<&Idx<KeyClass>>,
-        decorators: &[Idx<Key>],
+        decorators: &[(Idx<Key>, TextRange)],
         legacy_tparams: &[Idx<KeyLegacyTypeParam>],
         errors: &ErrorCollector,
     ) -> Arc<DecoratedFunction> {
         let defining_cls = class_key.and_then(|k| self.get_idx(*k).0.dupe());
+        let is_top_level_function = defining_cls.is_none();
         let mut self_type = defining_cls
             .as_ref()
             .map(|cls| Type::SelfType(self.as_class_type_unchecked(cls)));
@@ -202,38 +203,54 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let mut is_override = false;
         let mut has_final_decoration = false;
         let mut dataclass_transform_metadata = None;
+        let check_top_level_function_decorator = |name: &str, range| {
+            if is_top_level_function {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::Kind(ErrorKind::InvalidDecorator),
+                    format!("Decorator `@{name}` can only be used on methods."),
+                );
+            }
+        };
         let decorators = decorators
             .iter()
-            .filter(|k| {
-                let decorator = self.get_idx(**k);
+            .filter(|(k, range)| {
+                let decorator = self.get_idx(*k);
                 let decorator_ty = decorator.ty();
                 match decorator_ty.callee_kind() {
                     Some(CalleeKind::Function(FunctionKind::Overload)) => {
                         is_overload = true;
                         false
                     }
-                    Some(CalleeKind::Class(ClassKind::StaticMethod)) => {
+                    Some(CalleeKind::Class(ClassKind::StaticMethod(name))) => {
                         is_staticmethod = true;
+                        check_top_level_function_decorator(&name, *range);
                         false
                     }
-                    Some(CalleeKind::Class(ClassKind::ClassMethod)) => {
+                    Some(CalleeKind::Class(ClassKind::ClassMethod(name))) => {
                         is_classmethod = true;
+                        check_top_level_function_decorator(&name, *range);
                         false
                     }
-                    Some(CalleeKind::Class(ClassKind::Property)) => {
+                    Some(CalleeKind::Class(ClassKind::Property(name))) => {
                         is_property_getter = true;
+                        check_top_level_function_decorator(&name, *range);
                         false
                     }
                     Some(CalleeKind::Class(ClassKind::EnumMember)) => {
                         has_enum_member_decoration = true;
+                        check_top_level_function_decorator("member", *range);
                         false
                     }
                     Some(CalleeKind::Function(FunctionKind::Override)) => {
                         is_override = true;
+                        check_top_level_function_decorator("override", *range);
                         false
                     }
                     Some(CalleeKind::Function(FunctionKind::Final)) => {
                         has_final_decoration = true;
+                        check_top_level_function_decorator("final", *range);
                         false
                     }
                     _ if matches!(decorator_ty, Type::ClassType(cls) if cls.has_qname("warnings", "deprecated")) => {
@@ -256,6 +273,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     _ if let Type::KwCall(call) = decorator_ty && call.has_function_kind(FunctionKind::DataclassTransform) => {
                         dataclass_transform_metadata = Some(DataclassTransformKeywords::from_type_map(&call.keywords));
                         false
+                    }
+                    Some(CalleeKind::Class(ClassKind::EnumNonmember)) => {
+                        check_top_level_function_decorator("nonmember", *range);
+                        true
+                    }
+                    Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => {
+                        check_top_level_function_decorator("abstractmethod", *range);
+                        true
                     }
                     _ => true,
                 }
@@ -429,7 +454,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
         }
 
-        let mut tparams = self.scoped_type_params(def.type_params.as_deref(), errors);
+        let mut tparams = self.scoped_type_params(def.type_params.as_deref());
         let legacy_tparams = legacy_tparams
             .iter()
             .filter_map(|key| self.get_idx(*key).deref().parameter().cloned());
@@ -513,7 +538,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         })
         .forall(self.validated_tparams(def.range, tparams, errors));
         ty = self.move_return_tparams(ty);
-        for x in decorators.into_iter().rev() {
+        for (x, _) in decorators.into_iter().rev() {
             ty = self.apply_function_decorator(*x, ty, &metadata, errors);
         }
         Arc::new(DecoratedFunction {

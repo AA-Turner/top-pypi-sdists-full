@@ -33,7 +33,7 @@ class patch:
             Set pointers to neighbors of this patch object.
 
         update_pi:
-            Update Upi, Vpi and payoff rates (payoff rates are the first two numbers in self.pi_death_rates).
+            Update Hpi, Dpi and payoff rates (payoff rates are the first two numbers in self.pi_death_rates).
         
         update_k:
             Update natural death rates (the last two numbers in self.pi_death_rates).
@@ -52,8 +52,8 @@ class patch:
 
         self.U = U                          # int, U population. Initialized upon creating object.
         self.V = V                          # int, V population
-        self.Upi = 0                       # float, payoff
-        self.Vpi = 0
+        self.Hpi = 0                       # float, payoff
+        self.Dpi = 0
 
         self.matrix = matrix                # np.array or list, len = 4, payoff matrix
         self.mu1 = patch_var[0]             # float, how much proportion of the population migrates (U) each time
@@ -75,7 +75,7 @@ class patch:
     def __str__(self):
         self_str = ''
         self_str += 'U, V = ' + str(self.U) + ', ' + str(self.V) + '\n'
-        self_str += 'pi = ' + str(self.Upi) + ', ' + str(self.Vpi) + '\n'
+        self_str += 'pi = ' + str(self.Hpi) + ', ' + str(self.Dpi) + '\n'
         self_str += 'matrix = ' + str(self.matrix) + '\n'
         self_str += 'mu1, mu2 = ' + str(self.mu1) + ', ' + str(self.mu2) + '\n'
         self_str += 'w1, w2 = ' + str(self.w1) + ', ' + str(self.w2) + '\n'
@@ -116,23 +116,23 @@ class patch:
             
             if U != 0:
                 # no payoff if U == 0
-                self.Upi = U_ratio * self.matrix[0] + V_ratio * self.matrix[1]
+                self.Hpi = U_ratio * self.matrix[0] + V_ratio * self.matrix[1]
             else:
-                self.Upi = 0
+                self.Hpi = 0
                 
             if V != 0:
-                self.Vpi = U_ratio * self.matrix[2] + V_ratio * self.matrix[3]
+                self.Dpi = U_ratio * self.matrix[2] + V_ratio * self.matrix[3]
             else:
-                self.Vpi = 0
+                self.Dpi = 0
                 
         else:
             # no interaction, hence no payoff, if only 1 individual
-            self.Upi = 0
-            self.Vpi = 0
+            self.Hpi = 0
+            self.Dpi = 0
 
         # update payoff rates
-        self.pi_death_rates[0] = abs(U * self.Upi)
-        self.pi_death_rates[1] = abs(V * self.Vpi)
+        self.pi_death_rates[0] = abs(U * self.Hpi)
+        self.pi_death_rates[1] = abs(V * self.Dpi)
 
         # update natural death rates
         self.pi_death_rates[2] = self.kappa1 * U * sum_UV
@@ -151,8 +151,8 @@ class patch:
 
         for i in range(4):
             if self.nb[i] != None:
-                U_weight[i] = math.exp(self.w1 * self.nb[i].Upi)
-                V_weight[i] = math.exp(self.w2 * self.nb[i].Vpi)
+                U_weight[i] = math.exp(self.w1 * self.nb[i].Hpi)
+                V_weight[i] = math.exp(self.w2 * self.nb[i].Dpi)
 
         mu1_U = self.mu1 * self.U
         mu2_V = self.mu2 * self.V
@@ -213,7 +213,7 @@ class patch:
                 self.U -= 1
         # s = 2 for natural birth / death, due to payoff
         elif s == 2:
-            if self.Upi > 0:
+            if self.Hpi > 0:
                 self.U += 1   # natural growth due to payoff
             elif self.U > 0:
                 self.U -= 1   # natural death due to payoff
@@ -225,7 +225,7 @@ class patch:
             if self.V > 0:
                 self.V -= 1
         else:
-            if self.Vpi > 0:
+            if self.Dpi > 0:
                 self.V += 1
             elif self.V > 0:
                 self.V -= 1
@@ -519,7 +519,7 @@ def single_init(mod, rng):
 
     #### Initialize Data Storage ####
 
-    world = [[patch(mod.I[i][j][0], mod.I[i][j][1], mod.X[i][j], mod.P[i][j]) for j in range(mod.M)] for i in range(mod.N)]  # N x M patches
+    world = [[patch(mod.init_popu[i][j][0], mod.init_popu[i][j][1], mod.matrices[i][j], mod.patch_params[i][j]) for j in range(mod.M)] for i in range(mod.N)]  # N x M patches
     patch_rates = np.zeros((mod.N, mod.M), dtype = np.float64)  # every patch's sum-of-12-srates
     sum_rates_by_row = np.zeros((mod.N), dtype = np.float64)  # every row's sum-of-patch, i.e., sum of 12 * M rates in every row.
     sum_rates = 0  # sum of all N x M x 12 rates
@@ -591,8 +591,8 @@ def single_init(mod, rng):
                 for k in range(record_index):
                     mod.U[i][j][k] += world[i][j].U
                     mod.V[i][j][k] += world[i][j].V
-                    mod.Upi[i][j][k] += world[i][j].Upi
-                    mod.Vpi[i][j][k] += world[i][j].Vpi
+                    mod.Hpi[i][j][k] += world[i][j].Hpi
+                    mod.Dpi[i][j][k] += world[i][j].Dpi
                     # we simply add to that entry, and later divide by sim_time to get the average (division in run function)
     
     return time, world, nb_indices, patch_rates, sum_rates_by_row, sum_rates, signal
@@ -733,8 +733,8 @@ def single_test(mod, front_info, end_info, update_sum_frequency, rng):
                         for k in range(record_index, record_index + multi_records):
                             mod.U[i][j][k] += world[i][j].U
                             mod.V[i][j][k] += world[i][j].V
-                            mod.Upi[i][j][k] += world[i][j].Upi
-                            mod.Vpi[i][j][k] += world[i][j].Vpi
+                            mod.Hpi[i][j][k] += world[i][j].Hpi
+                            mod.Dpi[i][j][k] += world[i][j].Dpi
                 record_index += multi_records
         else:
             # if already exceeds maxtime
@@ -743,8 +743,8 @@ def single_test(mod, front_info, end_info, update_sum_frequency, rng):
                     for k in range(record_index, max_record):
                         mod.U[i][j][k] += world[i][j].U
                         mod.V[i][j][k] += world[i][j].V
-                        mod.Upi[i][j][k] += world[i][j].Upi
-                        mod.Vpi[i][j][k] += world[i][j].Vpi
+                        mod.Hpi[i][j][k] += world[i][j].Hpi
+                        mod.Dpi[i][j][k] += world[i][j].Dpi
 
     ### Large while loop ends ###
     
@@ -769,8 +769,8 @@ def run(mod, predict_runtime = False, message = ''):
     
     mod.U = np.zeros((mod.N, mod.M, mod.max_record))
     mod.V = np.zeros((mod.N, mod.M, mod.max_record))
-    mod.Vpi = np.zeros((mod.N, mod.M, mod.max_record))
-    mod.Upi = np.zeros((mod.N, mod.M, mod.max_record))
+    mod.Dpi = np.zeros((mod.N, mod.M, mod.max_record))
+    mod.Hpi = np.zeros((mod.N, mod.M, mod.max_record))
     
     start = timer()   # runtime
 

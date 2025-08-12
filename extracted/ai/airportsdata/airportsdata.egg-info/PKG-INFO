@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airportsdata
-Version: 20250706
+Version: 20250811
 Summary: Extensive database of location and timezone data for nearly every airport and landing strip in the world.
 Author-email: Mike Borsetti <mike+airportsdata@borsetti.com>
 Maintainer-email: Mike Borsetti <mike+airportsdata@borsetti.com>
@@ -37,7 +37,6 @@ Project-URL: Issues, https://github.com/mborsetti/airportsdata/issues
 Project-URL: CI, https://github.com/mborsetti/airportsdata/actions
 Keywords: airports,aerodromes,ICAO,IATA
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10

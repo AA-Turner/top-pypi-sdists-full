@@ -3346,7 +3346,7 @@ def list_well_known_issuer_info(ctx, **kwargs):
 
 @cli.command(name="add-issuer")
 @click.argument("issuer", default=None)
-@click.argument("org-id", default=None)
+@click.argument("org-id", type=str, default=None)
 @click.option("--parent-issuer", default=None)
 @click.option("--upstream-redirect-uri", default=None)
 @click.pass_context

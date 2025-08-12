@@ -1,7 +1,7 @@
 import queue
 import time
 import warnings
-from typing import Tuple, Any, List, Optional, Set, Sequence
+from typing import Tuple, Any, List, Optional, Set, Sequence, Union
 
 import redis
 
@@ -9,7 +9,7 @@ from fakeredis._fakesocket import FakeSocket
 from fakeredis._helpers import FakeSelector, convert_args_to_redis_init_kwargs
 from . import _msgs as msgs
 from ._server import FakeBaseConnectionMixin, FakeServer, VersionType, ServerType
-from .typing import Self
+from .typing import Self, lib_version, RaiseErrorTypes
 
 
 class FakeConnection(FakeBaseConnectionMixin, redis.Connection):
@@ -26,6 +26,7 @@ class FakeConnection(FakeBaseConnectionMixin, redis.Connection):
             raise redis.ConnectionError(msgs.CONNECTION_ERROR_MSG)
         return FakeSocket(
             self._server,
+            client_class=self._client_class,
             db=self.db,
             lua_modules=self._lua_modules,
             client_info=dict(
@@ -94,7 +95,7 @@ class FakeConnection(FakeBaseConnectionMixin, redis.Connection):
                 raise redis.ConnectionError(msgs.CONNECTION_ERROR_MSG)
         else:
             response = self._sock.responses.get()
-        if isinstance(response, (redis.ResponseError, redis.AuthenticationError)):
+        if isinstance(response, RaiseErrorTypes):
             raise response
         if kwargs.get("disable_decoding", False):
             return response
@@ -122,7 +123,7 @@ class FakeRedisMixin:
         self,
         *args: Any,
         server: Optional[FakeServer] = None,
-        version: VersionType = (7,),
+        version: Union[VersionType, str, int] = (7,),  # https://github.com/cunla/fakeredis-py/issues/401
         server_type: ServerType = "redis",
         lua_modules: Optional[Set[str]] = None,
         client_class=redis.Redis,
@@ -170,6 +171,7 @@ class FakeRedisMixin:
                 "version": version,
                 "server_type": server_type,
                 "lua_modules": lua_modules,
+                "client_class": client_class,
             }
             connection_kwargs.update({arg: kwds[arg] for arg in conn_pool_args if arg in kwds})
             kwds["connection_pool"] = redis.connection.ConnectionPool(**connection_kwargs)  # type: ignore
@@ -178,6 +180,8 @@ class FakeRedisMixin:
         kwds.pop("version", None)
         kwds.pop("server_type", None)
         kwds.pop("lua_modules", None)
+        kwds.setdefault("lib_name", "fakeredis")
+        kwds.setdefault("lib_version", lib_version)
         super().__init__(**kwds)
 
     @classmethod

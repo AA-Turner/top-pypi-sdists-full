@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: valkey
-Version: 6.1.0
+Version: 6.1.1
 Summary: Python client for Valkey forked from redis-py
 Home-page: https://github.com/valkey-io/valkey-py
 Author: valkey-py authors
@@ -20,7 +20,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -28,7 +27,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Provides-Extra: libvalkey
 Provides-Extra: ocsp
@@ -119,7 +118,7 @@ Alternatively, you might want to look at [Async connections](https://valkey-py.r
 
 ### Valkey Commands
 
-There is built-in support for all of the [out-of-the-box Valkey commands](https://valkey.io/commands). They are exposed using the raw Redis command names (`HSET`, `HGETALL`, etc.) except where a word (i.e. del) is reserved by the language. The complete set of commands can be found [here](https://github.com/valkey-io/valkey-py/tree/main/valkey/commands), or [the documentation](https://valkey-py.readthedocs.io/en/latest/commands.html).
+There is built-in support for all of the [out-of-the-box Valkey commands](https://valkey.io/commands). They are exposed using the raw Redis command names (`HSET`, `HGETALL`, etc.) except where a word (i.e. del) is reserved by the language. See the [complete set of commands](https://github.com/valkey-io/valkey-py/tree/main/valkey/commands), or [the documentation](https://valkey-py.readthedocs.io/en/latest/commands.html).
 
 ## Documentation
 
@@ -149,7 +148,7 @@ For more details, please see the documentation on [advanced topics page](https:/
 
 ### Pipelines
 
-The following is a basic example of a [Valkey pipeline](https://redis.io/docs/manual/pipelining/), a method to optimize round-trip calls, by batching Valkey commands, and receiving their results as a list.
+The following is a basic example of a [Valkey pipeline](https://valkey.io/topics/pipelining/), a method to optimize round-trip calls, by batching Valkey commands, and receiving their results as a list.
 
 
 ``` python
@@ -163,7 +162,7 @@ The following is a basic example of a [Valkey pipeline](https://redis.io/docs/ma
 
 ### PubSub
 
-The following example shows how to utilize [Valkey Pub/Sub](https://redis.io/docs/manual/pubsub/) to subscribe to specific channels.
+The following example shows how to utilize [Valkey Pub/Sub](https://valkey.io/topics/pubsub/) to subscribe to specific channels.
 
 ``` python
 >>> r = valkey.Valkey(...)
@@ -178,8 +177,7 @@ The following example shows how to utilize [Valkey Pub/Sub](https://redis.io/doc
 
 ### Author
 
-valkey-py can be found [here](
-https://github.com/valkey-io/valkey-py), or downloaded from [pypi](https://pypi.org/project/valkey/).
+You can read valkey-py sources on [GitHub](https://github.com/valkey-io/valkey-py), or download it from [pypi](https://pypi.org/project/valkey/)
 It was created as a fork of [redis-py](https://github.com/redis/redis-py)
 
 Special thanks to:

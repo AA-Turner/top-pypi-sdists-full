@@ -15,6 +15,7 @@ from sysconfig import get_config_var
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 
+from cx_Freeze._compat import IS_WINDOWS
 from cx_Freeze.common import (
     code_object_replace,
     process_path_specs,
@@ -69,7 +70,7 @@ class ModuleFinder:
 
     def __init__(
         self,
-        constants_module: ConstantsModule | None = None,
+        constants_module: ConstantsModule,
         excludes: list[str] | None = None,
         include_files: IncludesList | None = None,
         path: list[str | Path] | None = None,
@@ -89,7 +90,7 @@ class ModuleFinder:
         self.zip_include_all_packages = zip_include_all_packages
         self.zip_exclude_packages: set = set(zip_exclude_packages or [])
         self.zip_include_packages: set = set(zip_include_packages or [])
-        self.constants_module = constants_module
+        self.constants_module: ConstantsModule = constants_module
         self.zip_includes: InternalIncludesList = process_path_specs(
             zip_includes
         )
@@ -368,6 +369,42 @@ class ModuleFinder:
             return None
         return module
 
+    @staticmethod
+    def _find_editable_spec(
+        name: str, path: Sequence[str] | None
+    ) -> importlib.machinery.ModuleSpec | None:
+        """Find the spec for a module installed as an editable package."""
+        if hasattr(importlib.metadata, "packages_distributions"):
+            # the distribution name may vary from the module name (eg may include '-').
+            # packages_distributions returns the mapping but is only available on 3.10+
+            dist_names = importlib.metadata.packages_distributions().get(
+                name, []
+            )
+        else:
+            dist_names = [name]
+
+        for dist_name in dist_names:
+            dist = importlib.metadata.distribution(dist_name)
+            if not dist:
+                continue
+            for f in dist.files:
+                if f.name.startswith("__editable__") and f.name.endswith(
+                    "_finder.py"
+                ):
+                    try:
+                        mod = importlib.import_module(f.stem)
+                        spec = mod._EditableFinder.find_spec(  # noqa: SLF001
+                            name, path
+                        )
+                        if spec:
+                            return spec
+                    except (ImportError, AttributeError) as e:
+                        logger.warning(
+                            "Find editable spec failed for [%s]: %s", name, e
+                        )
+                        break
+        return None
+
     def _load_module(
         self,
         name: str,
@@ -400,6 +437,9 @@ class ModuleFinder:
                     self.modules.remove(module)
                 module.in_import = False
                 return module
+
+        if not spec:
+            spec = ModuleFinder._find_editable_spec(name, path)
 
         if spec:
             loader = spec.loader
@@ -470,6 +510,23 @@ class ModuleFinder:
         # Run custom hook for the module
         if module.hook:
             module.hook(self)
+
+        # Add dynamic libraries (dependencies) of the package
+        if module is module.root:
+            for source, target in module.libs():
+                self.lib_files.setdefault(source, target)
+                # use include_files on windows
+                if IS_WINDOWS:
+                    self.include_files(source, target)
+            if IS_WINDOWS and module.in_file_system == 0:
+                # Save the directory "module.libs" to be used in __startup__
+                # to simulate what is patched by delvewheel. Using zip file
+                # the value of __file__ is in the zip, not in the "lib".
+                dirs = module.libs_dirs()
+                if dirs:
+                    libs = self.constants_module.values.get("__LIBS__")
+                    libs_dirs = (libs.split(os.pathsep) if libs else []) + dirs
+                    self.add_constant("__LIBS__", os.pathsep.join(libs_dirs))
 
         if module.code is not None:
             if self.replace_paths:

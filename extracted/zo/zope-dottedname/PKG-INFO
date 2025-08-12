@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.dottedname
-Version: 6.0
+Version: 6.1
 Summary: Resolver for Python dotted names.
 Home-page: https://github.com/zopefoundation/zope.dottedname
 Author: Zope Foundation and Contributors
 Author-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Keywords: resolve dotted name
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
@@ -13,21 +13,35 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.7
+Requires-Python: >=3.9
+License-File: LICENSE.txt
+Requires-Dist: setuptools
 Provides-Extra: testing
 Provides-Extra: docs
-License-File: LICENSE.txt
+Requires-Dist: Sphinx; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ``zope.dottedname``
 ===================
@@ -43,11 +57,20 @@ License-File: LICENSE.txt
         :target: http://zopedottedname.readthedocs.org/en/latest/
         :alt: Documentation Status
 
-Resolve strings containing dotted names into the appropriate python object.
+Resolve strings containing dotted names into the appropriate Python object.
+
+- `Read documentation <https://zopedottedname.readthedocs.io/>`__
 
 
 Changes
 =======
+
+6.1 (2025-08-11)
+----------------
+
+- Add support for Python 3.12, 3.13.
+
+- Drop support for Python 3.7, 3.8.
 
 6.0 (2023-03-27)
 ----------------

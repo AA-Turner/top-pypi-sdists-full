@@ -159,6 +159,7 @@ def run_via_ssh(
     as_root: bool = False,
     in_container_files: Dict[str, str] | None = None,
     console=None,
+    container: str | None = None,
 ):
     console = console or Console()
 
@@ -234,6 +235,13 @@ def run_via_ssh(
             entrypoint = "micromamba run -p /opt/coiled/env"
 
     command_string = " ".join(command)
+
+    if container and "/uv:" in container and command_string.startswith("uv"):
+        command_string = (
+            "(apt update && apt upgrade && apt install -y --no-install-recommends ca-certificates) 2>&1 > /dev/null\n"
+            f"{command_string}"
+        )
+
     command_string = wrap_command_for_logs_and_stdout(
         connection, command_string, original_command, use_inner_command=interactive
     )
@@ -790,6 +798,7 @@ def start_run(
                         as_root=root,
                         console=widget.live.console,
                         container_name=USER_CONTAINER_NAME if container else DASK_CONTAINER_NAME,
+                        container=container,
                     )
 
             if sync:

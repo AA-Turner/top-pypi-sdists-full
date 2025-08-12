@@ -1,35 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fasteners
-Version: 0.19
+Version: 0.20
 Summary: A python package that provides useful locks
-Home-page: https://github.com/harlowja/fasteners
 Author: Joshua Harlow
 Maintainer: Paulius Šarka
-License: Apache-2.0
-Keywords: lock thread process fasteners
-Classifier: Development Status :: 4 - Beta
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/harlowja/fasteners
+Keywords: lock,thread,process,fasteners
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
 Requires-Python: >=3.6
-Description-Content-Type: text/markdown; charset-UTF-8
+Description-Content-Type: text/markdown; charset=UTF-8
 License-File: LICENSE
+Dynamic: license-file
 
 Fasteners
 =========
 
 [![Documentation status](https://readthedocs.org/projects/fasteners/badge/?version=latest)](https://readthedocs.org/projects/fasteners/?badge=latest)
-[![Downloads](https://img.shields.io/pypi/dm/fasteners.svg)](https://pypi.python.org/pypi/fasteners/)
 [![Latest version](https://img.shields.io/pypi/v/fasteners.svg)](https://pypi.python.org/pypi/fasteners/)
 
 Cross-platform locks for threads and processes.

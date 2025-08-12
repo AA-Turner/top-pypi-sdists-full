@@ -11,7 +11,13 @@ from siliconcompiler.package import Resolver
 
 
 class PackageSchema(PathSchema):
+    """
+    A class for managing package-related schema data.
+    """
     def __init__(self):
+        """
+        Initializes a PackageSchema object.
+        """
         super().__init__()
 
         schema_package(self)
@@ -26,11 +32,13 @@ class PackageSchema(PathSchema):
         return self.set("package", "description", trim(desc))
 
     def get_description(self) -> str:
-        """Get the description of the package.
+        """
+        Get the description of the package.
 
         Returns:
             str: The description string.
         """
+
         return self.get("package", "description")
 
     def set_version(self, version: str):
@@ -50,6 +58,24 @@ class PackageSchema(PathSchema):
             str: The version string.
         """
         return self.get("package", "version")
+
+    def set_vendor(self, vendor: str):
+        """
+        Set the vendor of the package.
+
+        Args:
+            vendor (str): The vendor name.
+        """
+        return self.set("package", "vendor", vendor)
+
+    def get_vendor(self) -> str:
+        """
+        Get the vendor of the package.
+
+        Returns:
+            str: The vendor name.
+        """
+        return self.get("package", "vendor")
 
     def add_license(self, name: str):
         """
@@ -77,12 +103,18 @@ class PackageSchema(PathSchema):
     def get_license(self) -> List[str]:
         """
         Get a list of license names associated with the package.
+
+        Returns:
+            List[str]: A list of license names.
         """
         return self.get("package", "license")
 
     def get_licensefile(self) -> List[str]:
         """
         Get a list of license file paths associated with the package.
+
+        Returns:
+            List[str]: A list of file paths.
         """
         return self.find_files("package", "licensefile")
 
@@ -163,11 +195,25 @@ class PackageSchema(PathSchema):
                 docs[type] = doc_files
         return docs
 
+    @classmethod
+    def _getdict_type(cls) -> str:
+        """
+        Returns the meta data for getdict
+        """
+
+        return PackageSchema.__name__
+
 
 ############################################
 # Package information
 ############################################
 def schema_package(schema):
+    """
+    Adds package schema parameters to the given schema.
+
+    Args:
+        schema (EditableSchema): The schema to modify.
+    """
     schema = EditableSchema(schema)
 
     schema.insert(
@@ -182,6 +228,18 @@ def schema_package(schema):
                 "api: chip.set('package', 'version', '1.0')"],
             help=trim("""Package version. Can be a branch, tag, commit hash,
             or a semver compatible version.""")))
+
+    schema.insert(
+        'package', 'vendor',
+        Parameter(
+            'str',
+            scope=Scope.GLOBAL,
+            shorthelp="Package: vendor",
+            switch="-package_vendor <str>",
+            example=[
+                "cli: -package_vendor acme",
+                "api: chip.set('package', 'vendor', 'acme')"],
+            help=trim("""Package vendor.""")))
 
     schema.insert(
         'package', 'description',
@@ -262,14 +320,20 @@ def schema_package(schema):
 
 
 class PackageSchemaTmp(BaseSchema):
+    """
+    A temporary package schema used for development and testing.
+    """
     def __init__(self):
+        """
+        Initializes a temporary PackageSchemaTmp object.
+        """
         super().__init__()
 
         schema_package_tmp(self)
 
     def register(self, name, path, ref=None, clobber=True):
         """
-        Registers a package by its name with the source path and reference
+        Registers a package by its name with the source path and reference.
 
         Registered package sources are stored in the package section of the schema.
 
@@ -301,12 +365,12 @@ class PackageSchemaTmp(BaseSchema):
         return success
 
     def get_resolver(self, package):
-        '''
-        Returns a specific resolver
+        """
+        Returns a specific resolver for a package.
 
         Args:
             package (str): name of package
-        '''
+        """
         resolver_cls = Resolver.find_resolver(self.get("source", package, "path"))
         resolver = resolver_cls(package, self._parent(root=True),
                                 self.get("source", package, "path"),
@@ -314,20 +378,37 @@ class PackageSchemaTmp(BaseSchema):
         return resolver
 
     def get_resolvers(self):
-        '''
+        """
         Returns a dictionary of packages with their resolver method.
-        '''
+
+        Returns:
+            Dict[str, callable]: A dictionary of package names mapped to their resolver methods.
+        """
         resolvers = {}
         for package in self.getkeys("source"):
             resolvers[package] = self.get_resolver(package).get_path
 
         return resolvers
 
+    @classmethod
+    def _getdict_type(cls) -> str:
+        """
+        Returns the meta data for getdict
+        """
+
+        return PackageSchemaTmp.__name__
+
 
 ############################################
 # Package information
 ############################################
 def schema_package_tmp(schema):
+    """
+    Adds temporary package schema parameters to the given schema.
+
+    Args:
+        schema (EditableSchema): The schema to modify.
+    """
     schema = EditableSchema(schema)
 
     schema.insert(

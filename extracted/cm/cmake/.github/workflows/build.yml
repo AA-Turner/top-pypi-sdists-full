@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       use_qemu:
-        description: 'Use qemu to build linux ppc64le & s390x'
+        description: 'Use qemu to build linux ppc64le, s390x & riscv64'
         required: true
         default: true
   schedule:
@@ -84,6 +84,14 @@ jobs:
             arch: "s390x"
             build: "musllinux_"
             use_qemu: true
+          - os: ubuntu-latest
+            arch: "riscv64"
+            build: "manylinux_"
+            use_qemu: true
+          - os: ubuntu-latest
+            arch: "riscv64"
+            build: "musllinux_"
+            use_qemu: true
           - os: ubuntu-24.04-arm
             arch: "armv7l"
             build: "manylinux_"
@@ -92,15 +100,15 @@ jobs:
             arch: "armv7l"
             build: "musllinux_"
             use_qemu: false
-          - os: windows-2019
+          - os: windows-2022
             arch: "AMD64"
             build: ""
             use_qemu: false
-          - os: windows-2022
+          - os: windows-11-arm
             arch: "ARM64"
             build: ""
             use_qemu: false
-          - os: windows-2019
+          - os: windows-2022
             arch: "x86"
             build: ""
             use_qemu: false
@@ -125,46 +133,16 @@ jobs:
         if: matrix.use_qemu && fromJSON(env.USE_QEMU)
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23
+        uses: pypa/cibuildwheel@v3.1
         if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
         env:
           CIBW_ARCHS: "${{ matrix.arch }}"
-          CIBW_BUILD: "cp39-${{ matrix.build }}*"
+          CIBW_BUILD: "cp310-${{ matrix.build }}*"
 
       - uses: actions/upload-artifact@v4
         if: (!matrix.use_qemu) || fromJSON(env.USE_QEMU)
         with:
           name: cibw-${{ runner.os }}-${{ matrix.build }}${{ matrix.arch }}
-          path: ./wheelhouse/*.whl
-
-  build_manylinux2010_wheels:
-    name: Build ${{ matrix.arch }} manylinux2010 wheels
-    needs: [lint]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: "x86_64"
-          - arch: "i686"
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # required for versioneer to find tags
-
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23
-        env:
-          CIBW_ARCHS: "${{ matrix.arch }}"
-          CIBW_BUILD: "cp39-manylinux_*"
-          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2010"
-          CIBW_MANYLINUX_I686_IMAGE: "manylinux2010"
-          CIBW_BUILD_FRONTEND: "build"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cibw-manylinux2010-${{ matrix.arch }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -209,7 +187,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libssl-dev
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: cibw-sdist
           path: dist
@@ -282,10 +260,10 @@ jobs:
 
   check_dist:
     name: Check dist
-    needs: [build_wheels, build_manylinux2010_wheels, build_sdist, test_sdist, bootstrap_build]
+    needs: [build_wheels, build_sdist, test_sdist, bootstrap_build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: cibw-*
           merge-multiple: true
@@ -305,14 +283,14 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: cibw-*
           merge-multiple: true
           path: dist
 
       - name: Generate artifact attestation for sdist and wheel
-        uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: "dist/cmake-*"
 

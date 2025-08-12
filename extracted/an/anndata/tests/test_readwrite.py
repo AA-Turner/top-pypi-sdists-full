@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import warnings
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from functools import partial
 from importlib.util import find_spec
 from pathlib import Path
@@ -38,6 +38,7 @@ from anndata.tests.helpers import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from typing import Literal
 
 HERE = Path(__file__).parent
@@ -98,6 +99,15 @@ def rw(backing_h5ad):
     orig.write(backing_h5ad)
     curr = ad.read_h5ad(backing_h5ad)
     return curr, orig
+
+
+@contextmanager
+def open_store(
+    path: Path, diskfmt: Literal["h5ad", "zarr"]
+) -> Generator[h5py.File | zarr.Group, None, None]:
+    f = zarr.open_group(path) if diskfmt == "zarr" else h5py.File(path, "r")
+    with f if isinstance(f, h5py.File) else nullcontext():
+        yield f
 
 
 @pytest.fixture(params=[np.uint8, np.int32, np.int64, np.float32, np.float64])
@@ -403,10 +413,10 @@ def test_zarr_compression(tmp_path, zarr_write_format):
             not_compressed.append(key)
 
     if is_zarr_v2():
-        with zarr.open(str(pth), "r") as f:
+        with zarr.open(pth, "r") as f:
             f.visititems(check_compressed)
     else:
-        f = zarr.open(str(pth), mode="r")
+        f = zarr.open(pth, mode="r")
         for key, value in f.members(max_depth=None):
             check_compressed(value, key)
 
@@ -765,10 +775,22 @@ def test_zarr_chunk_X(tmp_path):
     adata = gen_adata((100, 100), X_type=np.array, **GEN_ADATA_NO_XARRAY_ARGS)
     adata.write_zarr(zarr_pth, chunks=(10, 10))
 
-    z = zarr.open(str(zarr_pth))  # As of v2.3.2 zarr won’t take a Path
+    z = zarr.open(zarr_pth)
     assert z["X"].chunks == (10, 10)
     from_zarr = ad.read_zarr(zarr_pth)
     assert_equal(from_zarr, adata)
+
+
+def test_write_x_none(tmp_path: Path, diskfmt: Literal["h5ad", "zarr"]) -> None:
+    adata = ad.AnnData(shape=(10, 10), obs={"a": np.ones(10)}, var={"b": np.ones(10)})
+    p = tmp_path / f"adata.{diskfmt}"
+    write = getattr(adata, f"write_{diskfmt}")
+
+    write(p)
+    with open_store(p, diskfmt) as f:
+        root_keys = list(f.keys())
+
+    assert "X" not in root_keys
 
 
 ################################
@@ -821,11 +843,6 @@ def test_scanpy_pbmc68k(tmp_path, diskfmt, roundtrip, diskfmt2):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ad.OldFormatWarning)
         pbmc = sc.datasets.pbmc68k_reduced()
-        # zarr v3 can't write recarray
-        # https://github.com/zarr-developers/zarr-python/issues/2134
-        if ad.settings.zarr_write_format == 3:
-            del pbmc.uns["rank_genes_groups"]["names"]
-            del pbmc.uns["rank_genes_groups"]["scores"]
 
     from_disk1 = roundtrip(pbmc, filepth1)  # Do we read okay
     from_disk2 = roundtrip2(from_disk1, filepth2)  # Can we round trip
@@ -844,7 +861,10 @@ def test_scanpy_krumsiek11(tmp_path, diskfmt, roundtrip):
         import scanpy as sc
 
     # TODO: this should be fixed in scanpy instead
-    with pytest.warns(UserWarning, match=r"Observation names are not unique"):
+    with pytest.warns(UserWarning, match=r"Observation names are not unique"):  # noqa: PT031
+        warnings.filterwarnings(
+            "ignore", r".*first_column_names.*no longer positional", FutureWarning
+        )
         orig = sc.datasets.krumsiek11()
     del orig.uns["highlights"]  # Can’t write int keys
     # Can’t write "string" dtype: https://github.com/scverse/anndata/issues/679
@@ -985,3 +1005,18 @@ def test_write_elem_consolidated(tmp_path: Path):
         ValueError, match="Cannot overwrite/edit a store with consolidated metadata"
     ):
         ad.io.write_elem(g["obs"], "foo", np.arange(10))
+
+
+@pytest.mark.zarr_io
+@pytest.mark.skipif(is_zarr_v2(), reason="zarr v3 package test")
+def test_write_elem_version_mismatch(tmp_path: Path):
+    zarr_path = tmp_path / "foo.zarr"
+    adata = ad.AnnData(np.ones((10, 10)))
+    g = zarr.open_group(
+        zarr_path,
+        mode="w",
+        zarr_format=2 if ad.settings.zarr_write_format == 3 else 3,
+    )
+    ad.io.write_elem(g, "/", adata)
+    adata_roundtripped = ad.read_zarr(g)
+    assert_equal(adata_roundtripped, adata)

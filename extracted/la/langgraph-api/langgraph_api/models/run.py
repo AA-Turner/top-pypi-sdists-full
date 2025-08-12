@@ -282,6 +282,13 @@ async def create_valid_run(
             detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
         )
 
+    # Keep config and context in sync for user provided params
+    if context:
+        configurable = context.copy()
+        config["configurable"] = configurable
+    else:
+        context = configurable.copy()
+
     if checkpoint_id:
         configurable["checkpoint_id"] = str(checkpoint_id)
     if checkpoint := payload.get("checkpoint"):
@@ -307,11 +314,6 @@ async def create_valid_run(
     configurable["__after_seconds__"] = after_seconds
     put_time_start = time.time()
     if_not_exists = payload.get("if_not_exists", "reject")
-
-    # Keep config and context in sync
-    # Configurable is either A) just internal config or B) internal config + user config (and context is empty). Either way, configurable is the default.
-    context = {**context, **configurable}
-    config["configurable"] = context
 
     run_coro = Runs.put(
         conn,

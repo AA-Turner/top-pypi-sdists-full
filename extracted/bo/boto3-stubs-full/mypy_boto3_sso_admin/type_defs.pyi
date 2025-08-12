@@ -32,6 +32,7 @@ from .literals import (
     ProvisionTargetTypeType,
     SignInOriginType,
     StatusValuesType,
+    UserBackgroundSessionApplicationStatusType,
 )
 
 if sys.version_info >= (3, 9):
@@ -127,6 +128,8 @@ __all__ = (
     "GetApplicationAuthenticationMethodResponseTypeDef",
     "GetApplicationGrantRequestTypeDef",
     "GetApplicationGrantResponseTypeDef",
+    "GetApplicationSessionConfigurationRequestTypeDef",
+    "GetApplicationSessionConfigurationResponseTypeDef",
     "GetInlinePolicyForPermissionSetRequestTypeDef",
     "GetInlinePolicyForPermissionSetResponseTypeDef",
     "GetPermissionsBoundaryForPermissionSetRequestTypeDef",
@@ -221,6 +224,7 @@ __all__ = (
     "PutApplicationAssignmentConfigurationRequestTypeDef",
     "PutApplicationAuthenticationMethodRequestTypeDef",
     "PutApplicationGrantRequestTypeDef",
+    "PutApplicationSessionConfigurationRequestTypeDef",
     "PutInlinePolicyToPermissionSetRequestTypeDef",
     "PutPermissionsBoundaryToPermissionSetRequestTypeDef",
     "ResourceServerConfigTypeDef",
@@ -469,6 +473,9 @@ class GetApplicationGrantRequestTypeDef(TypedDict):
     ApplicationArn: str
     GrantType: GrantTypeType
 
+class GetApplicationSessionConfigurationRequestTypeDef(TypedDict):
+    ApplicationArn: str
+
 class GetInlinePolicyForPermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
     PermissionSetArn: str
@@ -621,6 +628,10 @@ class PutApplicationAssignmentConfigurationRequestTypeDef(TypedDict):
     ApplicationArn: str
     AssignmentRequired: bool
 
+class PutApplicationSessionConfigurationRequestTypeDef(TypedDict):
+    ApplicationArn: str
+    UserBackgroundSessionApplicationStatus: NotRequired[UserBackgroundSessionApplicationStatusType]
+
 class PutInlinePolicyToPermissionSetRequestTypeDef(TypedDict):
     InstanceArn: str
     PermissionSetArn: str
@@ -733,6 +744,10 @@ class GetApplicationAccessScopeResponseTypeDef(TypedDict):
 
 class GetApplicationAssignmentConfigurationResponseTypeDef(TypedDict):
     AssignmentRequired: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetApplicationSessionConfigurationResponseTypeDef(TypedDict):
+    UserBackgroundSessionApplicationStatus: UserBackgroundSessionApplicationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetInlinePolicyForPermissionSetResponseTypeDef(TypedDict):

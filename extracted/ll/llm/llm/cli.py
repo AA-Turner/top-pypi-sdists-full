@@ -307,6 +307,7 @@ def schema_option(fn):
     cls=DefaultGroup,
     default="prompt",
     default_if_no_args=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.version_option()
 def cli():
@@ -626,6 +627,10 @@ def prompt(
             to_save["fragments"] = list(fragments)
         if system_fragments:
             to_save["system_fragments"] = list(system_fragments)
+        if python_tools:
+            to_save["functions"] = "\n\n".join(python_tools)
+        if tools:
+            to_save["tools"] = list(tools)
         if attachments:
             # Only works for attachments with a path or url
             to_save["attachments"] = [
@@ -641,15 +646,17 @@ def prompt(
             # Need to validate and convert their types first
             model = get_model(model_id or get_default_model())
             try:
-                to_save["options"] = dict(
-                    (key, value)
-                    for key, value in model.Options(**dict(options))
-                    if value is not None
-                )
+                options_model = model.Options(**dict(options))
+                # Use model_dump(mode="json") so Enums become their .value strings
+                to_save["options"] = {
+                    k: v
+                    for k, v in options_model.model_dump(mode="json").items()
+                    if v is not None
+                }
             except pydantic.ValidationError as ex:
                 raise click.ClickException(render_errors(ex.errors()))
         path.write_text(
-            yaml.dump(
+            yaml.safe_dump(
                 to_save,
                 indent=4,
                 default_flow_style=False,
@@ -675,6 +682,10 @@ def prompt(
             system_fragments = [*template_obj.system_fragments, *system_fragments]
         if template_obj.schema_object:
             schema = template_obj.schema_object
+        if template_obj.tools:
+            tools = [*template_obj.tools, *tools]
+        if template_obj.functions and template_obj._functions_is_trusted:
+            python_tools = [template_obj.functions, *python_tools]
         input_ = ""
         if template_obj.options:
             # Make options mutable (they start as a tuple)
@@ -768,7 +779,7 @@ def prompt(
         if key_ not in validated_options:
             validated_options[key_] = value
 
-    kwargs = {**validated_options}
+    kwargs = {}
 
     resolved_attachments = [*attachments, *attachment_types]
 
@@ -808,12 +819,16 @@ def prompt(
 
     if tool_implementations:
         prompt_method = conversation.chain
+        kwargs["options"] = validated_options
         kwargs["chain_limit"] = chain_limit
         if tools_debug:
             kwargs["after_call"] = _debug_tool_call
         if tools_approve:
             kwargs["before_call"] = _approve_tool_call
         kwargs["tools"] = tool_implementations
+    else:
+        # Merge in options for the .prompt() methods
+        kwargs.update(validated_options)
 
     try:
         if async_:
@@ -899,10 +914,12 @@ def prompt(
                 err=True,
             )
 
-    # Log to the database
+    # Log responses to the database
     if (logs_on() or log) and not no_log:
+        # Could be Response, AsyncResponse, ChainResponse, AsyncChainResponse
         if isinstance(response, AsyncResponse):
             response = asyncio.run(response.to_sync_response())
+        # At this point ALL forms should have a log_to_db() method that works:
         response.log_to_db(db)
 
 
@@ -1051,6 +1068,10 @@ def chat(
             raise click.ClickException(str(ex))
         if model_id is None and template_obj.model:
             model_id = template_obj.model
+        if template_obj.tools:
+            tools = [*template_obj.tools, *tools]
+        if template_obj.functions and template_obj._functions_is_trusted:
+            python_tools = [template_obj.functions, *python_tools]
 
     # Figure out which model we are using
     if model_id is None:
@@ -1072,6 +1093,11 @@ def chat(
         # Ensure it can see the API key
         conversation.model = model
 
+    if tools_debug:
+        conversation.after_call = _debug_tool_call
+    if tools_approve:
+        conversation.before_call = _approve_tool_call
+
     # Validate options
     validated_options = get_model_options(model.model_id)
     if options:
@@ -1092,10 +1118,6 @@ def chat(
 
     if tool_functions:
         kwargs["chain_limit"] = chain_limit
-        if tools_debug:
-            kwargs["after_call"] = _debug_tool_call
-        if tools_approve:
-            kwargs["before_call"] = _approve_tool_call
         kwargs["tools"] = tool_functions
 
     should_stream = model.can_stream and not no_stream
@@ -1179,16 +1201,19 @@ def chat(
                 continue
         if template_obj:
             try:
-                template_prompt, template_system = template_obj.evaluate(prompt, params)
+                # Mirror prompt() logic: only pass input if template uses it
+                uses_input = "input" in template_obj.vars()
+                input_ = prompt if uses_input else ""
+                template_prompt, template_system = template_obj.evaluate(input_, params)
             except Template.MissingVariables as ex:
                 raise click.ClickException(str(ex))
             if template_system and not system:
                 system = template_system
             if template_prompt:
-                new_prompt = template_prompt
-                if prompt:
-                    new_prompt += "\n" + prompt
-                prompt = new_prompt
+                if prompt and not uses_input:
+                    prompt = f"{template_prompt}\n{prompt}"
+                else:
+                    prompt = template_prompt
         if prompt.strip() in ("exit", "quit"):
             break
 
@@ -1203,9 +1228,9 @@ def chat(
             **kwargs,
         )
 
-        # System prompt only sent for the first message:
+        # System prompt and system fragments only sent for the first message
         system = None
-        system_fragments = []
+        argument_system_fragments = []
         for chunk in response:
             print(chunk, end="")
             sys.stdout.flush()
@@ -1390,6 +1415,7 @@ def logs_turn_off():
 
 LOGS_COLUMNS = """    responses.id,
     responses.model,
+    responses.resolved_model,
     responses.prompt,
     responses.system,
     responses.prompt_json,
@@ -1413,7 +1439,7 @@ from
     responses
 left join schemas on responses.schema_id = schemas.id
 left join conversations on responses.conversation_id = conversations.id{extra_where}
-order by responses.id desc{limit}
+order by {order_by}{limit}
 """
 LOGS_SQL_SEARCH = """
 select
@@ -1424,7 +1450,7 @@ left join schemas on responses.schema_id = schemas.id
 left join conversations on responses.conversation_id = conversations.id
 join responses_fts on responses_fts.rowid = responses.rowid
 where responses_fts match :query{extra_where}
-order by responses_fts.rank desc{limit}
+order by {order_by}{limit}
 """
 
 ATTACHMENTS_SQL = """
@@ -1492,6 +1518,9 @@ order by prompt_attachments."order"
     help="JSON schema used for multiple results",
 )
 @click.option(
+    "-l", "--latest", is_flag=True, help="Return latest results matching search query"
+)
+@click.option(
     "--data", is_flag=True, help="Output newline-delimited JSON data for schema"
 )
 @click.option("--data-array", is_flag=True, help="Output JSON array of data for schema")
@@ -1552,6 +1581,7 @@ def logs_list(
     any_tools,
     schema_input,
     schema_multi,
+    latest,
     data,
     data_array,
     data_key,
@@ -1625,8 +1655,11 @@ def logs_list(
             model_id = model
 
     sql = LOGS_SQL
+    order_by = "responses.id desc"
     if query:
         sql = LOGS_SQL_SEARCH
+        if not latest:
+            order_by = "responses_fts.rank desc"
 
     limit = ""
     if count is not None and count > 0:
@@ -1636,6 +1669,7 @@ def logs_list(
         "limit": limit,
         "columns": LOGS_COLUMNS,
         "extra_where": "",
+        "order_by": order_by,
     }
     where_bits = []
     sql_params = {
@@ -1846,7 +1880,22 @@ def logs_list(
             'tool_id', tr.tool_id,
             'name', tr.name,
             'output', tr.output,
-            'tool_call_id', tr.tool_call_id
+            'tool_call_id', tr.tool_call_id,
+            'exception', tr.exception,
+            'attachments', COALESCE(
+                (SELECT json_group_array(json_object(
+                    'id', a.id,
+                    'type', a.type,
+                    'path', a.path,
+                    'url', a.url,
+                    'content', a.content
+                ))
+                FROM tool_results_attachments tra
+                JOIN attachments a ON tra.attachment_id = a.id
+                WHERE tra.tool_result_id = tr.id
+                ),
+                '[]'
+            )
         ))
         FROM tool_results tr
         WHERE tr.response_id = responses.id
@@ -2011,7 +2060,16 @@ def logs_list(
                         else ""
                     ),
                     (
-                        "\nModel: **{}**\n".format(row["model"])
+                        (
+                            "\nModel: **{}**{}\n".format(
+                                row["model"],
+                                (
+                                    " (resolved: **{}**)".format(row["resolved_model"])
+                                    if row["resolved_model"]
+                                    else ""
+                                ),
+                            )
+                        )
                         if should_show_conversation
                         else ""
                     ),
@@ -2048,11 +2106,31 @@ def logs_list(
             if row["tool_results"]:
                 click.echo("\n### Tool results\n")
                 for tool_result in row["tool_results"]:
+                    attachments = ""
+                    for attachment in tool_result["attachments"]:
+                        desc = ""
+                        if attachment.get("type"):
+                            desc += attachment["type"] + ": "
+                        if attachment.get("path"):
+                            desc += attachment["path"]
+                        elif attachment.get("url"):
+                            desc += attachment["url"]
+                        elif attachment.get("content"):
+                            desc += f"<{attachment['content_length']:,} bytes>"
+                        attachments += "\n    - {}".format(desc)
                     click.echo(
-                        "- **{}**: `{}`<br>\n{}".format(
+                        "- **{}**: `{}`<br>\n{}{}{}".format(
                             tool_result["name"],
                             tool_result["tool_call_id"],
                             textwrap.indent(tool_result["output"], "    "),
+                            (
+                                "<br>\n    **Error**: {}\n".format(
+                                    tool_result["exception"]
+                                )
+                                if tool_result["exception"]
+                                else ""
+                            ),
+                            attachments,
                         )
                     )
             attachments = attachments_by_id.get(row["id"])
@@ -2285,7 +2363,10 @@ def templates_list():
 @click.argument("name")
 def templates_show(name):
     "Show the specified prompt template"
-    template = load_template(name)
+    try:
+        template = load_template(name)
+    except LoadTemplateError:
+        raise click.ClickException(f"Template '{name}' not found or invalid")
     click.echo(
         yaml.dump(
             dict((k, v) for k, v in template.model_dump().items() if v is not None),
@@ -2481,6 +2562,7 @@ def tools():
 
 
 @tools.command(name="list")
+@click.argument("tool_defs", nargs=-1)
 @click.option("json_", "--json", is_flag=True, help="Output as JSON")
 @click.option(
     "python_tools",
@@ -2488,13 +2570,35 @@ def tools():
     help="Python code block or file path defining functions to register as tools",
     multiple=True,
 )
-def tools_list(json_, python_tools):
+def tools_list(tool_defs, json_, python_tools):
     "List available tools that have been provided by plugins"
-    tools: Dict[str, Union[Tool, Type[Toolbox]]] = get_tools()
-    if python_tools:
-        for code_or_path in python_tools:
-            for tool in _tools_from_code(code_or_path):
+
+    def introspect_tools(toolbox_class):
+        methods = []
+        for tool in toolbox_class.method_tools():
+            methods.append(
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "arguments": tool.input_schema,
+                    "implementation": tool.implementation,
+                }
+            )
+        return methods
+
+    if tool_defs:
+        tools = {}
+        for tool in _gather_tools(tool_defs, python_tools):
+            if hasattr(tool, "name"):
                 tools[tool.name] = tool
+            else:
+                tools[tool.__class__.__name__] = tool
+    else:
+        tools = get_tools()
+        if python_tools:
+            for code_or_path in python_tools:
+                for tool in _tools_from_code(code_or_path):
+                    tools[tool.name] = tool
 
     output_tools = []
     output_toolboxes = []
@@ -2518,11 +2622,11 @@ def tools_list(json_, python_tools):
                     "name": name,
                     "tools": [
                         {
-                            "name": method["name"],
-                            "description": method["description"],
-                            "arguments": method["arguments"],
+                            "name": tool["name"],
+                            "description": tool["description"],
+                            "arguments": tool["arguments"],
                         }
-                        for method in tool.introspect_methods()
+                        for tool in introspect_tools(tool)
                     ],
                 }
             )
@@ -2549,22 +2653,20 @@ def tools_list(json_, python_tools):
                 click.echo(textwrap.indent(tool.description.strip(), "  ") + "\n")
         for toolbox in toolbox_objects:
             click.echo(toolbox.name + ":\n")
-            for method in toolbox.introspect_methods():
+            for tool in toolbox.method_tools():
                 sig = (
-                    str(inspect.signature(method["implementation"]))
+                    str(inspect.signature(tool.implementation))
                     .replace("(self, ", "(")
                     .replace("(self)", "()")
                 )
                 click.echo(
                     "  {}{}\n".format(
-                        method["name"],
+                        tool.name,
                         sig,
                     )
                 )
-                if method["description"]:
-                    click.echo(
-                        textwrap.indent(method["description"].strip(), "    ") + "\n"
-                    )
+                if tool.description:
+                    click.echo(textwrap.indent(tool.description.strip(), "    ") + "\n")
 
 
 @cli.group(
@@ -3826,7 +3928,10 @@ def load_template(name: str) -> Template:
     if not path.exists():
         raise LoadTemplateError(f"Invalid template: {name}")
     content = path.read_text()
-    return _parse_yaml_template(name, content)
+    template_obj = _parse_yaml_template(name, content)
+    # We trust functions here because they came from the filesystem
+    template_obj._functions_is_trusted = True
+    return template_obj
 
 
 def _tools_from_code(code_or_path: str) -> List[Tool]:
@@ -3861,18 +3966,34 @@ def _debug_tool_call(_, tool_call, tool_result):
         err=True,
     )
     output = ""
+    attachments = ""
+    if tool_result.attachments:
+        attachments += "\nAttachments:\n"
+        for attachment in tool_result.attachments:
+            attachments += f"  {repr(attachment)}\n"
+
     try:
         output = json.dumps(json.loads(tool_result.output), indent=2)
     except ValueError:
         output = tool_result.output
+    output += attachments
     click.echo(
         click.style(
-            textwrap.indent(output, "  ") + "\n",
+            textwrap.indent(output, "  ") + ("\n" if not tool_result.exception else ""),
             fg="green",
             bold=True,
         ),
         err=True,
     )
+    if tool_result.exception:
+        click.echo(
+            click.style(
+                "  Exception: {}".format(tool_result.exception),
+                fg="red",
+                bold=True,
+            ),
+            err=True,
+        )
 
 
 def _approve_tool_call(_, tool_call):
@@ -3905,26 +4026,11 @@ def _gather_tools(
         tool for tool in tool_specs if tool.split("(")[0] not in registered_tools
     ]
     if bad_tools:
-        # Are any of them toolbox tools?
-        bad_tool_classes = list(
-            set(
-                bad_tool.split("_")[0]
-                for bad_tool in bad_tools
-                if bad_tool[0].isupper()
+        raise click.ClickException(
+            "Tool(s) {} not found. Available tools: {}".format(
+                ", ".join(bad_tools), ", ".join(registered_tools.keys())
             )
         )
-        if bad_tool_classes:
-            raise click.ClickException(
-                "Toolbox tools ({}) are not yet supported with llm -c".format(
-                    ", ".join(bad_tool_classes)
-                )
-            )
-        else:
-            raise click.ClickException(
-                "Tool(s) {} not found. Available tools: {}".format(
-                    ", ".join(bad_tools), ", ".join(registered_tools.keys())
-                )
-            )
     for tool_spec in tool_specs:
         if not tool_spec[0].isupper():
             # It's a function

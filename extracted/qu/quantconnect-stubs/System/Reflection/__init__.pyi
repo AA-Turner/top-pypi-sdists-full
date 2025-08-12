@@ -20,41 +20,88 @@ System_Reflection__EventContainer_Callable = typing.TypeVar("System_Reflection__
 System_Reflection__EventContainer_ReturnType = typing.TypeVar("System_Reflection__EventContainer_ReturnType")
 
 
-class TargetParameterCountException(System.ApplicationException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-
-class AssemblySignatureKeyAttribute(System.Attribute):
+class AssemblyDelaySignAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def public_key(self) -> str:
+    def delay_sign(self) -> bool:
+        ...
+
+    def __init__(self, delay_sign: bool) -> None:
+        ...
+
+
+class MethodImplAttributes(Enum):
+    """This class has no documentation."""
+
+    CODE_TYPE_MASK = ...
+
+    IL = ...
+
+    NATIVE = ...
+
+    OPTIL = ...
+
+    RUNTIME = ...
+
+    MANAGED_MASK = ...
+
+    UNMANAGED = ...
+
+    MANAGED = ...
+
+    FORWARD_REF = ...
+
+    PRESERVE_SIG = ...
+
+    INTERNAL_CALL = ...
+
+    SYNCHRONIZED = ...
+
+    NO_INLINING = ...
+
+    AGGRESSIVE_INLINING = ...
+
+    NO_OPTIMIZATION = ...
+
+    AGGRESSIVE_OPTIMIZATION = ...
+
+    ASYNC = ...
+
+    MAX_METHOD_IMPL_VAL = ...
+
+    def __int__(self) -> int:
+        ...
+
+
+class ReflectionTypeLoadException(System.SystemException):
+    """This class has no documentation."""
+
+    @property
+    def types(self) -> typing.List[typing.Type]:
         ...
 
     @property
-    def countersignature(self) -> str:
+    def loader_exceptions(self) -> typing.List[System.Exception]:
         ...
 
-    def __init__(self, public_key: str, countersignature: str) -> None:
+    @property
+    def message(self) -> str:
         ...
 
+    @overload
+    def __init__(self, classes: typing.List[typing.Type], exceptions: typing.List[System.Exception]) -> None:
+        ...
 
-class IReflectableType(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
+    @overload
+    def __init__(self, classes: typing.List[typing.Type], exceptions: typing.List[System.Exception], message: str) -> None:
+        ...
 
-    def get_type_info(self) -> System.Reflection.TypeInfo:
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def to_string(self) -> str:
         ...
 
 
@@ -95,395 +142,6 @@ class MemberTypes(Enum):
     ALL = ...
 
     def __int__(self) -> int:
-        ...
-
-
-class BindingFlags(Enum):
-    """This class has no documentation."""
-
-    DEFAULT = ...
-
-    IGNORE_CASE = ...
-
-    DECLARED_ONLY = ...
-
-    INSTANCE = ...
-
-    STATIC = ...
-
-    PUBLIC = ...
-
-    NON_PUBLIC = ...
-
-    FLATTEN_HIERARCHY = ...
-
-    INVOKE_METHOD = ...
-
-    CREATE_INSTANCE = ...
-
-    GET_FIELD = ...
-
-    SET_FIELD = ...
-
-    GET_PROPERTY = ...
-
-    SET_PROPERTY = ...
-
-    PUT_DISP_PROPERTY = ...
-
-    PUT_REF_DISP_PROPERTY = ...
-
-    EXACT_BINDING = ...
-
-    SUPPRESS_CHANGE_TYPE = ...
-
-    OPTIONAL_PARAM_BINDING = ...
-
-    IGNORE_RETURN = ...
-
-    DO_NOT_WRAP_EXCEPTIONS = ...
-
-    def __int__(self) -> int:
-        ...
-
-
-class CallingConventions(Enum):
-    """This class has no documentation."""
-
-    STANDARD = ...
-
-    VAR_ARGS = ...
-
-    ANY = ...
-
-    HAS_THIS = ...
-
-    EXPLICIT_THIS = ...
-
-    def __int__(self) -> int:
-        ...
-
-
-class CustomAttributeTypedArgument(System.IEquatable[System_Reflection_CustomAttributeTypedArgument]):
-    """This class has no documentation."""
-
-    @property
-    def argument_type(self) -> typing.Type:
-        ...
-
-    @property
-    def value(self) -> System.Object:
-        ...
-
-    def __eq__(self, right: System.Reflection.CustomAttributeTypedArgument) -> bool:
-        ...
-
-    @overload
-    def __init__(self, argument_type: typing.Type, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any) -> None:
-        ...
-
-    def __ne__(self, right: System.Reflection.CustomAttributeTypedArgument) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Reflection.CustomAttributeTypedArgument) -> bool:
-        """
-        Indicates whether the current instance is equal to another instance of the same type.
-        
-        :param other: An instance to compare with this instance.
-        :returns: true if the current instance is equal to the other instance; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class CustomAttributeData(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def attribute_type(self) -> typing.Type:
-        ...
-
-    @property
-    def constructor(self) -> System.Reflection.ConstructorInfo:
-        ...
-
-    @property
-    def constructor_arguments(self) -> typing.List[System.Reflection.CustomAttributeTypedArgument]:
-        ...
-
-    @property
-    def named_arguments(self) -> typing.List[System.Reflection.CustomAttributeNamedArgument]:
-        ...
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(target: System.Reflection.MemberInfo) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(target: System.Reflection.Module) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(target: System.Reflection.Assembly) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
-        ...
-
-    @staticmethod
-    @overload
-    def get_custom_attributes(target: System.Reflection.ParameterInfo) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class PortableExecutableKinds(Enum):
-    """This class has no documentation."""
-
-    NOT_A_PORTABLE_EXECUTABLE_IMAGE = ...
-
-    IL_ONLY = ...
-
-    REQUIRED_32_BIT = ...
-
-    PE_32_PLUS = ...
-
-    UNMANAGED_32_BIT = ...
-
-    PREFERRED_32_BIT = ...
-
-    def __int__(self) -> int:
-        ...
-
-
-class ImageFileMachine(Enum):
-    """This class has no documentation."""
-
-    I_386 = ...
-
-    IA_64 = ...
-
-    AMD_64 = ...
-
-    ARM = ...
-
-    def __int__(self) -> int:
-        ...
-
-
-class ParameterModifier:
-    """This class has no documentation."""
-
-    def __getitem__(self, index: int) -> bool:
-        ...
-
-    def __init__(self, parameter_count: int) -> None:
-        ...
-
-    def __setitem__(self, index: int, value: bool) -> None:
-        ...
-
-
-class Module(System.Object, System.Reflection.ICustomAttributeProvider, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def assembly(self) -> System.Reflection.Assembly:
-        ...
-
-    @property
-    def fully_qualified_name(self) -> str:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def md_stream_version(self) -> int:
-        ...
-
-    @property
-    def module_version_id(self) -> System.Guid:
-        ...
-
-    @property
-    def scope_name(self) -> str:
-        ...
-
-    @property
-    def module_handle(self) -> System.ModuleHandle:
-        ...
-
-    @property
-    def custom_attributes(self) -> typing.Iterable[System.Reflection.CustomAttributeData]:
-        ...
-
-    @property
-    def metadata_token(self) -> int:
-        ...
-
-    FILTER_TYPE_NAME: typing.Callable[[typing.Type, System.Object], bool] = ...
-
-    FILTER_TYPE_NAME_IGNORE_CASE: typing.Callable[[typing.Type, System.Object], bool] = ...
-
-    def __eq__(self, right: System.Reflection.Module) -> bool:
-        ...
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def __ne__(self, right: System.Reflection.Module) -> bool:
-        ...
-
-    def equals(self, o: typing.Any) -> bool:
-        ...
-
-    def find_types(self, filter: typing.Callable[[typing.Type, System.Object], bool], filter_criteria: typing.Any) -> typing.List[typing.Type]:
-        ...
-
-    @overload
-    def get_custom_attributes(self, inherit: bool) -> typing.List[System.Object]:
-        ...
-
-    @overload
-    def get_custom_attributes(self, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Object]:
-        ...
-
-    def get_custom_attributes_data(self) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
-        ...
-
-    @overload
-    def get_field(self, name: str) -> System.Reflection.FieldInfo:
-        ...
-
-    @overload
-    def get_field(self, name: str, binding_attr: System.Reflection.BindingFlags) -> System.Reflection.FieldInfo:
-        ...
-
-    @overload
-    def get_fields(self) -> typing.List[System.Reflection.FieldInfo]:
-        ...
-
-    @overload
-    def get_fields(self, binding_flags: System.Reflection.BindingFlags) -> typing.List[System.Reflection.FieldInfo]:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @overload
-    def get_method(self, name: str) -> System.Reflection.MethodInfo:
-        ...
-
-    @overload
-    def get_method(self, name: str, types: typing.List[typing.Type]) -> System.Reflection.MethodInfo:
-        ...
-
-    @overload
-    def get_method(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, call_convention: System.Reflection.CallingConventions, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.MethodInfo:
-        ...
-
-    def get_method_impl(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, call_convention: System.Reflection.CallingConventions, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.MethodInfo:
-        """This method is protected."""
-        ...
-
-    @overload
-    def get_methods(self) -> typing.List[System.Reflection.MethodInfo]:
-        ...
-
-    @overload
-    def get_methods(self, binding_flags: System.Reflection.BindingFlags) -> typing.List[System.Reflection.MethodInfo]:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def get_pe_kind(self, pe_kind: typing.Optional[System.Reflection.PortableExecutableKinds], machine: typing.Optional[System.Reflection.ImageFileMachine]) -> typing.Tuple[None, System.Reflection.PortableExecutableKinds, System.Reflection.ImageFileMachine]:
-        ...
-
-    @overload
-    def get_type(self, class_name: str) -> typing.Type:
-        ...
-
-    @overload
-    def get_type(self, class_name: str, ignore_case: bool) -> typing.Type:
-        ...
-
-    @overload
-    def get_type(self, class_name: str, throw_on_error: bool, ignore_case: bool) -> typing.Type:
-        ...
-
-    def get_types(self) -> typing.List[typing.Type]:
-        ...
-
-    def is_defined(self, attribute_type: typing.Type, inherit: bool) -> bool:
-        ...
-
-    def is_resource(self) -> bool:
-        ...
-
-    @overload
-    def resolve_field(self, metadata_token: int) -> System.Reflection.FieldInfo:
-        ...
-
-    @overload
-    def resolve_field(self, metadata_token: int, generic_type_arguments: typing.List[typing.Type], generic_method_arguments: typing.List[typing.Type]) -> System.Reflection.FieldInfo:
-        ...
-
-    @overload
-    def resolve_member(self, metadata_token: int) -> System.Reflection.MemberInfo:
-        ...
-
-    @overload
-    def resolve_member(self, metadata_token: int, generic_type_arguments: typing.List[typing.Type], generic_method_arguments: typing.List[typing.Type]) -> System.Reflection.MemberInfo:
-        ...
-
-    @overload
-    def resolve_method(self, metadata_token: int) -> System.Reflection.MethodBase:
-        ...
-
-    @overload
-    def resolve_method(self, metadata_token: int, generic_type_arguments: typing.List[typing.Type], generic_method_arguments: typing.List[typing.Type]) -> System.Reflection.MethodBase:
-        ...
-
-    def resolve_signature(self, metadata_token: int) -> typing.List[int]:
-        ...
-
-    def resolve_string(self, metadata_token: int) -> str:
-        ...
-
-    @overload
-    def resolve_type(self, metadata_token: int) -> typing.Type:
-        ...
-
-    @overload
-    def resolve_type(self, metadata_token: int, generic_type_arguments: typing.List[typing.Type], generic_method_arguments: typing.List[typing.Type]) -> typing.Type:
-        ...
-
-    def to_string(self) -> str:
         ...
 
 
@@ -560,21 +218,6 @@ class MemberInfo(System.Object, System.Reflection.ICustomAttributeProvider, meta
         ...
 
 
-class EventAttributes(Enum):
-    """This class has no documentation."""
-
-    NONE = ...
-
-    SPECIAL_NAME = ...
-
-    RT_SPECIAL_NAME = ...
-
-    RESERVED_MASK = ...
-
-    def __int__(self) -> int:
-        ...
-
-
 class MethodAttributes(Enum):
     """This class has no documentation."""
 
@@ -630,44 +273,18 @@ class MethodAttributes(Enum):
         ...
 
 
-class MethodImplAttributes(Enum):
+class CallingConventions(Enum):
     """This class has no documentation."""
 
-    CODE_TYPE_MASK = ...
+    STANDARD = ...
 
-    IL = ...
+    VAR_ARGS = ...
 
-    NATIVE = ...
+    ANY = ...
 
-    OPTIL = ...
+    HAS_THIS = ...
 
-    RUNTIME = ...
-
-    MANAGED_MASK = ...
-
-    UNMANAGED = ...
-
-    MANAGED = ...
-
-    FORWARD_REF = ...
-
-    PRESERVE_SIG = ...
-
-    INTERNAL_CALL = ...
-
-    SYNCHRONIZED = ...
-
-    NO_INLINING = ...
-
-    AGGRESSIVE_INLINING = ...
-
-    NO_OPTIMIZATION = ...
-
-    AGGRESSIVE_OPTIMIZATION = ...
-
-    ASYNC = ...
-
-    MAX_METHOD_IMPL_VAL = ...
+    EXPLICIT_THIS = ...
 
     def __int__(self) -> int:
         ...
@@ -778,6 +395,94 @@ class MethodBody(System.Object):
         ...
 
     def get_il_as_byte_array(self) -> typing.List[int]:
+        ...
+
+
+class BindingFlags(Enum):
+    """This class has no documentation."""
+
+    DEFAULT = ...
+
+    IGNORE_CASE = ...
+
+    DECLARED_ONLY = ...
+
+    INSTANCE = ...
+
+    STATIC = ...
+
+    PUBLIC = ...
+
+    NON_PUBLIC = ...
+
+    FLATTEN_HIERARCHY = ...
+
+    INVOKE_METHOD = ...
+
+    CREATE_INSTANCE = ...
+
+    GET_FIELD = ...
+
+    SET_FIELD = ...
+
+    GET_PROPERTY = ...
+
+    SET_PROPERTY = ...
+
+    PUT_DISP_PROPERTY = ...
+
+    PUT_REF_DISP_PROPERTY = ...
+
+    EXACT_BINDING = ...
+
+    SUPPRESS_CHANGE_TYPE = ...
+
+    OPTIONAL_PARAM_BINDING = ...
+
+    IGNORE_RETURN = ...
+
+    DO_NOT_WRAP_EXCEPTIONS = ...
+
+    def __int__(self) -> int:
+        ...
+
+
+class ParameterModifier:
+    """This class has no documentation."""
+
+    def __getitem__(self, index: int) -> bool:
+        ...
+
+    def __init__(self, parameter_count: int) -> None:
+        ...
+
+    def __setitem__(self, index: int, value: bool) -> None:
+        ...
+
+
+class Binder(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    def bind_to_field(self, binding_attr: System.Reflection.BindingFlags, match: typing.List[System.Reflection.FieldInfo], value: typing.Any, culture: System.Globalization.CultureInfo) -> System.Reflection.FieldInfo:
+        ...
+
+    def bind_to_method(self, binding_attr: System.Reflection.BindingFlags, match: typing.List[System.Reflection.MethodBase], args: typing.List[System.Object], modifiers: typing.List[System.Reflection.ParameterModifier], culture: System.Globalization.CultureInfo, names: typing.List[str], state: typing.Optional[typing.Any]) -> typing.Tuple[System.Reflection.MethodBase, typing.Any]:
+        ...
+
+    def change_type(self, value: typing.Any, type: typing.Type, culture: System.Globalization.CultureInfo) -> System.Object:
+        ...
+
+    def reorder_argument_array(self, args: typing.List[System.Object], state: typing.Any) -> None:
+        ...
+
+    def select_method(self, binding_attr: System.Reflection.BindingFlags, match: typing.List[System.Reflection.MethodBase], types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.MethodBase:
+        ...
+
+    def select_property(self, binding_attr: System.Reflection.BindingFlags, match: typing.List[System.Reflection.PropertyInfo], return_type: typing.Type, indexes: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.PropertyInfo:
         ...
 
 
@@ -1168,6 +873,28 @@ class MethodInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
         ...
 
     def make_generic_method(self, *type_arguments: typing.Union[typing.Type, typing.Iterable[typing.Type]]) -> System.Reflection.MethodInfo:
+        ...
+
+
+class IReflectableType(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_type_info(self) -> System.Reflection.TypeInfo:
+        ...
+
+
+class EventAttributes(Enum):
+    """This class has no documentation."""
+
+    NONE = ...
+
+    SPECIAL_NAME = ...
+
+    RT_SPECIAL_NAME = ...
+
+    RESERVED_MASK = ...
+
+    def __int__(self) -> int:
         ...
 
 
@@ -1592,32 +1319,6 @@ class PropertyInfo(System.Reflection.MemberInfo, metaclass=abc.ABCMeta):
         ...
 
 
-class Binder(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def bind_to_field(self, binding_attr: System.Reflection.BindingFlags, match: typing.List[System.Reflection.FieldInfo], value: typing.Any, culture: System.Globalization.CultureInfo) -> System.Reflection.FieldInfo:
-        ...
-
-    def bind_to_method(self, binding_attr: System.Reflection.BindingFlags, match: typing.List[System.Reflection.MethodBase], args: typing.List[System.Object], modifiers: typing.List[System.Reflection.ParameterModifier], culture: System.Globalization.CultureInfo, names: typing.List[str], state: typing.Optional[typing.Any]) -> typing.Tuple[System.Reflection.MethodBase, typing.Any]:
-        ...
-
-    def change_type(self, value: typing.Any, type: typing.Type, culture: System.Globalization.CultureInfo) -> System.Object:
-        ...
-
-    def reorder_argument_array(self, args: typing.List[System.Object], state: typing.Any) -> None:
-        ...
-
-    def select_method(self, binding_attr: System.Reflection.BindingFlags, match: typing.List[System.Reflection.MethodBase], types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.MethodBase:
-        ...
-
-    def select_property(self, binding_attr: System.Reflection.BindingFlags, match: typing.List[System.Reflection.PropertyInfo], return_type: typing.Type, indexes: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.PropertyInfo:
-        ...
-
-
 class ConstructorInfo(System.Reflection.MethodBase, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -1719,6 +1420,402 @@ class TypeInfo(typing.Type, System.Reflection.IReflectableType, metaclass=abc.AB
         ...
 
     def is_assignable_from(self, type_info: System.Reflection.TypeInfo) -> bool:
+        ...
+
+
+class CustomAttributeTypedArgument(System.IEquatable[System_Reflection_CustomAttributeTypedArgument]):
+    """This class has no documentation."""
+
+    @property
+    def argument_type(self) -> typing.Type:
+        ...
+
+    @property
+    def value(self) -> System.Object:
+        ...
+
+    def __eq__(self, right: System.Reflection.CustomAttributeTypedArgument) -> bool:
+        ...
+
+    @overload
+    def __init__(self, argument_type: typing.Type, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any) -> None:
+        ...
+
+    def __ne__(self, right: System.Reflection.CustomAttributeTypedArgument) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Reflection.CustomAttributeTypedArgument) -> bool:
+        """
+        Indicates whether the current instance is equal to another instance of the same type.
+        
+        :param other: An instance to compare with this instance.
+        :returns: true if the current instance is equal to the other instance; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class CustomAttributeNamedArgument(System.IEquatable[System_Reflection_CustomAttributeNamedArgument]):
+    """This class has no documentation."""
+
+    @property
+    def member_info(self) -> System.Reflection.MemberInfo:
+        ...
+
+    @property
+    def typed_value(self) -> System.Reflection.CustomAttributeTypedArgument:
+        ...
+
+    @property
+    def member_name(self) -> str:
+        ...
+
+    @property
+    def is_field(self) -> bool:
+        ...
+
+    def __eq__(self, right: System.Reflection.CustomAttributeNamedArgument) -> bool:
+        ...
+
+    @overload
+    def __init__(self, member_info: System.Reflection.MemberInfo, value: typing.Any) -> None:
+        ...
+
+    @overload
+    def __init__(self, member_info: System.Reflection.MemberInfo, typed_argument: System.Reflection.CustomAttributeTypedArgument) -> None:
+        ...
+
+    def __ne__(self, right: System.Reflection.CustomAttributeNamedArgument) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Reflection.CustomAttributeNamedArgument) -> bool:
+        """
+        Indicates whether the current instance is equal to another instance of the same type.
+        
+        :param other: An instance to compare with this instance.
+        :returns: true if the current instance is equal to the other instance; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class CustomAttributeData(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def attribute_type(self) -> typing.Type:
+        ...
+
+    @property
+    def constructor(self) -> System.Reflection.ConstructorInfo:
+        ...
+
+    @property
+    def constructor_arguments(self) -> typing.List[System.Reflection.CustomAttributeTypedArgument]:
+        ...
+
+    @property
+    def named_arguments(self) -> typing.List[System.Reflection.CustomAttributeNamedArgument]:
+        ...
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(target: System.Reflection.MemberInfo) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(target: System.Reflection.Module) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(target: System.Reflection.Assembly) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
+        ...
+
+    @staticmethod
+    @overload
+    def get_custom_attributes(target: System.Reflection.ParameterInfo) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class PortableExecutableKinds(Enum):
+    """This class has no documentation."""
+
+    NOT_A_PORTABLE_EXECUTABLE_IMAGE = ...
+
+    IL_ONLY = ...
+
+    REQUIRED_32_BIT = ...
+
+    PE_32_PLUS = ...
+
+    UNMANAGED_32_BIT = ...
+
+    PREFERRED_32_BIT = ...
+
+    def __int__(self) -> int:
+        ...
+
+
+class ImageFileMachine(Enum):
+    """This class has no documentation."""
+
+    I_386 = ...
+
+    IA_64 = ...
+
+    AMD_64 = ...
+
+    ARM = ...
+
+    def __int__(self) -> int:
+        ...
+
+
+class Module(System.Object, System.Reflection.ICustomAttributeProvider, System.Runtime.Serialization.ISerializable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def assembly(self) -> System.Reflection.Assembly:
+        ...
+
+    @property
+    def fully_qualified_name(self) -> str:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def md_stream_version(self) -> int:
+        ...
+
+    @property
+    def module_version_id(self) -> System.Guid:
+        ...
+
+    @property
+    def scope_name(self) -> str:
+        ...
+
+    @property
+    def module_handle(self) -> System.ModuleHandle:
+        ...
+
+    @property
+    def custom_attributes(self) -> typing.Iterable[System.Reflection.CustomAttributeData]:
+        ...
+
+    @property
+    def metadata_token(self) -> int:
+        ...
+
+    FILTER_TYPE_NAME: typing.Callable[[typing.Type, System.Object], bool] = ...
+
+    FILTER_TYPE_NAME_IGNORE_CASE: typing.Callable[[typing.Type, System.Object], bool] = ...
+
+    def __eq__(self, right: System.Reflection.Module) -> bool:
+        ...
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    def __ne__(self, right: System.Reflection.Module) -> bool:
+        ...
+
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    def find_types(self, filter: typing.Callable[[typing.Type, System.Object], bool], filter_criteria: typing.Any) -> typing.List[typing.Type]:
+        ...
+
+    @overload
+    def get_custom_attributes(self, inherit: bool) -> typing.List[System.Object]:
+        ...
+
+    @overload
+    def get_custom_attributes(self, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Object]:
+        ...
+
+    def get_custom_attributes_data(self) -> System.Collections.Generic.IList[System.Reflection.CustomAttributeData]:
+        ...
+
+    @overload
+    def get_field(self, name: str) -> System.Reflection.FieldInfo:
+        ...
+
+    @overload
+    def get_field(self, name: str, binding_attr: System.Reflection.BindingFlags) -> System.Reflection.FieldInfo:
+        ...
+
+    @overload
+    def get_fields(self) -> typing.List[System.Reflection.FieldInfo]:
+        ...
+
+    @overload
+    def get_fields(self, binding_flags: System.Reflection.BindingFlags) -> typing.List[System.Reflection.FieldInfo]:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @overload
+    def get_method(self, name: str) -> System.Reflection.MethodInfo:
+        ...
+
+    @overload
+    def get_method(self, name: str, types: typing.List[typing.Type]) -> System.Reflection.MethodInfo:
+        ...
+
+    @overload
+    def get_method(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, call_convention: System.Reflection.CallingConventions, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.MethodInfo:
+        ...
+
+    def get_method_impl(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, call_convention: System.Reflection.CallingConventions, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.MethodInfo:
+        """This method is protected."""
+        ...
+
+    @overload
+    def get_methods(self) -> typing.List[System.Reflection.MethodInfo]:
+        ...
+
+    @overload
+    def get_methods(self, binding_flags: System.Reflection.BindingFlags) -> typing.List[System.Reflection.MethodInfo]:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+    def get_pe_kind(self, pe_kind: typing.Optional[System.Reflection.PortableExecutableKinds], machine: typing.Optional[System.Reflection.ImageFileMachine]) -> typing.Tuple[None, System.Reflection.PortableExecutableKinds, System.Reflection.ImageFileMachine]:
+        ...
+
+    @overload
+    def get_type(self, class_name: str) -> typing.Type:
+        ...
+
+    @overload
+    def get_type(self, class_name: str, ignore_case: bool) -> typing.Type:
+        ...
+
+    @overload
+    def get_type(self, class_name: str, throw_on_error: bool, ignore_case: bool) -> typing.Type:
+        ...
+
+    def get_types(self) -> typing.List[typing.Type]:
+        ...
+
+    def is_defined(self, attribute_type: typing.Type, inherit: bool) -> bool:
+        ...
+
+    def is_resource(self) -> bool:
+        ...
+
+    @overload
+    def resolve_field(self, metadata_token: int) -> System.Reflection.FieldInfo:
+        ...
+
+    @overload
+    def resolve_field(self, metadata_token: int, generic_type_arguments: typing.List[typing.Type], generic_method_arguments: typing.List[typing.Type]) -> System.Reflection.FieldInfo:
+        ...
+
+    @overload
+    def resolve_member(self, metadata_token: int) -> System.Reflection.MemberInfo:
+        ...
+
+    @overload
+    def resolve_member(self, metadata_token: int, generic_type_arguments: typing.List[typing.Type], generic_method_arguments: typing.List[typing.Type]) -> System.Reflection.MemberInfo:
+        ...
+
+    @overload
+    def resolve_method(self, metadata_token: int) -> System.Reflection.MethodBase:
+        ...
+
+    @overload
+    def resolve_method(self, metadata_token: int, generic_type_arguments: typing.List[typing.Type], generic_method_arguments: typing.List[typing.Type]) -> System.Reflection.MethodBase:
+        ...
+
+    def resolve_signature(self, metadata_token: int) -> typing.List[int]:
+        ...
+
+    def resolve_string(self, metadata_token: int) -> str:
+        ...
+
+    @overload
+    def resolve_type(self, metadata_token: int) -> typing.Type:
+        ...
+
+    @overload
+    def resolve_type(self, metadata_token: int, generic_type_arguments: typing.List[typing.Type], generic_method_arguments: typing.List[typing.Type]) -> typing.Type:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class ResourceLocation(Enum):
+    """This class has no documentation."""
+
+    CONTAINED_IN_ANOTHER_ASSEMBLY = 2
+
+    CONTAINED_IN_MANIFEST_FILE = 4
+
+    EMBEDDED = 1
+
+    def __int__(self) -> int:
+        ...
+
+
+class ManifestResourceInfo(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def referenced_assembly(self) -> System.Reflection.Assembly:
+        ...
+
+    @property
+    def file_name(self) -> str:
+        ...
+
+    @property
+    def resource_location(self) -> System.Reflection.ResourceLocation:
+        ...
+
+    def __init__(self, containing_assembly: System.Reflection.Assembly, containing_file_name: str, resource_location: System.Reflection.ResourceLocation) -> None:
         ...
 
 
@@ -1947,192 +2044,6 @@ class AssemblyName(System.Object, System.ICloneable, System.Runtime.Serializatio
         ...
 
     def to_string(self) -> str:
-        ...
-
-
-class AssemblyNameProxy(System.MarshalByRefObject):
-    """This class has no documentation."""
-
-    def get_assembly_name(self, assembly_file: str) -> System.Reflection.AssemblyName:
-        ...
-
-
-class MethodInvoker(System.Object):
-    """Invokes the method reflected by the provided MethodBase."""
-
-    @staticmethod
-    def create(method: System.Reflection.MethodBase) -> System.Reflection.MethodInvoker:
-        """
-        Creates a new instance of MethodInvoker.
-        
-        :param method: The method that will be invoked.
-        :returns: An instance of a MethodInvoker.
-        """
-        ...
-
-    @overload
-    def invoke(self, obj: typing.Any) -> System.Object:
-        """
-        Invokes the method using the specified parameters.
-        
-        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
-        :returns: An object containing the return value of the invoked method, or null if the invoked method does not have a return value.
-        """
-        ...
-
-    @overload
-    def invoke(self, obj: typing.Any, arg_1: typing.Any) -> System.Object:
-        """
-        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
-        :param arg_1: The first argument for the invoked method.
-        """
-        ...
-
-    @overload
-    def invoke(self, obj: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Object:
-        """
-        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
-        :param arg_1: The first argument for the invoked method.
-        :param arg_2: The second argument for the invoked method.
-        """
-        ...
-
-    @overload
-    def invoke(self, obj: typing.Any, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any) -> System.Object:
-        """
-        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
-        :param arg_1: The first argument for the invoked method.
-        :param arg_2: The second argument for the invoked method.
-        :param arg_3: The third argument for the invoked method.
-        """
-        ...
-
-    @overload
-    def invoke(self, obj: typing.Any, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any, arg_4: typing.Any) -> System.Object:
-        """
-        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
-        :param arg_1: The first argument for the invoked method.
-        :param arg_2: The second argument for the invoked method.
-        :param arg_3: The third argument for the invoked method.
-        :param arg_4: The fourth argument for the invoked method.
-        """
-        ...
-
-    @overload
-    def invoke(self, obj: typing.Any, arguments: System.Span[System.Object]) -> System.Object:
-        """
-        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
-        :param arguments: The arguments for the invoked method.
-        """
-        ...
-
-
-class AssemblyKeyNameAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def key_name(self) -> str:
-        ...
-
-    def __init__(self, key_name: str) -> None:
-        ...
-
-
-class ResourceAttributes(Enum):
-    """This class has no documentation."""
-
-    PUBLIC = ...
-
-    PRIVATE = ...
-
-    def __int__(self) -> int:
-        ...
-
-
-class Pointer(System.Object, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    @staticmethod
-    def box(ptr: typing.Any, type: typing.Type) -> System.Object:
-        ...
-
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def unbox(ptr: typing.Any) -> typing.Any:
-        ...
-
-
-class TargetInvocationException(System.ApplicationException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-
-class InvalidFilterCriteriaException(System.ApplicationException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
-class ResourceLocation(Enum):
-    """This class has no documentation."""
-
-    CONTAINED_IN_ANOTHER_ASSEMBLY = 2
-
-    CONTAINED_IN_MANIFEST_FILE = 4
-
-    EMBEDDED = 1
-
-    def __int__(self) -> int:
-        ...
-
-
-class ManifestResourceInfo(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def referenced_assembly(self) -> System.Reflection.Assembly:
-        ...
-
-    @property
-    def file_name(self) -> str:
-        ...
-
-    @property
-    def resource_location(self) -> System.Reflection.ResourceLocation:
-        ...
-
-    def __init__(self, containing_assembly: System.Reflection.Assembly, containing_file_name: str, resource_location: System.Reflection.ResourceLocation) -> None:
         ...
 
 
@@ -2451,17 +2362,6 @@ class Assembly(System.Object, System.Reflection.ICustomAttributeProvider, System
 
     @staticmethod
     def unsafe_load_from(assembly_file: str) -> System.Reflection.Assembly:
-        ...
-
-
-class AssemblyCultureAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def culture(self) -> str:
-        ...
-
-    def __init__(self, culture: str) -> None:
         ...
 
 
@@ -2805,6 +2705,94 @@ class TypeDelegator(System.Reflection.TypeInfo):
         ...
 
 
+class ReflectionContext(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        """This method is protected."""
+        ...
+
+    def get_type_for_object(self, value: typing.Any) -> System.Reflection.TypeInfo:
+        ...
+
+    def map_assembly(self, assembly: System.Reflection.Assembly) -> System.Reflection.Assembly:
+        ...
+
+    def map_type(self, type: System.Reflection.TypeInfo) -> System.Reflection.TypeInfo:
+        ...
+
+
+class IReflect(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def underlying_system_type(self) -> typing.Type:
+        ...
+
+    def get_field(self, name: str, binding_attr: System.Reflection.BindingFlags) -> System.Reflection.FieldInfo:
+        ...
+
+    def get_fields(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.FieldInfo]:
+        ...
+
+    def get_member(self, name: str, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.MemberInfo]:
+        ...
+
+    def get_members(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.MemberInfo]:
+        ...
+
+    @overload
+    def get_method(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.MethodInfo:
+        ...
+
+    @overload
+    def get_method(self, name: str, binding_attr: System.Reflection.BindingFlags) -> System.Reflection.MethodInfo:
+        ...
+
+    def get_methods(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.MethodInfo]:
+        ...
+
+    def get_properties(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.PropertyInfo]:
+        ...
+
+    @overload
+    def get_property(self, name: str, binding_attr: System.Reflection.BindingFlags) -> System.Reflection.PropertyInfo:
+        ...
+
+    @overload
+    def get_property(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, return_type: typing.Type, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.PropertyInfo:
+        ...
+
+    def invoke_member(self, name: str, invoke_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, target: typing.Any, args: typing.List[System.Object], modifiers: typing.List[System.Reflection.ParameterModifier], culture: System.Globalization.CultureInfo, named_parameters: typing.List[str]) -> System.Object:
+        ...
+
+
+class Pointer(System.Object, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    @staticmethod
+    def box(ptr: typing.Any, type: typing.Type) -> System.Object:
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def unbox(ptr: typing.Any) -> typing.Any:
+        ...
+
+
+class AssemblyNameProxy(System.MarshalByRefObject):
+    """This class has no documentation."""
+
+    def get_assembly_name(self, assembly_file: str) -> System.Reflection.AssemblyName:
+        ...
+
+
 class CustomAttributeFormatException(System.FormatException):
     """This class has no documentation."""
 
@@ -2830,25 +2818,18 @@ class CustomAttributeFormatException(System.FormatException):
         ...
 
 
-class AssemblyVersionAttribute(System.Attribute):
+class AssemblySignatureKeyAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def version(self) -> str:
+    def public_key(self) -> str:
         ...
-
-    def __init__(self, version: str) -> None:
-        ...
-
-
-class AssemblyFileVersionAttribute(System.Attribute):
-    """This class has no documentation."""
 
     @property
-    def version(self) -> str:
+    def countersignature(self) -> str:
         ...
 
-    def __init__(self, version: str) -> None:
+    def __init__(self, public_key: str, countersignature: str) -> None:
         ...
 
 
@@ -2877,6 +2858,150 @@ class TargetException(System.ApplicationException):
         ...
 
 
+class AssemblyDefaultAliasAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def default_alias(self) -> str:
+        ...
+
+    def __init__(self, default_alias: str) -> None:
+        ...
+
+
+class InvalidFilterCriteriaException(System.ApplicationException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class AssemblyTrademarkAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def trademark(self) -> str:
+        ...
+
+    def __init__(self, trademark: str) -> None:
+        ...
+
+
+class AssemblyCompanyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def company(self) -> str:
+        ...
+
+    def __init__(self, company: str) -> None:
+        ...
+
+
+class ResourceAttributes(Enum):
+    """This class has no documentation."""
+
+    PUBLIC = ...
+
+    PRIVATE = ...
+
+    def __int__(self) -> int:
+        ...
+
+
+class ConstructorInvoker(System.Object):
+    """Invokes the method reflected by the provided ConstructorInfo."""
+
+    @staticmethod
+    def create(constructor: System.Reflection.ConstructorInfo) -> System.Reflection.ConstructorInvoker:
+        """
+        Creates a new instance of ConstructorInvoker.
+        
+        :param constructor: The constructor that will be invoked.
+        :returns: An instance of a ConstructorInvoker.
+        """
+        ...
+
+    @overload
+    def invoke(self, arg_1: typing.Any) -> System.Object:
+        """
+        Invokes the constructor using the specified parameters.
+        
+        :param arg_1: The first argument for the invoked method.
+        """
+        ...
+
+    @overload
+    def invoke(self, arg_1: typing.Any, arg_2: typing.Any) -> System.Object:
+        """
+        :param arg_1: The first argument for the invoked method.
+        :param arg_2: The second argument for the invoked method.
+        """
+        ...
+
+    @overload
+    def invoke(self, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any) -> System.Object:
+        """
+        :param arg_1: The first argument for the invoked method.
+        :param arg_2: The second argument for the invoked method.
+        :param arg_3: The third argument for the invoked method.
+        """
+        ...
+
+    @overload
+    def invoke(self, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any, arg_4: typing.Any) -> System.Object:
+        """
+        :param arg_1: The first argument for the invoked method.
+        :param arg_2: The second argument for the invoked method.
+        :param arg_3: The third argument for the invoked method.
+        :param arg_4: The fourth argument for the invoked method.
+        """
+        ...
+
+    @overload
+    def invoke(self) -> System.Object:
+        """
+        Invokes the constructor.
+        
+        :returns: An instance of the class associated with the constructor.
+        """
+        ...
+
+    @overload
+    def invoke(self, arguments: System.Span[System.Object]) -> System.Object:
+        """:param arguments: The arguments for the invoked constructor."""
+        ...
+
+
+class AssemblyProductAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def product(self) -> str:
+        ...
+
+    def __init__(self, product: str) -> None:
+        ...
+
+
 class AssemblyConfigurationAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -2888,107 +3013,14 @@ class AssemblyConfigurationAttribute(System.Attribute):
         ...
 
 
-class ObfuscationAttribute(System.Attribute):
+class AssemblyKeyNameAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def strip_after_obfuscation(self) -> bool:
+    def key_name(self) -> str:
         ...
 
-    @strip_after_obfuscation.setter
-    def strip_after_obfuscation(self, value: bool) -> None:
-        ...
-
-    @property
-    def exclude(self) -> bool:
-        ...
-
-    @exclude.setter
-    def exclude(self, value: bool) -> None:
-        ...
-
-    @property
-    def apply_to_members(self) -> bool:
-        ...
-
-    @apply_to_members.setter
-    def apply_to_members(self, value: bool) -> None:
-        ...
-
-    @property
-    def feature(self) -> str:
-        ...
-
-    @feature.setter
-    def feature(self, value: str) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-
-class CustomAttributeNamedArgument(System.IEquatable[System_Reflection_CustomAttributeNamedArgument]):
-    """This class has no documentation."""
-
-    @property
-    def member_info(self) -> System.Reflection.MemberInfo:
-        ...
-
-    @property
-    def typed_value(self) -> System.Reflection.CustomAttributeTypedArgument:
-        ...
-
-    @property
-    def member_name(self) -> str:
-        ...
-
-    @property
-    def is_field(self) -> bool:
-        ...
-
-    def __eq__(self, right: System.Reflection.CustomAttributeNamedArgument) -> bool:
-        ...
-
-    @overload
-    def __init__(self, member_info: System.Reflection.MemberInfo, value: typing.Any) -> None:
-        ...
-
-    @overload
-    def __init__(self, member_info: System.Reflection.MemberInfo, typed_argument: System.Reflection.CustomAttributeTypedArgument) -> None:
-        ...
-
-    def __ne__(self, right: System.Reflection.CustomAttributeNamedArgument) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Reflection.CustomAttributeNamedArgument) -> bool:
-        """
-        Indicates whether the current instance is equal to another instance of the same type.
-        
-        :param other: An instance to compare with this instance.
-        :returns: true if the current instance is equal to the other instance; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class AssemblyKeyFileAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def key_file(self) -> str:
-        ...
-
-    def __init__(self, key_file: str) -> None:
+    def __init__(self, key_name: str) -> None:
         ...
 
 
@@ -3003,14 +3035,42 @@ class AssemblyInformationalVersionAttribute(System.Attribute):
         ...
 
 
-class AssemblyCompanyAttribute(System.Attribute):
+class DefaultMemberAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def company(self) -> str:
+    def member_name(self) -> str:
         ...
 
-    def __init__(self, company: str) -> None:
+    def __init__(self, member_name: str) -> None:
+        ...
+
+
+class AssemblyCopyrightAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def copyright(self) -> str:
+        ...
+
+    def __init__(self, copyright: str) -> None:
+        ...
+
+
+class Missing(System.Object, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    VALUE: System.Reflection.Missing = ...
+
+
+class AssemblyCultureAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def culture(self) -> str:
+        ...
+
+    def __init__(self, culture: str) -> None:
         ...
 
 
@@ -3138,175 +3198,11 @@ class CustomAttributeExtensions(System.Object):
         ...
 
 
-class AssemblyCopyrightAttribute(System.Attribute):
+class IntrospectionExtensions(System.Object):
     """This class has no documentation."""
-
-    @property
-    def copyright(self) -> str:
-        ...
-
-    def __init__(self, copyright: str) -> None:
-        ...
-
-
-class ReflectionTypeLoadException(System.SystemException):
-    """This class has no documentation."""
-
-    @property
-    def types(self) -> typing.List[typing.Type]:
-        ...
-
-    @property
-    def loader_exceptions(self) -> typing.List[System.Exception]:
-        ...
-
-    @property
-    def message(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, classes: typing.List[typing.Type], exceptions: typing.List[System.Exception]) -> None:
-        ...
-
-    @overload
-    def __init__(self, classes: typing.List[typing.Type], exceptions: typing.List[System.Exception], message: str) -> None:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-    def to_string(self) -> str:
-        ...
-
-
-class AmbiguousMatchException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner: System.Exception) -> None:
-        ...
-
-
-class AssemblyTrademarkAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def trademark(self) -> str:
-        ...
-
-    def __init__(self, trademark: str) -> None:
-        ...
-
-
-class ConstructorInvoker(System.Object):
-    """Invokes the method reflected by the provided ConstructorInfo."""
 
     @staticmethod
-    def create(constructor: System.Reflection.ConstructorInfo) -> System.Reflection.ConstructorInvoker:
-        """
-        Creates a new instance of ConstructorInvoker.
-        
-        :param constructor: The constructor that will be invoked.
-        :returns: An instance of a ConstructorInvoker.
-        """
-        ...
-
-    @overload
-    def invoke(self, arg_1: typing.Any) -> System.Object:
-        """
-        Invokes the constructor using the specified parameters.
-        
-        :param arg_1: The first argument for the invoked method.
-        """
-        ...
-
-    @overload
-    def invoke(self, arg_1: typing.Any, arg_2: typing.Any) -> System.Object:
-        """
-        :param arg_1: The first argument for the invoked method.
-        :param arg_2: The second argument for the invoked method.
-        """
-        ...
-
-    @overload
-    def invoke(self, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any) -> System.Object:
-        """
-        :param arg_1: The first argument for the invoked method.
-        :param arg_2: The second argument for the invoked method.
-        :param arg_3: The third argument for the invoked method.
-        """
-        ...
-
-    @overload
-    def invoke(self, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any, arg_4: typing.Any) -> System.Object:
-        """
-        :param arg_1: The first argument for the invoked method.
-        :param arg_2: The second argument for the invoked method.
-        :param arg_3: The third argument for the invoked method.
-        :param arg_4: The fourth argument for the invoked method.
-        """
-        ...
-
-    @overload
-    def invoke(self) -> System.Object:
-        """
-        Invokes the constructor.
-        
-        :returns: An instance of the class associated with the constructor.
-        """
-        ...
-
-    @overload
-    def invoke(self, arguments: System.Span[System.Object]) -> System.Object:
-        """:param arguments: The arguments for the invoked constructor."""
-        ...
-
-
-class ReflectionContext(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-    def get_type_for_object(self, value: typing.Any) -> System.Reflection.TypeInfo:
-        ...
-
-    def map_assembly(self, assembly: System.Reflection.Assembly) -> System.Reflection.Assembly:
-        ...
-
-    def map_type(self, type: System.Reflection.TypeInfo) -> System.Reflection.TypeInfo:
-        ...
-
-
-class AssemblyTitleAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def title(self) -> str:
-        ...
-
-    def __init__(self, title: str) -> None:
-        ...
-
-
-class DefaultMemberAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def member_name(self) -> str:
-        ...
-
-    def __init__(self, member_name: str) -> None:
+    def get_type_info(type: typing.Type) -> System.Reflection.TypeInfo:
         ...
 
 
@@ -3326,38 +3222,99 @@ class AssemblyAlgorithmIdAttribute(System.Attribute):
         ...
 
 
-class AssemblyFlagsAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def flags(self) -> int:
-        """AssemblyFlagsAttribute.Flags has been deprecated. Use AssemblyFlags instead."""
-        warnings.warn("AssemblyFlagsAttribute.Flags has been deprecated. Use AssemblyFlags instead.", DeprecationWarning)
-
-    @property
-    def assembly_flags(self) -> int:
-        ...
-
-    @overload
-    def __init__(self, assembly_flags: System.Reflection.AssemblyNameFlags) -> None:
-        ...
-
-    @overload
-    def __init__(self, flags: int) -> None:
-        """This constructor has been deprecated. Use AssemblyFlagsAttribute(AssemblyNameFlags) instead."""
-        ...
-
-    @overload
-    def __init__(self, assembly_flags: int) -> None:
-        """This constructor has been deprecated. Use AssemblyFlagsAttribute(AssemblyNameFlags) instead."""
-        ...
-
-
-class IntrospectionExtensions(System.Object):
-    """This class has no documentation."""
+class MethodInvoker(System.Object):
+    """Invokes the method reflected by the provided MethodBase."""
 
     @staticmethod
-    def get_type_info(type: typing.Type) -> System.Reflection.TypeInfo:
+    def create(method: System.Reflection.MethodBase) -> System.Reflection.MethodInvoker:
+        """
+        Creates a new instance of MethodInvoker.
+        
+        :param method: The method that will be invoked.
+        :returns: An instance of a MethodInvoker.
+        """
+        ...
+
+    @overload
+    def invoke(self, obj: typing.Any) -> System.Object:
+        """
+        Invokes the method using the specified parameters.
+        
+        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
+        :returns: An object containing the return value of the invoked method, or null if the invoked method does not have a return value.
+        """
+        ...
+
+    @overload
+    def invoke(self, obj: typing.Any, arg_1: typing.Any) -> System.Object:
+        """
+        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
+        :param arg_1: The first argument for the invoked method.
+        """
+        ...
+
+    @overload
+    def invoke(self, obj: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Object:
+        """
+        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
+        :param arg_1: The first argument for the invoked method.
+        :param arg_2: The second argument for the invoked method.
+        """
+        ...
+
+    @overload
+    def invoke(self, obj: typing.Any, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any) -> System.Object:
+        """
+        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
+        :param arg_1: The first argument for the invoked method.
+        :param arg_2: The second argument for the invoked method.
+        :param arg_3: The third argument for the invoked method.
+        """
+        ...
+
+    @overload
+    def invoke(self, obj: typing.Any, arg_1: typing.Any, arg_2: typing.Any, arg_3: typing.Any, arg_4: typing.Any) -> System.Object:
+        """
+        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
+        :param arg_1: The first argument for the invoked method.
+        :param arg_2: The second argument for the invoked method.
+        :param arg_3: The third argument for the invoked method.
+        :param arg_4: The fourth argument for the invoked method.
+        """
+        ...
+
+    @overload
+    def invoke(self, obj: typing.Any, arguments: System.Span[System.Object]) -> System.Object:
+        """
+        :param obj: The object on which to invoke the method. If the method is static, this argument is ignored.
+        :param arguments: The arguments for the invoked method.
+        """
+        ...
+
+
+class AssemblyMetadataAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def key(self) -> str:
+        ...
+
+    @property
+    def value(self) -> str:
+        ...
+
+    def __init__(self, key: str, value: str) -> None:
+        ...
+
+
+class AssemblyFileVersionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def version(self) -> str:
+        ...
+
+    def __init__(self, version: str) -> None:
         ...
 
 
@@ -3405,49 +3362,72 @@ class RuntimeReflectionExtensions(System.Object):
         ...
 
 
-class IReflect(metaclass=abc.ABCMeta):
+class AmbiguousMatchException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
+class TargetInvocationException(System.ApplicationException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self, inner: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
+class AssemblyTitleAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    @abc.abstractmethod
-    def underlying_system_type(self) -> typing.Type:
+    def title(self) -> str:
         ...
 
-    def get_field(self, name: str, binding_attr: System.Reflection.BindingFlags) -> System.Reflection.FieldInfo:
+    def __init__(self, title: str) -> None:
         ...
 
-    def get_fields(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.FieldInfo]:
+
+class AssemblyVersionAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def version(self) -> str:
         ...
 
-    def get_member(self, name: str, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.MemberInfo]:
+    def __init__(self, version: str) -> None:
         ...
 
-    def get_members(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.MemberInfo]:
+
+class ObfuscateAssemblyAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def assembly_is_private(self) -> bool:
         ...
 
-    @overload
-    def get_method(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.MethodInfo:
+    @property
+    def strip_after_obfuscation(self) -> bool:
         ...
 
-    @overload
-    def get_method(self, name: str, binding_attr: System.Reflection.BindingFlags) -> System.Reflection.MethodInfo:
+    @strip_after_obfuscation.setter
+    def strip_after_obfuscation(self, value: bool) -> None:
         ...
 
-    def get_methods(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.MethodInfo]:
-        ...
-
-    def get_properties(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.PropertyInfo]:
-        ...
-
-    @overload
-    def get_property(self, name: str, binding_attr: System.Reflection.BindingFlags) -> System.Reflection.PropertyInfo:
-        ...
-
-    @overload
-    def get_property(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, return_type: typing.Type, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.PropertyInfo:
-        ...
-
-    def invoke_member(self, name: str, invoke_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, target: typing.Any, args: typing.List[System.Object], modifiers: typing.List[System.Reflection.ParameterModifier], culture: System.Globalization.CultureInfo, named_parameters: typing.List[str]) -> System.Object:
+    def __init__(self, assembly_is_private: bool) -> None:
         ...
 
 
@@ -3476,77 +3456,15 @@ class GenericParameterAttributes(Enum):
         ...
 
 
-class AssemblyMetadataAttribute(System.Attribute):
+class AssemblyKeyFileAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def key(self) -> str:
+    def key_file(self) -> str:
         ...
 
-    @property
-    def value(self) -> str:
+    def __init__(self, key_file: str) -> None:
         ...
-
-    def __init__(self, key: str, value: str) -> None:
-        ...
-
-
-class AssemblyDefaultAliasAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def default_alias(self) -> str:
-        ...
-
-    def __init__(self, default_alias: str) -> None:
-        ...
-
-
-class AssemblyProductAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def product(self) -> str:
-        ...
-
-    def __init__(self, product: str) -> None:
-        ...
-
-
-class AssemblyDelaySignAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def delay_sign(self) -> bool:
-        ...
-
-    def __init__(self, delay_sign: bool) -> None:
-        ...
-
-
-class ObfuscateAssemblyAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def assembly_is_private(self) -> bool:
-        ...
-
-    @property
-    def strip_after_obfuscation(self) -> bool:
-        ...
-
-    @strip_after_obfuscation.setter
-    def strip_after_obfuscation(self, value: bool) -> None:
-        ...
-
-    def __init__(self, assembly_is_private: bool) -> None:
-        ...
-
-
-class Missing(System.Object, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    VALUE: System.Reflection.Missing = ...
 
 
 class AssemblyDescriptionAttribute(System.Attribute):
@@ -3557,6 +3475,88 @@ class AssemblyDescriptionAttribute(System.Attribute):
         ...
 
     def __init__(self, description: str) -> None:
+        ...
+
+
+class ObfuscationAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def strip_after_obfuscation(self) -> bool:
+        ...
+
+    @strip_after_obfuscation.setter
+    def strip_after_obfuscation(self, value: bool) -> None:
+        ...
+
+    @property
+    def exclude(self) -> bool:
+        ...
+
+    @exclude.setter
+    def exclude(self, value: bool) -> None:
+        ...
+
+    @property
+    def apply_to_members(self) -> bool:
+        ...
+
+    @apply_to_members.setter
+    def apply_to_members(self, value: bool) -> None:
+        ...
+
+    @property
+    def feature(self) -> str:
+        ...
+
+    @feature.setter
+    def feature(self, value: str) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
+class TargetParameterCountException(System.ApplicationException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner: System.Exception) -> None:
+        ...
+
+
+class AssemblyFlagsAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def flags(self) -> int:
+        """AssemblyFlagsAttribute.Flags has been deprecated. Use AssemblyFlags instead."""
+        warnings.warn("AssemblyFlagsAttribute.Flags has been deprecated. Use AssemblyFlags instead.", DeprecationWarning)
+
+    @property
+    def assembly_flags(self) -> int:
+        ...
+
+    @overload
+    def __init__(self, assembly_flags: System.Reflection.AssemblyNameFlags) -> None:
+        ...
+
+    @overload
+    def __init__(self, flags: int) -> None:
+        """This constructor has been deprecated. Use AssemblyFlagsAttribute(AssemblyNameFlags) instead."""
+        ...
+
+    @overload
+    def __init__(self, assembly_flags: int) -> None:
+        """This constructor has been deprecated. Use AssemblyFlagsAttribute(AssemblyNameFlags) instead."""
         ...
 
 

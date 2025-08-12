@@ -141,6 +141,7 @@ class DataEditor(NoSSRComponent):
         draw_focus_ring: Var[bool] | bool | None = None,
         fixed_shadow_x: Var[bool] | bool | None = None,
         fixed_shadow_y: Var[bool] | bool | None = None,
+        fill_handle: Var[bool] | bool | None = None,
         freeze_columns: Var[int] | int | None = None,
         group_header_height: Var[int] | int | None = None,
         header_height: Var[int] | int | None = None,
@@ -245,6 +246,7 @@ class DataEditor(NoSSRComponent):
             draw_focus_ring: Controls the drawing of the focus ring.
             fixed_shadow_x: Enables or disables the overlay shadow when scrolling horizontally.
             fixed_shadow_y: Enables or disables the overlay shadow when scrolling vertically.
+            fill_handle: Controls the presence of the fill indicator
             freeze_columns: The number of columns which should remain in place when scrolling horizontally. Doesn't include rowMarkers.
             group_header_height: Controls the header of the group header row.
             header_height: Controls the height of the header row.

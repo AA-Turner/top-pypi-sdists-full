@@ -180,3 +180,8 @@ workspace_case_template:
   # write: can create, update and delete case templates
   org_id: wildcard
   ws_id: wildcard
+workspace_case:
+  # read: can read workspace cases
+  # write: can create, update and delete cases
+  org_id: wildcard
+  ws_id: wildcard

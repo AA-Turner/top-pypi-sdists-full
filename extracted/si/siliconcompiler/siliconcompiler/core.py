@@ -31,8 +31,7 @@ from siliconcompiler.report import _generate_summary_image, _open_summary_image
 from siliconcompiler.report.dashboard.web import WebDashboard
 from siliconcompiler.report.dashboard.cli import CliDashboard
 from siliconcompiler.report.dashboard import DashboardType
-import glob
-from siliconcompiler.scheduler.scheduler import Scheduler
+from siliconcompiler.scheduler import Scheduler, SchedulerNode
 from siliconcompiler.utils.flowgraph import _check_flowgraph_io, _get_flowgraph_information
 from siliconcompiler.tools._common import get_tool_task
 from types import FunctionType, ModuleType
@@ -1790,6 +1789,7 @@ class Chip:
             fout.write(template.render(manifest_dict='\n'.join(tcl_set_cmds),
                                        scroot=os.path.abspath(
                                             os.path.join(os.path.dirname(__file__))),
+                                       toolvars={},
                                        record_access=record,
                                        record_access_id=Schema._RECORD_ACCESS_IDENTIFIER))
         else:
@@ -2449,34 +2449,6 @@ class Chip:
                 raise SiliconCompilerError(f'Failed to copy {path}', chip=self)
 
     ###########################################################################
-    def _archive_node(self, tar, step, index, include=None, verbose=True):
-        if verbose:
-            self.logger.info(f'Archiving {step}/{index}...')
-
-        basedir = self.getworkdir(step=step, index=index)
-
-        def arcname(path):
-            return os.path.relpath(path, self.cwd)
-
-        if not os.path.isdir(basedir):
-            if self.get('record', 'status', step=step, index=index) != NodeStatus.SKIPPED:
-                self.logger.error(f'Unable to archive {step}/{index} due to missing node directory')
-            return
-
-        if include:
-            for pattern in include:
-                for path in glob.iglob(os.path.join(basedir, pattern)):
-                    tar.add(path, arcname=arcname(path))
-        else:
-            for folder in ('reports', 'outputs'):
-                path = os.path.join(basedir, folder)
-                tar.add(path, arcname=arcname(path))
-
-            logfile = os.path.join(basedir, f'{step}.log')
-            if os.path.isfile(logfile):
-                tar.add(logfile, arcname=arcname(logfile))
-
-    ###########################################################################
     def __archive_job(self, tar, job, flowgraph_nodes, index=None, include=None):
         design = self.get('design')
 
@@ -2489,7 +2461,7 @@ class Chip:
             self.logger.warning('Archiving job with failed or incomplete run.')
 
         for (step, idx) in flowgraph_nodes:
-            self._archive_node(tar, step, idx, include=include)
+            SchedulerNode(self, step, idx).archive(tar, include=include)
 
     ###########################################################################
     def archive(self, jobs=None, step=None, index=None, include=None, archive_name=None):
@@ -2961,7 +2933,7 @@ class Chip:
             >>> run()
             Runs the execution flow defined by the flowgraph dictionary.
         '''
-        from siliconcompiler.remote.client import ClientScheduler
+        from siliconcompiler.remote import ClientScheduler
 
         try:
             if self.get('option', 'remote'):
@@ -3241,3 +3213,6 @@ class Chip:
 
     def copy(self):
         return copy.deepcopy(self)
+
+    def _init_run(self):
+        pass

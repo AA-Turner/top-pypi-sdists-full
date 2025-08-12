@@ -52,6 +52,28 @@ class StronglyConnectedComponent:
         ...
 
 
+class ComponentCrossReference:
+    """This class has no documentation."""
+
+    @property
+    def source_group_index(self) -> System.UIntPtr:
+        """Index of the source group."""
+        ...
+
+    @source_group_index.setter
+    def source_group_index(self, value: System.UIntPtr) -> None:
+        ...
+
+    @property
+    def destination_group_index(self) -> System.UIntPtr:
+        """Index of the destination group."""
+        ...
+
+    @destination_group_index.setter
+    def destination_group_index(self, value: System.UIntPtr) -> None:
+        ...
+
+
 class MarkCrossReferencesArgs:
     """This class has no documentation."""
 
@@ -85,28 +107,6 @@ class MarkCrossReferencesArgs:
 
     @cross_references.setter
     def cross_references(self, value: typing.Any) -> None:
-        ...
-
-
-class ComponentCrossReference:
-    """This class has no documentation."""
-
-    @property
-    def source_group_index(self) -> System.UIntPtr:
-        """Index of the source group."""
-        ...
-
-    @source_group_index.setter
-    def source_group_index(self, value: System.UIntPtr) -> None:
-        ...
-
-    @property
-    def destination_group_index(self) -> System.UIntPtr:
-        """Index of the destination group."""
-        ...
-
-    @destination_group_index.setter
-    def destination_group_index(self, value: System.UIntPtr) -> None:
         ...
 
 

@@ -1,7 +1,10 @@
+import io
+import logging
 import os
 import re
 import shutil
 import sys
+import traceback
 
 import os.path
 
@@ -9,19 +12,42 @@ from siliconcompiler import Schema
 from siliconcompiler import NodeStatus
 from siliconcompiler.schema import Journal
 from siliconcompiler.flowgraph import RuntimeFlowgraph
-from siliconcompiler.scheduler.schedulernode import SchedulerNode
-from siliconcompiler.scheduler.slurm import SlurmSchedulerNode
-from siliconcompiler.scheduler.docker import DockerSchedulerNode
-from siliconcompiler.scheduler.taskscheduler import TaskScheduler
+from siliconcompiler.scheduler import SchedulerNode
+from siliconcompiler.scheduler import SlurmSchedulerNode
+from siliconcompiler.scheduler import DockerSchedulerNode
+from siliconcompiler.scheduler import TaskScheduler
 
 from siliconcompiler import utils
+from siliconcompiler.utils.logging import SCLoggerFormatter
+from siliconcompiler.utils.multiprocessing import MPManager
 from siliconcompiler.scheduler import send_messages
 
 
 class Scheduler:
+    """
+    A class for orchestrating and executing a compilation flowgraph.
+
+    The Scheduler is responsible for managing the entire lifecycle of a compilation
+    run. It interprets the flowgraph defined in the Chip object, determines which
+    nodes (steps) need to be run based on user settings (like 'from', 'to') and
+    the state of previous runs, and then executes the tasks in the correct order.
+
+    It handles setting up individual task nodes, managing dependencies, logging,
+    and reporting results.
+    """
+
     def __init__(self, chip):
+        """
+        Initializes the Scheduler.
+
+        Args:
+            chip (Chip): The Chip object containing the configuration and flowgraph.
+
+        Raises:
+            ValueError: If the specified flow is not defined or fails validation.
+        """
         self.__chip = chip
-        self.__logger = chip.logger
+        self.__logger: logging.Logger = chip.logger
         self.__name = chip.design
 
         flow = self.__chip.get("option", "flow")
@@ -37,14 +63,14 @@ class Scheduler:
         prune_nodes = self.__chip.get('option', 'prune')
 
         if not self.__flow.validate(logger=self.__logger):
-            raise ValueError(f"{self.__flow.name()} flowgraph contains errors and cannot be run.")
+            raise ValueError(f"{self.__flow.name} flowgraph contains errors and cannot be run.")
         if not RuntimeFlowgraph.validate(
                 self.__flow,
                 from_steps=from_steps,
                 to_steps=to_steps,
                 prune_nodes=prune_nodes,
                 logger=chip.logger):
-            raise ValueError(f"{self.__flow.name()} flowgraph contains errors and cannot be run.")
+            raise ValueError(f"{self.__flow.name} flowgraph contains errors and cannot be run.")
 
         self.__flow_runtime = RuntimeFlowgraph(
             self.__flow,
@@ -62,7 +88,30 @@ class Scheduler:
 
         self.__tasks = {}
 
+        # Create dummy handler
+        self.__joblog_handler = logging.NullHandler()
+        self.__org_job_name = self.__chip.get("option", "jobname")
+
+    @property
+    def project(self):
+        """
+        Returns the Project object associated with this scheduler.
+
+        This property provides access to the central Project object, which holds
+        the entire design configuration, flowgraph, and results.
+
+        Returns:
+            Project: The Project object for the current project.
+        """
+        return self.__chip
+
     def __print_status(self, header):
+        """
+        Private helper to print the current status of all nodes for debugging.
+
+        Args:
+            header (str): A header message to print before the status list.
+        """
         self.__logger.debug(f"#### {header}")
         for step, index in self.__flow.get_nodes():
             self.__logger.debug(f"({step}, {index}) -> "
@@ -70,17 +119,102 @@ class Scheduler:
         self.__logger.debug("####")
 
     def check_manifest(self):
+        """
+        Checks the validity of the Chip's manifest before a run.
+
+        Returns:
+            bool: True if the manifest is valid, False otherwise.
+        """
         self.__logger.info("Checking manifest before running.")
         return self.__chip.check_manifest()
 
     def run_core(self):
+        """
+        Executes the core task scheduling loop.
+
+        This method initializes and runs the TaskScheduler, which manages the
+        execution of individual nodes based on their dependencies and status.
+        """
         self.__record.record_python_packages()
 
         task_scheduler = TaskScheduler(self.__chip, self.__tasks)
-        task_scheduler.run()
+        task_scheduler.run(self.__joblog_handler)
         task_scheduler.check()
 
+    def __excepthook(self, exc_type, exc_value, exc_traceback):
+        """
+        Custom exception hook to ensure all fatal errors are logged.
+
+        This captures unhandled exceptions, logs them to the job log file,
+        and prints a traceback for debugging before the program terminates.
+        """
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+
+        # Print a summary of the exception
+        except_msg = f"Exception raised: {exc_type.__name__}"
+        exc_value = str(exc_value).strip()
+        if exc_value:
+            except_msg += f" / {exc_value}"
+        self.__logger.error(except_msg)
+
+        trace = io.StringIO()
+
+        # Print the full traceback for debugging
+        self.__logger.error("Traceback (most recent call last):")
+        traceback.print_tb(exc_traceback, file=trace)
+        for line in trace.getvalue().splitlines():
+            self.__logger.error(line)
+
+        # Ensure dashboard receives a stop if running
+        if self.__chip._dash:
+            self.__chip._dash.stop()
+
+        # Mark error to keep logfile
+        MPManager.error("uncaught exception")
+
     def run(self):
+        """
+        The main entry point to start the compilation flow.
+
+        This method orchestrates the entire run, including:
+        - Setting up a custom exception hook for logging.
+        - Initializing the job directory and log files.
+        - Configuring and setting up all nodes in the flow.
+        - Validating the manifest.
+        - Executing the core run loop.
+        - Recording the final results and history.
+        """
+        # Install hook to ensure exception is logged
+        org_excepthook = sys.excepthook
+        sys.excepthook = self.__excepthook
+
+        # Determine job name first so we can create a log
+        if not self.__increment_job_name():
+            # No need to copy, no remove org job name
+            self.__org_job_name = None
+
+        # Clean the directory early if needed
+        self.__clean_build_dir()
+
+        # Install job file logger
+        os.makedirs(self.__chip.getworkdir(), exist_ok=True)
+        file_log = os.path.join(self.__chip.getworkdir(), "job.log")
+        bak_count = 0
+        bak_file_log = f"{file_log}.bak"
+        while os.path.exists(bak_file_log):
+            bak_count += 1
+            bak_file_log = f"{file_log}.bak.{bak_count}"
+        if os.path.exists(file_log):
+            os.rename(file_log, bak_file_log)
+        self.__joblog_handler = logging.FileHandler(file_log)
+        self.__joblog_handler.setFormatter(SCLoggerFormatter())
+        self.__logger.addHandler(self.__joblog_handler)
+
+        # Configure run
+        self.__chip._init_run()
+
         self.__run_setup()
         self.configure_nodes()
 
@@ -99,7 +233,24 @@ class Scheduler:
 
         send_messages.send(self.__chip, 'summary', None, None)
 
+        self.__logger.removeHandler(self.__joblog_handler)
+        self.__joblog_handler = logging.NullHandler()
+
+        # Restore hook
+        sys.excepthook = org_excepthook
+
     def __mark_pending(self, step, index):
+        """
+        Private helper to recursively mark a node and its dependents as PENDING.
+
+        When a node is determined to need a re-run, this function ensures that
+        it and all subsequent nodes in the flowgraph are marked as PENDING,
+        effectively queueing them for execution.
+
+        Args:
+            step (str): The step of the node to mark.
+            index (str): The index of the node to mark.
+        """
         if (step, index) not in self.__flow_runtime.get_nodes():
             return
 
@@ -112,10 +263,14 @@ class Scheduler:
             self.__record.set('status', NodeStatus.PENDING, step=next_step, index=next_index)
 
     def __run_setup(self):
-        self.__check_display()
+        """
+        Private helper to perform initial setup for the entire run.
 
-        org_jobname = self.__chip.get('option', 'jobname')
-        copy_prev_job = self.__increment_job_name()
+        This includes checking for a display environment, creating SchedulerNode
+        objects for each task, and copying results from a previous job if one
+        is specified.
+        """
+        self.__check_display()
 
         # Create tasks
         copy_from_nodes = set(self.__flow_load_runtime.get_nodes()).difference(
@@ -132,22 +287,27 @@ class Scheduler:
             if self.__flow.get(step, index, "tool") == "builtin":
                 self.__tasks[(step, index)].set_builtin()
 
-            if copy_prev_job and (step, index) in copy_from_nodes:
-                self.__tasks[(step, index)].copy_from(org_jobname)
+            if self.__org_job_name and (step, index) in copy_from_nodes:
+                self.__tasks[(step, index)].copy_from(self.__org_job_name)
 
-        if copy_prev_job:
+        if self.__org_job_name:
             # Copy collection directory
-            copy_from = self.__chip._getcollectdir(jobname=org_jobname)
+            copy_from = self.__chip._getcollectdir(jobname=self.__org_job_name)
             copy_to = self.__chip._getcollectdir()
             if os.path.exists(copy_from):
                 shutil.copytree(copy_from, copy_to,
                                 dirs_exist_ok=True,
                                 copy_function=utils.link_copy)
 
-        self.__clean_build_dir()
         self.__reset_flow_nodes()
 
     def __reset_flow_nodes(self):
+        """
+        Private helper to reset the status and metrics for all nodes in the flow.
+
+        This prepares the schema for a new run by clearing out results from any
+        previous executions.
+        """
         # Reset record
         for step, index in self.__flow.get_nodes():
             self.__record.clear(step, index, keep=['remoteid', 'status', 'pythonpackage'])
@@ -158,6 +318,12 @@ class Scheduler:
             self.__metrics.clear(step, index)
 
     def __clean_build_dir(self):
+        """
+        Private helper to clean the build directory if necessary.
+
+        If ['option', 'clean'] is True and the run starts from the beginning,
+        the entire build directory is removed to ensure a fresh start.
+        """
         if self.__record.get('remoteid'):
             return
 
@@ -169,6 +335,14 @@ class Scheduler:
                 shutil.rmtree(cur_job_dir)
 
     def configure_nodes(self):
+        """
+        Configures all nodes before execution.
+
+        This is a critical step that determines the final state of each node
+        (SUCCESS, PENDING, SKIPPED) before the scheduler starts. It loads
+        results from previous runs, checks for any modifications to parameters
+        or input files, and marks nodes for re-run accordingly.
+        """
         from_nodes = []
         extra_setup_nodes = {}
 
@@ -253,8 +427,9 @@ class Scheduler:
 
         self.__print_status("After ensure")
 
+        os.makedirs(self.__chip.getworkdir(), exist_ok=True)
         self.__chip.write_manifest(os.path.join(self.__chip.getworkdir(),
-                                                f"{self.__chip.get('design')}.pkg.json"))
+                                                f"{self.__name}.pkg.json"))
         journal.stop()
 
         # Clean nodes marked pending
@@ -264,9 +439,13 @@ class Scheduler:
                     self.__tasks[(step, index)].clean_directory()
 
     def __check_display(self):
-        '''
-        Automatically disable display for Linux systems without desktop environment
-        '''
+        """
+        Private helper to automatically disable GUI display on headless systems.
+
+        If running on Linux without a DISPLAY or WAYLAND_DISPLAY environment
+        variable, this sets ['option', 'nodisplay'] to True to prevent tools
+        from attempting to open a GUI.
+        """
 
         if not self.__chip.get('option', 'nodisplay') and sys.platform == 'linux' \
                 and 'DISPLAY' not in os.environ and 'WAYLAND_DISPLAY' not in os.environ:
@@ -275,11 +454,16 @@ class Scheduler:
             self.__chip.set('option', 'nodisplay', True)
 
     def __increment_job_name(self):
-        '''
-        Auto-update jobname if [option,jobincr] is True
-        Do this before initializing logger so that it picks up correct jobname
-        '''
+        """
+        Private helper to auto-increment the jobname if ['option', 'jobincr'] is True.
 
+        This prevents overwriting previous job results by finding the highest
+        numbered existing job directory and creating a new one with an
+        incremented number.
+
+        Returns:
+            bool: True if the job name was incremented, False otherwise.
+        """
         if not self.__chip.get('option', 'clean'):
             return False
         if not self.__chip.get('option', 'jobincr'):

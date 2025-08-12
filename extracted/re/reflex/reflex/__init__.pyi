@@ -62,6 +62,7 @@ from .components.lucide import icon
 from .components.markdown import markdown
 from .components.moment import MomentDelta, moment
 from .components.plotly import plotly
+from .components.props import PropsBase
 from .components.radix.primitives.accordion import accordion
 from .components.radix.primitives.drawer import drawer
 from .components.radix.primitives.form import form
@@ -193,6 +194,7 @@ __all__ = [
     "Model",
     "MomentDelta",
     "NoSSRComponent",
+    "PropsBase",
     "Script",
     "SessionStorage",
     "State",

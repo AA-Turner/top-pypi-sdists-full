@@ -19,6 +19,7 @@ from ..exceptions import IgnoredArgumentWarning
 from ..utils import (
     check_y,
     check_exog,
+    check_exog_dtypes,
     check_predict_input,
     expand_index,
     get_exog_dtypes,
@@ -96,8 +97,13 @@ class ForecasterSarimax():
     exog_type_in_ : type
         Type of exogenous variable/s used in training.
     exog_dtypes_in_ : dict
-        Type of each exogenous variable/s used in training. If `transformer_exog` 
-        is used, the dtypes are calculated after the transformation.
+        Type of each exogenous variable/s used in training before the transformation
+        applied by `transformer_exog`. If `transformer_exog` is not used, it
+        is equal to `exog_dtypes_out_`.
+    exog_dtypes_out_ : dict
+        Type of each exogenous variable/s used in training after the transformation 
+        applied by `transformer_exog`. If `transformer_exog` is not used, it 
+        is equal to `exog_dtypes_in_`.
     X_train_exog_names_out_ : list
         Names of the exogenous variables included in the matrix `X_train` created
         internally for training. It can be different from `exog_names_in_` if
@@ -142,6 +148,7 @@ class ForecasterSarimax():
         self.exog_names_in_          = None
         self.exog_type_in_           = None
         self.exog_dtypes_in_         = None
+        self.exog_dtypes_out_        = None
         self.X_train_exog_names_out_ = None
         self.creation_date           = pd.Timestamp.today().strftime('%Y-%m-%d %H:%M:%S')
         self.is_fitted               = False
@@ -355,6 +362,7 @@ class ForecasterSarimax():
         self.exog_names_in_          = None
         self.exog_type_in_           = None
         self.exog_dtypes_in_         = None
+        self.exog_dtypes_out_        = None
         self.X_train_exog_names_out_ = None
         self.in_sample_residuals_    = None
         self.is_fitted               = False
@@ -365,7 +373,7 @@ class ForecasterSarimax():
             self.exog_type_in_ = type(exog)
             self.exog_dtypes_in_ = get_exog_dtypes(exog=exog)
             self.exog_names_in_ = \
-                 exog.columns.to_list() if isinstance(exog, pd.DataFrame) else [exog.name]
+                exog.columns.to_list() if isinstance(exog, pd.DataFrame) else [exog.name]
 
         y = transform_series(
                 series            = y,
@@ -384,15 +392,17 @@ class ForecasterSarimax():
                        fit               = True,
                        inverse_transform = False
                    )
-            self.X_train_exog_names_out_ = exog.columns.to_list()
             
-        if suppress_warnings:
-            warnings.filterwarnings("ignore")
-        
-        self.regressor.fit(y=y, exog=exog)
+            check_exog_dtypes(exog, call_check_exog=True)
+            self.exog_dtypes_out_ = get_exog_dtypes(exog=exog)
+            self.X_train_exog_names_out_ = exog.columns.to_list()
 
         if suppress_warnings:
-            warnings.filterwarnings("default")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.regressor.fit(y=y, exog=exog)
+        else:
+            self.regressor.fit(y=y, exog=exog)
 
         self.is_fitted = True
         self.series_name_in_ = y.name if y.name is not None else 'y'
@@ -467,7 +477,6 @@ class ForecasterSarimax():
             last_window      = last_window_check,
             last_window_exog = last_window_exog,
             exog             = exog,
-            exog_type_in_    = self.exog_type_in_,
             exog_names_in_   = self.exog_names_in_,
             interval         = None,
             alpha            = None

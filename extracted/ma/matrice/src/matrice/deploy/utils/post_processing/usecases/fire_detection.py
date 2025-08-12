@@ -47,7 +47,15 @@ class FireSmokeConfig(BaseConfig):
         default_factory=lambda: ['fire']
     )
 
-    alert_config: Optional[AlertConfig] = None
+    alert_config: Optional[AlertConfig] = field(
+        default_factory=lambda: AlertConfig(
+            count_thresholds={"fire": 0},
+            alert_type=["email"],
+            alert_value=["FIRE_INFO@matrice.ai"],
+            alert_incident_category=["FIRE-ALERT"]
+        )
+    )
+    
 
     time_window_minutes: int = 60
     enable_unique_counting: bool = True
@@ -191,6 +199,16 @@ class FireSmokeUseCase(BaseProcessor):
                     frame_number = start_frame
 
              # Step 7: alerts
+            # Ensure we have an AlertConfig object. `dataclasses.field` is only
+            # meant for class-level default declarations – using it at runtime
+            # produces a `Field` object which later breaks JSON serialization.
+            if config.alert_config is None:
+                config.alert_config = AlertConfig(
+                    count_thresholds={"fire": 0},
+                    alert_type=["email"],
+                    alert_value=["FIRE_INFO@matrice.ai"],
+                    alert_incident_category=["FIRE-ALERT"]
+                )
 
             alerts = self._check_alerts(fire_smoke_summary, frame_number, config, stream_info)
 
@@ -209,9 +227,16 @@ class FireSmokeUseCase(BaseProcessor):
 
             # Finalize context and return result
             context.processing_time = time.time() - start_time
-            # Extract frame-based dictionaries from the lists
+
             incidents = incidents_list[0] if incidents_list else {}
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
+            #EVENT ENDED SIGNAL
+
+            if len(tracking_stats_list)==3:
+                alerts = tracking_stats_list[1]
+                incidents = tracking_stats_list[2]
+                tracking_stats = tracking_stats_list[0]
+
             business_analytics = business_analytics_list[0] if business_analytics_list else {}
             summary = summary_list[0] if summary_list else {}
             agg_summary = {str(frame_number): {
@@ -229,7 +254,6 @@ class FireSmokeUseCase(BaseProcessor):
             usecase=self.name,
             category=self.category,
             context=context)
-
             return result
 
 
@@ -282,7 +306,11 @@ class FireSmokeUseCase(BaseProcessor):
         if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
             alert_id = self._get_alert_incident_ids(self._ascending_alert_list[-1:])
 
-            for category, threshold in config.alert_config.count_thresholds.items():
+            count_thresholds = {}
+            if config.alert_config and hasattr(config.alert_config, "count_thresholds"):
+                count_thresholds = config.alert_config.count_thresholds or {}
+
+            for category, threshold in count_thresholds.items():
                 if category == "all" and total > threshold:  
                     
                     alerts.append({
@@ -360,8 +388,14 @@ class FireSmokeUseCase(BaseProcessor):
         if total > 0:
            # Calculate total bbox area
             total_area = 0.0
-        
-            for category, threshold in config.alert_config.count_thresholds.items():
+            # Safely retrieve count thresholds. If alert_config is None (e.g., when it
+            # is not provided or failed to parse) we default to an empty mapping so
+            # the subsequent logic can still execute without raising an AttributeError.
+            count_thresholds = {}
+            if config.alert_config and hasattr(config.alert_config, "count_thresholds"):
+                count_thresholds = config.alert_config.count_thresholds or {}
+
+            for category, threshold in count_thresholds.items():
                 if category in summary.get("per_category_count", {}):
                     
                     #count = summary.get("per_category_count", {})[category]
@@ -583,6 +617,26 @@ class FireSmokeUseCase(BaseProcessor):
 
 
         tracking_stats.append(tracking_stat)
+
+        if len(self.id_hit_list)==1:
+            last_ending_id = self._get_alert_incident_ids("")
+            if last_ending_id==5:
+                tracking_stats.append({
+                            "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                            "alert_id": "alert_"+category+'_'+str(last_ending_id),
+                            "incident_category": self.CASE_TYPE,
+                            "threshold_level": 0,
+                            "ascending": False,
+                            "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }       
+                        })
+                tracking_stats.append(self.create_incident(incident_id=self.CASE_TYPE+'_'+str(last_ending_id), incident_type=self.CASE_TYPE,
+                            severity_level='info', human_text='Event Over', camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                            start_time=start_timestamp, end_time='Incident still active',
+                            level_settings= {"low": 3, "medium": 5, "significant":15, "critical": 30}))
+                
+        
         return tracking_stats
 
     def _generate_summary(
@@ -952,6 +1006,9 @@ class FireSmokeUseCase(BaseProcessor):
             if len(self.id_hit_list)==1:
                 self.id_hit_counter+=1
                 if self.id_hit_counter>120:
+                    self.id_hit_list = ["low","medium","significant","critical","low"]
+                    self.id_hit_counter = 0
+                    self.latest_stack = None
                     return int(5)
                 if sev_level==self.latest_stack:
                     return int(5-len(self.id_hit_list))

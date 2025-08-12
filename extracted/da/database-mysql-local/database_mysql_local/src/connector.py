@@ -24,32 +24,34 @@ home = expanduser('~')
 class Connector(metaclass=MetaLogger, object=LOGGER_CONNECTOR_CODE_OBJECT):
     @staticmethod
     def connect(schema_name: str, *, user: str = get_sql_username(), ignore_cache: bool = False) -> Connector:
+        # If ignore_cache is True and a connection for this schema exists, remove it from the pool to force a new connection
         if ignore_cache and schema_name in connections_pool[user]:
             connections_pool[user].pop(schema_name)
 
-        if connections_pool[user].get(schema_name):
-            # is_connected is too slow & apparently very rarely needed.
-            # We may develop our is_connected with cache & timeout.
-            connector = None
+        # If a connection for this schema already exists in the pool for this user
+        if schema_name in connections_pool[user]:
+            # If the connection is still alive, reuse it
             if connections_pool[user][schema_name].connection.is_connected():
                 connector = connections_pool[user][schema_name]
             else:
-                # reconnect
-                connections_pool[user][schema_name].connection.reconnect()
-            #     # TODO We should develop retry mechanism to support password rotation and small network issues.
-            #     if connections_pool[user][schema_name].connection.is_connected():
-            #         connector = connections_pool[user][schema_name]
-            #     else:
-            #         connector = Connector(schema_name)
-            #         Connector.logger.warning("Reconnect failed, returning a new connection",
-            #                                  object={'old connection': connections_pool[user][schema_name],
-            #                                          'new connection': connector})
-            #         connections_pool[user][schema_name] = connector
-
+                # If the connection is not alive, try to reconnect
+                try:
+                    connections_pool[user][schema_name].connection.reconnect()
+                    connector = connections_pool[user][schema_name]
+                except Exception as e:
+                    # If reconnection fails, create a new connection and log a warning
+                    connector = Connector(schema_name)
+                    Connector.logger.warning("Reconnect failed, returning a new connection",
+                                            object={'error': str(e)})
+                    connections_pool[user][schema_name] = connector
         else:
+            # If no connection exists for this schema, create a new one and add it to the pool
             connector = Connector(schema_name)
+            connections_pool[user][schema_name] = connector
 
+        # Return the Connector instance for this schema and user
         return connector
+
 
     def __init__(self, schema_name: str, *,
                  host: str = get_sql_hostname(),
@@ -92,46 +94,79 @@ class Connector(metaclass=MetaLogger, object=LOGGER_CONNECTOR_CODE_OBJECT):
         self._cursor = self.cursor(close_previous=True)
         self.set_schema(self.schema)
 
-    def _connect_to_db(self):
-        # if not self.ssh_host:
-        self.connection = mysql.connector.connect(
-            host=self.host,
-            user=self.user,
-            password=self.password,
-            database=self.schema,
-            port=self.port
-        )
-        self.logger.info(f"Connected to the database: {self.database_info()}")
-        self._cursor = self.connection.cursor()
-        self.set_schema(self.schema)
-        # else:
-        #     # SSH Tunneling
-        #     try:
-        #         self.tunnel = SSHTunnelForwarder(
-        #             (self.ssh_host, int(self.ssh_port)),
-        #             ssh_username=self.ssh_user,
-        #             ssh_pkey=self.private_key,
-        #             remote_bind_address=(self.host, int(self.port)),
-        #             local_bind_address=('127.0.0.1',)
-        #         )
-        #         self.tunnel.start()
-        #         self.logger.info(f"SSH tunnel started successfully: {self.tunnel.local_bind_port}")
-        #
-        #         self.connection = mysql.connector.connect(
-        #             user=self.user,
-        #             password=self.password,
-        #             host='127.0.0.1',
-        #             database=self.schema,
-        #             port=self.tunnel.local_bind_port
-        #         )
-        #         self.logger.info(f"Connected to the database via SSH tunnel: {self.database_info()}")
-        #         self._cursor = self.connection.cursor()
-        #         self.set_schema(self.schema)
-        #     except Exception as exception:
-        #         self.logger.exception(f"Failed to connect to the database via SSH tunnel: {exception}")
-        #         if self.tunnel:
-        #             self.tunnel.stop()
-        #         raise exception
+    def _connect_to_db(self, max_retries: int = 3, retry_delay: int = 2):
+        """
+        Attempts to establish a connection to the MySQL database with retry logic.
+
+        Args:
+            max_retries (int): Maximum number of connection attempts before failing.
+            retry_delay (int): Seconds to wait between retries.
+
+        Usage:
+            Called internally by the Connector during initialization to ensure a connection is established.
+            If the connection fails, it will retry up to `max_retries` times, waiting `retry_delay` seconds between attempts.
+            If all attempts fail, the last exception is raised.
+
+        Side effects:
+            - Sets self.connection to a live MySQL connection if successful.
+            - Sets self._cursor to a new cursor object.
+            - Calls self.set_schema to ensure the schema is set.
+            - Logs connection attempts, successes, and failures.
+        """
+        import time
+        attempt = 0
+        last_exception = None
+        while attempt < max_retries:
+            try:
+                # Attempt to connect to the MySQL database
+                self.connection = mysql.connector.connect(
+                    host=self.host,
+                    user=self.user,
+                    password=self.password,
+                    database=self.schema,
+                    port=self.port
+                )
+                self.logger.info(f"Connected to the database: {self.database_info()}")
+                self._cursor = self.connection.cursor()
+                self.set_schema(self.schema)
+                return  # Exit the loop on successful connection
+            except mysql.connector.Error as e:
+                attempt += 1
+                last_exception = e
+                self.logger.error(f"Connection attempt {attempt} failed: {e}")
+                if attempt >= max_retries:
+                    raise e  # Raise the last exception if max retries reached
+                time.sleep(retry_delay)  # Wait before retrying
+        if last_exception:
+            raise last_exception  # Raise the last exception if all attempts failed
+            # else:
+            #     # SSH Tunneling
+            #     try:
+            #         self.tunnel = SSHTunnelForwarder(
+            #             (self.ssh_host, int(self.ssh_port)),
+            #             ssh_username=self.ssh_user,
+            #             ssh_pkey=self.private_key,
+            #             remote_bind_address=(self.host, int(self.port)),
+            #             local_bind_address=('127.0.0.1',)
+            #         )
+            #         self.tunnel.start()
+            #         self.logger.info(f"SSH tunnel started successfully: {self.tunnel.local_bind_port}")
+            #
+            #         self.connection = mysql.connector.connect(
+            #             user=self.user,
+            #             password=self.password,
+            #             host='127.0.0.1',
+            #             database=self.schema,
+            #             port=self.tunnel.local_bind_port
+            #         )
+            #         self.logger.info(f"Connected to the database via SSH tunnel: {self.database_info()}")
+            #         self._cursor = self.connection.cursor()
+            #         self.set_schema(self.schema)
+            #     except Exception as exception:
+            #         self.logger.exception(f"Failed to connect to the database via SSH tunnel: {exception}")
+            #         if self.tunnel:
+            #             self.tunnel.stop()
+            #         raise exception
 
     def database_info(self) -> str:
         database_info_str = f"host={self.host}, user={self.user}, schema={self.schema}, port={self.port}"

@@ -21,6 +21,7 @@
 #include <windows.h>
 #include <io.h>
 #include <share.h>
+#include <direct.h>
 #endif
 
 #include <assert.h>
@@ -38,6 +39,7 @@
 #include <sys/time.h>
 #endif
 
+#include <algorithm>
 #include <vector>
 
 #if defined(__APPLE__) || defined(__FreeBSD__)
@@ -47,7 +49,7 @@
 #include <sys/loadavg.h>
 #elif defined(_AIX) && !defined(__PASE__)
 #include <libperfstat.h>
-#elif defined(linux) || defined(__GLIBC__)
+#elif defined(__linux__) || defined(__GLIBC__)
 #include <sys/sysinfo.h>
 #include <fstream>
 #include <map>
@@ -143,20 +145,19 @@ void CanonicalizePath(char* path, size_t* len, uint64_t* slash_bits) {
     return;
   }
 
-  const int kMaxPathComponents = 60;
-  char* components[kMaxPathComponents];
-  int component_count = 0;
-
   char* start = path;
   char* dst = start;
+  char* dst_start = dst;
   const char* src = start;
   const char* end = start + *len;
+  const char* src_next;
 
+  // For absolute paths, skip the leading directory separator
+  // as this one should never be removed from the result.
   if (IsPathSeparator(*src)) {
 #ifdef _WIN32
-
-    // network path starts with //
-    if (*len > 1 && IsPathSeparator(*(src + 1))) {
+    // Windows network path starts with //
+    if (src + 2 <= end && IsPathSeparator(src[1])) {
       src += 2;
       dst += 2;
     } else {
@@ -167,50 +168,126 @@ void CanonicalizePath(char* path, size_t* len, uint64_t* slash_bits) {
     ++src;
     ++dst;
 #endif
+    dst_start = dst;
+  } else {
+    // For relative paths, skip any leading ../ as these are quite common
+    // to reference source files in build plans, and doing this here makes
+    // the loop work below faster in general.
+    while (src + 3 <= end && src[0] == '.' && src[1] == '.' &&
+           IsPathSeparator(src[2])) {
+      src += 3;
+      dst += 3;
+    }
   }
 
-  while (src < end) {
-    if (*src == '.') {
-      if (src + 1 == end || IsPathSeparator(src[1])) {
-        // '.' component; eliminate.
-        src += 2;
-        continue;
-      } else if (src[1] == '.' && (src + 2 == end || IsPathSeparator(src[2]))) {
-        // '..' component.  Back up if possible.
-        if (component_count > 0) {
-          dst = components[component_count - 1];
-          src += 3;
-          --component_count;
-        } else {
-          *dst++ = *src++;
-          *dst++ = *src++;
-          *dst++ = *src++;
+  // Loop over all components of the paths _except_ the last one, in
+  // order to simplify the loop's code and make it faster.
+  int component_count = 0;
+  char* dst0 = dst;
+  for (; src < end; src = src_next) {
+#ifndef _WIN32
+    // Use memchr() for faster lookups thanks to optimized C library
+    // implementation. `hyperfine canon_perftest` shows a significant
+    // difference (e,g, 484ms vs 437ms).
+    const char* next_sep =
+        static_cast<const char*>(::memchr(src, '/', end - src));
+    if (!next_sep) {
+      // This is the last component, will be handled out of the loop.
+      break;
+    }
+#else
+    // Need to check for both '/' and '\\' so do not use memchr().
+    // Cannot use strpbrk() because end[0] can be \0 or something else!
+    const char* next_sep = src;
+    while (next_sep != end && !IsPathSeparator(*next_sep))
+      ++next_sep;
+    if (next_sep == end) {
+      // This is the last component, will be handled out of the loop.
+      break;
+    }
+#endif
+    // Position for next loop iteration.
+    src_next = next_sep + 1;
+    // Length of the component, excluding trailing directory.
+    size_t component_len = next_sep - src;
+
+    if (component_len <= 2) {
+      if (component_len == 0) {
+        continue;  // Ignore empty component, e.g. 'foo//bar' -> 'foo/bar'.
+      }
+      if (src[0] == '.') {
+        if (component_len == 1) {
+          continue;  // Ignore '.' component, e.g. './foo' -> 'foo'.
+        } else if (src[1] == '.') {
+          // Process the '..' component if found. Back up if possible.
+          if (component_count > 0) {
+            // Move back to start of previous component.
+            --component_count;
+            while (--dst > dst0 && !IsPathSeparator(dst[-1])) {
+              // nothing to do here, decrement happens before condition check.
+            }
+          } else {
+            dst[0] = '.';
+            dst[1] = '.';
+            dst[2] = src[2];
+            dst += 3;
+          }
+          continue;
         }
-        continue;
       }
     }
-
-    if (IsPathSeparator(*src)) {
-      src++;
-      continue;
-    }
-
-    if (component_count == kMaxPathComponents)
-      Fatal("path has too many components : %s", path);
-    components[component_count] = dst;
     ++component_count;
 
-    while (src != end && !IsPathSeparator(*src))
-      *dst++ = *src++;
-    *dst++ = *src++;  // Copy '/' or final \0 character as well.
+    // Copy or skip component, including trailing directory separator.
+    if (dst != src) {
+      ::memmove(dst, src, src_next - src);
+    }
+    dst += src_next - src;
   }
+
+  // Handling the last component that does not have a trailing separator.
+  // The logic here is _slightly_ different since there is no trailing
+  // directory separator.
+  size_t component_len = end - src;
+  do {
+    if (component_len == 0)
+      break;  // Ignore empty component (e.g. 'foo//' -> 'foo/')
+    if (src[0] == '.') {
+      if (component_len == 1)
+        break;  // Ignore trailing '.' (e.g. 'foo/.' -> 'foo/')
+      if (component_len == 2 && src[1] == '.') {
+        // Handle '..'. Back up if possible.
+        if (component_count > 0) {
+          while (--dst > dst0 && !IsPathSeparator(dst[-1])) {
+            // nothing to do here, decrement happens before condition check.
+          }
+        } else {
+          dst[0] = '.';
+          dst[1] = '.';
+          dst += 2;
+          // No separator to add here.
+        }
+        break;
+      }
+    }
+    // Skip or copy last component, no trailing separator.
+    if (dst != src) {
+      ::memmove(dst, src, component_len);
+    }
+    dst += component_len;
+  } while (0);
+
+  // Remove trailing path separator if any, but keep the initial
+  // path separator(s) if there was one (or two on Windows).
+  if (dst > dst_start && IsPathSeparator(dst[-1]))
+    dst--;
 
   if (dst == start) {
+    // Handle special cases like "aa/.." -> "."
     *dst++ = '.';
-    *dst++ = '\0';
   }
 
-  *len = dst - start - 1;
+  *len = dst - start;  // dst points after the trailing char here.
 #ifdef _WIN32
   uint64_t bits = 0;
   uint64_t bits_mask = 1;
@@ -369,8 +446,13 @@ int ReadFile(const string& path, string* contents, string* err) {
     return -errno;
   }
 
+#ifdef __USE_LARGEFILE64
+  struct stat64 st;
+  if (fstat64(fileno(f), &st) < 0) {
+#else
   struct stat st;
   if (fstat(fileno(f), &st) < 0) {
+#endif
     err->assign(strerror(errno));
     fclose(f);
     return -errno;
@@ -456,10 +538,17 @@ string GetLastErrorString() {
         FORMAT_MESSAGE_IGNORE_INSERTS,
         NULL,
         err,
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT),
         (char*)&msg_buf,
         0,
         NULL);
+
+  if (msg_buf == nullptr) {
+    char fallback_msg[128] = {0};
+    snprintf(fallback_msg, sizeof(fallback_msg), "GetLastError() = %lu", err);
+    return fallback_msg;
+  }
+
   string msg = msg_buf;
   LocalFree(msg_buf);
   return msg;
@@ -502,7 +591,7 @@ string StripAnsiEscapeCodes(const string& in) {
   return stripped;
 }
 
-#if defined(linux) || defined(__GLIBC__)
+#if defined(__linux__) || defined(__GLIBC__)
 std::pair<int64_t, bool> readCount(const std::string& path) {
   std::ifstream file(path.c_str());
   if (!file.is_open())
@@ -601,16 +690,33 @@ map<string, string> ParseMountInfo(map<string, CGroupSubSys>& subsystems) {
     MountPoint mp;
     if (!mp.parse(line))
       continue;
-    if (mp.fsType != "cgroup")
-      continue;
-    for (size_t i = 0; i < mp.superOptions.size(); i++) {
-      string opt = mp.superOptions[i].AsString();
-      map<string, CGroupSubSys>::iterator subsys = subsystems.find(opt);
-      if (subsys == subsystems.end())
+    if (mp.fsType == "cgroup") {
+      for (size_t i = 0; i < mp.superOptions.size(); i++) {
+        std::string opt = mp.superOptions[i].AsString();
+        auto subsys = subsystems.find(opt);
+        if (subsys == subsystems.end()) {
+          continue;
+        }
+        std::string newPath = mp.translate(subsys->second.name);
+        if (!newPath.empty()) {
+          cgroups.emplace(opt, newPath);
+        }
+      }
+    } else if (mp.fsType == "cgroup2") {
+      // Find cgroup2 entry in format "0::/path/to/cgroup"
+      auto subsys = std::find_if(subsystems.begin(), subsystems.end(),
+                                 [](const auto& sys) {
+                                   return sys.first == "" && sys.second.id == 0;
+                                 });
+      if (subsys == subsystems.end()) {
         continue;
-      string newPath = mp.translate(subsys->second.name);
-      if (!newPath.empty())
-        cgroups.insert(make_pair(opt, newPath));
+      }
+      std::string path = mp.mountPoint.AsString();
+      if (subsys->second.name != "/") {
+        // Append the relative path for the cgroup to the mount point
+        path.append(subsys->second.name);
+      }
+      cgroups.emplace("cgroup2", path);
     }
   }
   return cgroups;
@@ -634,22 +740,72 @@ map<string, CGroupSubSys> ParseSelfCGroup() {
   return cgroups;
 }
 
-int ParseCPUFromCGroup() {
-  map<string, CGroupSubSys> subsystems = ParseSelfCGroup();
-  map<string, string> cgroups = ParseMountInfo(subsystems);
-  map<string, string>::iterator cpu = cgroups.find("cpu");
-  if (cpu == cgroups.end())
-    return -1;
-  std::pair<int64_t, bool> quota = readCount(cpu->second + "/cpu.cfs_quota_us");
+int ParseCgroupV1(std::string& path) {
+  std::pair<int64_t, bool> quota = readCount(path + "/cpu.cfs_quota_us");
   if (!quota.second || quota.first == -1)
     return -1;
-  std::pair<int64_t, bool> period =
-      readCount(cpu->second + "/cpu.cfs_period_us");
+  std::pair<int64_t, bool> period = readCount(path + "/cpu.cfs_period_us");
   if (!period.second)
     return -1;
   if (period.first == 0)
     return -1;
   return quota.first / period.first;
+}
+
+int ParseCgroupV2(std::string& path) {
+  // Read CPU quota from cgroup v2
+  std::ifstream cpu_max(path + "/cpu.max");
+  if (!cpu_max.is_open()) {
+    return -1;
+  }
+  std::string max_line;
+  if (!std::getline(cpu_max, max_line) || max_line.empty()) {
+    return -1;
+  }
+  // Format is "quota period" or "max period"
+  size_t space_pos = max_line.find(' ');
+  if (space_pos == string::npos) {
+    return -1;
+  }
+  std::string quota_str = max_line.substr(0, space_pos);
+  std::string period_str = max_line.substr(space_pos + 1);
+  if (quota_str == "max") {
+    return -1;  // No CPU limit set
+  }
+  // Convert quota string to integer
+  char* quota_end = nullptr;
+  errno = 0;
+  int64_t quota = strtoll(quota_str.c_str(), &quota_end, 10);
+  // Check for conversion errors
+  if (errno == ERANGE || quota_end == quota_str.c_str() || *quota_end != '\0' ||
+      quota <= 0) {
+    return -1;
+  }
+  // Convert period string to integer
+  char* period_end = nullptr;
+  errno = 0;
+  int64_t period = strtoll(period_str.c_str(), &period_end, 10);
+  // Check for conversion errors
+  if (errno == ERANGE || period_end == period_str.c_str() ||
+      *period_end != '\0' || period <= 0) {
+    return -1;
+  }
+  return quota / period;
+}
+
+int ParseCPUFromCGroup() {
+  auto subsystems = ParseSelfCGroup();
+  auto cgroups = ParseMountInfo(subsystems);
+
+  // Prefer cgroup v2 if both v1 and v2 should be present
+  if (const auto cgroup2 = cgroups.find("cgroup2"); cgroup2 != cgroups.end()) {
+    return ParseCgroupV2(cgroup2->second);
+  }
+
+  if (const auto cpu = cgroups.find("cpu"); cpu != cgroups.end()) {
+    return ParseCgroupV1(cpu->second);
+  }
+  return -1;
 }
 #endif
 
@@ -702,7 +858,7 @@ int GetProcessorCount() {
 #else
   int cgroupCount = -1;
   int schedCount = -1;
-#if defined(linux) || defined(__GLIBC__)
+#if defined(__linux__) || defined(__GLIBC__)
   cgroupCount = ParseCPUFromCGroup();
 #endif
   // The number of exposed processors might not represent the actual number of
@@ -830,22 +986,19 @@ double GetLoadAverage() {
 }
 #endif // _WIN32
 
-string ElideMiddle(const string& str, size_t width) {
-  switch (width) {
-      case 0: return "";
-      case 1: return ".";
-      case 2: return "..";
-      case 3: return "...";
+std::string GetWorkingDirectory() {
+  std::string ret;
+  char* success = NULL;
+  do {
+    ret.resize(ret.size() + 1024);
+    errno = 0;
+    success = getcwd(&ret[0], ret.size());
+  } while (!success && errno == ERANGE);
+  if (!success) {
+    Fatal("cannot determine working directory: %s", strerror(errno));
   }
-  const int kMargin = 3;  // Space for "...".
-  string result = str;
-  if (result.size() > width) {
-    size_t elide_size = (width - kMargin) / 2;
-    result = result.substr(0, elide_size)
-      + "..."
-      + result.substr(result.size() - elide_size, elide_size);
-  }
-  return result;
+  ret.resize(strlen(&ret[0]));
+  return ret;
 }
 
 bool Truncate(const string& path, size_t size, string* err) {
@@ -864,4 +1017,12 @@ bool Truncate(const string& path, size_t size, string* err) {
     return false;
   }
   return true;
+}
+
+int platformAwareUnlink(const char* filename) {
+	#ifdef _WIN32
+		return _unlink(filename);
+	#else
+		return unlink(filename);
+	#endif
 }

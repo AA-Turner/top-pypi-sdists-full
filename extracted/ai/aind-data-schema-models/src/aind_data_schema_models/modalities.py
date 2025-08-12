@@ -30,6 +30,13 @@ class _Behavior_Videos(ModalityModel):
     abbreviation: Literal["behavior-videos"] = "behavior-videos"
 
 
+class _Brightfield(ModalityModel):
+    """Model brightfield"""
+
+    name: Literal["Brightfield microscopy"] = "Brightfield microscopy"
+    abbreviation: Literal["brightfield"] = "brightfield"
+
+
 class _Confocal(ModalityModel):
     """Model confocal"""
 
@@ -118,11 +125,19 @@ class _Spim(ModalityModel):
     abbreviation: Literal["SPIM"] = "SPIM"
 
 
+class _Stpt(ModalityModel):
+    """Model STPT"""
+
+    name: Literal["Serial two-photon tomogrophy"] = "Serial two-photon tomogrophy"
+    abbreviation: Literal["STPT"] = "STPT"
+
+
 class Modality:
     """Modalities"""
 
     BEHAVIOR = _Behavior()
     BEHAVIOR_VIDEOS = _Behavior_Videos()
+    BRIGHTFIELD = _Brightfield()
     CONFOCAL = _Confocal()
     EMG = _Emg()
     ECEPHYS = _Ecephys()
@@ -135,6 +150,7 @@ class Modality:
     POPHYS = _Pophys()
     SLAP = _Slap()
     SPIM = _Spim()
+    STPT = _Stpt()
 
     ALL = tuple(ModalityModel.__subclasses__())
 

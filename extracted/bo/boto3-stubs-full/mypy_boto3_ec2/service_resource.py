@@ -4487,6 +4487,7 @@ class Volume(ServiceResource):
 
     id: str
     snapshots: VolumeSnapshotsCollection
+    availability_zone_id: str
     outpost_arn: str
     iops: int
     tags: List[TagTypeDef]

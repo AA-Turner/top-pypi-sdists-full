@@ -21,9 +21,9 @@ from typing import (
     cast,
     overload,
 )
-from uuid import uuid4
 
 from marimo._ast.app_config import _AppConfig
+from marimo._ast.cell_id import external_prefix
 from marimo._ast.variables import BUILTINS
 from marimo._convert.converters import MarimoConvert
 from marimo._schemas.serialization import (
@@ -45,7 +45,6 @@ from marimo._ast.cell import Cell, CellConfig, CellImpl
 from marimo._ast.cell_manager import CellManager
 from marimo._ast.errors import (
     CycleError,
-    DeleteNonlocalError,
     MultipleDefinitionError,
     SetupRootError,
     UnparsableError,
@@ -109,9 +108,16 @@ class _SetupContext:
     See design discussion in MEP-0008 (github:marimo-team/meps/pull/8).
     """
 
-    def __init__(self, cell: Cell):
+    def __init__(
+        self,
+        cell: Cell,
+        app: App,
+        hide_code: bool,
+    ):
         super().__init__()
+        self._app = app
         self._cell = cell
+        self._hide_code = hide_code
         self._glbls: dict[str, Any] = {}
         self._frame: Optional[FrameType] = None
         self._previous: dict[str, Any] = {}
@@ -157,6 +163,23 @@ class _SetupContext:
                 if var in self._frame.f_locals:
                     self._glbls[var] = self._frame.f_locals.get(var)
         return False
+
+    def __call__(
+        self,
+        *,
+        hide_code: bool = False,
+        **kwargs: Any,  # noqa: ARG002
+    ) -> _SetupContext:
+        """When called with parameters, create a new context with those parameters."""
+        cell = self._app._cell_manager.cell_context(
+            app=InternalApp(self._app),
+            frame=inspect.stack()[1].frame,
+            config=CellConfig(hide_code=hide_code),
+        )
+        self._app._setup = _SetupContext(
+            app=self._app, cell=cell, hide_code=hide_code
+        )
+        return self._app._setup
 
 
 @dataclass
@@ -212,7 +235,7 @@ class App:
             # nested applications get a unique cell prefix to disambiguate
             # their graph from other graphs
             get_context()
-            cell_prefix = str(uuid4())
+            cell_prefix = external_prefix()
         else:
             cell_prefix = ""
 
@@ -258,7 +281,8 @@ class App:
             A new `app` object with the same code.
         """
         app = App()
-        app._cell_manager = CellManager(prefix=str(uuid4()))
+        app._filename = self._filename
+        app._cell_manager = CellManager(prefix=external_prefix())
         for cell_id, code, name, config in zip(
             self._cell_manager.cell_ids(),
             self._cell_manager.codes(),
@@ -457,22 +481,34 @@ class App:
         """Provides a context manager to initialize the setup cell.
 
         This block should only be utilized at the start of a marimo notebook.
-        It's used as following:
 
+        Usage:
         ```
+        # As a property (default behavior)
         with app.setup:
             import my_libraries
             from typing import Any
 
             CONSTANT = "my constant"
+
+        # As a method with hide_code
+        with app.setup(hide_code=True):
+            import my_libraries
+            from typing import Any
+
+            CONSTANT = "my constant"
         ```
+
+        Args (when called as method):
+            hide_code: Whether to hide the setup cell's code. Defaults to False.
+            **kwargs: For forward-compatibility with future arguments.
         """
         # Get the calling context to extract the location of the cell
         frame = inspect.stack()[1].frame
         cell = self._cell_manager.cell_context(
             app=InternalApp(self), frame=frame
         )
-        self._setup = _SetupContext(cell)
+        self._setup = _SetupContext(app=self, cell=cell, hide_code=False)
         return self._setup
 
     def _unparsable_cell(
@@ -530,13 +566,6 @@ class App:
                 raise MultipleDefinitionError(
                     "This app can't be run because it has multiple "
                     f"definitions of the name {multiply_defined_names[0]}"
-                )
-            deleted_nonlocal_refs = self._graph.get_deleted_nonlocal_ref()
-            if deleted_nonlocal_refs:
-                raise DeleteNonlocalError(
-                    "This app can't be run because at least one cell "
-                    "deletes one of its refs (the ref's name is "
-                    f"{deleted_nonlocal_refs[0]})"
                 )
             self._execution_order = dataflow.topological_sort(
                 self._graph, list(self._cell_manager.valid_cell_ids())
@@ -725,6 +754,10 @@ class InternalApp:
     @property
     def cell_manager(self) -> CellManager:
         return self._app._cell_manager
+
+    @property
+    def filename(self) -> str | None:
+        return self._app._filename
 
     @property
     def graph(self) -> dataflow.DirectedGraph:

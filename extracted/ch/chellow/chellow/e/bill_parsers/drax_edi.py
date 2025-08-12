@@ -30,6 +30,8 @@ ELEMENT_MAP = {
     "ADH": {
         "ADHOC": {
             "020330": ("eii-gbp", None, None),
+            "064305": ("fit-gbp", None, None),
+            "590346": ("cfd-operational-gbp", None, None),
             "637050": ("meter-rental-gbp", "meter-rental-rate", "meter-rental-days"),
         },
     },
@@ -88,6 +90,8 @@ ELEMENT_MAP = {
             "209269": ("tnuos-gbp", "tnuos-rate", "tnuos-days"),
         },
         "DUS002": {
+            "185913": ("duos-yellow-gbp", "duos-yellow-rate", "duos-yellow-kwh"),
+            "517270": ("duos-black-gbp", "duos-black-rate", "duos-black-kwh"),
             "797790": (
                 "duos-reactive-gbp",
                 "duos-reactive-rate",
@@ -147,13 +151,6 @@ ELEMENT_MAP = {
             "012069": ("triad-gbp", "triad-rate", "triad-kw"),
         },
     },
-    "064305": ("fit-gbp", None, None),
-    "590346": ("cfd-operational-gbp", None, None),
-    "439724": ("eii-gbp", None, None),
-    "247610": ("eii-gbp", None, None),
-    "930504": ("eii-gbp", None, None),
-    "331201": ("eii-gbp", None, None),
-    "307253": ("eii-gbp", "eii-rate", "eii-kwh"),
 }
 
 TPR_LOOKUP = {

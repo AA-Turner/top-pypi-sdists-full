@@ -19,6 +19,7 @@
 #include <unistd.h>
 #endif
 
+#include "disk_interface.h"
 #include "graph.h"
 #include "util.h"
 #include "test.h"
@@ -32,11 +33,9 @@ const char kTestFilename[] = "DepsLogTest-tempfile";
 struct DepsLogTest : public testing::Test {
   virtual void SetUp() {
     // In case a crashing test left a stale file behind.
-    unlink(kTestFilename);
+    platformAwareUnlink(kTestFilename);
   }
-  virtual void TearDown() {
-    unlink(kTestFilename);
-  }
+  virtual void TearDown() { platformAwareUnlink(kTestFilename); }
 };
 
 TEST_F(DepsLogTest, WriteRead) {
@@ -138,9 +137,13 @@ TEST_F(DepsLogTest, DoubleEntry) {
     deps.push_back(state.GetNode("bar.h", 0));
     log.RecordDeps(state.GetNode("out.o", 0), 1, deps);
     log.Close();
-
+#ifdef __USE_LARGEFILE64
+    struct stat64 st;
+    ASSERT_EQ(0, stat64(kTestFilename, &st));
+#else
     struct stat st;
     ASSERT_EQ(0, stat(kTestFilename, &st));
+#endif
     file_size = (int)st.st_size;
     ASSERT_GT(file_size, 0);
   }
@@ -160,9 +163,13 @@ TEST_F(DepsLogTest, DoubleEntry) {
     deps.push_back(state.GetNode("bar.h", 0));
     log.RecordDeps(state.GetNode("out.o", 0), 1, deps);
     log.Close();
-
+#ifdef __USE_LARGEFILE64
+    struct stat64 st;
+    ASSERT_EQ(0, stat64(kTestFilename, &st));
+#else
     struct stat st;
     ASSERT_EQ(0, stat(kTestFilename, &st));
+#endif
     int file_size_2 = (int)st.st_size;
     ASSERT_EQ(file_size, file_size_2);
   }
@@ -198,9 +205,13 @@ TEST_F(DepsLogTest, Recompact) {
     log.RecordDeps(state.GetNode("other_out.o", 0), 1, deps);
 
     log.Close();
-
+#ifdef __USE_LARGEFILE64
+    struct stat64 st;
+    ASSERT_EQ(0, stat64(kTestFilename, &st));
+#else
     struct stat st;
     ASSERT_EQ(0, stat(kTestFilename, &st));
+#endif
     file_size = (int)st.st_size;
     ASSERT_GT(file_size, 0);
   }
@@ -222,8 +233,13 @@ TEST_F(DepsLogTest, Recompact) {
     log.RecordDeps(state.GetNode("out.o", 0), 1, deps);
     log.Close();
 
+#ifdef __USE_LARGEFILE64
+    struct stat64 st;
+    ASSERT_EQ(0, stat64(kTestFilename, &st));
+#else
     struct stat st;
     ASSERT_EQ(0, stat(kTestFilename, &st));
+#endif
     file_size_2 = (int)st.st_size;
     // The file should grow to record the new deps.
     ASSERT_GT(file_size_2, file_size);
@@ -273,8 +289,13 @@ TEST_F(DepsLogTest, Recompact) {
     ASSERT_EQ(other_out, log.nodes()[other_out->id()]);
 
     // The file should have shrunk a bit for the smaller deps.
+#ifdef __USE_LARGEFILE64
+    struct stat64 st;
+    ASSERT_EQ(0, stat64(kTestFilename, &st));
+#else
     struct stat st;
     ASSERT_EQ(0, stat(kTestFilename, &st));
+#endif
     file_size_3 = (int)st.st_size;
     ASSERT_LT(file_size_3, file_size_2);
   }
@@ -317,8 +338,13 @@ TEST_F(DepsLogTest, Recompact) {
     ASSERT_EQ(-1, state.LookupNode("baz.h")->id());
 
     // The file should have shrunk more.
+#ifdef __USE_LARGEFILE64
+    struct stat64 st;
+    ASSERT_EQ(0, stat64(kTestFilename, &st));
+#else
     struct stat st;
     ASSERT_EQ(0, stat(kTestFilename, &st));
+#endif
     int file_size_4 = (int)st.st_size;
     ASSERT_LT(file_size_4, file_size_3);
   }
@@ -374,8 +400,13 @@ TEST_F(DepsLogTest, Truncated) {
   }
 
   // Get the file size.
+#ifdef __USE_LARGEFILE64
+  struct stat64 st;
+  ASSERT_EQ(0, stat64(kTestFilename, &st));
+#else
   struct stat st;
   ASSERT_EQ(0, stat(kTestFilename, &st));
+#endif
 
   // Try reloading at truncated sizes.
   // Track how many nodes/deps were found; they should decrease with
@@ -434,8 +465,13 @@ TEST_F(DepsLogTest, TruncatedRecovery) {
 
   // Shorten the file, corrupting the last record.
   {
+#ifdef __USE_LARGEFILE64
+    struct stat64 st;
+    ASSERT_EQ(0, stat64(kTestFilename, &st));
+#else
     struct stat st;
     ASSERT_EQ(0, stat(kTestFilename, &st));
+#endif
     string err;
     ASSERT_TRUE(Truncate(kTestFilename, st.st_size - 2, &err));
   }
@@ -503,6 +539,141 @@ TEST_F(DepsLogTest, ReverseDepsNodes) {
 
   rev_deps = log.GetFirstReverseDepsNode(state.GetNode("bar.h", 0));
   EXPECT_TRUE(rev_deps == state.GetNode("out.o", 0));
+}
+
+TEST_F(DepsLogTest, MalformedDepsLog) {
+  std::string err;
+  {
+    State state;
+    DepsLog log;
+    EXPECT_TRUE(log.OpenForWrite(kTestFilename, &err));
+    ASSERT_EQ("", err);
+
+    // First, create a valid log file.
+    std::vector<Node*> deps;
+    deps.push_back(state.GetNode("foo.hh", 0));
+    deps.push_back(state.GetNode("bar.hpp", 0));
+    log.RecordDeps(state.GetNode("out.o", 0), 1, deps);
+    log.Close();
+  }
+
+  // Now read its value, validate it a little.
+  RealDiskInterface disk;
+
+  std::string original_contents;
+  ASSERT_EQ(FileReader::Okay, disk.ReadFile(kTestFilename,
+                                          &original_contents, &err));
+
+  const size_t version_offset = 12;
+  ASSERT_EQ("# ninjadeps\n", original_contents.substr(0, version_offset));
+  ASSERT_EQ('\x04', original_contents[version_offset + 0]);
+  ASSERT_EQ('\x00', original_contents[version_offset + 1]);
+  ASSERT_EQ('\x00', original_contents[version_offset + 2]);
+  ASSERT_EQ('\x00', original_contents[version_offset + 3]);
+
+  // clang-format off
+  static const uint8_t kFirstRecord[] = {
+    // size field == 0x0000000c
+    0x0c, 0x00, 0x00, 0x00,
+    // name field = 'out.o' + 3 bytes of padding.
+    'o', 'u', 't', '.', 'o', 0x00, 0x00, 0x00,
+    // checksum = ~0
+    0xff, 0xff, 0xff, 0xff,
+  };
+  // clang-format on
+  const size_t kFirstRecordLen = sizeof(kFirstRecord);
+  const size_t first_offset = version_offset + 4;
+
+#define COMPARE_RECORD(start_pos, reference, len)  \
+  ASSERT_EQ(original_contents.substr(start_pos, len), std::string(reinterpret_cast<const char*>(reference), len))
+
+  COMPARE_RECORD(first_offset, kFirstRecord, kFirstRecordLen);
+
+  const size_t second_offset = first_offset + kFirstRecordLen;
+  // clang-format off
+  static const uint8_t kSecondRecord[] = {
+    // size field == 0x0000000c
+    0x0c, 0x00, 0x00, 0x00,
+    // name field = 'foo.hh' + 2 bytes of padding.
+    'f', 'o', 'o', '.', 'h', 'h', 0x00, 0x00,
+    // checksum = ~1
+    0xfe, 0xff, 0xff, 0xff,
+  };
+  // clang-format on
+  const size_t kSecondRecordLen = sizeof(kSecondRecord);
+  COMPARE_RECORD(second_offset, kSecondRecord, kSecondRecordLen);
+
+  // Then start generating corrupted versions and trying to load them.
+  const char kBadLogFile[] = "DepsLogTest-corrupted.tempfile";
+
+  // Helper lambda to rewrite the bad log file with new content.
+  auto write_bad_log_file =
+      [&disk, &kBadLogFile](const std::string& bad_contents) -> bool {
+    (void)disk.RemoveFile(kBadLogFile);
+    return disk.WriteFile(kBadLogFile, bad_contents);
+  };
+
+  // First, corrupt the header.
+  std::string bad_contents = original_contents;
+  bad_contents[0] = '@';
+
+  ASSERT_TRUE(write_bad_log_file(bad_contents)) << strerror(errno);
+  {
+    State state;
+    DepsLog log;
+    err.clear();
+    ASSERT_EQ(LOAD_SUCCESS, log.Load(kBadLogFile, &state, &err));
+    ASSERT_EQ("bad deps log signature or version; starting over", err);
+  }
+
+  // Second, truncate the version.
+  bad_contents = original_contents.substr(0, version_offset + 3);
+  ASSERT_TRUE(write_bad_log_file(bad_contents)) << strerror(errno);
+  {
+    State state;
+    DepsLog log;
+    err.clear();
+    ASSERT_EQ(LOAD_SUCCESS, log.Load(kBadLogFile, &state, &err));
+    ASSERT_EQ("bad deps log signature or version; starting over", err);
+  }
+
+  // Truncate first record's |size| field. The loader should recover.
+  bad_contents = original_contents.substr(0, version_offset + 4 + 3);
+  ASSERT_TRUE(write_bad_log_file(bad_contents)) << strerror(errno);
+  {
+    State state;
+    DepsLog log;
+    err.clear();
+    ASSERT_EQ(LOAD_SUCCESS, log.Load(kBadLogFile, &state, &err));
+    ASSERT_EQ("", err);
+  }
+
+  // Corrupt first record |size| value.
+  bad_contents = original_contents;
+  bad_contents[first_offset + 0] = '\x55';
+  bad_contents[first_offset + 1] = '\xaa';
+  bad_contents[first_offset + 2] = '\xff';
+  bad_contents[first_offset + 3] = '\xff';
+  ASSERT_TRUE(write_bad_log_file(bad_contents)) << strerror(errno);
+  {
+    State state;
+    DepsLog log;
+    err.clear();
+    ASSERT_EQ(LOAD_SUCCESS, log.Load(kBadLogFile, &state, &err));
+    ASSERT_EQ("premature end of file; recovering", err);
+  }
+
+  // Make first record |size| less than 4.
+  bad_contents = original_contents;
+  bad_contents[first_offset] = '\x01';
+  ASSERT_TRUE(write_bad_log_file(bad_contents)) << strerror(errno);
+  {
+    State state;
+    DepsLog log;
+    err.clear();
+    ASSERT_EQ(LOAD_SUCCESS, log.Load(kBadLogFile, &state, &err));
+    ASSERT_EQ("premature end of file; recovering", err);
+  }
 }
 
 }  // anonymous namespace

@@ -11,23 +11,6 @@ System_Timers__EventContainer_Callable = typing.TypeVar("System_Timers__EventCon
 System_Timers__EventContainer_ReturnType = typing.TypeVar("System_Timers__EventContainer_ReturnType")
 
 
-class ElapsedEventArgs(System.EventArgs):
-    """Provides data for the System.Timers.Timer.Elapsed event."""
-
-    @property
-    def signal_time(self) -> datetime.datetime:
-        """Gets the time when the timer elapsed."""
-        ...
-
-    def __init__(self, signal_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the System.Timers.ElapsedEventArgs class.
-        
-        :param signal_time: Time when the timer elapsed
-        """
-        ...
-
-
 class TimersDescriptionAttribute(System.ComponentModel.DescriptionAttribute):
     """
     DescriptionAttribute marks a property, event, or extender with a
@@ -42,6 +25,23 @@ class TimersDescriptionAttribute(System.ComponentModel.DescriptionAttribute):
 
     def __init__(self, description: str) -> None:
         """Constructs a new sys description."""
+        ...
+
+
+class ElapsedEventArgs(System.EventArgs):
+    """Provides data for the System.Timers.Timer.Elapsed event."""
+
+    @property
+    def signal_time(self) -> datetime.datetime:
+        """Gets the time when the timer elapsed."""
+        ...
+
+    def __init__(self, signal_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the System.Timers.ElapsedEventArgs class.
+        
+        :param signal_time: Time when the timer elapsed
+        """
         ...
 
 

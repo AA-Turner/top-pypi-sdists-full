@@ -5616,6 +5616,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    AWSQUICK_SETUP_START_STOP_INSTANCES_EXECUTION_POLICY = "AWSQUICK_SETUP_START_STOP_INSTANCES_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
+    AWSQUICK_SETUP_START_SSM_ASSOCIATIONS_EXECUTION_POLICY = "AWSQUICK_SETUP_START_SSM_ASSOCIATIONS_EXECUTION_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

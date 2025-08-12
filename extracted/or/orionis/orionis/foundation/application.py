@@ -177,6 +177,8 @@ class Application(Container, IApplication):
         from orionis.foundation.providers.progress_bar_provider import ProgressBarProvider
         from orionis.foundation.providers.workers_provider import WorkersProvider
         from orionis.foundation.providers.testing_provider import TestingProvider
+        from orionis.foundation.providers.inspirational_provider import InspirationalProvider
+        from orionis.foundation.providers.executor_provider import ConsoleExecuteProvider
 
         # Core framework providers
         core_providers = [
@@ -185,7 +187,9 @@ class Application(Container, IApplication):
             ProgressBarProvider,
             WorkersProvider,
             LoggerProvider,
-            TestingProvider
+            TestingProvider,
+            InspirationalProvider,
+            ConsoleExecuteProvider
         ]
 
         # Register each core provider
@@ -1927,7 +1931,7 @@ class Application(Container, IApplication):
             self.__loadFrameworksKernel()
 
             # Retrieve logger and console instances from the container
-            logger: ILoggerService = self.make('core.orionis.logger')
+            logger: ILoggerService = self.make('x-orionis.services.log.log_service')
 
             # Calculate elapsed time in milliseconds since application start
             elapsed_ms = (time.time_ns() - self.startAt) // 1_000_000

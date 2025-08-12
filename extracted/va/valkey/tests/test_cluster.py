@@ -47,6 +47,7 @@ from .conftest import (
     assert_resp_response,
     is_resp2_connection,
     skip_if_server_version_lt,
+    skip_if_version_is_one_of,
     skip_unless_arch_bits,
     wait_for_command,
 )
@@ -137,12 +138,12 @@ def slowlog(request, r):
     # Save old values
     current_config = r.config_get(target_nodes=r.get_primaries()[0])
     old_slower_than_value = current_config["slowlog-log-slower-than"]
-    old_max_legnth_value = current_config["slowlog-max-len"]
+    old_max_length_value = current_config["slowlog-max-len"]
 
     # Function to restore the old values
     def cleanup():
         r.config_set("slowlog-log-slower-than", old_slower_than_value)
-        r.config_set("slowlog-max-len", old_max_legnth_value)
+        r.config_set("slowlog-max-len", old_max_length_value)
 
     request.addfinalizer(cleanup)
 
@@ -687,7 +688,7 @@ class TestValkeyClusterObj:
 
     def test_all_nodes_masters(self, r):
         """
-        Set a list of nodes with random primaries/replicas config and it shold
+        Set a list of nodes with random primaries/replicas config and it should
         be possible to iterate over all of them.
         """
         nodes = [
@@ -1078,11 +1079,11 @@ class TestClusterValkeyCommands:
             pubsub_nodes.append(p)
             p.subscribe(channel)
             # Assert that each node returns that only one client is subscribed
-            sub_chann_num = node.valkey_connection.pubsub_numsub(channel)
-            if sub_chann_num == [(b_channel, 0)]:
+            sub_chan_num = node.valkey_connection.pubsub_numsub(channel)
+            if sub_chan_num == [(b_channel, 0)]:
                 sleep(0.3)
-                sub_chann_num = node.valkey_connection.pubsub_numsub(channel)
-            assert sub_chann_num == [(b_channel, 1)]
+                sub_chan_num = node.valkey_connection.pubsub_numsub(channel)
+            assert sub_chan_num == [(b_channel, 1)]
         # Assert that the cluster's pubsub_numsub function returns ALL clients
         # subscribed to this channel in the entire cluster
         assert r.pubsub_numsub(channel, target_nodes="all") == [(b_channel, len(nodes))]
@@ -1247,7 +1248,7 @@ class TestClusterValkeyCommands:
         assert r.cluster_failover(node, "FORCE") is True
         assert r.cluster_failover(node, "TAKEOVER") is True
         with pytest.raises(ValkeyError):
-            r.cluster_failover(node, "FORCT")
+            r.cluster_failover(node, "NONEXISTENT_KEY")
 
     def test_cluster_info(self, r):
         info = r.cluster_info()
@@ -1424,7 +1425,7 @@ class TestClusterValkeyCommands:
             for i in range(0, len(res) - 1, 2):
                 assert res[i][b"node"] == res[i + 1][b"node"]
 
-    def test_cluster_flshslots_not_implemented(self, r):
+    def test_cluster_flushslots_not_implemented(self, r):
         with pytest.raises(NotImplementedError):
             r.cluster_flushslots()
 
@@ -2634,7 +2635,7 @@ class TestNodesManager:
 
     def test_init_slots_cache_cluster_mode_disabled(self):
         """
-        Test that creating a ValkeyCluster failes if one of the startup nodes
+        Test that creating a ValkeyCluster fails if one of the startup nodes
         has cluster mode disabled
         """
         with pytest.raises(ValkeyClusterException) as e:
@@ -2656,7 +2657,7 @@ class TestNodesManager:
 
     def test_wrong_startup_nodes_type(self):
         """
-        If something other then a list type itteratable is provided it should
+        If something other then a list type iterable is provided it should
         fail
         """
         with pytest.raises(ValkeyClusterException):
@@ -2814,7 +2815,7 @@ class TestNodesManager:
         ]
         startup_nodes = list(rc.nodes_manager.startup_nodes.keys())
         if dynamic_startup_nodes is True:
-            assert startup_nodes.sort() == discovered_nodes.sort()
+            assert sorted(startup_nodes) == sorted(discovered_nodes)
         else:
             assert startup_nodes == ["my@DNS.com:7000"]
 
@@ -2868,7 +2869,7 @@ class TestClusterPubSubObject:
         p = r.pubsub(node=node)
         assert p.get_pubsub_node() == node
 
-    def test_init_pubusub_without_specifying_node(self, r):
+    def test_init_pubsub_without_specifying_node(self, r):
         """
         Test creation of pubsub instance without specifying a node. The node
         should be determined based on the keyslot of the first command
@@ -3381,6 +3382,9 @@ class TestClusterMonitor:
             assert isinstance(response["client_port"], str)
             assert response["command"] == "PING"
 
+    # Escaping in MONITOR is broken in Valkey 8.1.0 and 8.1.1
+    # https://github.com/valkey-io/valkey/issues/2035
+    @skip_if_version_is_one_of(["8.1.0", "8.1.1"])
     def test_command_with_quoted_key(self, r):
         key = "{foo}1"
         node = r.get_node_from_key(key)
@@ -3398,6 +3402,9 @@ class TestClusterMonitor:
             response = wait_for_command(r, m, "GET {foo}bar\\x92", key=key)
             assert response["command"] == "GET {foo}bar\\x92"
 
+    # Escaping in MONITOR is broken in Valkey 8.1.0 and 8.1.1
+    # https://github.com/valkey-io/valkey/issues/2035
+    @skip_if_version_is_one_of(["8.1.0", "8.1.1"])
     def test_command_with_escaped_data(self, r):
         key = "{foo}1"
         node = r.get_node_from_key(key)

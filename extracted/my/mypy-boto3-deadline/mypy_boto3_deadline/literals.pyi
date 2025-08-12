@@ -142,12 +142,17 @@ DefaultQueueBudgetActionType = Literal[
 ]
 DependencyConsumerResolutionStatusType = Literal["RESOLVED", "UNRESOLVED"]
 DesiredWorkerStatusType = Literal["STOPPED"]
-Ec2MarketTypeType = Literal["on-demand", "spot"]
+Ec2MarketTypeType = Literal["on-demand", "spot", "wait-and-save"]
 EnvironmentTemplateTypeType = Literal["JSON", "YAML"]
 FileSystemLocationTypeType = Literal["LOCAL", "SHARED"]
 FleetActiveWaiterName = Literal["fleet_active"]
 FleetStatusType = Literal[
-    "ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "UPDATE_FAILED", "UPDATE_IN_PROGRESS"
+    "ACTIVE",
+    "CREATE_FAILED",
+    "CREATE_IN_PROGRESS",
+    "SUSPENDED",
+    "UPDATE_FAILED",
+    "UPDATE_IN_PROGRESS",
 ]
 GetSessionsStatisticsAggregationPaginatorName = Literal["get_sessions_statistics_aggregation"]
 JobAttachmentsFileSystemType = Literal["COPIED", "VIRTUAL"]
@@ -324,6 +329,7 @@ ServiceName = Literal[
     "appstream",
     "appsync",
     "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",

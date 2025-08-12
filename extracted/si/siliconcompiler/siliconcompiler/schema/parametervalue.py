@@ -93,6 +93,15 @@ class NodeListValue:
 
         return [self.__base.get(field=field)]
 
+    def gettcl(self):
+        """
+        Returns the tcl representation for the value
+
+        Args:
+            field (str): name of schema field.
+        """
+        return NodeType.to_tcl(self.get(), self.type)
+
     def set(self, value, field='value'):
         """
         Sets the value in a specific field and ensures it has been normalized.
@@ -153,6 +162,16 @@ class NodeListValue:
         Returns a list of valid fields for this value
         """
         return self.__base.fields
+
+    @property
+    def has_value(self):
+        """
+        Returns true if this node has a value.
+        """
+        if self.__values:
+            return True
+        else:
+            return False
 
     @property
     def values(self):
@@ -265,6 +284,15 @@ class NodeSetValue:
             return set(vals)
         return vals
 
+    def gettcl(self):
+        """
+        Returns the tcl representation for the value
+
+        Args:
+            field (str): name of schema field.
+        """
+        return NodeType.to_tcl(self.get(ordered=True), [self.__base.type])
+
     def set(self, value, field='value'):
         value = NodeType.normalize(value, [self.__base.type])
 
@@ -325,6 +353,16 @@ class NodeSetValue:
                 val.add(value, field=field)
                 modified.append(val)
         return tuple(modified)
+
+    @property
+    def has_value(self):
+        """
+        Returns true if this node has a value.
+        """
+        if self.__values:
+            return True
+        else:
+            return False
 
     @property
     def fields(self):
@@ -434,6 +472,15 @@ class NodeValue:
             return self.__signature
         raise ValueError(f"{field} is not a valid field")
 
+    def gettcl(self):
+        """
+        Returns the tcl representation for the value
+
+        Args:
+            field (str): name of schema field.
+        """
+        return NodeType.to_tcl(self.get(), self.__type)
+
     def set(self, value, field='value'):
         """
         Sets the value in a specific field and ensures it has been normalized.
@@ -458,6 +505,19 @@ class NodeValue:
         Not valid for this datatype, will raise a ValueError
         """
         raise ValueError(f"cannot add to {field} field")
+
+    @property
+    def has_value(self):
+        """
+        Returns true if this node has a value.
+        """
+        if isinstance(self.__type, (set, tuple, list)):
+            return bool(self.__value)
+
+        if self.__value is not None:
+            return True
+        else:
+            return False
 
     @property
     def fields(self):

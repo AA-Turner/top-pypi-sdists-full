@@ -178,6 +178,25 @@ class OptimizationNodePacket(QuantConnect.Packets.Packet):
         ...
 
 
+class OptimizationStatus(Enum):
+    """The different optimization status"""
+
+    NEW = 0
+    """Just created and not running optimization (0)"""
+
+    ABORTED = 1
+    """We failed or we were aborted (1)"""
+
+    RUNNING = 2
+    """We are running (2)"""
+
+    COMPLETED = 3
+    """Optimization job has completed (3)"""
+
+    def __int__(self) -> int:
+        ...
+
+
 class OptimizationResult(System.Object):
     """Defines the result of Lean compute job"""
 
@@ -212,25 +231,6 @@ class OptimizationResult(System.Object):
         :param parameter_set: Parameter set used in compute job
         :param backtest_id: The backtest id that generated this result
         """
-        ...
-
-
-class OptimizationStatus(Enum):
-    """The different optimization status"""
-
-    NEW = 0
-    """Just created and not running optimization (0)"""
-
-    ABORTED = 1
-    """We failed or we were aborted (1)"""
-
-    RUNNING = 2
-    """We are running (2)"""
-
-    COMPLETED = 3
-    """Optimization job has completed (3)"""
-
-    def __int__(self) -> int:
         ...
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mne
-Version: 1.10.0
+Version: 1.10.1
 Summary: MNE-Python project for MEG and EEG data analysis.
 Project-URL: Bug Tracker, https://github.com/mne-tools/mne-python/issues/
 Project-URL: Documentation, https://mne.tools/

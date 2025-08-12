@@ -19,12 +19,13 @@ from .types import (
     ResultMessage,
     SystemMessage,
     TextBlock,
+    ThinkingBlock,
     ToolResultBlock,
     ToolUseBlock,
     UserMessage,
 )
 
-__version__ = "0.0.19"
+__version__ = "0.0.20"
 
 __all__ = [
     # Main exports
@@ -40,6 +41,7 @@ __all__ = [
     "Message",
     "ClaudeCodeOptions",
     "TextBlock",
+    "ThinkingBlock",
     "ToolUseBlock",
     "ToolResultBlock",
     "ContentBlock",

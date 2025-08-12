@@ -4,177 +4,255 @@ scipy package is included.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
-from cx_Freeze._compat import IS_LINUX, IS_MACOS, IS_MINGW, IS_WINDOWS
-from cx_Freeze.hooks.libs import replace_delvewheel_patch
+from cx_Freeze._compat import IS_LINUX, IS_MINGW, IS_WINDOWS
+from cx_Freeze.hooks.global_names import (
+    SCIPY__LIB_ARRAY_API_COMPAT_GLOBAL_NAMES,
+    SCIPY_INTEGRATE_GLOBAL_NAMES,
+    SCIPY_INTERPOLATE_GLOBAL_NAMES,
+    SCIPY_LINALG_GLOBAL_NAMES,
+    SCIPY_OPTIMIZE_GLOBAL_NAMES,
+    SCIPY_SPARSE_GLOBAL_NAMES,
+    SCIPY_SPARSE_LINALG_GLOBAL_NAMES,
+    SCIPY_SPATIAL_GLOBAL_NAMES,
+    SCIPY_SPECIAL_GLOBAL_NAMES,
+    SCIPY_STATS_GLOBAL_NAMES,
+)
+from cx_Freeze.module import Module, ModuleHook
 
 if TYPE_CHECKING:
     from cx_Freeze.finder import ModuleFinder
-    from cx_Freeze.module import Module
 
 
-def load_scipy(finder: ModuleFinder, module: Module) -> None:
-    """The scipy package.
-
-    Supported pypi and conda-forge versions (lasted tested version is 1.15.2).
-    """
-    module_dir = module.file.parent
-    # scipy >= 1.9.2 windows and linux
-    source_dir = module_dir.parent / f"{module.name}.libs"
-    target_dir = f"lib/{source_dir.name}"
-    if not source_dir.exists():
-        # scipy < 1.9.2 or macos
-        source_dir = module_dir.joinpath(".dylibs" if IS_MACOS else ".libs")
-        target_dir = f"lib/{module.name}/{source_dir.name}"
-    if source_dir.exists():
-        for source in source_dir.iterdir():
-            target = f"{target_dir}/{source.name}"
-            finder.lib_files[source] = target
-        if IS_WINDOWS:
-            finder.include_files(source_dir, target_dir)
-            replace_delvewheel_patch(module)
-
-    # Exclude unnecessary modules
-    distribution = module.distribution
-    if distribution:
-        files = distribution.original.files or []
-        for file in files:
-            if file.parent.match("**/tests"):
-                mod = file.parent.as_posix().replace("/", ".")
-                finder.exclude_module(mod)
-    finder.exclude_module("scipy.conftest")
-
-    finder.include_package("scipy.integrate")
-    finder.include_package("scipy._lib")
-    finder.include_package("scipy.misc")
-    finder.include_package("scipy.optimize")
+__all__ = ["Hook"]
 
 
-def load_scipy__distributor_init(finder: ModuleFinder, module: Module) -> None:
-    """Fix the location of dependent files in Windows and macOS."""
-    if IS_LINUX or IS_MINGW:
-        return  # it is detected correctly.
+class Hook(ModuleHook):
+    """The Hook class for scipy."""
 
-    # patch the code when necessary
-    if module.in_file_system == 0:
-        module.code = compile(
-            module.file.read_bytes().replace(
-                b"__file__", b"__file__.replace('library.zip', '.')"
-            ),
-            module.file.as_posix(),
-            "exec",
-            dont_inherit=True,
-            optimize=finder.optimize,
+    def scipy(self, finder: ModuleFinder, module: Module) -> None:
+        """The scipy package.
+
+        Supported pypi and conda-forge versions (tested until 1.16.0).
+        """
+        # Exclude unnecessary modules
+        distribution = module.distribution
+        if distribution:
+            # Exclude tests
+            excludes = set()
+            files = distribution.original.files or []
+            for file in files:
+                if file.parent.match("**/tests"):
+                    excludes.add(file.parent.as_posix().replace("/", "."))
+            # >>> excludes.discard("scipy.special.tests")
+            for exclude in excludes:
+                finder.exclude_module(exclude)
+        finder.exclude_module("scipy.conftest")
+
+        finder.include_package("scipy._lib")
+        finder.include_package("scipy.misc")
+        with suppress(ImportError):
+            finder.include_module("scipy._cyutility")  # v1.16.0
+
+    def scipy__distributor_init(
+        self, finder: ModuleFinder, module: Module
+    ) -> None:
+        """Fix the location of dependent files in Windows and macOS."""
+        module.ignore_names.add("scipy._distributor_init_local")
+        if IS_LINUX or IS_MINGW:
+            return  # it is detected correctly.
+
+        # patch the code when necessary
+        if module.in_file_system == 0:
+            module.code = compile(
+                module.file.read_bytes().replace(
+                    b"__file__", b"__file__.replace('library.zip', '.')"
+                ),
+                module.file.as_posix(),
+                "exec",
+                dont_inherit=True,
+                optimize=finder.optimize,
+            )
+
+    def scipy_integrate(self, finder: ModuleFinder, module: Module) -> None:
+        """Set the module global names."""
+        module.global_names.update(SCIPY_INTEGRATE_GLOBAL_NAMES)
+        finder.include_package("scipy.integrate")
+
+    def scipy_interpolate(self, finder: ModuleFinder, module: Module) -> None:
+        """The scipy.interpolate must be loaded as a package."""
+        module.global_names.update(SCIPY_INTERPOLATE_GLOBAL_NAMES)
+        finder.include_package("scipy.interpolate")
+
+    def scipy__lib_array_api_compat(
+        self,
+        finder: ModuleFinder,  # noqa: ARG002
+        module: Module,
+    ) -> None:
+        """Set the module global names."""
+        module.global_names.update(SCIPY__LIB_ARRAY_API_COMPAT_GLOBAL_NAMES)
+
+    def scipy__lib__docscrape(
+        self,
+        finder: ModuleFinder,  # noqa: ARG002
+        module: Module,
+    ) -> None:
+        module.exclude_names.update(["sphinx.ext.autodoc"])
+
+    def scipy__lib__testutils(
+        self,
+        finder: ModuleFinder,  # noqa: ARG002
+        module: Module,
+    ) -> None:
+        module.exclude_names.update(
+            ["Cython.Compiler.Version", "cython", "psutil", "pytest"]
         )
 
+    def scipy_linalg(self, finder: ModuleFinder, module: Module) -> None:
+        """The scipy.linalg module loads items within itself in a way that
+        causes problems without the entire package being present.
+        """
+        module.global_names.update(SCIPY_LINALG_GLOBAL_NAMES)
+        finder.include_package("scipy.linalg")
 
-def load_scipy_interpolate(
-    finder: ModuleFinder,
-    module: Module,  # noqa: ARG001
-) -> None:
-    """The scipy.interpolate must be loaded as a package."""
-    finder.exclude_module("scipy.interpolate.tests")
-    finder.include_package("scipy.interpolate")
+    def scipy_linalg_interface_gen(
+        self, _finder: ModuleFinder, module: Module
+    ) -> None:
+        """The scipy.linalg.interface_gen module optionally imports the pre
+        module; ignore the error if this module cannot be found.
+        """
+        module.ignore_names.add("pre")
 
+    def scipy_ndimage(
+        self,
+        finder: ModuleFinder,
+        module: Module,  # noqa: ARG002
+    ) -> None:
+        """The scipy.ndimage must be loaded as a package."""
+        finder.include_package("scipy.ndimage")
 
-def load_scipy_linalg(finder: ModuleFinder, module: Module) -> None:
-    """The scipy.linalg module loads items within itself in a way that causes
-    problems without the entire package being present.
-    """
-    module.global_names.add("norm")
-    finder.include_package("scipy.linalg")
+    def scipy_optimize(self, finder: ModuleFinder, module: Module) -> None:
+        """Set the module global names."""
+        module.global_names.update(SCIPY_OPTIMIZE_GLOBAL_NAMES)
+        finder.include_package("scipy.optimize")
 
+    def scipy_optimize__constraints(
+        self, finder: ModuleFinder, module: Module
+    ) -> None:
+        self._fix_suppress_warnings(finder, module)
 
-def load_scipy_linalg_interface_gen(_, module: Module) -> None:
-    """The scipy.linalg.interface_gen module optionally imports the pre module;
-    ignore the error if this module cannot be found.
-    """
-    module.ignore_names.add("pre")
+    def scipy_sparse(self, finder: ModuleFinder, module: Module) -> None:
+        """The scipy.sparse must be loaded as a package."""
+        module.global_names.update(SCIPY_SPARSE_GLOBAL_NAMES)
+        finder.include_package("scipy.sparse")
 
+    def scipy_sparse_csgraph(
+        self,
+        finder: ModuleFinder,
+        module: Module,  # noqa: ARG002
+    ) -> None:
+        """The scipy.sparse.csgraph must be loaded as a package."""
+        finder.include_package("scipy.sparse.csgraph")
 
-def load_scipy_ndimage(
-    finder: ModuleFinder,
-    module: Module,  # noqa: ARG001
-) -> None:
-    """The scipy.ndimage must be loaded as a package."""
-    finder.exclude_module("scipy.ndimage.tests")
-    finder.include_package("scipy.ndimage")
+    def scipy_sparse_linalg(
+        self, _finder: ModuleFinder, module: Module
+    ) -> None:
+        """Set the module global names."""
+        module.global_names.update(SCIPY_SPARSE_LINALG_GLOBAL_NAMES)
 
+    def scipy_sparse_linalg__dsolve_linsolve(
+        self,
+        finder: ModuleFinder,  # noqa: ARG002
+        module: Module,
+    ) -> None:
+        """The scipy.sparse.linalg._dsolve.linsolve optionally loads
+        scikits.umfpack.
+        """
+        module.ignore_names.add("scikits.umfpack")
 
-def load_scipy_sparse(
-    finder: ModuleFinder,
-    module: Module,  # noqa: ARG001
-) -> None:
-    """The scipy.sparse must be loaded as a package."""
-    finder.exclude_module("scipy.sparse.tests")
-    finder.include_package("scipy.sparse")
+    def scipy_spatial(self, finder: ModuleFinder, module: Module) -> None:
+        """The scipy.spatial must be loaded as a package."""
+        module.global_names.update(SCIPY_SPATIAL_GLOBAL_NAMES)
+        finder.include_package("scipy.spatial")
+        if IS_WINDOWS or IS_MINGW:
+            finder.exclude_module("scipy.spatial.cKDTree")
 
+    def scipy_spatial_transform(
+        self,
+        finder: ModuleFinder,
+        module: Module,  # noqa: ARG002
+    ) -> None:
+        """The scipy.spatial.transform must be loaded as a package."""
+        finder.include_package("scipy.spatial.transform")
 
-def load_scipy_sparse_csgraph(
-    finder: ModuleFinder,
-    module: Module,  # noqa: ARG001
-) -> None:
-    """The scipy.sparse.csgraph must be loaded as a package."""
-    finder.exclude_module("scipy.sparse.csgraph.tests")
-    finder.include_package("scipy.sparse.csgraph")
+    def scipy_special(self, finder: ModuleFinder, module: Module) -> None:
+        """The scipy.special must be loaded as a package."""
+        module.global_names.update(SCIPY_SPECIAL_GLOBAL_NAMES)
+        finder.include_package("scipy.special")
+        finder.include_package("scipy.special._precompute")
 
+    def scipy_special__cephes(
+        self,
+        finder: ModuleFinder,  # noqa: ARG002
+        module: Module,
+    ) -> None:
+        """The scipy.special._cephes is an extension module and the scipy
+        module imports * from it in places; advertise the global names that
+        are used in order to avoid spurious errors about missing modules.
+        """
+        module.global_names.add("gammaln")
 
-def load_scipy_sparse_linalg__dsolve_linsolve(
-    finder: ModuleFinder,  # noqa: ARG001
-    module: Module,
-) -> None:
-    """The scipy.sparse.linalg._dsolve.linsolve optionally loads
-    scikits.umfpack.
-    """
-    module.ignore_names.add("scikits.umfpack")
+    def scipy_special__mptestutils(
+        self,
+        finder: ModuleFinder,  # noqa: ARG002
+        module: Module,
+    ) -> None:
+        module.exclude_names.add("pytest")
 
+    def scipy_special__testutils(
+        self,
+        finder: ModuleFinder,  # noqa: ARG002
+        module: Module,
+    ) -> None:
+        module.exclude_names.add("pytest")
 
-def load_scipy_spatial(
-    finder: ModuleFinder,
-    module: Module,  # noqa: ARG001
-) -> None:
-    """The scipy.spatial must be loaded as a package."""
-    finder.include_package("scipy.spatial")
-    finder.exclude_module("scipy.spatial.tests")
-    if IS_WINDOWS or IS_MINGW:
-        finder.exclude_module("scipy.spatial.cKDTree")
+    def scipy_stats(self, finder: ModuleFinder, module: Module) -> None:
+        """The scipy.stats must be loaded as a package."""
+        module.global_names.update(SCIPY_STATS_GLOBAL_NAMES)
+        finder.include_package("scipy.stats")
 
+    def scipy_stats__binned_statistic(
+        self, finder: ModuleFinder, module: Module
+    ) -> None:
+        self._fix_suppress_warnings(finder, module)
 
-def load_scipy_spatial_transform(
-    finder: ModuleFinder,
-    module: Module,  # noqa: ARG001
-) -> None:
-    """The scipy.spatial.transform must be loaded as a package."""
-    finder.include_package("scipy.spatial.transform")
-    finder.exclude_module("scipy.spatial.transform.tests")
+    def scipy_stats__stats_py(
+        self, finder: ModuleFinder, module: Module
+    ) -> None:
+        self._fix_suppress_warnings(finder, module)
 
+    def scipy_stats__sobol(
+        self,
+        finder: ModuleFinder,
+        module: Module,  # noqa: ARG002
+    ) -> None:
+        finder.include_package("importlib.resources")
 
-def load_scipy_special(
-    finder: ModuleFinder,
-    module: Module,  # noqa: ARG001
-) -> None:
-    """The scipy.special must be loaded as a package."""
-    finder.exclude_module("scipy.special.tests")
-    finder.include_package("scipy.special")
-    finder.include_package("scipy.special._precompute")
-
-
-def load_scipy_special__cephes(
-    finder: ModuleFinder,  # noqa: ARG001
-    module: Module,
-) -> None:
-    """The scipy.special._cephes is an extension module and the scipy module
-    imports * from it in places; advertise the global names that are used
-    in order to avoid spurious errors about missing modules.
-    """
-    module.global_names.add("gammaln")
-
-
-def load_scipy_stats(
-    finder: ModuleFinder,
-    module: Module,  # noqa: ARG001
-) -> None:
-    """The scipy.stats must be loaded as a package."""
-    finder.exclude_module("scipy.stats.tests")
-    finder.include_package("scipy.stats")
+    def _fix_suppress_warnings(
+        self, finder: ModuleFinder, module: Module
+    ) -> None:
+        code_bytes = module.file.read_bytes()
+        if b"suppress_warnings" in code_bytes:
+            code_bytes = code_bytes.replace(
+                b"from numpy.testing import suppress_warnings",
+                b"from warnings import catch_warnings as suppress_warnings",
+            )
+            module.code = compile(
+                code_bytes,
+                module.file.as_posix(),
+                "exec",
+                dont_inherit=True,
+                optimize=finder.optimize,
+            )

@@ -21,9 +21,9 @@ typedef struct model_t {
 
     // 3D arrays flattened to 1D for C
     // Sizes: N * M * 2, N * M * 4, N * M * 6
-    uint32_t* I;
-    double* X;
-    double* P;
+    uint32_t* init_popu;
+    double* matrices;
+    double* patch_params;
 
     int32_t print_pct; 
     int32_t seed;  // -1 for none
@@ -35,14 +35,14 @@ typedef struct model_t {
     uint32_t compress_itv;
     double* U1d;
     double* V1d;
-    double* Upi_1d;
-    double* Vpi_1d;
+    double* Hpi_1d;
+    double* Dpi_1d;
 } model_t;
 
 
 bool mod_init(model_t* mod, size_t N, size_t M,
                 double maxtime, double record_itv, size_t sim_time, bool boundary,
-                const uint32_t* I, const double* X, const double* P,
+                const uint32_t* init_popu, const double* matrices, const double* patch_params,
                 int32_t print_pct, int32_t seed);
 void mod_free(model_t* mod);
 void mod_free_py(model_t* mod);

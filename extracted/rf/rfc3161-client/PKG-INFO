@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfc3161-client
-Version: 1.0.3
+Version: 1.0.4
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: 3
@@ -25,7 +25,6 @@ Provides-Extra: test
 Provides-Extra: lint
 Provides-Extra: dev
 License-File: LICENSE
-Author: Trail of Bits <opensource@trailofbits.com>
 Author-email: Trail of Bits <opensource@trailofbits.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM

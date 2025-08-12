@@ -114,7 +114,8 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[CreateEnvironmentRequestTypeDef]
     ) -> CreateEnvironmentResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Creates an Amazon EVS environment that runs VCF software, such as SDDC Manager,
+        NSX Manager, and vCenter Server.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/create_environment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#create_environment)
@@ -124,7 +125,7 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[CreateEnvironmentHostRequestTypeDef]
     ) -> CreateEnvironmentHostResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Creates an ESXi host and adds it to an Amazon EVS environment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/create_environment_host.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#create_environment_host)
@@ -134,7 +135,7 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[DeleteEnvironmentRequestTypeDef]
     ) -> DeleteEnvironmentResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Deletes an Amazon EVS environment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/delete_environment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#delete_environment)
@@ -144,7 +145,7 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[DeleteEnvironmentHostRequestTypeDef]
     ) -> DeleteEnvironmentHostResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Deletes a host from an Amazon EVS environment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/delete_environment_host.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#delete_environment_host)
@@ -154,7 +155,7 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[GetEnvironmentRequestTypeDef]
     ) -> GetEnvironmentResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Returns a description of the specified environment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/get_environment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#get_environment)
@@ -164,7 +165,7 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[ListEnvironmentHostsRequestTypeDef]
     ) -> ListEnvironmentHostsResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        List the hosts within an environment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/list_environment_hosts.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#list_environment_hosts)
@@ -174,7 +175,7 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[ListEnvironmentVlansRequestTypeDef]
     ) -> ListEnvironmentVlansResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Lists environment VLANs that are associated with the specified environment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/list_environment_vlans.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#list_environment_vlans)
@@ -184,7 +185,8 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[ListEnvironmentsRequestTypeDef]
     ) -> ListEnvironmentsResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Lists the Amazon EVS environments in your Amazon Web Services account in the
+        specified Amazon Web Services Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/list_environments.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#list_environments)
@@ -194,7 +196,7 @@ class EVSClient(BaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Lists the tags for an Amazon EVS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#list_tags_for_resource)
@@ -202,7 +204,8 @@ class EVSClient(BaseClient):
 
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Associates the specified tags to an Amazon EVS resource with the specified
+        <code>resourceArn</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/tag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#tag_resource)
@@ -210,7 +213,7 @@ class EVSClient(BaseClient):
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
-        <note> <p>Amazon EVS is in public preview release and is subject to change.
+        Deletes specified tags from an Amazon EVS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_evs/client/#untag_resource)

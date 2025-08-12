@@ -7,7 +7,7 @@ from typing import Any, Literal, TypedDict
 from typing_extensions import NotRequired  # For Python < 3.11 compatibility
 
 # Permission modes
-PermissionMode = Literal["default", "acceptEdits", "bypassPermissions"]
+PermissionMode = Literal["default", "acceptEdits", "plan", "bypassPermissions"]
 
 
 # MCP Server config
@@ -48,6 +48,14 @@ class TextBlock:
 
 
 @dataclass
+class ThinkingBlock:
+    """Thinking content block."""
+
+    thinking: str
+    signature: str
+
+
+@dataclass
 class ToolUseBlock:
     """Tool use content block."""
 
@@ -65,7 +73,7 @@ class ToolResultBlock:
     is_error: bool | None = None
 
 
-ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock
+ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock
 
 
 # Message types
@@ -81,6 +89,7 @@ class AssistantMessage:
     """Assistant message with content blocks."""
 
     content: list[ContentBlock]
+    model: str
 
 
 @dataclass
@@ -117,8 +126,7 @@ class ClaudeCodeOptions:
     max_thinking_tokens: int = 8000
     system_prompt: str | None = None
     append_system_prompt: str | None = None
-    mcp_tools: list[str] = field(default_factory=list)
-    mcp_servers: dict[str, McpServerConfig] = field(default_factory=dict)
+    mcp_servers: dict[str, McpServerConfig] | str | Path = field(default_factory=dict)
     permission_mode: PermissionMode | None = None
     continue_conversation: bool = False
     resume: str | None = None
@@ -129,3 +137,6 @@ class ClaudeCodeOptions:
     cwd: str | Path | None = None
     settings: str | None = None
     add_dirs: list[str | Path] = field(default_factory=list)
+    extra_args: dict[str, str | None] = field(
+        default_factory=dict
+    )  # Pass arbitrary CLI flags

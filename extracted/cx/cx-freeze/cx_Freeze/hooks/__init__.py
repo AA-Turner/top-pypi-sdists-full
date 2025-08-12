@@ -113,9 +113,21 @@ def load_charset_normalizer_md(finder: ModuleFinder, module: Module) -> None:
         finder.include_module("charset_normalizer.md__mypyc")
 
 
+def load_collections(finder: ModuleFinder, module: Module) -> None:
+    """Sets the alias for collections.abc."""
+    try:
+        finder.include_module("collections.abc")
+    except ImportError:
+        # collections.abc module does not exist in Python 3.13+
+        # >>> _sys.modules['collections.abc'] = _collections_abc
+        finder.add_alias("collections.abc", "_collections_abc")
+
+
 def load_concurrent_futures(finder: ModuleFinder, module: Module) -> None:
     """Ignore names that should not be confused with modules to be imported."""
-    module.global_names.update(["ProcessPoolExecutor", "ThreadPoolExecutor"])
+    from cx_Freeze.hooks.global_names import CONCURRENT_FUTURES_GLOBAL_NAMES
+
+    module.global_names.update(CONCURRENT_FUTURES_GLOBAL_NAMES)
 
 
 def load_crc32c(finder: ModuleFinder, module: Module) -> None:
@@ -478,46 +490,6 @@ def load_pywintypes(finder: ModuleFinder, module: Module) -> None:
     )
 
 
-def load_re(finder: ModuleFinder, module: Module) -> None:
-    """Ignore names that should not be confused with modules to be imported."""
-    if module.path:  # package since Python 3.11
-        module.global_names.update(
-            [
-                "match",
-                "fullmatch",
-                "search",
-                "sub",
-                "subn",
-                "split",
-                "findall",
-                "finditer",
-                "compile",
-                "purge",
-                "escape",
-                "error",
-                "Pattern",
-                "Match",
-                "A",
-                "I",
-                "L",
-                "M",
-                "S",
-                "X",
-                "U",
-                "ASCII",
-                "IGNORECASE",
-                "LOCALE",
-                "MULTILINE",
-                "DOTALL",
-                "VERBOSE",
-                "UNICODE",
-                "NOFLAG",
-                "RegexFlag",
-                "PatternError",
-            ]
-        )
-
-
 def load_reportlab(finder: ModuleFinder, module: Module) -> None:
     """The reportlab module loads a submodule rl_settings via exec so force
     its inclusion here.
@@ -575,16 +547,6 @@ def load_time(finder: ModuleFinder, module: Module) -> None:
     finder.include_module("_strptime")
 
 
-def load_tokenizers(finder: ModuleFinder, module: Module) -> None:
-    """On Linux the tokenizers.libs directory is not copied."""
-    if module.path is None:
-        return
-    libs_name = "tokenizers.libs"
-    source_dir = module.path[0].parent / libs_name
-    if source_dir.exists():
-        finder.include_files(source_dir, Path("lib", libs_name))
-
-
 def load_typing(finder: ModuleFinder, module: Module) -> None:
     """Optimize typing module."""
     finder.add_alias("typing.io", "io")
@@ -635,16 +597,6 @@ def load_win32file(finder: ModuleFinder, module: Module) -> None:
     """
     finder.include_module("pywintypes")
     finder.include_module("win32timezone")
-
-
-def load_wx_lib_pubsub_core(finder: ModuleFinder, module: Module) -> None:
-    """The wx.lib.pubsub.core module modifies the search path which cannot
-    be done in a frozen application in the same way; modify the module
-    search path here instead so that the right modules are found; note
-    that this only works if the import of wx.lib.pubsub.setupkwargs
-    occurs first.
-    """
-    module.path.insert(0, module.file.parent / "kwargs")
 
 
 def load_xml_etree_cElementTree(finder: ModuleFinder, module: Module) -> None:

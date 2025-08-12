@@ -164,6 +164,7 @@ class ClusterKwargs(TypedDict, total=False):
     workspace: str | None
     shutdown_on_close: bool | None
     idle_timeout: str | None
+    cluster_timeout: str | None
     no_client_timeout: str | None | object
     use_scheduler_public_ip: bool | None
     use_dashboard_https: bool | None
@@ -314,6 +315,9 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
     idle_timeout
         Shut down the cluster after this duration if no activity has occurred. E.g. "30 minutes"
         Default: "20 minutes"
+    cluster_timeout
+        Shut down the cluster after this duration (even if active). E.g. "2 hours"
+        Default: ``None``
     no_client_timeout
         Shut down the cluster after this duration after all clients have disconnected.
         When ``shutdown_on_close`` is ``False`` this is disabled,
@@ -500,6 +504,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         workspace: str | None = None,
         shutdown_on_close: bool | None = None,
         idle_timeout: str | None = None,
+        cluster_timeout: str | None = None,
         no_client_timeout: str | None | object = NO_CLIENT_DEFAULT,
         use_scheduler_public_ip: bool | None = None,
         use_dashboard_https: bool | None = None,
@@ -980,6 +985,9 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         if idle_timeout:
             dask.utils.parse_timedelta(idle_timeout)  # fail fast if dask can't parse this timedelta
             self.scheduler_options["idle_timeout"] = idle_timeout
+
+        cluster_timeout = cluster_timeout or dask.config.get("coiled.cluster-timeout", None)
+        self.cluster_timeout_seconds = int(dask.utils.parse_timedelta(cluster_timeout)) if cluster_timeout else None
 
         self.no_client_timeout = (
             no_client_timeout if no_client_timeout != NO_CLIENT_DEFAULT else (idle_timeout or "2 minutes")
@@ -1593,6 +1601,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     extra_user_container_ignore_entrypoint=self.extra_user_container_ignore_entrypoint,
                     host_setup_script_content=self.host_setup_script_content,
                     pause_on_exit=self.pause_on_exit,
+                    cluster_timeout_seconds=self.cluster_timeout_seconds,
                 )
                 cluster_created = not cluster_existed
 

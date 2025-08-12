@@ -240,9 +240,19 @@ class DependencyDrivenBuildArguments(GlobalArguments):
             validate_method=[ValidateMethod.TO_LIST],
             nargs='+',
         ),
-        description='space-separated list of file patterns to search for the manifest files. '
+        description='space-separated list of file glob patterns to search for the manifest files. '
         'The matched files will be loaded as the manifest files.',
         default=None,  # type: ignore
+    )
+    manifest_exclude_regexes: t.Optional[t.List[str]] = field(
+        FieldMetadata(
+            validate_method=[ValidateMethod.TO_LIST],
+            nargs='+',
+        ),
+        description='space-separated list of regex to exclude when searching for manifest files. '
+        'Files matching these patterns will be ignored. '
+        'By default excludes files under "managed_components" directories.',
+        default=['/managed_components/'],  # type: ignore
     )
     manifest_rootpath: str = field(
         None,
@@ -336,6 +346,22 @@ class DependencyDrivenBuildArguments(GlobalArguments):
             matched_paths = set()
             for pat in [to_absolute_path(p, self.manifest_rootpath) for p in self.manifest_filepatterns]:
                 matched_paths.update(glob.glob(str(pat), recursive=True))
+
+            exclude_regexes = {re.compile(regex) for regex in self.manifest_exclude_regexes or []}
+
+            # Filter out files matching excluded patterns
+            if matched_paths:
+                filtered_paths = set()
+                for path in matched_paths:
+                    posix_path = Path(path).as_posix()
+                    for regex in exclude_regexes:
+                        if regex.search(posix_path):
+                            LOGGER.debug(f'Excluding manifest file {path} due to excluded regex match')
+                            break
+                    else:
+                        filtered_paths.add(path)
+
+                matched_paths = filtered_paths
 
             if matched_paths:
                 if self.manifest_files:
@@ -482,6 +508,13 @@ class FindBuildArguments(DependencyDrivenBuildArguments):
         validation_alias=AliasChoices('size_json_filename', 'size_file'),
         default=None,  # type: ignore
     )
+    size_json_extra_args: t.Optional[t.List[str]] = field(
+        FieldMetadata(
+            validate_method=[ValidateMethod.TO_LIST],
+        ),
+        description='Additional arguments to pass to esp_idf_size tool',
+        default=None,  # type: ignore
+    )
     config_rules: t.Optional[t.List[str]] = field(
         FieldMetadata(
             validate_method=[ValidateMethod.TO_LIST],
@@ -607,7 +640,7 @@ class FindBuildArguments(DependencyDrivenBuildArguments):
         elif self.enable_preview_targets:
             self.default_build_targets = deepcopy(ALL_TARGETS)
             LOGGER.info('Overriding default build targets to %s', self.default_build_targets)
-            DEFAULT_BUILD_TARGETS.set(self.default_build_targets)  # type: ignore
+            DEFAULT_BUILD_TARGETS.set(self.default_build_targets)
 
         if self.disable_targets and DEFAULT_BUILD_TARGETS.get():
             LOGGER.info('Disable targets: %s', self.disable_targets)

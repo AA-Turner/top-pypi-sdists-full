@@ -46,7 +46,7 @@ def rounds_expected(mod):
     # loop through N, M, create a sample patch to calculate rates, store them
     for i in range(N):
         for j in range(M):
-            patch0 = simulation.patch(U_expected[i][j], V_expected[i][j], mod.X[i][j], mod.P[i][j])
+            patch0 = simulation.patch(U_expected[i][j], V_expected[i][j], mod.matrices[i][j], mod.patch_params[i][j])
 
             nb_indices = None
             if mod.boundary:
@@ -58,7 +58,7 @@ def rounds_expected(mod):
                 if nb_indices[k] != None:
                     i_nb = nb_indices[k][0]
                     j_nb = nb_indices[k][1]
-                    patch0_nb_k = simulation.patch(U_expected[i_nb][j_nb], V_expected[i_nb][j_nb], mod.X[i_nb][j_nb], mod.P[i_nb][j_nb])
+                    patch0_nb_k = simulation.patch(U_expected[i_nb][j_nb], V_expected[i_nb][j_nb], mod.matrices[i_nb][j_nb], mod.patch_params[i_nb][j_nb])
                     patch0_nb_k.update_pi_k()
                     patch0_nb.append(patch0_nb_k)
 
@@ -106,7 +106,7 @@ def scale_maxtime(mod1, mod2, scale_interval = True):
 
 
 
-def check_convergence(mod, interval = 20, start = 0.8, fluc = 0.07):
+def check_convergence(mod, interval = 20, start = 0.8, fluc = 0.05):
     '''
     Check whether a simulation converges or not.
     Based on whether the fluctuation of U, V, pi all < 'fluc' in the later 'tail' portion of time.
@@ -128,7 +128,7 @@ def check_convergence(mod, interval = 20, start = 0.8, fluc = 0.07):
     if (type(interval) != int) or (interval < 1):
         raise ValueError("interval should be an int >= 1")
     
-    interval = figure_t.scale_interval(interval, mod.compress_itv)
+    interval = figure_t.scale_interval(interval, mod.compress_ratio)
 
     start_index = int(mod.max_record * start)  # where the tail starts
     num_interval = int((mod.max_record - start_index) / interval)  # how many intervals in total
@@ -170,50 +170,60 @@ def check_convergence(mod, interval = 20, start = 0.8, fluc = 0.07):
 
 
 
-def combine_mod(mod1, mod2):
+def combine_mod(mod1, mod2, force_combine = False):
     '''
     Combine data of mod1 and mod2. 
-    Intended usage: assume mod1 and mod2 has the same N, M, maxtime, interval, boundary, max_record, and I, X, P
+    Intended usage: assume mod1 and mod2 has the same N, M, maxtime, interval, boundary, max_record, and X, P
     combine_mod then combines the two results and calculate a new weighted average of the two data, return a new sim object. 
     Essentially allows breaking up many rounds of simulations into several smaller pieces, and then put together.
 
     Inputs:
     - mod1, mod2: both simulation.model objects. All input parameters the same except for sim_time, print_pct and seed.
             Raises error if not.
+    - force_combine: ignore all parameter checks for mod1 and mod2 and combine the results of two models.
 
     Returns:
 
-    - mod3:     a new model object whose U, V, Upi, Vpi are weighted averages of mod1 and mod2
+    - mod3:     a new model object whose U, V, Hpi, Dpi are weighted averages of mod1 and mod2
                 (weighted by sim_time). 
                 mod3.print_pct is set to mod1's, seed set to None, sim_time set to sum of mod1's and mod2's. All other params same as mod1
     '''
-    if not (mod1.N == mod2.N and
-            mod1.M == mod2.M and
-            mod1.maxtime == mod2.maxtime and
-            mod1.record_itv == mod2.record_itv and
-            mod1.boundary == mod2.boundary and
-            mod1.max_record == mod2.max_record and
-            np.array_equal(mod1.X, mod2.X) and
-            np.array_equal(mod1.P, mod2.P)):
-        
-        raise ValueError('mod1 and mod2 have different input parameters (N, M, maxtime, interval, boundary, max_record, or I, X, P).')
 
-    if mod1.seed == mod2.seed:
-        raise ValueError('Cannot combine two simulations with the same seed.')
+    if not force_combine:
+        if not (mod1.N == mod2.N and
+                mod1.M == mod2.M and
+                mod1.maxtime == mod2.maxtime and
+                mod1.record_itv == mod2.record_itv and
+                mod1.boundary == mod2.boundary and
+                mod1.max_record == mod2.max_record and
+                mod1.compress_ratio == mod2.compress_ratio and
+                np.array_equal(mod1.init_popu, mod2.init_popu) and
+                np.array_equal(mod1.matrices, mod2.matrices) and
+                np.array_equal(mod1.patch_params, mod2.patch_params)):
+            
+            raise ValueError('mod1 and mod2 have different input parameters (N, M, maxtime, interval, boundary, max_record, init_popu, matrices, or patch_params.)')
+
+        if mod1.seed == mod2.seed:
+            raise ValueError('Cannot combine two simulations with the same seed.')
     
     # copy mod1, except for no data and a different sim_time
+    N = mod1.N
+    M = mod1.M
     combined_sim_time = mod1.sim_time + mod2.sim_time
     mod3 = mod1.copy(copy_data = False)
     mod3.sim_time = combined_sim_time
     mod3.seed = None
+    mod3.set_data(data_empty = False, max_record = mod1.max_record, compress_ratio = mod1.compress_ratio, 
+                  U = np.zeros((N, M, mod1.max_record)), V = np.zeros((N, M, mod1.max_record)), 
+                  Hpi = np.zeros((N, M, mod1.max_record)), Dpi = np.zeros((N, M, mod1.max_record)))
 
-    for i in range(mod3.N):
-        for j in range(mod3.M):
+    for i in range(N):
+        for j in range(M):
             for k in range(mod3.max_record):
                 mod3.U[i][j][k] = (mod1.U[i][j][k] * mod1.sim_time + mod2.U[i][j][k] * mod2.sim_time) / combined_sim_time
                 mod3.V[i][j][k] = (mod1.V[i][j][k] * mod1.sim_time + mod2.V[i][j][k] * mod2.sim_time) / combined_sim_time
-                mod3.Upi[i][j][k] = (mod1.Upi[i][j][k] * mod1.sim_time + mod2.Upi[i][j][k] * mod2.sim_time) / combined_sim_time
-                mod3.Vpi[i][j][k] = (mod1.Vpi[i][j][k] * mod1.sim_time + mod2.Vpi[i][j][k] * mod2.sim_time) / combined_sim_time
+                mod3.Hpi[i][j][k] = (mod1.Hpi[i][j][k] * mod1.sim_time + mod2.Hpi[i][j][k] * mod2.sim_time) / combined_sim_time
+                mod3.Dpi[i][j][k] = (mod1.Dpi[i][j][k] * mod1.sim_time + mod2.Dpi[i][j][k] * mod2.sim_time) / combined_sim_time
 
     return mod3
 

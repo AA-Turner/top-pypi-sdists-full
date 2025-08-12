@@ -372,7 +372,8 @@ class _RealTimeJsonEventPicker:
             A dictionary describing the detected event or ``None`` if no event
             boundary was reached for the supplied frame.
         """
-        incidents = frame_json.get("result").get("value").get("agg_summary")[str(frame_id)].get("incidents") or []
+        #incidents = frame_json.get("result").get("value").get("agg_summary")[str(frame_id)].get("incidents") or []
+        incidents = frame_json.get("result").get("value").get("agg_apps")[0].get("agg_summary")[str(frame_id)].get("incidents") or []
         has_alerts = bool(incidents and incidents.get("alerts")[0])
        
         if has_alerts:

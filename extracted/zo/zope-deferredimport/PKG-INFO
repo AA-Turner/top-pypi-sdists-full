@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.deferredimport
-Version: 5.0
+Version: 5.1
 Summary: zope.deferredimport allows you to perform imports names that will only be resolved when used in the code.
 Home-page: http://github.com/zopefoundation/zope.deferredimport
 Author: Zope Foundation and Contributors
 Author-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Project-URL: Issue Tracker, https://github.com/zopefoundation/zope.deferredimport/issues
 Project-URL: Sources, https://github.com/zopefoundation/zope.deferredimport
 Classifier: Development Status :: 5 - Production/Stable
@@ -13,21 +13,38 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development
-Requires-Python: >=3.7
-Provides-Extra: test
-Provides-Extra: docs
+Requires-Python: >=3.9
 License-File: LICENSE.txt
+Requires-Dist: setuptools
+Requires-Dist: zope.proxy
+Provides-Extra: test
+Requires-Dist: zope.testrunner; extra == "test"
+Provides-Extra: docs
+Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =========================
  ``zope.deferredimport``
@@ -64,6 +81,14 @@ Documentation is hosted at https://zopedeferredimport.readthedocs.io/
 =========
  Changes
 =========
+
+5.1 (2025-08-11)
+================
+
+- Add support for Python 3.12, 3.13.
+
+- Drop support for Python 3.7, 3.8.
+
 
 5.0 (2023-06-29)
 ================

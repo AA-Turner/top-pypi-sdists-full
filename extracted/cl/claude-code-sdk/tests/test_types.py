@@ -5,7 +5,13 @@ from claude_code_sdk import (
     ClaudeCodeOptions,
     ResultMessage,
 )
-from claude_code_sdk.types import TextBlock, ToolResultBlock, ToolUseBlock, UserMessage
+from claude_code_sdk.types import (
+    TextBlock,
+    ThinkingBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
+)
 
 
 class TestMessageTypes:
@@ -19,9 +25,19 @@ class TestMessageTypes:
     def test_assistant_message_with_text(self):
         """Test creating an AssistantMessage with text content."""
         text_block = TextBlock(text="Hello, human!")
-        msg = AssistantMessage(content=[text_block])
+        msg = AssistantMessage(content=[text_block], model="claude-opus-4-1-20250805")
         assert len(msg.content) == 1
         assert msg.content[0].text == "Hello, human!"
+
+    def test_assistant_message_with_thinking(self):
+        """Test creating an AssistantMessage with thinking content."""
+        thinking_block = ThinkingBlock(thinking="I'm thinking...", signature="sig-123")
+        msg = AssistantMessage(
+            content=[thinking_block], model="claude-opus-4-1-20250805"
+        )
+        assert len(msg.content) == 1
+        assert msg.content[0].thinking == "I'm thinking..."
+        assert msg.content[0].signature == "sig-123"
 
     def test_tool_use_block(self):
         """Test creating a ToolUseBlock."""
@@ -82,6 +98,15 @@ class TestOptions:
         """Test Options with permission mode."""
         options = ClaudeCodeOptions(permission_mode="bypassPermissions")
         assert options.permission_mode == "bypassPermissions"
+
+        options_plan = ClaudeCodeOptions(permission_mode="plan")
+        assert options_plan.permission_mode == "plan"
+
+        options_default = ClaudeCodeOptions(permission_mode="default")
+        assert options_default.permission_mode == "default"
+
+        options_accept = ClaudeCodeOptions(permission_mode="acceptEdits")
+        assert options_accept.permission_mode == "acceptEdits"
 
     def test_claude_code_options_with_system_prompt(self):
         """Test Options with system prompt."""

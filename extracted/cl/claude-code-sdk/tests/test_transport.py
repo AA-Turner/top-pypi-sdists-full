@@ -174,3 +174,128 @@ class TestSubprocessCLITransport:
             assert "/this/directory/does/not/exist" in str(exc_info.value)
 
         anyio.run(_test)
+
+    def test_build_command_with_settings_file(self):
+        """Test building CLI command with settings as file path."""
+        transport = SubprocessCLITransport(
+            prompt="test",
+            options=ClaudeCodeOptions(settings="/path/to/settings.json"),
+            cli_path="/usr/bin/claude",
+        )
+
+        cmd = transport._build_command()
+        assert "--settings" in cmd
+        assert "/path/to/settings.json" in cmd
+
+    def test_build_command_with_settings_json(self):
+        """Test building CLI command with settings as JSON object."""
+        settings_json = '{"permissions": {"allow": ["Bash(ls:*)"]}}'
+        transport = SubprocessCLITransport(
+            prompt="test",
+            options=ClaudeCodeOptions(settings=settings_json),
+            cli_path="/usr/bin/claude",
+        )
+
+        cmd = transport._build_command()
+        assert "--settings" in cmd
+        assert settings_json in cmd
+
+    def test_build_command_with_extra_args(self):
+        """Test building CLI command with extra_args for future flags."""
+        transport = SubprocessCLITransport(
+            prompt="test",
+            options=ClaudeCodeOptions(
+                extra_args={
+                    "new-flag": "value",
+                    "boolean-flag": None,
+                    "another-option": "test-value",
+                }
+            ),
+            cli_path="/usr/bin/claude",
+        )
+
+        cmd = transport._build_command()
+        cmd_str = " ".join(cmd)
+
+        # Check flags with values
+        assert "--new-flag value" in cmd_str
+        assert "--another-option test-value" in cmd_str
+
+        # Check boolean flag (no value)
+        assert "--boolean-flag" in cmd
+        # Make sure boolean flag doesn't have a value after it
+        boolean_idx = cmd.index("--boolean-flag")
+        # Either it's the last element or the next element is another flag
+        assert boolean_idx == len(cmd) - 1 or cmd[boolean_idx + 1].startswith("--")
+
+    def test_build_command_with_mcp_servers(self):
+        """Test building CLI command with mcp_servers option."""
+        import json
+
+        mcp_servers = {
+            "test-server": {
+                "type": "stdio",
+                "command": "/path/to/server",
+                "args": ["--option", "value"],
+            }
+        }
+
+        transport = SubprocessCLITransport(
+            prompt="test",
+            options=ClaudeCodeOptions(mcp_servers=mcp_servers),
+            cli_path="/usr/bin/claude",
+        )
+
+        cmd = transport._build_command()
+
+        # Find the --mcp-config flag and its value
+        assert "--mcp-config" in cmd
+        mcp_idx = cmd.index("--mcp-config")
+        mcp_config_value = cmd[mcp_idx + 1]
+
+        # Parse the JSON and verify structure
+        config = json.loads(mcp_config_value)
+        assert "mcpServers" in config
+        assert config["mcpServers"] == mcp_servers
+
+    def test_build_command_with_mcp_servers_as_file_path(self):
+        """Test building CLI command with mcp_servers as file path."""
+        from pathlib import Path
+
+        # Test with string path
+        transport = SubprocessCLITransport(
+            prompt="test",
+            options=ClaudeCodeOptions(mcp_servers="/path/to/mcp-config.json"),
+            cli_path="/usr/bin/claude",
+        )
+
+        cmd = transport._build_command()
+        assert "--mcp-config" in cmd
+        mcp_idx = cmd.index("--mcp-config")
+        assert cmd[mcp_idx + 1] == "/path/to/mcp-config.json"
+
+        # Test with Path object
+        transport = SubprocessCLITransport(
+            prompt="test",
+            options=ClaudeCodeOptions(mcp_servers=Path("/path/to/mcp-config.json")),
+            cli_path="/usr/bin/claude",
+        )
+
+        cmd = transport._build_command()
+        assert "--mcp-config" in cmd
+        mcp_idx = cmd.index("--mcp-config")
+        assert cmd[mcp_idx + 1] == "/path/to/mcp-config.json"
+
+    def test_build_command_with_mcp_servers_as_json_string(self):
+        """Test building CLI command with mcp_servers as JSON string."""
+        json_config = '{"mcpServers": {"server": {"type": "stdio", "command": "test"}}}'
+        transport = SubprocessCLITransport(
+            prompt="test",
+            options=ClaudeCodeOptions(mcp_servers=json_config),
+            cli_path="/usr/bin/claude",
+        )
+
+        cmd = transport._build_command()
+        assert "--mcp-config" in cmd
+        mcp_idx = cmd.index("--mcp-config")
+        assert cmd[mcp_idx + 1] == json_config

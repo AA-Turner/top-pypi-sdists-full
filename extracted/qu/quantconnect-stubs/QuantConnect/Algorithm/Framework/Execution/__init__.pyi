@@ -70,14 +70,83 @@ class ExecutionModel(System.Object, QuantConnect.Algorithm.Framework.Execution.I
         ...
 
 
-class ExecutionModelPythonWrapper(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """Provides an implementation of IExecutionModel that wraps a PyObject object"""
+class SpreadExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """Execution model that submits orders while the current spread is in desirably tight extent."""
 
-    def __init__(self, model: typing.Any) -> None:
+    def __init__(self, accepting_spread_percent: float = 0.005, asynchronous: bool = True) -> None:
         """
-        Constructor for initialising the IExecutionModel class with wrapped PyObject object
+        Initializes a new instance of the SpreadExecutionModel class
         
-        :param model: Model defining how to execute trades to reach a portfolio target
+        :param accepting_spread_percent: Maximum spread accepted comparing to current price in percentage.
+        :param asynchronous: If true, orders will be submitted asynchronously
+        """
+        ...
+
+    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
+        """
+        Submit orders for the specified portfolio targets if the spread is tighter/equal to preset level
+        
+        :param algorithm: The algorithm instance
+        :param targets: The portfolio targets to be ordered
+        """
+        ...
+
+    def price_is_favorable(self, security: QuantConnect.Securities.Security) -> bool:
+        """
+        Determines if the current spread is equal or tighter than preset level
+        
+        This method is protected.
+        """
+        ...
+
+
+class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """Execution model that submits orders while the current market price is more favorable that the current volume weighted average price."""
+
+    class SymbolData(System.Object):
+        """
+        Symbol data for this Execution Model
+        
+        This class is protected.
+        """
+
+        @property
+        def security(self) -> QuantConnect.Securities.Security:
+            """Security"""
+            ...
+
+        @property
+        def vwap(self) -> QuantConnect.Indicators.IntradayVwap:
+            """VWAP Indicator"""
+            ...
+
+        @property
+        def consolidator(self) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+            """Data Consolidator"""
+            ...
+
+        def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, security: QuantConnect.Securities.Security) -> None:
+            """Initialize a new instance of SymbolData"""
+            ...
+
+    @property
+    def maximum_order_quantity_percent_volume(self) -> float:
+        """
+        Gets or sets the maximum order quantity as a percentage of the current bar's volume.
+        This defaults to 0.01m = 1%. For example, if the current bar's volume is 100, then
+        the maximum order size would equal 1 share.
+        """
+        ...
+
+    @maximum_order_quantity_percent_volume.setter
+    def maximum_order_quantity_percent_volume(self, value: float) -> None:
+        ...
+
+    def __init__(self, asynchronous: bool = True) -> None:
+        """
+        Initializes a new instance of the VolumeWeightedAveragePriceExecutionModel class.
+        
+        :param asynchronous: If true, orders will be submitted asynchronously
         """
         ...
 
@@ -91,49 +160,11 @@ class ExecutionModelPythonWrapper(QuantConnect.Algorithm.Framework.Execution.Exe
         """
         ...
 
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+    def is_safe_to_remove(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
         """
-        Event fired each time the we add/remove securities from the data feed
+        Determines if it's safe to remove the associated symbol data
         
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-
-class NullExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """Provides an implementation of IExecutionModel that does nothing"""
-
-    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
-        """
-        Execute the ExecutionModel
-        
-        :param algorithm: The Algorithm to execute this model on
-        :param targets: The portfolio targets
-        """
-        ...
-
-
-class ImmediateExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """
-    Provides an implementation of IExecutionModel that immediately submits
-    market orders to achieve the desired portfolio targets
-    """
-
-    def __init__(self, asynchronous: bool = True) -> None:
-        """
-        Initializes a new instance of the ImmediateExecutionModel class.
-        
-        :param asynchronous: If true, orders will be submitted asynchronously
-        """
-        ...
-
-    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
-        """
-        Immediately submits orders for the specified portfolio targets.
-        
-        :param algorithm: The algorithm instance
-        :param targets: The portfolio targets to be ordered
+        This method is protected.
         """
         ...
 
@@ -143,6 +174,14 @@ class ImmediateExecutionModel(QuantConnect.Algorithm.Framework.Execution.Executi
         
         :param algorithm: The algorithm instance that experienced the change in securities
         :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+    def price_is_favorable(self, data: QuantConnect.Algorithm.Framework.Execution.VolumeWeightedAveragePriceExecutionModel.SymbolData, unordered_quantity: float) -> bool:
+        """
+        Determines if the current price is better than VWAP
+        
+        This method is protected.
         """
         ...
 
@@ -252,53 +291,47 @@ class StandardDeviationExecutionModel(QuantConnect.Algorithm.Framework.Execution
         ...
 
 
-class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """Execution model that submits orders while the current market price is more favorable that the current volume weighted average price."""
-
-    class SymbolData(System.Object):
-        """
-        Symbol data for this Execution Model
-        
-        This class is protected.
-        """
-
-        @property
-        def security(self) -> QuantConnect.Securities.Security:
-            """Security"""
-            ...
-
-        @property
-        def vwap(self) -> QuantConnect.Indicators.IntradayVwap:
-            """VWAP Indicator"""
-            ...
-
-        @property
-        def consolidator(self) -> QuantConnect.Data.Consolidators.IDataConsolidator:
-            """Data Consolidator"""
-            ...
-
-        def __init__(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, security: QuantConnect.Securities.Security) -> None:
-            """Initialize a new instance of SymbolData"""
-            ...
-
-    @property
-    def maximum_order_quantity_percent_volume(self) -> float:
-        """
-        Gets or sets the maximum order quantity as a percentage of the current bar's volume.
-        This defaults to 0.01m = 1%. For example, if the current bar's volume is 100, then
-        the maximum order size would equal 1 share.
-        """
-        ...
-
-    @maximum_order_quantity_percent_volume.setter
-    def maximum_order_quantity_percent_volume(self, value: float) -> None:
-        ...
+class ImmediateExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """
+    Provides an implementation of IExecutionModel that immediately submits
+    market orders to achieve the desired portfolio targets
+    """
 
     def __init__(self, asynchronous: bool = True) -> None:
         """
-        Initializes a new instance of the VolumeWeightedAveragePriceExecutionModel class.
+        Initializes a new instance of the ImmediateExecutionModel class.
         
         :param asynchronous: If true, orders will be submitted asynchronously
+        """
+        ...
+
+    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
+        """
+        Immediately submits orders for the specified portfolio targets.
+        
+        :param algorithm: The algorithm instance
+        :param targets: The portfolio targets to be ordered
+        """
+        ...
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+
+class ExecutionModelPythonWrapper(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """Provides an implementation of IExecutionModel that wraps a PyObject object"""
+
+    def __init__(self, model: typing.Any) -> None:
+        """
+        Constructor for initialising the IExecutionModel class with wrapped PyObject object
+        
+        :param model: Model defining how to execute trades to reach a portfolio target
         """
         ...
 
@@ -312,14 +345,6 @@ class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.
         """
         ...
 
-    def is_safe_to_remove(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
-        """
-        Determines if it's safe to remove the associated symbol data
-        
-        This method is protected.
-        """
-        ...
-
     def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
         """
         Event fired each time the we add/remove securities from the data feed
@@ -329,41 +354,16 @@ class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.
         """
         ...
 
-    def price_is_favorable(self, data: QuantConnect.Algorithm.Framework.Execution.VolumeWeightedAveragePriceExecutionModel.SymbolData, unordered_quantity: float) -> bool:
-        """
-        Determines if the current price is better than VWAP
-        
-        This method is protected.
-        """
-        ...
 
-
-class SpreadExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """Execution model that submits orders while the current spread is in desirably tight extent."""
-
-    def __init__(self, accepting_spread_percent: float = 0.005, asynchronous: bool = True) -> None:
-        """
-        Initializes a new instance of the SpreadExecutionModel class
-        
-        :param accepting_spread_percent: Maximum spread accepted comparing to current price in percentage.
-        :param asynchronous: If true, orders will be submitted asynchronously
-        """
-        ...
+class NullExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """Provides an implementation of IExecutionModel that does nothing"""
 
     def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
         """
-        Submit orders for the specified portfolio targets if the spread is tighter/equal to preset level
+        Execute the ExecutionModel
         
-        :param algorithm: The algorithm instance
-        :param targets: The portfolio targets to be ordered
-        """
-        ...
-
-    def price_is_favorable(self, security: QuantConnect.Securities.Security) -> bool:
-        """
-        Determines if the current spread is equal or tighter than preset level
-        
-        This method is protected.
+        :param algorithm: The Algorithm to execute this model on
+        :param targets: The portfolio targets
         """
         ...
 

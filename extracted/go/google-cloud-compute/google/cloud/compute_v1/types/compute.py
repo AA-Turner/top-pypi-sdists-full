@@ -145,6 +145,7 @@ __protobuf__ = proto.module(
         "BackendBucketCdnPolicyCacheKeyPolicy",
         "BackendBucketCdnPolicyNegativeCachingPolicy",
         "BackendBucketList",
+        "BackendBucketParams",
         "BackendBucketUsedBy",
         "BackendCustomMetric",
         "BackendService",
@@ -167,6 +168,7 @@ __protobuf__ = proto.module(
         "BackendServiceLocalityLoadBalancingPolicyConfigCustomPolicy",
         "BackendServiceLocalityLoadBalancingPolicyConfigPolicy",
         "BackendServiceLogConfig",
+        "BackendServiceParams",
         "BackendServiceReference",
         "BackendServiceTlsSettings",
         "BackendServiceTlsSettingsSubjectAltName",
@@ -752,6 +754,10 @@ __protobuf__ = proto.module(
         "InstantSnapshotsScopedList",
         "Int64RangeMatch",
         "Interconnect",
+        "InterconnectApplicationAwareInterconnect",
+        "InterconnectApplicationAwareInterconnectBandwidthPercentage",
+        "InterconnectApplicationAwareInterconnectBandwidthPercentagePolicy",
+        "InterconnectApplicationAwareInterconnectStrictPriorityPolicy",
         "InterconnectAttachment",
         "InterconnectAttachmentAggregatedList",
         "InterconnectAttachmentConfigurationConstraints",
@@ -1001,6 +1007,9 @@ __protobuf__ = proto.module(
         "NetworkList",
         "NetworkParams",
         "NetworkPeering",
+        "NetworkPeeringConnectionStatus",
+        "NetworkPeeringConnectionStatusConsensusState",
+        "NetworkPeeringConnectionStatusTrafficConfiguration",
         "NetworkPerformanceConfig",
         "NetworkProfile",
         "NetworkProfileLocation",
@@ -1011,6 +1020,7 @@ __protobuf__ = proto.module(
         "NetworksGetEffectiveFirewallsResponse",
         "NetworksGetEffectiveFirewallsResponseEffectiveFirewallPolicy",
         "NetworksRemovePeeringRequest",
+        "NetworksRequestRemovePeeringRequest",
         "NetworksUpdatePeeringRequest",
         "NodeGroup",
         "NodeGroupAggregatedList",
@@ -1201,7 +1211,9 @@ __protobuf__ = proto.module(
         "RemoveRuleSecurityPolicyRequest",
         "ReportHostAsFaultyInstanceRequest",
         "RequestMirrorPolicy",
+        "RequestRemovePeeringNetworkRequest",
         "Reservation",
+        "ReservationAdvancedDeploymentControl",
         "ReservationAffinity",
         "ReservationAggregatedList",
         "ReservationBlock",
@@ -14643,6 +14655,11 @@ class BackendBucket(proto.Message):
             except the last character, which cannot be a dash.
 
             This field is a member of `oneof`_ ``_name``.
+        params (google.cloud.compute_v1.types.BackendBucketParams):
+            Input only. [Input Only] Additional params passed with the
+            request, but not persisted as part of resource payload.
+
+            This field is a member of `oneof`_ ``_params``.
         self_link (str):
             [Output Only] Server-defined URL for the resource.
 
@@ -14749,6 +14766,12 @@ class BackendBucket(proto.Message):
         proto.STRING,
         number=3373707,
         optional=True,
+    )
+    params: "BackendBucketParams" = proto.Field(
+        proto.MESSAGE,
+        number=78313862,
+        optional=True,
+        message="BackendBucketParams",
     )
     self_link: str = proto.Field(
         proto.STRING,
@@ -15187,6 +15210,30 @@ class BackendBucketList(proto.Message):
     )
 
 
+class BackendBucketParams(proto.Message):
+    r"""Additional Backend Bucket parameters.
+
+    Attributes:
+        resource_manager_tags (MutableMapping[str, str]):
+            Tag keys/values directly bound to this resource. Tag keys
+            and values have the same definition as resource manager
+            tags. The field is allowed for INSERT only. The keys/values
+            to set on the resource should be specified in either ID { :
+            } or Namespaced format { : }. For example the following are
+            valid inputs: \* {"tagKeys/333" : "tagValues/444",
+            "tagKeys/123" : "tagValues/456"} \* {"123/environment" :
+            "production", "345/abc" : "xyz"} Note: \* Invalid
+            combinations of ID & namespaced format is not supported. For
+            instance: {"123/environment" : "tagValues/444"} is invalid.
+    """
+
+    resource_manager_tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=377671164,
+    )
+
+
 class BackendBucketUsedBy(proto.Message):
     r"""
 
@@ -15228,7 +15275,7 @@ class BackendCustomMetric(proto.Message):
         name (str):
             Name of a custom utilization signal. The name must be 1-64
             characters long and match the regular expression
-            `a-z <[-_.a-z0-9]*[a-z0-9]>`__? which means the first
+            `a-z <[-_.a-z0-9]*[a-z0-9]>`__? which means that the first
             character must be a lowercase letter, and all following
             characters must be a dash, period, underscore, lowercase
             letter, or digit, except the last character, which cannot be
@@ -15547,23 +15594,29 @@ class BackendService(proto.Message):
             balancer. Maglev is not as stable as ring hash but has
             faster table lookup build times and host selection times.
             For more information about Maglev, see
-            https://ai.google/research/pubs/pub44824 This field is
-            applicable to either: - A regional backend service with the
-            service_protocol set to HTTP, HTTPS, HTTP2 or H2C, and
-            load_balancing_scheme set to INTERNAL_MANAGED. - A global
-            backend service with the load_balancing_scheme set to
-            INTERNAL_SELF_MANAGED, INTERNAL_MANAGED, or
-            EXTERNAL_MANAGED. If sessionAffinity is not configured—that
-            is, if session affinity remains at the default value of
-            NONE—then the default value for localityLbPolicy is
-            ROUND_ROBIN. If session affinity is set to a value other
-            than NONE, then the default value for localityLbPolicy is
-            MAGLEV. Only ROUND_ROBIN and RING_HASH are supported when
-            the backend service is referenced by a URL map that is bound
-            to target gRPC proxy that has validateForProxyless field set
-            to true. localityLbPolicy cannot be specified with haPolicy.
-            Check the LocalityLbPolicy enum for the list of possible
-            values.
+            https://ai.google/research/pubs/pub44824 -
+            WEIGHTED_ROUND_ROBIN: Per-endpoint Weighted Round Robin Load
+            Balancing using weights computed from Backend reported
+            Custom Metrics. If set, the Backend Service responses are
+            expected to contain non-standard HTTP response header field
+            Endpoint-Load-Metrics. The reported metrics to use for
+            computing the weights are specified via the customMetrics
+            field. This field is applicable to either: - A regional
+            backend service with the service_protocol set to HTTP,
+            HTTPS, HTTP2 or H2C, and load_balancing_scheme set to
+            INTERNAL_MANAGED. - A global backend service with the
+            load_balancing_scheme set to INTERNAL_SELF_MANAGED,
+            INTERNAL_MANAGED, or EXTERNAL_MANAGED. If sessionAffinity is
+            not configured—that is, if session affinity remains at the
+            default value of NONE—then the default value for
+            localityLbPolicy is ROUND_ROBIN. If session affinity is set
+            to a value other than NONE, then the default value for
+            localityLbPolicy is MAGLEV. Only ROUND_ROBIN and RING_HASH
+            are supported when the backend service is referenced by a
+            URL map that is bound to target gRPC proxy that has
+            validateForProxyless field set to true. localityLbPolicy
+            cannot be specified with haPolicy. Check the
+            LocalityLbPolicy enum for the list of possible values.
 
             This field is a member of `oneof`_ ``_locality_lb_policy``.
         log_config (google.cloud.compute_v1.types.BackendServiceLogConfig):
@@ -15647,6 +15700,11 @@ class BackendService(proto.Message):
             that has validateForProxyless field set to true.
 
             This field is a member of `oneof`_ ``_outlier_detection``.
+        params (google.cloud.compute_v1.types.BackendServiceParams):
+            Input only. [Input Only] Additional params passed with the
+            request, but not persisted as part of resource payload.
+
+            This field is a member of `oneof`_ ``_params``.
         port (int):
             Deprecated in favor of portName. The TCP port
             to connect on the backend. The default value is
@@ -15924,11 +15982,16 @@ class BackendService(proto.Message):
         load balancer. Maglev is not as stable as ring hash but has faster
         table lookup build times and host selection times. For more
         information about Maglev, see
-        https://ai.google/research/pubs/pub44824 This field is applicable to
-        either: - A regional backend service with the service_protocol set
-        to HTTP, HTTPS, HTTP2 or H2C, and load_balancing_scheme set to
-        INTERNAL_MANAGED. - A global backend service with the
-        load_balancing_scheme set to INTERNAL_SELF_MANAGED,
+        https://ai.google/research/pubs/pub44824 - WEIGHTED_ROUND_ROBIN:
+        Per-endpoint Weighted Round Robin Load Balancing using weights
+        computed from Backend reported Custom Metrics. If set, the Backend
+        Service responses are expected to contain non-standard HTTP response
+        header field Endpoint-Load-Metrics. The reported metrics to use for
+        computing the weights are specified via the customMetrics field.
+        This field is applicable to either: - A regional backend service
+        with the service_protocol set to HTTP, HTTPS, HTTP2 or H2C, and
+        load_balancing_scheme set to INTERNAL_MANAGED. - A global backend
+        service with the load_balancing_scheme set to INTERNAL_SELF_MANAGED,
         INTERNAL_MANAGED, or EXTERNAL_MANAGED. If sessionAffinity is not
         configured—that is, if session affinity remains at the default value
         of NONE—then the default value for localityLbPolicy is ROUND_ROBIN.
@@ -15990,13 +16053,14 @@ class BackendService(proto.Message):
                 Otherwise, Load Balancing remains equal-weight. This option
                 is only supported in Network Load Balancing.
             WEIGHTED_ROUND_ROBIN (5584977):
-                Per-endpoint weighted round-robin Load Balancing using
-                weights computed from Backend reported Custom Metrics. If
-                set, the Backend Service responses are expected to contain
+                Per-endpoint weighted round-robin Load
+                Balancing using weights computed from Backend
+                reported Custom Metrics. If set, the Backend
+                Service responses are expected to contain
                 non-standard HTTP response header field
-                X-Endpoint-Load-Metrics. The reported metrics to use for
-                computing the weights are specified via the
-                backends[].customMetrics fields.
+                Endpoint-Load-Metrics. The reported metrics to
+                use for computing the weights are specified via
+                the customMetrics fields.
         """
         UNDEFINED_LOCALITY_LB_POLICY = 0
         INVALID_LB_POLICY = 323318707
@@ -16307,6 +16371,12 @@ class BackendService(proto.Message):
         number=354625086,
         optional=True,
         message="OutlierDetection",
+    )
+    params: "BackendServiceParams" = proto.Field(
+        proto.MESSAGE,
+        number=78313862,
+        optional=True,
+        message="BackendServiceParams",
     )
     port: int = proto.Field(
         proto.INT32,
@@ -16961,7 +17031,7 @@ class BackendServiceCustomMetric(proto.Message):
         name (str):
             Name of a custom utilization signal. The name must be 1-64
             characters long and match the regular expression
-            `a-z <[-_.a-z0-9]*[a-z0-9]>`__? which means the first
+            `a-z <[-_.a-z0-9]*[a-z0-9]>`__? which means that the first
             character must be a lowercase letter, and all following
             characters must be a dash, period, underscore, lowercase
             letter, or digit, except the last character, which cannot be
@@ -17721,13 +17791,14 @@ class BackendServiceLocalityLoadBalancingPolicyConfigPolicy(proto.Message):
                 Otherwise, Load Balancing remains equal-weight. This option
                 is only supported in Network Load Balancing.
             WEIGHTED_ROUND_ROBIN (5584977):
-                Per-endpoint weighted round-robin Load Balancing using
-                weights computed from Backend reported Custom Metrics. If
-                set, the Backend Service responses are expected to contain
+                Per-endpoint weighted round-robin Load
+                Balancing using weights computed from Backend
+                reported Custom Metrics. If set, the Backend
+                Service responses are expected to contain
                 non-standard HTTP response header field
-                X-Endpoint-Load-Metrics. The reported metrics to use for
-                computing the weights are specified via the
-                backends[].customMetrics fields.
+                Endpoint-Load-Metrics. The reported metrics to
+                use for computing the weights are specified via
+                the customMetrics fields.
         """
         UNDEFINED_NAME = 0
         INVALID_LB_POLICY = 323318707
@@ -17830,6 +17901,30 @@ class BackendServiceLogConfig(proto.Message):
         proto.FLOAT,
         number=153193045,
         optional=True,
+    )
+
+
+class BackendServiceParams(proto.Message):
+    r"""Additional Backend Service parameters.
+
+    Attributes:
+        resource_manager_tags (MutableMapping[str, str]):
+            Tag keys/values directly bound to this resource. Tag keys
+            and values have the same definition as resource manager
+            tags. The field is allowed for INSERT only. The keys/values
+            to set on the resource should be specified in either ID { :
+            } or Namespaced format { : }. For example the following are
+            valid inputs: \* {"tagKeys/333" : "tagValues/444",
+            "tagKeys/123" : "tagValues/456"} \* {"123/environment" :
+            "production", "345/abc" : "xyz"} Note: \* Invalid
+            combinations of ID & namespaced format is not supported. For
+            instance: {"123/environment" : "tagValues/444"} is invalid.
+    """
+
+    resource_manager_tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=377671164,
     )
 
 
@@ -32319,10 +32414,11 @@ class GetGlobalOrganizationOperationRequest(proto.Message):
 
     Attributes:
         operation (str):
-            Name of the Operations resource to return, or
-            its unique numeric identifier.
+            Name of the Operations resource to return.
+            Parent is derived from this field.
         parent_id (str):
-            Parent ID for this request.
+            Parent ID for this request. Not used. Parent is derived from
+            resource_id.
 
             This field is a member of `oneof`_ ``_parent_id``.
     """
@@ -50589,6 +50685,11 @@ class Interconnect(proto.Message):
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
+        aai_enabled (bool):
+            Enable or disable the application awareness
+            feature on this Cloud Interconnect.
+
+            This field is a member of `oneof`_ ``_aai_enabled``.
         admin_enabled (bool):
             Administrative status of the interconnect.
             When this is set to true, the Interconnect is
@@ -50598,6 +50699,11 @@ class Interconnect(proto.Message):
             over it. By default, the status is set to true.
 
             This field is a member of `oneof`_ ``_admin_enabled``.
+        application_aware_interconnect (google.cloud.compute_v1.types.InterconnectApplicationAwareInterconnect):
+            Configuration information for application
+            awareness on this Cloud Interconnect.
+
+            This field is a member of `oneof`_ ``_application_aware_interconnect``.
         available_features (MutableSequence[str]):
             [Output only] List of features available for this
             Interconnect connection, which can take one of the following
@@ -50936,10 +51042,23 @@ class Interconnect(proto.Message):
         ACTIVE = 314733318
         UNPROVISIONED = 517333979
 
+    aai_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=388780363,
+        optional=True,
+    )
     admin_enabled: bool = proto.Field(
         proto.BOOL,
         number=445675089,
         optional=True,
+    )
+    application_aware_interconnect: "InterconnectApplicationAwareInterconnect" = (
+        proto.Field(
+            proto.MESSAGE,
+            number=429095966,
+            optional=True,
+            message="InterconnectApplicationAwareInterconnect",
+        )
     )
     available_features: MutableSequence[str] = proto.RepeatedField(
         proto.STRING,
@@ -51090,6 +51209,149 @@ class Interconnect(proto.Message):
         number=109757585,
         optional=True,
     )
+
+
+class InterconnectApplicationAwareInterconnect(proto.Message):
+    r"""Configuration information for application awareness on this
+    Cloud Interconnect.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        bandwidth_percentage_policy (google.cloud.compute_v1.types.InterconnectApplicationAwareInterconnectBandwidthPercentagePolicy):
+
+            This field is a member of `oneof`_ ``_bandwidth_percentage_policy``.
+        profile_description (str):
+            Description for the application awareness
+            profile on this Cloud Interconnect.
+
+            This field is a member of `oneof`_ ``_profile_description``.
+        shape_average_percentages (MutableSequence[google.cloud.compute_v1.types.InterconnectApplicationAwareInterconnectBandwidthPercentage]):
+            Optional field to specify a list of shape
+            average percentages to be applied in conjunction
+            with StrictPriorityPolicy or
+            BandwidthPercentagePolicy.
+        strict_priority_policy (google.cloud.compute_v1.types.InterconnectApplicationAwareInterconnectStrictPriorityPolicy):
+
+            This field is a member of `oneof`_ ``_strict_priority_policy``.
+    """
+
+    bandwidth_percentage_policy: "InterconnectApplicationAwareInterconnectBandwidthPercentagePolicy" = proto.Field(
+        proto.MESSAGE,
+        number=187018857,
+        optional=True,
+        message="InterconnectApplicationAwareInterconnectBandwidthPercentagePolicy",
+    )
+    profile_description: str = proto.Field(
+        proto.STRING,
+        number=262813286,
+        optional=True,
+    )
+    shape_average_percentages: MutableSequence[
+        "InterconnectApplicationAwareInterconnectBandwidthPercentage"
+    ] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=259857497,
+        message="InterconnectApplicationAwareInterconnectBandwidthPercentage",
+    )
+    strict_priority_policy: "InterconnectApplicationAwareInterconnectStrictPriorityPolicy" = proto.Field(
+        proto.MESSAGE,
+        number=145083063,
+        optional=True,
+        message="InterconnectApplicationAwareInterconnectStrictPriorityPolicy",
+    )
+
+
+class InterconnectApplicationAwareInterconnectBandwidthPercentage(proto.Message):
+    r"""Specify bandwidth percentages [1-100] for various traffic classes in
+    BandwidthPercentagePolicy. The sum of all percentages must equal
+    100. All traffic classes must have a percentage value specified.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        percentage (int):
+            Bandwidth percentage for a specific traffic
+            class.
+
+            This field is a member of `oneof`_ ``_percentage``.
+        traffic_class (str):
+            TrafficClass whose bandwidth percentage is
+            being specified. Check the TrafficClass enum for
+            the list of possible values.
+
+            This field is a member of `oneof`_ ``_traffic_class``.
+    """
+
+    class TrafficClass(proto.Enum):
+        r"""TrafficClass whose bandwidth percentage is being specified.
+
+        Values:
+            UNDEFINED_TRAFFIC_CLASS (0):
+                A value indicating that the enum field is not
+                set.
+            TC1 (82850):
+                Traffic Class 1, corresponding to DSCP ranges
+                (0-7) 000xxx.
+            TC2 (82851):
+                Traffic Class 2, corresponding to DSCP ranges
+                (8-15) 001xxx.
+            TC3 (82852):
+                Traffic Class 3, corresponding to DSCP ranges
+                (16-23) 010xxx.
+            TC4 (82853):
+                Traffic Class 4, corresponding to DSCP ranges
+                (24-31) 011xxx.
+            TC5 (82854):
+                Traffic Class 5, corresponding to DSCP ranges
+                (32-47) 10xxxx.
+            TC6 (82855):
+                Traffic Class 6, corresponding to DSCP ranges
+                (48-63) 11xxxx.
+        """
+        UNDEFINED_TRAFFIC_CLASS = 0
+        TC1 = 82850
+        TC2 = 82851
+        TC3 = 82852
+        TC4 = 82853
+        TC5 = 82854
+        TC6 = 82855
+
+    percentage: int = proto.Field(
+        proto.UINT32,
+        number=151909018,
+        optional=True,
+    )
+    traffic_class: str = proto.Field(
+        proto.STRING,
+        number=198180022,
+        optional=True,
+    )
+
+
+class InterconnectApplicationAwareInterconnectBandwidthPercentagePolicy(proto.Message):
+    r"""
+
+    Attributes:
+        bandwidth_percentages (MutableSequence[google.cloud.compute_v1.types.InterconnectApplicationAwareInterconnectBandwidthPercentage]):
+            Specify bandwidth percentages for various
+            traffic classes for queuing type Bandwidth
+            Percent.
+    """
+
+    bandwidth_percentages: MutableSequence[
+        "InterconnectApplicationAwareInterconnectBandwidthPercentage"
+    ] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=233373323,
+        message="InterconnectApplicationAwareInterconnectBandwidthPercentage",
+    )
+
+
+class InterconnectApplicationAwareInterconnectStrictPriorityPolicy(proto.Message):
+    r"""Specify configuration for StrictPriorityPolicy."""
 
 
 class InterconnectAttachment(proto.Message):
@@ -71916,6 +72178,13 @@ class ListUsableSubnetworksRequest(proto.Message):
             resources, with an error code.
 
             This field is a member of `oneof`_ ``_return_partial_success``.
+        service_project (str):
+            The project id or project number in which the subnetwork is
+            intended to be used. Only applied for Shared VPC. See
+            `Shared VPC
+            documentation <https://cloud.google.com/vpc/docs/shared-vpc/>`__
+
+            This field is a member of `oneof`_ ``_service_project``.
     """
 
     filter: str = proto.Field(
@@ -71945,6 +72214,11 @@ class ListUsableSubnetworksRequest(proto.Message):
     return_partial_success: bool = proto.Field(
         proto.BOOL,
         number=517198390,
+        optional=True,
+    )
+    service_project: str = proto.Field(
+        proto.STRING,
+        number=530592655,
         optional=True,
     )
 
@@ -77046,6 +77320,11 @@ class NetworkPeering(proto.Message):
             when peering state is ACTIVE.
 
             This field is a member of `oneof`_ ``_auto_create_routes``.
+        connection_status (google.cloud.compute_v1.types.NetworkPeeringConnectionStatus):
+            [Output Only] The effective state of the peering connection
+            as a whole.
+
+            This field is a member of `oneof`_ ``_connection_status``.
         exchange_subnet_routes (bool):
             Indicates whether full mesh connectivity is
             created and managed automatically between peered
@@ -77124,6 +77403,14 @@ class NetworkPeering(proto.Message):
             peering.
 
             This field is a member of `oneof`_ ``_state_details``.
+        update_strategy (str):
+            The update strategy determines the semantics
+            for updates and deletes to the peering
+            connection configuration. Check the
+            UpdateStrategy enum for the list of possible
+            values.
+
+            This field is a member of `oneof`_ ``_update_strategy``.
     """
 
     class StackType(proto.Enum):
@@ -77167,10 +77454,46 @@ class NetworkPeering(proto.Message):
         ACTIVE = 314733318
         INACTIVE = 270421099
 
+    class UpdateStrategy(proto.Enum):
+        r"""The update strategy determines the semantics for updates and
+        deletes to the peering connection configuration.
+
+        Values:
+            UNDEFINED_UPDATE_STRATEGY (0):
+                A value indicating that the enum field is not
+                set.
+            CONSENSUS (203373655):
+                Updates are reflected in the local peering
+                but aren't applied to the peering connection
+                until a complementary change is made to the
+                matching peering. To delete a peering with the
+                consensus update strategy, both the peerings
+                must request the deletion of the peering before
+                the peering can be deleted.
+            INDEPENDENT (127011674):
+                In this mode, changes to the peering
+                configuration can be unilaterally altered by
+                changing either side of the peering. This is the
+                default value if the field is unspecified.
+            UNSPECIFIED (526786327):
+                Peerings with update strategy UNSPECIFIED are
+                created with update strategy INDEPENDENT.
+        """
+        UNDEFINED_UPDATE_STRATEGY = 0
+        CONSENSUS = 203373655
+        INDEPENDENT = 127011674
+        UNSPECIFIED = 526786327
+
     auto_create_routes: bool = proto.Field(
         proto.BOOL,
         number=57454941,
         optional=True,
+    )
+    connection_status: "NetworkPeeringConnectionStatus" = proto.Field(
+        proto.MESSAGE,
+        number=525629555,
+        optional=True,
+        message="NetworkPeeringConnectionStatus",
     )
     exchange_subnet_routes: bool = proto.Field(
         proto.BOOL,
@@ -77225,6 +77548,264 @@ class NetworkPeering(proto.Message):
     state_details: str = proto.Field(
         proto.STRING,
         number=95566996,
+        optional=True,
+    )
+    update_strategy: str = proto.Field(
+        proto.STRING,
+        number=6123049,
+        optional=True,
+    )
+
+
+class NetworkPeeringConnectionStatus(proto.Message):
+    r"""[Output Only] Describes the state of a peering connection, not just
+    the local peering. This field provides information about the
+    effective settings for the connection as a whole, including pending
+    delete/update requests for CONSENSUS peerings.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        consensus_state (google.cloud.compute_v1.types.NetworkPeeringConnectionStatusConsensusState):
+            The consensus state contains information
+            about the status of update and delete for a
+            consensus peering connection.
+
+            This field is a member of `oneof`_ ``_consensus_state``.
+        traffic_configuration (google.cloud.compute_v1.types.NetworkPeeringConnectionStatusTrafficConfiguration):
+            The active connectivity settings for the
+            peering connection based on the settings of the
+            network peerings.
+
+            This field is a member of `oneof`_ ``_traffic_configuration``.
+        update_strategy (str):
+            The update strategy determines the
+            update/delete semantics for this peering
+            connection. Check the UpdateStrategy enum for
+            the list of possible values.
+
+            This field is a member of `oneof`_ ``_update_strategy``.
+    """
+
+    class UpdateStrategy(proto.Enum):
+        r"""The update strategy determines the update/delete semantics
+        for this peering connection.
+
+        Values:
+            UNDEFINED_UPDATE_STRATEGY (0):
+                A value indicating that the enum field is not
+                set.
+            CONSENSUS (203373655):
+                Updates are reflected in the local peering
+                but aren't applied to the peering connection
+                until a complementary change is made to the
+                matching peering. To delete a peering with the
+                consensus update strategy, both the peerings
+                must request the deletion of the peering before
+                the peering can be deleted.
+            INDEPENDENT (127011674):
+                In this mode, changes to the peering
+                configuration can be unilaterally altered by
+                changing either side of the peering. This is the
+                default value if the field is unspecified.
+            UNSPECIFIED (526786327):
+                Peerings with update strategy UNSPECIFIED are
+                created with update strategy INDEPENDENT.
+        """
+        UNDEFINED_UPDATE_STRATEGY = 0
+        CONSENSUS = 203373655
+        INDEPENDENT = 127011674
+        UNSPECIFIED = 526786327
+
+    consensus_state: "NetworkPeeringConnectionStatusConsensusState" = proto.Field(
+        proto.MESSAGE,
+        number=379772617,
+        optional=True,
+        message="NetworkPeeringConnectionStatusConsensusState",
+    )
+    traffic_configuration: "NetworkPeeringConnectionStatusTrafficConfiguration" = (
+        proto.Field(
+            proto.MESSAGE,
+            number=133016116,
+            optional=True,
+            message="NetworkPeeringConnectionStatusTrafficConfiguration",
+        )
+    )
+    update_strategy: str = proto.Field(
+        proto.STRING,
+        number=6123049,
+        optional=True,
+    )
+
+
+class NetworkPeeringConnectionStatusConsensusState(proto.Message):
+    r"""The status of update/delete for a consensus peering connection. Only
+    set when connection_status.update_strategy is CONSENSUS or a network
+    peering is proposing to update the strategy to CONSENSUS.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        delete_status (str):
+            The status of the delete request.
+            Check the DeleteStatus enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_delete_status``.
+        update_status (str):
+            The status of the update request.
+            Check the UpdateStatus enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_update_status``.
+    """
+
+    class DeleteStatus(proto.Enum):
+        r"""The status of the delete request.
+
+        Values:
+            UNDEFINED_DELETE_STATUS (0):
+                A value indicating that the enum field is not
+                set.
+            DELETE_ACKNOWLEDGED (325293916):
+                Both network admins have agreed this
+                consensus peering connection can be deleted.
+            DELETE_STATUS_UNSPECIFIED (395396446):
+                No description available.
+            LOCAL_DELETE_REQUESTED (227335214):
+                Network admin has requested deletion of this
+                peering connection.
+            PEER_DELETE_REQUESTED (197847799):
+                The peer network admin has requested deletion
+                of this peering connection.
+        """
+        UNDEFINED_DELETE_STATUS = 0
+        DELETE_ACKNOWLEDGED = 325293916
+        DELETE_STATUS_UNSPECIFIED = 395396446
+        LOCAL_DELETE_REQUESTED = 227335214
+        PEER_DELETE_REQUESTED = 197847799
+
+    class UpdateStatus(proto.Enum):
+        r"""The status of the update request.
+
+        Values:
+            UNDEFINED_UPDATE_STATUS (0):
+                A value indicating that the enum field is not
+                set.
+            IN_SYNC (2273653):
+                No pending configuration update proposals to
+                the peering connection.
+            PENDING_LOCAL_ACKNOWLEDMENT (229926592):
+                The peer network admin has made an
+                updatePeering call. The change is awaiting
+                acknowledgment from this peering's network
+                admin.
+            PENDING_PEER_ACKNOWLEDGEMENT (420185797):
+                The local network admin has made an
+                updatePeering call. The change is awaiting
+                acknowledgment from the peer network admin.
+            UPDATE_STATUS_UNSPECIFIED (120836480):
+                No description available.
+        """
+        UNDEFINED_UPDATE_STATUS = 0
+        IN_SYNC = 2273653
+        PENDING_LOCAL_ACKNOWLEDMENT = 229926592
+        PENDING_PEER_ACKNOWLEDGEMENT = 420185797
+        UPDATE_STATUS_UNSPECIFIED = 120836480
+
+    delete_status: str = proto.Field(
+        proto.STRING,
+        number=483434758,
+        optional=True,
+    )
+    update_status: str = proto.Field(
+        proto.STRING,
+        number=265998376,
+        optional=True,
+    )
+
+
+class NetworkPeeringConnectionStatusTrafficConfiguration(proto.Message):
+    r"""
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        export_custom_routes_to_peer (bool):
+            Whether custom routes are being exported to
+            the peer network.
+
+            This field is a member of `oneof`_ ``_export_custom_routes_to_peer``.
+        export_subnet_routes_with_public_ip_to_peer (bool):
+            Whether subnet routes with public IP ranges
+            are being exported to the peer network.
+
+            This field is a member of `oneof`_ ``_export_subnet_routes_with_public_ip_to_peer``.
+        import_custom_routes_from_peer (bool):
+            Whether custom routes are being imported from
+            the peer network.
+
+            This field is a member of `oneof`_ ``_import_custom_routes_from_peer``.
+        import_subnet_routes_with_public_ip_from_peer (bool):
+            Whether subnet routes with public IP ranges
+            are being imported from the peer network.
+
+            This field is a member of `oneof`_ ``_import_subnet_routes_with_public_ip_from_peer``.
+        stack_type (str):
+            Which IP version(s) of traffic and routes are
+            being imported or exported between peer
+            networks. Check the StackType enum for the list
+            of possible values.
+
+            This field is a member of `oneof`_ ``_stack_type``.
+    """
+
+    class StackType(proto.Enum):
+        r"""Which IP version(s) of traffic and routes are being imported
+        or exported between peer networks.
+
+        Values:
+            UNDEFINED_STACK_TYPE (0):
+                A value indicating that the enum field is not
+                set.
+            IPV4_IPV6 (22197249):
+                This Peering will allow IPv4 traffic and routes to be
+                exchanged. Additionally if the matching peering is
+                IPV4_IPV6, IPv6 traffic and routes will be exchanged as
+                well.
+            IPV4_ONLY (22373798):
+                This Peering will only allow IPv4 traffic and routes to be
+                exchanged, even if the matching peering is IPV4_IPV6.
+        """
+        UNDEFINED_STACK_TYPE = 0
+        IPV4_IPV6 = 22197249
+        IPV4_ONLY = 22373798
+
+    export_custom_routes_to_peer: bool = proto.Field(
+        proto.BOOL,
+        number=286428404,
+        optional=True,
+    )
+    export_subnet_routes_with_public_ip_to_peer: bool = proto.Field(
+        proto.BOOL,
+        number=8358601,
+        optional=True,
+    )
+    import_custom_routes_from_peer: bool = proto.Field(
+        proto.BOOL,
+        number=398584470,
+        optional=True,
+    )
+    import_subnet_routes_with_public_ip_from_peer: bool = proto.Field(
+        proto.BOOL,
+        number=234712361,
+        optional=True,
+    )
+    stack_type: str = proto.Field(
+        proto.STRING,
+        number=425908881,
         optional=True,
     )
 
@@ -78690,6 +79271,26 @@ class NetworksGetEffectiveFirewallsResponseEffectiveFirewallPolicy(proto.Message
 
 
 class NetworksRemovePeeringRequest(proto.Message):
+    r"""
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        name (str):
+            Name of the peering, which should conform to
+            RFC1035.
+
+            This field is a member of `oneof`_ ``_name``.
+    """
+
+    name: str = proto.Field(
+        proto.STRING,
+        number=3373707,
+        optional=True,
+    )
+
+
+class NetworksRequestRemovePeeringRequest(proto.Message):
     r"""
 
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
@@ -91499,6 +92100,61 @@ class RequestMirrorPolicy(proto.Message):
     )
 
 
+class RequestRemovePeeringNetworkRequest(proto.Message):
+    r"""A request message for Networks.RequestRemovePeering. See the
+    method description for details.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        network (str):
+            Name of the network resource to remove
+            peering from.
+        networks_request_remove_peering_request_resource (google.cloud.compute_v1.types.NetworksRequestRemovePeeringRequest):
+            The body resource for this request
+        project (str):
+            Project ID for this request.
+        request_id (str):
+            An optional request ID to identify requests.
+            Specify a unique request ID so that if you must
+            retry your request, the server will know to
+            ignore the request if it has already been
+            completed. For example, consider a situation
+            where you make an initial request and the
+            request times out. If you make the request again
+            with the same request ID, the server can check
+            if original operation with the same request ID
+            was received, and if so, will ignore the second
+            request. This prevents clients from accidentally
+            creating duplicate commitments. The request ID
+            must be a valid UUID with the exception that
+            zero UUID is not supported (
+            00000000-0000-0000-0000-000000000000).
+
+            This field is a member of `oneof`_ ``_request_id``.
+    """
+
+    network: str = proto.Field(
+        proto.STRING,
+        number=232872494,
+    )
+    networks_request_remove_peering_request_resource: "NetworksRequestRemovePeeringRequest" = proto.Field(
+        proto.MESSAGE,
+        number=150860366,
+        message="NetworksRequestRemovePeeringRequest",
+    )
+    project: str = proto.Field(
+        proto.STRING,
+        number=227560217,
+    )
+    request_id: str = proto.Field(
+        proto.STRING,
+        number=37109963,
+        optional=True,
+    )
+
+
 class Reservation(proto.Message):
     r"""Represents a reservation resource. A reservation ensures that
     capacity is held in a specific zone even if the reserved VMs are
@@ -91509,6 +92165,12 @@ class Reservation(proto.Message):
     .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
 
     Attributes:
+        advanced_deployment_control (google.cloud.compute_v1.types.ReservationAdvancedDeploymentControl):
+            Advanced control for cluster management,
+            applicable only to DENSE deployment type
+            reservations.
+
+            This field is a member of `oneof`_ ``_advanced_deployment_control``.
         aggregate_reservation (google.cloud.compute_v1.types.AllocationAggregateReservation):
             Reservation for aggregated resources,
             providing shape flexibility.
@@ -91717,6 +92379,12 @@ class Reservation(proto.Message):
         READY = 77848963
         UPDATING = 494614342
 
+    advanced_deployment_control: "ReservationAdvancedDeploymentControl" = proto.Field(
+        proto.MESSAGE,
+        number=410618144,
+        optional=True,
+        message="ReservationAdvancedDeploymentControl",
+    )
     aggregate_reservation: "AllocationAggregateReservation" = proto.Field(
         proto.MESSAGE,
         number=291567948,
@@ -91835,6 +92503,53 @@ class Reservation(proto.Message):
     zone: str = proto.Field(
         proto.STRING,
         number=3744684,
+        optional=True,
+    )
+
+
+class ReservationAdvancedDeploymentControl(proto.Message):
+    r"""Advance control for cluster management, applicable only to
+    DENSE deployment type reservations.
+
+
+    .. _oneof: https://proto-plus-python.readthedocs.io/en/stable/fields.html#oneofs-mutually-exclusive-fields
+
+    Attributes:
+        reservation_operational_mode (str):
+            Indicates chosen reservation operational mode
+            for the reservation. Check the
+            ReservationOperationalMode enum for the list of
+            possible values.
+
+            This field is a member of `oneof`_ ``_reservation_operational_mode``.
+    """
+
+    class ReservationOperationalMode(proto.Enum):
+        r"""Indicates chosen reservation operational mode for the
+        reservation.
+
+        Values:
+            UNDEFINED_RESERVATION_OPERATIONAL_MODE (0):
+                A value indicating that the enum field is not
+                set.
+            ALL_CAPACITY (500029880):
+                Google Cloud does not manage the failure of
+                machines, but provides additional capacity,
+                which is not guaranteed to be available.
+            HIGHLY_AVAILABLE_CAPACITY (110861600):
+                Google Cloud manages the failure of machines
+                to provide high availability.
+            RESERVATION_OPERATIONAL_MODE_UNSPECIFIED (194296603):
+                No description available.
+        """
+        UNDEFINED_RESERVATION_OPERATIONAL_MODE = 0
+        ALL_CAPACITY = 500029880
+        HIGHLY_AVAILABLE_CAPACITY = 110861600
+        RESERVATION_OPERATIONAL_MODE_UNSPECIFIED = 194296603
+
+    reservation_operational_mode: str = proto.Field(
+        proto.STRING,
+        number=499978755,
         optional=True,
     )
 
@@ -93618,6 +94333,8 @@ class ResourcePolicy(proto.Message):
 
             This field is a member of `oneof`_ ``_status``.
         workload_policy (google.cloud.compute_v1.types.ResourcePolicyWorkloadPolicy):
+            Resource policy for defining instance
+            placement for MIGs.
 
             This field is a member of `oneof`_ ``_workload_policy``.
     """
@@ -94500,22 +95217,26 @@ class ResourcePolicyWorkloadPolicy(proto.Message):
 
     Attributes:
         accelerator_topology (str):
+            Specifies the topology required to create a
+            partition for VMs that have interconnected GPUs.
 
             This field is a member of `oneof`_ ``_accelerator_topology``.
         max_topology_distance (str):
-            Check the MaxTopologyDistance enum for the
-            list of possible values.
+            Specifies the maximum distance between
+            instances. Check the MaxTopologyDistance enum
+            for the list of possible values.
 
             This field is a member of `oneof`_ ``_max_topology_distance``.
         type_ (str):
-            Check the Type enum for the list of possible
-            values.
+            Specifies the intent of the instance
+            placement in the MIG. Check the Type enum for
+            the list of possible values.
 
             This field is a member of `oneof`_ ``_type``.
     """
 
     class MaxTopologyDistance(proto.Enum):
-        r"""
+        r"""Specifies the maximum distance between instances.
 
         Values:
             UNDEFINED_MAX_TOPOLOGY_DISTANCE (0):
@@ -94534,18 +95255,18 @@ class ResourcePolicyWorkloadPolicy(proto.Message):
         SUBBLOCK = 316202573
 
     class Type(proto.Enum):
-        r"""
+        r"""Specifies the intent of the instance placement in the MIG.
 
         Values:
             UNDEFINED_TYPE (0):
                 A value indicating that the enum field is not
                 set.
             HIGH_AVAILABILITY (409487576):
-                VMs will be provisioned in such a way which
-                provides high availability.
+                MIG spreads out the instances as much as
+                possible for high availability.
             HIGH_THROUGHPUT (146499815):
-                VMs will be provisioned in such a way which
-                provides high throughput.
+                MIG provisions instances as close to each
+                other as possible for high throughput.
         """
         UNDEFINED_TYPE = 0
         HIGH_AVAILABILITY = 409487576
@@ -101095,15 +101816,20 @@ class SecurityPolicyRuleRedirectOptions(proto.Message):
 
             This field is a member of `oneof`_ ``_target``.
         type_ (str):
-            Type of the redirect action.
-            Check the Type enum for the list of possible
+            Type of the redirect action. Possible values are: -
+            GOOGLE_RECAPTCHA: redirect to reCAPTCHA for manual challenge
+            assessment. - EXTERNAL_302: redirect to a different URL via
+            a 302 response. Check the Type enum for the list of possible
             values.
 
             This field is a member of `oneof`_ ``_type``.
     """
 
     class Type(proto.Enum):
-        r"""Type of the redirect action.
+        r"""Type of the redirect action. Possible values are: -
+        GOOGLE_RECAPTCHA: redirect to reCAPTCHA for manual challenge
+        assessment. - EXTERNAL_302: redirect to a different URL via a 302
+        response.
 
         Values:
             UNDEFINED_TYPE (0):
@@ -101489,7 +102215,8 @@ class ServiceAttachment(proto.Message):
             manage connections at either the project or
             network level. Therefore, both the accept and
             reject lists for a given service attachment must
-            contain either only projects or only networks.
+            contain either only projects or only networks or
+            only endpoints.
         consumer_reject_lists (MutableSequence[str]):
             Specifies a list of projects or networks that
             are not allowed to connect to this service
@@ -101548,6 +102275,8 @@ class ServiceAttachment(proto.Message):
             compute#serviceAttachment for service attachments.
 
             This field is a member of `oneof`_ ``_kind``.
+        metadata (MutableMapping[str, str]):
+            Metadata of the service attachment.
         name (str):
             Name of the resource. Provided by the client when the
             resource is created. The name must be 1-63 characters long,
@@ -101701,6 +102430,11 @@ class ServiceAttachment(proto.Message):
         proto.STRING,
         number=3292052,
         optional=True,
+    )
+    metadata: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=86866735,
     )
     name: str = proto.Field(
         proto.STRING,
@@ -101933,7 +102667,8 @@ class ServiceAttachmentConsumerProjectLimit(proto.Message):
 
     Attributes:
         connection_limit (int):
-            The value of the limit to set.
+            The value of the limit to set. For endpoint_url, the limit
+            should be no more than 1.
 
             This field is a member of `oneof`_ ``_connection_limit``.
         network_url (str):
@@ -110087,7 +110822,7 @@ class StoragePool(proto.Message):
 
             This field is a member of `oneof`_ ``_performance_provisioning_type``.
         pool_provisioned_capacity_gb (int):
-            Size, in GiB, of the storage pool. For more
+            Size of the storage pool in GiB. For more
             information about the size limits, see
             https://cloud.google.com/compute/docs/disks/storage-pools.
 
@@ -110099,8 +110834,8 @@ class StoragePool(proto.Message):
 
             This field is a member of `oneof`_ ``_pool_provisioned_iops``.
         pool_provisioned_throughput (int):
-            Provisioned throughput of the storage pool.
-            Only relevant if the storage pool type is
+            Provisioned throughput of the storage pool in
+            MiB/s. Only relevant if the storage pool type is
             hyperdisk-balanced or hyperdisk-throughput.
 
             This field is a member of `oneof`_ ``_pool_provisioned_throughput``.
@@ -110721,8 +111456,7 @@ class StoragePoolResourceStatus(proto.Message):
 
             This field is a member of `oneof`_ ``_last_resize_timestamp``.
         max_total_provisioned_disk_capacity_gb (int):
-            [Output Only] Maximum allowed aggregate disk size in
-            gigabytes.
+            [Output Only] Maximum allowed aggregate disk size in GiB.
 
             This field is a member of `oneof`_ ``_max_total_provisioned_disk_capacity_gb``.
         pool_used_capacity_bytes (int):
@@ -110741,7 +111475,7 @@ class StoragePoolResourceStatus(proto.Message):
             This field is a member of `oneof`_ ``_pool_used_iops``.
         pool_used_throughput (int):
             [Output Only] Sum of all the disks' provisioned throughput
-            in MB/s.
+            in MiB/s.
 
             This field is a member of `oneof`_ ``_pool_used_throughput``.
         pool_user_written_bytes (int):
@@ -110750,9 +111484,9 @@ class StoragePoolResourceStatus(proto.Message):
 
             This field is a member of `oneof`_ ``_pool_user_written_bytes``.
         total_provisioned_disk_capacity_gb (int):
-            [Output Only] Sum of all the capacity provisioned in disks
-            in this storage pool. A disk's provisioned capacity is the
-            same as its total capacity.
+            [Output Only] Sum of all the disks' provisioned capacity (in
+            GiB) in this storage pool. A disk's provisioned capacity is
+            the same as its total capacity.
 
             This field is a member of `oneof`_ ``_total_provisioned_disk_capacity_gb``.
         total_provisioned_disk_iops (int):
@@ -110761,7 +111495,7 @@ class StoragePoolResourceStatus(proto.Message):
             This field is a member of `oneof`_ ``_total_provisioned_disk_iops``.
         total_provisioned_disk_throughput (int):
             [Output Only] Sum of all the disks' provisioned throughput
-            in MB/s, minus some amount that is allowed per disk that is
+            in MiB/s, minus some amount that is allowed per disk that is
             not counted towards pool's throughput capacity.
 
             This field is a member of `oneof`_ ``_total_provisioned_disk_throughput``.
@@ -117162,6 +117896,11 @@ class UpcomingMaintenance(proto.Message):
             MAINTENANCE_REASON_UNKNOWN (50570235):
                 Unknown maintenance reason. Do not use this
                 value.
+            PLANNED_NETWORK_UPDATE (135494677):
+                Maintenance due to planned network update.
+            PLANNED_UPDATE (161733572):
+                Maintenance due to planned update to the
+                instance.
         """
         UNDEFINED_MAINTENANCE_REASONS = 0
         FAILURE_DISK = 8573778
@@ -117175,6 +117914,8 @@ class UpcomingMaintenance(proto.Message):
         FAILURE_NVLINK = 484426295
         INFRASTRUCTURE_RELOCATION = 359845636
         MAINTENANCE_REASON_UNKNOWN = 50570235
+        PLANNED_NETWORK_UPDATE = 135494677
+        PLANNED_UPDATE = 161733572
 
     class MaintenanceStatus(proto.Enum):
         r"""
@@ -117203,6 +117944,9 @@ class UpcomingMaintenance(proto.Message):
             UNDEFINED_TYPE (0):
                 A value indicating that the enum field is not
                 set.
+            MULTIPLE (362714640):
+                Multiple maintenance types in one window.
+                This is only intended to be used for groups.
             SCHEDULED (478400653):
                 Scheduled maintenance (e.g. maintenance after
                 uptime guarantee is complete).
@@ -117213,6 +117957,7 @@ class UpcomingMaintenance(proto.Message):
                 maintenance during uptime guarantee).
         """
         UNDEFINED_TYPE = 0
+        MULTIPLE = 362714640
         SCHEDULED = 478400653
         UNKNOWN_TYPE = 490705455
         UNSCHEDULED = 450077204

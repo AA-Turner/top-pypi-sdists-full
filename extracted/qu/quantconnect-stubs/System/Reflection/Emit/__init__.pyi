@@ -13,8 +13,84 @@ import System.Reflection
 import System.Reflection.Emit
 import System.Runtime.InteropServices
 
-System_Reflection_Emit_OpCode = typing.Any
 System_Reflection_Emit_Label = typing.Any
+System_Reflection_Emit_OpCode = typing.Any
+
+
+class LocalBuilder(System.Reflection.LocalVariableInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the LocalBuilder class.
+        
+        This method is protected.
+        """
+        ...
+
+    def set_local_sym_info(self, name: str) -> None:
+        """
+        Sets the name of this local variable.
+        
+        :param name: The name of the local variable
+        """
+        ...
+
+    def set_local_sym_info_core(self, name: str) -> None:
+        """
+        When overridden in a derived class, sets the name of this local variable.
+        
+        This method is protected.
+        
+        :param name: The name of the local variable.
+        """
+        ...
+
+
+class OpCodeType(Enum):
+    """Describes the types of the IL instructions."""
+
+    ANNOTATION = 0
+    """OpCodeType.Annotation has been deprecated and is not supported."""
+
+    MACRO = 1
+
+    NTERNAL = 2
+
+    OBJMODEL = 3
+
+    PREFIX = 4
+
+    PRIMITIVE = 5
+
+    def __int__(self) -> int:
+        ...
+
+
+class Label(System.IEquatable[System_Reflection_Emit_Label]):
+    """Represents a label in the instruction stream. Used in conjunction with the ILGenerator class."""
+
+    @property
+    def id(self) -> int:
+        """Gets the label unique id assigned by the ILGenerator."""
+        ...
+
+    def __eq__(self, b: System.Reflection.Emit.Label) -> bool:
+        ...
+
+    def __ne__(self, b: System.Reflection.Emit.Label) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, obj: System.Reflection.Emit.Label) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
 
 
 class FieldBuilder(System.Reflection.FieldInfo, metaclass=abc.ABCMeta):
@@ -112,6 +188,50 @@ class EnumBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
         ...
 
 
+class OperandType(Enum):
+    """Describes the operand type of IL instruction."""
+
+    INLINE_BR_TARGET = 0
+
+    INLINE_FIELD = 1
+
+    INLINE_I = 2
+
+    INLINE_I_8 = 3
+
+    INLINE_METHOD = 4
+
+    INLINE_NONE = 5
+
+    INLINE_PHI = 6
+    """OperandType.InlinePhi has been deprecated and is not supported."""
+
+    INLINE_R = 7
+
+    INLINE_SIG = 9
+
+    INLINE_STRING = 10
+
+    INLINE_SWITCH = 11
+
+    INLINE_TOK = 12
+
+    INLINE_TYPE = 13
+
+    INLINE_VAR = 14
+
+    SHORT_INLINE_BR_TARGET = 15
+
+    SHORT_INLINE_I = 16
+
+    SHORT_INLINE_R = 17
+
+    SHORT_INLINE_VAR = 18
+
+    def __int__(self) -> int:
+        ...
+
+
 class ParameterBuilder(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -159,76 +279,6 @@ class ParameterBuilder(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
-class Label(System.IEquatable[System_Reflection_Emit_Label]):
-    """Represents a label in the instruction stream. Used in conjunction with the ILGenerator class."""
-
-    @property
-    def id(self) -> int:
-        """Gets the label unique id assigned by the ILGenerator."""
-        ...
-
-    def __eq__(self, b: System.Reflection.Emit.Label) -> bool:
-        ...
-
-    def __ne__(self, b: System.Reflection.Emit.Label) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, obj: System.Reflection.Emit.Label) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class OperandType(Enum):
-    """Describes the operand type of IL instruction."""
-
-    INLINE_BR_TARGET = 0
-
-    INLINE_FIELD = 1
-
-    INLINE_I = 2
-
-    INLINE_I_8 = 3
-
-    INLINE_METHOD = 4
-
-    INLINE_NONE = 5
-
-    INLINE_PHI = 6
-    """OperandType.InlinePhi has been deprecated and is not supported."""
-
-    INLINE_R = 7
-
-    INLINE_SIG = 9
-
-    INLINE_STRING = 10
-
-    INLINE_SWITCH = 11
-
-    INLINE_TOK = 12
-
-    INLINE_TYPE = 13
-
-    INLINE_VAR = 14
-
-    SHORT_INLINE_BR_TARGET = 15
-
-    SHORT_INLINE_I = 16
-
-    SHORT_INLINE_R = 17
-
-    SHORT_INLINE_VAR = 18
-
-    def __int__(self) -> int:
-        ...
-
-
 class FlowControl(Enum):
     """Describes how an instruction alters the flow of control."""
 
@@ -250,26 +300,6 @@ class FlowControl(Enum):
     RETURN = 7
 
     THROW = 8
-
-    def __int__(self) -> int:
-        ...
-
-
-class OpCodeType(Enum):
-    """Describes the types of the IL instructions."""
-
-    ANNOTATION = 0
-    """OpCodeType.Annotation has been deprecated and is not supported."""
-
-    MACRO = 1
-
-    NTERNAL = 2
-
-    OBJMODEL = 3
-
-    PREFIX = 4
-
-    PRIMITIVE = 5
 
     def __int__(self) -> int:
         ...
@@ -398,36 +428,6 @@ class OpCode(System.IEquatable[System_Reflection_Emit_OpCode]):
         ...
 
     def to_string(self) -> str:
-        ...
-
-
-class LocalBuilder(System.Reflection.LocalVariableInfo, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the LocalBuilder class.
-        
-        This method is protected.
-        """
-        ...
-
-    def set_local_sym_info(self, name: str) -> None:
-        """
-        Sets the name of this local variable.
-        
-        :param name: The name of the local variable
-        """
-        ...
-
-    def set_local_sym_info_core(self, name: str) -> None:
-        """
-        When overridden in a derived class, sets the name of this local variable.
-        
-        This method is protected.
-        
-        :param name: The name of the local variable.
-        """
         ...
 
 
@@ -1440,16 +1440,147 @@ class AssemblyBuilder(System.Reflection.Assembly, metaclass=abc.ABCMeta):
         ...
 
 
-class PEFileKinds(Enum):
+class DynamicMethod(System.Reflection.MethodInfo):
     """This class has no documentation."""
 
-    DLL = ...
+    @property
+    def name(self) -> str:
+        ...
 
-    CONSOLE_APPLICATION = ...
+    @property
+    def declaring_type(self) -> typing.Type:
+        ...
 
-    WINDOW_APPLICATION = ...
+    @property
+    def reflected_type(self) -> typing.Type:
+        ...
 
-    def __int__(self) -> int:
+    @property
+    def module(self) -> System.Reflection.Module:
+        ...
+
+    @property
+    def method_handle(self) -> System.RuntimeMethodHandle:
+        ...
+
+    @property
+    def attributes(self) -> System.Reflection.MethodAttributes:
+        ...
+
+    @property
+    def calling_convention(self) -> System.Reflection.CallingConventions:
+        ...
+
+    @property
+    def is_security_critical(self) -> bool:
+        ...
+
+    @property
+    def is_security_safe_critical(self) -> bool:
+        ...
+
+    @property
+    def is_security_transparent(self) -> bool:
+        ...
+
+    @property
+    def return_type(self) -> typing.Type:
+        ...
+
+    @property
+    def return_parameter(self) -> System.Reflection.ParameterInfo:
+        ...
+
+    @property
+    def return_type_custom_attributes(self) -> System.Reflection.ICustomAttributeProvider:
+        ...
+
+    @property
+    def init_locals(self) -> bool:
+        ...
+
+    @init_locals.setter
+    def init_locals(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], restricted_skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module, skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module, skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
+        ...
+
+    @overload
+    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
+        ...
+
+    def define_parameter(self, position: int, attributes: System.Reflection.ParameterAttributes, parameter_name: str) -> System.Reflection.Emit.ParameterBuilder:
+        ...
+
+    def get_base_definition(self) -> System.Reflection.MethodInfo:
+        ...
+
+    @overload
+    def get_custom_attributes(self, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Object]:
+        ...
+
+    @overload
+    def get_custom_attributes(self, inherit: bool) -> typing.List[System.Object]:
+        ...
+
+    def get_dynamic_il_info(self) -> System.Reflection.Emit.DynamicILInfo:
+        ...
+
+    @overload
+    def get_il_generator(self) -> System.Reflection.Emit.ILGenerator:
+        ...
+
+    @overload
+    def get_il_generator(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
+        ...
+
+    def get_method_implementation_flags(self) -> System.Reflection.MethodImplAttributes:
+        ...
+
+    def get_parameters(self) -> typing.List[System.Reflection.ParameterInfo]:
+        ...
+
+    def invoke(self, obj: typing.Any, invoke_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, parameters: typing.List[System.Object], culture: System.Globalization.CultureInfo) -> System.Object:
+        ...
+
+    def is_defined(self, attribute_type: typing.Type, inherit: bool) -> bool:
+        ...
+
+    def to_string(self) -> str:
         ...
 
 
@@ -1917,147 +2048,16 @@ class OpCodes(System.Object):
         ...
 
 
-class DynamicMethod(System.Reflection.MethodInfo):
+class PEFileKinds(Enum):
     """This class has no documentation."""
 
-    @property
-    def name(self) -> str:
-        ...
+    DLL = ...
 
-    @property
-    def declaring_type(self) -> typing.Type:
-        ...
+    CONSOLE_APPLICATION = ...
 
-    @property
-    def reflected_type(self) -> typing.Type:
-        ...
+    WINDOW_APPLICATION = ...
 
-    @property
-    def module(self) -> System.Reflection.Module:
-        ...
-
-    @property
-    def method_handle(self) -> System.RuntimeMethodHandle:
-        ...
-
-    @property
-    def attributes(self) -> System.Reflection.MethodAttributes:
-        ...
-
-    @property
-    def calling_convention(self) -> System.Reflection.CallingConventions:
-        ...
-
-    @property
-    def is_security_critical(self) -> bool:
-        ...
-
-    @property
-    def is_security_safe_critical(self) -> bool:
-        ...
-
-    @property
-    def is_security_transparent(self) -> bool:
-        ...
-
-    @property
-    def return_type(self) -> typing.Type:
-        ...
-
-    @property
-    def return_parameter(self) -> System.Reflection.ParameterInfo:
-        ...
-
-    @property
-    def return_type_custom_attributes(self) -> System.Reflection.ICustomAttributeProvider:
-        ...
-
-    @property
-    def init_locals(self) -> bool:
-        ...
-
-    @init_locals.setter
-    def init_locals(self, value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], restricted_skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
-        ...
-
-    @overload
-    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
-        ...
-
-    def define_parameter(self, position: int, attributes: System.Reflection.ParameterAttributes, parameter_name: str) -> System.Reflection.Emit.ParameterBuilder:
-        ...
-
-    def get_base_definition(self) -> System.Reflection.MethodInfo:
-        ...
-
-    @overload
-    def get_custom_attributes(self, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Object]:
-        ...
-
-    @overload
-    def get_custom_attributes(self, inherit: bool) -> typing.List[System.Object]:
-        ...
-
-    def get_dynamic_il_info(self) -> System.Reflection.Emit.DynamicILInfo:
-        ...
-
-    @overload
-    def get_il_generator(self) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    @overload
-    def get_il_generator(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    def get_method_implementation_flags(self) -> System.Reflection.MethodImplAttributes:
-        ...
-
-    def get_parameters(self) -> typing.List[System.Reflection.ParameterInfo]:
-        ...
-
-    def invoke(self, obj: typing.Any, invoke_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, parameters: typing.List[System.Object], culture: System.Globalization.CultureInfo) -> System.Object:
-        ...
-
-    def is_defined(self, attribute_type: typing.Type, inherit: bool) -> bool:
-        ...
-
-    def to_string(self) -> str:
+    def __int__(self) -> int:
         ...
 
 

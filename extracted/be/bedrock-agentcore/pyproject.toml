@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bedrock-agentcore"
-version = "0.1.1"
+version = "0.1.2"
 description = "An SDK for using Bedrock AgentCore"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -100,7 +100,7 @@ concurrency = ["thread", "multiprocessing"]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 56
+fail_under = 90
 skip_covered = false
 skip_empty = false
 
@@ -142,4 +142,5 @@ dev = [
     "pytest-cov>=6.0.0",
     "ruff>=0.12.0",
     "wheel>=0.45.1",
+    "strands-agents>=1.1.0",
 ]

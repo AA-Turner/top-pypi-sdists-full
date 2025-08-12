@@ -1,1 +1,1 @@
-ob_metaflow_stubs_version = "6.0.6.1"
+ob_metaflow_stubs_version = "6.0.6.2"

@@ -1,13 +1,27 @@
+import shutil
+import sys
+
+from typing import List, Tuple, TextIO
+
 from siliconcompiler.schema import BaseSchema
 from siliconcompiler.schema import EditableSchema, Parameter, PerNode, Scope
 from siliconcompiler.schema.utils import trim
 
-from siliconcompiler.utils.units import convert
+from siliconcompiler.utils import truncate_text, units
 from siliconcompiler.record import RecordTime
 
 
 class MetricSchema(BaseSchema):
+    '''
+    Schema for storing and accessing metrics collected during a run.
+
+    This class provides a structured way to define, record, and report
+    various metrics such as runtime, memory usage, and design quality
+    indicators for each step of a compilation flow.
+    '''
+
     def __init__(self):
+        '''Initializes the MetricSchema.'''
         super().__init__()
 
         schema = EditableSchema(self)
@@ -98,25 +112,33 @@ class MetricSchema(BaseSchema):
 
     def clear(self, step, index):
         '''
-        Clear all saved metrics for a given step and index
+        Clears all saved metrics for a given step and index.
 
         Args:
-            step (str): Step name to clear.
-            index (str/int): Index name to clear.
+            step (str): The step name to clear metrics for.
+            index (str or int): The index to clear metrics for.
         '''
         for metric in self.getkeys():
             self.unset(metric, step=step, index=str(index))
 
     def record(self, step, index, metric, value, unit=None):
         """
-        Record a metric
+        Records a metric value for a specific step and index.
+
+        This method handles unit conversion if the metric is defined with a
+        unit in the schema.
 
         Args:
-            step (str): step to record
-            index (str/int): index to record
-            metric (str): name of metric
-            value (int/float): value to record
-            unit (str): unit associated with value
+            step (str): The step to record the metric for.
+            index (str or int): The index to record the metric for.
+            metric (str): The name of the metric to record.
+            value (int or float): The value of the metric.
+            unit (str, optional): The unit of the provided value. If the schema
+                defines a unit for this metric, the value will be converted.
+                Defaults to None.
+
+        Returns:
+            The recorded value after any unit conversion.
         """
         metric_unit = self.get(metric, field='unit')
 
@@ -124,18 +146,21 @@ class MetricSchema(BaseSchema):
             raise ValueError(f"{metric} does not have a unit, but {unit} was supplied")
 
         if metric_unit:
-            value = convert(value, from_unit=unit, to_unit=metric_unit)
+            value = units.convert(value, from_unit=unit, to_unit=metric_unit)
 
         return self.set(metric, value, step=step, index=str(index))
 
     def record_tasktime(self, step, index, record):
         """
-        Record the task time for this node
+        Records the task time for a given node based on start and end times.
 
         Args:
-            step (str): step to record
-            index (str/int): index to record
-            record (:class:`RecordSchema`): record to lookup data in
+            step (str): The step of the node.
+            index (str or int): The index of the node.
+            record (RecordSchema): The record schema containing timing data.
+
+        Returns:
+            bool: True if the time was successfully recorded, False otherwise.
         """
         start_time, end_time = [
             record.get_recorded_time(step, index, RecordTime.START),
@@ -149,13 +174,19 @@ class MetricSchema(BaseSchema):
 
     def record_totaltime(self, step, index, flow, record):
         """
-        Record the total time for this node
+        Records the cumulative total time up to the end of a given node.
+
+        This method calculates the total wall-clock time by summing the
+        durations of all previously executed parallel tasks.
 
         Args:
-            step (str): step to record
-            index (str/int): index to record
-            flow (:class:`FlowgraphSchema`): flowgraph to lookup nodes in
-            record (:class:`RecordSchema`): record to lookup data in
+            step (str): The step of the node.
+            index (str or int): The index of the node.
+            flow (FlowgraphSchema): The flowgraph containing the nodes.
+            record (RecordSchema): The record schema containing timing data.
+
+        Returns:
+            bool: True if the time was successfully recorded, False otherwise.
         """
         all_nodes = flow.get_nodes()
         node_times = [
@@ -205,9 +236,182 @@ class MetricSchema(BaseSchema):
 
         return self.record(step, index, "totaltime", total_time, unit="s")
 
+    def get_formatted_metric(self, metric: str, step: str, index: str) -> str:
+        '''
+        Retrieves and formats a metric for display.
+
+        Handles special formatting for memory (binary units), time, and adds
+        SI suffixes for other float values.
+
+        Args:
+            metric (str): The name of the metric to format.
+            step (str): The step of the metric.
+            index (str): The index of the metric.
+
+        Returns:
+            str: The formatted, human-readable metric value as a string.
+        '''
+        if metric == 'memory':
+            return units.format_binary(self.get(metric, step=step, index=index),
+                                       self.get(metric, field="unit"))
+        elif metric in ['exetime', 'tasktime', 'totaltime']:
+            return units.format_time(self.get(metric, step=step, index=index))
+        elif self.get(metric, field="type") == 'int':
+            return str(self.get(metric, step=step, index=index))
+        else:
+            return units.format_si(self.get(metric, step=step, index=index),
+                                   self.get(metric, field="unit"))
+
+    def summary_table(self,
+                      nodes: List[Tuple[str, str]] = None,
+                      column_width: int = 15,
+                      formatted: bool = True,
+                      trim_empty_metrics: bool = True):
+        '''
+        Generates a summary of metrics as a pandas DataFrame.
+
+        Args:
+            nodes (List[Tuple[str, str]], optional): A list of (step, index)
+                tuples to include in the summary. If None, all nodes with
+                metrics are included. Defaults to None.
+            column_width (int, optional): The width for each column.
+                Defaults to 15.
+            formatted (bool, optional): If True, metric values are formatted
+                for human readability. Defaults to True.
+            trim_empty_metrics (bool, optional): If True, metrics that have no
+                value for any of the specified nodes are excluded.
+                Defaults to True.
+
+        Returns:
+            pandas.DataFrame: A DataFrame containing the metric summary.
+        '''
+        from pandas import DataFrame
+
+        if not nodes:
+            nodes = set()
+            for metric in self.getkeys():
+                for value, step, index in self.get(metric, field=None).getvalues():
+                    nodes.add((step, index))
+            nodes = list(sorted(nodes))
+
+        row_labels = list(self.getkeys())
+        sort_map = {metric: 0 for metric in row_labels}
+        sort_map["errors"] = -2
+        sort_map["warnings"] = -1
+        sort_map["memory"] = 1
+        sort_map["exetime"] = 2
+        sort_map["tasktime"] = 3
+        sort_map["totaltime"] = 4
+        row_labels = sorted(row_labels, key=lambda row: sort_map[row])
+
+        if trim_empty_metrics:
+            for metric in self.getkeys():
+                data = []
+                for step, index in nodes:
+                    data.append(self.get(metric, step=step, index=index))
+                if all([dat is None for dat in data]):
+                    row_labels.remove(metric)
+
+        if 'totaltime' in row_labels:
+            if not any([self.get('totaltime', step=step, index=index) is None
+                        for step, index in nodes]):
+                nodes.sort(
+                    key=lambda node: self.get('totaltime', step=node[0], index=node[1]))
+
+        # trim labels to column width
+        column_labels = ["unit"]
+        labels = [f'{step}/{index}' for step, index in nodes]
+        if labels:
+            column_width = min([column_width, max([len(label) for label in labels])])
+
+        for label in labels:
+            column_labels.append(truncate_text(label, column_width).center(column_width))
+
+        if formatted:
+            none_value = "---".center(column_width)
+        else:
+            none_value = None
+
+        data = []
+        for metric in row_labels:
+            row = [self.get(metric, field="unit") or ""]
+            for step, index in nodes:
+                value = self.get(metric, step=step, index=index)
+                if value is None:
+                    value = none_value
+                else:
+                    if formatted:
+                        value = self.get_formatted_metric(metric, step=step, index=index)
+                        value = value.center(column_width)
+                    else:
+                        value = self.get(metric, step=step, index=index)
+                row.append(value)
+            data.append(row)
+
+        return DataFrame(data, row_labels, column_labels)
+
+    def summary(self,
+                headers: List[Tuple[str, str]],
+                nodes: List[Tuple[str, str]] = None,
+                column_width: int = 15,
+                fd: TextIO = None) -> None:
+        '''
+        Prints a formatted summary of metrics to a file descriptor.
+
+        Args:
+            headers (List[Tuple[str, str]]): A list of (title, value) tuples
+                to print in the header section of the summary.
+            nodes (List[Tuple[str, str]], optional): A list of (step, index)
+                tuples to include. Defaults to all nodes.
+            column_width (int, optional): The width for each column in the table.
+                Defaults to 15.
+            fd (TextIO, optional): The file descriptor to write to.
+                Defaults to `sys.stdout`.
+        '''
+        header = []
+        headers.insert(0, ("SUMMARY", None))
+        if headers:
+            max_header = max([len(title) for title, _ in headers])
+            for title, value in headers:
+                if value is None:
+                    header.append(f"{title:<{max_header}} :")
+                else:
+                    header.append(f"{title:<{max_header}} : {value}")
+
+        max_line_width = max(4 * column_width, int(0.95*shutil.get_terminal_size().columns))
+        data = self.summary_table(nodes=nodes, column_width=column_width)
+
+        if not fd:
+            fd = sys.stdout
+
+        print("-" * max_line_width, file=fd)
+        print("\n".join(header), file=fd)
+        print(file=fd)
+        if data.empty:
+            print("  No metrics to display!", file=fd)
+        else:
+            print(data.to_string(line_width=max_line_width, col_space=3), file=fd)
+        print("-" * max_line_width, file=fd)
+
+    @classmethod
+    def _getdict_type(cls) -> str:
+        """
+        Returns the metadata type for `getdict` serialization.
+        """
+
+        return MetricSchema.__name__
+
 
 class MetricSchemaTmp(MetricSchema):
+    '''
+    A temporary schema containing a wide range of common ASIC and FPGA metrics.
+
+    This class extends the base `MetricSchema` with numerous metrics related to
+    design rules, area, timing, power, and physical implementation details.
+    '''
+
     def __init__(self):
+        '''Initializes the MetricSchemaTmp.'''
         super().__init__()
 
         schema_metric_tmp(self)
@@ -217,6 +421,15 @@ class MetricSchemaTmp(MetricSchema):
 # Metrics to Track
 ###########################################################################
 def schema_metric_tmp(schema):
+    '''
+    Defines a temporary, extended set of metrics in the provided schema.
+
+    This function populates a schema with a comprehensive list of metrics
+    commonly used in ASIC and FPGA design flows.
+
+    Args:
+        schema (Schema): The schema object to configure.
+    '''
     schema = EditableSchema(schema)
 
     metrics = {'drvs': 'design rule violations',

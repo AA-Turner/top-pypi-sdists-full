@@ -27,8 +27,6 @@
 #endif
 #include <cassert>
 
-using namespace std;
-
 namespace {
 
 const char kTestFilename[] = "BuildLogTest-tempfile";
@@ -36,10 +34,10 @@ const char kTestFilename[] = "BuildLogTest-tempfile";
 struct BuildLogTest : public StateTestWithBuiltinRules, public BuildLogUser {
   virtual void SetUp() {
     // In case a crashing test left a stale file behind.
-    unlink(kTestFilename);
+    platformAwareUnlink(kTestFilename);
   }
   virtual void TearDown() {
-    unlink(kTestFilename);
+    platformAwareUnlink(kTestFilename);
   }
   virtual bool IsPathDead(StringPiece s) const { return false; }
 };
@@ -50,7 +48,7 @@ TEST_F(BuildLogTest, WriteRead) {
 "build mid: cat in\n");
 
   BuildLog log1;
-  string err;
+  std::string err;
   EXPECT_TRUE(log1.OpenForWrite(kTestFilename, *this, &err));
   ASSERT_EQ("", err);
   log1.RecordCommand(state_.edges_[0], 15, 18);
@@ -77,7 +75,7 @@ TEST_F(BuildLogTest, FirstWriteAddsSignature) {
   const size_t kVersionPos = strlen(kExpectedVersion) - 2;  // Points at 'X'.
 
   BuildLog log;
-  string contents, err;
+  std::string contents, err;
 
   EXPECT_TRUE(log.OpenForWrite(kTestFilename, *this, &err));
   ASSERT_EQ("", err);
@@ -104,12 +102,14 @@ TEST_F(BuildLogTest, FirstWriteAddsSignature) {
 
 TEST_F(BuildLogTest, DoubleEntry) {
   FILE* f = fopen(kTestFilename, "wb");
-  fprintf(f, "# ninja log v4\n");
-  fprintf(f, "0\t1\t2\tout\tcommand abc\n");
-  fprintf(f, "3\t4\t5\tout\tcommand def\n");
+  fprintf(f, "# ninja log v7\n");
+  fprintf(f, "0\t1\t2\tout\t%" PRIx64 "\n",
+      BuildLog::LogEntry::HashCommand("command abc"));
+  fprintf(f, "0\t1\t2\tout\t%" PRIx64 "\n",
+      BuildLog::LogEntry::HashCommand("command def"));
   fclose(f);
 
-  string err;
+  std::string err;
   BuildLog log;
   EXPECT_TRUE(log.Load(kTestFilename, &err));
   ASSERT_EQ("", err);
@@ -126,23 +126,27 @@ TEST_F(BuildLogTest, Truncate) {
 
   {
     BuildLog log1;
-    string err;
+    std::string err;
     EXPECT_TRUE(log1.OpenForWrite(kTestFilename, *this, &err));
     ASSERT_EQ("", err);
     log1.RecordCommand(state_.edges_[0], 15, 18);
     log1.RecordCommand(state_.edges_[1], 20, 25);
     log1.Close();
   }
-
+#ifdef __USE_LARGEFILE64
+  struct stat64 statbuf;
+  ASSERT_EQ(0, stat64(kTestFilename, &statbuf));
+#else
   struct stat statbuf;
   ASSERT_EQ(0, stat(kTestFilename, &statbuf));
+#endif
   ASSERT_GT(statbuf.st_size, 0);
 
   // For all possible truncations of the input file, assert that we don't
   // crash when parsing.
   for (off_t size = statbuf.st_size; size > 0; --size) {
     BuildLog log2;
-    string err;
+    std::string err;
     EXPECT_TRUE(log2.OpenForWrite(kTestFilename, *this, &err));
     ASSERT_EQ("", err);
     log2.RecordCommand(state_.edges_[0], 15, 18);
@@ -163,19 +167,20 @@ TEST_F(BuildLogTest, ObsoleteOldVersion) {
   fprintf(f, "123 456 0 out command\n");
   fclose(f);
 
-  string err;
+  std::string err;
   BuildLog log;
   EXPECT_TRUE(log.Load(kTestFilename, &err));
-  ASSERT_NE(err.find("version"), string::npos);
+  ASSERT_NE(err.find("version"), std::string::npos);
 }
 
-TEST_F(BuildLogTest, SpacesInOutputV4) {
+TEST_F(BuildLogTest, SpacesInOutput) {
   FILE* f = fopen(kTestFilename, "wb");
-  fprintf(f, "# ninja log v4\n");
-  fprintf(f, "123\t456\t456\tout with space\tcommand\n");
+  fprintf(f, "# ninja log v7\n");
+  fprintf(f, "123\t456\t456\tout with space\t%" PRIx64 "\n",
+      BuildLog::LogEntry::HashCommand("command"));
   fclose(f);
 
-  string err;
+  std::string err;
   BuildLog log;
   EXPECT_TRUE(log.Load(kTestFilename, &err));
   ASSERT_EQ("", err);
@@ -193,13 +198,15 @@ TEST_F(BuildLogTest, DuplicateVersionHeader) {
   // build log on Windows. This shouldn't crash, and the second version header
   // should be ignored.
   FILE* f = fopen(kTestFilename, "wb");
-  fprintf(f, "# ninja log v4\n");
-  fprintf(f, "123\t456\t456\tout\tcommand\n");
-  fprintf(f, "# ninja log v4\n");
-  fprintf(f, "456\t789\t789\tout2\tcommand2\n");
+  fprintf(f, "# ninja log v7\n");
+  fprintf(f, "123\t456\t456\tout\t%" PRIx64 "\n",
+      BuildLog::LogEntry::HashCommand("command"));
+  fprintf(f, "# ninja log v7\n");
+  fprintf(f, "456\t789\t789\tout2\t%" PRIx64 "\n",
+      BuildLog::LogEntry::HashCommand("command2"));
   fclose(f);
 
-  string err;
+  std::string err;
   BuildLog log;
   EXPECT_TRUE(log.Load(kTestFilename, &err));
   ASSERT_EQ("", err);
@@ -220,22 +227,23 @@ TEST_F(BuildLogTest, DuplicateVersionHeader) {
 }
 
 struct TestDiskInterface : public DiskInterface {
-  virtual TimeStamp Stat(const string& path, string* err) const {
+  virtual TimeStamp Stat(const std::string& path, std::string* err) const {
     return 4;
   }
-  virtual bool WriteFile(const string& path, const string& contents) {
+  virtual bool WriteFile(const std::string& path, const std::string& contents) {
     assert(false);
     return true;
   }
-  virtual bool MakeDir(const string& path) {
+  virtual bool MakeDir(const std::string& path) {
     assert(false);
     return false;
   }
-  virtual Status ReadFile(const string& path, string* contents, string* err) {
+  virtual Status ReadFile(const std::string& path, std::string* contents,
+                          std::string* err) {
     assert(false);
     return NotFound;
   }
-  virtual int RemoveFile(const string& path) {
+  virtual int RemoveFile(const std::string& path) {
     assert(false);
     return 0;
   }
@@ -243,7 +251,7 @@ struct TestDiskInterface : public DiskInterface {
 
 TEST_F(BuildLogTest, Restat) {
   FILE* f = fopen(kTestFilename, "wb");
-  fprintf(f, "# ninja log v4\n"
+  fprintf(f, "# ninja log v7\n"
              "1\t2\t3\tout\tcommand\n");
   fclose(f);
   std::string err;
@@ -271,15 +279,16 @@ TEST_F(BuildLogTest, VeryLongInputLine) {
   // Ninja's build log buffer is currently 256kB. Lines longer than that are
   // silently ignored, but don't affect parsing of other lines.
   FILE* f = fopen(kTestFilename, "wb");
-  fprintf(f, "# ninja log v4\n");
+  fprintf(f, "# ninja log v7\n");
   fprintf(f, "123\t456\t456\tout\tcommand start");
   for (size_t i = 0; i < (512 << 10) / strlen(" more_command"); ++i)
     fputs(" more_command", f);
   fprintf(f, "\n");
-  fprintf(f, "456\t789\t789\tout2\tcommand2\n");
+  fprintf(f, "456\t789\t789\tout2\t%" PRIx64 "\n",
+      BuildLog::LogEntry::HashCommand("command2"));
   fclose(f);
 
-  string err;
+  std::string err;
   BuildLog log;
   EXPECT_TRUE(log.Load(kTestFilename, &err));
   ASSERT_EQ("", err);
@@ -325,7 +334,7 @@ TEST_F(BuildLogRecompactTest, Recompact) {
 "build out2: cat in\n");
 
   BuildLog log1;
-  string err;
+  std::string err;
   EXPECT_TRUE(log1.OpenForWrite(kTestFilename, *this, &err));
   ASSERT_EQ("", err);
   // Record the same edge several times, to trigger recompaction

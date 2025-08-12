@@ -1,6 +1,6 @@
 [project]
 name = "rich-toolkit"
-version = "0.14.9"
+version = "0.15.0"
 description = "Rich toolkit for building command-line applications"
 readme = "README.md"
 license = "MIT"
@@ -41,3 +41,7 @@ fix = true
 ignore = ["E501"]
 select = ["E", "W", "F", "B"]
 extend-select = ["E", "W", "F", "B"]
+
+
+[tool.autopub]
+plugins = ["autopub.plugins.github", "autopub.plugins.uv"]

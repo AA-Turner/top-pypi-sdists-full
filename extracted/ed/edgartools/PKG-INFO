@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: edgartools
-Version: 4.6.3
+Version: 4.7.0
 Summary: Navigate Edgar filings with ease
 Project-URL: Documentation, https://dgunning.github.io/edgartools/
 Project-URL: Issues, https://github.com/dgunning/edgartools/issues
@@ -11,13 +11,13 @@ Keywords: company,edgar,filings,finance,financial,python,reports,sec
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: beautifulsoup4>=4.10.0
 Requires-Dist: hishel>=0.1.3
 Requires-Dist: httpx>=0.25.0
@@ -39,6 +39,12 @@ Requires-Dist: tabulate>=0.9.0
 Requires-Dist: textdistance>=4.5.0
 Requires-Dist: tqdm>=4.62.0
 Requires-Dist: unidecode>=1.2.0
+Provides-Extra: ai
+Requires-Dist: mcp==1.12.3; (python_version >= '3.10') and extra == 'ai'
+Requires-Dist: tiktoken>=0.10.0; extra == 'ai'
+Provides-Extra: ai-dev
+Requires-Dist: pytest-mock>=3.12.0; extra == 'ai-dev'
+Requires-Dist: responses>=0.24.0; extra == 'ai-dev'
 Description-Content-Type: text/markdown
 
 <p align="center">

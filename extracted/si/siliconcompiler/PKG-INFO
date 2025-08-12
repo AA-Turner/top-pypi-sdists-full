@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.34.2
+Version: 0.34.3
 Summary: A compiler framework that automates translation from source code to silicon.
 Author-email: Andreas Olofsson <andreas.d.olofsson@gmail.com>
 License: Apache License 2.0
@@ -34,16 +34,16 @@ Requires-Dist: distro==1.9.0
 Requires-Dist: packaging<25,>=21.3
 Requires-Dist: psutil>=5.8.0
 Requires-Dist: Pillow==11.3.0
-Requires-Dist: GitPython==3.1.44
+Requires-Dist: GitPython<3.2,>=3.1.44
 Requires-Dist: lambdapdk>=0.1.47
-Requires-Dist: PyGithub==2.6.1
+Requires-Dist: PyGithub==2.7.0
 Requires-Dist: urllib3>=1.26.0
 Requires-Dist: fasteners==0.19
 Requires-Dist: fastjsonschema==2.21.1
 Requires-Dist: docker==7.1.0
 Requires-Dist: importlib_metadata; python_version < "3.10"
-Requires-Dist: orjson==3.11.0
-Requires-Dist: pyslang==8.1.0
+Requires-Dist: orjson<4,>=3.11.0
+Requires-Dist: pyslang==9.0.0
 Requires-Dist: streamlit==1.46.1; python_full_version != "3.9.7"
 Requires-Dist: streamlit_agraph==0.0.45; python_full_version != "3.9.7"
 Requires-Dist: streamlit-antd-components==0.3.2; python_full_version != "3.9.7"

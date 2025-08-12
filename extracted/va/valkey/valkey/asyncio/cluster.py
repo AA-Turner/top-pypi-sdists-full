@@ -25,14 +25,19 @@ from valkey._cache import (
     DEFAULT_EVICTION_POLICY,
     AbstractCache,
 )
-from valkey._parsers import AsyncCommandsParser, Encoder, parse_url
+from valkey._parsers import AsyncCommandsParser, Encoder
 from valkey._parsers.helpers import (
     _ValkeyCallbacks,
     _ValkeyCallbacksRESP2,
     _ValkeyCallbacksRESP3,
 )
 from valkey.asyncio.client import ResponseCallbackT
-from valkey.asyncio.connection import Connection, DefaultParser, SSLConnection
+from valkey.asyncio.connection import (
+    Connection,
+    DefaultParser,
+    SSLConnection,
+    parse_url,
+)
 from valkey.asyncio.lock import Lock
 from valkey.asyncio.retry import Retry
 from valkey.backoff import default_backoff
@@ -214,7 +219,7 @@ class ValkeyCluster(AbstractValkey, AbstractValkeyCluster, AsyncValkeyClusterCom
         :class:`~valkey.asyncio.connection.Connection` when created.
         In the case of conflicting arguments, querystring arguments are used.
         """
-        kwargs.update(parse_url(url, True))
+        kwargs.update(parse_url(url))
         if kwargs.pop("connection_class", None) is SSLConnection:
             kwargs["ssl"] = True
         return cls(**kwargs)
@@ -1288,7 +1293,7 @@ class NodesManager:
         startup_nodes_reachable = False
         fully_covered = False
         exception = None
-        for startup_node in self.startup_nodes.values():
+        for startup_node in tuple(self.startup_nodes.values()):
             try:
                 # Make sure cluster mode is enabled on this node
                 try:

@@ -16543,6 +16543,52 @@ module_internal_BatchGetResolvedModuleDefinitionsResponse.__qualname__ = "BatchG
 module_internal_BatchGetResolvedModuleDefinitionsResponse.__module__ = "nominal_api.module_internal"
 
 
+class module_internal_BatchGetUnresolvedModuleDefinitionsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'requests': ConjureFieldDefinition('requests', List[module_RequestModuleNameRef])
+        }
+
+    __slots__: List[str] = ['_requests']
+
+    def __init__(self, requests: List["module_RequestModuleNameRef"]) -> None:
+        self._requests = requests
+
+    @builtins.property
+    def requests(self) -> List["module_RequestModuleNameRef"]:
+        return self._requests
+
+
+module_internal_BatchGetUnresolvedModuleDefinitionsRequest.__name__ = "BatchGetUnresolvedModuleDefinitionsRequest"
+module_internal_BatchGetUnresolvedModuleDefinitionsRequest.__qualname__ = "BatchGetUnresolvedModuleDefinitionsRequest"
+module_internal_BatchGetUnresolvedModuleDefinitionsRequest.__module__ = "nominal_api.module_internal"
+
+
+class module_internal_BatchGetUnresolvedModuleDefinitionsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'results': ConjureFieldDefinition('results', List[module_internal_ModuleComputeDefinition])
+        }
+
+    __slots__: List[str] = ['_results']
+
+    def __init__(self, results: List["module_internal_ModuleComputeDefinition"]) -> None:
+        self._results = results
+
+    @builtins.property
+    def results(self) -> List["module_internal_ModuleComputeDefinition"]:
+        return self._results
+
+
+module_internal_BatchGetUnresolvedModuleDefinitionsResponse.__name__ = "BatchGetUnresolvedModuleDefinitionsResponse"
+module_internal_BatchGetUnresolvedModuleDefinitionsResponse.__qualname__ = "BatchGetUnresolvedModuleDefinitionsResponse"
+module_internal_BatchGetUnresolvedModuleDefinitionsResponse.__module__ = "nominal_api.module_internal"
+
+
 class module_internal_InternalModuleService(Service):
     """This service provides internal APIs related to modules.
     """
@@ -16579,7 +16625,7 @@ class module_internal_InternalModuleService(Service):
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), module_internal_BatchGetResolvedModuleDefinitionsResponse, self._return_none_for_unknown_union_types)
 
-    def get_unresolved_module_definition(self, auth_header: str, module_ref: "module_RequestModuleNameRef") -> "module_internal_ModuleComputeDefinition":
+    def batch_get_unresolved_module_definition(self, auth_header: str, request: "module_internal_BatchGetUnresolvedModuleDefinitionsRequest") -> "module_internal_BatchGetUnresolvedModuleDefinitionsResponse":
         """Returns the module definition for the given module reference.
         """
         _conjure_encoder = ConjureEncoder()
@@ -16596,9 +16642,9 @@ class module_internal_InternalModuleService(Service):
         _path_params: Dict[str, str] = {
         }
 
-        _json: Any = _conjure_encoder.default(module_ref)
+        _json: Any = _conjure_encoder.default(request)
 
-        _path = '/internal/scout/v2/module/module/get'
+        _path = '/internal/scout/v2/module/unresolved-module/batch-get'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(
@@ -16609,7 +16655,7 @@ class module_internal_InternalModuleService(Service):
             json=_json)
 
         _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), module_internal_ModuleComputeDefinition, self._return_none_for_unknown_union_types)
+        return _decoder.decode(_response.json(), module_internal_BatchGetUnresolvedModuleDefinitionsResponse, self._return_none_for_unknown_union_types)
 
 
 module_internal_InternalModuleService.__name__ = "InternalModuleService"
@@ -20549,6 +20595,62 @@ scout_api_ClosedWithIgnoreDispositionState.__qualname__ = "ClosedWithIgnoreDispo
 scout_api_ClosedWithIgnoreDispositionState.__module__ = "nominal_api.scout_api"
 
 
+class scout_api_Color(ConjureUnionType):
+    _hex_code: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'hex_code': ConjureFieldDefinition('hexCode', str)
+        }
+
+    def __init__(
+            self,
+            hex_code: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (hex_code is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if hex_code is not None:
+                self._hex_code = hex_code
+                self._type = 'hexCode'
+
+        elif type_of_union == 'hexCode':
+            if hex_code is None:
+                raise ValueError('a union value must not be None')
+            self._hex_code = hex_code
+            self._type = 'hexCode'
+
+    @builtins.property
+    def hex_code(self) -> Optional[str]:
+        return self._hex_code
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_api_ColorVisitor):
+            raise ValueError('{} is not an instance of scout_api_ColorVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'hexCode' and self.hex_code is not None:
+            return visitor._hex_code(self.hex_code)
+
+
+scout_api_Color.__name__ = "Color"
+scout_api_Color.__qualname__ = "Color"
+scout_api_Color.__module__ = "nominal_api.scout_api"
+
+
+class scout_api_ColorVisitor:
+
+    @abstractmethod
+    def _hex_code(self, hex_code: str) -> Any:
+        pass
+
+
+scout_api_ColorVisitor.__name__ = "ColorVisitor"
+scout_api_ColorVisitor.__qualname__ = "ColorVisitor"
+scout_api_ColorVisitor.__module__ = "nominal_api.scout_api"
+
+
 class scout_api_DispositionState(ConjureUnionType):
     _pending_review: Optional["scout_api_PendingReviewDispositionState"] = None
     _closed_with_further_action: Optional["scout_api_ClosedWithFurtherActionDispositionState"] = None
@@ -20692,6 +20794,110 @@ class scout_api_Priority(ConjureEnumType):
 scout_api_Priority.__name__ = "Priority"
 scout_api_Priority.__qualname__ = "Priority"
 scout_api_Priority.__module__ = "nominal_api.scout_api"
+
+
+class scout_api_Symbol(ConjureUnionType):
+    _icon: Optional[str] = None
+    _emoji: Optional[str] = None
+    _image: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'icon': ConjureFieldDefinition('icon', str),
+            'emoji': ConjureFieldDefinition('emoji', str),
+            'image': ConjureFieldDefinition('image', str)
+        }
+
+    def __init__(
+            self,
+            icon: Optional[str] = None,
+            emoji: Optional[str] = None,
+            image: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (icon is not None) + (emoji is not None) + (image is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if icon is not None:
+                self._icon = icon
+                self._type = 'icon'
+            if emoji is not None:
+                self._emoji = emoji
+                self._type = 'emoji'
+            if image is not None:
+                self._image = image
+                self._type = 'image'
+
+        elif type_of_union == 'icon':
+            if icon is None:
+                raise ValueError('a union value must not be None')
+            self._icon = icon
+            self._type = 'icon'
+        elif type_of_union == 'emoji':
+            if emoji is None:
+                raise ValueError('a union value must not be None')
+            self._emoji = emoji
+            self._type = 'emoji'
+        elif type_of_union == 'image':
+            if image is None:
+                raise ValueError('a union value must not be None')
+            self._image = image
+            self._type = 'image'
+
+    @builtins.property
+    def icon(self) -> Optional[str]:
+        """Icon name (e.g. castle)
+        """
+        return self._icon
+
+    @builtins.property
+    def emoji(self) -> Optional[str]:
+        """Emoji name (e.g. :castle:)
+        """
+        return self._emoji
+
+    @builtins.property
+    def image(self) -> Optional[str]:
+        """Image url (e.g. https://example.com/image.png)
+        """
+        return self._image
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_api_SymbolVisitor):
+            raise ValueError('{} is not an instance of scout_api_SymbolVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'icon' and self.icon is not None:
+            return visitor._icon(self.icon)
+        if self._type == 'emoji' and self.emoji is not None:
+            return visitor._emoji(self.emoji)
+        if self._type == 'image' and self.image is not None:
+            return visitor._image(self.image)
+
+
+scout_api_Symbol.__name__ = "Symbol"
+scout_api_Symbol.__qualname__ = "Symbol"
+scout_api_Symbol.__module__ = "nominal_api.scout_api"
+
+
+class scout_api_SymbolVisitor:
+
+    @abstractmethod
+    def _icon(self, icon: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _emoji(self, emoji: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _image(self, image: str) -> Any:
+        pass
+
+
+scout_api_SymbolVisitor.__name__ = "SymbolVisitor"
+scout_api_SymbolVisitor.__qualname__ = "SymbolVisitor"
+scout_api_SymbolVisitor.__module__ = "nominal_api.scout_api"
 
 
 class scout_asset_api_AddDataScopesToAssetRequest(ConjureBeanType):
@@ -73008,6 +73214,8 @@ class scout_metadata_ResourceType(ConjureEnumType):
     '''PROCEDURE_EXECUTION'''
     PROCEDURE = 'PROCEDURE'
     '''PROCEDURE'''
+    SAVED_VIEW = 'SAVED_VIEW'
+    '''SAVED_VIEW'''
     UNKNOWN = 'UNKNOWN'
     '''UNKNOWN'''
 
@@ -76594,6 +76802,1419 @@ class scout_run_api_WeakTimestampType(ConjureEnumType):
 scout_run_api_WeakTimestampType.__name__ = "WeakTimestampType"
 scout_run_api_WeakTimestampType.__qualname__ = "WeakTimestampType"
 scout_run_api_WeakTimestampType.__module__ = "nominal_api.scout_run_api"
+
+
+class scout_savedviews_SavedViewService(Service):
+    """Saved Views allow users to store and reuse filter and table display configurations across 
+assets, runs, checklists, and more. They can be favorited, archived, and shared across a workspace.
+    """
+
+    def create_saved_view(self, auth_header: str, request: "scout_savedviews_api_CreateSavedViewRequest") -> "scout_savedviews_api_CreateSavedViewResponse":
+        """Creates a new saved view in the given workspace. If no workspace is specified,
+it is created in the user's default workspace.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/saved-views/v1'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_savedviews_api_CreateSavedViewResponse, self._return_none_for_unknown_union_types)
+
+    def get_saved_view(self, auth_header: str, saved_view_rid: str) -> "scout_savedviews_api_GetSavedViewResponse":
+        """Fetches a saved view by RID. Throws NOT_FOUND if it does not exist.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'savedViewRid': quote(str(_conjure_encoder.default(saved_view_rid)), safe=''),
+        }
+
+        _json: Any = None
+
+        _path = '/scout/saved-views/v1/{savedViewRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'GET',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_savedviews_api_GetSavedViewResponse, self._return_none_for_unknown_union_types)
+
+    def batch_get_saved_views(self, auth_header: str, saved_view_rids: List[str] = None) -> "scout_savedviews_api_BatchGetSavedViewsResponse":
+        """Retrieves multiple saved views. Any invalid or unknown RIDs are omitted from the response.
+        """
+        saved_view_rids = saved_view_rids if saved_view_rids is not None else []
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(saved_view_rids)
+
+        _path = '/scout/saved-views/v1/batch-get'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_savedviews_api_BatchGetSavedViewsResponse, self._return_none_for_unknown_union_types)
+
+    def search_saved_views(self, auth_header: str, request: "scout_savedviews_api_SearchSavedViewsRequest") -> "scout_savedviews_api_SearchSavedViewsResponse":
+        """Searches for saved views using a nested query expression. Supports pagination.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/saved-views/v1/search'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_savedviews_api_SearchSavedViewsResponse, self._return_none_for_unknown_union_types)
+
+    def update_saved_view(self, auth_header: str, request: "scout_savedviews_api_UpdateSavedViewRequest", saved_view_rid: str) -> "scout_savedviews_api_UpdateSavedViewResponse":
+        """Updates metadata, search filters, or display settings for an existing saved view.
+Throws NOT_FOUND if the view doesn't exist and INVALID_ARGUMENT if it is archived.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+            'savedViewRid': quote(str(_conjure_encoder.default(saved_view_rid)), safe=''),
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/saved-views/v1/{savedViewRid}'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'PUT',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        _decoder = ConjureDecoder()
+        return _decoder.decode(_response.json(), scout_savedviews_api_UpdateSavedViewResponse, self._return_none_for_unknown_union_types)
+
+    def archive_saved_views(self, auth_header: str, request: "scout_savedviews_api_ArchiveSavedViewsRequest") -> None:
+        """Archives the specified saved views. Archived views are hidden from search.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/saved-views/v1/archive-batch'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+    def unarchive_saved_views(self, auth_header: str, request: "scout_savedviews_api_UnarchiveSavedViewsRequest") -> None:
+        """Restores archived saved views, making them discoverable in search again.
+        """
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/scout/saved-views/v1/unarchive-batch'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
+
+scout_savedviews_SavedViewService.__name__ = "SavedViewService"
+scout_savedviews_SavedViewService.__qualname__ = "SavedViewService"
+scout_savedviews_SavedViewService.__module__ = "nominal_api.scout_savedviews"
+
+
+class scout_savedviews_api_ArchiveSavedViewsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'saved_view_rids': ConjureFieldDefinition('savedViewRids', List[scout_rids_api_SavedViewRid])
+        }
+
+    __slots__: List[str] = ['_saved_view_rids']
+
+    def __init__(self, saved_view_rids: List[str]) -> None:
+        self._saved_view_rids = saved_view_rids
+
+    @builtins.property
+    def saved_view_rids(self) -> List[str]:
+        return self._saved_view_rids
+
+
+scout_savedviews_api_ArchiveSavedViewsRequest.__name__ = "ArchiveSavedViewsRequest"
+scout_savedviews_api_ArchiveSavedViewsRequest.__qualname__ = "ArchiveSavedViewsRequest"
+scout_savedviews_api_ArchiveSavedViewsRequest.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_AssetSearchState(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sort': ConjureFieldDefinition('sort', scout_asset_api_AssetSortOptions),
+            'query': ConjureFieldDefinition('query', scout_asset_api_SearchAssetsQuery),
+            'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
+        }
+
+    __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
+
+    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_asset_api_SearchAssetsQuery", sort: "scout_asset_api_AssetSortOptions") -> None:
+        self._sort = sort
+        self._query = query
+        self._archived_statuses = archived_statuses
+
+    @builtins.property
+    def sort(self) -> "scout_asset_api_AssetSortOptions":
+        return self._sort
+
+    @builtins.property
+    def query(self) -> "scout_asset_api_SearchAssetsQuery":
+        return self._query
+
+    @builtins.property
+    def archived_statuses(self) -> List["api_ArchivedStatus"]:
+        return self._archived_statuses
+
+
+scout_savedviews_api_AssetSearchState.__name__ = "AssetSearchState"
+scout_savedviews_api_AssetSearchState.__qualname__ = "AssetSearchState"
+scout_savedviews_api_AssetSearchState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_BatchGetSavedViewsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'saved_views': ConjureFieldDefinition('savedViews', List[scout_savedviews_api_SavedView])
+        }
+
+    __slots__: List[str] = ['_saved_views']
+
+    def __init__(self, saved_views: List["scout_savedviews_api_SavedView"]) -> None:
+        self._saved_views = saved_views
+
+    @builtins.property
+    def saved_views(self) -> List["scout_savedviews_api_SavedView"]:
+        return self._saved_views
+
+
+scout_savedviews_api_BatchGetSavedViewsResponse.__name__ = "BatchGetSavedViewsResponse"
+scout_savedviews_api_BatchGetSavedViewsResponse.__qualname__ = "BatchGetSavedViewsResponse"
+scout_savedviews_api_BatchGetSavedViewsResponse.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_ChecklistSearchState(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sort': ConjureFieldDefinition('sort', scout_checks_api_SortOptions),
+            'query': ConjureFieldDefinition('query', scout_checks_api_ChecklistSearchQuery),
+            'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
+        }
+
+    __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
+
+    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_checks_api_ChecklistSearchQuery", sort: "scout_checks_api_SortOptions") -> None:
+        self._sort = sort
+        self._query = query
+        self._archived_statuses = archived_statuses
+
+    @builtins.property
+    def sort(self) -> "scout_checks_api_SortOptions":
+        return self._sort
+
+    @builtins.property
+    def query(self) -> "scout_checks_api_ChecklistSearchQuery":
+        return self._query
+
+    @builtins.property
+    def archived_statuses(self) -> List["api_ArchivedStatus"]:
+        return self._archived_statuses
+
+
+scout_savedviews_api_ChecklistSearchState.__name__ = "ChecklistSearchState"
+scout_savedviews_api_ChecklistSearchState.__qualname__ = "ChecklistSearchState"
+scout_savedviews_api_ChecklistSearchState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_ColumnPinningState(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'left': ConjureFieldDefinition('left', List[scout_savedviews_api_ColumnId]),
+            'right': ConjureFieldDefinition('right', List[scout_savedviews_api_ColumnId])
+        }
+
+    __slots__: List[str] = ['_left', '_right']
+
+    def __init__(self, left: List[str], right: List[str]) -> None:
+        self._left = left
+        self._right = right
+
+    @builtins.property
+    def left(self) -> List[str]:
+        return self._left
+
+    @builtins.property
+    def right(self) -> List[str]:
+        return self._right
+
+
+scout_savedviews_api_ColumnPinningState.__name__ = "ColumnPinningState"
+scout_savedviews_api_ColumnPinningState.__qualname__ = "ColumnPinningState"
+scout_savedviews_api_ColumnPinningState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_CreateSavedViewRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'resource_type': ConjureFieldDefinition('resourceType', scout_savedviews_api_ResourceType),
+            'title': ConjureFieldDefinition('title', str),
+            'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[scout_api_Symbol]),
+            'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_api_Color]),
+            'search_state': ConjureFieldDefinition('searchState', scout_savedviews_api_SearchState),
+            'display_state': ConjureFieldDefinition('displayState', scout_savedviews_api_DisplayState),
+            'workspace_rid': ConjureFieldDefinition('workspaceRid', OptionalTypeWrapper[api_rids_WorkspaceRid])
+        }
+
+    __slots__: List[str] = ['_resource_type', '_title', '_symbol', '_color', '_search_state', '_display_state', '_workspace_rid']
+
+    def __init__(self, display_state: "scout_savedviews_api_DisplayState", resource_type: "scout_savedviews_api_ResourceType", search_state: "scout_savedviews_api_SearchState", title: str, color: Optional["scout_api_Color"] = None, symbol: Optional["scout_api_Symbol"] = None, workspace_rid: Optional[str] = None) -> None:
+        self._resource_type = resource_type
+        self._title = title
+        self._symbol = symbol
+        self._color = color
+        self._search_state = search_state
+        self._display_state = display_state
+        self._workspace_rid = workspace_rid
+
+    @builtins.property
+    def resource_type(self) -> "scout_savedviews_api_ResourceType":
+        return self._resource_type
+
+    @builtins.property
+    def title(self) -> str:
+        return self._title
+
+    @builtins.property
+    def symbol(self) -> Optional["scout_api_Symbol"]:
+        return self._symbol
+
+    @builtins.property
+    def color(self) -> Optional["scout_api_Color"]:
+        return self._color
+
+    @builtins.property
+    def search_state(self) -> "scout_savedviews_api_SearchState":
+        return self._search_state
+
+    @builtins.property
+    def display_state(self) -> "scout_savedviews_api_DisplayState":
+        return self._display_state
+
+    @builtins.property
+    def workspace_rid(self) -> Optional[str]:
+        return self._workspace_rid
+
+
+scout_savedviews_api_CreateSavedViewRequest.__name__ = "CreateSavedViewRequest"
+scout_savedviews_api_CreateSavedViewRequest.__qualname__ = "CreateSavedViewRequest"
+scout_savedviews_api_CreateSavedViewRequest.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_CreateSavedViewResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'saved_view': ConjureFieldDefinition('savedView', scout_savedviews_api_SavedView)
+        }
+
+    __slots__: List[str] = ['_saved_view']
+
+    def __init__(self, saved_view: "scout_savedviews_api_SavedView") -> None:
+        self._saved_view = saved_view
+
+    @builtins.property
+    def saved_view(self) -> "scout_savedviews_api_SavedView":
+        return self._saved_view
+
+
+scout_savedviews_api_CreateSavedViewResponse.__name__ = "CreateSavedViewResponse"
+scout_savedviews_api_CreateSavedViewResponse.__qualname__ = "CreateSavedViewResponse"
+scout_savedviews_api_CreateSavedViewResponse.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_DisplayState(ConjureUnionType):
+    _display_state_v1: Optional["scout_savedviews_api_TableState"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'display_state_v1': ConjureFieldDefinition('displayStateV1', scout_savedviews_api_TableState)
+        }
+
+    def __init__(
+            self,
+            display_state_v1: Optional["scout_savedviews_api_TableState"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (display_state_v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if display_state_v1 is not None:
+                self._display_state_v1 = display_state_v1
+                self._type = 'displayStateV1'
+
+        elif type_of_union == 'displayStateV1':
+            if display_state_v1 is None:
+                raise ValueError('a union value must not be None')
+            self._display_state_v1 = display_state_v1
+            self._type = 'displayStateV1'
+
+    @builtins.property
+    def display_state_v1(self) -> Optional["scout_savedviews_api_TableState"]:
+        return self._display_state_v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_savedviews_api_DisplayStateVisitor):
+            raise ValueError('{} is not an instance of scout_savedviews_api_DisplayStateVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'displayStateV1' and self.display_state_v1 is not None:
+            return visitor._display_state_v1(self.display_state_v1)
+
+
+scout_savedviews_api_DisplayState.__name__ = "DisplayState"
+scout_savedviews_api_DisplayState.__qualname__ = "DisplayState"
+scout_savedviews_api_DisplayState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_DisplayStateVisitor:
+
+    @abstractmethod
+    def _display_state_v1(self, display_state_v1: "scout_savedviews_api_TableState") -> Any:
+        pass
+
+
+scout_savedviews_api_DisplayStateVisitor.__name__ = "DisplayStateVisitor"
+scout_savedviews_api_DisplayStateVisitor.__qualname__ = "DisplayStateVisitor"
+scout_savedviews_api_DisplayStateVisitor.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_GetSavedViewResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'saved_view': ConjureFieldDefinition('savedView', scout_savedviews_api_SavedView)
+        }
+
+    __slots__: List[str] = ['_saved_view']
+
+    def __init__(self, saved_view: "scout_savedviews_api_SavedView") -> None:
+        self._saved_view = saved_view
+
+    @builtins.property
+    def saved_view(self) -> "scout_savedviews_api_SavedView":
+        return self._saved_view
+
+
+scout_savedviews_api_GetSavedViewResponse.__name__ = "GetSavedViewResponse"
+scout_savedviews_api_GetSavedViewResponse.__qualname__ = "GetSavedViewResponse"
+scout_savedviews_api_GetSavedViewResponse.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_ResourceType(ConjureEnumType):
+
+    ASSET = 'ASSET'
+    '''ASSET'''
+    RUN = 'RUN'
+    '''RUN'''
+    WORKBOOK = 'WORKBOOK'
+    '''WORKBOOK'''
+    CHECKLIST = 'CHECKLIST'
+    '''CHECKLIST'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_savedviews_api_ResourceType.__name__ = "ResourceType"
+scout_savedviews_api_ResourceType.__qualname__ = "ResourceType"
+scout_savedviews_api_ResourceType.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_RunSearchState(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sort': ConjureFieldDefinition('sort', scout_run_api_SortOptions),
+            'query': ConjureFieldDefinition('query', scout_run_api_SearchQuery),
+            'archived_statuses': ConjureFieldDefinition('archivedStatuses', List[api_ArchivedStatus])
+        }
+
+    __slots__: List[str] = ['_sort', '_query', '_archived_statuses']
+
+    def __init__(self, archived_statuses: List["api_ArchivedStatus"], query: "scout_run_api_SearchQuery", sort: "scout_run_api_SortOptions") -> None:
+        self._sort = sort
+        self._query = query
+        self._archived_statuses = archived_statuses
+
+    @builtins.property
+    def sort(self) -> "scout_run_api_SortOptions":
+        return self._sort
+
+    @builtins.property
+    def query(self) -> "scout_run_api_SearchQuery":
+        return self._query
+
+    @builtins.property
+    def archived_statuses(self) -> List["api_ArchivedStatus"]:
+        return self._archived_statuses
+
+
+scout_savedviews_api_RunSearchState.__name__ = "RunSearchState"
+scout_savedviews_api_RunSearchState.__qualname__ = "RunSearchState"
+scout_savedviews_api_RunSearchState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SavedView(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'rid': ConjureFieldDefinition('rid', scout_rids_api_SavedViewRid),
+            'resource_type': ConjureFieldDefinition('resourceType', scout_savedviews_api_ResourceType),
+            'title': ConjureFieldDefinition('title', str),
+            'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[scout_api_Symbol]),
+            'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_api_Color]),
+            'search_state': ConjureFieldDefinition('searchState', scout_savedviews_api_SearchState),
+            'display_state': ConjureFieldDefinition('displayState', scout_savedviews_api_DisplayState),
+            'is_archived': ConjureFieldDefinition('isArchived', bool),
+            'created_at': ConjureFieldDefinition('createdAt', str),
+            'updated_at': ConjureFieldDefinition('updatedAt', str)
+        }
+
+    __slots__: List[str] = ['_rid', '_resource_type', '_title', '_symbol', '_color', '_search_state', '_display_state', '_is_archived', '_created_at', '_updated_at']
+
+    def __init__(self, created_at: str, display_state: "scout_savedviews_api_DisplayState", is_archived: bool, resource_type: "scout_savedviews_api_ResourceType", rid: str, search_state: "scout_savedviews_api_SearchState", title: str, updated_at: str, color: Optional["scout_api_Color"] = None, symbol: Optional["scout_api_Symbol"] = None) -> None:
+        self._rid = rid
+        self._resource_type = resource_type
+        self._title = title
+        self._symbol = symbol
+        self._color = color
+        self._search_state = search_state
+        self._display_state = display_state
+        self._is_archived = is_archived
+        self._created_at = created_at
+        self._updated_at = updated_at
+
+    @builtins.property
+    def rid(self) -> str:
+        return self._rid
+
+    @builtins.property
+    def resource_type(self) -> "scout_savedviews_api_ResourceType":
+        return self._resource_type
+
+    @builtins.property
+    def title(self) -> str:
+        return self._title
+
+    @builtins.property
+    def symbol(self) -> Optional["scout_api_Symbol"]:
+        return self._symbol
+
+    @builtins.property
+    def color(self) -> Optional["scout_api_Color"]:
+        return self._color
+
+    @builtins.property
+    def search_state(self) -> "scout_savedviews_api_SearchState":
+        return self._search_state
+
+    @builtins.property
+    def display_state(self) -> "scout_savedviews_api_DisplayState":
+        return self._display_state
+
+    @builtins.property
+    def is_archived(self) -> bool:
+        return self._is_archived
+
+    @builtins.property
+    def created_at(self) -> str:
+        return self._created_at
+
+    @builtins.property
+    def updated_at(self) -> str:
+        return self._updated_at
+
+
+scout_savedviews_api_SavedView.__name__ = "SavedView"
+scout_savedviews_api_SavedView.__qualname__ = "SavedView"
+scout_savedviews_api_SavedView.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SearchSavedViewsQuery(ConjureUnionType):
+    _and_: Optional["scout_savedviews_api_SearchSavedViewsQueryList"] = None
+    _or_: Optional["scout_savedviews_api_SearchSavedViewsQueryList"] = None
+    _not_: Optional["scout_savedviews_api_SearchSavedViewsQuery"] = None
+    _title_exact_substring_search: Optional[str] = None
+    _resource_type: Optional["scout_savedviews_api_ResourceType"] = None
+    _workspace: Optional[str] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'and_': ConjureFieldDefinition('and', scout_savedviews_api_SearchSavedViewsQueryList),
+            'or_': ConjureFieldDefinition('or', scout_savedviews_api_SearchSavedViewsQueryList),
+            'not_': ConjureFieldDefinition('not', scout_savedviews_api_SearchSavedViewsQuery),
+            'title_exact_substring_search': ConjureFieldDefinition('titleExactSubstringSearch', str),
+            'resource_type': ConjureFieldDefinition('resourceType', scout_savedviews_api_ResourceType),
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
+        }
+
+    def __init__(
+            self,
+            and_: Optional["scout_savedviews_api_SearchSavedViewsQueryList"] = None,
+            or_: Optional["scout_savedviews_api_SearchSavedViewsQueryList"] = None,
+            not_: Optional["scout_savedviews_api_SearchSavedViewsQuery"] = None,
+            title_exact_substring_search: Optional[str] = None,
+            resource_type: Optional["scout_savedviews_api_ResourceType"] = None,
+            workspace: Optional[str] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (and_ is not None) + (or_ is not None) + (not_ is not None) + (title_exact_substring_search is not None) + (resource_type is not None) + (workspace is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if and_ is not None:
+                self._and_ = and_
+                self._type = 'and'
+            if or_ is not None:
+                self._or_ = or_
+                self._type = 'or'
+            if not_ is not None:
+                self._not_ = not_
+                self._type = 'not'
+            if title_exact_substring_search is not None:
+                self._title_exact_substring_search = title_exact_substring_search
+                self._type = 'titleExactSubstringSearch'
+            if resource_type is not None:
+                self._resource_type = resource_type
+                self._type = 'resourceType'
+            if workspace is not None:
+                self._workspace = workspace
+                self._type = 'workspace'
+
+        elif type_of_union == 'and':
+            if and_ is None:
+                raise ValueError('a union value must not be None')
+            self._and_ = and_
+            self._type = 'and'
+        elif type_of_union == 'or':
+            if or_ is None:
+                raise ValueError('a union value must not be None')
+            self._or_ = or_
+            self._type = 'or'
+        elif type_of_union == 'not':
+            if not_ is None:
+                raise ValueError('a union value must not be None')
+            self._not_ = not_
+            self._type = 'not'
+        elif type_of_union == 'titleExactSubstringSearch':
+            if title_exact_substring_search is None:
+                raise ValueError('a union value must not be None')
+            self._title_exact_substring_search = title_exact_substring_search
+            self._type = 'titleExactSubstringSearch'
+        elif type_of_union == 'resourceType':
+            if resource_type is None:
+                raise ValueError('a union value must not be None')
+            self._resource_type = resource_type
+            self._type = 'resourceType'
+        elif type_of_union == 'workspace':
+            if workspace is None:
+                raise ValueError('a union value must not be None')
+            self._workspace = workspace
+            self._type = 'workspace'
+
+    @builtins.property
+    def and_(self) -> Optional["scout_savedviews_api_SearchSavedViewsQueryList"]:
+        return self._and_
+
+    @builtins.property
+    def or_(self) -> Optional["scout_savedviews_api_SearchSavedViewsQueryList"]:
+        return self._or_
+
+    @builtins.property
+    def not_(self) -> Optional["scout_savedviews_api_SearchSavedViewsQuery"]:
+        return self._not_
+
+    @builtins.property
+    def title_exact_substring_search(self) -> Optional[str]:
+        return self._title_exact_substring_search
+
+    @builtins.property
+    def resource_type(self) -> Optional["scout_savedviews_api_ResourceType"]:
+        return self._resource_type
+
+    @builtins.property
+    def workspace(self) -> Optional[str]:
+        return self._workspace
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_savedviews_api_SearchSavedViewsQueryVisitor):
+            raise ValueError('{} is not an instance of scout_savedviews_api_SearchSavedViewsQueryVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'and' and self.and_ is not None:
+            return visitor._and(self.and_)
+        if self._type == 'or' and self.or_ is not None:
+            return visitor._or(self.or_)
+        if self._type == 'not' and self.not_ is not None:
+            return visitor._not(self.not_)
+        if self._type == 'titleExactSubstringSearch' and self.title_exact_substring_search is not None:
+            return visitor._title_exact_substring_search(self.title_exact_substring_search)
+        if self._type == 'resourceType' and self.resource_type is not None:
+            return visitor._resource_type(self.resource_type)
+        if self._type == 'workspace' and self.workspace is not None:
+            return visitor._workspace(self.workspace)
+
+
+scout_savedviews_api_SearchSavedViewsQuery.__name__ = "SearchSavedViewsQuery"
+scout_savedviews_api_SearchSavedViewsQuery.__qualname__ = "SearchSavedViewsQuery"
+scout_savedviews_api_SearchSavedViewsQuery.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SearchSavedViewsQueryVisitor:
+
+    @abstractmethod
+    def _and(self, and_: "scout_savedviews_api_SearchSavedViewsQueryList") -> Any:
+        pass
+
+    @abstractmethod
+    def _or(self, or_: "scout_savedviews_api_SearchSavedViewsQueryList") -> Any:
+        pass
+
+    @abstractmethod
+    def _not(self, not_: "scout_savedviews_api_SearchSavedViewsQuery") -> Any:
+        pass
+
+    @abstractmethod
+    def _title_exact_substring_search(self, title_exact_substring_search: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _resource_type(self, resource_type: "scout_savedviews_api_ResourceType") -> Any:
+        pass
+
+    @abstractmethod
+    def _workspace(self, workspace: str) -> Any:
+        pass
+
+
+scout_savedviews_api_SearchSavedViewsQueryVisitor.__name__ = "SearchSavedViewsQueryVisitor"
+scout_savedviews_api_SearchSavedViewsQueryVisitor.__qualname__ = "SearchSavedViewsQueryVisitor"
+scout_savedviews_api_SearchSavedViewsQueryVisitor.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SearchSavedViewsQueryList(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'queries': ConjureFieldDefinition('queries', List[scout_savedviews_api_SearchSavedViewsQuery])
+        }
+
+    __slots__: List[str] = ['_queries']
+
+    def __init__(self, queries: List["scout_savedviews_api_SearchSavedViewsQuery"]) -> None:
+        self._queries = queries
+
+    @builtins.property
+    def queries(self) -> List["scout_savedviews_api_SearchSavedViewsQuery"]:
+        return self._queries
+
+
+scout_savedviews_api_SearchSavedViewsQueryList.__name__ = "SearchSavedViewsQueryList"
+scout_savedviews_api_SearchSavedViewsQueryList.__qualname__ = "SearchSavedViewsQueryList"
+scout_savedviews_api_SearchSavedViewsQueryList.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SearchSavedViewsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'query': ConjureFieldDefinition('query', scout_savedviews_api_SearchSavedViewsQuery),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token]),
+            'page_size': ConjureFieldDefinition('pageSize', OptionalTypeWrapper[int])
+        }
+
+    __slots__: List[str] = ['_query', '_next_page_token', '_page_size']
+
+    def __init__(self, query: "scout_savedviews_api_SearchSavedViewsQuery", next_page_token: Optional[str] = None, page_size: Optional[int] = None) -> None:
+        self._query = query
+        self._next_page_token = next_page_token
+        self._page_size = page_size
+
+    @builtins.property
+    def query(self) -> "scout_savedviews_api_SearchSavedViewsQuery":
+        return self._query
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+    @builtins.property
+    def page_size(self) -> Optional[int]:
+        """Defaults to 100. Will throw if larger than 1_000.
+        """
+        return self._page_size
+
+
+scout_savedviews_api_SearchSavedViewsRequest.__name__ = "SearchSavedViewsRequest"
+scout_savedviews_api_SearchSavedViewsRequest.__qualname__ = "SearchSavedViewsRequest"
+scout_savedviews_api_SearchSavedViewsRequest.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SearchSavedViewsResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'saved_views': ConjureFieldDefinition('savedViews', List[scout_savedviews_api_SavedView]),
+            'next_page_token': ConjureFieldDefinition('nextPageToken', OptionalTypeWrapper[api_Token])
+        }
+
+    __slots__: List[str] = ['_saved_views', '_next_page_token']
+
+    def __init__(self, saved_views: List["scout_savedviews_api_SavedView"], next_page_token: Optional[str] = None) -> None:
+        self._saved_views = saved_views
+        self._next_page_token = next_page_token
+
+    @builtins.property
+    def saved_views(self) -> List["scout_savedviews_api_SavedView"]:
+        return self._saved_views
+
+    @builtins.property
+    def next_page_token(self) -> Optional[str]:
+        return self._next_page_token
+
+
+scout_savedviews_api_SearchSavedViewsResponse.__name__ = "SearchSavedViewsResponse"
+scout_savedviews_api_SearchSavedViewsResponse.__qualname__ = "SearchSavedViewsResponse"
+scout_savedviews_api_SearchSavedViewsResponse.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SearchState(ConjureUnionType):
+    _asset: Optional["scout_savedviews_api_AssetSearchState"] = None
+    _run: Optional["scout_savedviews_api_RunSearchState"] = None
+    _checklist: Optional["scout_savedviews_api_ChecklistSearchState"] = None
+    _workbook: Optional["scout_savedviews_api_WorkbookSearchState"] = None
+    _template: Optional["scout_savedviews_api_TemplateSearchState"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset': ConjureFieldDefinition('asset', scout_savedviews_api_AssetSearchState),
+            'run': ConjureFieldDefinition('run', scout_savedviews_api_RunSearchState),
+            'checklist': ConjureFieldDefinition('checklist', scout_savedviews_api_ChecklistSearchState),
+            'workbook': ConjureFieldDefinition('workbook', scout_savedviews_api_WorkbookSearchState),
+            'template': ConjureFieldDefinition('template', scout_savedviews_api_TemplateSearchState)
+        }
+
+    def __init__(
+            self,
+            asset: Optional["scout_savedviews_api_AssetSearchState"] = None,
+            run: Optional["scout_savedviews_api_RunSearchState"] = None,
+            checklist: Optional["scout_savedviews_api_ChecklistSearchState"] = None,
+            workbook: Optional["scout_savedviews_api_WorkbookSearchState"] = None,
+            template: Optional["scout_savedviews_api_TemplateSearchState"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (asset is not None) + (run is not None) + (checklist is not None) + (workbook is not None) + (template is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if asset is not None:
+                self._asset = asset
+                self._type = 'asset'
+            if run is not None:
+                self._run = run
+                self._type = 'run'
+            if checklist is not None:
+                self._checklist = checklist
+                self._type = 'checklist'
+            if workbook is not None:
+                self._workbook = workbook
+                self._type = 'workbook'
+            if template is not None:
+                self._template = template
+                self._type = 'template'
+
+        elif type_of_union == 'asset':
+            if asset is None:
+                raise ValueError('a union value must not be None')
+            self._asset = asset
+            self._type = 'asset'
+        elif type_of_union == 'run':
+            if run is None:
+                raise ValueError('a union value must not be None')
+            self._run = run
+            self._type = 'run'
+        elif type_of_union == 'checklist':
+            if checklist is None:
+                raise ValueError('a union value must not be None')
+            self._checklist = checklist
+            self._type = 'checklist'
+        elif type_of_union == 'workbook':
+            if workbook is None:
+                raise ValueError('a union value must not be None')
+            self._workbook = workbook
+            self._type = 'workbook'
+        elif type_of_union == 'template':
+            if template is None:
+                raise ValueError('a union value must not be None')
+            self._template = template
+            self._type = 'template'
+
+    @builtins.property
+    def asset(self) -> Optional["scout_savedviews_api_AssetSearchState"]:
+        return self._asset
+
+    @builtins.property
+    def run(self) -> Optional["scout_savedviews_api_RunSearchState"]:
+        return self._run
+
+    @builtins.property
+    def checklist(self) -> Optional["scout_savedviews_api_ChecklistSearchState"]:
+        return self._checklist
+
+    @builtins.property
+    def workbook(self) -> Optional["scout_savedviews_api_WorkbookSearchState"]:
+        return self._workbook
+
+    @builtins.property
+    def template(self) -> Optional["scout_savedviews_api_TemplateSearchState"]:
+        return self._template
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_savedviews_api_SearchStateVisitor):
+            raise ValueError('{} is not an instance of scout_savedviews_api_SearchStateVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'asset' and self.asset is not None:
+            return visitor._asset(self.asset)
+        if self._type == 'run' and self.run is not None:
+            return visitor._run(self.run)
+        if self._type == 'checklist' and self.checklist is not None:
+            return visitor._checklist(self.checklist)
+        if self._type == 'workbook' and self.workbook is not None:
+            return visitor._workbook(self.workbook)
+        if self._type == 'template' and self.template is not None:
+            return visitor._template(self.template)
+
+
+scout_savedviews_api_SearchState.__name__ = "SearchState"
+scout_savedviews_api_SearchState.__qualname__ = "SearchState"
+scout_savedviews_api_SearchState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_SearchStateVisitor:
+
+    @abstractmethod
+    def _asset(self, asset: "scout_savedviews_api_AssetSearchState") -> Any:
+        pass
+
+    @abstractmethod
+    def _run(self, run: "scout_savedviews_api_RunSearchState") -> Any:
+        pass
+
+    @abstractmethod
+    def _checklist(self, checklist: "scout_savedviews_api_ChecklistSearchState") -> Any:
+        pass
+
+    @abstractmethod
+    def _workbook(self, workbook: "scout_savedviews_api_WorkbookSearchState") -> Any:
+        pass
+
+    @abstractmethod
+    def _template(self, template: "scout_savedviews_api_TemplateSearchState") -> Any:
+        pass
+
+
+scout_savedviews_api_SearchStateVisitor.__name__ = "SearchStateVisitor"
+scout_savedviews_api_SearchStateVisitor.__qualname__ = "SearchStateVisitor"
+scout_savedviews_api_SearchStateVisitor.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_TableState(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'column_visibility': ConjureFieldDefinition('columnVisibility', OptionalTypeWrapper[Dict[scout_savedviews_api_ColumnId, bool]]),
+            'column_sizing': ConjureFieldDefinition('columnSizing', OptionalTypeWrapper[Dict[scout_savedviews_api_ColumnId, int]]),
+            'column_order': ConjureFieldDefinition('columnOrder', OptionalTypeWrapper[List[scout_savedviews_api_ColumnId]]),
+            'column_pinning': ConjureFieldDefinition('columnPinning', OptionalTypeWrapper[scout_savedviews_api_ColumnPinningState])
+        }
+
+    __slots__: List[str] = ['_column_visibility', '_column_sizing', '_column_order', '_column_pinning']
+
+    def __init__(self, column_order: Optional[List[str]] = None, column_pinning: Optional["scout_savedviews_api_ColumnPinningState"] = None, column_sizing: Optional[Dict[str, int]] = None, column_visibility: Optional[Dict[str, bool]] = None) -> None:
+        self._column_visibility = column_visibility
+        self._column_sizing = column_sizing
+        self._column_order = column_order
+        self._column_pinning = column_pinning
+
+    @builtins.property
+    def column_visibility(self) -> Optional[Dict[str, bool]]:
+        return self._column_visibility
+
+    @builtins.property
+    def column_sizing(self) -> Optional[Dict[str, int]]:
+        return self._column_sizing
+
+    @builtins.property
+    def column_order(self) -> Optional[List[str]]:
+        return self._column_order
+
+    @builtins.property
+    def column_pinning(self) -> Optional["scout_savedviews_api_ColumnPinningState"]:
+        return self._column_pinning
+
+
+scout_savedviews_api_TableState.__name__ = "TableState"
+scout_savedviews_api_TableState.__qualname__ = "TableState"
+scout_savedviews_api_TableState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_TemplateSearchState(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sort': ConjureFieldDefinition('sort', scout_template_api_SortBy),
+            'query': ConjureFieldDefinition('query', scout_template_api_SearchTemplatesQuery)
+        }
+
+    __slots__: List[str] = ['_sort', '_query']
+
+    def __init__(self, query: "scout_template_api_SearchTemplatesQuery", sort: "scout_template_api_SortBy") -> None:
+        self._sort = sort
+        self._query = query
+
+    @builtins.property
+    def sort(self) -> "scout_template_api_SortBy":
+        return self._sort
+
+    @builtins.property
+    def query(self) -> "scout_template_api_SearchTemplatesQuery":
+        return self._query
+
+
+scout_savedviews_api_TemplateSearchState.__name__ = "TemplateSearchState"
+scout_savedviews_api_TemplateSearchState.__qualname__ = "TemplateSearchState"
+scout_savedviews_api_TemplateSearchState.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_UnarchiveSavedViewsRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'saved_view_rids': ConjureFieldDefinition('savedViewRids', List[scout_rids_api_SavedViewRid])
+        }
+
+    __slots__: List[str] = ['_saved_view_rids']
+
+    def __init__(self, saved_view_rids: List[str]) -> None:
+        self._saved_view_rids = saved_view_rids
+
+    @builtins.property
+    def saved_view_rids(self) -> List[str]:
+        return self._saved_view_rids
+
+
+scout_savedviews_api_UnarchiveSavedViewsRequest.__name__ = "UnarchiveSavedViewsRequest"
+scout_savedviews_api_UnarchiveSavedViewsRequest.__qualname__ = "UnarchiveSavedViewsRequest"
+scout_savedviews_api_UnarchiveSavedViewsRequest.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_UpdateColor(ConjureUnionType):
+    _color: Optional["scout_api_Color"] = None
+    _clear_color: Optional["api_Empty"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'color': ConjureFieldDefinition('color', scout_api_Color),
+            'clear_color': ConjureFieldDefinition('clearColor', api_Empty)
+        }
+
+    def __init__(
+            self,
+            color: Optional["scout_api_Color"] = None,
+            clear_color: Optional["api_Empty"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (color is not None) + (clear_color is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if color is not None:
+                self._color = color
+                self._type = 'color'
+            if clear_color is not None:
+                self._clear_color = clear_color
+                self._type = 'clearColor'
+
+        elif type_of_union == 'color':
+            if color is None:
+                raise ValueError('a union value must not be None')
+            self._color = color
+            self._type = 'color'
+        elif type_of_union == 'clearColor':
+            if clear_color is None:
+                raise ValueError('a union value must not be None')
+            self._clear_color = clear_color
+            self._type = 'clearColor'
+
+    @builtins.property
+    def color(self) -> Optional["scout_api_Color"]:
+        return self._color
+
+    @builtins.property
+    def clear_color(self) -> Optional["api_Empty"]:
+        return self._clear_color
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_savedviews_api_UpdateColorVisitor):
+            raise ValueError('{} is not an instance of scout_savedviews_api_UpdateColorVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'color' and self.color is not None:
+            return visitor._color(self.color)
+        if self._type == 'clearColor' and self.clear_color is not None:
+            return visitor._clear_color(self.clear_color)
+
+
+scout_savedviews_api_UpdateColor.__name__ = "UpdateColor"
+scout_savedviews_api_UpdateColor.__qualname__ = "UpdateColor"
+scout_savedviews_api_UpdateColor.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_UpdateColorVisitor:
+
+    @abstractmethod
+    def _color(self, color: "scout_api_Color") -> Any:
+        pass
+
+    @abstractmethod
+    def _clear_color(self, clear_color: "api_Empty") -> Any:
+        pass
+
+
+scout_savedviews_api_UpdateColorVisitor.__name__ = "UpdateColorVisitor"
+scout_savedviews_api_UpdateColorVisitor.__qualname__ = "UpdateColorVisitor"
+scout_savedviews_api_UpdateColorVisitor.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_UpdateSavedViewRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
+            'symbol': ConjureFieldDefinition('symbol', OptionalTypeWrapper[scout_savedviews_api_UpdateSymbol]),
+            'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_savedviews_api_UpdateColor]),
+            'search_state': ConjureFieldDefinition('searchState', OptionalTypeWrapper[scout_savedviews_api_SearchState]),
+            'display_state': ConjureFieldDefinition('displayState', OptionalTypeWrapper[scout_savedviews_api_DisplayState])
+        }
+
+    __slots__: List[str] = ['_title', '_symbol', '_color', '_search_state', '_display_state']
+
+    def __init__(self, color: Optional["scout_savedviews_api_UpdateColor"] = None, display_state: Optional["scout_savedviews_api_DisplayState"] = None, search_state: Optional["scout_savedviews_api_SearchState"] = None, symbol: Optional["scout_savedviews_api_UpdateSymbol"] = None, title: Optional[str] = None) -> None:
+        self._title = title
+        self._symbol = symbol
+        self._color = color
+        self._search_state = search_state
+        self._display_state = display_state
+
+    @builtins.property
+    def title(self) -> Optional[str]:
+        return self._title
+
+    @builtins.property
+    def symbol(self) -> Optional["scout_savedviews_api_UpdateSymbol"]:
+        return self._symbol
+
+    @builtins.property
+    def color(self) -> Optional["scout_savedviews_api_UpdateColor"]:
+        return self._color
+
+    @builtins.property
+    def search_state(self) -> Optional["scout_savedviews_api_SearchState"]:
+        return self._search_state
+
+    @builtins.property
+    def display_state(self) -> Optional["scout_savedviews_api_DisplayState"]:
+        return self._display_state
+
+
+scout_savedviews_api_UpdateSavedViewRequest.__name__ = "UpdateSavedViewRequest"
+scout_savedviews_api_UpdateSavedViewRequest.__qualname__ = "UpdateSavedViewRequest"
+scout_savedviews_api_UpdateSavedViewRequest.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_UpdateSavedViewResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'saved_view': ConjureFieldDefinition('savedView', scout_savedviews_api_SavedView)
+        }
+
+    __slots__: List[str] = ['_saved_view']
+
+    def __init__(self, saved_view: "scout_savedviews_api_SavedView") -> None:
+        self._saved_view = saved_view
+
+    @builtins.property
+    def saved_view(self) -> "scout_savedviews_api_SavedView":
+        return self._saved_view
+
+
+scout_savedviews_api_UpdateSavedViewResponse.__name__ = "UpdateSavedViewResponse"
+scout_savedviews_api_UpdateSavedViewResponse.__qualname__ = "UpdateSavedViewResponse"
+scout_savedviews_api_UpdateSavedViewResponse.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_UpdateSymbol(ConjureUnionType):
+    _symbol: Optional["scout_api_Symbol"] = None
+    _clear_symbol: Optional["api_Empty"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'symbol': ConjureFieldDefinition('symbol', scout_api_Symbol),
+            'clear_symbol': ConjureFieldDefinition('clearSymbol', api_Empty)
+        }
+
+    def __init__(
+            self,
+            symbol: Optional["scout_api_Symbol"] = None,
+            clear_symbol: Optional["api_Empty"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (symbol is not None) + (clear_symbol is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if symbol is not None:
+                self._symbol = symbol
+                self._type = 'symbol'
+            if clear_symbol is not None:
+                self._clear_symbol = clear_symbol
+                self._type = 'clearSymbol'
+
+        elif type_of_union == 'symbol':
+            if symbol is None:
+                raise ValueError('a union value must not be None')
+            self._symbol = symbol
+            self._type = 'symbol'
+        elif type_of_union == 'clearSymbol':
+            if clear_symbol is None:
+                raise ValueError('a union value must not be None')
+            self._clear_symbol = clear_symbol
+            self._type = 'clearSymbol'
+
+    @builtins.property
+    def symbol(self) -> Optional["scout_api_Symbol"]:
+        return self._symbol
+
+    @builtins.property
+    def clear_symbol(self) -> Optional["api_Empty"]:
+        return self._clear_symbol
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_savedviews_api_UpdateSymbolVisitor):
+            raise ValueError('{} is not an instance of scout_savedviews_api_UpdateSymbolVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'symbol' and self.symbol is not None:
+            return visitor._symbol(self.symbol)
+        if self._type == 'clearSymbol' and self.clear_symbol is not None:
+            return visitor._clear_symbol(self.clear_symbol)
+
+
+scout_savedviews_api_UpdateSymbol.__name__ = "UpdateSymbol"
+scout_savedviews_api_UpdateSymbol.__qualname__ = "UpdateSymbol"
+scout_savedviews_api_UpdateSymbol.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_UpdateSymbolVisitor:
+
+    @abstractmethod
+    def _symbol(self, symbol: "scout_api_Symbol") -> Any:
+        pass
+
+    @abstractmethod
+    def _clear_symbol(self, clear_symbol: "api_Empty") -> Any:
+        pass
+
+
+scout_savedviews_api_UpdateSymbolVisitor.__name__ = "UpdateSymbolVisitor"
+scout_savedviews_api_UpdateSymbolVisitor.__qualname__ = "UpdateSymbolVisitor"
+scout_savedviews_api_UpdateSymbolVisitor.__module__ = "nominal_api.scout_savedviews_api"
+
+
+class scout_savedviews_api_WorkbookSearchState(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'sort': ConjureFieldDefinition('sort', scout_notebook_api_SortBy),
+            'query': ConjureFieldDefinition('query', scout_notebook_api_SearchNotebooksQuery)
+        }
+
+    __slots__: List[str] = ['_sort', '_query']
+
+    def __init__(self, query: "scout_notebook_api_SearchNotebooksQuery", sort: "scout_notebook_api_SortBy") -> None:
+        self._sort = sort
+        self._query = query
+
+    @builtins.property
+    def sort(self) -> "scout_notebook_api_SortBy":
+        return self._sort
+
+    @builtins.property
+    def query(self) -> "scout_notebook_api_SearchNotebooksQuery":
+        return self._query
+
+
+scout_savedviews_api_WorkbookSearchState.__name__ = "WorkbookSearchState"
+scout_savedviews_api_WorkbookSearchState.__qualname__ = "WorkbookSearchState"
+scout_savedviews_api_WorkbookSearchState.__module__ = "nominal_api.scout_savedviews_api"
 
 
 class scout_template_api_CommitTemplateRequest(ConjureBeanType):
@@ -89789,6 +91410,8 @@ ingest_api_IngestJobRid = str
 
 scout_compute_api_ErrorType = str
 
+scout_rids_api_SavedViewRid = str
+
 scout_rids_api_FunctionLineageRid = str
 
 timeseries_logicalseries_api_DatabaseName = str
@@ -89822,6 +91445,8 @@ scout_versioning_api_TagRid = str
 scout_chartdefinition_api_AxisId = str
 
 scout_datasource_connection_api_SchemaName = str
+
+scout_savedviews_api_ColumnId = str
 
 scout_api_HexColor = str
 

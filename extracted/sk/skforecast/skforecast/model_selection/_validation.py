@@ -25,7 +25,11 @@ from ..model_selection._utils import (
     _extract_data_folds_multiseries,
     _calculate_metrics_backtesting_multiseries
 )
-from ..utils import set_skforecast_warnings
+from ..utils import (
+    check_preprocess_series,
+    check_preprocess_exog_multiseries,
+    set_skforecast_warnings
+)
 
 
 def _backtesting_forecaster(
@@ -238,10 +242,10 @@ def _backtesting_forecaster(
                 f" amounts of time. If not feasible, try with `refit = False`.\n",
                 LongTrainingWarning
             )
-        elif type(forecaster).__name__ == 'ForecasterDirect' and n_of_fits * forecaster.steps > 50:
+        elif type(forecaster).__name__ == 'ForecasterDirect' and n_of_fits * forecaster.max_step > 50:
             warnings.warn(
-                f"The forecaster will be fit {n_of_fits * forecaster.steps} times "
-                f"({n_of_fits} folds * {forecaster.steps} regressors). This can take "
+                f"The forecaster will be fit {n_of_fits * forecaster.max_step} times "
+                f"({n_of_fits} folds * {forecaster.max_step} regressors). This can take "
                 f"substantial amounts of time. If not feasible, try with `refit = False`.\n",
                 LongTrainingWarning
             )
@@ -846,10 +850,10 @@ def _backtesting_forecaster_multiseries(
                 f"amounts of time. If not feasible, try with `refit = False`.\n",
                 LongTrainingWarning,
             )
-        elif type(forecaster).__name__ == 'ForecasterDirectMultiVariate' and n_of_fits * forecaster.steps > 50:
+        elif type(forecaster).__name__ == 'ForecasterDirectMultiVariate' and n_of_fits * forecaster.max_step > 50:
             warnings.warn(
-                f"The forecaster will be fit {n_of_fits * forecaster.steps} times "
-                f"({n_of_fits} folds * {forecaster.steps} regressors). This can take "
+                f"The forecaster will be fit {n_of_fits * forecaster.max_step} times "
+                f"({n_of_fits} folds * {forecaster.max_step} regressors). This can take "
                 f"substantial amounts of time. If not feasible, try with `refit = False`.\n",
                 LongTrainingWarning
             )
@@ -956,7 +960,8 @@ def _backtesting_forecaster_multiseries(
             preds.insert(0, pred)
 
         if return_predictors:
-            # TODO: Check if this works in the ForecasterRNN
+            # NOTE: ForecasterRNN is not allowed for return_predictors as it 
+            # returns two DataFrames, X_predict, exog_predict.
             # NOTE: Remove column 'level' as it already exists from predict()
             pred = forecaster.create_predict_X(
                        steps             = steps,
@@ -1223,6 +1228,22 @@ def backtesting_forecaster_multiseries(
             f"for all other types of forecasters use the functions available in "
             f"the `model_selection` module. Got {forecaster_name}"
         )
+    
+    set_skforecast_warnings(suppress_warnings, action='ignore')
+    
+    if forecaster_name == 'ForecasterRecursiveMultiSeries':
+        series, series_indexes = check_preprocess_series(series)
+        if exog is not None:
+            series_names_in_ = list(series.keys())
+            exog_dict = {serie: None for serie in series_names_in_}
+            exog, _ = check_preprocess_exog_multiseries(
+                          series_names_in_  = series_names_in_,
+                          series_index_type = type(series_indexes[series_names_in_[0]]),
+                          exog              = exog,
+                          exog_dict         = exog_dict
+                      )
+    
+    set_skforecast_warnings(suppress_warnings, action='default')
     
     check_backtesting_input(
         forecaster              = forecaster,

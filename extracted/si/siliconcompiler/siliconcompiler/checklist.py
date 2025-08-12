@@ -10,7 +10,16 @@ from siliconcompiler import NodeStatus, utils
 
 
 class ChecklistSchema(NamedSchema):
+    """
+    A class for managing design checklists and their verification.
+    """
     def __init__(self, name=None):
+        """
+        Initializes the ChecklistSchema object.
+
+        Args:
+            name (str, optional): The name of the checklist standard. Defaults to None.
+        """
         super().__init__()
         self.set_name(name)
 
@@ -57,7 +66,7 @@ class ChecklistSchema(NamedSchema):
         assert hasattr(schema_root, "history"), f"{schema_root}"
 
         if logger:
-            logger.info(f'Checking checklist {self.name()}')
+            logger.info(f'Checking checklist {self.name}')
 
         if items is None:
             items = self.getkeys()
@@ -72,7 +81,7 @@ class ChecklistSchema(NamedSchema):
         for item in items:
             if item not in self.getkeys():
                 if logger:
-                    logger.error(f'{item} is not a check in {self.name()}.')
+                    logger.error(f'{item} is not a check in {self.name}.')
                 error = True
                 continue
 
@@ -210,11 +219,25 @@ class ChecklistSchema(NamedSchema):
 
         return not error
 
+    @classmethod
+    def _getdict_type(cls) -> str:
+        """
+        Returns the meta data for getdict
+        """
+
+        return ChecklistSchema.__name__
+
 
 ############################################
 # Design Checklist
 ############################################
 def schema_checklist(schema):
+    """
+    Adds checklist schema parameters to the given schema.
+
+    Args:
+        schema (EditableSchema): The schema to modify.
+    """
     schema = EditableSchema(schema)
 
     item = 'default'

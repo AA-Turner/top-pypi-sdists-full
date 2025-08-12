@@ -1,4 +1,4 @@
-"""Tests for multiprocess."""
+"""Tests for hooks of multiprocess."""
 
 from __future__ import annotations
 
@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from cx_Freeze._compat import IS_ARM_64, IS_CONDA, IS_LINUX, IS_WINDOWS
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-pytest.importorskip(
-    "multiprocess", reason="Depends on extra package: multiprocess"
-)
+TIMEOUT_ULTRA_VERY_SLOW = 240 if IS_CONDA else 60
 
 SOURCE = """\
 sample0.py
@@ -70,6 +70,7 @@ pyproject.toml
     name = "test_mp"
     version = "0.1.2.3"
     description = "Sample for test with cx_Freeze"
+    dependencies = ["multiprocess"]
 
     [tool.cxfreeze]
     executables = ["sample0.py", "sample1.py", "sample2.py", "sample3.py"]
@@ -87,7 +88,7 @@ EXPECTED_OUTPUT = [
 
 
 def _parameters_data() -> Iterator:
-    import multiprocess as mp
+    import multiprocessing as mp
 
     methods = mp.get_all_start_methods()
     for method in methods:
@@ -98,9 +99,17 @@ def _parameters_data() -> Iterator:
             sample = f"sample{i}"
             test_id = f"{sample}-{method}"
             yield pytest.param(source, sample, expected, False, id=test_id)
-            # zip_packages test removed, too slow
+            # zip_packages tests removed, multiprocess is too slow
 
 
+@pytest.mark.skipif(not IS_LINUX, reason="Disabled test")
+@pytest.mark.xfail(
+    IS_WINDOWS and IS_ARM_64,
+    raises=ModuleNotFoundError,
+    reason="multiprocess does not support Windows arm64",
+    strict=True,
+)
+@pytest.mark.venv(scope="module")
 @pytest.mark.parametrize(
     ("source", "sample", "expected", "zip_packages"), _parameters_data()
 )
@@ -110,15 +119,17 @@ def test_multiprocess(
     """Provides test cases for multiprocess."""
     tmp_package.create(source)
     if zip_packages:
-        output = tmp_package.run(
-            "cxfreeze build_exe"
-            " --zip-include-packages=* --zip-exclude-packages="
-        )
-    else:
-        output = tmp_package.run()
+        pyproject = tmp_package.path / "pyproject.toml"
+        buf = pyproject.read_bytes().decode().splitlines()
+        buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
+        pyproject.write_bytes("\n".join(buf).encode("utf_8"))
+    tmp_package.freeze()
+
     executable = tmp_package.executable(sample)
     assert executable.is_file()
     # use a higher timeout because when using dill it is up to 25x slower
     # sample3 using multiprocessing/pickler runs in 0,543s x 13,591s
-    output = tmp_package.run(executable, cwd=executable.parent, timeout=30)
-    assert output.splitlines()[-1] == expected
+    result = tmp_package.run(
+        executable, cwd=executable.parent, timeout=TIMEOUT_ULTRA_VERY_SLOW
+    )
+    result.stdout.fnmatch_lines(expected)

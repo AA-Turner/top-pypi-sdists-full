@@ -1,8 +1,7 @@
 """
-Crop Weed Detection Post-Processing Use Case
-========================================================
-This module implements the Crop weed detection use case for crop weed detection.
-It processes detection results, applies category mapping, performs bbox smoothing, and generates alerts for detected weeds (yet to be implemented).
+Crop weed detection usecase
+This module provides functionality for detecting crops in images or video streams.
+
 """
 
 from typing import Any, Dict, List, Optional
@@ -29,7 +28,7 @@ from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 
 @dataclass
 class CropWeedDetectionConfig(BaseConfig):
-    """Configuration for crop weed detection use case in crop weed detection."""
+    """Configuration for crop weed detection use case."""
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
@@ -38,34 +37,35 @@ class CropWeedDetectionConfig(BaseConfig):
     smoothing_confidence_range_factor: float = 0.5
 
     # confidence thresholds
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.4
 
     usecase_categories: List[str] = field(
         default_factory=lambda: ['plants', 'BroWeed', 'Maize', 'NarWeed']
     )
 
     target_categories: List[str] = field(
-        default_factory=lambda: ['BroWeed', 'Maize', 'NarWeed']
+        default_factory=lambda: ['plants', 'BroWeed', 'Maize', 'NarWeed']
     )
 
     alert_config: Optional[AlertConfig] = None
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: 'plants', 
-            1: 'BroWeed', 
-            2: 'Maize', 
+            0: 'plants',
+            1: 'BroWeed',
+            2: 'Maize',
             3: 'NarWeed'
         }
     )
 
+
 class CropWeedDetectionUseCase(BaseProcessor):
     # Human-friendly display names for categories
     CATEGORY_DISPLAY = {
-        "weed": "weed",
-        "BroWeed": "BroWeed",
+        "plants": "Plants",
+        "BroWeed": "Bro Weed",
         "Maize": "Maize",
-        "NarWeed": "NarWeed"
+        "NarWeed": "Nar Weed"
     }
     def __init__(self):
         super().__init__("crop_weed_detection")
@@ -75,7 +75,8 @@ class CropWeedDetectionUseCase(BaseProcessor):
         self.CASE_VERSION: Optional[str] = '1.2'
 
         # List of  categories to track
-        self.target_categories = ['BroWeed', 'Maize', 'NarWeed']
+        self.target_categories = ['plants', 'BroWeed', 'Maize', 'NarWeed']
+
 
         # Initialize smoothing tracker
         self.smoothing_tracker = None
@@ -98,6 +99,7 @@ class CropWeedDetectionUseCase(BaseProcessor):
 
         self._ascending_alert_list: List[int] = []
         self.current_incident_end_timestamp: str = "N/A"
+
 
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
                 stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
@@ -124,7 +126,6 @@ class CropWeedDetectionUseCase(BaseProcessor):
             self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
         else:
             processed_data = data
-            
             self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
 
         # Step 2: Apply category mapping if provided
@@ -150,11 +151,13 @@ class CropWeedDetectionUseCase(BaseProcessor):
                 self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
             processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
 
+
         # Advanced tracking (BYTETracker-like)
         try:
             from ..advanced_tracker import AdvancedTracker
             from ..advanced_tracker.config import TrackerConfig
 
+            # Create tracker instance if it doesn't exist (preserves state across frames)
             
             if self.tracker is None:
                 if config.confidence_threshold is not None:
@@ -445,22 +448,20 @@ class CropWeedDetectionUseCase(BaseProcessor):
 
         # Prepare detections without confidence scores (as per eg.json)
         detections = []
+
         for detection in counting_summary.get("detections", []):
-            bbox = detection.get("bounding_box", {})
-            category = detection.get("category", "person")
+            detection_data = {
+                "category": detection.get("category"),
+                "bounding_box": detection.get("bounding_box", {})
+            }
             # Include segmentation if available (like in eg.json)
             if detection.get("masks"):
-                segmentation= detection.get("masks", [])
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            elif detection.get("segmentation"):
-                segmentation= detection.get("segmentation")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            elif detection.get("mask"):
-                segmentation= detection.get("mask")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            else:
-                detection_obj = self.create_detection_object(category, bbox)
-            detections.append(detection_obj)
+                detection_data["masks"] = detection.get("masks", [])
+            if detection.get("segmentation"):
+                detection_data["segmentation"] = detection.get("segmentation")
+            if detection.get("mask"):
+                detection_data["mask"] = detection.get("mask")
+            detections.append(detection_data)
 
         # Build alert_settings array in expected format
         alert_settings = []
@@ -511,7 +512,7 @@ class CropWeedDetectionUseCase(BaseProcessor):
 
         tracking_stats.append(tracking_stat)
         return tracking_stats
-
+    
     def _generate_business_analytics(self, counting_summary: Dict, alerts:Any, config: CropWeedDetectionConfig, stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
         """Generate standardized business analytics for the agg_summary structure."""
         if is_empty:
@@ -596,7 +597,7 @@ class CropWeedDetectionUseCase(BaseProcessor):
         """
         return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
 
-    
+
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
         """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
@@ -683,8 +684,7 @@ class CropWeedDetectionUseCase(BaseProcessor):
             # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
-
-
+    
     def _count_categories(self, detections: list, config: CropWeedDetectionConfig) -> dict:
         """
         Count the number of detections per category and return a summary dict.
@@ -710,6 +710,7 @@ class CropWeedDetectionUseCase(BaseProcessor):
                 for det in detections
             ]
         }
+
 
     def _extract_predictions(self, detections: list) -> List[Dict[str, Any]]:
         """

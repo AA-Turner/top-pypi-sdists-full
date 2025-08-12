@@ -12,6 +12,38 @@ import System.Security
 import System.Security.Permissions
 
 
+class VerificationException(System.SystemException):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
+        ...
+
+
+class UnverifiableCodeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
 class SecurityException(System.SystemException):
     """This class has no documentation."""
 
@@ -132,10 +164,66 @@ class SecurityException(System.SystemException):
         ...
 
 
-class UnverifiableCodeAttribute(System.Attribute):
+class SecurityRuleSet(Enum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    LEVEL_1 = 1
+
+    LEVEL_2 = 2
+
+    def __int__(self) -> int:
+        ...
+
+
+class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
+        ...
+
+
+class SecureString(System.Object, System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    def append_char(self, c: str) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def copy(self) -> System.Security.SecureString:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def insert_at(self, index: int, c: str) -> None:
+        ...
+
+    def is_read_only(self) -> bool:
+        ...
+
+    def make_read_only(self) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
+        ...
+
+    def set_at(self, index: int, c: str) -> None:
         ...
 
 
@@ -260,77 +348,7 @@ class IPermission(System.Security.ISecurityEncodable, metaclass=abc.ABCMeta):
         ...
 
 
-class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class SecurityRuleSet(Enum):
-    """This class has no documentation."""
-
-    NONE = 0
-
-    LEVEL_1 = 1
-
-    LEVEL_2 = 2
-
-    def __int__(self) -> int:
-        ...
-
-
-class SecurityTreatAsSafeAttribute(System.Attribute):
-    """SecurityTreatAsSafe is only used for .NET 2.0 transparency compatibility. Use the SecuritySafeCriticalAttribute instead."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class SecureString(System.Object, System.IDisposable):
-    """This class has no documentation."""
-
-    @property
-    def length(self) -> int:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any, length: int) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    def append_char(self, c: str) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def copy(self) -> System.Security.SecureString:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def insert_at(self, index: int, c: str) -> None:
-        ...
-
-    def is_read_only(self) -> bool:
-        ...
-
-    def make_read_only(self) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
-        ...
-
-    def set_at(self, index: int, c: str) -> None:
-        ...
-
-
-class SecurityTransparentAttribute(System.Attribute):
+class SecuritySafeCriticalAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
@@ -348,10 +366,31 @@ class SecurityCriticalScope(Enum):
         ...
 
 
-class SecuritySafeCriticalAttribute(System.Attribute):
+class SecurityCriticalAttribute(System.Attribute):
     """This class has no documentation."""
 
+    @property
+    def scope(self) -> System.Security.SecurityCriticalScope:
+        """SecurityCriticalScope is only used for .NET 2.0 transparency compatibility."""
+        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
+
+    @overload
     def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
+        ...
+
+
+class PartialTrustVisibilityLevel(Enum):
+    """This class has no documentation."""
+
+    VISIBLE_TO_ALL_HOSTS = 0
+
+    NOT_VISIBLE_BY_DEFAULT = 1
+
+    def __int__(self) -> int:
         ...
 
 
@@ -371,17 +410,6 @@ class SecurityRulesAttribute(System.Attribute):
         ...
 
     def __init__(self, rule_set: System.Security.SecurityRuleSet) -> None:
-        ...
-
-
-class PartialTrustVisibilityLevel(Enum):
-    """This class has no documentation."""
-
-    VISIBLE_TO_ALL_HOSTS = 0
-
-    NOT_VISIBLE_BY_DEFAULT = 1
-
-    def __int__(self) -> int:
         ...
 
 
@@ -413,6 +441,13 @@ class IStackWalk(metaclass=abc.ABCMeta):
         ...
 
     def permit_only(self) -> None:
+        ...
+
+
+class SecurityTransparentAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
 
@@ -540,45 +575,10 @@ class PermissionSet(System.Object, System.Collections.ICollection, System.Runtim
         ...
 
 
-class SecurityCriticalAttribute(System.Attribute):
-    """This class has no documentation."""
+class SecurityTreatAsSafeAttribute(System.Attribute):
+    """SecurityTreatAsSafe is only used for .NET 2.0 transparency compatibility. Use the SecuritySafeCriticalAttribute instead."""
 
-    @property
-    def scope(self) -> System.Security.SecurityCriticalScope:
-        """SecurityCriticalScope is only used for .NET 2.0 transparency compatibility."""
-        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
-
-    @overload
     def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
-        ...
-
-
-class VerificationException(System.SystemException):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
         ...
 
 

@@ -7,7 +7,7 @@
 from siliconcompiler.schema import BaseSchema
 from siliconcompiler.schema import SafeSchema
 from siliconcompiler.schema import EditableSchema
-from siliconcompiler.schema import CommandLineSchema
+from siliconcompiler.cmdlineschema import CommandLineSchemaTmp
 from siliconcompiler.schema import Parameter
 
 from siliconcompiler.schema.schema_cfg import schema_cfg
@@ -38,8 +38,16 @@ class Schema(BaseSchema):
 
         return super()._from_dict(manifest, keypath, version=version)
 
+    @classmethod
+    def _getdict_type(cls) -> str:
+        """
+        Returns the meta data for getdict
+        """
 
-class SchemaTmp(Schema, CommandLineSchema):
+        return Schema.__name__
+
+
+class SchemaTmp(Schema, CommandLineSchemaTmp):
     """Object for storing and accessing configuration values corresponding to
     the SiliconCompiler schema.
 
@@ -113,9 +121,18 @@ class SchemaTmp(Schema, CommandLineSchema):
             EditableSchema(self).insert("history", job, blank)
             return blank
 
+    @classmethod
+    def _getdict_type(cls) -> str:
+        """
+        Returns the meta data for getdict
+        """
+
+        return SchemaTmp.__name__
+
 
 ##############################################################################
 # Main routine
 if __name__ == "__main__":
     import json
-    print(json.dumps(SchemaTmp().getdict(), indent=4, sort_keys=True))
+    from siliconcompiler import Schema
+    print(json.dumps(Schema().getdict(), indent=4, sort_keys=True))

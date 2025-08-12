@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smolagents
-Version: 1.21.0
+Version: 1.21.1
 Summary: 🤗 smolagents: a barebones library for agents. Agents write python code to call tools or orchestrate other agents.
 Author-email: Aymeric Roucher <aymeric@hf.co>
 Requires-Python: >=3.10

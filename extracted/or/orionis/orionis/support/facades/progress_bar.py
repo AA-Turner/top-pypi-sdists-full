@@ -5,11 +5,17 @@ class ProgressBar(Facade):
     @classmethod
     def getFacadeAccessor(cls):
         """
-        Returns the binding key for the progress bar service.
+        Get the registered name of the component.
+
+        This method returns the binding key that identifies the progress bar service
+        within the service container. The facade uses this key to resolve the actual
+        progress bar implementation when static methods are called.
 
         Returns
         -------
         str
-            The unique identifier used to retrieve the progress bar service from the service container.
+            The service container binding key 'x-orionis.console.dynamic.progress_bar'
+            used to retrieve the progress bar service instance.
         """
-        return "core.orionis.progress_bar"
+
+        return "x-orionis.console.dynamic.progress_bar"

@@ -23,149 +23,6 @@ JsonConverter = typing.Any
 QuantConnect_Report_NullResultValueTypeJsonConverter_T = typing.TypeVar("QuantConnect_Report_NullResultValueTypeJsonConverter_T")
 
 
-class DrawdownPeriod(System.Object):
-    """Represents a period of time where the drawdown ranks amongst the top N drawdowns."""
-
-    @property
-    def start(self) -> datetime.datetime:
-        """Start of the drawdown period"""
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        """End of the drawdown period"""
-        ...
-
-    @property
-    def peak_to_trough(self) -> float:
-        """Loss in percent from peak to trough"""
-        ...
-
-    @property
-    def drawdown(self) -> float:
-        """Loss in percent from peak to trough - Alias for PeakToTrough"""
-        ...
-
-    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], drawdown: float) -> None:
-        """
-        Creates an instance with the given start, end, and drawdown
-        
-        :param start: Start of the drawdown period
-        :param end: End of the drawdown period
-        :param drawdown: Max drawdown of the period
-        """
-        ...
-
-
-class DrawdownCollection(System.Object):
-    """Collection of drawdowns for the given period marked by start and end date"""
-
-    @property
-    def start(self) -> datetime.datetime:
-        """Starting time of the drawdown collection"""
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        """Ending time of the drawdown collection"""
-        ...
-
-    @property
-    def periods(self) -> int:
-        """
-        Number of periods to take into consideration for the top N drawdown periods.
-        This will be the number of items contained in the Drawdowns collection.
-        """
-        ...
-
-    @property
-    def drawdowns(self) -> typing.List[QuantConnect.Report.DrawdownPeriod]:
-        """Worst drawdowns encountered"""
-        ...
-
-    @overload
-    def __init__(self, strategy_series: typing.Any, periods: int) -> None:
-        """
-        Creates an instance from the given drawdowns and the top N worst drawdowns
-        
-        :param strategy_series: Equity curve with both live and backtesting merged
-        :param periods: Periods this collection contains
-        """
-        ...
-
-    @overload
-    def __init__(self, periods: int) -> None:
-        """Creates an instance with a default collection (no items) and the top N worst drawdowns"""
-        ...
-
-    @staticmethod
-    def from_result(backtest_result: QuantConnect.Packets.BacktestResult = None, live_result: QuantConnect.Packets.LiveResult = None, periods: int = 5) -> QuantConnect.Report.DrawdownCollection:
-        """
-        Generate a new instance of DrawdownCollection from backtest and live Result derived instances
-        
-        :param backtest_result: Backtest result packet
-        :param live_result: Live result packet
-        :param periods: Top N drawdown periods to get
-        :returns: DrawdownCollection instance.
-        """
-        ...
-
-    @staticmethod
-    def get_drawdown_periods(curve: typing.Any, periods: int = 5) -> typing.Iterable[QuantConnect.Report.DrawdownPeriod]:
-        """
-        Gets the given drawdown periods from the equity curve and the set periods
-        
-        :param curve: Equity curve
-        :param periods: Top N drawdown periods to get
-        :returns: Enumerable of DrawdownPeriod.
-        """
-        ...
-
-    @staticmethod
-    def get_top_worst_drawdowns(curve: typing.Any, periods: int) -> typing.Any:
-        """
-        Gets the top N worst drawdowns and associated statistics.
-        Returns a Frame with the following keys: "duration", "cumulativeMax", "drawdown"
-        
-        :param curve: Equity curve
-        :param periods: Top N worst periods. If this is greater than the results, we retrieve all the items instead
-        :returns: Frame with the following keys: "duration", "cumulativeMax", "drawdown".
-        """
-        ...
-
-    @staticmethod
-    def get_underwater(curve: typing.Any) -> typing.Any:
-        """
-        Gets the underwater plot for the provided curve.
-        Data is expected to be the concatenated output of ResultsUtil.EquityPoints.
-        
-        :param curve: Equity curve
-        """
-        ...
-
-    @staticmethod
-    def get_underwater_frame(curve: typing.Any) -> typing.Any:
-        """
-        Gets all the data associated with the underwater plot and everything used to generate it.
-        Note that you should instead use GetUnderwater(Series{DateTime, double}) if you
-        want to just generate an underwater plot. This is internally used to get the top N worst drawdown periods.
-        
-        :param curve: Equity curve
-        :returns: Frame containing the following keys: "returns", "cumulativeMax", "drawdown".
-        """
-        ...
-
-    @staticmethod
-    def normalize_results(backtest_result: QuantConnect.Packets.BacktestResult, live_result: QuantConnect.Packets.LiveResult) -> typing.Any:
-        """
-        Normalizes the Series used to calculate the drawdown plots and charts
-        
-        :param backtest_result: Backtest result packet
-        :param live_result: Live result packet
-        """
-        ...
-
-
 class CrisisEvent(Enum):
     """Crisis Events"""
 
@@ -227,26 +84,183 @@ class CrisisEvent(Enum):
         ...
 
 
-class ResultsUtil(System.Object):
-    """Utility methods for dealing with the Result objects"""
+class DeedleUtil(System.Object):
+    """Utility extension methods for Deedle series/frames"""
 
     @staticmethod
-    def benchmark_points(result: QuantConnect.Result) -> System.Collections.Generic.SortedList[datetime.datetime, float]:
+    def cumulative_max(input: typing.Any) -> typing.Any:
+        """Calculates the cumulative max of the series. This is equal to the python pandas method: `df.cummax()`."""
+        ...
+
+    @staticmethod
+    def cumulative_product(input: typing.Any) -> typing.Any:
         """
-        Gets the points of the benchmark
+        Calculates the cumulative product of the series. This is equal to the python pandas method: `df.cumprod()`
         
-        :param result: Backtesting or live results
-        :returns: Sorted list keyed by date and value.
+        :param input: Input series
+        :returns: Cumulative product.
         """
         ...
 
     @staticmethod
-    def equity_points(result: QuantConnect.Result, series_name: str = None) -> System.Collections.Generic.SortedList[datetime.datetime, float]:
+    def cumulative_returns(input: typing.Any) -> typing.Any:
         """
-        Get the points, from the Series name given, in Strategy Equity chart
+        Calculates the cumulative returns series of the given input equity curve
         
-        :param result: Result object to extract the chart points
-        :param series_name: Series name from which the points will be extracted. By default is Equity series
+        :param input: Equity curve series
+        :returns: Cumulative returns over time.
+        """
+        ...
+
+    @staticmethod
+    def cumulative_sum(input: typing.Any) -> typing.Any:
+        """
+        Calculates the cumulative sum for the given series
+        
+        :param input: Series to calculate cumulative sum for
+        :returns: Cumulative sum in series form.
+        """
+        ...
+
+    @staticmethod
+    def percent_change(input: typing.Any) -> typing.Any:
+        """
+        Calculates the percentage change from the previous value to the current
+        
+        :param input: Series to calculate percentage change for
+        :returns: Percentage change in series form.
+        """
+        ...
+
+    @staticmethod
+    def total_returns(input: typing.Any) -> float:
+        """
+        Calculates the total returns over a period of time for the given input
+        
+        :param input: Equity curve series
+        :returns: Total returns over time.
+        """
+        ...
+
+
+class Report(System.Object):
+    """Report class"""
+
+    STATISTICS_FILE_NAME: str = "report-statistics.json"
+    """File name for statistics"""
+
+    def __init__(self, name: str, description: str, version: str, backtest: QuantConnect.Packets.BacktestResult, live: QuantConnect.Packets.LiveResult, point_in_time_portfolio_destination: str = None, css_override: str = None, html_custom: str = None) -> None:
+        """
+        Create beautiful HTML and PDF Reports based on backtest and live data.
+        
+        :param name: Name of the strategy
+        :param description: Description of the strategy
+        :param version: Version number of the strategy
+        :param backtest: Backtest result object
+        :param live: Live result object
+        :param point_in_time_portfolio_destination: Point in time portfolio json output base filename
+        :param css_override: CSS file that overrides some of the default rules defined in report.css
+        :param html_custom: Custom HTML file to replace the default template
+        """
+        ...
+
+    def compile(self, html: typing.Optional[str], report_statistics: typing.Optional[str]) -> typing.Tuple[None, str, str]:
+        """Compile the backtest data into a report"""
+        ...
+
+    @staticmethod
+    def get_regex_in_input(pattern: str, input: str) -> str:
+        """
+        Gets the regex pattern in the given input string
+        
+        :param pattern: Regex pattern to be find the input string
+        :param input: Input string that may contain the regex pattern
+        :returns: The regex pattern in the input string if found. Otherwise, null.
+        """
+        ...
+
+
+class Crisis(System.Object):
+    """Crisis events utility class"""
+
+    EVENTS: System.Collections.Generic.Dictionary[QuantConnect.Report.CrisisEvent, QuantConnect.Report.Crisis] = ...
+    """Crisis events and pre-defined values"""
+
+    @property
+    def start(self) -> datetime.datetime:
+        """Start of the crisis event"""
+        ...
+
+    @property
+    def end(self) -> datetime.datetime:
+        """End of the crisis event"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of the crisis"""
+        ...
+
+    def __init__(self, name: str, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Creates a new crisis instance with the given name and start/end date.
+        
+        :param name: Name of the crisis
+        :param start: Start date of the crisis
+        :param end: End date of the crisis
+        """
+        ...
+
+    @staticmethod
+    def from_crisis(crisis_event: QuantConnect.Report.CrisisEvent) -> QuantConnect.Report.Crisis:
+        """
+        Returns a pre-defined crisis event
+        
+        :param crisis_event: Crisis Event
+        :returns: Pre-defined crisis event.
+        """
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        """Converts instance to string using the dates in the instance as start/end dates"""
+        ...
+
+    @overload
+    def to_string(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> str:
+        """
+        Converts instance to string using the provided dates
+        
+        :param start: Start date
+        :param end: End date
+        """
+        ...
+
+
+class Rolling(System.Object):
+    """Rolling window functions"""
+
+    @staticmethod
+    def beta(performance_points: System.Collections.Generic.SortedList[datetime.datetime, float], benchmark_points: System.Collections.Generic.SortedList[datetime.datetime, float], window_size: int = 132) -> typing.Any:
+        """
+        Calculate the rolling beta with the given window size (in days)
+        
+        :param performance_points: The performance points you want to measure beta for
+        :param benchmark_points: The benchmark/points you want to calculate beta with
+        :param window_size: Days/window to lookback
+        :returns: Rolling beta.
+        """
+        ...
+
+    @staticmethod
+    def sharpe(equity_curve: typing.Any, months: int, trading_day_per_year: int) -> typing.Any:
+        """
+        Get the rolling sharpe of the given series with a lookback of . The risk free rate is adjustable
+        
+        :param equity_curve: Equity curve to calculate rolling sharpe for
+        :param months: Number of months to calculate the rolling period for
+        :param trading_day_per_year: The number of trading days per year to increase result of Annual statistics
+        :returns: Rolling sharpe ratio.
         """
         ...
 
@@ -351,126 +365,36 @@ class PointInTimePortfolio(System.Object):
         ...
 
 
-class Report(System.Object):
-    """Report class"""
+class DrawdownPeriod(System.Object):
+    """Represents a period of time where the drawdown ranks amongst the top N drawdowns."""
 
-    STATISTICS_FILE_NAME: str = "report-statistics.json"
-    """File name for statistics"""
+    @property
+    def start(self) -> datetime.datetime:
+        """Start of the drawdown period"""
+        ...
 
-    def __init__(self, name: str, description: str, version: str, backtest: QuantConnect.Packets.BacktestResult, live: QuantConnect.Packets.LiveResult, point_in_time_portfolio_destination: str = None, css_override: str = None, html_custom: str = None) -> None:
+    @property
+    def end(self) -> datetime.datetime:
+        """End of the drawdown period"""
+        ...
+
+    @property
+    def peak_to_trough(self) -> float:
+        """Loss in percent from peak to trough"""
+        ...
+
+    @property
+    def drawdown(self) -> float:
+        """Loss in percent from peak to trough - Alias for PeakToTrough"""
+        ...
+
+    def __init__(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date], drawdown: float) -> None:
         """
-        Create beautiful HTML and PDF Reports based on backtest and live data.
+        Creates an instance with the given start, end, and drawdown
         
-        :param name: Name of the strategy
-        :param description: Description of the strategy
-        :param version: Version number of the strategy
-        :param backtest: Backtest result object
-        :param live: Live result object
-        :param point_in_time_portfolio_destination: Point in time portfolio json output base filename
-        :param css_override: CSS file that overrides some of the default rules defined in report.css
-        :param html_custom: Custom HTML file to replace the default template
-        """
-        ...
-
-    def compile(self, html: typing.Optional[str], report_statistics: typing.Optional[str]) -> typing.Tuple[None, str, str]:
-        """Compile the backtest data into a report"""
-        ...
-
-    @staticmethod
-    def get_regex_in_input(pattern: str, input: str) -> str:
-        """
-        Gets the regex pattern in the given input string
-        
-        :param pattern: Regex pattern to be find the input string
-        :param input: Input string that may contain the regex pattern
-        :returns: The regex pattern in the input string if found. Otherwise, null.
-        """
-        ...
-
-
-class Rolling(System.Object):
-    """Rolling window functions"""
-
-    @staticmethod
-    def beta(performance_points: System.Collections.Generic.SortedList[datetime.datetime, float], benchmark_points: System.Collections.Generic.SortedList[datetime.datetime, float], window_size: int = 132) -> typing.Any:
-        """
-        Calculate the rolling beta with the given window size (in days)
-        
-        :param performance_points: The performance points you want to measure beta for
-        :param benchmark_points: The benchmark/points you want to calculate beta with
-        :param window_size: Days/window to lookback
-        :returns: Rolling beta.
-        """
-        ...
-
-    @staticmethod
-    def sharpe(equity_curve: typing.Any, months: int, trading_day_per_year: int) -> typing.Any:
-        """
-        Get the rolling sharpe of the given series with a lookback of . The risk free rate is adjustable
-        
-        :param equity_curve: Equity curve to calculate rolling sharpe for
-        :param months: Number of months to calculate the rolling period for
-        :param trading_day_per_year: The number of trading days per year to increase result of Annual statistics
-        :returns: Rolling sharpe ratio.
-        """
-        ...
-
-
-class DeedleUtil(System.Object):
-    """Utility extension methods for Deedle series/frames"""
-
-    @staticmethod
-    def cumulative_max(input: typing.Any) -> typing.Any:
-        """Calculates the cumulative max of the series. This is equal to the python pandas method: `df.cummax()`."""
-        ...
-
-    @staticmethod
-    def cumulative_product(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative product of the series. This is equal to the python pandas method: `df.cumprod()`
-        
-        :param input: Input series
-        :returns: Cumulative product.
-        """
-        ...
-
-    @staticmethod
-    def cumulative_returns(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative returns series of the given input equity curve
-        
-        :param input: Equity curve series
-        :returns: Cumulative returns over time.
-        """
-        ...
-
-    @staticmethod
-    def cumulative_sum(input: typing.Any) -> typing.Any:
-        """
-        Calculates the cumulative sum for the given series
-        
-        :param input: Series to calculate cumulative sum for
-        :returns: Cumulative sum in series form.
-        """
-        ...
-
-    @staticmethod
-    def percent_change(input: typing.Any) -> typing.Any:
-        """
-        Calculates the percentage change from the previous value to the current
-        
-        :param input: Series to calculate percentage change for
-        :returns: Percentage change in series form.
-        """
-        ...
-
-    @staticmethod
-    def total_returns(input: typing.Any) -> float:
-        """
-        Calculates the total returns over a period of time for the given input
-        
-        :param input: Equity curve series
-        :returns: Total returns over time.
+        :param start: Start of the drawdown period
+        :param end: End of the drawdown period
+        :param drawdown: Max drawdown of the period
         """
         ...
 
@@ -583,63 +507,6 @@ class NullResultValueTypeJsonConverter(typing.Generic[QuantConnect_Report_NullRe
         ...
 
 
-class Crisis(System.Object):
-    """Crisis events utility class"""
-
-    EVENTS: System.Collections.Generic.Dictionary[QuantConnect.Report.CrisisEvent, QuantConnect.Report.Crisis] = ...
-    """Crisis events and pre-defined values"""
-
-    @property
-    def start(self) -> datetime.datetime:
-        """Start of the crisis event"""
-        ...
-
-    @property
-    def end(self) -> datetime.datetime:
-        """End of the crisis event"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Name of the crisis"""
-        ...
-
-    def __init__(self, name: str, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new crisis instance with the given name and start/end date.
-        
-        :param name: Name of the crisis
-        :param start: Start date of the crisis
-        :param end: End date of the crisis
-        """
-        ...
-
-    @staticmethod
-    def from_crisis(crisis_event: QuantConnect.Report.CrisisEvent) -> QuantConnect.Report.Crisis:
-        """
-        Returns a pre-defined crisis event
-        
-        :param crisis_event: Crisis Event
-        :returns: Pre-defined crisis event.
-        """
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        """Converts instance to string using the dates in the instance as start/end dates"""
-        ...
-
-    @overload
-    def to_string(self, start: typing.Union[datetime.datetime, datetime.date], end: typing.Union[datetime.datetime, datetime.date]) -> str:
-        """
-        Converts instance to string using the provided dates
-        
-        :param start: Start date
-        :param end: End date
-        """
-        ...
-
-
 class OrderTypeNormalizingJsonConverter(JsonConverter):
     """
     Normalizes the "Type" field to a value that will allow for
@@ -665,6 +532,139 @@ class OrderTypeNormalizingJsonConverter(JsonConverter):
 
     def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
         """Write Json; Not implemented"""
+        ...
+
+
+class DrawdownCollection(System.Object):
+    """Collection of drawdowns for the given period marked by start and end date"""
+
+    @property
+    def start(self) -> datetime.datetime:
+        """Starting time of the drawdown collection"""
+        ...
+
+    @property
+    def end(self) -> datetime.datetime:
+        """Ending time of the drawdown collection"""
+        ...
+
+    @property
+    def periods(self) -> int:
+        """
+        Number of periods to take into consideration for the top N drawdown periods.
+        This will be the number of items contained in the Drawdowns collection.
+        """
+        ...
+
+    @property
+    def drawdowns(self) -> typing.List[QuantConnect.Report.DrawdownPeriod]:
+        """Worst drawdowns encountered"""
+        ...
+
+    @overload
+    def __init__(self, strategy_series: typing.Any, periods: int) -> None:
+        """
+        Creates an instance from the given drawdowns and the top N worst drawdowns
+        
+        :param strategy_series: Equity curve with both live and backtesting merged
+        :param periods: Periods this collection contains
+        """
+        ...
+
+    @overload
+    def __init__(self, periods: int) -> None:
+        """Creates an instance with a default collection (no items) and the top N worst drawdowns"""
+        ...
+
+    @staticmethod
+    def from_result(backtest_result: QuantConnect.Packets.BacktestResult = None, live_result: QuantConnect.Packets.LiveResult = None, periods: int = 5) -> QuantConnect.Report.DrawdownCollection:
+        """
+        Generate a new instance of DrawdownCollection from backtest and live Result derived instances
+        
+        :param backtest_result: Backtest result packet
+        :param live_result: Live result packet
+        :param periods: Top N drawdown periods to get
+        :returns: DrawdownCollection instance.
+        """
+        ...
+
+    @staticmethod
+    def get_drawdown_periods(curve: typing.Any, periods: int = 5) -> typing.Iterable[QuantConnect.Report.DrawdownPeriod]:
+        """
+        Gets the given drawdown periods from the equity curve and the set periods
+        
+        :param curve: Equity curve
+        :param periods: Top N drawdown periods to get
+        :returns: Enumerable of DrawdownPeriod.
+        """
+        ...
+
+    @staticmethod
+    def get_top_worst_drawdowns(curve: typing.Any, periods: int) -> typing.Any:
+        """
+        Gets the top N worst drawdowns and associated statistics.
+        Returns a Frame with the following keys: "duration", "cumulativeMax", "drawdown"
+        
+        :param curve: Equity curve
+        :param periods: Top N worst periods. If this is greater than the results, we retrieve all the items instead
+        :returns: Frame with the following keys: "duration", "cumulativeMax", "drawdown".
+        """
+        ...
+
+    @staticmethod
+    def get_underwater(curve: typing.Any) -> typing.Any:
+        """
+        Gets the underwater plot for the provided curve.
+        Data is expected to be the concatenated output of ResultsUtil.EquityPoints.
+        
+        :param curve: Equity curve
+        """
+        ...
+
+    @staticmethod
+    def get_underwater_frame(curve: typing.Any) -> typing.Any:
+        """
+        Gets all the data associated with the underwater plot and everything used to generate it.
+        Note that you should instead use GetUnderwater(Series{DateTime, double}) if you
+        want to just generate an underwater plot. This is internally used to get the top N worst drawdown periods.
+        
+        :param curve: Equity curve
+        :returns: Frame containing the following keys: "returns", "cumulativeMax", "drawdown".
+        """
+        ...
+
+    @staticmethod
+    def normalize_results(backtest_result: QuantConnect.Packets.BacktestResult, live_result: QuantConnect.Packets.LiveResult) -> typing.Any:
+        """
+        Normalizes the Series used to calculate the drawdown plots and charts
+        
+        :param backtest_result: Backtest result packet
+        :param live_result: Live result packet
+        """
+        ...
+
+
+class ResultsUtil(System.Object):
+    """Utility methods for dealing with the Result objects"""
+
+    @staticmethod
+    def benchmark_points(result: QuantConnect.Result) -> System.Collections.Generic.SortedList[datetime.datetime, float]:
+        """
+        Gets the points of the benchmark
+        
+        :param result: Backtesting or live results
+        :returns: Sorted list keyed by date and value.
+        """
+        ...
+
+    @staticmethod
+    def equity_points(result: QuantConnect.Result, series_name: str = None) -> System.Collections.Generic.SortedList[datetime.datetime, float]:
+        """
+        Get the points, from the Series name given, in Strategy Equity chart
+        
+        :param result: Result object to extract the chart points
+        :param series_name: Series name from which the points will be extracted. By default is Equity series
+        """
         ...
 
 

@@ -29,7 +29,6 @@ print(u)
 );
 
 testcase!(
-    bug = "we should raise an error that x is immutable",
     test_model_config,
     pydantic_env(),
     r#"
@@ -41,11 +40,27 @@ class Model(BaseModel):
 
 
 m = Model()
+m.x = 10 # E: Cannot set field `x`
+"#,
+);
+
+testcase!(
+    test_not_a_pydantic_model,
+    pydantic_env(),
+    r#"
+from pydantic import ConfigDict
+
+class Model:
+    model_config = ConfigDict(frozen=True)
+    x: int = 42
+
+
+m = Model()
 m.x = 10 
 "#,
 );
 
-// This won't freeze the model. We must directly assign a ConfigDict to model_config.
+// This is a corner case, but since y is annotated, we consider it a field
 testcase!(
     test_model_config_alias,
     pydantic_env(),
@@ -57,14 +72,14 @@ class Model(BaseModel):
     model_config = y
     x: int = 42
 
-m = Model()
+m = Model() # E:  Missing argument `y` in function `Model.__init__`
 m.x = 10
 
 "#,
 );
 
-// Not a model config. The field must specifically be called model_config.
 testcase!(
+    bug = "We should raise an error on y because all model fields require an annotation.",
     test_model_config_y,
     pydantic_env(),
     r#"
@@ -91,8 +106,26 @@ class Model(BaseModel):
     model_config = ConfigDict(frozen=False)
     x: int = 42
 
+m = Model()
+m.x = 10
+"#,
+);
+
+testcase!(
+    bug = "Nested config not supported yet. Fields should be frozen.",
+    test_nested_model_config,
+    pydantic_env(),
+    r#"
+from pydantic import BaseModel
+
+class Model(BaseModel):
+    class Config:
+        frozen = True
+
+    x: int = 42
 
 m = Model()
-m.x = 10 
+m.x = 10
+
 "#,
 );

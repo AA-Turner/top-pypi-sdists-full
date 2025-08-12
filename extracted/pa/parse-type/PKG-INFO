@@ -1,23 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: parse_type
-Version: 0.6.4
+Version: 0.6.6
 Summary: Simplifies to build parse types based on the parse module
 Home-page: https://github.com/jenisys/parse_type
 Download-URL: http://pypi.python.org/pypi/parse_type
 Author: Jens Engel
 Author-email: Jens Engel <jenisys@noreply.github.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/jenisys/parse_type
 Project-URL: Download, https://pypi.org/project/parse_type/
-Project-URL: Source Code, https://github.com/jenisys/parse_type
-Project-URL: Issue Tracker, https://github.com/jenisys/parse_type/issues/
+Project-URL: Repository, https://github.com/jenisys/parse_type
+Project-URL: Issues, https://github.com/jenisys/parse_type/issues/
 Keywords: parse,parsing
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3.2
@@ -41,9 +40,6 @@ Requires-Dist: parse>=1.18.0; python_version >= "3.0"
 Requires-Dist: parse>=1.13.1; python_version <= "2.7"
 Requires-Dist: enum34; python_version < "3.4"
 Requires-Dist: six>=1.15
-Provides-Extra: docs
-Requires-Dist: Sphinx>=1.6; extra == "docs"
-Requires-Dist: sphinx_bootstrap_theme>=0.6.0; extra == "docs"
 Provides-Extra: develop
 Requires-Dist: setuptools; extra == "develop"
 Requires-Dist: setuptools-scm; extra == "develop"
@@ -60,10 +56,18 @@ Requires-Dist: virtualenv<20.22.0; python_version <= "3.6" and extra == "develop
 Requires-Dist: virtualenv>=20.0.0; python_version > "3.6" and extra == "develop"
 Requires-Dist: ruff; python_version >= "3.7" and extra == "develop"
 Requires-Dist: pylint; extra == "develop"
+Provides-Extra: docs
+Requires-Dist: Sphinx>=1.6; extra == "docs"
+Requires-Dist: sphinx_bootstrap_theme>=0.6.0; extra == "docs"
 Provides-Extra: testing
 Requires-Dist: pytest<5.0; python_version < "3.0" and extra == "testing"
 Requires-Dist: pytest>=5.0; python_version >= "3.0" and extra == "testing"
 Requires-Dist: pytest-html>=1.19.0; extra == "testing"
+Dynamic: author
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
 
 ===============================================================================
 parse_type

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wassima
-Version: 2.0.0
+Version: 2.0.1
 Summary: Access your OS root certificates with utmost ease
 Project-URL: Changelog, https://github.com/jawah/wassima/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://wassima.readthedocs.io
@@ -53,10 +53,8 @@ This project allows you to access your original operating system trust store, th
 helping you to verify the remote peer certificates. It automatically fallback to an
 embedded trust store generated from the CCADB trusted source.
 
-It works as-is out-of-the-box for MacOS (10.15+), Windows (7+), and Linux. Available on PyPy and Python 3.7+
-
-If your particular operating system is not supported, we can make this happen! Open
-an issue on the repository.
+It works as-is out-of-the-box for any operating systems out there.
+Available on PyPy and Python 3.7+
 
 ## ✨ Installation
 

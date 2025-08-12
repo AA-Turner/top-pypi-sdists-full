@@ -1,29 +1,43 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zope.structuredtext
-Version: 5.0
+Version: 5.1
 Summary: StructuredText parser
 Home-page: http://github.com/zopefoundation/zope.structuredtext
 Author: Zope Foundation and Contributors
 Author-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development
-Requires-Python: >=3.7
-Provides-Extra: test
-Provides-Extra: docs
+Requires-Python: >=3.9
 License-File: LICENSE.txt
+Requires-Dist: setuptools
+Provides-Extra: test
+Requires-Dist: zope.testrunner; extra == "test"
+Provides-Extra: docs
+Requires-Dist: Sphinx; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =====================
  zope.structuredtext
@@ -57,6 +71,16 @@ Please see https://zopestructuredtext.readthedocs.org/ for documentation.
 =========
  Changes
 =========
+
+5.1 (2025-08-11)
+================
+
+- Add support for Python 3.12, 3.13.
+
+- Add support for Sphinx 8.
+
+- Drop support for Python 3.7, 3.8.
+
 
 5.0 (2023-05-09)
 ================

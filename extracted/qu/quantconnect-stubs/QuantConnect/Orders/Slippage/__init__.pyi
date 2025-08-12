@@ -33,18 +33,6 @@ class ConstantSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippag
         ...
 
 
-class AlphaStreamsSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
-    """Represents a slippage model that uses a constant percentage of slip"""
-
-    def __init__(self) -> None:
-        """Initializes a new instance of the AlphaStreamsSlippageModel class"""
-        ...
-
-    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
-        """Return a decimal cash slippage approximation on the order."""
-        ...
-
-
 class MarketImpactSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
     """
     Slippage model that mimic the effect brought by market impact,
@@ -89,6 +77,18 @@ class VolumeShareSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlip
 
     def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
         """Slippage Model. Return a decimal cash slippage approximation on the order."""
+        ...
+
+
+class AlphaStreamsSlippageModel(System.Object, QuantConnect.Orders.Slippage.ISlippageModel):
+    """Represents a slippage model that uses a constant percentage of slip"""
+
+    def __init__(self) -> None:
+        """Initializes a new instance of the AlphaStreamsSlippageModel class"""
+        ...
+
+    def get_slippage_approximation(self, asset: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> float:
+        """Return a decimal cash slippage approximation on the order."""
         ...
 
 

@@ -4144,8 +4144,8 @@ class EC2Client(BaseClient):
         self, **kwargs: Unpack[DescribeByoipCidrsRequestTypeDef]
     ) -> DescribeByoipCidrsResultTypeDef:
         """
-        Describes the IP address ranges that were provisioned for use with Amazon Web
-        Services resources through through bring your own IP addresses (BYOIP).
+        Describes the IP address ranges that were specified in calls to
+        <a>ProvisionByoipCidr</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_byoip_cidrs.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_byoip_cidrs)

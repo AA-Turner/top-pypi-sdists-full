@@ -3,6 +3,7 @@ name = "tapo-py"
 version = "0.1.0"
 edition = "2024"
 publish = false
+readme = "README.md"
 
 [lib]
 name = "tapo"

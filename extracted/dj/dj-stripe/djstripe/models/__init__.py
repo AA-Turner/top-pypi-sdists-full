@@ -6,7 +6,6 @@ from .billing import (
     Discount,
     Invoice,
     InvoiceItem,
-    InvoiceOrLineItem,
     LineItem,
     Plan,
     PromotionCode,
@@ -18,8 +17,6 @@ from .billing import (
     TaxId,
     TaxRate,
     UpcomingInvoice,
-    UsageRecord,
-    UsageRecordSummary,
 )
 from .checkout import Session
 from .connect import (
@@ -55,7 +52,13 @@ from .issuing import (
     IssuingDispute,
     IssuingTransaction,
 )
-from .payment_methods import BankAccount, Card, DjstripePaymentMethod, PaymentMethod
+from .payment_methods import (
+    BankAccount,
+    Card,
+    DjstripePaymentMethod,
+    PaymentMethod,
+    Source,
+)
 from .radar import EarlyFraudWarning, Review
 from .sigma import ScheduledQueryRun
 from .webhooks import WebhookEndpoint, WebhookEventTrigger
@@ -91,7 +94,6 @@ __all__ = [
     "IssuingDispute",
     "IssuingTransaction",
     "LineItem",
-    "InvoiceOrLineItem",
     "Mandate",
     "PaymentIntent",
     "PaymentMethod",
@@ -106,6 +108,7 @@ __all__ = [
     "ScheduledQueryRun",
     "SetupIntent",
     "Session",
+    "Source",
     "StripeModel",
     "Subscription",
     "SubscriptionItem",
@@ -116,8 +119,6 @@ __all__ = [
     "Transfer",
     "TransferReversal",
     "UpcomingInvoice",
-    "UsageRecord",
-    "UsageRecordSummary",
     "VerificationReport",
     "VerificationSession",
     "WebhookEndpoint",

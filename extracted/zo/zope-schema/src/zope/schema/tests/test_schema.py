@@ -24,18 +24,18 @@ def _makeSchema():
 
     class ISchemaTest(Interface):
         title = Bytes(
-            title=u"Title",
-            description=u"Title",
+            title="Title",
+            description="Title",
             default=b"",
             required=True)
         description = Bytes(
-            title=u"Description",
-            description=u"Description",
+            title="Description",
+            description="Description",
             default=b"",
             required=True)
         spam = Bytes(
-            title=u"Spam",
-            description=u"Spam",
+            title="Spam",
+            description="Spam",
             default=b"",
             required=True)
     return ISchemaTest
@@ -49,8 +49,8 @@ def _makeDerivedSchema():
 
     class ISchemaTestSubclass(base):
         foo = Bytes(
-            title=u'Foo',
-            description=u'Fooness',
+            title='Foo',
+            description='Fooness',
             default=b"",
             required=False)
     return ISchemaTestSubclass
@@ -65,9 +65,9 @@ class Test_getFields(unittest.TestCase):
     def test_simple(self):
         fields = self._callFUT(_makeSchema())
 
-        self.assertTrue('title' in fields)
-        self.assertTrue('description' in fields)
-        self.assertTrue('spam' in fields)
+        self.assertIn('title', fields)
+        self.assertIn('description', fields)
+        self.assertIn('spam', fields)
 
         # test whether getName() has the right value
         for key, value in fields.items():
@@ -76,10 +76,10 @@ class Test_getFields(unittest.TestCase):
     def test_derived(self):
         fields = self._callFUT(_makeDerivedSchema())
 
-        self.assertTrue('title' in fields)
-        self.assertTrue('description' in fields)
-        self.assertTrue('spam' in fields)
-        self.assertTrue('foo' in fields)
+        self.assertIn('title', fields)
+        self.assertIn('description', fields)
+        self.assertIn('spam', fields)
+        self.assertIn('foo', fields)
 
         # test whether getName() has the right value
         for key, value in fields.items():
@@ -116,17 +116,17 @@ class Test_getFieldNames(unittest.TestCase):
     def test_simple(self):
         names = self._callFUT(_makeSchema())
         self.assertEqual(len(names), 3)
-        self.assertTrue('title' in names)
-        self.assertTrue('description' in names)
-        self.assertTrue('spam' in names)
+        self.assertIn('title', names)
+        self.assertIn('description', names)
+        self.assertIn('spam', names)
 
     def test_derived(self):
         names = self._callFUT(_makeDerivedSchema())
         self.assertEqual(len(names), 4)
-        self.assertTrue('title' in names)
-        self.assertTrue('description' in names)
-        self.assertTrue('spam' in names)
-        self.assertTrue('foo' in names)
+        self.assertIn('title', names)
+        self.assertIn('description', names)
+        self.assertIn('spam', names)
+        self.assertIn('foo', names)
 
 
 class Test_getFieldNamesInOrder(unittest.TestCase):
@@ -231,9 +231,9 @@ class Test_getSchemaValidationErrors(unittest.TestCase):
             foo = Text()
             bar = Text()
 
-        class Obj(object):
-            foo = u'Foo'
-            bar = u'Bar'
+        class Obj:
+            foo = 'Foo'
+            bar = 'Bar'
 
         errors = self._callFUT(IWithFields, Obj())
         self.assertEqual(len(errors), 0)
@@ -264,7 +264,7 @@ class Test_getSchemaValidationErrors(unittest.TestCase):
         class IWithMinium(Interface):
             value = Int(required=True, min=0)
 
-        class Obj(object):
+        class Obj:
             value = -1
 
         errors = self._callFUT(IWithMinium, Obj())

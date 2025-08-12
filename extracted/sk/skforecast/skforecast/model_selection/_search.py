@@ -32,7 +32,13 @@ from ..model_selection._utils import (
     _calculate_metrics_one_step_ahead,
     _predict_and_calculate_metrics_one_step_ahead_multiseries
 )
-from ..utils import initialize_lags, set_skforecast_warnings
+from ..utils import (
+    initialize_lags, 
+    date_to_index_position, 
+    check_preprocess_series,
+    check_preprocess_exog_multiseries,
+    set_skforecast_warnings
+)
 
 
 def grid_search_forecaster(
@@ -332,6 +338,7 @@ def _evaluate_grid_hyperparameters(
         )
     
     if cv_name == 'OneStepAheadFold':
+
         check_one_step_ahead_input(
             forecaster        = forecaster,
             cv                = cv,
@@ -341,8 +348,16 @@ def _evaluate_grid_hyperparameters(
             show_progress     = show_progress,
             suppress_warnings = False
         )
+
         cv = deepcopy(cv)
+        initial_train_size = date_to_index_position(
+                                 index        = cv._extract_index(y), 
+                                 date_input   = cv.initial_train_size, 
+                                 method       = 'validation',
+                                 date_literal = 'initial_train_size'
+                             )
         cv.set_params({
+            'initial_train_size': initial_train_size,
             'window_size': forecaster.window_size,
             'differentiation': forecaster.differentiation_max,
             'verbose': verbose
@@ -714,6 +729,7 @@ def _bayesian_search_optuna(
         )
     
     if cv_name == 'OneStepAheadFold':
+
         check_one_step_ahead_input(
             forecaster        = forecaster,
             cv                = cv,
@@ -723,8 +739,16 @@ def _bayesian_search_optuna(
             show_progress     = show_progress,
             suppress_warnings = False
         )
+
         cv = deepcopy(cv)
+        initial_train_size = date_to_index_position(
+                                 index        = cv._extract_index(y), 
+                                 date_input   = cv.initial_train_size, 
+                                 method       = 'validation',
+                                 date_literal = 'initial_train_size'
+                             )
         cv.set_params({
+            'initial_train_size': initial_train_size,
             'window_size': forecaster.window_size,
             'differentiation': forecaster.differentiation_max,
             'verbose': verbose
@@ -851,18 +875,19 @@ def _bayesian_search_optuna(
     # only the optimized value can be returned.
     metric_values = []
 
-    warnings.filterwarnings(
-        "ignore",
-        category = UserWarning,
-        message  = "Choices for a categorical distribution should be*"
-    )
-
     study = optuna.create_study(**kwargs_create_study)
 
     if 'sampler' not in kwargs_create_study.keys():
         study.sampler = TPESampler(seed=random_state)
 
-    study.optimize(_objective, n_trials=n_trials, **kwargs_study_optimize)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category = UserWarning,
+            message  = "Choices for a categorical distribution should be*"
+        )
+        study.optimize(_objective, n_trials=n_trials, **kwargs_study_optimize)
+
     best_trial = study.best_trial
 
     if output_file is not None:
@@ -874,7 +899,6 @@ def _bayesian_search_optuna(
             f"  Search Space keys  : {list(search_space(best_trial).keys())}\n"
             f"  Trial objects keys : {list(best_trial.params.keys())}."
         )
-    warnings.filterwarnings('default')
     
     lags_list = []
     params_list = []
@@ -1162,8 +1186,9 @@ def random_search_forecaster_multiseries(
     
     """
   
-    param_grid = list(ParameterSampler(param_distributions, n_iter=n_iter, 
-                                       random_state=random_state))
+    param_grid = list(
+        ParameterSampler(param_distributions, n_iter=n_iter, random_state=random_state)
+    )
 
     results = _evaluate_grid_hyperparameters_multiseries(
                   forecaster        = forecaster,
@@ -1288,6 +1313,26 @@ def _evaluate_grid_hyperparameters_multiseries(
 
     set_skforecast_warnings(suppress_warnings, action='ignore')
 
+    if type(forecaster).__name__ == 'ForecasterRecursiveMultiSeries':
+        series, series_indexes = check_preprocess_series(series)
+        if exog is not None:
+            series_names_in_ = list(series.keys())
+            exog_dict = {serie: None for serie in series_names_in_}
+            exog, _ = check_preprocess_exog_multiseries(
+                          series_names_in_  = series_names_in_,
+                          series_index_type = type(series_indexes[series_names_in_[0]]),
+                          exog              = exog,
+                          exog_dict         = exog_dict
+                      )
+    else:
+        # TODO: This only applies to wide DataFrames. Delete when input is always dict
+        # in all forecasters.
+        if return_best and exog is not None and (len(exog) != len(series)):
+            raise ValueError(
+                f"`exog` must have same number of samples as `series`. "
+                f"length `exog`: ({len(exog)}), length `series`: ({len(series)})"
+            )
+
     cv_name = type(cv).__name__
     if cv_name not in ['TimeSeriesFold', 'OneStepAheadFold']:
         raise TypeError(
@@ -1296,6 +1341,7 @@ def _evaluate_grid_hyperparameters_multiseries(
         )
     
     if cv_name == 'OneStepAheadFold':
+
         check_one_step_ahead_input(
             forecaster        = forecaster,
             cv                = cv,
@@ -1305,18 +1351,20 @@ def _evaluate_grid_hyperparameters_multiseries(
             show_progress     = show_progress,
             suppress_warnings = suppress_warnings
         )
+
         cv = deepcopy(cv)
+        initial_train_size = date_to_index_position(
+                                 index        = cv._extract_index(series), 
+                                 date_input   = cv.initial_train_size, 
+                                 method       = 'validation',
+                                 date_literal = 'initial_train_size'
+                             )
         cv.set_params({
+            'initial_train_size': initial_train_size,
             'window_size': forecaster.window_size,
             'differentiation': forecaster.differentiation_max,
             'verbose': verbose
         })
-
-    if return_best and exog is not None and (len(exog) != len(series)):
-        raise ValueError(
-            f"`exog` must have same number of samples as `series`. "
-            f"length `exog`: ({len(exog)}), length `series`: ({len(series)})"
-        )
     
     if isinstance(aggregate_metric, str):
         aggregate_metric = [aggregate_metric]
@@ -1616,12 +1664,6 @@ def bayesian_search_forecaster_multiseries(
         The best optimization result returned as a FrozenTrial optuna object.
     
     """
-
-    if return_best and exog is not None and (len(exog) != len(series)):
-        raise ValueError(
-            f"`exog` must have same number of samples as `series`. "
-            f"length `exog`: ({len(exog)}), length `series`: ({len(series)})"
-        )
    
     results, best_trial = _bayesian_search_optuna_multiseries(
                               forecaster            = forecaster,
@@ -1760,6 +1802,26 @@ def _bayesian_search_optuna_multiseries(
     forecaster_name = type(forecaster).__name__
     cv_name = type(cv).__name__
 
+    if forecaster_name == 'ForecasterRecursiveMultiSeries':
+        series, series_indexes = check_preprocess_series(series)
+        if exog is not None:
+            series_names_in_ = list(series.keys())
+            exog_dict = {serie: None for serie in series_names_in_}
+            exog, _ = check_preprocess_exog_multiseries(
+                          series_names_in_  = series_names_in_,
+                          series_index_type = type(series_indexes[series_names_in_[0]]),
+                          exog              = exog,
+                          exog_dict         = exog_dict
+                      )
+    else:
+        # TODO: This only applies to wide DataFrames. Delete when input is always dict
+        # in all forecasters.
+        if return_best and exog is not None and (len(exog) != len(series)):
+            raise ValueError(
+                f"`exog` must have same number of samples as `series`. "
+                f"length `exog`: ({len(exog)}), length `series`: ({len(series)})"
+            )
+
     if cv_name not in ['TimeSeriesFold', 'OneStepAheadFold']:
         raise TypeError(
             f"`cv` must be an instance of `TimeSeriesFold` or `OneStepAheadFold`. "
@@ -1767,6 +1829,7 @@ def _bayesian_search_optuna_multiseries(
         )
     
     if cv_name == 'OneStepAheadFold':
+
         check_one_step_ahead_input(
             forecaster        = forecaster,
             cv                = cv,
@@ -1776,8 +1839,16 @@ def _bayesian_search_optuna_multiseries(
             show_progress     = show_progress,
             suppress_warnings = suppress_warnings
         )
+
         cv = deepcopy(cv)
+        initial_train_size = date_to_index_position(
+                                 index        = cv._extract_index(series), 
+                                 date_input   = cv.initial_train_size, 
+                                 method       = 'validation',
+                                 date_literal = 'initial_train_size'
+                             )
         cv.set_params({
+            'initial_train_size': initial_train_size,
             'window_size': forecaster.window_size,
             'differentiation': forecaster.differentiation_max,
             'verbose': verbose
@@ -1788,8 +1859,8 @@ def _bayesian_search_optuna_multiseries(
     allowed_aggregate_metrics = ['average', 'weighted_average', 'pooling']
     if not set(aggregate_metric).issubset(allowed_aggregate_metrics):
         raise ValueError(
-            (f"Allowed `aggregate_metric` are: {allowed_aggregate_metrics}. "
-             f"Got: {aggregate_metric}.")
+            f"Allowed `aggregate_metric` are: {allowed_aggregate_metrics}. "
+            f"Got: {aggregate_metric}."
         )
 
     if not isinstance(metric, list):
@@ -1958,18 +2029,19 @@ def _bayesian_search_optuna_multiseries(
     # only the optimized value can be returned.
     metrics_list = []
 
-    warnings.filterwarnings(
-        "ignore",
-        category=UserWarning,
-        message="Choices for a categorical distribution should be*"
-    )
-
     study = optuna.create_study(**kwargs_create_study)
 
     if 'sampler' not in kwargs_create_study.keys():
         study.sampler = TPESampler(seed=random_state)
 
-    study.optimize(_objective, n_trials=n_trials, **kwargs_study_optimize)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=UserWarning,
+            message="Choices for a categorical distribution should be*"
+        )
+        study.optimize(_objective, n_trials=n_trials, **kwargs_study_optimize)
+
     best_trial = study.best_trial
 
     if output_file is not None:
@@ -1981,7 +2053,6 @@ def _bayesian_search_optuna_multiseries(
             f"  Search Space keys  : {list(search_space(best_trial).keys())}\n"
             f"  Trial objects keys : {list(best_trial.params.keys())}"
         )
-    warnings.filterwarnings('default')
     
     lags_list = []
     params_list = []
@@ -2330,8 +2401,8 @@ def _evaluate_grid_hyperparameters_sarimax(
 
     if return_best and exog is not None and (len(exog) != len(y)):
         raise ValueError(
-            (f"`exog` must have same number of samples as `y`. "
-             f"length `exog`: ({len(exog)}), length `y`: ({len(y)})")
+            f"`exog` must have same number of samples as `y`. "
+            f"length `exog`: ({len(exog)}), length `y`: ({len(y)})"
         )
 
     if not isinstance(metric, list):

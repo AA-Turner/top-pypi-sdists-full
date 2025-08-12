@@ -14,39 +14,6 @@ System_Diagnostics_Tracing__EventContainer_Callable = typing.TypeVar("System_Dia
 System_Diagnostics_Tracing__EventContainer_ReturnType = typing.TypeVar("System_Diagnostics_Tracing__EventContainer_ReturnType")
 
 
-class EventSourceException(System.Exception):
-    """Exception that is thrown when an error occurs during EventSource operation."""
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the EventSourceException class."""
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        """Initializes a new instance of the EventSourceException class with a specified error message."""
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        """
-        Initializes a new instance of the EventSourceException class with a specified error message
-        and a reference to the inner exception that is the cause of this exception.
-        """
-        ...
-
-    @overload
-    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        Initializes a new instance of the EventSourceException class with serialized data.
-        
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
-        ...
-
-
 class EventSourceSettings(Enum):
     """Enables specifying event source configuration options to be used in the EventSource constructor."""
 
@@ -845,12 +812,120 @@ class EventSource(System.Object, System.IDisposable):
         ...
 
 
-class EventSourceCreatedEventArgs(System.EventArgs):
-    """EventSourceCreatedEventArgs is passed to EventListener.EventSourceCreated"""
+class DiagnosticCounter(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
+    """
+    DiagnosticCounter is an abstract class that serves as the parent class for various Counter* classes,
+    namely EventCounter, PollingCounter, IncrementingEventCounter, and IncrementingPollingCounter.
+    """
+
+    @property
+    def display_name(self) -> str:
+        ...
+
+    @display_name.setter
+    def display_name(self, value: str) -> None:
+        ...
+
+    @property
+    def display_units(self) -> str:
+        ...
+
+    @display_units.setter
+    def display_units(self, value: str) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
 
     @property
     def event_source(self) -> System.Diagnostics.Tracing.EventSource:
-        """The EventSource that is attaching to the listener."""
+        ...
+
+    def add_metadata(self, key: str, value: str) -> None:
+        """Adds a key-value metadata to the EventCounter that will be included as a part of the payload"""
+        ...
+
+    def dispose(self) -> None:
+        """
+        Removes the counter from set that the EventSource will report on.  After being disposed, this
+        counter will do nothing and its resource will be reclaimed if all references to it are removed.
+        If an EventCounter is not explicitly disposed it will be cleaned up automatically when the
+        EventSource it is attached to dies.
+        """
+        ...
+
+
+class IncrementingEventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    """
+    IncrementingEventCounter is a variant of EventCounter for variables that are ever-increasing.
+    Ex) # of exceptions in the runtime.
+    It does not calculate statistics like mean, standard deviation, etc. because it only accumulates
+    the counter value.
+    """
+
+    @property
+    def display_rate_time_scale(self) -> datetime.timedelta:
+        ...
+
+    @display_rate_time_scale.setter
+    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
+        ...
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
+        """
+        Initializes a new instance of the IncrementingEventCounter class.
+        IncrementingEventCounter live as long as the EventSource that they are attached to unless they are
+        explicitly Disposed.
+        
+        :param name: The name.
+        :param event_source: The event source.
+        """
+        ...
+
+    def increment(self, increment: float = 1) -> None:
+        """
+        Writes 'value' to the stream of values tracked by the counter.  This updates the sum and other statistics that will
+        be logged on the next timer interval.
+        
+        :param increment: The value to increment by.
+        """
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class EventSourceException(System.Exception):
+    """Exception that is thrown when an error occurs during EventSource operation."""
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the EventSourceException class."""
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        """Initializes a new instance of the EventSourceException class with a specified error message."""
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        """
+        Initializes a new instance of the EventSourceException class with a specified error message
+        and a reference to the inner exception that is the cause of this exception.
+        """
+        ...
+
+    @overload
+    def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """
+        Initializes a new instance of the EventSourceException class with serialized data.
+        
+        This method is protected.
+        
+        Obsoletions.LegacyFormatterImplMessage
+        """
         ...
 
 
@@ -864,6 +939,39 @@ class EventTask(Enum):
     """Undefined task"""
 
     def __int__(self) -> int:
+        ...
+
+
+class PollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    """
+    PollingCounter is a variant of EventCounter - it collects and calculates similar statistics
+    as EventCounter. PollingCounter differs from EventCounter in that it takes in a callback
+    function to collect metrics on its own rather than the user having to call WriteMetric()
+    every time.
+    """
+
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, metric_provider: typing.Callable[[], float]) -> None:
+        """
+        Initializes a new instance of the PollingCounter class.
+        PollingCounter live as long as the EventSource that they are attached to unless they are
+        explicitly Disposed.
+        
+        :param name: The name.
+        :param event_source: The event source.
+        :param metric_provider: The delegate to invoke to get the current metric value.
+        """
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class EventSourceCreatedEventArgs(System.EventArgs):
+    """EventSourceCreatedEventArgs is passed to EventListener.EventSourceCreated"""
+
+    @property
+    def event_source(self) -> System.Diagnostics.Tracing.EventSource:
+        """The EventSource that is attaching to the listener."""
         ...
 
 
@@ -1271,47 +1379,37 @@ class NonEventAttribute(System.Attribute):
         ...
 
 
-class DiagnosticCounter(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
+class IncrementingPollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
     """
-    DiagnosticCounter is an abstract class that serves as the parent class for various Counter* classes,
-    namely EventCounter, PollingCounter, IncrementingEventCounter, and IncrementingPollingCounter.
+    IncrementingPollingCounter is a variant of EventCounter for variables that are ever-increasing.
+    Ex) # of exceptions in the runtime.
+    It does not calculate statistics like mean, standard deviation, etc. because it only accumulates
+    the counter value.
+    Unlike IncrementingEventCounter, this takes in a polling callback that it can call to update
+    its own metric periodically.
     """
 
     @property
-    def display_name(self) -> str:
+    def display_rate_time_scale(self) -> datetime.timedelta:
         ...
 
-    @display_name.setter
-    def display_name(self, value: str) -> None:
+    @display_rate_time_scale.setter
+    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
         ...
 
-    @property
-    def display_units(self) -> str:
-        ...
-
-    @display_units.setter
-    def display_units(self, value: str) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def event_source(self) -> System.Diagnostics.Tracing.EventSource:
-        ...
-
-    def add_metadata(self, key: str, value: str) -> None:
-        """Adds a key-value metadata to the EventCounter that will be included as a part of the payload"""
-        ...
-
-    def dispose(self) -> None:
+    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, total_value_provider: typing.Callable[[], float]) -> None:
         """
-        Removes the counter from set that the EventSource will report on.  After being disposed, this
-        counter will do nothing and its resource will be reclaimed if all references to it are removed.
-        If an EventCounter is not explicitly disposed it will be cleaned up automatically when the
-        EventSource it is attached to dies.
+        Initializes a new instance of the IncrementingPollingCounter class.
+        IncrementingPollingCounter live as long as the EventSource that they are attached to unless they are
+        explicitly Disposed.
+        
+        :param name: The name.
+        :param event_source: The event source.
+        :param total_value_provider: The delegate to invoke to get the total value for this counter.
         """
+        ...
+
+    def to_string(self) -> str:
         ...
 
 
@@ -1350,101 +1448,50 @@ class EventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
         ...
 
 
-class PollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+class EventFieldFormat(Enum):
     """
-    PollingCounter is a variant of EventCounter - it collects and calculates similar statistics
-    as EventCounter. PollingCounter differs from EventCounter in that it takes in a callback
-    function to collect metrics on its own rather than the user having to call WriteMetric()
-    every time.
-    """
-
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, metric_provider: typing.Callable[[], float]) -> None:
-        """
-        Initializes a new instance of the PollingCounter class.
-        PollingCounter live as long as the EventSource that they are attached to unless they are
-        explicitly Disposed.
-        
-        :param name: The name.
-        :param event_source: The event source.
-        :param metric_provider: The delegate to invoke to get the current metric value.
-        """
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class IncrementingEventCounter(System.Diagnostics.Tracing.DiagnosticCounter):
-    """
-    IncrementingEventCounter is a variant of EventCounter for variables that are ever-increasing.
-    Ex) # of exceptions in the runtime.
-    It does not calculate statistics like mean, standard deviation, etc. because it only accumulates
-    the counter value.
+    Provides a hint that may be used by an event listener when formatting
+    an event field for display. Note that the event listener may ignore the
+    hint if it does not recognize a particular combination of type and format.
+    Similar to TDH_OUTTYPE.
     """
 
-    @property
-    def display_rate_time_scale(self) -> datetime.timedelta:
-        ...
+    DEFAULT = 0
+    """Field receives default formatting based on the field's underlying type."""
 
-    @display_rate_time_scale.setter
-    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
-        ...
+    STRING = 2
 
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource) -> None:
-        """
-        Initializes a new instance of the IncrementingEventCounter class.
-        IncrementingEventCounter live as long as the EventSource that they are attached to unless they are
-        explicitly Disposed.
-        
-        :param name: The name.
-        :param event_source: The event source.
-        """
-        ...
-
-    def increment(self, increment: float = 1) -> None:
-        """
-        Writes 'value' to the stream of values tracked by the counter.  This updates the sum and other statistics that will
-        be logged on the next timer interval.
-        
-        :param increment: The value to increment by.
-        """
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class IncrementingPollingCounter(System.Diagnostics.Tracing.DiagnosticCounter):
+    BOOLEAN = 3
     """
-    IncrementingPollingCounter is a variant of EventCounter for variables that are ever-increasing.
-    Ex) # of exceptions in the runtime.
-    It does not calculate statistics like mean, standard deviation, etc. because it only accumulates
-    the counter value.
-    Unlike IncrementingEventCounter, this takes in a polling callback that it can call to update
-    its own metric periodically.
+    Field should be formatted as boolean data. Typically applied to 8-bit
+    or 32-bit integers. This is the default format for the Boolean type.
     """
 
-    @property
-    def display_rate_time_scale(self) -> datetime.timedelta:
-        ...
+    HEXADECIMAL = 4
+    """
+    Field should be formatted as hexadecimal data. Typically applied to
+    integer types.
+    """
 
-    @display_rate_time_scale.setter
-    def display_rate_time_scale(self, value: datetime.timedelta) -> None:
-        ...
+    XML = 11
+    """
+    Field should be formatted as an Internet Protocol v6 address. Typically applied to
+    byte[] types.
+    """
 
-    def __init__(self, name: str, event_source: System.Diagnostics.Tracing.EventSource, total_value_provider: typing.Callable[[], float]) -> None:
-        """
-        Initializes a new instance of the IncrementingPollingCounter class.
-        IncrementingPollingCounter live as long as the EventSource that they are attached to unless they are
-        explicitly Disposed.
-        
-        :param name: The name.
-        :param event_source: The event source.
-        :param total_value_provider: The delegate to invoke to get the total value for this counter.
-        """
-        ...
+    JSON = 12
+    """
+    Field should be formatted as JSON string data. Typically applied to
+    strings or arrays of 8-bit or 16-bit integers.
+    """
 
-    def to_string(self) -> str:
+    H_RESULT = 15
+    """
+    Field should be formatted as an NTSTATUS code. Typically applied to
+    32-bit integer types.
+    """
+
+    def __int__(self) -> int:
         ...
 
 
@@ -1503,53 +1550,6 @@ class EventFieldTags(Enum):
 
     NONE = 0
     """No special traits are added to the field."""
-
-    def __int__(self) -> int:
-        ...
-
-
-class EventFieldFormat(Enum):
-    """
-    Provides a hint that may be used by an event listener when formatting
-    an event field for display. Note that the event listener may ignore the
-    hint if it does not recognize a particular combination of type and format.
-    Similar to TDH_OUTTYPE.
-    """
-
-    DEFAULT = 0
-    """Field receives default formatting based on the field's underlying type."""
-
-    STRING = 2
-
-    BOOLEAN = 3
-    """
-    Field should be formatted as boolean data. Typically applied to 8-bit
-    or 32-bit integers. This is the default format for the Boolean type.
-    """
-
-    HEXADECIMAL = 4
-    """
-    Field should be formatted as hexadecimal data. Typically applied to
-    integer types.
-    """
-
-    XML = 11
-    """
-    Field should be formatted as an Internet Protocol v6 address. Typically applied to
-    byte[] types.
-    """
-
-    JSON = 12
-    """
-    Field should be formatted as JSON string data. Typically applied to
-    strings or arrays of 8-bit or 16-bit integers.
-    """
-
-    H_RESULT = 15
-    """
-    Field should be formatted as an NTSTATUS code. Typically applied to
-    32-bit integer types.
-    """
 
     def __int__(self) -> int:
         ...

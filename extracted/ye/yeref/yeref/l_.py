@@ -3059,6 +3059,22 @@ l_bot_msg_open = {
     "zh": "ᯅ 发布",
     "ar": "ᯅ منشور",
 }
+l_bot_business_self = {
+    "ru": "👩🏽‍💻 Такое сообщение нельзя послать себе, только другим",
+    "en": "ᯅ Publication",
+    "es": "ᯅ Publicación",
+    "fr": "ᯅ Publication",
+    "zh": "ᯅ 发布",
+    "ar": "ᯅ منشور",
+}
+l_bot_business_settings = {
+    "ru": "👩🏽‍💻 <b>Необходимо</b> включить [Управление историями] в настройках [Телеграм для бизнеса]",
+    "en": "ᯅ Publication",
+    "es": "ᯅ Publicación",
+    "fr": "ᯅ Publication",
+    "zh": "ᯅ 发布",
+    "ar": "ᯅ منشور",
+}
 
 # region bot
 l_bot_config = {

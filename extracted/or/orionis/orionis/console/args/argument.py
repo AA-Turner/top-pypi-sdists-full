@@ -45,69 +45,69 @@ class CLIArgument:
     """
 
     # Required fields
-    flags: List[str] = None
-    type: Type = None
-    help: str = None
+    flags: List[str]
+    type: Type
+    help: Optional[str] = None
 
     default: Any = field(
-        default_factory = None,
-        metadata = {
+        default=None,
+        metadata={
             "description": "Default value for the argument.",
             "default": None
         }
     )
 
     choices: Optional[List[Any]] = field(
-        default_factory = None,
-        metadata = {
+        default=None,
+        metadata={
             "description": "List of valid choices for the argument.",
             "default": None
         }
     )
 
     required: bool = field(
-        default_factory = False,
-        metadata = {
+        default=False,
+        metadata={
             "description": "Indicates if the argument is required.",
             "default": False
         }
     )
 
     metavar: Optional[str] = field(
-        default_factory = None,
-        metadata = {
+        default=None,
+        metadata={
             "description": "Metavar for displaying in help messages.",
             "default": None
         }
     )
 
     dest: Optional[str] = field(
-        default_factory = None,
-        metadata = {
+        default=None,
+        metadata={
             "description": "Destination name for the argument in the namespace.",
             "default": None
         }
     )
 
     action: Union[str, ArgumentAction] = field(
-        default_factory = ArgumentAction.STORE,
-        metadata = {
+        default=ArgumentAction.STORE,
+        metadata={
             "description": "Action to perform with the argument.",
             "default": ArgumentAction.STORE.value
         }
     )
 
     nargs: Optional[Union[int, str]] = field(
-        default_factory = None,
-        metadata = {
+        default=None,
+        metadata={
             "description": "Number of arguments expected (e.g., 1, 2, '+', '*').",
             "default": None
         }
     )
 
     const: Any = field(
-        default_factory = None,
-        metadata = {
+        default=None,
+        metadata={
             "description": "Constant value for store_const or append_const actions.",
             "default": None
         }
@@ -159,7 +159,8 @@ class CLIArgument:
 
         # Auto-generate help if not provided
         if self.help is None:
-            object.__setattr__(self, 'help', f"Argument for {primary_flag}")
+            clean_flag = primary_flag.lstrip('-').replace('-', ' ').title()
+            object.__setattr__(self, 'help', f"{clean_flag} argument")
 
         # Ensure help is a string
         if not isinstance(self.help, str):
@@ -204,9 +205,7 @@ class CLIArgument:
             raise CLIOrionisValueError(f"Destination '{self.dest}' is not a valid Python identifier")
 
         # Normalize action value
-        if self.action is None:
-            object.__setattr__(self, 'action', ArgumentAction.STORE.value)
-        elif isinstance(self.action, str):
+        if isinstance(self.action, str):
             try:
                 action_enum = ArgumentAction(self.action)
                 object.__setattr__(self, 'action', action_enum.value)
@@ -217,22 +216,74 @@ class CLIArgument:
         else:
             raise CLIOrionisValueError("Action must be a string or an ArgumentAction enum value")
 
+        # Determine if this is an optional argument (starts with dash)
+        is_optional = any(flag.startswith('-') for flag in self.flags)
+
         # Special handling for boolean types
         if self.type is bool:
-
-            # Auto-configure action based on default value
-            action = ArgumentAction.STORE_TRUE.value if not self.default else ArgumentAction.STORE_FALSE.value
-            object.__setattr__(self, 'action', action)
-
-            # argparse ignores type with store_true/false actions
-            object.__setattr__(self, 'type', None)
+            # Auto-configure action based on default value and whether it's optional
+            if is_optional:
+                action = ArgumentAction.STORE_FALSE.value if self.default else ArgumentAction.STORE_TRUE.value
+                object.__setattr__(self, 'action', action)
+                # argparse ignores type with store_true/false actions
+                object.__setattr__(self, 'type', None)
+            else:
+                # For positional boolean arguments, keep type as bool
+                pass
 
         # Special handling for list types
-        if self.type is list and self.nargs is None:
+        elif self.type is list:
+            if self.nargs is None:
+                # Auto-configure for accepting multiple values
+                object.__setattr__(self, 'nargs', '+' if is_optional else '*')
+            # Keep type as list for proper conversion
+            object.__setattr__(self, 'type', str)  # argparse expects element type, not list
 
-            # Auto-configure for accepting multiple values
-            object.__setattr__(self, 'nargs', '+')
-            object.__setattr__(self, 'type', str)
+        # Handle count action - typically used for verbosity flags
+        elif self.action == ArgumentAction.COUNT.value:
+            object.__setattr__(self, 'type', None)  # count action doesn't use type
+            if self.default is None:
+                object.__setattr__(self, 'default', 0)
+
+        # Handle const actions
+        if self.action in (ArgumentAction.STORE_CONST.value, ArgumentAction.APPEND_CONST.value):
+            if self.const is None:
+                # Auto-set const based on type or use True as default
+                if self.type is bool:
+                    object.__setattr__(self, 'const', True)
+                elif self.type is int:
+                    object.__setattr__(self, 'const', 1)
+                elif self.type is str:
+                    object.__setattr__(self, 'const', self.dest)
+                else:
+                    object.__setattr__(self, 'const', True)
+            object.__setattr__(self, 'type', None)  # const actions don't use type
+
+        # Handle nargs '?' - optional single argument
+        elif self.nargs == '?':
+            if self.const is None and is_optional:
+                # For optional arguments with nargs='?', set a reasonable const
+                object.__setattr__(self, 'const', True if self.type is bool else self.dest)
+
+        # Validate nargs compatibility
+        if self.nargs is not None:
+            valid_nargs = ['?', '*', '+'] + [str(i) for i in range(0, 10)]
+            if isinstance(self.nargs, int):
+                if self.nargs < 0:
+                    raise CLIOrionisValueError("nargs cannot be negative")
+            elif self.nargs not in valid_nargs:
+                raise CLIOrionisValueError(f"Invalid nargs value: {self.nargs}")
+
+        # Handle version action
+        if self.action == ArgumentAction.VERSION.value:
+            object.__setattr__(self, 'type', None)
+            if 'version' not in self.dest:
+                object.__setattr__(self, 'dest', 'version')
+
+        # Handle help action
+        if self.action == ArgumentAction.HELP.value:
+            object.__setattr__(self, 'type', None)
+
 
     def addToParser(self, parser: argparse.ArgumentParser) -> None:
         """
@@ -327,17 +378,97 @@ class CLIArgument:
             "action": self.action,                      # Action to take when argument is encountered
             "nargs": self.nargs,                        # Number of command-line arguments expected
             "type": self.type,                          # Type to convert the argument to
-            "const": self.const                         # Constant value for certain actions
         }
 
-        # Filter out None values to prevent passing invalid parameters to argparse
-        # argparse will raise errors if None values are explicitly passed for certain parameters
-        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        # Handle const parameter for specific actions
+        const_actions = [
+            ArgumentAction.STORE_CONST.value,
+            ArgumentAction.APPEND_CONST.value
+        ]
 
-        # Remove 'required' parameter for positional arguments since it's not supported
-        # Positional arguments are inherently required by argparse's design
-        if is_positional and 'required' in kwargs:
-            del kwargs['required']
+        # Add const parameter when it's needed
+        if self.action in const_actions or (self.nargs == '?' and self.const is not None):
+            kwargs["const"] = self.const
+
+        # Special handling for version action
+        if self.action == ArgumentAction.VERSION.value and hasattr(self, 'version'):
+            kwargs["version"] = getattr(self, 'version', None)
+
+        # Define actions that don't accept certain parameters
+        type_ignored_actions = [
+            ArgumentAction.STORE_TRUE.value,
+            ArgumentAction.STORE_FALSE.value,
+            ArgumentAction.STORE_CONST.value,
+            ArgumentAction.APPEND_CONST.value,
+            ArgumentAction.COUNT.value,
+            ArgumentAction.HELP.value,
+            ArgumentAction.VERSION.value
+        ]
+
+        # Define actions that don't accept metavar or default parameters
+        metavar_ignored_actions = [
+            ArgumentAction.STORE_TRUE.value,
+            ArgumentAction.STORE_FALSE.value,
+            ArgumentAction.COUNT.value,
+            ArgumentAction.HELP.value,
+            ArgumentAction.VERSION.value
+        ]
+
+        # Define actions that don't accept default parameters
+        default_ignored_actions = [
+            ArgumentAction.STORE_TRUE.value,
+            ArgumentAction.STORE_FALSE.value,
+            ArgumentAction.STORE_CONST.value,
+            ArgumentAction.APPEND_CONST.value,
+            ArgumentAction.HELP.value,
+            ArgumentAction.VERSION.value
+        ]
+
+        # Filter out None values and incompatible parameters
+        filtered_kwargs = {}
+        for k, v in kwargs.items():
+            if v is not None:
+
+                # Skip parameters that are not compatible with certain actions
+                if k == "type" and self.action in type_ignored_actions:
+                    continue
+
+                # Skip metavar for actions that don't accept it
+                if k == "metavar" and self.action in metavar_ignored_actions:
+                    continue
+
+                # Skip default for actions that don't accept it
+                if k == "default" and self.action in default_ignored_actions:
+                    continue
+
+                # Special case: don't include empty strings for metavar in positional args
+                if k == "metavar" and is_positional and v == "":
+                    continue
+
+                # Add the parameter to the filtered kwargs
+                filtered_kwargs[k] = v
+
+        # Remove parameters that are not compatible with positional arguments
+        if is_positional:
+
+            # Remove 'required' parameter for positional arguments since it's not supported
+            if 'required' in filtered_kwargs:
+                del filtered_kwargs['required']
+
+            # Remove 'dest' parameter for positional arguments as argparse calculates it automatically
+            if 'dest' in filtered_kwargs:
+                del filtered_kwargs['dest']
+
+            # Remove 'metavar' if it's the same as the flag name (redundant)
+            if 'metavar' in filtered_kwargs and len(self.flags) == 1:
+                flag_upper = self.flags[0].upper()
+                if filtered_kwargs['metavar'] == flag_upper:
+                    del filtered_kwargs['metavar']
+
+        # For count action, ensure default is an integer
+        if self.action == ArgumentAction.COUNT.value and 'default' in filtered_kwargs:
+            if not isinstance(filtered_kwargs['default'], int):
+                filtered_kwargs['default'] = 0
 
         # Return the cleaned and validated kwargs dictionary
-        return kwargs
+        return filtered_kwargs

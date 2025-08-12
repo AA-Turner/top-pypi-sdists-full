@@ -202,8 +202,8 @@ class CandlestickPattern(QuantConnect.Indicators.WindowIndicator[QuantConnect.Da
         ...
 
 
-class UpsideGapTwoCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Upside Gap Two Crows candlestick pattern"""
+class ThreeInside(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Three Inside Up/Down candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -213,7 +213,7 @@ class UpsideGapTwoCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickP
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the UpsideGapTwoCrows class using the specified name.
+        Initializes a new instance of the ThreeInside class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -221,7 +221,7 @@ class UpsideGapTwoCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickP
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the UpsideGapTwoCrows class."""
+        """Initializes a new instance of the ThreeInside class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -241,8 +241,8 @@ class UpsideGapTwoCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickP
         ...
 
 
-class SeparatingLines(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Separating Lines candlestick pattern indicator"""
+class DragonflyDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Dragonfly Doji candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -252,7 +252,7 @@ class SeparatingLines(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the SeparatingLines class using the specified name.
+        Initializes a new instance of the DragonflyDoji class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -260,7 +260,7 @@ class SeparatingLines(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the SeparatingLines class."""
+        """Initializes a new instance of the DragonflyDoji class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -280,8 +280,8 @@ class SeparatingLines(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         ...
 
 
-class LongLeggedDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Long Legged Doji candlestick pattern indicator"""
+class RickshawMan(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Rickshaw Man candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -291,7 +291,7 @@ class LongLeggedDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the LongLeggedDoji class using the specified name.
+        Initializes a new instance of the RickshawMan class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -299,7 +299,85 @@ class LongLeggedDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the LongLeggedDoji class."""
+        """Initializes a new instance of the RickshawMan class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class MatchingLow(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Matching Low candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the MatchingLow class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the MatchingLow class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class IdenticalThreeCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Identical Three Crows candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the IdenticalThreeCrows class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the IdenticalThreeCrows class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -358,8 +436,8 @@ class UniqueThreeRiver(QuantConnect.Indicators.CandlestickPatterns.CandlestickPa
         ...
 
 
-class LadderBottom(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Ladder Bottom candlestick pattern indicator"""
+class Doji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Doji candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -369,7 +447,7 @@ class LadderBottom(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the LadderBottom class using the specified name.
+        Initializes a new instance of the Doji class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -377,7 +455,7 @@ class LadderBottom(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the LadderBottom class."""
+        """Initializes a new instance of the Doji class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -397,8 +475,8 @@ class LadderBottom(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
         ...
 
 
-class Takuri(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Takuri (Dragonfly Doji with very long lower shadow) candlestick pattern indicator"""
+class GapSideBySideWhite(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Up/Down-gap side-by-side white lines candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -408,7 +486,7 @@ class Takuri(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the Takuri class using the specified name.
+        Initializes a new instance of the GapSideBySideWhite class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -416,7 +494,7 @@ class Takuri(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the Takuri class."""
+        """Initializes a new instance of the GapSideBySideWhite class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -475,8 +553,8 @@ class ThreeStarsInSouth(QuantConnect.Indicators.CandlestickPatterns.CandlestickP
         ...
 
 
-class HighWaveCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """High-Wave Candle candlestick pattern indicator"""
+class Hammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Hammer candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -486,7 +564,7 @@ class HighWaveCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the HighWaveCandle class using the specified name.
+        Initializes a new instance of the Hammer class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -494,7 +572,7 @@ class HighWaveCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the HighWaveCandle class."""
+        """Initializes a new instance of the Hammer class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -514,8 +592,8 @@ class HighWaveCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         ...
 
 
-class LongLineCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Long Line Candle candlestick pattern indicator"""
+class HaramiCross(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Harami Cross candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -525,7 +603,7 @@ class LongLineCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the LongLineCandle class using the specified name.
+        Initializes a new instance of the HaramiCross class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -533,7 +611,7 @@ class LongLineCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the LongLineCandle class."""
+        """Initializes a new instance of the HaramiCross class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -592,8 +670,8 @@ class Breakaway(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class Thrusting(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Thrusting candlestick pattern indicator"""
+class Engulfing(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Engulfing candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -603,7 +681,7 @@ class Thrusting(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the Thrusting class using the specified name.
+        Initializes a new instance of the Engulfing class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -611,7 +689,52 @@ class Thrusting(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the Thrusting class."""
+        """Initializes a new instance of the Engulfing class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+
+class MorningStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Morning Star candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str, penetration: float = 0.3) -> None:
+        """
+        Initializes a new instance of the MorningStar class using the specified name.
+        
+        :param name: The name of this indicator
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self, penetration: float) -> None:
+        """
+        Initializes a new instance of the MorningStar class.
+        
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the MorningStar class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -631,8 +754,8 @@ class Thrusting(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class ThreeLineStrike(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Three Line Strike candlestick pattern"""
+class DojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Doji Star candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -642,7 +765,7 @@ class ThreeLineStrike(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the ThreeLineStrike class using the specified name.
+        Initializes a new instance of the DojiStar class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -650,7 +773,7 @@ class ThreeLineStrike(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the ThreeLineStrike class."""
+        """Initializes a new instance of the DojiStar class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -667,6 +790,135 @@ class ThreeLineStrike(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
 
     def reset(self) -> None:
         """Resets this indicator to its initial state"""
+        ...
+
+
+class CandleRangeType(Enum):
+    """Types of candlestick ranges"""
+
+    REAL_BODY = 0
+    """The part of the candle between open and close (0)"""
+
+    HIGH_LOW = 1
+    """The complete range of the candle (1)"""
+
+    SHADOWS = 2
+    """The shadows (or tails) of the candle (2)"""
+
+    def __int__(self) -> int:
+        ...
+
+
+class ThreeBlackCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Three Black Crows candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the ThreeBlackCrows class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the ThreeBlackCrows class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class UpsideGapTwoCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Upside Gap Two Crows candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the UpsideGapTwoCrows class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the UpsideGapTwoCrows class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class UpDownGapThreeMethods(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Up/Down Gap Three Methods candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the UpDownGapThreeMethods class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the UpDownGapThreeMethods class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
         ...
 
 
@@ -709,8 +961,8 @@ class TwoCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class ThreeInside(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Three Inside Up/Down candlestick pattern"""
+class InNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """In-Neck candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -720,7 +972,7 @@ class ThreeInside(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the ThreeInside class using the specified name.
+        Initializes a new instance of the InNeck class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -728,7 +980,7 @@ class ThreeInside(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the ThreeInside class."""
+        """Initializes a new instance of the InNeck class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -787,8 +1039,8 @@ class ShootingStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
         ...
 
 
-class InvertedHammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Inverted Hammer candlestick pattern indicator"""
+class Thrusting(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Thrusting candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -798,7 +1050,7 @@ class InvertedHammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the InvertedHammer class using the specified name.
+        Initializes a new instance of the Thrusting class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -806,124 +1058,7 @@ class InvertedHammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the InvertedHammer class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class Tristar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Tristar candlestick pattern indicator"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the Tristar class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Tristar class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class ConcealedBabySwallow(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Concealed Baby Swallow candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the ConcealedBabySwallow class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the ConcealedBabySwallow class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class IdenticalThreeCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Identical Three Crows candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the IdenticalThreeCrows class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the IdenticalThreeCrows class."""
+        """Initializes a new instance of the Thrusting class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -992,106 +1127,8 @@ class DarkCloudCover(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatt
         ...
 
 
-class EveningStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Evening Star candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str, penetration: float = 0.3) -> None:
-        """
-        Initializes a new instance of the EveningStar class using the specified name.
-        
-        :param name: The name of this indicator
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self, penetration: float) -> None:
-        """
-        Initializes a new instance of the EveningStar class.
-        
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the EveningStar class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class MorningStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Morning Star candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str, penetration: float = 0.3) -> None:
-        """
-        Initializes a new instance of the MorningStar class using the specified name.
-        
-        :param name: The name of this indicator
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self, penetration: float) -> None:
-        """
-        Initializes a new instance of the MorningStar class.
-        
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the MorningStar class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class GapSideBySideWhite(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Up/Down-gap side-by-side white lines candlestick pattern"""
+class KickingByLength(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Kicking (bull/bear determined by the longer marubozu) candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -1101,7 +1138,7 @@ class GapSideBySideWhite(QuantConnect.Indicators.CandlestickPatterns.Candlestick
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the GapSideBySideWhite class using the specified name.
+        Initializes a new instance of the KickingByLength class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -1109,7 +1146,56 @@ class GapSideBySideWhite(QuantConnect.Indicators.CandlestickPatterns.Candlestick
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the GapSideBySideWhite class."""
+        """Initializes a new instance of the KickingByLength class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class MatHold(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Mat Hold candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str, penetration: float = 0.5) -> None:
+        """
+        Initializes a new instance of the MatHold class using the specified name.
+        
+        :param name: The name of this indicator
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self, penetration: float) -> None:
+        """
+        Initializes a new instance of the MatHold class.
+        
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the MatHold class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -1168,8 +1254,8 @@ class Marubozu(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class MatchingLow(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Matching Low candlestick pattern indicator"""
+class SeparatingLines(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Separating Lines candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -1179,7 +1265,7 @@ class MatchingLow(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the MatchingLow class using the specified name.
+        Initializes a new instance of the SeparatingLines class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -1187,7 +1273,7 @@ class MatchingLow(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the MatchingLow class."""
+        """Initializes a new instance of the SeparatingLines class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -1207,8 +1293,8 @@ class MatchingLow(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         ...
 
 
-class KickingByLength(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Kicking (bull/bear determined by the longer marubozu) candlestick pattern"""
+class SpinningTop(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Spinning Top candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -1218,7 +1304,7 @@ class KickingByLength(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the KickingByLength class using the specified name.
+        Initializes a new instance of the SpinningTop class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -1226,7 +1312,7 @@ class KickingByLength(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the KickingByLength class."""
+        """Initializes a new instance of the SpinningTop class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -1246,8 +1332,8 @@ class KickingByLength(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         ...
 
 
-class ClosingMarubozu(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Closing Marubozu candlestick pattern indicator"""
+class HangingMan(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Hanging Man candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -1257,7 +1343,7 @@ class ClosingMarubozu(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the ClosingMarubozu class using the specified name.
+        Initializes a new instance of the HangingMan class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -1265,7 +1351,7 @@ class ClosingMarubozu(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the ClosingMarubozu class."""
+        """Initializes a new instance of the HangingMan class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -1285,8 +1371,8 @@ class ClosingMarubozu(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         ...
 
 
-class InNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """In-Neck candlestick pattern indicator"""
+class ThreeLineStrike(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Three Line Strike candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -1296,7 +1382,7 @@ class InNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the InNeck class using the specified name.
+        Initializes a new instance of the ThreeLineStrike class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -1304,7 +1390,7 @@ class InNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the InNeck class."""
+        """Initializes a new instance of the ThreeLineStrike class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -1324,8 +1410,8 @@ class InNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class StickSandwich(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Stick Sandwich candlestick pattern indicator"""
+class Tristar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Tristar candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -1335,7 +1421,7 @@ class StickSandwich(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatte
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the StickSandwich class using the specified name.
+        Initializes a new instance of the Tristar class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -1343,124 +1429,7 @@ class StickSandwich(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatte
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the StickSandwich class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class Kicking(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Kicking candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the Kicking class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Kicking class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class Counterattack(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Counterattack candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the Counterattack class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Counterattack class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class StalledPattern(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Stalled Pattern candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the StalledPattern class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the StalledPattern class."""
+        """Initializes a new instance of the Tristar class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -1519,317 +1488,6 @@ class BeltHold(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class CandleRangeType(Enum):
-    """Types of candlestick ranges"""
-
-    REAL_BODY = 0
-    """The part of the candle between open and close (0)"""
-
-    HIGH_LOW = 1
-    """The complete range of the candle (1)"""
-
-    SHADOWS = 2
-    """The shadows (or tails) of the candle (2)"""
-
-    def __int__(self) -> int:
-        ...
-
-
-class AbandonedBaby(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Abandoned Baby candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str, penetration: float = 0.3) -> None:
-        """
-        Initializes a new instance of the AbandonedBaby class using the specified name.
-        
-        :param name: The name of this indicator
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self, penetration: float) -> None:
-        """
-        Initializes a new instance of the AbandonedBaby class.
-        
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the AbandonedBaby class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class GravestoneDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Gravestone Doji candlestick pattern indicator"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the GravestoneDoji class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the GravestoneDoji class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class UpDownGapThreeMethods(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Up/Down Gap Three Methods candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the UpDownGapThreeMethods class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the UpDownGapThreeMethods class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-
-class EveningDojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Evening Doji Star candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str, penetration: float = 0.3) -> None:
-        """
-        Initializes a new instance of the EveningDojiStar class using the specified name.
-        
-        :param name: The name of this indicator
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self, penetration: float) -> None:
-        """
-        Initializes a new instance of the EveningDojiStar class.
-        
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the EveningDojiStar class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class DragonflyDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Dragonfly Doji candlestick pattern indicator"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the DragonflyDoji class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the DragonflyDoji class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class MorningDojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Morning Doji Star candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str, penetration: float = 0.3) -> None:
-        """
-        Initializes a new instance of the MorningDojiStar class using the specified name.
-        
-        :param name: The name of this indicator
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self, penetration: float) -> None:
-        """
-        Initializes a new instance of the MorningDojiStar class.
-        
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the MorningDojiStar class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class ThreeOutside(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Three Outside Up/Down candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the ThreeOutside class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the ThreeOutside class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-
 class TasukiGap(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     """Tasuki Gap candlestick pattern indicator"""
 
@@ -1850,6 +1508,211 @@ class TasukiGap(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     @overload
     def __init__(self) -> None:
         """Initializes a new instance of the TasukiGap class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class AdvanceBlock(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Advance Block candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the AdvanceBlock class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the AdvanceBlock class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class Counterattack(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Counterattack candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the Counterattack class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Counterattack class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class EveningStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Evening Star candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str, penetration: float = 0.3) -> None:
+        """
+        Initializes a new instance of the EveningStar class using the specified name.
+        
+        :param name: The name of this indicator
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self, penetration: float) -> None:
+        """
+        Initializes a new instance of the EveningStar class.
+        
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the EveningStar class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class HomingPigeon(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Homing Pigeon candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the HomingPigeon class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the HomingPigeon class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class Hikkake(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Hikkake candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the Hikkake class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Hikkake class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -1921,8 +1784,8 @@ class CandleSettings(System.Object):
         ...
 
 
-class Hikkake(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Hikkake candlestick pattern"""
+class StalledPattern(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Stalled Pattern candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -1932,7 +1795,7 @@ class Hikkake(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the Hikkake class using the specified name.
+        Initializes a new instance of the StalledPattern class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -1940,290 +1803,7 @@ class Hikkake(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the Hikkake class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class MatHold(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Mat Hold candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str, penetration: float = 0.5) -> None:
-        """
-        Initializes a new instance of the MatHold class using the specified name.
-        
-        :param name: The name of this indicator
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self, penetration: float) -> None:
-        """
-        Initializes a new instance of the MatHold class.
-        
-        :param penetration: Percentage of penetration of a candle within another candle
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the MatHold class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class RiseFallThreeMethods(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Rising/Falling Three Methods candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the RiseFallThreeMethods class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the RiseFallThreeMethods class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class RickshawMan(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Rickshaw Man candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the RickshawMan class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the RickshawMan class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class HikkakeModified(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Hikkake Modified candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the HikkakeModified class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the HikkakeModified class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class Piercing(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Piercing candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the Piercing class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the Piercing class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class SpinningTop(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Spinning Top candlestick pattern indicator"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the SpinningTop class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the SpinningTop class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class ThreeBlackCrows(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Three Black Crows candlestick pattern"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the ThreeBlackCrows class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the ThreeBlackCrows class."""
+        """Initializes a new instance of the StalledPattern class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -2282,8 +1862,8 @@ class ThreeWhiteSoldiers(QuantConnect.Indicators.CandlestickPatterns.Candlestick
         ...
 
 
-class Hammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Hammer candlestick pattern indicator"""
+class RiseFallThreeMethods(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Rising/Falling Three Methods candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -2293,7 +1873,7 @@ class Hammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the Hammer class using the specified name.
+        Initializes a new instance of the RiseFallThreeMethods class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -2301,7 +1881,7 @@ class Hammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the Hammer class."""
+        """Initializes a new instance of the RiseFallThreeMethods class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -2321,8 +1901,8 @@ class Hammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class HomingPigeon(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Homing Pigeon candlestick pattern indicator"""
+class Piercing(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Piercing candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -2332,7 +1912,7 @@ class HomingPigeon(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the HomingPigeon class using the specified name.
+        Initializes a new instance of the Piercing class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -2340,7 +1920,85 @@ class HomingPigeon(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the HomingPigeon class."""
+        """Initializes a new instance of the Piercing class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class ClosingMarubozu(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Closing Marubozu candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the ClosingMarubozu class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the ClosingMarubozu class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class OnNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """On-Neck candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the OnNeck class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the OnNeck class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -2399,8 +2057,8 @@ class ShortLineCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPat
         ...
 
 
-class Doji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Doji candlestick pattern indicator"""
+class ThreeOutside(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Three Outside Up/Down candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -2410,7 +2068,7 @@ class Doji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the Doji class using the specified name.
+        Initializes a new instance of the ThreeOutside class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -2418,7 +2076,413 @@ class Doji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the Doji class."""
+        """Initializes a new instance of the ThreeOutside class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+
+class AbandonedBaby(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Abandoned Baby candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str, penetration: float = 0.3) -> None:
+        """
+        Initializes a new instance of the AbandonedBaby class using the specified name.
+        
+        :param name: The name of this indicator
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self, penetration: float) -> None:
+        """
+        Initializes a new instance of the AbandonedBaby class.
+        
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the AbandonedBaby class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class LongLineCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Long Line Candle candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the LongLineCandle class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the LongLineCandle class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class EveningDojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Evening Doji Star candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str, penetration: float = 0.3) -> None:
+        """
+        Initializes a new instance of the EveningDojiStar class using the specified name.
+        
+        :param name: The name of this indicator
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self, penetration: float) -> None:
+        """
+        Initializes a new instance of the EveningDojiStar class.
+        
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the EveningDojiStar class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class GravestoneDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Gravestone Doji candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the GravestoneDoji class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the GravestoneDoji class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class Kicking(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Kicking candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the Kicking class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the Kicking class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class InvertedHammer(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Inverted Hammer candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the InvertedHammer class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the InvertedHammer class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class LongLeggedDoji(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Long Legged Doji candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the LongLeggedDoji class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the LongLeggedDoji class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class StickSandwich(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Stick Sandwich candlestick pattern indicator"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the StickSandwich class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the StickSandwich class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class ConcealedBabySwallow(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Concealed Baby Swallow candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the ConcealedBabySwallow class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the ConcealedBabySwallow class."""
+        ...
+
+    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
+        """
+        Computes the next value of this indicator from the given state
+        
+        This method is protected.
+        
+        :param window: The window of data held in this indicator
+        :param input: The input given to the indicator
+        :returns: A new value for this indicator.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this indicator to its initial state"""
+        ...
+
+
+class HikkakeModified(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Hikkake Modified candlestick pattern"""
+
+    @property
+    def is_ready(self) -> bool:
+        """Gets a flag indicating when this indicator is ready and fully initialized"""
+        ...
+
+    @overload
+    def __init__(self, name: str) -> None:
+        """
+        Initializes a new instance of the HikkakeModified class using the specified name.
+        
+        :param name: The name of this indicator
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Initializes a new instance of the HikkakeModified class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -2477,8 +2541,8 @@ class Harami(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class HaramiCross(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Harami Cross candlestick pattern indicator"""
+class LadderBottom(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Ladder Bottom candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -2488,7 +2552,7 @@ class HaramiCross(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the HaramiCross class using the specified name.
+        Initializes a new instance of the LadderBottom class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -2496,7 +2560,7 @@ class HaramiCross(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the HaramiCross class."""
+        """Initializes a new instance of the LadderBottom class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -2516,8 +2580,8 @@ class HaramiCross(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern
         ...
 
 
-class Engulfing(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Engulfing candlestick pattern"""
+class MorningDojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Morning Doji Star candlestick pattern"""
 
     @property
     def is_ready(self) -> bool:
@@ -2525,52 +2589,27 @@ class Engulfing(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
     @overload
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, penetration: float = 0.3) -> None:
         """
-        Initializes a new instance of the Engulfing class using the specified name.
+        Initializes a new instance of the MorningDojiStar class using the specified name.
         
         :param name: The name of this indicator
+        :param penetration: Percentage of penetration of a candle within another candle
+        """
+        ...
+
+    @overload
+    def __init__(self, penetration: float) -> None:
+        """
+        Initializes a new instance of the MorningDojiStar class.
+        
+        :param penetration: Percentage of penetration of a candle within another candle
         """
         ...
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the Engulfing class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-
-class HangingMan(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Hanging Man candlestick pattern indicator"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the HangingMan class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the HangingMan class."""
+        """Initializes a new instance of the MorningDojiStar class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -2590,8 +2629,8 @@ class HangingMan(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern)
         ...
 
 
-class DojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Doji Star candlestick pattern indicator"""
+class Takuri(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """Takuri (Dragonfly Doji with very long lower shadow) candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -2601,7 +2640,7 @@ class DojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the DojiStar class using the specified name.
+        Initializes a new instance of the Takuri class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -2609,7 +2648,7 @@ class DojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the DojiStar class."""
+        """Initializes a new instance of the Takuri class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
@@ -2629,8 +2668,8 @@ class DojiStar(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
         ...
 
 
-class AdvanceBlock(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """Advance Block candlestick pattern"""
+class HighWaveCandle(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
+    """High-Wave Candle candlestick pattern indicator"""
 
     @property
     def is_ready(self) -> bool:
@@ -2640,7 +2679,7 @@ class AdvanceBlock(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
     @overload
     def __init__(self, name: str) -> None:
         """
-        Initializes a new instance of the AdvanceBlock class using the specified name.
+        Initializes a new instance of the HighWaveCandle class using the specified name.
         
         :param name: The name of this indicator
         """
@@ -2648,46 +2687,7 @@ class AdvanceBlock(QuantConnect.Indicators.CandlestickPatterns.CandlestickPatter
 
     @overload
     def __init__(self) -> None:
-        """Initializes a new instance of the AdvanceBlock class."""
-        ...
-
-    def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:
-        """
-        Computes the next value of this indicator from the given state
-        
-        This method is protected.
-        
-        :param window: The window of data held in this indicator
-        :param input: The input given to the indicator
-        :returns: A new value for this indicator.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets this indicator to its initial state"""
-        ...
-
-
-class OnNeck(QuantConnect.Indicators.CandlestickPatterns.CandlestickPattern):
-    """On-Neck candlestick pattern indicator"""
-
-    @property
-    def is_ready(self) -> bool:
-        """Gets a flag indicating when this indicator is ready and fully initialized"""
-        ...
-
-    @overload
-    def __init__(self, name: str) -> None:
-        """
-        Initializes a new instance of the OnNeck class using the specified name.
-        
-        :param name: The name of this indicator
-        """
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Initializes a new instance of the OnNeck class."""
+        """Initializes a new instance of the HighWaveCandle class."""
         ...
 
     def compute_next_value(self, window: QuantConnect.Indicators.IReadOnlyWindow[QuantConnect.Data.Market.IBaseDataBar], input: QuantConnect.Data.Market.IBaseDataBar) -> float:

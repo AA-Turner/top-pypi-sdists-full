@@ -14,10 +14,10 @@ import System
 import System.Collections.Generic
 import System.Collections.Immutable
 
-Expression = typing.Any
-QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyLegDefinitionMatch = typing.Any
 QuantConnect_Securities_Option_StrategyMatcher_OptionPosition = typing.Any
 QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyDefinitionMatch = typing.Any
+Expression = typing.Any
+QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyLegDefinitionMatch = typing.Any
 
 QuantConnect_Securities_Option_StrategyMatcher_ConstantOptionStrategyLegPredicateReferenceValue_T = typing.TypeVar("QuantConnect_Securities_Option_StrategyMatcher_ConstantOptionStrategyLegPredicateReferenceValue_T")
 
@@ -503,17 +503,6 @@ class IOptionStrategyMatchObjectiveFunction(metaclass=abc.ABCMeta):
         ...
 
 
-class IOptionStrategyDefinitionEnumerator(metaclass=abc.ABCMeta):
-    """
-    Enumerates OptionStrategyDefinition for the purposes of providing a bias towards definitions
-    that are more favorable to be matched before matching less favorable definitions.
-    """
-
-    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
-        """Enumerates the  according to the implementation's own concept of favorability."""
-        ...
-
-
 class IOptionPositionCollectionEnumerator(metaclass=abc.ABCMeta):
     """
     Enumerates an OptionPositionCollection. The intent is to evaluate positions that
@@ -932,95 +921,6 @@ class OptionStrategyLegDefinition(System.Object, typing.Iterable[QuantConnect.Se
         ...
 
 
-class OptionStrategyDefinitionMatch(System.Object, System.IEquatable[QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyDefinitionMatch]):
-    """Defines a match of OptionPosition to a OptionStrategyDefinition"""
-
-    @property
-    def definition(self) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition:
-        """The OptionStrategyDefinition matched"""
-        ...
-
-    @property
-    def multiplier(self) -> int:
-        """
-        The number of times the definition is able to match the available positions.
-        Since definitions are formed at the 'unit' level, such as having 1 contract,
-        the multiplier defines how many times the definition matched. This multiplier
-        is used to scale the quantity defined in each leg definition when creating the
-        OptionStrategy objects.
-        """
-        ...
-
-    @property
-    def legs(self) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch]:
-        """The OptionStrategyLegDefinitionMatch instances matched to the definition."""
-        ...
-
-    def __eq__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
-        """
-        OptionStrategyDefinitionMatch == Operator
-        
-        :returns: True if they are the same.
-        """
-        ...
-
-    def __init__(self, definition: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch], multiplier: int) -> None:
-        """Initializes a new instance of the OptionStrategyDefinitionMatch class"""
-        ...
-
-    def __ne__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
-        """
-        OptionStrategyDefinitionMatch != Operator
-        
-        :returns: True if they are not the same.
-        """
-        ...
-
-    def create_strategy(self) -> QuantConnect.Securities.Option.OptionStrategy:
-        """Creates the OptionStrategy instance this match represents"""
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        """
-        Determines whether the specified object is equal to the current object.
-        
-        :param obj: The object to compare with the current object.
-        :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    @overload
-    def equals(self, other: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
-        """
-        Indicates whether the current object is equal to another object of the same type.
-        
-        :param other: An object to compare with this object.
-        :returns: true if the current object is equal to the  parameter; otherwise, false.
-        """
-        ...
-
-    def get_hash_code(self) -> int:
-        """
-        Serves as the default hash function.
-        
-        :returns: A hash code for the current object.
-        """
-        ...
-
-    def remove_from(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
-        """Deducts the matched positions from the specified  taking into account the multiplier"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
 class OptionStrategyDefinition(System.Object, typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinition]):
     """
     Provides a definitional object for an OptionStrategy. This definition is used to 'match' option
@@ -1171,6 +1071,17 @@ class OptionStrategyDefinition(System.Object, typing.Iterable[QuantConnect.Secur
         ...
 
 
+class IOptionStrategyDefinitionEnumerator(metaclass=abc.ABCMeta):
+    """
+    Enumerates OptionStrategyDefinition for the purposes of providing a bias towards definitions
+    that are more favorable to be matched before matching less favorable definitions.
+    """
+
+    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
+        """Enumerates the  according to the implementation's own concept of favorability."""
+        ...
+
+
 class DescendingByLegCountOptionStrategyDefinitionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyDefinitionEnumerator):
     """
     Provides an implementation of IOptionStrategyDefinitionEnumerator that enumerates definitions
@@ -1208,56 +1119,6 @@ class OptionStrategyLegPredicateReferenceValue(System.Object, QuantConnect.Secur
         For example, the predicate may include ... > legs[0].Strike, and upon evaluation, we need to
         be able to extract leg[0].Strike for the currently contemplated set of legs adhering to a
         strategy's definition.
-        """
-        ...
-
-
-class AbsoluteRiskOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
-    """
-    Stub class providing an idea towards an optimal IOptionPositionCollectionEnumerator implementation
-    that still needs to be implemented.
-    """
-
-    def __init__(self, market_price_provider: typing.Callable[[QuantConnect.Symbol], float]) -> None:
-        """
-        Intializes a new instance of the AbsoluteRiskOptionPositionCollectionEnumerator class
-        
-        :param market_price_provider: Function providing the current market price for a provided symbol
-        """
-        ...
-
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
-        """
-        Enumerates the provided . Positions enumerated first are more
-        likely to be matched than those appearing later in the enumeration.
-        """
-        ...
-
-
-class OptionStrategyMatcher(System.Object):
-    """
-    Matches OptionPositionCollection against a collection of OptionStrategyDefinition
-    according to the OptionStrategyMatcherOptions provided.
-    """
-
-    @property
-    def options(self) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions:
-        """Specifies options controlling how the matcher operates"""
-        ...
-
-    def __init__(self, options: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions) -> None:
-        """
-        Initializes a new instance of the OptionStrategyMatcher class
-        
-        :param options: Specifies definitions and other options controlling the matcher
-        """
-        ...
-
-    def match_once(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatch:
-        """
-        Using the definitions provided in Options, attempts to match all .
-        The resulting OptionStrategyMatch presents a single, valid solution for matching as many positions
-        as possible.
         """
         ...
 
@@ -1480,17 +1341,6 @@ class OptionStrategyDefinitions(System.Object):
     """
 
 
-class IdentityOptionStrategyDefinitionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyDefinitionEnumerator):
-    """
-    Provides a default implementation of IOptionStrategyDefinitionEnumerator that enumerates
-    definitions according to the order that they were provided to OptionStrategyMatcherOptions
-    """
-
-    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
-        """Enumerates the  in the same order as provided."""
-        ...
-
-
 class FunctionalOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
     """Provides a functional implementation of IOptionPositionCollectionEnumerator"""
 
@@ -1508,14 +1358,122 @@ class FunctionalOptionPositionCollectionEnumerator(System.Object, QuantConnect.S
         ...
 
 
-class UnmatchedPositionCountOptionStrategyMatchObjectiveFunction(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyMatchObjectiveFunction):
+class DefaultOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
+    """Provides a default implementation of the IOptionPositionCollectionEnumerator abstraction."""
+
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+        """Enumerates  according to its default enumerator implementation."""
+        ...
+
+
+class OptionStrategyDefinitionMatch(System.Object, System.IEquatable[QuantConnect_Securities_Option_StrategyMatcher_OptionStrategyDefinitionMatch]):
+    """Defines a match of OptionPosition to a OptionStrategyDefinition"""
+
+    @property
+    def definition(self) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition:
+        """The OptionStrategyDefinition matched"""
+        ...
+
+    @property
+    def multiplier(self) -> int:
+        """
+        The number of times the definition is able to match the available positions.
+        Since definitions are formed at the 'unit' level, such as having 1 contract,
+        the multiplier defines how many times the definition matched. This multiplier
+        is used to scale the quantity defined in each leg definition when creating the
+        OptionStrategy objects.
+        """
+        ...
+
+    @property
+    def legs(self) -> typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch]:
+        """The OptionStrategyLegDefinitionMatch instances matched to the definition."""
+        ...
+
+    def __eq__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
+        """
+        OptionStrategyDefinitionMatch == Operator
+        
+        :returns: True if they are the same.
+        """
+        ...
+
+    def __init__(self, definition: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition, legs: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyLegDefinitionMatch], multiplier: int) -> None:
+        """Initializes a new instance of the OptionStrategyDefinitionMatch class"""
+        ...
+
+    def __ne__(self, right: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
+        """
+        OptionStrategyDefinitionMatch != Operator
+        
+        :returns: True if they are not the same.
+        """
+        ...
+
+    def create_strategy(self) -> QuantConnect.Securities.Option.OptionStrategy:
+        """Creates the OptionStrategy instance this match represents"""
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        """
+        Determines whether the specified object is equal to the current object.
+        
+        :param obj: The object to compare with the current object.
+        :returns: true if the specified object  is equal to the current object; otherwise, false.
+        """
+        ...
+
+    @overload
+    def equals(self, other: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinitionMatch) -> bool:
+        """
+        Indicates whether the current object is equal to another object of the same type.
+        
+        :param other: An object to compare with this object.
+        :returns: true if the current object is equal to the  parameter; otherwise, false.
+        """
+        ...
+
+    def get_hash_code(self) -> int:
+        """
+        Serves as the default hash function.
+        
+        :returns: A hash code for the current object.
+        """
+        ...
+
+    def remove_from(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection:
+        """Deducts the matched positions from the specified  taking into account the multiplier"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+
+class AbsoluteRiskOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
     """
-    Provides an implementation of IOptionStrategyMatchObjectiveFunction that evaluates the number of unmatched
-    positions, in number of contracts, giving precedence to solutions that have fewer unmatched contracts.
+    Stub class providing an idea towards an optimal IOptionPositionCollectionEnumerator implementation
+    that still needs to be implemented.
     """
 
-    def compute_score(self, input: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection, match: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatch, unmatched: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> float:
-        """Computes the delta in matched vs unmatched positions, which gives precedence to solutions that match more contracts."""
+    def __init__(self, market_price_provider: typing.Callable[[QuantConnect.Symbol], float]) -> None:
+        """
+        Intializes a new instance of the AbsoluteRiskOptionPositionCollectionEnumerator class
+        
+        :param market_price_provider: Function providing the current market price for a provided symbol
+        """
+        ...
+
+    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
+        """
+        Enumerates the provided . Positions enumerated first are more
+        likely to be matched than those appearing later in the enumeration.
+        """
         ...
 
 
@@ -1553,11 +1511,53 @@ class ConstantOptionStrategyLegReferenceValue(System.Object):
         ...
 
 
-class DefaultOptionPositionCollectionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionPositionCollectionEnumerator):
-    """Provides a default implementation of the IOptionPositionCollectionEnumerator abstraction."""
+class OptionStrategyMatcher(System.Object):
+    """
+    Matches OptionPositionCollection against a collection of OptionStrategyDefinition
+    according to the OptionStrategyMatcherOptions provided.
+    """
 
-    def enumerate(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionPosition]:
-        """Enumerates  according to its default enumerator implementation."""
+    @property
+    def options(self) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions:
+        """Specifies options controlling how the matcher operates"""
+        ...
+
+    def __init__(self, options: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatcherOptions) -> None:
+        """
+        Initializes a new instance of the OptionStrategyMatcher class
+        
+        :param options: Specifies definitions and other options controlling the matcher
+        """
+        ...
+
+    def match_once(self, positions: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatch:
+        """
+        Using the definitions provided in Options, attempts to match all .
+        The resulting OptionStrategyMatch presents a single, valid solution for matching as many positions
+        as possible.
+        """
+        ...
+
+
+class IdentityOptionStrategyDefinitionEnumerator(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyDefinitionEnumerator):
+    """
+    Provides a default implementation of IOptionStrategyDefinitionEnumerator that enumerates
+    definitions according to the order that they were provided to OptionStrategyMatcherOptions
+    """
+
+    def enumerate(self, definitions: typing.Sequence[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]) -> typing.Iterable[QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyDefinition]:
+        """Enumerates the  in the same order as provided."""
+        ...
+
+
+class UnmatchedPositionCountOptionStrategyMatchObjectiveFunction(System.Object, QuantConnect.Securities.Option.StrategyMatcher.IOptionStrategyMatchObjectiveFunction):
+    """
+    Provides an implementation of IOptionStrategyMatchObjectiveFunction that evaluates the number of unmatched
+    positions, in number of contracts, giving precedence to solutions that have fewer unmatched contracts.
+    """
+
+    def compute_score(self, input: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection, match: QuantConnect.Securities.Option.StrategyMatcher.OptionStrategyMatch, unmatched: QuantConnect.Securities.Option.StrategyMatcher.OptionPositionCollection) -> float:
+        """Computes the delta in matched vs unmatched positions, which gives precedence to solutions that match more contracts."""
         ...
 
 

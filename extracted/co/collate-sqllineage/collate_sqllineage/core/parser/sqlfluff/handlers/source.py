@@ -214,8 +214,10 @@ class SourceHandler(SourceHandlerMixin, ConditionalSegmentBaseHandler):
             return
         elif is_union(segment):
             subqueries = get_subqueries(segment)
-            subquery, alias = subqueries[0]
-            self.tables.append(SqlFluffSubQuery.of(subquery, alias))
+            for subquery, alias in subqueries:
+                read_sq = SqlFluffSubQuery.of(subquery, alias)
+                holder.extra_subqueries.add(read_sq)
+                self.tables.append(read_sq)
         else:
             subqueries = get_subqueries(segment)
             if subqueries:

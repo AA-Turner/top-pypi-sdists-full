@@ -46,8 +46,10 @@ class ResultsIngestor:
         self._is_streaming = False
         self._lock = threading.RLock()
 
-        # Counter for tie-breaking in PriorityQueue (to avoid dict comparison)
-        self._counters: Dict[Tuple[str, str], itertools.count] = {}
+        # Counter for ordering within (deployment_id, stream_key, stream_group_key)
+        self._counters: Dict[Tuple[str, str, str], itertools.count] = {}
+        # Global per-deployment sequence for PriorityQueue tie-breaking across streams
+        self._queue_seq_counters: Dict[str, itertools.count] = {}
         
         # Track last seen input_order for reset detection
         self._last_input_order: Dict[Tuple[str, str], int] = {}
@@ -74,6 +76,8 @@ class ResultsIngestor:
         for deployment_id in self.deployment_ids:
             self.results_queues[deployment_id] = PriorityQueue()
             self.stats["queue_sizes"][deployment_id] = 0
+            # Initialize per-deployment sequence counter
+            self._queue_seq_counters[deployment_id] = itertools.count()
     
 
     def start_streaming(self) -> bool:
@@ -160,10 +164,10 @@ class ResultsIngestor:
 
     def _get_priority_counter(self, deployment_id: str, stream_key: str, stream_group_key: str) -> int:
         """
-        Get priority tuple for queue ordering with reset detection.
+        Get a monotonically increasing counter per (deployment_id, stream_key, stream_group_key) for ordering.
         
         Returns:
-            Tuple[session_id, temporal_counter, input_order]: Priority tuple for queue ordering
+            int: Priority counter for ordering within the same stream
         """
         key = (deployment_id, stream_key, stream_group_key)
         
@@ -172,6 +176,16 @@ class ResultsIngestor:
             self._counters[key] = itertools.count()
         
         return next(self._counters[key])
+
+    def _get_queue_sequence(self, deployment_id: str) -> int:
+        """
+        Get a global per-deployment sequence number for tie-breaking across different streams
+        placed in the same PriorityQueue. This prevents Python from trying to compare dicts
+        when primary priorities are equal.
+        """
+        if deployment_id not in self._queue_seq_counters:
+            self._queue_seq_counters[deployment_id] = itertools.count()
+        return next(self._queue_seq_counters[deployment_id])
 
     def _stream_results_to_queue(
         self, deployment_id: str, results_queue: PriorityQueue
@@ -210,6 +224,7 @@ class ResultsIngestor:
                         continue
                     
                     order = self._get_priority_counter(deployment_id, stream_key, stream_group_key)
+                    seq = self._get_queue_sequence(deployment_id)
                     # Create enhanced result object with the structured response
                     enhanced_result = {
                         "deployment_id": deployment_id,
@@ -221,7 +236,8 @@ class ResultsIngestor:
                     }
 
                     try:
-                        results_queue.put((order, enhanced_result), block=False)
+                        # Include a sequence tie-breaker to avoid comparing dicts when priorities are equal
+                        results_queue.put((order, seq, enhanced_result), block=False)
 
                         with self._lock:
                             self.stats["results_consumed"] += 1
@@ -287,7 +303,13 @@ class ResultsIngestor:
                     deployment_id
                 ].qsize()
 
-            return priority_result[1]  # Return the actual result (2nd element, after priority tuple)
+            # Handle both 2-tuple (legacy) and 3-tuple (with seq) queue items
+            if isinstance(priority_result, tuple):
+                if len(priority_result) >= 3:
+                    return priority_result[2]
+                elif len(priority_result) == 2:
+                    return priority_result[1]
+            return priority_result
         except Empty:
             return None
         except Exception as exc:

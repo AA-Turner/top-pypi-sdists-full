@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-gdb"
-version = "15.0.0.20250809"
+version = "16.3.0.20250812"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for gdb"
@@ -15,7 +15,7 @@ This is a [PEP 561](https://peps.python.org/pep-0561/) type stub package for
 the [`gdb`](https://sourceware.org/git/gitweb.cgi?p=binutils-gdb.git;a=tree) package. It can be used by type checkers
 to check code that uses `gdb`. This version of
 `types-gdb` aims to provide accurate annotations for
-`gdb==15.0.*`.
+`gdb==16.3.*`.
 
 Type hints for GDB's [Python API](https://sourceware.org/gdb/onlinedocs/gdb/Python-API.html). Note that this API is available only when running Python scripts under GDB: it is not possible to install the `gdb` package separately, for instance using `pip`.
 
@@ -31,7 +31,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.403
 
 It was generated from typeshed commit
-[`91ba0da4aad754c912a82b9e052cb4f8191ce520`](https://github.com/python/typeshed/commit/91ba0da4aad754c912a82b9e052cb4f8191ce520).
+[`ea39410142352293438a60312c17c80afe191659`](https://github.com/python/typeshed/commit/ea39410142352293438a60312c17c80afe191659).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

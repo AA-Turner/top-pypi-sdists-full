@@ -327,7 +327,7 @@ class AutoStreaming:
                 gateway = StreamingGateway(
                     session=self.session,
                     service_id=service_id,
-                    output_config=self.output_configs.get(gateway_id, None),
+                    output_config=self.output_configs,
                     inputs_config=input_configs,
                     result_callback=self.result_callback,
                     strip_input_from_result=self.strip_input_from_result,
@@ -360,7 +360,7 @@ class AutoStreaming:
 
         return self.streaming_gateways
 
-    def start(self) -> bool:
+    def start(self, send_to_api: bool = False) -> bool:
         """
         Start auto streaming for all configured streaming gateways.
 
@@ -388,7 +388,7 @@ class AutoStreaming:
                     # Create and start streaming thread
                     thread = threading.Thread(
                         target=self._streaming_worker,
-                        args=(gateway_id, gateway),
+                        args=(gateway_id, gateway, send_to_api),
                         name=f"AutoStream-{gateway_id}",
                         daemon=True,
                     )
@@ -421,7 +421,7 @@ class AutoStreaming:
             )
             return True
 
-    def _streaming_worker(self, gateway_id: str, gateway: StreamingGateway):
+    def _streaming_worker(self, gateway_id: str, gateway: StreamingGateway, send_to_api: bool = False):
         """
         Worker thread for streaming a specific gateway.
 
@@ -431,7 +431,7 @@ class AutoStreaming:
         """
         try:
             # Start streaming
-            success = gateway.start_streaming()
+            success = gateway.start_streaming(send_to_api=send_to_api)
 
             if success:
                 AutoStreamingUtils.update_stream_status(

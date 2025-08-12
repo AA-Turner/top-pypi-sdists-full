@@ -39,10 +39,10 @@ class TestKernel(ITestKernel):
             )
 
         # Resolve the unit test service from the application container
-        self.__unit_test: IUnitTest = app.make('core.orionis.testing')
+        self.__unit_test: IUnitTest = app.make('x-orionis.test.core.unit_test')
 
         # Resolve the console service from the application container
-        self.__console: IConsole = app.make('core.orionis.console')
+        self.__console: IConsole = app.make('x-orionis.console.output.console')
 
     def handle(self) -> IUnitTest:
         """

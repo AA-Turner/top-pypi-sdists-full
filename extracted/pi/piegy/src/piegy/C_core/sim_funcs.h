@@ -109,35 +109,35 @@ uint8_t run(model_t* restrict mod, char* message, size_t msg_len);
 
 static inline void update_pi_k(patch_t* restrict p) {
     // update payoff and carrying capacity rates 
-    uint32_t U = p->U;
-    uint32_t V = p->V;
+    uint32_t U = p->U_ph;
+    uint32_t V = p->V_ph;
     double sum = U + V;
 
     if (sum > 0) {
         double U_ratio = U / sum;
         double V_ratio = V / sum;
         if (U > 0) {
-            p->U_pi = U_ratio * p->X[0] + V_ratio * p->X[1];
+            p->Hpi_ph = U_ratio * p->matirx[0] + V_ratio * p->matirx[1];
         } else {
-            p->U_pi = 0.0;
+            p->Hpi_ph = 0.0;
         }
 
         if (V > 0) {
-            p->V_pi = U_ratio * p->X[2] + V_ratio * p->X[3];
+            p->Dpi_ph = U_ratio * p->matirx[2] + V_ratio * p->matirx[3];
         } else {
-            p->V_pi = 0.0;
+            p->Dpi_ph = 0.0;
         }
 
     } else {
-        p->U_pi = 0.0;
-        p->V_pi = 0.0;
+        p->Hpi_ph = 0.0;
+        p->Dpi_ph = 0.0;
     }
 
-    p->pi_death_rates[0] = fabs(U * p->U_pi);
-    p->pi_death_rates[1] = fabs(V * p->V_pi);
+    p->pi_death_rates[0] = fabs(U * p->Hpi_ph);
+    p->pi_death_rates[1] = fabs(V * p->Dpi_ph);
 
-    p->pi_death_rates[2] = p->P[4] * U * sum;
-    p->pi_death_rates[3] = p->P[5] * V * sum;
+    p->pi_death_rates[2] = p->params[4] * U * sum;
+    p->pi_death_rates[3] = p->params[5] * V * sum;
 
     p->sum_pi_death_rates = 0.0;
     for (size_t i = 0; i < 4; i++) {
@@ -150,18 +150,18 @@ static inline void update_pi_k(patch_t* restrict p) {
 static inline void update_mig_just_rate(patch_t* restrict p) {
     // update migration weight for patch p, in location loc. Only rate is updated
     // used by last-changed patch, when there is only one last-changed patch
-    double* p_U_weight = p->U_weight;
-    double* p_V_weight = p->V_weight;
+    double* p_H_weight = p->H_weight;
+    double* p_D_weight = p->D_weight;
 
-    double mu1_U = p->P[0] * p->U;
-    double mu2_V = p->P[1] * p->V;
+    double mu1_U = p->params[0] * p->U_ph;
+    double mu2_V = p->params[1] * p->V_ph;
     
-    double mu1_U_divide_sum = mu1_U / p->sum_U_weight;
-    double mu2_V_divide_sum = mu2_V / p->sum_V_weight;
+    double mu1_U_divide_sum = mu1_U / p->sum_H_weight;
+    double mu2_V_divide_sum = mu2_V / p->sum_D_weight;
 
     for (size_t i = 0; i < 4; i++) {
-        p->mig_rates[i] = mu1_U_divide_sum * p_U_weight[i];
-        p->mig_rates[i + 4] = mu2_V_divide_sum * p_V_weight[i];
+        p->mig_rates[i] = mu1_U_divide_sum * p_H_weight[i];
+        p->mig_rates[i + 4] = mu2_V_divide_sum * p_D_weight[i];
     }
     p->sum_mig_rates = mu1_U + mu2_V;
 }
@@ -172,51 +172,51 @@ static inline uint8_t update_mig_weight_rate(patch_t* restrict p, const uint8_t 
     // used by neighbors of last-changed patches
     // also used by last-changed patches themselve, when there are two patch changed, to update mig rates of in each other's direction
 
-    double* p_U_weight = p->U_weight;
-    double* p_V_weight = p->V_weight;
+    double* p_H_weight = p->H_weight;
+    double* p_D_weight = p->D_weight;
 
     patch_t* nbi = p->nb[loc];
-    p->sum_U_weight -= p_U_weight[loc];
-    p->sum_V_weight -= p_V_weight[loc];
+    p->sum_H_weight -= p_H_weight[loc];
+    p->sum_D_weight -= p_D_weight[loc];
 
-    double w1_Upi = p->P[2] * nbi->U_pi;
-    double w2_Vpi = p->P[3] * nbi->V_pi;
-    if (w1_Upi > EXP_OVERFLOW_BOUND) {
+    double w1_Hpi = p->params[2] * nbi->Hpi_ph;
+    double w2_Dpi = p->params[3] * nbi->Dpi_ph;
+    if (w1_Hpi > EXP_OVERFLOW_BOUND) {
         return SIM_OVERFLOW;
     }
-    if (w2_Vpi > EXP_OVERFLOW_BOUND) {
+    if (w2_Dpi > EXP_OVERFLOW_BOUND) {
         return SIM_OVERFLOW;
     }
 
     switch(loc) {
         case MIG_UP:
-            p_U_weight[MIG_UP] = exp(w1_Upi);
-            p_V_weight[MIG_UP] = exp(w2_Vpi);
+            p_H_weight[MIG_UP] = exp(w1_Hpi);
+            p_D_weight[MIG_UP] = exp(w2_Dpi);
             break;
         case MIG_DOWN:
-            p_U_weight[MIG_DOWN] = exp(w1_Upi);
-            p_V_weight[MIG_DOWN] = exp(w2_Vpi);
+            p_H_weight[MIG_DOWN] = exp(w1_Hpi);
+            p_D_weight[MIG_DOWN] = exp(w2_Dpi);
             break;
         case MIG_LEFT:
-            p_U_weight[MIG_LEFT] = exp(w1_Upi);
-            p_V_weight[MIG_LEFT] = exp(w2_Vpi);
+            p_H_weight[MIG_LEFT] = exp(w1_Hpi);
+            p_D_weight[MIG_LEFT] = exp(w2_Dpi);
             break;
         default:
-            p_U_weight[MIG_RIGHT] = exp(w1_Upi);
-            p_V_weight[MIG_RIGHT] = exp(w2_Vpi);
+            p_H_weight[MIG_RIGHT] = exp(w1_Hpi);
+            p_D_weight[MIG_RIGHT] = exp(w2_Dpi);
             break;
     }
-    p->sum_U_weight += p_U_weight[loc];
-    p->sum_V_weight += p_V_weight[loc];
+    p->sum_H_weight += p_H_weight[loc];
+    p->sum_D_weight += p_D_weight[loc];
 
-    double mu1_U = p->P[0] * p->U;
-    double mu2_V = p->P[1] * p->V;
-    double mu1_U_divide_sum = mu1_U / p->sum_U_weight;
-    double mu2_V_divide_sum = mu2_V / p->sum_V_weight;
+    double mu1_U = p->params[0] * p->U_ph;
+    double mu2_V = p->params[1] * p->V_ph;
+    double mu1_U_divide_sum = mu1_U / p->sum_H_weight;
+    double mu2_V_divide_sum = mu2_V / p->sum_D_weight;
 
     for (size_t i = 0; i < 4; i++) {
-        p->mig_rates[i] = mu1_U_divide_sum * p_U_weight[i];
-        p->mig_rates[i + 4] = mu2_V_divide_sum * p_V_weight[i];
+        p->mig_rates[i] = mu1_U_divide_sum * p_H_weight[i];
+        p->mig_rates[i + 4] = mu2_V_divide_sum * p_D_weight[i];
     }
     p->sum_mig_rates = mu1_U + mu2_V;
 
@@ -228,43 +228,43 @@ static inline uint8_t update_mig_weight_rate(patch_t* restrict p, const uint8_t 
 static inline uint8_t init_mig(patch_t* restrict p) {
     // update migration rate for all directions
 
-    double* p_U_weight = p->U_weight;
-    double* p_V_weight = p->V_weight;
+    double* p_H_weight = p->H_weight;
+    double* p_D_weight = p->D_weight;
 
-    p->sum_U_weight = 0.0;
-    p->sum_V_weight = 0.0;
+    p->sum_H_weight = 0.0;
+    p->sum_D_weight = 0.0;
 
-    double w1 = p->P[2];
-    double w2 = p->P[3];
+    double w1 = p->params[2];
+    double w2 = p->params[3];
 
     for (size_t i = 0; i < 4; i++) {
         patch_t* nbi = p->nb[i];
         if (nbi) {
             // not NULL
-            double w1_Upi = w1 * nbi->U_pi;
-            double w2_Vpi = w2 * nbi->V_pi;
-            if (w1_Upi > EXP_OVERFLOW_BOUND) {
+            double w1_Hpi = w1 * nbi->Hpi_ph;
+            double w2_Dpi = w2 * nbi->Dpi_ph;
+            if (w1_Hpi > EXP_OVERFLOW_BOUND) {
                 return SIM_OVERFLOW;
             }
-            if (w2_Vpi > EXP_OVERFLOW_BOUND) {
+            if (w2_Dpi > EXP_OVERFLOW_BOUND) {
                 return SIM_OVERFLOW;
             }
-            p_U_weight[i] = exp(w1_Upi);
-            p_V_weight[i] = exp(w2_Vpi);
+            p_H_weight[i] = exp(w1_Hpi);
+            p_D_weight[i] = exp(w2_Dpi);
 
-            p->sum_U_weight += p_U_weight[i];
-            p->sum_V_weight += p_V_weight[i];
+            p->sum_H_weight += p_H_weight[i];
+            p->sum_D_weight += p_D_weight[i];
         }
     }
 
-    double mu1_U = p->P[0] * p->U;
-    double mu2_V = p->P[1] * p->V;
-    double mu1_U_divide_sum = mu1_U / p->sum_U_weight;
-    double mu2_V_divide_sum = mu2_V / p->sum_V_weight;
+    double mu1_U = p->params[0] * p->U_ph;
+    double mu2_V = p->params[1] * p->V_ph;
+    double mu1_U_divide_sum = mu1_U / p->sum_H_weight;
+    double mu2_V_divide_sum = mu2_V / p->sum_D_weight;
 
     for (size_t i = 0; i < 4; i++) {
-        p->mig_rates[i] = mu1_U_divide_sum * p_U_weight[i];
-        p->mig_rates[i + 4] = mu2_V_divide_sum * p_V_weight[i];
+        p->mig_rates[i] = mu1_U_divide_sum * p_H_weight[i];
+        p->mig_rates[i + 4] = mu2_V_divide_sum * p_D_weight[i];
     }
     p->sum_mig_rates = mu1_U + mu2_V;
 
@@ -307,34 +307,34 @@ static inline void change_popu(patch_t* restrict p, const uint8_t s) {
     switch (s) {
         case 0:
             // Migration IN for U
-            p->U += 1;
+            p->U_ph += 1;
             return;
         case 1:
             // Migration OUT / death due to carrying capacity for U
-            p->U -= (p->U > 0);
+            p->U_ph -= (p->U_ph > 0);
             return;
         case 2:
             // Natural birth/death for U due to payoff
-            if (p->U_pi > 0) {
-                p->U += 1;
-            } else if (p->U > 0) {
-                p->U -= 1;
+            if (p->Hpi_ph > 0) {
+                p->U_ph += 1;
+            } else if (p->U_ph > 0) {
+                p->U_ph -= 1;
             }
             return;
         case 3:
             // Migration IN for V
-            p->V += 1;
+            p->V_ph += 1;
             return;
         case 4:
             // Migration OUT / death due to carrying capacity for V
-            p->V -= (p->V > 0);
+            p->V_ph -= (p->V_ph > 0);
             return;
         default:
             // Natural birth/death for V due to payoff
-            if (p->V_pi > 0) {
-                p->V += 1;
-            } else if (p->V > 0) {
-                p->V -= 1;
+            if (p->Dpi_ph > 0) {
+                p->V_ph += 1;
+            } else if (p->V_ph > 0) {
+                p->V_ph -= 1;
             }
             return;
     }

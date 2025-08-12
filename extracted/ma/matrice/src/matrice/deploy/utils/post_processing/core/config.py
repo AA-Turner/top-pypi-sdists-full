@@ -327,6 +327,7 @@ class PeopleCountingConfig(BaseConfig):
         
         return errors
 
+
 @dataclass
 class IntrusionConfig(BaseConfig):
     """Configuration for intrusion detection use case."""
@@ -346,7 +347,7 @@ class IntrusionConfig(BaseConfig):
     time_window_minutes: int = 60
     
     # Category mapping
-    person_categories: List[str] = field(default_factory=lambda: ["person", "people", "human"])
+    person_categories: List[str] = field(default_factory=lambda: ["person"])
     index_to_category: Optional[Dict[int, str]] = None
     
     # Alert configuration
@@ -354,6 +355,51 @@ class IntrusionConfig(BaseConfig):
     
     def validate(self) -> List[str]:
         """Validate intrusion detection configuration."""
+        errors = super().validate()
+        
+        if self.time_window_minutes <= 0:
+            errors.append("time_window_minutes must be positive")
+        
+        if not self.person_categories:
+            errors.append("person_categories cannot be empty")
+        
+        # Validate nested configurations
+        if self.zone_config:
+            errors.extend(self.zone_config.validate())
+        
+        if self.alert_config:
+            errors.extend(self.alert_config.validate())
+        
+        return errors
+
+
+@dataclass
+class ProximityConfig(BaseConfig):
+    """Configuration for intrusion detection use case."""
+    
+    # Smoothing configuration
+    enable_smoothing: bool = True
+    smoothing_algorithm: str = "observability"  # "window" or "observability"
+    smoothing_window_size: int = 20
+    smoothing_cooldown_frames: int = 5
+    smoothing_confidence_range_factor: float = 0.5
+    
+    # Zone configuration
+    zone_config: Optional[ZoneConfig] = None
+    
+    # Counting parameters
+    enable_unique_counting: bool = True
+    time_window_minutes: int = 60
+    
+    # Category mapping
+    person_categories: List[str] = field(default_factory=lambda: ["person"])
+    index_to_category: Optional[Dict[int, str]] = None
+    
+    # Alert configuration
+    alert_config: Optional[AlertConfig] = None
+    
+    def validate(self) -> List[str]:
+        """Validate proximity detection configuration."""
         errors = super().validate()
         
         if self.time_window_minutes <= 0:
@@ -450,6 +496,7 @@ class ConfigManager:
             "customer_service": CustomerServiceConfig,
             "advanced_customer_service": CustomerServiceConfig,
             "intrusion_detection": IntrusionConfig,
+            "proximity_detection": ProximityConfig,
             "basic_counting_tracking": None,  # Will be set later to avoid circular import
             "license_plate_detection": None,  # Will be set later to avoid circular import
             "ppe_compliance_detection": None,
@@ -1026,6 +1073,24 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = IntrusionConfig(
+                category=category or "security",
+                usecase=usecase,
+                zone_config=zone_config,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "proximity_detection":
+            # Handle nested configurations
+            zone_config = kwargs.pop("zone_config", None)
+            if zone_config and isinstance(zone_config, dict):
+                zone_config = ZoneConfig(**zone_config)
+
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = ProximityConfig(
                 category=category or "security",
                 usecase=usecase,
                 zone_config=zone_config,

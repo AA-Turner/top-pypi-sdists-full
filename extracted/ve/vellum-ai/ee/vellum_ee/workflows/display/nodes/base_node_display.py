@@ -175,7 +175,7 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
 
             adornment: JsonObject = {
                 "id": str(node_id),
-                "label": node.__qualname__,
+                "label": self.label,
                 "base": self.get_base().dict(),
                 "attributes": attributes,
             }
@@ -205,7 +205,7 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
 
         return {
             "id": str(node_id),
-            "label": node.__qualname__,
+            "label": self.label,
             "type": "GENERIC",
             "display_data": self.get_display_data().dict(),
             "base": self.get_base().dict(),
@@ -417,8 +417,8 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
         if explicit_value and explicit_value.comment and docstring:
             comment = (
                 NodeDisplayComment(value=docstring, expanded=explicit_value.comment.expanded)
-                if explicit_value.comment.expanded
-                else NodeDisplayComment(value=docstring)
+                if explicit_value.comment.expanded is not None
+                else NodeDisplayComment(value=docstring, expanded=True)
             )
             return NodeDisplayData(
                 position=explicit_value.position,
@@ -432,7 +432,7 @@ class BaseNodeDisplay(Generic[NodeType], metaclass=BaseNodeDisplayMeta):
 
         if docstring:
             return NodeDisplayData(
-                comment=NodeDisplayComment(value=docstring),
+                comment=NodeDisplayComment(value=docstring, expanded=True),
             )
 
         return NodeDisplayData()

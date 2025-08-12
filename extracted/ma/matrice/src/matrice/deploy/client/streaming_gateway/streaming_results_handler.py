@@ -317,7 +317,8 @@ class StreamingResultsHandler:
             raise
     def _send_file_to_api_(self, frame_json):
         """Send file to API."""
-        frame_id = list(frame_json.get("result").get("value").get("agg_summary").keys())[0]
+        # frame_id = list(frame_json.get("result").get("value").get("agg_summary").keys())[0]
+        frame_id = list(frame_json.get("result").get("value").get("agg_apps")[0].get("agg_summary").keys())[0]
         return self.json_event_picker.process(int(frame_id), frame_json)
     def _cleanup_old_files(self):
         """Remove old result files if exceeding max_files limit."""

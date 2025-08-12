@@ -17,7 +17,7 @@ from gable.cli.commands.asset_plugins.postgres import PostgresAssetPlugin
 from gable.cli.commands.asset_plugins.protobuf import ProtobufAssetPlugin
 from gable.cli.commands.asset_plugins.pyspark import PysparkAssetPlugin
 from gable.cli.commands.asset_plugins.python import PythonAssetPlugin
-from gable.cli.commands.asset_plugins.swift import SwiftAssetPlugin
+from gable.cli.commands.asset_plugins.sca_prime import ScaPrimePlugin
 from gable.cli.commands.asset_plugins.typescript import TypescriptAssetPlugin
 from gable.cli.helpers.data_asset import darn_to_string
 from gable.cli.helpers.emoji import EMOJI
@@ -38,7 +38,11 @@ GENERIC_REGISTER_OPTION_KEYS = set(["dry_run"])
 asset_plugins: List[AssetPluginAbstract] = [
     TypescriptAssetPlugin(),
     KotlinAssetPlugin(),
-    SwiftAssetPlugin(),
+    ScaPrimePlugin(SourceType.swift),
+    ScaPrimePlugin(SourceType.java),
+    ScaPrimePlugin(SourceType.kotlin),
+    ScaPrimePlugin(SourceType.golang),
+    ScaPrimePlugin(SourceType.php),
     JsonSchemaAssetPlugin(),
     MySQLAssetPlugin(),
     PostgresAssetPlugin(),

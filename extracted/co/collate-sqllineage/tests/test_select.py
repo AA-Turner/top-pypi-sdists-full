@@ -273,3 +273,51 @@ def test_select_subquery_row_to_json():
         sql,
         {"tab1", "tab2"},
     )
+
+
+def test_token_matching_empty_in_clause():
+    """Test case to reproduce the AttributeError: 'Token' object has no attribute '_token_matching'.
+
+    Error is specific to SQLParse."""
+    sql = """
+        SELECT * FROM some_table
+        WHERE some_column IN (
+            'SOME_STRING\\\\',
+            'SOME_STRING)',
+            'SOME_STRING;',
+            'to'
+        )
+    """
+    assert_table_lineage_equal(
+        sql,
+        {"some_table"},
+        test_sqlparse=True,
+        test_sqlfluff=False,
+    )
+
+
+def test_select_join_with_union_subquery():
+    """Test that UNION subqueries in JOIN clauses extract all source tables."""
+    assert_table_lineage_equal(
+        """
+        SELECT t1.col1, t2.col2
+        FROM tab1 t1
+            INNER JOIN (SELECT * FROM tab2 UNION SELECT * FROM tab3) t2
+                ON t1.id = t2.id;
+        """,
+        {"tab1", "tab2", "tab3"},
+    )
+
+
+def test_select_join_with_complex_union_subquery():
+    """Test multiple JOINs with UNION subqueries containing multiple tables."""
+    assert_table_lineage_equal(
+        """SELECT t1.col1, t2.col2, t3.col3
+        FROM tab1 t1
+            INNER JOIN (SELECT * FROM tab2 UNION SELECT * FROM tab3 UNION SELECT * FROM tab4) t2
+                ON t1.id = t2.id
+            LEFT JOIN (SELECT * FROM tab5 UNION SELECT * FROM tab6) t3
+                ON t1.other_id = t3.id;
+        """,
+        {"tab1", "tab2", "tab3", "tab4", "tab5", "tab6"},
+    )

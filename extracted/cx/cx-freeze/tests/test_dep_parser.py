@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from cx_Freeze._compat import IS_ARM_64, IS_LINUX, IS_MINGW, IS_WINDOWS
+from cx_Freeze._compat import (
+    IS_ARM_64,
+    IS_CONDA,
+    IS_LINUX,
+    IS_MINGW,
+    IS_WINDOWS,
+)
 from cx_Freeze.dep_parser import ELFParser
 from cx_Freeze.exception import PlatformError
 
@@ -24,9 +30,12 @@ test.py
 
 if IS_WINDOWS:
     PACKAGE_VERSION = [("imagehlp", "bind")]
-    if not IS_ARM_64:
-        # use 0.16.4 to work with pypi and conda versions
-        PACKAGE_VERSION += [("lief", "0.15.1"), ("lief", "0.16.4")]
+    if IS_ARM_64:
+        PACKAGE_VERSION += [("lief", "0.16.6")]
+    elif IS_CONDA:
+        PACKAGE_VERSION += [("py-lief", "0.16.4")]
+    else:
+        PACKAGE_VERSION += [("lief", "0.15.1"), ("lief", "0.16.6")]
 elif IS_MINGW:
     PACKAGE_VERSION = [("imagehlp", "bind")]
 elif IS_LINUX:
@@ -46,15 +55,15 @@ def test_parser(tmp_package, package, version) -> None:
         tmp_package.install(f"{package}=={version}")
 
     # first run, count the files
-    output = tmp_package.run(
+    tmp_package.freeze(
         "cxfreeze --script test.py --excludes=tkinter,unittest --silent"
     )
 
     file_created = tmp_package.executable("test")
     assert file_created.is_file(), f"file not found: {file_created}"
 
-    output = tmp_package.run(file_created, timeout=10)
-    assert output.startswith("Hello from cx_Freeze")
+    result = tmp_package.run(file_created, timeout=10)
+    result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Linux test")
@@ -91,4 +100,20 @@ def test_verify_patchelf(monkeypatch) -> None:
     monkeypatch.setattr("shutil.which", lambda cmd: cmd != "patchelf")
     msg = "Cannot find required utility `patchelf` in PATH"
     with pytest.raises(PlatformError, match=msg):
+        ELFParser([], [])
+
+
+@pytest.mark.skipif(not IS_LINUX, reason="Linux test")
+@pytest.mark.skipif(IS_LINUX and IS_CONDA, reason="Disabled on conda-forge")
+@pytest.mark.venv
+def test_verify_patchelf_older(tmp_package) -> None:
+    """Test the _verify_patchelf with older version."""
+    tmp_package.create(SOURCE)
+    tmp_package.install("patchelf<0.14")
+
+    tmp_bin = tmp_package.prefix / "bin"
+
+    tmp_package.monkeypatch.setattr("shutil.which", lambda cmd: tmp_bin / cmd)
+    msg = r"patchelf\s+(\d+(.\d+)?)\s+found."
+    with pytest.raises(ValueError, match=msg):
         ELFParser([], [])

@@ -1,5 +1,8 @@
-"""Create standalone executables from Python scripts, with the same performance
-and is cross-platform.
+"""cx_Freeze.
+
+Creates standalone executables from Python scripts with the same performance
+as the original script. It is cross-platform and should work on any platform
+that Python runs on.
 """
 
 from __future__ import annotations
@@ -45,7 +48,7 @@ else:
     __all__ += ["bdist_appimage", "bdist_deb", "bdist_rpm"]
 
 
-__version__ = "8.3.0"
+__version__ = "8.4.0"
 
 
 def setup(**attrs) -> setuptools.Distribution:  # noqa: D103

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hatchet-sdk
-Version: 1.16.5
+Version: 1.17.0
 Summary: 
 License: MIT
 Author: Alexander Belanger
@@ -15,7 +15,6 @@ Provides-Extra: otel
 Requires-Dist: aiohttp (>=3.10.5,<4.0.0)
 Requires-Dist: aiohttp-retry (>=2.8.3,<3.0.0)
 Requires-Dist: aiostream (>=0.5.2,<0.6.0)
-Requires-Dist: cel-python (>=0.2.0,<0.3.0)
 Requires-Dist: grpcio (>=1.64.1,!=1.68.*) ; python_version < "3.13"
 Requires-Dist: grpcio (>=1.69.0) ; python_version >= "3.13"
 Requires-Dist: grpcio-tools (>=1.64.1,!=1.68.*) ; python_version < "3.13"

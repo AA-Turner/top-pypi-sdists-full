@@ -223,9 +223,8 @@ class WebhookEventTrigger(models.Model):
             webhook_endpoint=webhook_endpoint,
         )
         api_key = (
-            stripe_account.default_api_key
-            or djstripe_settings.get_default_api_key(obj.livemode)
-        )
+            stripe_account.default_api_key if stripe_account else None
+        ) or djstripe_settings.get_default_api_key(webhook_endpoint.livemode)
 
         try:
             # Validate the webhook first
@@ -283,11 +282,6 @@ class WebhookEventTrigger(models.Model):
         except ValueError:
             return {}
 
-    @property
-    def is_test_event(self):
-        event_id = self.json_body.get("id")
-        return event_id and event_id.endswith("_00000000000000")
-
     def verify_signature(self, secret: str, tolerance: int) -> bool:
         if not secret:
             raise ValueError("Cannot verify event signature without a secret")
@@ -325,10 +319,6 @@ class WebhookEventTrigger(models.Model):
             )
             return False
 
-        if self.is_test_event:
-            logger.info("Test webhook received and discarded: %s", local_data)
-            return False
-
         validation_method = self.webhook_endpoint.djstripe_validation_method
 
         if validation_method == WebhookEndpointValidation.none:
@@ -359,7 +349,7 @@ class WebhookEventTrigger(models.Model):
 
         return local_data["data"] == remote_data["data"]
 
-    def process(self, save=True, api_key: str = None):
+    def process(self, save=True, api_key: str | None = None):
         # Reset traceback and exception in case of reprocessing
         self.exception = ""
         self.traceback = ""

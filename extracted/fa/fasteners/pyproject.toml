@@ -1,3 +1,57 @@
+[project]
+name = "fasteners"
+version = "0.20"
+description = "A python package that provides useful locks"
+readme = { file = "README.md", content-type = "text/markdown; charset=UTF-8" }
+requires-python = ">=3.6"
+keywords = ["lock", "thread", "process", "fasteners"]
+license = "Apache-2.0"
+authors = [{ name = "Joshua Harlow" }]
+maintainers = [{ name = "Paulius Šarka" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://github.com/harlowja/fasteners"
+
+[dependency-groups]
+test = [
+    "diskcache",
+    "eventlet",
+    "more_itertools",
+    "pytest",
+]
+docs = [
+    "mkdocs",
+    "mkdocstrings[python] >= 0.18",
+    "mkdocs-material",
+]
+build = [
+    "build",
+    "twine",
+]
+
+[tool.uv.dependency-groups.docs]
+requires-python = ">=3.12"
+
+[tool.uv.dependency-groups.build]
+requires-python = ">=3.12"
+
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests_eventlet"]

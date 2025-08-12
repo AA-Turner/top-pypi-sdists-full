@@ -46,11 +46,14 @@ dependencies = [
   "setuptools", # >= 61",
   'tomli>=1; python_version < "3.11"',
   'typing-extensions; python_version < "3.10"',
-  'importlib-metadata>=4.6; python_version < "3.10"',
 ]
 [project.optional-dependencies]
+rich = ["rich"]
+toml = []
+
+[dependency-groups]
 docs = [
-  "entangled-cli~=2.0",
+  #"entangled-cli~=2.0",
   "mkdocs",
   "mkdocs-entangled-plugin",
   "mkdocs-include-markdown-plugin",
@@ -58,22 +61,24 @@ docs = [
   "mkdocstrings[python]",
   "pygments",
 ]
-rich = [
-  "rich",
-]
 test = [
+  "pip",
   "build",
   "pytest",
+  "pytest-timeout",  # Timeout protection for CI/CD
   "rich",
   'typing-extensions; python_version < "3.11"',
   "wheel",
-]
-toml = [
+  "griffe",
+  "flake8",
 ]
 
 [project.urls]
 documentation = "https://setuptools-scm.readthedocs.io/"
 repository = "https://github.com/pypa/setuptools-scm/"
+
+[project.entry-points.console_scripts]
+setuptools-scm = "setuptools_scm._cli:main"
 
 [project.entry-points."distutils.setup_keywords"]
 use_scm_version = "setuptools_scm._integration.setuptools:version_keyword"
@@ -147,6 +152,7 @@ ignore = ["PP305", "GH103", "GH212", "MY100", "PC111", "PC160", "PC170", "PC180"
 [tool.pytest.ini_options]
 minversion = "8"
 testpaths = ["testing"]
+timeout = 300  # 5 minutes timeout per test for CI protection
 filterwarnings = [
   "error",
   "ignore:.*tool\\.setuptools_scm.*",
@@ -155,11 +161,11 @@ filterwarnings = [
 log_level = "debug"
 log_cli_level = "info"
 # disable unraisable until investigated
-addopts = ["-ra", "--strict-config", "--strict-markers", "-p", "no:unraisableexception"]
+addopts = ["-ra", "--strict-config", "--strict-markers"]
 markers = [
   "issue(id): reference to github issue",
   "skip_commit: allows to skip committing in the helpers",
 ]
 
-[tool.scriv]
-format = "md"
+[tool.uv]
+default-groups = ["test", "docs"]

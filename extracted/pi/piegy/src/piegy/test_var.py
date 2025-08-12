@@ -6,28 +6,28 @@ Public Functions:
 Test influence of one variable:
 - test_var1:    Test how a certain patch variable (mu, w, kappa) influences results.
                 Run simulations across different values of that variable and save data.
-- var_UV1:      Plot how U, V change across different values of a specified variable.
-- var_pi1:      Plot how Upi, V_pi change across different values of a specified variable.
+- var_HV1:      Plot how U, V change across different values of a specified variable.
+- var_pi1:      Plot how Hpi, V_pi change across different values of a specified variable.
                     
 
 Test influence of two variables:
 - test_var2:    Test how two patch variables influence results.
                 Run simulations across different values of the two specified variables and save data.
-- var_UV2:      Plot how U, V change across the two variables.
+- var_HV2:      Plot how U, V change across the two variables.
                 x-axis is values of the variable 2, y-axis is U or V. Values of variable 1 are shown by multiple curves.
-- var_pi2:      Plot how Upi & V_pi change across the two variables.
+- var_pi2:      Plot how Hpi & V_pi change across the two variables.
 
 
 Additional tools (can be called directly):
 - get_dirs1:   test_var1 returns directories in a certain format based on var and values. This function mimics that format and 
                         returns a 1D list of directories, where all data are stored.
-                        This 1D list is intended to pass to var_UV1 and var_pi1 directly.
+                        This 1D list is intended to pass to var_HV1 and var_pi1 directly.
     
 - var_convergence1: Find the simulatoin results of test_var1 that diverge.
 
 - get_dirs2:   test_var2 returns directories in a certain format based on vars and values. This function mimics that format and
                     returns a 2D list of directories, where all data are stored.
-                    This 2D list is intended to pass to var_UV2 and var_pi2 directly.
+                    This 2D list is intended to pass to var_HV2 and var_pi2 directly.
 - var_convergence2: Find the simulatoin results of test_var2 that diverge.
 '''
 
@@ -41,20 +41,20 @@ import numpy as np
 
 
 
-# curve type used by var_UV, var2_UV, var_pi, var2_pi
+# curve type used by var_HV, var2_HV, var_pi, var2_pi
 # can be 'o-', 'x-', ...
 DOTTED_CURVE_TYPE = 'o-'
 
 # map patch_var name to index in the patch class (in simulation.py)
-PATCH_VAR_DICT = {'mu1': 0, 'mu2': 1, 'w1': 2, 'w2': 3, 'kappa1': 4, 'kappa2': 5}
+PATCH_DAR_DICT = {'mu1': 0, 'mu2': 1, 'w1': 2, 'w2': 3, 'kappa1': 4, 'kappa2': 5}
 
 # display name (in latex)
-PATCH_VAR_DISP = {'mu1': r'$\mu_U$', 'mu2': r'$\mu_V$', 'w1': r'$w_U$', 'w2': r'$w_V$', 
-                  'kappa1': r'$\kappa_U$', 'kappa2': r'$\kappa_V$'}
+PATCH_DAR_DISP = {'mu1': r'$\mu_H$', 'mu2': r'$\mu_D$', 'w1': r'$w_H$', 'w2': r'$w_D$', 
+                  'kappa1': r'$\kappa_H$', 'kappa2': r'$\kappa_D$'}
 
 
 
-def test_var1(mod, var, values, dirs, compress_itv = None):
+def test_var1(mod, var, values, dirs, compress_ratio = None):
     '''
     Test the influence of one patch variable on simulation results.
 
@@ -63,7 +63,7 @@ def test_var1(mod, var, values, dirs, compress_itv = None):
     - var:                str, which patch variable to test. e.g. var can be 'mu1', 'w2', 'kappa2', ...
     - values:             1D np.array or list, what values of var to test.
     - dirs:               str, where to save data.
-    - compress_itv:         int, whether to reduce data size (if not 1), passed to simulation.model.compress_data function.
+    - compress_ratio:         int, whether to reduce data size (if not 1), passed to simulation.model.compress_data function.
     - predict_runtime:    bool, whether to predict how much time left for each test.          
 
     Returns::
@@ -72,7 +72,7 @@ def test_var1(mod, var, values, dirs, compress_itv = None):
                         NOTE: if you accidentally lost this return value, you can retrieve it by get_dirs1.
     '''
 
-    if var not in PATCH_VAR_DICT.keys():
+    if var not in PATCH_DAR_DICT.keys():
         raise ValueError('Please enter a valid patch variable: mu1, mu2, w1, w2, kappa1, or kappa2')
 
     # var_dirs is where data will be stored
@@ -85,12 +85,12 @@ def test_var1(mod, var, values, dirs, compress_itv = None):
         
         for i in range(mod.N):
             for j in range(mod.M):
-                sim2.P[i][j][PATCH_VAR_DICT[var]] = values[k]
+                sim2.patch_params[i][j][PATCH_DAR_DICT[var]] = values[k]
 
         try:
             simulation.run(sim2, message = current_var_str + ', ')
-            if compress_itv != None:
-                sim2.compress_data(compress_itv)
+            if compress_ratio != None:
+                sim2.compress_data(compress_ratio)
             data_t.save(sim2, var_dirs[k], print_msg = False)
             del sim2
         except (OverflowError, RuntimeError):
@@ -101,7 +101,7 @@ def test_var1(mod, var, values, dirs, compress_itv = None):
 
 
 
-def test_var2(mod, var1, var2, values1, values2, dirs, compress_itv = None):
+def test_var2(mod, var1, var2, values1, values2, dirs, compress_ratio = None):
     '''
     Two-variable version of test_var1. Test the influence of two varibles on simulation results.
 
@@ -111,7 +111,7 @@ def test_var2(mod, var1, var2, values1, values2, dirs, compress_itv = None):
     - var2:     str, the second variable to test.
     - values1:  1D list or np.array, values for var1.
     - values2:  1D list or np.array, values for var2.
-    - dirs, compress_itv, scale_maxtime, predict_runtime: same as in test_var1
+    - dirs, compress_ratio, scale_maxtime, predict_runtime: same as in test_var1
 
     Returns:
     - var_dirs:   2D list of directories, where all the data are stored.
@@ -119,7 +119,7 @@ def test_var2(mod, var1, var2, values1, values2, dirs, compress_itv = None):
                 NOTE: if you accidentally lost this return value, you can retrieve by get_dirs2.
     '''
 
-    if (var1 not in PATCH_VAR_DICT.keys()) or (var2 not in PATCH_VAR_DICT.keys()):
+    if (var1 not in PATCH_DAR_DICT.keys()) or (var2 not in PATCH_DAR_DICT.keys()):
         raise ValueError('Please enter a valid patch variable: mu1, mu2, w1, w2, kappa1, or kappa2')
 
     var_dirs = [[] for k1 in range(len(values1))]
@@ -132,13 +132,13 @@ def test_var2(mod, var1, var2, values1, values2, dirs, compress_itv = None):
 
             for i in range(mod.N):
                 for j in range(mod.M):
-                    sim2.P[i][j][PATCH_VAR_DICT[var1]] = values1[k1]
-                    sim2.P[i][j][PATCH_VAR_DICT[var2]] = values2[k2]
+                    sim2.patch_params[i][j][PATCH_DAR_DICT[var1]] = values1[k1]
+                    sim2.patch_params[i][j][PATCH_DAR_DICT[var2]] = values2[k2]
 
             try:
                 simulation.run(sim2, message = current_var_str + ', ')
-                if compress_itv != None:
-                    sim2.compress_data(compress_itv)
+                if compress_ratio != None:
+                    sim2.compress_data(compress_ratio)
                 data_t.save(sim2, var_dirs[k1][k2], print_msg = False)
                 del sim2
             except (OverflowError, RuntimeError):
@@ -150,7 +150,7 @@ def test_var2(mod, var1, var2, values1, values2, dirs, compress_itv = None):
 
 
 
-def var_UV1(var, values, var_dirs, ax_U = None, ax_V = None, start = 0.95, end = 1.0, U_color = 'purple', V_color = 'green'):
+def var_UV1(var, values, var_dirs, ax_H = None, ax_D = None, start = 0.95, end = 1.0, color_H = 'purple', color_D = 'green'):
     '''
     Plot function for test_var1, plot how var influences U, V population.
     Make U, V - var curve in two figures, with y-axis being total population at the end of simulations, x-axis being var's values.
@@ -159,13 +159,13 @@ def var_UV1(var, values, var_dirs, ax_U = None, ax_V = None, start = 0.95, end =
     - var:        str, which variable was tested.
     - values:     1D list or np.array, which values were tested.
     - var_dirs:   return value of test_var1, a 1D list of directories where all data are stored.
-    - ax_U, ax_V:   matplotlib axes to plot on.
+    - ax_H, ax_D:   matplotlib axes to plot on.
     - start, end: floats, give an interval of time over which to take average and make plot.
                 For example, start = 0.95, end = 1.0 are to take average over the last 5% time of results; 
                 essentially plots how var influences equilibrium population.
     
     Returns:
-    - ax_U, ax_V: axes for U, V, respectively.
+    - ax_H, ax_D: axes for U, V, respectively.
     '''
 
     # average value of U, V over the interval. One entry for one value of var
@@ -190,28 +190,28 @@ def var_UV1(var, values, var_dirs, ax_U = None, ax_V = None, start = 0.95, end =
         del simk
         
     #### plot ####
-    if ax_U == None:
-        _, ax_U = plt.subplots()
-    if ax_V == None:
-        _, ax_V = plt.subplots()
-    var_disp = PATCH_VAR_DISP[var]
+    if ax_H == None:
+        _, ax_H = plt.subplots()
+    if ax_D == None:
+        _, ax_D = plt.subplots()
+    var_disp = PATCH_DAR_DISP[var]
     
-    ax_U.set_xlabel(var_disp)
-    ax_U.set_ylabel('Population ' + r'$U$')
-    ax_U.plot(values, U_ave, DOTTED_CURVE_TYPE, color = U_color)
-    ax_U.set_title(figure_t.gen_title(var_disp + r'$\,-\,U$', start, end))
+    ax_H.set_xlabel(var_disp)
+    ax_H.set_ylabel('Population ' + r'$U$')
+    ax_H.plot(values, U_ave, DOTTED_CURVE_TYPE, color = color_H)
+    ax_H.set_title(figure_t.gen_title(var_disp + r'$\,-\,U$', start, end))
     
-    ax_V.set_xlabel(var_disp)
-    ax_V.set_ylabel('Population ' + r'$V$')
-    ax_V.plot(values, V_ave, DOTTED_CURVE_TYPE, color = V_color)
-    ax_V.set_title(figure_t.gen_title(var_disp + r'$\,-\,V$', start, end))
+    ax_D.set_xlabel(var_disp)
+    ax_D.set_ylabel('Population ' + r'$V$')
+    ax_D.plot(values, V_ave, DOTTED_CURVE_TYPE, color = color_D)
+    ax_D.set_title(figure_t.gen_title(var_disp + r'$\,-\,V$', start, end))
     
-    return ax_U, ax_V
+    return ax_H, ax_D
 
 
 
 
-def var_UV2(var1, var2, values1, values2, var_dirs, ax_U = None, ax_V = None, var1_on_xaxis = True, start = 0.95, end = 1.0, U_color = 'viridis', V_color = 'viridis', rgb_alpha = 1):
+def var_UV2(var1, var2, values1, values2, var_dirs, ax_H = None, ax_D = None, var1_on_xaxis = True, start = 0.95, end = 1.0, color_H = 'viridis', color_D = 'viridis', alpha = 1):
     '''
     Plot function for test_var2, plot how two variables influence U, V population.
     Make U, V - var1, var2 curves. y-axis is population, x-axis is var2's values, 
@@ -223,16 +223,16 @@ def var_UV2(var1, var2, values1, values2, var_dirs, ax_U = None, ax_V = None, va
     - values1:    1D list or np.array, values for var1.
     - values2:    1D list or np.array, values for var2.
     - var_dirs:   return value of test_var2, a 2D list of directories where all data are stored.
-    - ax_U, ax_V:   matplotlib axes to plot on.
+    - ax_H, ax_D:   matplotlib axes to plot on.
     - var1_on_xaxis:    whether to put var1 on x-axis. Set to False if not.
     - start, end: floats, give an interval of time over which to take average and make plot.
                 For example, start = 0.95, end = 1.0 plots the near-end population (equilibrium, if converged).
     - color:      str, what colors to use for different value of var1. Uses Matplotlib color maps. 
                 See available color maps at: https://matplotlib.org/stable/users/explain/colors/colormaps.html
-    - rgb_alpha:  the alpha value for color. Thr curves might have overlaps, recommend set a small alpha value if so.
+    - alpha:  the alpha value for color. Thr curves might have overlaps, recommend set a small alpha value if so.
     
     Returns:
-    - ax_U, ax_V: axes for U, V, respectively.
+    - ax_H, ax_D: axes for U, V, respectively.
     '''
 
     # average value of U, V over the interval. One entry for one values of var1, var2
@@ -262,67 +262,67 @@ def var_UV2(var1, var2, values1, values2, var_dirs, ax_U = None, ax_V = None, va
     V_ave = np.array(V_ave)
     
     #### plot ####
-    if ax_U == None:
-        _, ax_U = plt.subplots()
-    if ax_V == None:
-        _, ax_V = plt.subplots()
+    if ax_H == None:
+        _, ax_H = plt.subplots()
+    if ax_D == None:
+        _, ax_D = plt.subplots()
 
-    var1_disp = PATCH_VAR_DISP[var1]
-    var2_disp = PATCH_VAR_DISP[var2]
+    var1_disp = PATCH_DAR_DISP[var1]
+    var2_disp = PATCH_DAR_DISP[var2]
     
 
-    cmap_U = plt.get_cmap(U_color)
+    cmap_H = plt.get_cmap(color_H)
     if var1_on_xaxis:
         for k in range(len(values2)):
             label = var2_disp + '=' + str(values2[k])
-            color_k = cmap_U(k / len(values2))[:3] + (rgb_alpha,)
-            ax_U.plot(values1, U_ave[:, k], DOTTED_CURVE_TYPE, label = label, color = color_k)
-            ax_U.set_xlabel(var1_disp)
+            color_k = cmap_H(k / len(values2))[:3] + (alpha,)
+            ax_H.plot(values1, U_ave[:, k], DOTTED_CURVE_TYPE, label = label, color = color_k)
+            ax_H.set_xlabel(var1_disp)
     else:
         for k in range(len(values1)):
             label = var1_disp + '=' + str(values1[k])
-            color_k = cmap_U(k / len(values1))[:3] + (rgb_alpha,)
-            ax_U.plot(values2, U_ave[k], DOTTED_CURVE_TYPE, label = label, color = color_k)
-            ax_U.set_xlabel(var2_disp)
-    ax_U.set_ylabel('Population ' + r'$U$')
-    ax_U.set_title(figure_t.gen_title(var1_disp + ',' + var2_disp + r'$\,-\,U$', start, end))
-    ax_U.legend()
+            color_k = cmap_H(k / len(values1))[:3] + (alpha,)
+            ax_H.plot(values2, U_ave[k], DOTTED_CURVE_TYPE, label = label, color = color_k)
+            ax_H.set_xlabel(var2_disp)
+    ax_H.set_ylabel('Population ' + r'$U$')
+    ax_H.set_title(figure_t.gen_title(var1_disp + ',' + var2_disp + r'$\,-\,U$', start, end))
+    ax_H.legend()
     
-    cmap_V = plt.get_cmap(V_color)
+    cmap_D = plt.get_cmap(color_D)
     if var1_on_xaxis:
         for k in range(len(values2)):
             label = var2_disp + '=' + str(values2[k])
-            color_k = cmap_V(k / len(values2))[:3] + (rgb_alpha,)
-            ax_V.plot(values1, V_ave[:, k], DOTTED_CURVE_TYPE, label = label, color = color_k)
-            ax_V.set_xlabel(var1_disp)
+            color_k = cmap_D(k / len(values2))[:3] + (alpha,)
+            ax_D.plot(values1, V_ave[:, k], DOTTED_CURVE_TYPE, label = label, color = color_k)
+            ax_D.set_xlabel(var1_disp)
     else:
         for k in range(len(values1)):
             label = var1_disp + '=' + str(values1[k])
-            color_k = cmap_V(k / len(values1))[:3] + (rgb_alpha,)
-            ax_V.plot(values2, V_ave[k], DOTTED_CURVE_TYPE, label = label, color = color_k)
-            ax_V.set_xlabel(var2_disp)
-    ax_V.set_ylabel('Population ' + r'$V$')
-    ax_V.set_title(figure_t.gen_title(var1_disp + ',' + var2_disp + r'$\,-\,V$', start, end))
-    ax_V.legend()
+            color_k = cmap_D(k / len(values1))[:3] + (alpha,)
+            ax_D.plot(values2, V_ave[k], DOTTED_CURVE_TYPE, label = label, color = color_k)
+            ax_D.set_xlabel(var2_disp)
+    ax_D.set_ylabel('Population ' + r'$V$')
+    ax_D.set_title(figure_t.gen_title(var1_disp + ',' + var2_disp + r'$\,-\,V$', start, end))
+    ax_D.legend()
     
-    return ax_U, ax_V
+    return ax_H, ax_D
 
 
 
-def var_pi1(var, values, var_dirs, ax_U = None, ax_V = None, start = 0.95, end = 1.0, U_color = 'violet', V_color  = 'yellowgreen'):
+def var_pi1(var, values, var_dirs, ax_H = None, ax_D = None, start = 0.95, end = 1.0, color_H = 'violet', color_D  = 'yellowgreen'):
     '''
     Plot function for test_var1. Plot influence of var on U, V's payoff.
-    Make Upi, V_pi - var curves. y-axis is payoff, x-axis is values of var.
+    Make Hpi, V_pi - var curves. y-axis is payoff, x-axis is values of var.
 
     Inputs:
     - var_dirs:   return value of test_var1. A 1D list of directories where all data are stored.
     - var:        str, which variable as tested.
     - values:     1D list or np.array, what values were used.
-    - ax_U, ax_V:   matplotlib axes to plot on.
+    - ax_H, ax_D:   matplotlib axes to plot on.
     - start, end: floats, define an interval of time over which to calculate average payoff and make plots.
     
     Returns:
-    - ax_U, ax_V: axes for U, V, respectively.
+    - ax_H, ax_D: axes for U, V, respectively.
     '''
     
     # take average value of payoff over an interval of time
@@ -342,50 +342,50 @@ def var_pi1(var, values, var_dirs, ax_U = None, ax_V = None, start = 0.95, end =
         end_index = int(simk.max_record * end)
         NM = int(simk.N * simk.M)
 
-        U_ave.append(np.sum(figure_t.ave_interval(simk.Upi, start_index, end_index)) / NM)
-        V_ave.append(np.sum(figure_t.ave_interval(simk.Vpi, start_index, end_index)) / NM)
+        U_ave.append(np.sum(figure_t.ave_interval(simk.Hpi, start_index, end_index)) / NM)
+        V_ave.append(np.sum(figure_t.ave_interval(simk.Dpi, start_index, end_index)) / NM)
         del simk
             
     #### plot ####
-    if ax_U == None:
-        _, ax_U = plt.subplots()
-    if ax_V == None:
-        _, ax_V = plt.subplots()
-    var_disp = PATCH_VAR_DISP[var]
+    if ax_H == None:
+        _, ax_H = plt.subplots()
+    if ax_D == None:
+        _, ax_D = plt.subplots()
+    var_disp = PATCH_DAR_DISP[var]
     
-    ax_U.set_xlabel(var_disp)
-    ax_U.set_ylabel('Payoff ' + r'$p_H$')
-    ax_U.plot(values, U_ave, DOTTED_CURVE_TYPE, color = U_color)
-    ax_U.set_title(figure_t.gen_title(var_disp + r'$\,-\,p_U$', start, end))
+    ax_H.set_xlabel(var_disp)
+    ax_H.set_ylabel('Payoff ' + r'$p_H$')
+    ax_H.plot(values, U_ave, DOTTED_CURVE_TYPE, color = color_H)
+    ax_H.set_title(figure_t.gen_title(var_disp + r'$\,-\,p_H$', start, end))
     
-    ax_V.set_xlabel(var_disp)
-    ax_V.set_ylabel('Payoff ' + r'$p_D$')
-    ax_V.plot(values, V_ave, DOTTED_CURVE_TYPE, color = V_color)
-    ax_V.set_title(figure_t.gen_title(var_disp  + r'$\,-\,p_V$', start, end))
+    ax_D.set_xlabel(var_disp)
+    ax_D.set_ylabel('Payoff ' + r'$p_D$')
+    ax_D.plot(values, V_ave, DOTTED_CURVE_TYPE, color = color_D)
+    ax_D.set_title(figure_t.gen_title(var_disp  + r'$\,-\,p_D$', start, end))
 
-    return ax_U, ax_V
-
-
+    return ax_H, ax_D
 
 
-def var_pi2(var1, var2, values1, values2, var_dirs, ax_U = None, ax_V = None, var1_on_xaxis = True, start = 0.95, end = 1.0, U_color = 'viridis', V_color = 'viridis', rgb_alpha = 1):
+
+
+def var_pi2(var1, var2, values1, values2, var_dirs, ax_H = None, ax_D = None, var1_on_xaxis = True, start = 0.95, end = 1.0, color_H = 'viridis', color_D = 'viridis', alpha = 1):
     '''
     Plot function for test_var2. Plot how var1 and var2 influence payoff.
-    Make Upi, V_pi - var2 curves. y-axis is payoff, x-axis is values of var2,
+    Make Hpi, V_pi - var2 curves. y-axis is payoff, x-axis is values of var2,
     var1 is represented by different curves. One curve corresponds to one value of var1.
 
     Inputs:
     - var_dirs:           return value of test_var2. A 2D list of directories where all data are stored.
     - var1, var2:         str, what variables were tested.
     - values1, values2:   1D lists or np.array, what values were tested.
-    - ax_U, ax_V:           matplotlib axes to plot on.
+    - ax_H, ax_D:           matplotlib axes to plot on.
     - var1_on_xaxis:    whether to put var1 on x-axis. Set to False if not.
     - start, end:         floats, define a time inteval over which to make average and make plots.
     - color:              str, Matplotlib color maps.
-    - rgb_alpha:          set alpha value for curves.
+    - alpha:          set alpha value for curves.
     
     Returns:
-    - ax_U, ax_V:         U, V's payoff figures, respectively.
+    - ax_H, ax_D:         U, V's payoff figures, respectively.
     '''
     
     # take average value of payoff over an interval of time
@@ -407,57 +407,57 @@ def var_pi2(var1, var2, values1, values2, var_dirs, ax_U = None, ax_V = None, va
             end_index = int(simk.max_record * end)
             NM = int(simk.N * simk.M)
 
-            U_ave[k1].append(np.sum(figure_t.ave_interval(simk.Upi, start_index, end_index)) / NM)
-            V_ave[k1].append(np.sum(figure_t.ave_interval(simk.Vpi, start_index, end_index)) / NM)
+            U_ave[k1].append(np.sum(figure_t.ave_interval(simk.Hpi, start_index, end_index)) / NM)
+            V_ave[k1].append(np.sum(figure_t.ave_interval(simk.Dpi, start_index, end_index)) / NM)
             del simk
 
     U_ave = np.array(U_ave)
     V_ave = np.array(V_ave)
     
     #### plot ####
-    if ax_U == None:
-        _, ax_U = plt.subplots()
-    if ax_V == None:
-        _, ax_V = plt.subplots()
+    if ax_H == None:
+        _, ax_H = plt.subplots()
+    if ax_D == None:
+        _, ax_D = plt.subplots()
 
-    var1_disp = PATCH_VAR_DISP[var1]
-    var2_disp = PATCH_VAR_DISP[var2]
+    var1_disp = PATCH_DAR_DISP[var1]
+    var2_disp = PATCH_DAR_DISP[var2]
     
-    cmap_U = plt.get_cmap(U_color)
+    cmap_H = plt.get_cmap(color_H)
     if var1_on_xaxis:
         for k in range(len(values2)):
             label = var2_disp + '=' + str(values2[k])
-            color_k = cmap_U(k / len(values2))[:3] + (rgb_alpha,)
-            ax_U.plot(values1, U_ave[:, k], DOTTED_CURVE_TYPE, label = label, color = color_k)
-            ax_U.set_xlabel(var1_disp)
+            color_k = cmap_H(k / len(values2))[:3] + (alpha,)
+            ax_H.plot(values1, U_ave[:, k], DOTTED_CURVE_TYPE, label = label, color = color_k)
+            ax_H.set_xlabel(var1_disp)
     else:
         for k in range(len(values1)):
             label = var1_disp + '=' + str(values1[k])
-            color_k = cmap_U(k / len(values1))[:3] + (rgb_alpha,)
-            ax_U.plot(values2, U_ave[k], DOTTED_CURVE_TYPE, label = label, color = color_k)
-            ax_U.set_xlabel(var2_disp)
-    ax_U.set_ylabel('Payoff ' + r'$p_{V}$')
-    ax_U.set_title(figure_t.gen_title(var1_disp + ',' + var2_disp + r'$\,-\,p_U$', start, end))
-    ax_U.legend()
+            color_k = cmap_H(k / len(values1))[:3] + (alpha,)
+            ax_H.plot(values2, U_ave[k], DOTTED_CURVE_TYPE, label = label, color = color_k)
+            ax_H.set_xlabel(var2_disp)
+    ax_H.set_ylabel('Payoff ' + r'$p_{V}$')
+    ax_H.set_title(figure_t.gen_title(var1_disp + ',' + var2_disp + r'$\,-\,p_H$', start, end))
+    ax_H.legend()
     
-    cmap_V = plt.get_cmap(V_color)
+    cmap_D = plt.get_cmap(color_D)
     if var1_on_xaxis:
         for k in range(len(values2)):
             label = var2_disp + '=' + str(values2[k])
-            color_k = cmap_V(k / len(values2))[:3] + (rgb_alpha,)
-            ax_V.plot(values1, V_ave[:, k], DOTTED_CURVE_TYPE, label = label, color = color_k)
-            ax_V.set_xlabel(var1_disp)
+            color_k = cmap_D(k / len(values2))[:3] + (alpha,)
+            ax_D.plot(values1, V_ave[:, k], DOTTED_CURVE_TYPE, label = label, color = color_k)
+            ax_D.set_xlabel(var1_disp)
     else:
         for k in range(len(values1)):
             label = var1_disp + '=' + str(values1[k])
-            color_k = cmap_V(k / len(values1))[:3] + (rgb_alpha,)
-            ax_V.plot(values2, V_ave[k], DOTTED_CURVE_TYPE, label = label, color = color_k)
-            ax_V.set_xlabel(var2_disp)
-    ax_V.set_ylabel('Payoff ' + r'$p_{U}$')
-    ax_V.set_title(figure_t.gen_title(var1_disp + ',' + var2_disp + r'$\,-\,p_V$', start, end))
-    ax_V.legend()
+            color_k = cmap_D(k / len(values1))[:3] + (alpha,)
+            ax_D.plot(values2, V_ave[k], DOTTED_CURVE_TYPE, label = label, color = color_k)
+            ax_D.set_xlabel(var2_disp)
+    ax_D.set_ylabel('Payoff ' + r'$p_{U}$')
+    ax_D.set_title(figure_t.gen_title(var1_disp + ',' + var2_disp + r'$\,-\,p_D$', start, end))
+    ax_D.legend()
     
-    return ax_U, ax_V
+    return ax_H, ax_D
 
 
 

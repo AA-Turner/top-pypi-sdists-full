@@ -185,6 +185,11 @@ def make_list(obj:any) -> list:
     Returns:
         list: The object as a list.
     """
+    if isinstance(obj,str):
+        if ',' in obj:
+            obj = obj.split(',')
+    if isinstance(obj,set) or isinstance(obj,tuple):
+        return list(obj)
     if isinstance(obj, list):
         return obj
     return [obj]

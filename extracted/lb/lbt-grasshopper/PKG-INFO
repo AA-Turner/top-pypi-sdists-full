@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: lbt-grasshopper
-Version: 1.9.5
+Version: 1.9.6
 Summary: Collection of all Ladybug Tools plugins for Grasshopper
 Home-page: https://github.com/ladybug-tools/lbt-grasshopper
 Author: Ladybug Tools
@@ -13,7 +13,7 @@ Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ladybug-grasshopper==1.69.0
-Requires-Dist: honeybee-grasshopper-core==1.42.0
+Requires-Dist: honeybee-grasshopper-core==1.42.1
 Requires-Dist: honeybee-grasshopper-radiance==1.35.0
 Requires-Dist: honeybee-grasshopper-energy==1.59.5
 Requires-Dist: dragonfly-grasshopper==1.62.0

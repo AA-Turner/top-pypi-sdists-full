@@ -76,7 +76,16 @@ class ResultsSynchronizer:
                 while True:  # Collect all available results from this queue
                     try:
                         priority_result = queue.get(block=False)
-                        result = priority_result[1]  # Get actual result (2nd element, after priority tuple)
+                        # PriorityQueue items come in as (order, seq, result) or (order, result)
+                        if isinstance(priority_result, tuple):
+                            if len(priority_result) >= 3:
+                                result = priority_result[2]
+                            elif len(priority_result) == 2:
+                                result = priority_result[1]
+                            else:
+                                result = priority_result
+                        else:
+                            result = priority_result
 
                         stream_key = result.get("stream_key")
                         stream_group_key = result.get("stream_group_key")

@@ -19,10 +19,12 @@ import re
 import csv
 import subprocess
 import uuid
-from typing import Optional
+from typing import Optional, Any
 
+import tempfile
 import aioboto3
 import asyncpg
+import shlex
 import shutil
 import sqlite3
 import string
@@ -111,7 +113,7 @@ from yeref.l_ import l_inline_demo, l_inline_bot, l_inline_post, l_inline_media,
     l_post_datetime, l_off, l_post_new, l_post_delete, l_post_change, l_silence, l_grp_btn1, l_grp_btn2, \
     l_choose_direction, l_post_buttons, l_pin, l_preview, l_spoiler, l_broadcast_start, l_post_timer, l_post_date, \
     l_enter, l_subscribe_channel_for_post, l_chn_btn1, l_chn_btn2, l_post_publish, l_recipient, l_inline_sticker, \
-    l_inline_tonest, l_donate, l_chn, l_post_sticker_toobig, \
+    l_inline_tonest, l_donate, l_chn, l_post_sticker_toobig, l_bot_business_settings, \
     l_payment_check_token, l_podcast_start, l_chn_no_rights_for_media, \
     l_refund_title, l_refund_already_done, l_refund_success, l_refund_incorrect, \
     l_tools_has_restricted, l_bot_need_start_add, l_chn_need_boost_for_story, l_bot_need_restart_extra_bot, \
@@ -223,7 +225,7 @@ BOT_CADMIN_ = '☐☑'
 
 BOT_VARS_ = '{"BOT_PROMO": "#911", "BOT_CHANNEL": 0, "BOT_CHANNELTID": 0, "BOT_GROUP": 0, "BOT_GROUPTID": 0, "BOT_CHATGPT": "", "BOT_GEO": 0, "BOT_TZ": "+00:00", "BOT_DT": "", "BOT_LZ": "en", "BOT_LC": "en", "BOT_ISSTARTED": 0, "BOT_ISMENTIONED": 0}'
 BOT_LSTS_ = '{"BOT_ADMINS": [], "BOT_COMMANDS": ["/start"]}'
-USER_VARS_ = '{"USER_TEXT": "", "USER_REACTION": "", "USER_PUSH": "", "USER_EMAIL": "", "USER_PROMO": "", "USER_CONTACT": "", "USER_GEO": "", "USER_UTM": "", "USER_ID": 0, "USER_DT": "", "USER_TZ": "+00:00", "USER_LC": "en", "USER_LZ": "en", "USER_ISADMIN": 0, "USER_ISBLOG": 0, "USER_ISPREMIUM": 0, "USER_BALL": 0, "USER_RAND": 0, "USER_QUIZ": 0, "USER_DICE": 0, "MSGID_PAID": 0, "DATE_TIME": 0}'
+USER_VARS_ = '{"USER_TEXT": "", "USER_REACTION": "", "USER_PUSH": "", "USER_EMAIL": "", "USER_PROMO": "", "USER_CONTACT": "", "USER_GEO": "", "USER_UTM": "", "USER_ID": 0, "USER_DT": "", "USER_TZ": "+00:00", "USER_LC": "en", "USER_LZ": "en", "USER_ISADMIN": 0, "USER_ISBLOG": 0, "USER_ISPREMIUM": 0, "USER_BALL": 0, "USER_RAND": 0, "USER_QUIZ": 0, "USER_TASK": 0, "USER_DICE": 0, "MSGID_PAID": 0, "DATE_TIME": 0}'
 USER_LSTS_ = '{"USER_UTMREF": [], "USER_PAYMENTS": [], "USER_TXS": [], "USER_DAU": [], "USER_MAU": [], "USER_STATUSES": [], "USER_TEXTS": []}'
 
 UB_CONFIG_ = '☑☑☑☐☐☑☑☐☐☐☐☐☐'
@@ -2204,9 +2206,6 @@ commands_media_ru = [
     types.BotCommand(command="start", description="⚙️ Перезагрузка"),
     types.BotCommand(command="lang", description="🇫🇷 Язык"),
     types.BotCommand(command="add", description="👩🏽‍💻 Добавить медиа"),
-    # types.BotCommand(command="del", description="👩🏽‍💻 Удалить медиа"),
-    # types.BotCommand(command="show", description="👩🏽‍💻 Показать медиа"),
-    # types.BotCommand(command="titles", description="💭 Нейро-титры"),
 ]
 commands_group_ru = [
     types.BotCommand(command="help", description="⚙️ Помощь"),
@@ -4068,7 +4067,7 @@ async def not_del_if_payments(chat_id, status, MEDIA_D, BASE_P):
             await db_change_pg(sql, (chat_id,), BASE_P)
             print("DELETE FROM \"USER\" WHERE USER_TID=$1")
 
-        shutil.rmtree(os.path.join(MEDIA_D, str(chat_id)))
+        shutil.rmtree(os.path.join(MEDIA_D, str(chat_id)), ignore_errors=True)
     except Exception as e:
         logger.info(log_ % str(e))
         await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -6277,7 +6276,7 @@ async def logo_to_sticker(bot, chat_id, tid, name, stickers, file_photo, title, 
             if file_logo and os.path.exists(file_logo): os.remove(file_logo)
             if file_gray and os.path.exists(file_gray): os.remove(file_gray)
             if file_webx and os.path.exists(file_webx): os.remove(file_webx)
-            if seq_dir and os.path.exists(seq_dir): shutil.rmtree(seq_dir)
+            if seq_dir and os.path.exists(seq_dir): shutil.rmtree(seq_dir, ignore_errors=True)
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -6384,8 +6383,7 @@ async def photo_to_circle(file_photo, mem_type):
         # Crop to centered square
         width, height = image.size
         side = min(width, height)
-        if side % 2:
-            side -= 1
+        if side % 2: side -= 1
         cx, cy = width // 2, height // 2
         half = side // 2
         box = (cx - half, cy - half, cx + half, cy + half)
@@ -6396,11 +6394,9 @@ async def photo_to_circle(file_photo, mem_type):
         draw = ImageDraw.Draw(mask)
         draw.ellipse((0, 0, side, side), fill=255)
 
-        # Apply mask to get perfect circle
         circle = Image.new('RGBA', (side, side), (0, 0, 0, 0))
         circle.paste(square, (0, 0), mask)
 
-        # Resize proportionally if диаметр больше лимита
         max_diameter = 512 if mem_type == 'regular' else 100
         if side > max_diameter:
             circle.thumbnail((max_diameter, max_diameter), Image.LANCZOS)
@@ -6411,7 +6407,6 @@ async def photo_to_circle(file_photo, mem_type):
         y = (max_diameter - circle.height) // 2
         canvas.paste(circle, (x, y), circle)
 
-        # Save result (перезаписываем оригинал или в новый файл)
         canvas.save(file_photo)
         canvas.close()
         circle.close()
@@ -6814,7 +6809,7 @@ async def create_mem(bot, chat_id, lz, tid, mem_item, username, title, desc, fil
             if file_mp4 and os.path.exists(file_mp4): os.remove(file_mp4)
             if photo_name and os.path.exists(photo_name): os.remove(photo_name)
             if video_name and os.path.exists(video_name): os.remove(video_name)
-            if seq_dir and os.path.exists(seq_dir): shutil.rmtree(seq_dir)
+            if seq_dir and os.path.exists(seq_dir): shutil.rmtree(seq_dir, ignore_errors=True)
         except Exception as e:
             logger.info(log_ % str(e))
             await asyncio.sleep(round(random.uniform(0, 1), 2))
@@ -11718,7 +11713,7 @@ async def update_media(bot, chat_id, lz, ENT_TID, BOT_TOKEN, POST_MEDIA, MEDIA_D
                 print(f'{member_=}')
                 if member_.status not in ['administrator', 'creator']:
                     await bot.send_message(chat_id=chat_id, text=l_chn_no_rights_for_media[lz].format(PROJECT_USERNAME))
-                    shutil.rmtree(os.path.join(MEDIA_D, str(ENT_TID)))
+                    shutil.rmtree(os.path.join(MEDIA_D, str(ENT_TID)), ignore_errors=True)
                     await bot.leave_chat(ENT_TID)
             except Exception as e:
                 logger.info(log_ % str(e))
@@ -12905,6 +12900,235 @@ async def ch_games(USER_GAMES, game, condition, balls=-1):
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return USER_GAMES
 
+
+async def post_story_async(extra_bot, chat_id, lz, BOT_TOKEN, business_id, content_path, caption, active_period=86400, is_protect=True, to_profile=True, is_gif=False):
+    async def _run(cmd0):
+        proc = await asyncio.create_subprocess_shell(cmd0, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        out_, err_ = await proc.communicate()
+        return proc.returncode, out_.decode(errors='ignore'), err_.decode(errors='ignore')
+    result = None
+    try:
+        if os.path.getsize(content_path) > 30 * 1024 * 1024: return result
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/postStory"
+        ext = os.path.splitext(content_path)[1].lower()
+        if ext not in ['.jpg', '.jpeg', '.png', '.mp4', '.mov']: return result
+        is_video_ = ext in ('.mp4', '.mov')
+
+        # content = InputStoryContentPhoto(photo="/Users/mark/PycharmProjects/Ferey/FereyBotBot/1_story.jpg")
+        # res = await extra_bot.post_story(
+        #     business_connection_id="kXIysGDHyUioDwAAopWM-i6lOvw",
+        #     content=content,  # 1080x1920
+        #     active_period=21600,
+        #     caption="Тестовая сторис"
+        # )
+
+        form = aiohttp.FormData()
+        form.add_field('business_connection_id', business_id)
+        form.add_field('active_period', str(active_period))
+        form.add_field('caption', caption or "")
+        form.add_field("parse_mode", "HTML")
+        form.add_field('post_to_chat_page', 'true' if to_profile else 'false')
+        form.add_field('protect_content', 'true' if is_protect else 'false')
+
+        if not is_video_:
+            buf = io.BytesIO()
+            save_as_png = ext == '.png'
+            with Image.open(content_path) as img:
+                if save_as_png:
+                    if img.mode not in ("RGBA", "LA"): img = img.convert("RGBA")
+                else:
+                    if img.mode not in ("RGB",):
+                        img = img.convert("RGBA") if "A" in img.getbands() else img.convert("RGB")
+                w, h = img.size
+                tw, th = 1080, 1920
+                scale = max(tw/w, th/h)
+                img = img.resize((int(w*scale), int(h*scale)), Image.Resampling.LANCZOS)
+                left = (img.width - tw)//2
+                top = (img.height - th)//2
+                img = img.crop((left, top, left+tw, top+th))
+                if save_as_png:
+                    img.save(buf, format="PNG", optimize=True)
+                    content_type = "image/png"
+                    filename = os.path.splitext(os.path.basename(content_path))[0] + ".png"
+                else:
+                    if img.mode in ("RGBA", "LA"):
+                        bg = Image.new("RGB", img.size, (255, 255, 255))
+                        bg.paste(img, mask=img.split()[-1])
+                        img = bg
+                    img.save(buf, format="JPEG", quality=85, optimize=True)
+                    content_type = "image/jpeg"
+                    filename = os.path.splitext(os.path.basename(content_path))[0] + ".jpg"
+            buf.seek(0)
+            form.add_field('content', json.dumps({"type": "photo", "photo": "attach://photo"}, ensure_ascii=False))
+            form.add_field('photo', buf.read(), filename=filename, content_type=content_type)
+        else:
+            td = tempfile.mkdtemp()
+            try:
+                dt_ = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S-%f')
+                out_path = os.path.join(td, f"story_video_{dt_}.mp4")
+
+                rc, out, err = await _run(f'ffprobe -v quiet -print_format json -show_format -show_streams {shlex.quote(content_path)}')
+                duration = None
+                has_audio = False
+                if rc == 0 and out:
+                    try:
+                        info = json.loads(out)
+                        fmt = info.get("format", {}) or {}
+                        dur = fmt.get("duration")
+                        if dur not in (None, "", "N/A"):
+                            f = float(dur)
+                            if math.isfinite(f) and f > 0:
+                                duration = f
+                        streams = info.get("streams", []) or []
+                        has_audio = any(s.get("codec_type") == "audio" and s.get("codec_name") for s in streams)
+                    except Exception:
+                        duration = None
+                        has_audio = False
+
+                trim_to_60 = bool(duration is not None and duration > 60)
+
+                crf = 28
+                while True:
+                    vf = "scale='if(gt(a,720/1280),-2,720)':'if(gt(a,720/1280),1280,-2)',crop=720:1280"
+                    audio_args = "-c:a aac -b:a 96k" if has_audio else "-an"
+                    if is_gif: audio_args = "-an"
+                    t_arg = "-t 60" if trim_to_60 else ""
+                    cmd_ = (
+                        f'ffmpeg -y -i {shlex.quote(content_path)} {t_arg} -vf "{vf}" -c:v libx265 -tag:v hvc1 '
+                        f'-x265-params keyint=30 -g 30 -crf {crf} -preset fast {audio_args} -movflags +faststart {shlex.quote(out_path)}'
+                    )
+                    rc, o, e = await _run(cmd_)
+                    if rc != 0:
+                        return result
+                    size = os.path.getsize(out_path)
+                    if size <= 30 * 1024 * 1024 or crf >= 40:
+                        break
+                    crf += 2
+                if os.path.getsize(out_path) > 30 * 1024 * 1024:
+                    return result
+
+                async with aiofiles.open(out_path, "rb") as f:
+                    video_bytes = await f.read()
+
+                content: dict[str, Any] = {"type": "video", "video": "attach://video"}
+                final_duration = 60 if trim_to_60 else (int(math.ceil(duration)) if duration is not None else None)
+                if final_duration is not None:
+                    content["duration"] = int(final_duration)
+                content["is_animation"] = bool(False) if has_audio and not is_gif else True
+                print(f"{content=}")
+
+                form.add_field("content", json.dumps(content, ensure_ascii=False))
+                form.add_field("video", video_bytes, filename=f"story_video_{dt_}.mp4", content_type="video/mp4")
+            finally:
+                shutil.rmtree(td, ignore_errors=True)
+
+        # areas = [
+        #     {
+        #         "position": {
+        #             "x_percentage": 0.5,
+        #             "y_percentage": 0.5,
+        #             "width_percentage": 0.7,
+        #             "height_percentage": 0.18,
+        #             "rotation_angle": 0,
+        #             "corner_radius_percentage": 0.06
+        #         },
+        #         "type": {
+        #             "type": "link",
+        #             "url": "https://t.me/your_channel_or_post"  
+        #         }
+        #     },
+        #
+        #     {
+        #         "position": {
+        #             "x_percentage": 0.18,
+        #             "y_percentage": 0.15,
+        #             "width_percentage": 0.32,
+        #             "height_percentage": 0.12,
+        #             "rotation_angle": 0,
+        #             "corner_radius_percentage": 0.04
+        #         },
+        #         "type": {
+        #             "type": "location",
+        #             "latitude": 42.6977,
+        #             "longitude": 23.3219,
+        #             "address": {
+        #                 "country_code": "BG",
+        #                 "state": "Sofia Region",
+        #                 "city": "Sofia",
+        #                 "street": "Tsar Osvoboditel 1"
+        #             }
+        #         }
+        #     },
+        #
+        #     {
+        #         "position": {
+        #             "x_percentage": 0.5,
+        #             "y_percentage": 0.5,
+        #             "width_percentage": 1.0,
+        #             "height_percentage": 1.0,
+        #             "rotation_angle": 0,
+        #             "corner_radius_percentage": 0.0
+        #         },
+        #         "type": {
+        #             "type": "suggested_reaction",
+        #             "reaction_type": {
+        #                 "type": "emoji",
+        #                 "emoji": "❤" 
+        #             },
+        #             "is_dark": False,
+        #             "is_flipped": False
+        #         }
+        #     },
+        #
+        #     {
+        #         "position": {
+        #             "x_percentage": 0.18,
+        #             "y_percentage": 0.82,
+        #             "width_percentage": 0.32,
+        #             "height_percentage": 0.12,
+        #             "rotation_angle": 0,
+        #             "corner_radius_percentage": 0.04
+        #         },
+        #         "type": {
+        #             "type": "weather",
+        #             "temperature": 22.5,
+        #             "emoji": "🌤",
+        #             "background_color": 4280391411  # ARGB (0xFF2196F3) — int
+        #         }
+        #     },
+        #
+        #     {
+        #         "position": {
+        #             "x_percentage": 0.82,
+        #             "y_percentage": 0.82,
+        #             "width_percentage": 0.34,
+        #             "height_percentage": 0.14,
+        #             "rotation_angle": 0,
+        #             "corner_radius_percentage": 0.06
+        #         },
+        #         "type": {
+        #             "type": "unique_gift",
+        #             "name": "SpicedWine-27516"  #   https://t.me/nft/SpicedWine-27516
+        #         }
+        #     }
+        # ]
+        # form.add_field('areas', json.dumps(areas, ensure_ascii=False))
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=form) as resp:
+                j = await resp.json()
+                print(f"{j=}")
+                if resp.status != 200: return result
+                s_username = j['result']['chat']['username']
+                s_id = j['result']['id']
+                result = f"https://t.me/{s_username}/s/{s_id}"
+    except Exception as e:
+        logger.info(log_ % str(e))
+        if 'BOT_ACCESS_FORBIDDEN' in str(e):
+            text = l_bot_business_settings[lz]
+            await extra_bot.send_message(chat_id, text)
+        await asyncio.sleep(round(random.uniform(0, 1), 2))
+    return result
 
 # endregion
 
@@ -15456,11 +15680,10 @@ async def template_sender(CONF_P, EXTRA_D, MEDIA_D):
 
     # 1
     post_txt = f'''
-🍃 Через 1 час в 20:00 я проведу прямой эфир!
+🍃 In 20:00 Podcast!
 
-Переходи по моей ссылке, встроенной в кнопку.
 '''
-    post_btn = '🎥 Прямой эфир в instagram'
+    post_btn = '🎥 Here'
     post_url = 'https://www.instagram.com'
     post_media_type = 'photo'
     post_media_name = os.path.join(MEDIA_D, (r_conf('logo_name', CONF_P))[0])
@@ -15472,13 +15695,9 @@ async def template_sender(CONF_P, EXTRA_D, MEDIA_D):
 
     # 2
     post_txt = f'''
-🔥 Как тебе прямой эфир? 
-Расскажи об этом. 
-Ниже я прикреплю Google-форму обратной связи
-
-При заполнении, пришлю тебе Чек-лист по твоему запросу
+🔥 How podcast?
 '''
-    post_btn = '⚠️ Google-форма обратной связи'
+    post_btn = '⚠️ Google-form'
     post_url = 'https://docs.google.com/forms/d/e/1FAIpQLSehCkXuL9nCgRvPEdddgTnC99SMW-d_qTPzDjBzbASTAnX_lg/viewform'
     post_media_type = 'photo'
     post_media_name = os.path.join(MEDIA_D, (r_conf('logo_name', CONF_P))[0])
@@ -16272,7 +16491,6 @@ async def correct_txt_tags_for_tg(txt):
 
         print(f"correct_txt_tags_for_tg start {txt=}")
 
-        # блоки -> нужные теги
         txt = re.sub(
             r'<div class="tgui-79024fcb6d81ad79"[^>]*?>(.*?)</div>',
             r'<blockquote>\1</blockquote>',
@@ -16294,7 +16512,6 @@ async def correct_txt_tags_for_tg(txt):
             flags=re.DOTALL | re.IGNORECASE
         )
 
-        # хэштеги в span с цветом -> только хэш
         txt = re.sub(
             r'<span[^>]*style="[^"]*rgba\([^"]*\)[^"]*"[^>]*>(#[^<]+)</span>',
             r'\1',
@@ -16302,7 +16519,6 @@ async def correct_txt_tags_for_tg(txt):
             flags=re.IGNORECASE
         )
 
-        # очистка <a> — оставить только href и внутренний текст (без вложенных функций)
         txt = re.sub(
             r'<a\s+[^>]*href=(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))[^>]*>(.*?)</a>',
             r'<a href="\1\2\3">\4</a>',
@@ -16310,11 +16526,9 @@ async def correct_txt_tags_for_tg(txt):
             flags=re.DOTALL | re.IGNORECASE
         )
 
-        # удалить style и лишние атрибуты у остальных тегов
         txt = re.sub(r'\sstyle=(?:"[^"]*"|\'[^\']*\')', '', txt, flags=re.IGNORECASE)
         txt = re.sub(r'\s(?:target|rel|class|id|data-[\w-]+)=(?:"[^"]*"|\'[^\']*\'|\S+)', '', txt, flags=re.IGNORECASE)
 
-        # дальнейшая очистка
         txt = txt.replace('&nbsp;', '').replace('<br>', '')
         txt = re.sub(r'</div>\s*<div>', '\n', txt, flags=re.IGNORECASE)
         txt = re.sub(r'</?div[^>]*>', '\n', txt, flags=re.IGNORECASE)
@@ -17527,7 +17741,6 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
                     # clip = mp.VideoFileClip(input_file)
                     # width, height = clip.size
 
-                    import tempfile
                     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
                     tmp_fd, tmp_path = tempfile.mkstemp(suffix='.mp4')
                     os.close(tmp_fd)
@@ -17650,7 +17863,7 @@ async def item_to_dynamic_sticker(bot, chat_id, input_file, PACK_TYPE, PACK_KIND
             await bot.send_message(chat_id=chat_id, text=l_post_sticker_toobig['en'])
     finally:
         try:
-            if os.path.exists(spec_dir): shutil.rmtree(spec_dir)
+            if os.path.exists(spec_dir): shutil.rmtree(spec_dir, ignore_errors=True)
             if os.path.exists(file_mp4): os.remove(file_mp4)
             if os.path.exists(file_jpg): os.remove(file_jpg)
             if os.path.exists(file_png): os.remove(file_png)
@@ -18898,7 +19111,7 @@ async def text_layout(text, MEDIA_D):
 
 async def test_cairo(bot, MEDIA_D):
     try:
-        text = 'Привет всем!\n\nя могу помочь с ответами на ваши вопросы. конечно'
+        text = 'Hello everybody!\n\nI can help you with answers'
         file_png, t = await text_layout(text, MEDIA_D)
         print(file_png, t)
         image = Image.open(file_png)
@@ -18944,10 +19157,8 @@ async def test_cairo(bot, MEDIA_D):
         if os.path.exists(sticker): os.remove(sticker)
         if file_png and os.path.exists(file_png): os.remove(file_png)
 
-        # 👩🏽‍💻 эмоджи превращаются в квадртаики
-        # text = f"""Telegram "Heieje ejoekee"\n\nМы предлагаем уникальную возможность встретиться с единомышленниками и обсудить самые актуальные темы."""
-        # text = "Telegram Heieje ejo\n\nМы предлагаем уникальный шанс встретиться и обсудить самые важные темы"
-        text = "Извините за\nЕсли сейчас результат правильный и не возникает проблем с отрицательными значениями, то, вероятно, предложенные изменения в цикле помогли. В таком случае, давайте проверим вашу последнюю реализацию и посмотрим, остались ли какие-либо вопросы или проблемы, которые нужно решить."
+        # text = "Telegram Heieje ejo\n\nDsf fa sd dfasda dfasdfa sf r arf awe  r sf erwf aef asf ajsdhgf asdkf dlfadksfasdf"
+        text = "Sorry for\nGkjhsd fhs a;dsfasjf;kasdjf;aaadadflks flkajsf lajflk lajf jadf ajdflkjad lkajsd falsdkjf alsdkjfa ls;dfjka ls;dfj als;dfj als;djf al;sdjf l;asdjfl;asd jf;alsdjfl;adfajsdl;fj asld;jasld jfal;sd."
         file_png, t = await text_layout(text, MEDIA_D)
         print(file_png, t)
         image = Image.open(file_png)
@@ -18962,7 +19173,7 @@ async def test_cairo(bot, MEDIA_D):
         if os.path.exists(sticker): os.remove(sticker)
         if file_png and os.path.exists(file_png): os.remove(file_png)
 
-        text = "Константин Белов\n\nFit line to width with Pango and Cairo"
+        text = "Holustandfund Jhon\n\nFit line to width with Pango and Cairo"
         file_png, t = await text_layout(text, MEDIA_D)
         print(file_png, t)
         image = Image.open(file_png)
@@ -18977,7 +19188,7 @@ async def test_cairo(bot, MEDIA_D):
         if os.path.exists(sticker): os.remove(sticker)
         if file_png and os.path.exists(file_png): os.remove(file_png)
 
-        text = "Константин Белов Fit line to width with Pango and Cairo"
+        text = "Holustandfund Jhon Fit line to width with Pango and Cairo"
         file_png, t = await text_layout(text, MEDIA_D)
         print(file_png, t)
         image = Image.open(file_png)
@@ -18992,7 +19203,7 @@ async def test_cairo(bot, MEDIA_D):
         if os.path.exists(sticker): os.remove(sticker)
         if file_png and os.path.exists(file_png): os.remove(file_png)
         #
-        text = "Константин Белов"
+        text = "Holustandfund Jhon"
         file_png, t = await text_layout(text, MEDIA_D)
         print(file_png, t)
         image = Image.open(file_png)

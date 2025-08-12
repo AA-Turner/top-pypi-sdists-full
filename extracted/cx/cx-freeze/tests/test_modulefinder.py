@@ -17,6 +17,7 @@ from .datatest import (
     CODING_DEFAULT_UTF8_TEST,
     CODING_EXPLICIT_CP1252_TEST,
     CODING_EXPLICIT_UTF8_TEST,
+    EDITABLE_PACKAGE_TEST,
     EXTENDED_OPARGS_TEST,
     IMPORT_CALL_TEST,
     MAYBE_TEST,
@@ -157,4 +158,18 @@ def test_zip_exclude_packages(tmp_package) -> None:
         zip_exclude_packages=["p"],
         zip_include_packages=["*"],
         zip_include_all_packages=True,
+    )
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10),
+    reason="Python 3.10+ needed for editable packages",
+)
+def test_editable_packages(tmp_package) -> None:
+    """Provides test cases for ModuleFinder class."""
+    tmp_package.create(EDITABLE_PACKAGE_TEST[4])
+    tmp_package.install(["-e", f"{tmp_package.path}/foo-bar"], backend="pip")
+    _do_test(
+        tmp_package,
+        *EDITABLE_PACKAGE_TEST,
     )

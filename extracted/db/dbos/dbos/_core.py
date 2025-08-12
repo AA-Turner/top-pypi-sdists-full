@@ -157,7 +157,7 @@ class WorkflowHandlePolling(Generic[R]):
 
 class WorkflowHandleAsyncTask(Generic[R]):
 
-    def __init__(self, workflow_id: str, task: asyncio.Task[R], dbos: "DBOS"):
+    def __init__(self, workflow_id: str, task: asyncio.Future[R], dbos: "DBOS"):
         self.workflow_id = workflow_id
         self.task = task
         self.dbos = dbos
@@ -698,7 +698,8 @@ async def start_workflow_async(
         return WorkflowHandleAsyncPolling(new_wf_id, dbos)
 
     coro = _execute_workflow_async(dbos, status, func, new_wf_ctx, *args, **kwargs)
-    task = asyncio.create_task(coro)
+    # Shield the workflow task from cancellation
+    task = asyncio.shield(asyncio.create_task(coro))
     return WorkflowHandleAsyncTask(new_wf_id, task, dbos)
 
 
@@ -1072,7 +1073,8 @@ def decorate_step(
 
             def on_exception(attempt: int, error: BaseException) -> float:
                 dbos.logger.warning(
-                    f"Step being automatically retried. (attempt {attempt + 1} of {attempts}). {traceback.format_exc()}"
+                    f"Step being automatically retried (attempt {attempt + 1} of {attempts})",
+                    exc_info=error,
                 )
                 ctx = assert_current_dbos_context()
                 span = ctx.get_current_span()

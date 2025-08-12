@@ -13,6 +13,7 @@ from .config import (
     PeopleCountingConfig,
     CustomerServiceConfig,
     IntrusionConfig,
+    ProximityConfig,
     ZoneConfig,
     TrackingConfig,
     AlertConfig,
@@ -132,12 +133,72 @@ def create_intrusion_detection_config(
         usecase="intrusion_detection",
         confidence_threshold=confidence_threshold,
         zone_config=zone_config,
-        person_categories=person_categories or ["person", "people", "human"],
+        person_categories=person_categories or ["person"],
         enable_tracking=enable_tracking,
         time_window_minutes=time_window_minutes,
         alert_config=alert_config,
         **kwargs
     )
+
+
+def create_proximity_detection_config(
+    confidence_threshold: float = 0.5,
+    zones: Optional[Dict[str, List[List[float]]]] = None,
+    person_categories: Optional[List[str]] = None,
+    enable_tracking: bool = False,
+    time_window_minutes: int = 60,
+    alert_thresholds: Optional[Dict[str, int]] = None,
+    category: str = "general",
+    **kwargs
+) -> ProximityConfig:
+    """
+    Create a proximity detection configuration with sensible defaults.
+    
+    Args:
+        confidence_threshold: Minimum confidence for detections (0.0-1.0)
+        zones: Dictionary of zone_name -> polygon points [[x1,y1], [x2,y2], ...]
+        person_categories: List of category names that represent people
+        enable_tracking: Whether to enable object tracking
+        time_window_minutes: Time window for counting statistics
+        alert_thresholds: Dictionary of zone_name -> max_count for alerts
+        category: Use case category
+        **kwargs: Additional configuration parameters
+        
+    Returns:
+        ProximityConfig: Configured proximity detection configuration
+        
+    Example:
+        config = create_proximity_detection_config(
+            confidence_threshold=0.6,
+            zones={
+                "entrance": [[0, 0], [100, 0], [100, 100], [0, 100]],
+                "exit": [[200, 0], [300, 0], [300, 100], [200, 100]]
+            },
+            alert_thresholds={"entrance": 10, "exit": 5}
+        )
+    """
+    # Create zone configuration if zones provided
+    zone_config = None
+    if zones:
+        zone_config = ZoneConfig(zones=zones)
+    
+    # Create alert configuration if thresholds provided  
+    alert_config = None
+    if alert_thresholds:
+        alert_config = AlertConfig(count_thresholds=alert_thresholds)
+    
+    return ProximityConfig(
+        category=category,
+        usecase="proximity_detection",
+        confidence_threshold=confidence_threshold,
+        zone_config=zone_config,
+        person_categories=person_categories or ["person"],
+        enable_tracking=enable_tracking,
+        time_window_minutes=time_window_minutes,
+        alert_config=alert_config,
+        **kwargs
+    )
+
 
 def create_customer_service_config(
     confidence_threshold: float = 0.5,
@@ -513,6 +574,8 @@ def create_config_from_template(
             return create_people_counting_config(**overrides)
         elif usecase == "intrusion_detection":
             return create_intrusion_detection_config(**overrides)
+        elif usecase == "proximity_detection":
+            return create_proximity_detection_config(**overrides)
         elif usecase == "customer_service":
             return create_customer_service_config(**overrides)
         elif usecase == "advanced_customer_service":
@@ -566,17 +629,33 @@ def get_use_case_examples() -> Dict[str, Dict[str, Any]]:
             "confidence_threshold": 0.6,
             "enable_tracking": True,
             "time_window_minutes": 60,
-            "person_categories": ["person", "people", "human"],
+            "person_categories": ["person"],
             "zone_config": {
                 "zones": {
-                    "High": [[535, 558], [745, 453], [846, 861], [665, 996]],
-                    "Mid": [[663, 995], [925, 817], [1266, 885], [1012, 1116]]
+                    "Boarding Gate": [[314, 652], [1034, 317], [1854, 845], [987, 1491]]
                 }
             },
             "alert_config": {
                 "count_thresholds": {
-                    "High": 0,
-                    "Mid": 0,
+                    "Boarding Gate": 0
+                },
+                "alert_cooldown": 10.0
+            }
+        },
+        
+        "proximity_detection": {
+            "usecase": "proximity_detection",
+            "category": "security",
+            "confidence_threshold": 0.6,
+            "enable_tracking": True,
+            "time_window_minutes": 60,
+            "person_categories": ["person"],
+            "zone_config": {
+                "zones": {}
+            },
+            "alert_config": {
+                "count_thresholds": {
+                    "Boarding Gate": 0
                 },
                 "alert_cooldown": 10.0
             }

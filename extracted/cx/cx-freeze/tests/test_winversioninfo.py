@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from subprocess import CalledProcessError
 
 import pytest
 from packaging.version import Version
@@ -129,6 +128,7 @@ class TestVersionInfo:
         with pytest.raises(FileNotFoundError):
             version.stamp(f"test{EXE_SUFFIX}")
 
+    @pytest.mark.venv
     @pytest.mark.parametrize(
         "option",
         [
@@ -142,14 +142,14 @@ class TestVersionInfo:
         tmp_package.create(SOURCE_SIMPLE_TEST)
         if option == "--pywin32":
             tmp_package.monkeypatch.setenv("CX_FREEZE_STAMP", "pywin32")
-            tmp_package.install("pywin32", isolated=False)
-        tmp_package.run()
+            tmp_package.install("pywin32")
+        tmp_package.freeze()
 
         executable = tmp_package.executable("test")
         assert executable.is_file(), f"file not found: {executable}"
 
-        output = tmp_package.run(executable, timeout=10)
-        assert output.startswith("Hello from cx_Freeze")
+        result = tmp_package.run(executable, timeout=10)
+        result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
         main_test(args=["--version=0.2", option, f"{executable}"])
         captured = capsys.readouterr()
@@ -160,10 +160,10 @@ class TestVersionInfo:
         with pytest.raises(SystemExit):
             main_test(args=[])
 
+    @pytest.mark.venv
     def test_main_with_environ(self, tmp_package) -> None:
         """Test argparse error exception."""
-        # pywin32 must be installed on venv
-        tmp_package.install("pywin32", isolated=False)
+        tmp_package.install("pywin32")
         tmp_package.monkeypatch.setenv("CX_FREEZE_STAMP", "pywin32")
-        with pytest.raises(CalledProcessError):
-            tmp_package.run("python -m cx_Freeze.winversioninfo")
+        result = tmp_package.run("python -m cx_Freeze.winversioninfo")
+        assert result.ret > 0

@@ -25,12 +25,14 @@ from .core.config import (
     PeopleCountingConfig, 
     CustomerServiceConfig,
     IntrusionConfig,
+    ProximityConfig,
     config_manager,
     ConfigValidationError
 )
 from .usecases import (
     PeopleCountingUseCase,
     IntrusionUseCase,
+    ProximityUseCase,
     CustomerServiceUseCase,
     AdvancedCustomerServiceUseCase,
     LicensePlateUseCase,
@@ -73,7 +75,6 @@ from .usecases import (
     WeldDefectUseCase,
     WeaponDetectionUseCase,
 
-    AgeDetectionUseCase,
     PriceTagUseCase,
     DistractedDriverUseCase,
     EmergencyVehicleUseCase,
@@ -156,6 +157,9 @@ class PostProcessor:
         
         # Register intrusion detection use case
         registry.register_use_case("security", "intrusion_detection", IntrusionUseCase)
+        
+        # Register proximity detection use case
+        registry.register_use_case("security", "proximity_detection", ProximityUseCase)
         
         # Register customer service use case
         registry.register_use_case("sales", "customer_service", CustomerServiceUseCase)
@@ -340,8 +344,8 @@ class PostProcessor:
             elif isinstance(use_case, ChickenPoseDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, FlareAnalysisUseCase):
-                result = use_case.process(data, parsed_config,input_bytes, context, stream_info)
-            elif isinstance(use_case,LicensePlateUseCase):
+                result = use_case.process(data, parsed_config, input_bytes, context, stream_info)
+            elif isinstance(use_case, LicensePlateUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, CropWeedDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)

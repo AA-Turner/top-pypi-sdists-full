@@ -4225,6 +4225,18 @@ class SecurityProfileSearchCriteriaTypeDef(TypedDict):
     StringCondition: NotRequired[StringConditionTypeDef]
 
 
+class UserHierarchyGroupSearchCriteriaPaginatorTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+
+
+class UserHierarchyGroupSearchCriteriaTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+
+
 class ListAgentStatusResponseTypeDef(TypedDict):
     AgentStatusSummaryList: List[AgentStatusSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4355,20 +4367,6 @@ class StartAttachedFileUploadRequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
 
 
-class UserHierarchyGroupSearchCriteriaPaginatorTypeDef(TypedDict):
-    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
-    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
-    StringCondition: NotRequired[StringConditionTypeDef]
-    HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
-
-
-class UserHierarchyGroupSearchCriteriaTypeDef(TypedDict):
-    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
-    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
-    StringCondition: NotRequired[StringConditionTypeDef]
-    HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
-
-
 class AttributeAndConditionTypeDef(TypedDict):
     TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
     HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
@@ -4376,7 +4374,6 @@ class AttributeAndConditionTypeDef(TypedDict):
 
 class CommonAttributeAndConditionTypeDef(TypedDict):
     TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
-    HierarchyGroupCondition: NotRequired[HierarchyGroupConditionTypeDef]
 
 
 class ControlPlaneTagFilterTypeDef(TypedDict):

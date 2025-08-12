@@ -14,10 +14,14 @@ use lsp_types::SemanticTokensLegend;
 use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::symbol_kind::SymbolKind;
+use pyrefly_types::types::Type;
 use pyrefly_util::visit::Visit as _;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ModModule;
+use ruff_python_ast::Stmt;
+use ruff_python_ast::StmtImport;
+use ruff_python_ast::StmtImportFrom;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 
@@ -212,33 +216,62 @@ impl SemanticTokenBuilder {
         }
     }
 
-    fn process_expr(&mut self, x: &Expr) {
+    fn process_expr(
+        &mut self,
+        x: &Expr,
+        get_type_of_attribute: &dyn Fn(TextRange) -> Option<Type>,
+    ) {
         match x {
-            Expr::Call(call) if let Expr::Attribute(attr) = call.func.as_ref() => {
-                self.push_if_in_range(attr.attr.range(), SemanticTokenType::METHOD, Vec::new());
-                attr.value.visit(&mut |x| self.process_expr(x));
-                for arg in call.arguments.arguments_source_order() {
-                    arg.value().visit(&mut |x| self.process_expr(x));
-                }
-                self.process_arguments(&call.arguments);
-            }
             Expr::Call(call) => {
                 self.process_arguments(&call.arguments);
-                x.recurse(&mut |x| self.process_expr(x));
+                x.recurse(&mut |x| self.process_expr(x, get_type_of_attribute));
             }
             Expr::Attribute(attr) => {
                 // todo(samzhou19815): if the class's base is Enum, it should be ENUM_MEMBER
-                self.push_if_in_range(attr.attr.range(), SemanticTokenType::PROPERTY, Vec::new());
-                attr.value.visit(&mut |x| self.process_expr(x));
+                let kind = match get_type_of_attribute(attr.range()) {
+                    Some(Type::BoundMethod(_)) => SemanticTokenType::METHOD,
+                    Some(Type::Function(_) | Type::Callable(_)) => SemanticTokenType::FUNCTION,
+                    _ => SemanticTokenType::PROPERTY,
+                };
+                self.push_if_in_range(attr.attr.range(), kind, Vec::new());
+                attr.value
+                    .visit(&mut |x| self.process_expr(x, get_type_of_attribute));
             }
             _ => {
-                x.recurse(&mut |x| self.process_expr(x));
+                x.recurse(&mut |x| self.process_expr(x, get_type_of_attribute));
             }
         }
     }
 
-    pub fn process_ast(&mut self, ast: &ModModule) {
-        ast.visit(&mut |e| self.process_expr(e));
+    fn process_stmt(&mut self, x: &Stmt) {
+        match x {
+            Stmt::Import(StmtImport { names, .. }) => {
+                for alias in names {
+                    self.push_if_in_range(alias.name.range, SemanticTokenType::NAMESPACE, vec![]);
+                    if let Some(asname) = &alias.asname {
+                        self.push_if_in_range(asname.range, SemanticTokenType::NAMESPACE, vec![]);
+                    }
+                }
+            }
+            Stmt::ImportFrom(StmtImportFrom {
+                module: Some(module),
+                ..
+            }) => {
+                self.push_if_in_range(module.range, SemanticTokenType::NAMESPACE, vec![]);
+            }
+            _ => {}
+        }
+    }
+
+    pub fn process_ast(
+        &mut self,
+        ast: &ModModule,
+        get_type_of_attribute: &dyn Fn(TextRange) -> Option<Type>,
+    ) {
+        for s in &ast.body {
+            self.process_stmt(s);
+        }
+        ast.visit(&mut |e| self.process_expr(e, get_type_of_attribute));
     }
 
     pub fn all_tokens_sorted(self) -> Vec<SemanticTokenWithFullRange> {

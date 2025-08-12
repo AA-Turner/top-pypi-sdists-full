@@ -32,6 +32,20 @@ class IEnumerable(metaclass=abc.ABCMeta):
         ...
 
 
+class IComparer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def compare(self, x: typing.Any, y: typing.Any) -> int:
+        ...
+
+
+class IStructuralComparable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def compare_to(self, other: typing.Any, comparer: System.Collections.IComparer) -> int:
+        ...
+
+
 class ICollection(System.Collections.IEnumerable, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -52,6 +66,104 @@ class ICollection(System.Collections.IEnumerable, metaclass=abc.ABCMeta):
 
     def copy_to(self, array: System.Array, index: int) -> None:
         ...
+
+
+class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    @abc.abstractmethod
+    def is_read_only(self) -> bool:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def is_fixed_size(self) -> bool:
+        ...
+
+    def __getitem__(self, index: int) -> typing.Any:
+        ...
+
+    def __setitem__(self, index: int, value: typing.Any) -> None:
+        ...
+
+    def add(self, value: typing.Any) -> int:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, value: typing.Any) -> bool:
+        ...
+
+    def index_of(self, value: typing.Any) -> int:
+        ...
+
+    def insert(self, index: int, value: typing.Any) -> None:
+        ...
+
+    def remove(self, value: typing.Any) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
+        ...
+
+
+class IEqualityComparer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, x: typing.Any, y: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self, obj: typing.Any) -> int:
+        ...
+
+
+class DictionaryEntry:
+    """This class has no documentation."""
+
+    @property
+    def key(self) -> System.Object:
+        ...
+
+    @key.setter
+    def key(self, value: System.Object) -> None:
+        ...
+
+    @property
+    def value(self) -> System.Object:
+        ...
+
+    @value.setter
+    def value(self, value: System.Object) -> None:
+        ...
+
+    def __init__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def deconstruct(self, key: typing.Optional[typing.Any], value: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any, typing.Any]:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
+    """Compares two objects for equivalence, where string comparisons are case-sensitive."""
+
+    DEFAULT: System.Collections.Comparer = ...
+
+    DEFAULT_INVARIANT: System.Collections.Comparer = ...
+
+    def __init__(self, culture: System.Globalization.CultureInfo) -> None:
+        ...
+
+    def compare(self, a: typing.Any, b: typing.Any) -> int:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        """Obsoletions.LegacyFormatterImplMessage"""
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
 class IDictionary(System.Collections.ICollection, metaclass=abc.ABCMeta):
@@ -106,52 +218,6 @@ class IHashCodeProvider(metaclass=abc.ABCMeta):
 
     def get_hash_code(self, obj: typing.Any) -> int:
         """Returns a hash code for the given object."""
-        ...
-
-
-class IComparer(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def compare(self, x: typing.Any, y: typing.Any) -> int:
-        ...
-
-
-class IEqualityComparer(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def equals(self, x: typing.Any, y: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self, obj: typing.Any) -> int:
-        ...
-
-
-class DictionaryEntry:
-    """This class has no documentation."""
-
-    @property
-    def key(self) -> System.Object:
-        ...
-
-    @key.setter
-    def key(self, value: System.Object) -> None:
-        ...
-
-    @property
-    def value(self) -> System.Object:
-        ...
-
-    @value.setter
-    def value(self, value: System.Object) -> None:
-        ...
-
-    def __init__(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def deconstruct(self, key: typing.Optional[typing.Any], value: typing.Optional[typing.Any]) -> typing.Tuple[None, typing.Any, typing.Any]:
-        ...
-
-    def to_string(self) -> str:
         ...
 
 
@@ -369,137 +435,6 @@ class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Se
         ...
 
 
-class IStructuralEquatable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def equals(self, other: typing.Any, comparer: System.Collections.IEqualityComparer) -> bool:
-        ...
-
-    def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
-        ...
-
-
-class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
-    """Compares two objects for equivalence, where string comparisons are case-sensitive."""
-
-    DEFAULT: System.Collections.Comparer = ...
-
-    DEFAULT_INVARIANT: System.Collections.Comparer = ...
-
-    def __init__(self, culture: System.Globalization.CultureInfo) -> None:
-        ...
-
-    def compare(self, a: typing.Any, b: typing.Any) -> int:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
-
-
-class ListDictionaryInternal(System.Object, System.Collections.IDictionary):
-    """
-    Implements IDictionary using a singly linked list.
-    Recommended for collections that typically include fewer than 10 items.
-    """
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def keys(self) -> System.Collections.ICollection:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    def is_fixed_size(self) -> bool:
-        ...
-
-    @property
-    def is_synchronized(self) -> bool:
-        ...
-
-    @property
-    def sync_root(self) -> System.Object:
-        ...
-
-    @property
-    def values(self) -> System.Collections.ICollection:
-        ...
-
-    def __getitem__(self, key: typing.Any) -> typing.Any:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def add(self, key: typing.Any, value: typing.Any) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, key: typing.Any) -> bool:
-        ...
-
-    def copy_to(self, array: System.Array, index: int) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
-        ...
-
-    def remove(self, key: typing.Any) -> None:
-        ...
-
-
-class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    @abc.abstractmethod
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def is_fixed_size(self) -> bool:
-        ...
-
-    def __getitem__(self, index: int) -> typing.Any:
-        ...
-
-    def __setitem__(self, index: int, value: typing.Any) -> None:
-        ...
-
-    def add(self, value: typing.Any) -> int:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def contains(self, value: typing.Any) -> bool:
-        ...
-
-    def index_of(self, value: typing.Any) -> int:
-        ...
-
-    def insert(self, index: int, value: typing.Any) -> None:
-        ...
-
-    def remove(self, value: typing.Any) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
-        ...
-
-
 class ArrayList(System.Object, System.Collections.IList, System.ICloneable):
     """Implements the IList interface using an array whose size is dynamically increased as required."""
 
@@ -708,6 +643,78 @@ class ArrayList(System.Object, System.Collections.IList, System.ICloneable):
         ...
 
     def trim_to_size(self) -> None:
+        ...
+
+
+class IStructuralEquatable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, other: typing.Any, comparer: System.Collections.IEqualityComparer) -> bool:
+        ...
+
+    def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
+        ...
+
+
+class ListDictionaryInternal(System.Object, System.Collections.IDictionary):
+    """
+    Implements IDictionary using a singly linked list.
+    Recommended for collections that typically include fewer than 10 items.
+    """
+
+    @property
+    def count(self) -> int:
+        ...
+
+    @property
+    def keys(self) -> System.Collections.ICollection:
+        ...
+
+    @property
+    def is_read_only(self) -> bool:
+        ...
+
+    @property
+    def is_fixed_size(self) -> bool:
+        ...
+
+    @property
+    def is_synchronized(self) -> bool:
+        ...
+
+    @property
+    def sync_root(self) -> System.Object:
+        ...
+
+    @property
+    def values(self) -> System.Collections.ICollection:
+        ...
+
+    def __getitem__(self, key: typing.Any) -> typing.Any:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def __setitem__(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def add(self, key: typing.Any, value: typing.Any) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def contains(self, key: typing.Any) -> bool:
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IDictionaryEnumerator:
+        ...
+
+    def remove(self, key: typing.Any) -> None:
         ...
 
 
@@ -940,13 +947,6 @@ class BitArray(System.Object, System.Collections.ICollection, System.ICloneable,
         :param value: The array with which to perform the bitwise XOR operation.
         :returns: An array containing the result of the bitwise XOR operation, which is a reference to the current BitArray object.
         """
-        ...
-
-
-class IStructuralComparable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def compare_to(self, other: typing.Any, comparer: System.Collections.IComparer) -> int:
         ...
 
 

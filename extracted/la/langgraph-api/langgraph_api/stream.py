@@ -40,6 +40,42 @@ from langgraph_runtime.ops import Runs
 
 logger = structlog.stdlib.get_logger(__name__)
 
+
+async def _filter_context_by_schema(
+    context: dict[str, Any], context_schema: dict | None
+) -> dict[str, Any]:
+    """Filter context parameters based on the context schema.
+
+    Args:
+        context: The context dictionary to filter
+        context_schema: The JSON schema for valid context parameters
+
+    Returns:
+        Filtered context dictionary containing only valid parameters
+    """
+    if not context_schema or not context:
+        return context
+
+    # Extract valid properties from the schema
+    properties = context_schema.get("properties", {})
+    if not properties:
+        return context
+
+    # Filter context to only include parameters defined in the schema
+    filtered_context = {}
+    for key, value in context.items():
+        if key in properties:
+            filtered_context[key] = value
+        else:
+            await logger.adebug(
+                f"Filtering out context parameter '{key}' not found in context schema",
+                context_key=key,
+                available_keys=list(properties.keys()),
+            )
+
+    return filtered_context
+
+
 AnyStream = AsyncIterator[tuple[str, Any]]
 
 
@@ -107,6 +143,17 @@ async def astream_state(
             checkpointer=None if temporary else Checkpointer(),
         )
     )
+
+    # Filter context parameters based on context schema if available
+    if context and USE_RUNTIME_CONTEXT_API and not isinstance(graph, BaseRemotePregel):
+        try:
+            context_schema = graph.get_context_jsonschema()
+            context = await _filter_context_by_schema(context, context_schema)
+        except Exception as e:
+            await logger.adebug(
+                f"Failed to get context schema for filtering: {e}", exc_info=e
+            )
+
     input = kwargs.pop("input")
     if cmd := kwargs.pop("command"):
         input = map_cmd(cmd)

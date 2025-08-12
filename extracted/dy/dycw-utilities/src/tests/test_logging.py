@@ -12,7 +12,7 @@ from hypothesis.strategies import booleans, integers
 from pytest import LogCaptureFixture, mark, param, raises
 
 from tests.conftest import SKIPIF_CI_AND_WINDOWS
-from utilities.hypothesis import pairs, temp_paths, text_ascii, zoned_date_times
+from utilities.hypothesis import pairs, temp_paths, zoned_date_times
 from utilities.iterables import one
 from utilities.logging import (
     GetLoggingLevelNumberError,
@@ -527,12 +527,12 @@ class TestToLogger:
     def test_default(self) -> None:
         assert to_logger().name == "root"
 
-    @given(name=text_ascii(min_size=1))
-    def test_logger(self, *, name: str) -> None:
+    def test_logger(self) -> None:
+        name = unique_str()
         assert to_logger(getLogger(name)).name == name
 
-    @given(name=text_ascii(min_size=1))
-    def test_str(self, *, name: str) -> None:
+    def test_str(self) -> None:
+        name = unique_str()
         assert to_logger(name).name == name
 
     def test_none(self) -> None:

@@ -64,6 +64,10 @@ return::
     
 Log
 --------------
+1.4.22
+-------
+- 新增 realtime_tick 腾讯源
+--------------
 1.4.21
 -------
 - 修复 realtime_list ts_code 格式化
@@ -120,7 +124,7 @@ def read_install_requires():
 
 setup(
     name='tushare',
-    version='1.4.21',
+    version='1.4.23',
     description='A utility for crawling historical and Real-time Quotes data of China stocks',
     # long_description=read("README.rst"),
     long_description=long_desc,

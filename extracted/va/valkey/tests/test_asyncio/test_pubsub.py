@@ -827,7 +827,7 @@ class TestPubSubRun:
         # wait until loop gets settled.  Add a subscription
         await asyncio.sleep(0.1)
         await p.subscribe(foo=callback)
-        # wait tof the subscribe to finish.  Cannot use _subscribe() because
+        # wait for the subscribe to finish.  Cannot use _subscribe() because
         # p.run() is already accepting messages
         while True:
             n = await r.publish("foo", "bar")
@@ -906,11 +906,11 @@ class TestPubSubAutoReconnect:
                     with mock.patch.object(self.pubsub.connection, "_parser") as m:
                         m.read_response.side_effect = socket.error
                         m.can_read_destructive.side_effect = socket.error
-                        # wait until task noticies the disconnect until we
+                        # wait until task notices the disconnect until we
                         # undo the patch
                         await self.cond.wait_for(lambda: self.state >= 2)
                         assert not self.pubsub.connection.is_connected
-                        # it is in a disconnecte state
+                        # it is in a disconnected state
                     # wait for reconnect
                     await self.cond.wait_for(
                         lambda: self.pubsub.connection.is_connected
@@ -989,9 +989,6 @@ class TestPubSubAutoReconnect:
 
 @pytest.mark.onlynoncluster
 class TestBaseException:
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python 3.8 or higher"
-    )
     async def test_outer_timeout(self, r: valkey.Valkey):
         """
         Using asyncio_timeout manually outside the inner method timeouts works.
@@ -1023,9 +1020,6 @@ class TestBaseException:
         # the timeout on the read should not cause disconnect
         assert pubsub.connection.is_connected
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 8), reason="requires python 3.8 or higher"
-    )
     async def test_base_exception(self, r: valkey.Valkey):
         """
         Manually trigger a BaseException inside the parser's .read_response method

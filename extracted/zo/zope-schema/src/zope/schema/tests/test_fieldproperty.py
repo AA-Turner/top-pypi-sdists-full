@@ -28,12 +28,12 @@ class _Base(unittest.TestCase):
         return self._getTargetClass()(field, name)
 
 
-class _Integration(object):
+class _Integration:
 
     def _makeImplementer(self):
         schema = _getSchema()
 
-        class _Implementer(object):
+        class _Implementer:
             title = self._makeOne(schema['title'])
             weight = self._makeOne(schema['weight'])
             code = self._makeOne(schema['code'])
@@ -45,7 +45,7 @@ class _Integration(object):
 
         from zope.schema.interfaces import ValidationError
         c = self._makeImplementer()
-        self.assertEqual(c.title, u'say something')
+        self.assertEqual(c.title, 'say something')
         self.assertEqual(c.weight, None)
         self.assertEqual(c.code, b'xxxxxx')
         self.assertRaises(ValidationError, setattr, c, 'title', b'foo')
@@ -54,13 +54,13 @@ class _Integration(object):
         self.assertRaises(ValidationError, setattr, c, 'weight', 2)
         self.assertRaises(ValidationError, setattr, c, 'code', -1)
         self.assertRaises(ValidationError, setattr, c, 'code', b'xxxx')
-        self.assertRaises(ValidationError, setattr, c, 'code', u'xxxxxx')
+        self.assertRaises(ValidationError, setattr, c, 'code', 'xxxxxx')
 
-        c.title = u'c is good'
+        c.title = 'c is good'
         c.weight = 10.0
         c.code = b'abcdef'
 
-        self.assertEqual(c.title, u'c is good')
+        self.assertEqual(c.title, 'c is good')
         self.assertEqual(c.weight, 10)
         self.assertEqual(c.code, b'abcdef')
 
@@ -83,7 +83,7 @@ class FieldPropertyTests(_Base, _Integration):
         field = Text(__name__='testing')
         cname = self._getTargetClass().__name__
         prop = self._makeOne(field)
-        self.assertTrue(getattr(prop, '_%s__field' % cname) is field)
+        self.assertIs(getattr(prop, '_%s__field' % cname), field)
         self.assertEqual(getattr(prop, '_%s__name' % cname), 'testing')
         self.assertEqual(prop.__name__, 'testing')
         self.assertEqual(prop.description, field.description)
@@ -96,14 +96,14 @@ class FieldPropertyTests(_Base, _Integration):
 
         field = Text(
             __name__='testing',
-            description=u'DESCRIPTION',
-            default=u'DEFAULT',
+            description='DESCRIPTION',
+            default='DEFAULT',
             readonly=True,
             required=True,
         )
         cname = self._getTargetClass().__name__
         prop = self._makeOne(field, name='override')
-        self.assertTrue(getattr(prop, '_%s__field' % cname) is field)
+        self.assertIs(getattr(prop, '_%s__field' % cname), field)
         self.assertEqual(getattr(prop, '_%s__name' % cname), 'override')
         self.assertEqual(prop.description, field.description)
         self.assertEqual(prop.default, field.default)
@@ -115,34 +115,34 @@ class FieldPropertyTests(_Base, _Integration):
 
         field = Text(
             __name__='testing',
-            description=u'DESCRIPTION',
-            default=u'DEFAULT',
+            description='DESCRIPTION',
+            default='DEFAULT',
             readonly=True,
             required=True,
         )
 
         prop = self._makeOne(field=field)
 
-        class Foo(object):
+        class Foo:
             testing = prop
         foo = Foo()
-        self.assertEqual(prop.queryValue(foo, 'test'), u'DEFAULT')
-        foo.testing = u'NO'
-        self.assertEqual(prop.queryValue(foo, 'test'), u'NO')
+        self.assertEqual(prop.queryValue(foo, 'test'), 'DEFAULT')
+        foo.testing = 'NO'
+        self.assertEqual(prop.queryValue(foo, 'test'), 'NO')
 
     def test_query_value_without_default(self):
         from zope.schema import Text
 
         field = Text(
             __name__='testing',
-            description=u'DESCRIPTION',
+            description='DESCRIPTION',
             readonly=True,
             required=True,
         )
 
         prop = self._makeOne(field=field)
 
-        class Foo(object):
+        class Foo:
             testing = prop
         foo = Foo()
         # field initialize its default to None if it hasn't any default
@@ -152,18 +152,18 @@ class FieldPropertyTests(_Base, _Integration):
     def test___get___from_class(self):
         prop = self._makeOne()
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
-        self.assertTrue(Foo.testing is prop)
+        self.assertIs(Foo.testing, prop)
 
     def test___get___from_instance_pseudo_field_wo_default(self):
-        class _Faux(object):
+        class _Faux:
             def bind(self, other):
                 return self
         prop = self._makeOne(_Faux(), 'nonesuch')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -172,7 +172,7 @@ class FieldPropertyTests(_Base, _Integration):
     def test___get___from_instance_miss_uses_field_default(self):
         prop = self._makeOne()
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -181,7 +181,7 @@ class FieldPropertyTests(_Base, _Integration):
     def test___get___from_instance_hit(self):
         prop = self._makeOne(name='other')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -189,7 +189,7 @@ class FieldPropertyTests(_Base, _Integration):
         self.assertEqual(foo.testing, '123')
 
     def test___get___from_instance_hit_after_bind(self):
-        class _Faux(object):
+        class _Faux:
             default = '456'
 
             def bind(self, other):
@@ -197,14 +197,14 @@ class FieldPropertyTests(_Base, _Integration):
 
         prop = self._makeOne(_Faux(), 'testing')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
         self.assertEqual(foo.testing, '456')
 
     def test___set___not_readonly(self):
-        class _Faux(object):
+        class _Faux:
             readonly = False
             default = '456'
 
@@ -216,7 +216,7 @@ class FieldPropertyTests(_Base, _Integration):
         faux.validate = _validated.append
         prop = self._makeOne(faux, 'testing')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -224,7 +224,7 @@ class FieldPropertyTests(_Base, _Integration):
         self.assertEqual(foo.__dict__['testing'], '123')
 
     def test___set___w_readonly_not_already_set(self):
-        class _Faux(object):
+        class _Faux:
             readonly = True
             default = '456'
 
@@ -236,7 +236,7 @@ class FieldPropertyTests(_Base, _Integration):
         faux.validate = _validated.append
         prop = self._makeOne(faux, 'testing')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -245,7 +245,7 @@ class FieldPropertyTests(_Base, _Integration):
         self.assertEqual(_validated, ['123'])
 
     def test___set___w_readonly_and_already_set(self):
-        class _Faux(object):
+        class _Faux:
             readonly = True
             default = '456'
 
@@ -257,7 +257,7 @@ class FieldPropertyTests(_Base, _Integration):
         faux.validate = _validated.append
         prop = self._makeOne(faux, 'testing')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -277,14 +277,14 @@ class FieldPropertyTests(_Base, _Integration):
         self.assertEqual(log, [])
         field = Text(
             __name__='testing',
-            description=u'DESCRIPTION',
-            default=u'DEFAULT',
+            description='DESCRIPTION',
+            default='DEFAULT',
             readonly=True,
             required=True,
         )
         self.assertEqual(len(log), 6)
         event = log[0]
-        self.assertTrue(isinstance(event, FieldUpdatedEvent))
+        self.assertIsInstance(event, FieldUpdatedEvent)
         self.assertTrue(verifyObject(IFieldUpdatedEvent, event))
         self.assertEqual(event.object, field)
         self.assertEqual(event.old_value, 0)
@@ -309,28 +309,28 @@ class FieldPropertyTests(_Base, _Integration):
         from zope.schema.interfaces import IFieldUpdatedEvent
         field = Text(
             __name__='testing',
-            description=u'DESCRIPTION',
-            default=u'DEFAULT',
+            description='DESCRIPTION',
+            default='DEFAULT',
             required=True,
         )
         prop = self._makeOne(field=field)
 
-        class Foo(object):
+        class Foo:
             testing = prop
         foo = Foo()
 
         log = []
         subscribers.append(log.append)
-        foo.testing = u'Bar'
-        foo.testing = u'Foo'
+        foo.testing = 'Bar'
+        foo.testing = 'Foo'
         self.assertEqual(len(log), 2)
         event = log[1]
-        self.assertTrue(isinstance(event, FieldUpdatedEvent))
+        self.assertIsInstance(event, FieldUpdatedEvent)
         self.assertTrue(verifyObject(IFieldUpdatedEvent, event))
         self.assertEqual(event.object, foo)
         self.assertEqual(event.field, field)
-        self.assertEqual(event.old_value, u'Bar')
-        self.assertEqual(event.new_value, u'Foo')
+        self.assertEqual(event.old_value, 'Bar')
+        self.assertEqual(event.new_value, 'Foo')
         # BBB, but test this works.
         self.assertEqual(event.inst, foo)
         marker = object()
@@ -362,8 +362,8 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         field = Text(__name__='testing')
         cname = self._getTargetClass().__name__
         prop = self._makeOne(field)
-        self.assertTrue(isinstance(prop.field, field.__class__))
-        self.assertFalse(prop.field is field)
+        self.assertIsInstance(prop.field, field.__class__)
+        self.assertIsNot(prop.field, field)
         self.assertEqual(prop.field.__name__, '__st_testing_st')
         self.assertEqual(prop.__name__, '__st_testing_st')
         self.assertEqual(getattr(prop, '_%s__name' % cname), 'testing')
@@ -377,15 +377,15 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
 
         field = Text(
             __name__='testing',
-            description=u'DESCRIPTION',
-            default=u'DEFAULT',
+            description='DESCRIPTION',
+            default='DEFAULT',
             readonly=True,
             required=True,
         )
         cname = self._getTargetClass().__name__
         prop = self._makeOne(field, name='override')
-        self.assertTrue(isinstance(prop.field, field.__class__))
-        self.assertFalse(prop.field is field)
+        self.assertIsInstance(prop.field, field.__class__)
+        self.assertIsNot(prop.field, field)
         self.assertEqual(prop.field.__name__, '__st_testing_st')
         self.assertEqual(prop.__name__, '__st_testing_st')
         self.assertEqual(getattr(prop, '_%s__name' % cname), 'override')
@@ -397,7 +397,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
     def test_setValue(self):
         from zope.schema import Text
 
-        class Foo(object):
+        class Foo:
             pass
 
         foo = Foo()
@@ -410,19 +410,19 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         from zope.schema import Text
         from zope.schema.fieldproperty import _marker
 
-        class Foo(object):
+        class Foo:
             pass
 
         foo = Foo()
         prop = self._makeOne()
         field = Text(__name__='testing')
         value = prop.getValue(foo, field)
-        self.assertTrue(value is _marker)
+        self.assertIs(value, _marker)
 
     def test_getValue_hit(self):
         from zope.schema import Text
 
-        class Foo(object):
+        class Foo:
             pass
 
         foo = Foo()
@@ -435,7 +435,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
     def test_queryValue_miss(self):
         from zope.schema import Text
 
-        class Foo(object):
+        class Foo:
             pass
 
         foo = Foo()
@@ -443,12 +443,12 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         field = Text(__name__='testing')
         default = object()
         value = prop.queryValue(foo, field, default)
-        self.assertTrue(value is default)
+        self.assertIs(value, default)
 
     def test_queryValue_hit(self):
         from zope.schema import Text
 
-        class Foo(object):
+        class Foo:
             pass
 
         foo = Foo()
@@ -462,13 +462,13 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
     def test___get___from_class(self):
         prop = self._makeOne()
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
-        self.assertTrue(Foo.testing is prop)
+        self.assertIs(Foo.testing, prop)
 
     def test___get___from_instance_pseudo_field_wo_default(self):
-        class _Faux(object):
+        class _Faux:
             __name__ = 'Faux'
 
             def bind(self, other):
@@ -479,7 +479,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
 
         prop = self._makeOne(_Faux(), 'nonesuch')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -488,7 +488,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
     def test___get___from_instance_miss_uses_field_default(self):
         prop = self._makeOne()
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -499,7 +499,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         field = Text(__name__='testing')
         prop = self._makeOne(field, name='other')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -508,7 +508,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         self.assertEqual(foo.testing, '456')
 
     def test___set___not_readonly(self):
-        class _Faux(object):
+        class _Faux:
             __name__ = 'Faux'
             readonly = False
             default = '456'
@@ -527,7 +527,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         faux.validate = _validated.append
         prop = self._makeOne(faux, 'testing')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -536,7 +536,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         self.assertEqual(_validated, ['123'])
 
     def test___set___w_readonly_not_already_set(self):
-        class _Faux(object):
+        class _Faux:
             __name__ = 'Faux'
             readonly = True
             default = '456'
@@ -557,7 +557,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         faux.validate = _validated.append
         prop = self._makeOne(faux, 'testing')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -566,7 +566,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         self.assertEqual(_validated, ['123'])
 
     def test___set___w_readonly_and_already_set(self):
-        class _Faux(object):
+        class _Faux:
             __name__ = 'Faux'
             readonly = True
             default = '456'
@@ -582,7 +582,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         faux.validate = _validated.append
         prop = self._makeOne(faux, 'testing')
 
-        class Foo(object):
+        class Foo:
             testing = prop
 
         foo = Foo()
@@ -596,27 +596,27 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         from zope.schema.fieldproperty import FieldUpdatedEvent
         field = Text(
             __name__='testing',
-            description=u'DESCRIPTION',
-            default=u'DEFAULT',
+            description='DESCRIPTION',
+            default='DEFAULT',
             required=True,
         )
         prop = self._makeOne(field=field)
 
-        class Foo(object):
+        class Foo:
             testing = prop
         foo = Foo()
 
         log = []
         subscribers.append(log.append)
-        foo.testing = u'Bar'
-        foo.testing = u'Foo'
+        foo.testing = 'Bar'
+        foo.testing = 'Foo'
         self.assertEqual(len(log), 2)
         event = log[1]
-        self.assertTrue(isinstance(event, FieldUpdatedEvent))
+        self.assertIsInstance(event, FieldUpdatedEvent)
         self.assertEqual(event.object, foo)
         self.assertEqual(event.field, field)
-        self.assertEqual(event.old_value, u'Bar')
-        self.assertEqual(event.new_value, u'Foo')
+        self.assertEqual(event.old_value, 'Bar')
+        self.assertEqual(event.new_value, 'Foo')
 
     def test_field_event(self):
         # fieldproperties are everywhere including in field themselfs
@@ -630,8 +630,8 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
         self.assertEqual(log, [])
         field = Text(
             __name__='testing',
-            description=u'DESCRIPTION',
-            default=u'DEFAULT',
+            description='DESCRIPTION',
+            default='DEFAULT',
             readonly=True,
             required=True,
         )
@@ -642,7 +642,7 @@ class FieldPropertyStoredThroughFieldTests(_Base, _Integration):
             ['min_length', 'max_length', 'title', 'description', 'required',
              'readonly'])
         event = log[0]
-        self.assertTrue(isinstance(event, FieldUpdatedEvent))
+        self.assertIsInstance(event, FieldUpdatedEvent)
         self.assertEqual(event.object, field)
         self.assertEqual(event.old_value, 0)
         self.assertEqual(event.new_value, 0)
@@ -656,11 +656,11 @@ def _getSchema():
     from zope.schema import Text
 
     class Schema(Interface):
-        title = Text(description=u"Short summary",
-                     default=u'say something')
+        title = Text(description="Short summary",
+                     default='say something')
         weight = Float(min=0.0)
         code = Bytes(min_length=6, max_length=6, default=b'xxxxxx')
-        date = Float(title=u'Date', readonly=True)
+        date = Float(title='Date', readonly=True)
 
     return Schema
 
@@ -673,17 +673,17 @@ class CreateFieldPropertiesTests(unittest.TestCase):
         from zope.schema.fieldproperty import createFieldProperties
         schema = _getSchema()
 
-        class Dummy(object):
+        class Dummy:
             createFieldProperties(schema)
 
-        self.assertTrue(isinstance(Dummy.title, FieldProperty))
-        self.assertTrue(isinstance(Dummy.date, FieldProperty))
-        self.assertTrue(Dummy.date._FieldProperty__field is schema['date'])
+        self.assertIsInstance(Dummy.title, FieldProperty)
+        self.assertIsInstance(Dummy.date, FieldProperty)
+        self.assertIs(Dummy.date._FieldProperty__field, schema['date'])
 
     def test_fields_in_omit_are_not_created_on_class(self):
         from zope.schema.fieldproperty import createFieldProperties
 
-        class Dummy(object):
+        class Dummy:
             createFieldProperties(_getSchema(), omit=['date', 'code'])
 
         self.assertFalse(hasattr(Dummy, 'date'))

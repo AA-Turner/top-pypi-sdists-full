@@ -151,7 +151,7 @@ lint_require = (
         "black==24.4.2",
         "black[jupyter]==24.4.2",
         "isort==5.10.1",
-        "flake8==5.0.4",
+        "ruff>=0.12.7",
         "pylint==2.15.0",
     ]
     + _mypy_require

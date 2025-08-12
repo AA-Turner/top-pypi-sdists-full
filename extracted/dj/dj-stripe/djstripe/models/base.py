@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import timedelta
-from typing import Dict, List, Optional, Type
+from typing import Optional
 
 from django.db import IntegrityError, models, transaction
 from django.utils import dateformat, timezone
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class StripeBaseModel(models.Model):
-    stripe_class: Type[APIResource] = APIResource
+    stripe_class: type[APIResource] = APIResource
 
     djstripe_created = models.DateTimeField(auto_now_add=True, editable=False)
     djstripe_updated = models.DateTimeField(auto_now=True, editable=False)
@@ -83,7 +83,7 @@ class StripeBaseModel(models.Model):
 class StripeModel(StripeBaseModel):
     # This must be defined in descendants of this model/mixin
     # e.g. Event, Charge, Customer, etc.
-    expand_fields: List[str] = []
+    expand_fields: list[str] = []
     stripe_dashboard_item_name = ""
 
     objects = models.Manager()
@@ -127,9 +127,6 @@ class StripeModel(StripeBaseModel):
             "a structured format."
         ),
     )
-    description = models.TextField(
-        null=True, blank=True, help_text="A description of this object."
-    )
 
     class Meta(StripeBaseModel.Meta):
         abstract = True
@@ -160,6 +157,10 @@ class StripeModel(StripeBaseModel):
             if self.djstripe_owner_account:
                 return self.djstripe_owner_account.get_default_api_key(self.livemode)
         return djstripe_settings.get_default_api_key(self.livemode)
+
+    @property
+    def description(self) -> str:
+        return self.stripe_data.get("description", "") or ""
 
     def _get_stripe_account_id(self, api_key=None) -> Optional[str]:
         """
@@ -353,10 +354,10 @@ class StripeModel(StripeBaseModel):
         cls,
         data: dict,
         current_ids=None,
-        pending_relations: list = None,
-        stripe_account: str = None,
+        pending_relations: list | None = None,
+        stripe_account: str | None = None,
         api_key=djstripe_settings.STRIPE_SECRET_KEY,
-    ) -> Dict:
+    ) -> dict:
         """
         This takes an object, as it is formatted in Stripe's current API for our object
         type. In return, it provides a dict. The dict can be used to create a record or
@@ -485,7 +486,7 @@ class StripeModel(StripeBaseModel):
         :type stripe_account: string
         :return:
         """
-        from djstripe.models import DjstripePaymentMethod, InvoiceOrLineItem
+        from djstripe.models import DjstripePaymentMethod
 
         field_data = None
         field_name = field.name
@@ -497,9 +498,7 @@ class StripeModel(StripeBaseModel):
         if current_ids is None:
             current_ids = set()
 
-        if issubclass(
-            field.related_model, (StripeModel, DjstripePaymentMethod, InvoiceOrLineItem)
-        ):
+        if issubclass(field.related_model, (StripeModel, DjstripePaymentMethod)):
             if field_name in manipulated_data:
                 raw_field_data = manipulated_data.get(field_name)
 
@@ -883,46 +882,6 @@ class StripeModel(StripeBaseModel):
         return tax_rates
 
     @classmethod
-    def _stripe_object_set_total_tax_amounts(
-        cls, target_cls, data, instance, api_key=djstripe_settings.STRIPE_SECRET_KEY
-    ):
-        """
-        Set total tax amounts on Invoice instance
-        :param target_cls:
-        :param data:
-        :param instance:
-        :type instance: djstripe.models.Invoice
-        :return:
-        """
-        from .billing import TaxRate
-
-        pks = []
-
-        for tax_amount_data in data.get("total_tax_amounts", []):
-            tax_rate_data = tax_amount_data["tax_rate"]
-            if isinstance(tax_rate_data, str):
-                tax_rate_data = {"tax_rate": tax_rate_data}
-
-            tax_rate, _ = TaxRate._get_or_create_from_stripe_object(
-                tax_rate_data,
-                field_name="tax_rate",
-                refetch=True,
-                api_key=api_key,
-            )
-            tax_amount, _ = target_cls.objects.update_or_create(
-                invoice=instance,
-                tax_rate=tax_rate,
-                defaults={
-                    "amount": tax_amount_data["amount"],
-                    "inclusive": tax_amount_data["inclusive"],
-                },
-            )
-
-            pks.append(tax_amount.pk)
-
-        instance.total_tax_amounts.exclude(pk__in=pks).delete()
-
-    @classmethod
     def _stripe_object_to_line_items(
         cls, target_cls, data, invoice, api_key=djstripe_settings.STRIPE_SECRET_KEY
     ):
@@ -935,7 +894,7 @@ class StripeModel(StripeBaseModel):
         database (i.e. ephemeral) then the line items are also not saved.
 
         :param target_cls: The target class to instantiate per line item.
-        :type target_cls:  Type[djstripe.models.LineItem]
+        :type target_cls:  type[djstripe.models.LineItem]
         :param data: The data dictionary received from the Stripe API.
         :type data: dict
         :param invoice: The invoice object that should hold the line items.
@@ -975,7 +934,7 @@ class StripeModel(StripeBaseModel):
         If the subscription item doesn't exist already then it is created.
 
         :param target_cls: The target class to instantiate per invoice item.
-        :type target_cls: Type[djstripe.models.SubscriptionItem]
+        :type target_cls: type[djstripe.models.SubscriptionItem]
         :param data: The data dictionary received from the Stripe API.
         :type data: dict
         :param subscription: The subscription object that should hold the items.
@@ -1010,7 +969,7 @@ class StripeModel(StripeBaseModel):
         """
         Retrieves Refunds for a charge
         :param target_cls: The target class to instantiate per refund
-        :type target_cls: Type[djstripe.models.Refund]
+        :type target_cls: type[djstripe.models.Refund]
         :param data: The data dictionary received from the Stripe API.
         :type data: dict
         :param charge: The charge object that refunds are for.

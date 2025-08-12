@@ -1,3 +1,39 @@
+[tool.ruff]
+line-length = 120
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    ".venv",
+    "docs/conf.py",
+    "tests",
+    "sdk_docs",
+    "drx",
+]
+# TODO replace with project.requires-python
+target-version = "py37"
+
+[tool.ruff.per-file-target-version]
+"datarobot/auth/*.py" = "py39"
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # flake-simple
+    "F",
+    # numpy, since we are dependent on numpy
+    "NPY",
+    # pandas, since we are dependent on pandas
+    "PD",
+]
+
+ignore = [
+    # PD901: https://docs.astral.sh/ruff/rules/pandas-df-variable-name/
+    # deprecated and will be removed in the future
+    "PD901"
+]
+
 [tool.black]
 line-length = 100
 target-version = ['py37', 'py38', 'py39', 'py310', 'py311', 'py312', 'py313']

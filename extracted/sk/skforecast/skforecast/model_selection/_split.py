@@ -275,16 +275,53 @@ class BaseFold():
         if isinstance(X, (pd.Series, pd.DataFrame)):
             idx = X.index
         elif isinstance(X, dict):
-            freqs = [s.index.freq for s in X.values() if s.index.freq is not None]
-            if not freqs:
-                raise ValueError("At least one series must have a frequency.")
-            if not all(f == freqs[0] for f in freqs):
-                raise ValueError(
-                    "All series with frequency must have the same frequency."
+            indexes_freq = set()
+            not_valid_index = []
+            min_index = []
+            max_index = []
+            for k, v in X.items():
+                if v is None:
+                    continue
+
+                idx = v.index
+                if isinstance(v.index, pd.DatetimeIndex):
+                    indexes_freq.add(v.index.freqstr)
+                elif isinstance(v.index, pd.RangeIndex):
+                    indexes_freq.add(v.index.step)
+                else:
+                    not_valid_index.append(k)
+
+                min_index.append(idx[0])
+                max_index.append(idx[-1])
+
+            if not_valid_index:
+                raise TypeError(
+                    f"If `X` is a dictionary, all series must have a Pandas "
+                    f"RangeIndex or DatetimeIndex with the same step/frequency. "
+                    f"Review series: {not_valid_index}"
                 )
-            min_idx = min([v.index[0] for v in X.values() if not v.empty])
-            max_idx = max([v.index[-1] for v in X.values() if not v.empty])
-            idx = pd.date_range(start=min_idx, end=max_idx, freq=freqs[0])
+
+            if None in indexes_freq:
+                raise ValueError(
+                    "If `X` is a dictionary, all series must have a Pandas "
+                    "RangeIndex or DatetimeIndex with the same step/frequency. "
+                    "Found series with no frequency or step."
+                )
+            if not len(indexes_freq) == 1:
+                raise ValueError(
+                    f"If `X` is a dictionary, all series must have a Pandas "
+                    f"RangeIndex or DatetimeIndex with the same step/frequency. "
+                    f"Found frequencies: {sorted(indexes_freq)}"
+                )
+            
+            if isinstance(idx, pd.DatetimeIndex):
+                idx = pd.date_range(
+                    start=min(min_index), end=max(max_index), freq=indexes_freq.pop()
+                )
+            else:
+                idx = pd.RangeIndex(
+                    start=min(min_index), stop=max(max_index) + 1, step=indexes_freq.pop()
+                )
         else:
             idx = X
             
@@ -506,7 +543,7 @@ class OneStepAheadFold(BaseFold):
                                   )
 
         fold = [
-            [0, self.initial_train_size],
+            [0, self.initial_train_size - 1],
             [self.initial_train_size, len(X)],
             True
         ]
@@ -514,10 +551,17 @@ class OneStepAheadFold(BaseFold):
         if self.verbose:
             self._print_info(index=index, fold=fold)
 
+        # NOTE: +1 to prevent iloc pandas from deleting the last observation
         if self.return_all_indexes:
             fold = [
-                [range(fold[0][0], fold[0][1])],
+                [range(fold[0][0], fold[0][1] + 1)],
                 [range(fold[1][0], fold[1][1])],
+                fold[2]
+            ]
+        else:
+            fold = [
+                [fold[0][0], fold[0][1] + 1],
+                [fold[1][0], fold[1][1]],
                 fold[2]
             ]
 
@@ -857,7 +901,8 @@ class TimeSeriesFold(BaseFold):
                 f"Got {type(X)}."
             )
         
-        if isinstance(self.window_size, pd.tseries.offsets.DateOffset):
+        window_size_as_date_offset = isinstance(self.window_size, pd.tseries.offsets.DateOffset)
+        if window_size_as_date_offset:
             # Calculate the window_size in steps. This is not a exact calculation
             # because the offset follows the calendar rules and the distance between
             # two dates may not be constant.
@@ -868,9 +913,11 @@ class TimeSeriesFold(BaseFold):
                 self.window_size = window_size_idx_end - window_size_idx_start
             except KeyError:
                 raise ValueError(
-                    f"The length of `X` ({len(X)}), must be greater than or equal "
-                    f"to the window size ({self.window_size}). Try to decrease the "
-                    f"size of the offset (forecaster.offset), or increase the "
+                    f"The length of `y` ({len(X)}), must be greater than or equal "
+                    f"to the window size ({self.window_size}). This is because  "
+                    f"the offset (forecaster.offset) is larger than the available "
+                    f"data. Try to decrease the size of the offset (forecaster.offset), "
+                    f"the number of `n_offsets` (forecaster.n_offsets) or increase the "
                     f"size of `y`."
                 )
         
@@ -893,7 +940,8 @@ class TimeSeriesFold(BaseFold):
         else:
             if self.window_size is None:
                 warnings.warn(
-                    "Last window cannot be calculated because `window_size` is None."
+                    "Last window cannot be calculated because `window_size` is None.",
+                    IgnoredArgumentWarning
                 )
             externally_fitted = False
 
@@ -909,6 +957,16 @@ class TimeSeriesFold(BaseFold):
                                       method       = 'validation',
                                       date_literal = 'initial_train_size'
                                   )
+        
+        if window_size_as_date_offset:
+            if self.initial_train_size is not None:
+                if self.initial_train_size < self.window_size:
+                    raise ValueError(
+                        f"If `initial_train_size` is an integer, it must be greater than "
+                        f"the `window_size` of the forecaster ({self.window_size}) "
+                        f"and smaller than the length of the series ({len(X)}). If "
+                        f"it is a date, it must be within this range of the index."
+                    )
 
         if len(index) < self.initial_train_size + self.steps:
             raise ValueError(
@@ -991,7 +1049,7 @@ class TimeSeriesFold(BaseFold):
 
         folds = [fold for i, fold in enumerate(folds) if i not in index_to_skip]
         if not self.return_all_indexes:
-            # +1 to prevent iloc pandas from deleting the last observation
+            # NOTE: +1 to prevent iloc pandas from deleting the last observation
             folds = [
                 [[fold[0][0], fold[0][-1] + 1], 
                  [fold[1][0], fold[1][-1] + 1] if self.window_size is not None else [],

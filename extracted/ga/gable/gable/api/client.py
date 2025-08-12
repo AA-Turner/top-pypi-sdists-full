@@ -26,6 +26,7 @@ from gable.openapi import (
     ErrorResponse,
     ErrorResponseDeprecated,
     GetNpmCredentialsResponse,
+    GetScaRunStatusResponse,
     GetPipCredentialsResponse,
     IngestDataAssetResponse,
     PostContractRequest,
@@ -319,6 +320,17 @@ class GableAPIClient:
         response, success, status_code = self._post("v0/sca/start-run", json=json.loads(request.json(by_alias=True, exclude_none=True)))
         if success:
             return PostScaStartRunResponse.parse_obj(response), success, status_code
+        else:
+            return ErrorResponse.parse_obj(response), success, status_code
+        
+    def get_sca_run_status(
+        self,
+        job_id: str,
+    ) -> tuple[Union[GetScaRunStatusResponse, ErrorResponse], bool, int]:
+        """Get Status of SCA job with job id."""
+        response, success, status_code = self._get(f"v0/sca/status/{job_id}")
+        if success:
+            return GetScaRunStatusResponse.parse_obj(response), success, status_code
         else:
             return ErrorResponse.parse_obj(response), success, status_code
 

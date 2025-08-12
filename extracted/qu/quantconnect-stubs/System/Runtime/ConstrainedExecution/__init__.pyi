@@ -6,14 +6,6 @@ import System
 import System.Runtime.ConstrainedExecution
 
 
-class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
-    """Ensures that all finalization code in derived classes is marked as critical."""
-
-    def __init__(self) -> None:
-        """This method is protected."""
-        ...
-
-
 class Consistency(Enum):
     """Obsoletions.ConstrainedExecutionRegionMessage"""
 
@@ -65,6 +57,14 @@ class PrePrepareMethodAttribute(System.Attribute):
     """Obsoletions.ConstrainedExecutionRegionMessage"""
 
     def __init__(self) -> None:
+        ...
+
+
+class CriticalFinalizerObject(System.Object, metaclass=abc.ABCMeta):
+    """Ensures that all finalization code in derived classes is marked as critical."""
+
+    def __init__(self) -> None:
+        """This method is protected."""
         ...
 
 

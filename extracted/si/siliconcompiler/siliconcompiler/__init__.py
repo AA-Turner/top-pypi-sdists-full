@@ -5,18 +5,20 @@ from siliconcompiler.schema_obj import SchemaTmp as Schema
 
 from siliconcompiler.packageschema import PackageSchema
 
+from siliconcompiler.library import LibrarySchema, ToolLibrarySchema, StdCellLibrarySchema
+from siliconcompiler.fpga import FPGASchema
+
 from siliconcompiler.design import DesignSchema
 from siliconcompiler.record import RecordSchema
 from siliconcompiler.metric import MetricSchema
 from siliconcompiler.pdk import PDKSchema
 from siliconcompiler.flowgraph import FlowgraphSchema
-from siliconcompiler.tool import ToolSchema, TaskSchema
+from siliconcompiler.tool import ToolSchema, TaskSchema, ASICTaskSchema
+from siliconcompiler.tool import ShowTaskSchema, ScreenshotTaskSchema
 from siliconcompiler.checklist import ChecklistSchema
-from siliconcompiler.asic import ASICSchema
-from siliconcompiler.fpga import FPGASchema
 
 from siliconcompiler.project import Project
-from siliconcompiler.library import LibrarySchema, StdCellLibrarySchema
+from siliconcompiler.asic import ASICSchema, ASICProject
 
 from siliconcompiler.core import Chip
 
@@ -51,5 +53,10 @@ __all__ = [
     "PackageSchema",
 
     "Project",
-    "StdCellLibrarySchema"
+    "ASICProject",
+    "StdCellLibrarySchema",
+    "ToolLibrarySchema",
+    "ASICTaskSchema",
+    "ShowTaskSchema",
+    "ScreenshotTaskSchema"
 ]

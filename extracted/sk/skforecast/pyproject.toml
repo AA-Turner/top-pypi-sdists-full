@@ -1,6 +1,6 @@
 [project]
 name = "skforecast"
-version = "0.16.0"
+version = "0.17.0"
 description = "Skforecast is a Python library for time series forecasting using machine learning models. It works with any regressor compatible with the scikit-learn API, including popular options like LightGBM, XGBoost, CatBoost, Keras, and many others."
 readme = "README.md"
 authors = [
@@ -64,31 +64,33 @@ plotting = [
 ]
 
 deeplearning = [
+    "keras>=3.0, <4.0",
     "matplotlib>=3.3, <3.11",
-    "keras>=2.6, <4.0"
 ]
 
 all = [
     "matplotlib>=3.3, <3.11",
     "seaborn>=0.11, <0.14",
     "statsmodels>=0.12, <0.15",
-    "keras>=2.6, <4.0"
+    "keras>=3.0, <4.0",
+    'tensorflow>=2.18, <2.20; python_version < "3.13"',
+    'torch>=2.4, <2.8; python_version < "3.13"'
 ]
 
 full = [
     "matplotlib>=3.3, <3.11",
     "seaborn>=0.11, <0.14",
     "statsmodels>=0.12, <0.15",
-    "keras>=2.6, <4.0",
+    "keras>=3.0, <4.0"
 ]
 
 docs = [
     "mike==2.1.3",
     "mkdocs==1.6.1",
     "mkdocs-jupyter==0.25.1",
-    "mkdocs-material==9.6.7",
-    "mkdocstrings==0.29.0",
-    "mkdocstrings-python==1.16.5",
+    "mkdocs-material==9.6.16",
+    "mkdocstrings==0.30.0",
+    "mkdocstrings-python==1.16.12",
     "notebook==6.5.7",
     "jupyter-contrib-nbextensions==0.7.0",
     "black==25.1.0"
@@ -100,10 +102,11 @@ test = [
     "pytest>=7.3",
     "pytest-cov>=4.1",
     "pytest-xdist>=3.3",
-    "lightgbm>=4.0, <4.7",
+    "lightgbm>=4.0, <5.0",
     "xgboost>=2.1, <4.0",
-    'tensorflow>=2.13, <2.20; python_version < "3.13"',
-    "torch>=2.2, <2.8",
+    "keras>=3.0, <4.0",
+    'tensorflow>=2.18, <2.20; python_version < "3.13"',
+    "torch>=2.4, <2.9",
     "tomli>=2.0",
     "pandas[parquet]>=1.5"
 ]
@@ -113,6 +116,8 @@ Homepage = "https://www.skforecast.org"
 Repository = "https://github.com/skforecast/skforecast"
 Documentation = "https://www.skforecast.org"
 "Release Notes" = "https://skforecast.org/latest/releases/releases"
+Download = "https://pypi.org/project/skforecast/#files"
+Tracker = "https://github.com/skforecast/skforecast/issues"
 
 [build-system]
 requires = ["setuptools>=61", "toml", "build"]
