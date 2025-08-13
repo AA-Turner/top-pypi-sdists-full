@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-nested-admin
-Version: 4.1.2
+Version: 4.1.3
 Summary: Django admin classes that allow for nested inlines
 Home-page: https://github.com/theatlantic/django-nested-admin
 Author: The Atlantic

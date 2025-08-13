@@ -74,16 +74,12 @@ class RBACContentGuardResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
-            "users",
-            "groups",
         ])
 
         _dict = self.model_dump(

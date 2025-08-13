@@ -83,8 +83,6 @@ class TaskGroupResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
@@ -96,8 +94,6 @@ class TaskGroupResponse(BaseModel):
             "canceled",
             "failed",
             "canceling",
-            "group_progress_reports",
-            "tasks",
         ])
 
         _dict = self.model_dump(

@@ -232,7 +232,9 @@ __all__ = (
     "ProxyConfigurationOutputTypeDef",
     "ProxyConfigurationTypeDef",
     "ProxyConfigurationUnionTypeDef",
+    "PullRequestBuildPolicyOutputTypeDef",
     "PullRequestBuildPolicyTypeDef",
+    "PullRequestBuildPolicyUnionTypeDef",
     "PutResourcePolicyInputTypeDef",
     "PutResourcePolicyOutputTypeDef",
     "RegistryCredentialTypeDef",
@@ -512,11 +514,6 @@ ProjectArtifactsTypeDef = TypedDict(
         "bucketOwnerAccess": NotRequired[BucketOwnerAccessType],
     },
 )
-
-
-class PullRequestBuildPolicyTypeDef(TypedDict):
-    requiresCommentApproval: PullRequestBuildCommentApprovalType
-    approverRoles: NotRequired[Sequence[PullRequestBuildApproverRoleType]]
 
 
 class ScopeConfigurationTypeDef(TypedDict):
@@ -802,6 +799,16 @@ SourceAuthTypeDef = TypedDict(
         "resource": NotRequired[str],
     },
 )
+
+
+class PullRequestBuildPolicyOutputTypeDef(TypedDict):
+    requiresCommentApproval: PullRequestBuildCommentApprovalType
+    approverRoles: NotRequired[List[PullRequestBuildApproverRoleType]]
+
+
+class PullRequestBuildPolicyTypeDef(TypedDict):
+    requiresCommentApproval: PullRequestBuildCommentApprovalType
+    approverRoles: NotRequired[Sequence[PullRequestBuildApproverRoleType]]
 
 
 class PutResourcePolicyInputTypeDef(TypedDict):
@@ -1099,39 +1106,6 @@ class DescribeCodeCoveragesOutputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class CreateWebhookInputTypeDef(TypedDict):
-    projectName: str
-    branchFilter: NotRequired[str]
-    filterGroups: NotRequired[Sequence[Sequence[WebhookFilterTypeDef]]]
-    buildType: NotRequired[WebhookBuildTypeType]
-    manualCreation: NotRequired[bool]
-    scopeConfiguration: NotRequired[ScopeConfigurationTypeDef]
-    pullRequestBuildPolicy: NotRequired[PullRequestBuildPolicyTypeDef]
-
-
-class UpdateWebhookInputTypeDef(TypedDict):
-    projectName: str
-    branchFilter: NotRequired[str]
-    rotateSecret: NotRequired[bool]
-    filterGroups: NotRequired[Sequence[Sequence[WebhookFilterTypeDef]]]
-    buildType: NotRequired[WebhookBuildTypeType]
-    pullRequestBuildPolicy: NotRequired[PullRequestBuildPolicyTypeDef]
-
-
-class WebhookTypeDef(TypedDict):
-    url: NotRequired[str]
-    payloadUrl: NotRequired[str]
-    secret: NotRequired[str]
-    branchFilter: NotRequired[str]
-    filterGroups: NotRequired[List[List[WebhookFilterTypeDef]]]
-    buildType: NotRequired[WebhookBuildTypeType]
-    manualCreation: NotRequired[bool]
-    lastModifiedSecret: NotRequired[datetime]
-    scopeConfiguration: NotRequired[ScopeConfigurationTypeDef]
-    status: NotRequired[WebhookStatusType]
-    statusMessage: NotRequired[str]
-
-
 class DescribeCodeCoveragesInputPaginateTypeDef(TypedDict):
     reportArn: str
     sortOrder: NotRequired[SortOrderTypeType]
@@ -1347,6 +1321,26 @@ ProjectSourceTypeDef = TypedDict(
 )
 
 
+class WebhookTypeDef(TypedDict):
+    url: NotRequired[str]
+    payloadUrl: NotRequired[str]
+    secret: NotRequired[str]
+    branchFilter: NotRequired[str]
+    filterGroups: NotRequired[List[List[WebhookFilterTypeDef]]]
+    buildType: NotRequired[WebhookBuildTypeType]
+    manualCreation: NotRequired[bool]
+    lastModifiedSecret: NotRequired[datetime]
+    scopeConfiguration: NotRequired[ScopeConfigurationTypeDef]
+    status: NotRequired[WebhookStatusType]
+    statusMessage: NotRequired[str]
+    pullRequestBuildPolicy: NotRequired[PullRequestBuildPolicyOutputTypeDef]
+
+
+PullRequestBuildPolicyUnionTypeDef = Union[
+    PullRequestBuildPolicyTypeDef, PullRequestBuildPolicyOutputTypeDef
+]
+
+
 class ReportExportConfigTypeDef(TypedDict):
     exportConfigType: NotRequired[ReportExportConfigTypeType]
     s3Destination: NotRequired[S3ReportExportConfigTypeDef]
@@ -1382,16 +1376,6 @@ class BuildGroupTypeDef(TypedDict):
     ignoreFailure: NotRequired[bool]
     currentBuildSummary: NotRequired[BuildSummaryTypeDef]
     priorBuildSummaryList: NotRequired[List[BuildSummaryTypeDef]]
-
-
-class CreateWebhookOutputTypeDef(TypedDict):
-    webhook: WebhookTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateWebhookOutputTypeDef(TypedDict):
-    webhook: WebhookTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 ProjectEnvironmentOutputTypeDef = TypedDict(
@@ -1502,6 +1486,35 @@ class StartBuildInputTypeDef(TypedDict):
     debugSessionEnabled: NotRequired[bool]
     fleetOverride: NotRequired[ProjectFleetTypeDef]
     autoRetryLimitOverride: NotRequired[int]
+
+
+class CreateWebhookOutputTypeDef(TypedDict):
+    webhook: WebhookTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateWebhookOutputTypeDef(TypedDict):
+    webhook: WebhookTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateWebhookInputTypeDef(TypedDict):
+    projectName: str
+    branchFilter: NotRequired[str]
+    filterGroups: NotRequired[Sequence[Sequence[WebhookFilterTypeDef]]]
+    buildType: NotRequired[WebhookBuildTypeType]
+    manualCreation: NotRequired[bool]
+    scopeConfiguration: NotRequired[ScopeConfigurationTypeDef]
+    pullRequestBuildPolicy: NotRequired[PullRequestBuildPolicyUnionTypeDef]
+
+
+class UpdateWebhookInputTypeDef(TypedDict):
+    projectName: str
+    branchFilter: NotRequired[str]
+    rotateSecret: NotRequired[bool]
+    filterGroups: NotRequired[Sequence[Sequence[WebhookFilterTypeDef]]]
+    buildType: NotRequired[WebhookBuildTypeType]
+    pullRequestBuildPolicy: NotRequired[PullRequestBuildPolicyUnionTypeDef]
 
 
 CreateReportGroupInputTypeDef = TypedDict(

@@ -1001,6 +1001,7 @@ class Threads(Authenticated):
         thread_id: UUID,
         run_id: UUID,
         run_status: RunStatus | Literal["rollback"],
+        graph_id: str,
         checkpoint: CheckpointPayload | None = None,
         exception: BaseException | None = None,
     ) -> None:
@@ -1080,6 +1081,7 @@ class Threads(Authenticated):
                 final_thread_status = "busy"
             else:
                 final_thread_status = base_thread_status
+        thread["metadata"]["graph_id"] = graph_id
         thread.update(
             {
                 "updated_at": now,
@@ -1273,7 +1275,15 @@ class Threads(Authenticated):
             metadata = thread.get("metadata", {})
             thread_config = thread.get("config", {})
 
-            if graph_id := metadata.get("graph_id"):
+            # Fallback to graph_id from run if not in thread metadata
+            graph_id = metadata.get("graph_id")
+            if not graph_id:
+                for run in conn.store["runs"]:
+                    if run["thread_id"] == thread_id:
+                        graph_id = run["kwargs"]["config"]["configurable"]["graph_id"]
+                        break
+
+            if graph_id:
                 # format latest checkpoint for response
                 checkpointer.latest_iter = checkpoint
                 async with get_graph(
@@ -1351,7 +1361,15 @@ class Threads(Authenticated):
                     detail=f"Thread {thread_id} has in-flight runs: {pending_runs}",
                 )
 
-            if graph_id := metadata.get("graph_id"):
+            # Fallback to graph_id from run if not in thread metadata
+            graph_id = metadata.get("graph_id")
+            if not graph_id:
+                for run in conn.store["runs"]:
+                    if run["thread_id"] == thread_id:
+                        graph_id = run["kwargs"]["config"]["configurable"]["graph_id"]
+                        break
+
+            if graph_id:
                 config["configurable"].setdefault("graph_id", graph_id)
 
                 checkpointer.latest_iter = checkpoint
@@ -1389,7 +1407,11 @@ class Threads(Authenticated):
                         checkpoint_id=next_config["configurable"]["checkpoint_id"],
                     )
             else:
-                raise HTTPException(status_code=400, detail="Thread has no graph ID.")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Thread '{thread['thread_id']}' has no assigned graph ID. This usually occurs when no runs have been made on this particular thread."
+                    " This operation requires a graph ID. Please ensure a run has been made for the thread or manually update the thread metadata (by setting the 'graph_id' field) before running this operation.",
+                )
 
         @staticmethod
         async def bulk(
@@ -1471,7 +1493,11 @@ class Threads(Authenticated):
                         checkpoint=next_config["configurable"],
                     )
             else:
-                raise HTTPException(status_code=400, detail="Thread has no graph ID")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Thread '{thread['thread_id']}' has no assigned graph ID. This usually occurs when no runs have been made on this particular thread."
+                    " This operation requires a graph ID. Please ensure a run has been made for the thread or manually update the thread metadata (by setting the 'graph_id' field) before running this operation.",
+                )
 
         @staticmethod
         async def list(
@@ -1678,9 +1704,9 @@ class Runs(Authenticated):
             await stream_manager.remove_control_queue(run_id, queue)
 
     @staticmethod
-    async def sweep(conn: InMemConnectionProto) -> list[UUID]:
+    async def sweep() -> None:
         """Sweep runs that are no longer running"""
-        return []
+        pass
 
     @staticmethod
     def _merge_jsonb(*objects: dict) -> dict:
@@ -1714,6 +1740,7 @@ class Runs(Authenticated):
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Run]:
         """Create a run."""
+        from langgraph_api.config import FF_RICH_THREADS
         from langgraph_api.schema import Run, Thread
 
         assistant_id = _ensure_uuid(assistant_id)
@@ -1759,34 +1786,50 @@ class Runs(Authenticated):
             # Create new thread
             if thread_id is None:
                 thread_id = uuid4()
-            thread = Thread(
-                thread_id=thread_id,
-                status="busy",
-                metadata={
-                    "graph_id": assistant["graph_id"],
-                    "assistant_id": str(assistant_id),
-                    **(config.get("metadata") or {}),
-                    **metadata,
-                },
-                config=Runs._merge_jsonb(
-                    assistant["config"],
-                    config,
-                    {
-                        "configurable": Runs._merge_jsonb(
-                            Runs._get_configurable(assistant["config"]),
-                            Runs._get_configurable(config),
-                        )
+            if FF_RICH_THREADS:
+                thread = Thread(
+                    thread_id=thread_id,
+                    status="busy",
+                    metadata={
+                        "graph_id": assistant["graph_id"],
+                        "assistant_id": str(assistant_id),
+                        **(config.get("metadata") or {}),
+                        **metadata,
                     },
-                ),
-                created_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                values=b"",
-            )
+                    config=Runs._merge_jsonb(
+                        assistant["config"],
+                        config,
+                        {
+                            "configurable": Runs._merge_jsonb(
+                                Runs._get_configurable(assistant["config"]),
+                                Runs._get_configurable(config),
+                            )
+                        },
+                    ),
+                    created_at=datetime.now(UTC),
+                    updated_at=datetime.now(UTC),
+                    values=b"",
+                )
+            else:
+                thread = Thread(
+                    thread_id=thread_id,
+                    status="idle",
+                    metadata={
+                        "graph_id": assistant["graph_id"],
+                        "assistant_id": str(assistant_id),
+                        **(config.get("metadata") or {}),
+                        **metadata,
+                    },
+                    config={},
+                    created_at=datetime.now(UTC),
+                    updated_at=datetime.now(UTC),
+                    values=b"",
+                )
             await logger.ainfo("Creating thread", thread_id=thread_id)
             conn.store["threads"].append(thread)
         elif existing_thread:
             # Update existing thread
-            if existing_thread["status"] != "busy":
+            if FF_RICH_THREADS and existing_thread["status"] != "busy":
                 existing_thread["status"] = "busy"
                 existing_thread["metadata"] = Runs._merge_jsonb(
                     existing_thread["metadata"],

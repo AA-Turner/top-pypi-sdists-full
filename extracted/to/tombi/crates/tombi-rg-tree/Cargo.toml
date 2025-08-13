@@ -13,6 +13,7 @@ hashbrown.workspace = true
 itertools.workspace = true
 rustc-hash.workspace = true
 tombi-text.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true

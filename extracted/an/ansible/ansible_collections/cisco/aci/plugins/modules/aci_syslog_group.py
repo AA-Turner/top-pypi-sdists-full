@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# Copyright: (c) 2021, Tim Cragg (@timcragg)
+# Copyright: (c) 2025, Dev Sinha (@DevSinha13)
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -18,47 +20,73 @@ description:
 options:
   admin_state:
     description:
-    - Administrative state of the syslog group
+    - Administrative state of the syslog group.
     type: str
     choices: [ enabled, disabled ]
   console_logging:
     description:
-    - Log events to console
+    - Log events to console.
     type: str
     choices: [ enabled, disabled ]
   console_log_severity:
     description:
-    - Severity of events to log to console
+    - Severity of events to log to console.
+    - If unset during creation, value defaults to C(alerts).
     type: str
-    choices: [ alerts, critical, debugging, emergencies, error, information, notifications, warnings ]
+    choices: [ alerts, critical, emergencies]
   local_file_logging:
     description:
-    - Log to local file
+    - Log to local file.
     type: str
     choices: [ enabled, disabled ]
   local_file_log_severity:
     description:
-    - Severity of events to log to local file
+    - Severity of events to log to local file.
+    - If unset during creation, value defaults to C(alerts).
     type: str
     choices: [ alerts, critical, debugging, emergencies, error, information, notifications, warnings ]
   format:
     description:
-    - Format of the syslog messages. If omitted when creating a group, ACI defaults to using aci format.
+    - Format of the syslog messages.
+    - If unset during creation the value defaults to C(aci).
+    - C(rfc5424_ts) is only available starting from ACI version 5.2(8).
+    - C(enhanced_log) is only available starting from ACI version 6.0(9d) and is an alias to C(rfc5424_ts).
     type: str
-    choices: [ aci, nxos ]
+    choices: [ aci, nxos, rfc5424_ts, enhanced_log ]
+  local_file_log_format:
+    description:
+    - The format of the local file log messages.
+    - If unset during creation and O(format) is provided then it is set to the same value as format. If O(format) is not provided it is set to C(aci).
+    - C(rfc5424_ts) is only available starting from ACI version 5.2(8).
+    - C(enhanced_log) is only available starting from ACI version 6.0(9d) and is an alias to C(rfc5424_ts).
+    type: str
+    choices: [ aci, nxos, rfc5424_ts, enhanced_log ]
+  console_log_format:
+    description:
+    - Format of the console log messages.
+    - If unset during creation and O(format) is provided then it is set to the same value as format. If O(format) is not provided it is set to C(aci).
+    - The option C(rfc5424_ts) is only available in ACI version 5.2(8) or later.
+    - The option C(enhanced_log) is only available in ACI version 6.0(9d) or later and is an alias to C(rfc5424_ts).
+    type: str
+    choices: [ aci, nxos, rfc5424_ts, enhanced_log ]
   include_ms:
     description:
-    - Include milliseconds in log timestamps
+    - Include milliseconds in log timestamps.
     type: bool
   include_time_zone:
     description:
-    - Include timezone in log timestamps
+    - Include timezone in log timestamps.
     type: bool
   name:
     description:
-    - Name of the syslog group
+    - Name of the syslog group.
     type: str
     aliases: [ syslog_group, syslog_group_name ]
+  description:
+    description:
+    - Description for the syslog group.
+    type: str
+    aliases: [ descr ]
   state:
     description:
     - Use C(present) or C(absent) for adding or removing.
@@ -76,6 +104,7 @@ seealso:
   link: https://developer.cisco.com/docs/apic-mim-ref/
 author:
 - Tim Cragg (@timcragg)
+- Dev Sinha (@DevSinha13)
 """
 
 EXAMPLES = r"""
@@ -89,8 +118,26 @@ EXAMPLES = r"""
     local_file_log_severity: warnings
     console_logging: enabled
     console_log_severity: critical
+    description: syslog group
     state: present
   delegate_to: localhost
+
+- name: Create a syslog group with local_file_log_format and console_log_format
+  cisco.aci.aci_syslog_group:
+    host: apic
+    username: admin
+    password: SomeSecretPassword
+    format: aci
+    name: my_syslog_group
+    local_file_logging: enabled
+    local_file_log_severity: warnings
+    console_logging: enabled
+    console_log_severity: critical
+    local_file_log_format: rfc5424_ts
+    console_log_format: rfc5424_ts
+    description: syslog group
+    state: present
+
 
 - name: Disable logging to local file
   cisco.aci.aci_syslog_group:
@@ -239,6 +286,7 @@ url:
 
 from ansible_collections.cisco.aci.plugins.module_utils.aci import ACIModule, aci_argument_spec, aci_annotation_spec
 from ansible.module_utils.basic import AnsibleModule
+from ansible_collections.cisco.aci.plugins.module_utils.constants import SYSLOG_FORMATS
 
 
 def main():
@@ -246,10 +294,12 @@ def main():
     argument_spec.update(aci_annotation_spec())
     argument_spec.update(
         name=dict(type="str", aliases=["syslog_group", "syslog_group_name"]),
-        format=dict(type="str", choices=["aci", "nxos"]),
+        format=dict(type="str", choices=list(SYSLOG_FORMATS)),
+        local_file_log_format=dict(type="str", choices=list(SYSLOG_FORMATS)),
+        console_log_format=dict(type="str", choices=list(SYSLOG_FORMATS)),
         admin_state=dict(type="str", choices=["enabled", "disabled"]),
         console_logging=dict(type="str", choices=["enabled", "disabled"]),
-        console_log_severity=dict(type="str", choices=["alerts", "critical", "debugging", "emergencies", "error", "information", "notifications", "warnings"]),
+        console_log_severity=dict(type="str", choices=["alerts", "critical", "emergencies"]),
         local_file_logging=dict(type="str", choices=["enabled", "disabled"]),
         local_file_log_severity=dict(
             type="str", choices=["alerts", "critical", "debugging", "emergencies", "error", "information", "notifications", "warnings"]
@@ -257,6 +307,7 @@ def main():
         include_ms=dict(type="bool"),
         include_time_zone=dict(type="bool"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
+        description=dict(type="str", aliases=["descr"]),
     )
 
     module = AnsibleModule(
@@ -271,15 +322,24 @@ def main():
     aci = ACIModule(module)
 
     name = module.params.get("name")
-    format = module.params.get("format")
+    format = SYSLOG_FORMATS.get(module.params.get("format"))
     admin_state = module.params.get("admin_state")
     console_logging = module.params.get("console_logging")
     console_log_severity = module.params.get("console_log_severity")
+    console_log_format = SYSLOG_FORMATS.get(module.params.get("console_log_format"))
+    local_file_log_format = SYSLOG_FORMATS.get(module.params.get("local_file_log_format"))
     local_file_logging = module.params.get("local_file_logging")
     local_file_log_severity = module.params.get("local_file_log_severity")
     include_ms = aci.boolean(module.params.get("include_ms"))
     include_time_zone = aci.boolean(module.params.get("include_time_zone"))
     state = module.params.get("state")
+    description = module.params.get("description")
+
+    if console_log_format is None:
+        console_log_format = format
+
+    if local_file_log_format is None:
+        local_file_log_format = format
 
     aci.construct_url(
         root_class=dict(
@@ -297,6 +357,7 @@ def main():
         class_config = dict(
             name=name,
             format=format,
+            descr=description,
             includeMilliSeconds=include_ms,
         )
         if include_time_zone is not None:
@@ -312,12 +373,12 @@ def main():
                 ),
                 dict(
                     syslogFile=dict(
-                        attributes=dict(adminState=local_file_logging, format=format, severity=local_file_log_severity),
+                        attributes=dict(adminState=local_file_logging, format=local_file_log_format, severity=local_file_log_severity),
                     ),
                 ),
                 dict(
                     syslogConsole=dict(
-                        attributes=dict(adminState=console_logging, format=format, severity=console_log_severity),
+                        attributes=dict(adminState=console_logging, format=console_log_format, severity=console_log_severity),
                     ),
                 ),
             ],

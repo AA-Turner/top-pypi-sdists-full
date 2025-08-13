@@ -391,6 +391,12 @@ class ProximityConfig(BaseConfig):
     enable_unique_counting: bool = True
     time_window_minutes: int = 60
     
+    proximity_threshold_meters: float = 1.0
+    proximity_threshold_pixels: float = 250.0
+    meters_per_pixel: float = 0.0028
+    scene_width_meters: float = 0.0
+    scene_height_meters: float = 0.0
+    
     # Category mapping
     person_categories: List[str] = field(default_factory=lambda: ["person"])
     index_to_category: Optional[Dict[int, str]] = None

@@ -52,8 +52,15 @@ class StreamWorker:
         if consumer_group_suffix:
             consumer_group_id += f"-{consumer_group_suffix}"
 
-        custom_request_service_id = self.inference_pipeline_id if (self.inference_pipeline_id and self.inference_pipeline_id != "000000000000000000000000") else deployment_id 
-        
+        custom_request_service_id = (
+            self.inference_pipeline_id
+            if (
+                self.inference_pipeline_id
+                and self.inference_pipeline_id != "000000000000000000000000"
+            )
+            else deployment_id
+        )
+
         self.kafka_deployment = MatriceKafkaDeployment(
             session,
             deployment_id,
@@ -231,7 +238,7 @@ class StreamWorker:
                     "original_fps": input_stream.get("original_fps",31),
                 }
             }
-            
+
             model_result, post_processing_result = await self.inference_interface.inference(
                 input_content,
                 apply_post_processing=True,
@@ -240,7 +247,7 @@ class StreamWorker:
                 camera_info=camera_info,
                 input_hash=input_hash
             )
-            
+
             # Extract agg_summary from post-processing result
             agg_summary = {}
             if post_processing_result and isinstance(post_processing_result, dict):
@@ -255,7 +262,7 @@ class StreamWorker:
                     "stream_time": self._get_high_precision_timestamp(),
                 },
             }
-            
+
             app_result = {
                 "application_name": self.app_name,
                 "application_key_name": self.app_name.replace(" ", "_").replace("-", "_"), 

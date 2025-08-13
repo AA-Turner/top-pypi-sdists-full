@@ -19,9 +19,8 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -38,7 +37,7 @@ class RepositoryResponse(BaseModel):
     latest_version_href: Optional[StrictStr] = None
     name: StrictStr = Field(description="A unique name for this repository.")
     description: Optional[StrictStr] = Field(default=None, description="An optional description.")
-    retain_repo_versions: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
+    retain_repo_versions: Optional[StrictInt] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
     remote: Optional[StrictStr] = Field(default=None, description="An optional remote to use by default when syncing.")
     __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "versions_href", "pulp_labels", "latest_version_href", "name", "description", "retain_repo_versions", "remote"]
 

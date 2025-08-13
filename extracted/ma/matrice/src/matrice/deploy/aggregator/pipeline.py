@@ -7,6 +7,7 @@ from matrice.deploy.aggregator.ingestor import ResultsIngestor
 from matrice.deploy.aggregator.synchronizer import ResultsSynchronizer
 from matrice.deploy.aggregator.aggregator import ResultsAggregator
 from matrice.deploy.aggregator.publisher import ResultsPublisher
+from matrice.deploy.aggregator.analytics import AnalyticsSummarizer
 from matrice.deployment.inference_pipeline import InferencePipeline
 
 
@@ -71,6 +72,7 @@ class ResultsAggregationPipeline:
         self.results_synchronizer = None
         self.results_aggregator = None
         self.results_publisher = None
+        self.analytics_summarizer = None
 
         # Initialize the final results queue
         self.final_results_queue = Queue()
@@ -178,12 +180,22 @@ class ResultsAggregationPipeline:
             )
             self.stats["component_status"]["aggregator"] = "initialized"
             
+            # Initialize analytics summarizer (5-minute window)
+            # logging.info("Initializing analytics summarizer...")
+            # self.analytics_summarizer = AnalyticsSummarizer(
+            #     session=self.session,
+            #     inference_pipeline_id=self.inference_pipeline_id,
+            #     flush_interval_seconds=300,
+            # )
+            # self.stats["component_status"]["analytics_summarizer"] = "initialized"
+
             # Initialize the results publisher
             logging.info("Initializing results publisher...")
             self.results_publisher = ResultsPublisher(
                 inference_pipeline_id=self.inference_pipeline_id,
                 session=self.session,
-                final_results_queue=self.results_aggregator.aggregated_results_queue
+                final_results_queue=self.results_aggregator.aggregated_results_queue,
+                analytics_summarizer=self.analytics_summarizer,
             )
             self.stats["component_status"]["publisher"] = "initialized"
             
@@ -238,6 +250,13 @@ class ResultsAggregationPipeline:
                 return False
             self.stats["component_status"]["aggregator"] = "running"
             
+            # Start analytics summarizer
+            logging.info("Starting analytics summarizer...")
+            # if not self.analytics_summarizer.start(): # TODO: Uncomment this when analytics summarizer is ready
+            #     self._record_error("Failed to start analytics summarizer")
+            #     return False
+            self.stats["component_status"]["analytics_summarizer"] = "running"
+
             # Start results publishing
             logging.info("Starting results publishing...")
             if not self.results_publisher.start_streaming():
@@ -387,6 +406,12 @@ class ResultsAggregationPipeline:
                 if agg_stats.get("errors", 0) > 0:
                     logging.warning(f"      └─ Aggregator Errors: {agg_stats['errors']} (last: {agg_stats.get('last_error', 'N/A')})")
             
+            if "analytics_summarizer" in components:
+                sum_stats = components["analytics_summarizer"]
+                logging.info(f"   🧮 Summaries Published: {sum_stats.get('summaries_published', 0)}")
+                if sum_stats.get("errors", 0) > 0:
+                    logging.warning(f"      └─ Summarizer Errors: {sum_stats['errors']} (last: {sum_stats.get('last_error', 'N/A')})")
+            
             if "results_publisher" in components:
                 pub_stats = components["results_publisher"]
                 logging.info(f"   📤 Messages Published: {pub_stats.get('messages_produced', 0)}")
@@ -440,6 +465,14 @@ class ResultsAggregationPipeline:
             except Exception as exc:
                 logging.error(f"Error stopping results publisher: {exc}")
 
+        if self.analytics_summarizer:
+            try:
+                logging.info("Stopping analytics summarizer...")
+                self.analytics_summarizer.stop()
+                self.stats["component_status"]["analytics_summarizer"] = "stopped"
+            except Exception as exc:
+                logging.error(f"Error stopping analytics summarizer: {exc}")
+
         if self.results_aggregator:
             try:
                 logging.info("Stopping results aggregator...")
@@ -483,6 +516,9 @@ class ResultsAggregationPipeline:
         
         if self.results_aggregator:
             stats["components"]["results_aggregator"] = self.results_aggregator.get_stats()
+        
+        if self.analytics_summarizer:
+            stats["components"]["analytics_summarizer"] = self.analytics_summarizer.get_stats()
         
         if self.results_publisher:
             stats["components"]["results_publisher"] = self.results_publisher.get_stats()
@@ -597,6 +633,21 @@ class ResultsAggregationPipeline:
             else:
                 health["issues"].append("Results aggregator not initialized")
                 logging.error("Results aggregator not initialized")
+            
+            if self.analytics_summarizer:
+                sum_health = self.analytics_summarizer.get_health_status()
+                health["components"]["analytics_summarizer"] = sum_health
+                if sum_health.get("status") != "healthy":
+                    issue_detail = f"Analytics summarizer is {sum_health.get('status', 'unknown')}"
+                    if "reason" in sum_health:
+                        issue_detail += f": {sum_health['reason']}"
+                    if sum_health.get("errors", 0) > 0:
+                        issue_detail += f" ({sum_health['errors']} errors)"
+                    health["issues"].append(issue_detail)
+                    logging.warning(f"Summarizer health issue: {issue_detail}")
+            else:
+                health["issues"].append("Analytics summarizer not initialized")
+                logging.error("Analytics summarizer not initialized")
             
             if self.results_publisher:
                 pub_health = self.results_publisher.get_health_status()
@@ -738,6 +789,12 @@ class ResultsAggregationPipeline:
                 self.results_aggregator.cleanup()
             except Exception as exc:
                 logging.error(f"Error cleaning up aggregator: {exc}")
+
+        if self.analytics_summarizer:
+            try:
+                self.analytics_summarizer.cleanup()
+            except Exception as exc:
+                logging.error(f"Error cleaning up analytics summarizer: {exc}")
         
         if self.results_synchronizer:
             try:

@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """Ansible module for managing consistency group on Unity"""
 
@@ -206,7 +205,7 @@ notes:
 
 EXAMPLES = r"""
 - name: Create consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       validate_certs: "{{validate_certs}}"
       username: "{{username}}"
@@ -217,7 +216,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Get details of consistency group using id
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -226,7 +225,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Add volumes to consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -239,7 +238,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Rename consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -249,7 +248,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Modify consistency group details
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -260,7 +259,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Map hosts to a consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -273,7 +272,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Unmap hosts from a consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -286,7 +285,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Remove volumes from consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -299,7 +298,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Delete consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -308,7 +307,7 @@ EXAMPLES = r"""
       state: "absent"
 
 - name: Enable replication for consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"
@@ -329,7 +328,7 @@ EXAMPLES = r"""
       state: "present"
 
 - name: Disable replication for consistency group
-  dellemc.unity.consistencygroup:
+  consistencygroup:
       unispherehost: "{{unispherehost}}"
       username: "{{username}}"
       password: "{{password}}"

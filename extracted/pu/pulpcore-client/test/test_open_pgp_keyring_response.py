@@ -47,7 +47,7 @@ class TestOpenPGPKeyringResponse(unittest.TestCase):
                 latest_version_href = '',
                 name = '',
                 description = '',
-                retain_repo_versions = 1,
+                retain_repo_versions = 56,
                 remote = ''
             )
         else:

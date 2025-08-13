@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """Ansible module for managing nfs export on Unity"""
 
@@ -306,7 +305,7 @@ notes:
 
 EXAMPLES = r"""
 - name: Create nfs export from filesystem
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -317,7 +316,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Create nfs export from snapshot
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -328,7 +327,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Modify nfs export
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -342,7 +341,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Add host in nfs export with adv_host_mgmt_enabled as true
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -364,7 +363,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Remove host in nfs export with adv_host_mgmt_enabled as true
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -386,7 +385,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Add host in nfs export with adv_host_mgmt_enabled as false
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -408,7 +407,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Remove host in nfs export with adv_host_mgmt_enabled as false
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -430,7 +429,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Get nfs details
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -439,7 +438,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Delete nfs export by nfs name
-  dellemc.unity.nfs:
+  nfs:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"

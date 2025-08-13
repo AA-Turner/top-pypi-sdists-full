@@ -38,11 +38,11 @@ ABSL_FLAG(std::string, input_format, kDefaultTrainerSpec.input_format(),
 ABSL_FLAG(std::string, model_prefix, "", "output model prefix");
 ABSL_FLAG(std::string, model_type, "unigram",
           "model algorithm: unigram, bpe, word or char");
-ABSL_FLAG(int32, vocab_size, kDefaultTrainerSpec.vocab_size(),
+ABSL_FLAG(int32_t, vocab_size, kDefaultTrainerSpec.vocab_size(),
           "vocabulary size");
 ABSL_FLAG(std::string, accept_language, "",
           "comma-separated list of languages this model can accept");
-ABSL_FLAG(int32, self_test_sample_size,
+ABSL_FLAG(int32_t, self_test_sample_size,
           kDefaultTrainerSpec.self_test_sample_size(),
           "the size of self test samples");
 ABSL_FLAG(double, character_coverage, kDefaultTrainerSpec.character_coverage(),
@@ -54,21 +54,21 @@ ABSL_FLAG(bool, shuffle_input_sentence,
           kDefaultTrainerSpec.shuffle_input_sentence(),
           "Randomly sample input sentences in advance. Valid when "
           "--input_sentence_size > 0");
-ABSL_FLAG(int32, seed_sentencepiece_size,
+ABSL_FLAG(int32_t, seed_sentencepiece_size,
           kDefaultTrainerSpec.seed_sentencepiece_size(),
           "the size of seed sentencepieces");
 ABSL_FLAG(std::string, seed_sentencepieces_file, "",
           "file to load seed sentencepieces from");
 ABSL_FLAG(double, shrinking_factor, kDefaultTrainerSpec.shrinking_factor(),
           "Keeps top shrinking_factor pieces with respect to the loss");
-ABSL_FLAG(int32, num_threads, kDefaultTrainerSpec.num_threads(),
+ABSL_FLAG(int32_t, num_threads, kDefaultTrainerSpec.num_threads(),
           "number of threads for training");
-ABSL_FLAG(int32, num_sub_iterations, kDefaultTrainerSpec.num_sub_iterations(),
+ABSL_FLAG(int32_t, num_sub_iterations, kDefaultTrainerSpec.num_sub_iterations(),
           "number of EM sub-iterations");
-ABSL_FLAG(int32, max_sentencepiece_length,
+ABSL_FLAG(int32_t, max_sentencepiece_length,
           kDefaultTrainerSpec.max_sentencepiece_length(),
           "maximum length of sentence piece");
-ABSL_FLAG(int32, max_sentence_length, kDefaultTrainerSpec.max_sentence_length(),
+ABSL_FLAG(int32_t, max_sentence_length, kDefaultTrainerSpec.max_sentence_length(),
           "maximum length of sentence in byte");
 ABSL_FLAG(bool, split_by_unicode_script,
           kDefaultTrainerSpec.split_by_unicode_script(),
@@ -124,13 +124,13 @@ ABSL_FLAG(bool, hard_vocab_limit, kDefaultTrainerSpec.hard_vocab_limit(),
 ABSL_FLAG(bool, use_all_vocab, kDefaultTrainerSpec.use_all_vocab(),
           "If set to true, use all tokens as vocab. "
           "Valid for word/char models.");
-ABSL_FLAG(int32, unk_id, kDefaultTrainerSpec.unk_id(),
+ABSL_FLAG(int32_t, unk_id, kDefaultTrainerSpec.unk_id(),
           "Override UNK (<unk>) id.");
-ABSL_FLAG(int32, bos_id, kDefaultTrainerSpec.bos_id(),
+ABSL_FLAG(int32_t, bos_id, kDefaultTrainerSpec.bos_id(),
           "Override BOS (<s>) id. Set -1 to disable BOS.");
-ABSL_FLAG(int32, eos_id, kDefaultTrainerSpec.eos_id(),
+ABSL_FLAG(int32_t, eos_id, kDefaultTrainerSpec.eos_id(),
           "Override EOS (</s>) id. Set -1 to disable EOS.");
-ABSL_FLAG(int32, pad_id, kDefaultTrainerSpec.pad_id(),
+ABSL_FLAG(int32_t, pad_id, kDefaultTrainerSpec.pad_id(),
           "Override PAD (<pad>) id. Set -1 to disable PAD.");
 ABSL_FLAG(std::string, unk_piece, kDefaultTrainerSpec.unk_piece(),
           "Override UNK (<unk>) piece.");
@@ -146,7 +146,7 @@ ABSL_FLAG(std::string, unk_surface, kDefaultTrainerSpec.unk_surface(),
 ABSL_FLAG(bool, train_extremely_large_corpus,
           kDefaultTrainerSpec.train_extremely_large_corpus(),
           "Increase bit depth for unigram tokenization.");
-ABSL_FLAG(uint32, random_seed, static_cast<uint32>(-1),
+ABSL_FLAG(uint32_t, random_seed, std::numeric_limits<uint32_t>::max(),
           "Seed value for random generator.");
 
 // DP related.
@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
   CHECK(!absl::GetFlag(FLAGS_input).empty());
   CHECK(!absl::GetFlag(FLAGS_model_prefix).empty());
 
-  if (absl::GetFlag(FLAGS_random_seed) != -1) {
+  if (absl::GetFlag(FLAGS_random_seed) != std::numeric_limits<uint32_t>::max()) {
     sentencepiece::SetRandomGeneratorSeed(absl::GetFlag(FLAGS_random_seed));
   }
 

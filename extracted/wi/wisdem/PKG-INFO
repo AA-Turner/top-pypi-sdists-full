@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wisdem
-Version: 3.22.2
+Version: 3.22.3
 Summary: Wind-Plant Integrated System Design & Engineering Model
 Author-email: NREL WISDEM Team <systems.engineering@nrel.gov>
 Maintainer-email: NREL WISDEM Team <systems.engineering@nrel.gov>
@@ -43,10 +43,10 @@ Requires-Dist: pydoe3
 Requires-Dist: python-benedict
 Requires-Dist: pyyaml
 Requires-Dist: ruamel.yaml
-Requires-Dist: scipy<1.16
+Requires-Dist: scipy
 Requires-Dist: simpy
 Requires-Dist: sortedcontainers
-Requires-Dist: statsmodels
+Requires-Dist: statsmodels>=0.14.5
 Provides-Extra: dev
 Requires-Dist: meson; extra == "dev"
 Requires-Dist: ninja; extra == "dev"

@@ -47,7 +47,7 @@ namespace sentencepiece {
 
 #define PARSE_INT32(param_name)                                               \
   if (name == #param_name) {                                                  \
-    int32 v;                                                                  \
+    int32_t v;                                                                  \
     if (!string_util::lexical_cast(value, &v))                                \
       return util::StatusBuilder(util::StatusCode::kInvalidArgument, GTL_LOC) \
              << "cannot parse \"" << value << "\" as int.";                   \
@@ -57,7 +57,7 @@ namespace sentencepiece {
 
 #define PARSE_UINT64(param_name)                                              \
   if (name == #param_name) {                                                  \
-    uint64 v;                                                                 \
+    uint64_t v;                                                                 \
     if (!string_util::lexical_cast(value, &v))                                \
       return util::StatusBuilder(util::StatusCode::kInvalidArgument, GTL_LOC) \
              << "cannot parse \"" << value << "\" as int.";                   \

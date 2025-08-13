@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2023, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2023-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """Ansible module for managing replication session on Unity"""
 
@@ -76,7 +75,7 @@ notes:
 
 EXAMPLES = r"""
 - name: Get replication session details
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -84,7 +83,7 @@ EXAMPLES = r"""
     session_name: "fs_replication"
 
 - name: Get replication session details based on session_id
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -92,7 +91,7 @@ EXAMPLES = r"""
     session_id: "103079215114_APM00213404195_0000_103079215274_APM00213404194_0000"
 
 - name: Pause a replication session
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -101,7 +100,7 @@ EXAMPLES = r"""
     pause: true
 
 - name: Resume a replication session
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -111,7 +110,7 @@ EXAMPLES = r"""
     force_full_copy: true
 
 - name: Sync a replication session
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -120,7 +119,7 @@ EXAMPLES = r"""
     sync: true
 
 - name: Failover with sync a replication session
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -130,7 +129,7 @@ EXAMPLES = r"""
     force: true
 
 - name: Failover a replication session
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -139,7 +138,7 @@ EXAMPLES = r"""
     failover_with_sync: false
 
 - name: Failback a replication session
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -149,7 +148,7 @@ EXAMPLES = r"""
     force_full_copy: true
 
 - name: Delete a replication session
-  dellemc.unity.replication_session:
+  replication_session:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"

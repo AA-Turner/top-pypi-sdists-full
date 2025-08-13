@@ -387,6 +387,24 @@ plugins:
       name: ndo_dhcp_relay_policy
       namespace: ''
       version_added: null
+    ndo_fabric_span_session:
+      description: Manage Fabric SPAN Sessions on Cisco Nexus Dashboard Orchestrator
+        (NDO).
+      name: ndo_fabric_span_session
+      namespace: ''
+      version_added: 2.11.0
+    ndo_fabric_span_session_source:
+      description: Manage Fabric SPAN Sessions Source on Cisco Nexus Dashboard Orchestrator
+        (NDO).
+      name: ndo_fabric_span_session_source
+      namespace: ''
+      version_added: 2.11.0
+    ndo_fabric_span_session_source_filter:
+      description: Manage Fabric SPAN Sessions Source Filter on Cisco Nexus Dashboard
+        Orchestrator (NDO).
+      name: ndo_fabric_span_session_source_filter
+      namespace: ''
+      version_added: 2.11.0
     ndo_fex_device:
       description: Manage FEX Devices on Cisco Nexus Dashboard Orchestrator (NDO).
       name: ndo_fex_device
@@ -421,6 +439,11 @@ plugins:
       name: ndo_l3out_annotation
       namespace: ''
       version_added: null
+    ndo_l3out_bgp_peer:
+      description: Manage L3Out BGP Peer on Cisco Nexus Dashboard Orchestrator (NDO).
+      name: ndo_l3out_bgp_peer
+      namespace: ''
+      version_added: 2.11.0
     ndo_l3out_interface_group_policy:
       description: Manage L3Out Interface Group Policy on Cisco Nexus Dashboard Orchestrator
         (NDO).
@@ -445,6 +468,30 @@ plugins:
       name: ndo_l3out_node_routing_policy
       namespace: ''
       version_added: null
+    ndo_l3out_node_static_route:
+      description: Manage L3Out Node Static Routes on Cisco Nexus Dashboard Orchestrator
+        (NDO).
+      name: ndo_l3out_node_static_route
+      namespace: ''
+      version_added: 2.11.0
+    ndo_l3out_node_static_route_next_hop:
+      description: Manage L3Out Node Static Route Next Hops on Cisco Nexus Dashboard
+        Orchestrator (NDO).
+      name: ndo_l3out_node_static_route_next_hop
+      namespace: ''
+      version_added: 2.11.0
+    ndo_l3out_routed_interface:
+      description: Manage L3Out Routed Interfaces on Cisco Nexus Dashboard Orchestrator
+        (NDO).
+      name: ndo_l3out_routed_interface
+      namespace: ''
+      version_added: 2.11.0
+    ndo_l3out_routed_sub_interface:
+      description: Manage L3Out Routed Sub-Interfaces on Cisco Nexus Dashboard Orchestrator
+        (NDO).
+      name: ndo_l3out_routed_sub_interface
+      namespace: ''
+      version_added: 2.11.0
     ndo_l3out_template:
       description: Manage L3Outs on Cisco Nexus Dashboard Orchestrator (NDO).
       name: ndo_l3out_template
@@ -489,6 +536,16 @@ plugins:
       name: ndo_physical_interface
       namespace: ''
       version_added: null
+    ndo_pod_profile:
+      description: Manage Pod Profiles on Cisco Nexus Dashboard Orchestrator (NDO).
+      name: ndo_pod_profile
+      namespace: ''
+      version_added: 2.11.0
+    ndo_pod_settings:
+      description: Manage Pod Settings on Cisco Nexus Dashboard Orchestrator (NDO).
+      name: ndo_pod_settings
+      namespace: ''
+      version_added: 2.11.0
     ndo_port_channel_interface:
       description: Manage Port Channel Interfaces on Cisco Nexus Dashboard Orchestrator
         (NDO).
@@ -506,6 +563,12 @@ plugins:
       name: ndo_ptp_policy_profiles
       namespace: ''
       version_added: null
+    ndo_qos_class_policy:
+      description: Manage QoS Class Policies on Cisco Nexus Dashboard Orchestrator
+        (NDO).
+      name: ndo_qos_class_policy
+      namespace: ''
+      version_added: 2.11.0
     ndo_qos_dscp_cos_translation_policy:
       description: Manage QoS DSCP CoS Translation Policies on Cisco Nexus Dashboard
         Orchestrator (NDO).
@@ -523,11 +586,23 @@ plugins:
       name: ndo_schema_template_bd_dhcp_policy
       namespace: ''
       version_added: null
+    ndo_schema_template_contract_service_chain:
+      description: Manage the Schema Template Contract Service Chaining workflow on
+        Cisco Nexus Dashboard Orchestrator (NDO).
+      name: ndo_schema_template_contract_service_chain
+      namespace: ''
+      version_added: 2.11.0
     ndo_schema_template_deploy:
       description: Deploy schema templates to sites for NDO v3.7 and higher
       name: ndo_schema_template_deploy
       namespace: ''
       version_added: null
+    ndo_service_device_cluster:
+      description: Manage Service Device Clusters on Cisco Nexus Dashboard Orchestrator
+        (NDO).
+      name: ndo_service_device_cluster
+      namespace: ''
+      version_added: 2.11.0
     ndo_synce_interface_policy:
       description: Manage syncE Interface Policies on Cisco Nexus Dashboard Orchestrator
         (NDO).
@@ -569,6 +644,12 @@ plugins:
       name: ndo_tenant_mld_snooping_policy
       namespace: ''
       version_added: null
+    ndo_tenant_span_session:
+      description: Manage Tenant SPAN Sessions on Cisco Nexus Dashboard Orchestrator
+        (NDO).
+      name: ndo_tenant_span_session
+      namespace: ''
+      version_added: 2.11.0
     ndo_virtual_port_channel_interface:
       description: Manage Virtual Port Channel Interfaces on Cisco Nexus Dashboard
         Orchestrator (NDO).
@@ -585,4 +666,4 @@ plugins:
   strategy: {}
   test: {}
   vars: {}
-version: 2.10.0
+version: 2.11.0

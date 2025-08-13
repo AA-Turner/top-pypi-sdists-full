@@ -43,13 +43,16 @@ def proxmox_auth_argument_spec():
                           fallback=(env_fallback, ['PROXMOX_PASSWORD'])
                           ),
         api_token_id=dict(type='str',
-                          no_log=False
+                          no_log=False,
+                          fallback=(env_fallback, ['PROXMOX_TOKEN_ID'])
                           ),
         api_token_secret=dict(type='str',
-                              no_log=True
+                              no_log=True,
+                              fallback=(env_fallback, ['PROXMOX_TOKEN_SECRET'])
                               ),
         validate_certs=dict(type='bool',
-                            default=False
+                            default=False,
+                            fallback=(env_fallback, ['PROXMOX_VALIDATE_CERTS'])
                             ),
     )
 
@@ -78,7 +81,7 @@ class ProxmoxAnsible(object):
         if not HAS_PROXMOXER:
             module.fail_json(msg=missing_required_lib('proxmoxer'), exception=PROXMOXER_IMP_ERR)
         if proxmoxer_version < LooseVersion('2.0'):
-            self.module.fail_json(f'Requires proxmoxer 2.0 or newer; found version {proxmoxer_version}')
+            module.fail_json(f'Requires proxmoxer 2.0 or newer; found version {proxmoxer_version}')
 
         self.module = module
         self.proxmoxer_version = proxmoxer_version

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-can
-Version: 4.6.0
+Version: 4.6.1
 Summary: Controller Area Network interface module for Python
 Author: python-can contributors
 License-Expression: LGPL-3.0-only
@@ -119,8 +119,8 @@ python-can
    :target: https://github.com/hardbyte/python-can/actions/workflows/ci.yml
    :alt: Github Actions workflow status
 
-.. |coverage| image:: https://coveralls.io/repos/github/hardbyte/python-can/badge.svg?branch=develop
-   :target: https://coveralls.io/github/hardbyte/python-can?branch=develop
+.. |coverage| image:: https://coveralls.io/repos/github/hardbyte/python-can/badge.svg?branch=main
+   :target: https://coveralls.io/github/hardbyte/python-can?branch=main
    :alt: Test coverage reports on Coveralls.io
 
 The **C**\ ontroller **A**\ rea **N**\ etwork is a bus standard designed

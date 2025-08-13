@@ -6,7 +6,7 @@ from starlette.requests import ClientDisconnect
 from starlette.types import Message, Receive, Scope, Send
 
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
-from langgraph_api.utils.headers import should_include_header
+from langgraph_api.utils.headers import should_include_header_in_logs
 
 asgi = structlog.stdlib.get_logger("asgi")
 
@@ -117,7 +117,7 @@ def _headers_to_dict(headers: list[tuple[bytes, bytes]] | None) -> dict[str, str
         if k in IGNORE_HEADERS:
             continue
         key = k.decode()
-        if should_include_header(key):
+        if should_include_header_in_logs(key):
             result[key] = v.decode()
 
     return result

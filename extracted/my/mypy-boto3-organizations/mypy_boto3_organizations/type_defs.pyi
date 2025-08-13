@@ -96,6 +96,7 @@ __all__ = (
     "DisablePolicyTypeRequestTypeDef",
     "DisablePolicyTypeResponseTypeDef",
     "EffectivePolicyTypeDef",
+    "EffectivePolicyValidationErrorTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EnableAWSServiceAccessRequestTypeDef",
     "EnableAllFeaturesResponseTypeDef",
@@ -119,6 +120,9 @@ __all__ = (
     "ListAccountsRequestPaginateTypeDef",
     "ListAccountsRequestTypeDef",
     "ListAccountsResponseTypeDef",
+    "ListAccountsWithInvalidEffectivePolicyRequestPaginateTypeDef",
+    "ListAccountsWithInvalidEffectivePolicyRequestTypeDef",
+    "ListAccountsWithInvalidEffectivePolicyResponseTypeDef",
     "ListChildrenRequestPaginateTypeDef",
     "ListChildrenRequestTypeDef",
     "ListChildrenResponseTypeDef",
@@ -131,6 +135,9 @@ __all__ = (
     "ListDelegatedServicesForAccountRequestPaginateTypeDef",
     "ListDelegatedServicesForAccountRequestTypeDef",
     "ListDelegatedServicesForAccountResponseTypeDef",
+    "ListEffectivePolicyValidationErrorsRequestPaginateTypeDef",
+    "ListEffectivePolicyValidationErrorsRequestTypeDef",
+    "ListEffectivePolicyValidationErrorsResponseTypeDef",
     "ListHandshakesForAccountRequestPaginateTypeDef",
     "ListHandshakesForAccountRequestTypeDef",
     "ListHandshakesForAccountResponsePaginatorTypeDef",
@@ -308,6 +315,12 @@ class DisablePolicyTypeRequestTypeDef(TypedDict):
     RootId: str
     PolicyType: PolicyTypeType
 
+class EffectivePolicyValidationErrorTypeDef(TypedDict):
+    ErrorCode: NotRequired[str]
+    ErrorMessage: NotRequired[str]
+    PathToError: NotRequired[str]
+    ContributingPolicies: NotRequired[List[str]]
+
 class EnableAWSServiceAccessRequestTypeDef(TypedDict):
     ServicePrincipal: str
 
@@ -365,6 +378,11 @@ class ListAccountsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListAccountsWithInvalidEffectivePolicyRequestTypeDef(TypedDict):
+    PolicyType: EffectivePolicyTypeType
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class ListChildrenRequestTypeDef(TypedDict):
     ParentId: str
     ChildType: ChildTypeType
@@ -383,6 +401,12 @@ class ListDelegatedAdministratorsRequestTypeDef(TypedDict):
 
 class ListDelegatedServicesForAccountRequestTypeDef(TypedDict):
     AccountId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListEffectivePolicyValidationErrorsRequestTypeDef(TypedDict):
+    AccountId: str
+    PolicyType: EffectivePolicyTypeType
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
@@ -505,6 +529,12 @@ class ListAccountsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListAccountsWithInvalidEffectivePolicyResponseTypeDef(TypedDict):
+    Accounts: List[AccountTypeDef]
+    PolicyType: EffectivePolicyTypeType
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListChildrenResponseTypeDef(TypedDict):
     Children: List[ChildTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -601,6 +631,15 @@ class DescribeEffectivePolicyResponseTypeDef(TypedDict):
     EffectivePolicy: EffectivePolicyTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListEffectivePolicyValidationErrorsResponseTypeDef(TypedDict):
+    AccountId: str
+    PolicyType: EffectivePolicyTypeType
+    Path: str
+    EvaluationTimestamp: datetime
+    EffectivePolicyValidationErrors: List[EffectivePolicyValidationErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListAWSServiceAccessForOrganizationResponseTypeDef(TypedDict):
     EnabledServicePrincipals: List[EnabledServicePrincipalTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -651,6 +690,10 @@ class ListAccountsForParentRequestPaginateTypeDef(TypedDict):
 class ListAccountsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListAccountsWithInvalidEffectivePolicyRequestPaginateTypeDef(TypedDict):
+    PolicyType: EffectivePolicyTypeType
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListChildrenRequestPaginateTypeDef(TypedDict):
     ParentId: str
     ChildType: ChildTypeType
@@ -666,6 +709,11 @@ class ListDelegatedAdministratorsRequestPaginateTypeDef(TypedDict):
 
 class ListDelegatedServicesForAccountRequestPaginateTypeDef(TypedDict):
     AccountId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListEffectivePolicyValidationErrorsRequestPaginateTypeDef(TypedDict):
+    AccountId: str
+    PolicyType: EffectivePolicyTypeType
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListHandshakesForAccountRequestPaginateTypeDef(TypedDict):

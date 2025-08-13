@@ -1,7 +1,8 @@
 Metadata-Version: 2.4
 Name: llama-index-tools-mcp
-Version: 0.3.0
+Version: 0.4.0
 Summary: llama-index tools mcp integration
+Author: Sebastian Kalisz
 Author-email: Chojan Shang <psiace@outlook.com>
 Maintainer: psiace
 License-Expression: MIT

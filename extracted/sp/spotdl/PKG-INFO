@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spotdl
-Version: 4.3.1
+Version: 4.4.0
 Summary: Download your Spotify playlists and songs along with album art and metadata
 Project-URL: Homepage, https://github.com/spotDL/spotify-downloader/
 Project-URL: Repository, https://github.com/spotDL/spotify-downloader.git
@@ -15,7 +15,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -23,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Multimedia
 Classifier: Topic :: Multimedia :: Sound/Audio
 Classifier: Topic :: Utilities
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.14,>=3.10
 Requires-Dist: beautifulsoup4<5,>=4.12.3
 Requires-Dist: fastapi<0.104,>=0.103.0
 Requires-Dist: mutagen<2,>=1.47.0

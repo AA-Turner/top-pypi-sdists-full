@@ -309,3 +309,7 @@
     - name: Mysql_user - test user_locking
       ansible.builtin.import_tasks:
         file: test_user_locking.yml
+
+      # Test that mysql_user still works with default role set
+      # (https://github.com/ansible-collections/community.mysql/issues/710)
+    - include_tasks: issue-710.yml

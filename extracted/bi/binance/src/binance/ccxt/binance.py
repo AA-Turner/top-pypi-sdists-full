@@ -8843,7 +8843,7 @@ class binance(Exchange, ImplicitAPI):
             }
         return result
 
-    def withdraw(self, code: str, amount: float, address: str, tag=None, params={}) -> Transaction:
+    def withdraw(self, code: str, amount: float, address: str, tag: Str = None, params={}) -> Transaction:
         """
         make a withdrawal
 
@@ -10551,7 +10551,7 @@ class binance(Exchange, ImplicitAPI):
             raise NotSupported(self.id + ' fetchFundingHistory() supports linear and inverse contracts only')
         return self.parse_incomes(response, market, since, limit)
 
-    def set_leverage(self, leverage: Int, symbol: Str = None, params={}):
+    def set_leverage(self, leverage: int, symbol: Str = None, params={}):
         """
         set the level of leverage for a market
 
@@ -12440,6 +12440,7 @@ class binance(Exchange, ImplicitAPI):
             'contracts': self.safe_number(liquidation, 'executedQty'),
             'contractSize': self.safe_number(market, 'contractSize'),
             'price': self.safe_number(liquidation, 'avgPrice'),
+            'side': self.safe_string_lower(liquidation, 'side'),
             'baseValue': self.safe_number(liquidation, 'cumBase'),
             'quoteValue': self.safe_number(liquidation, 'cumQuote'),
             'timestamp': timestamp,

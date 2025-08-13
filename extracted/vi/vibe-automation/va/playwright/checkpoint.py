@@ -9,7 +9,7 @@ import json
 import logging
 
 from pydantic import BaseModel, Field
-from va.codegen import inspect_with_block_from_frame
+from va.code import inspect_with_block_from_frame
 from ..agent.agent import Agent
 from ..review import review
 

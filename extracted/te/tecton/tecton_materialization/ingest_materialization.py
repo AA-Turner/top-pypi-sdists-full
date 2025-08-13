@@ -90,7 +90,7 @@ def ingest_pushed_df(spark: SparkSession, raw_df: DataFrame, materialization_tas
 
     # skip delta write if we detect a prior job has successfully committed the data already
     if ingest_task_info.ingest_parameters.write_to_offline_feature_store and not has_prior_delta_commit(
-        spark, materialization_task_params, idempotence_key, ingest_path
+        spark, materialization_task_params.offline_store_path, idempotence_key, ingest_path
     ):
         logger.info(f"Ingesting to the OfflineStore FT: {fd.id}")
         offline_store_params = OfflineStoreWriterParams(

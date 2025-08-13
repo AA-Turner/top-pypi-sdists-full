@@ -2981,6 +2981,8 @@ def _hint_or_raise_for_down_jobs_controller(controller_name: str,
     controller = controller_utils.Controllers.from_name(controller_name)
     assert controller is not None, controller_name
 
+    # TODO(tian): We also need to check pools after we allow running pools on
+    # jobs controller.
     with rich_utils.client_status(
             '[bold cyan]Checking for in-progress managed jobs[/]'):
         try:
@@ -3077,6 +3079,21 @@ def _hint_or_raise_for_down_sky_serve_controller(controller_name: str,
             # controller being STOPPED or being firstly launched, i.e., there is
             # no in-prgress services.
             services = []
+        except exceptions.InconsistentConsolidationModeError:
+            # If this error is raised, it means the user switched to the
+            # consolidation mode but the previous controller cluster is still
+            # running. We should allow the user to tear down the controller
+            # cluster in this case.
+            with skypilot_config.override_skypilot_config(
+                {'serve': {
+                    'controller': {
+                        'consolidation_mode': False
+                    }
+                }}):
+                # Check again with the consolidation mode disabled. This is to
+                # make sure there is no in-progress services.
+                request_id = serve_lib.status(service_names=None)
+                services = sdk.stream_and_get(request_id)
 
     if services:
         service_names = [service['name'] for service in services]
@@ -6052,8 +6069,11 @@ def api_logs(request_id: Optional[str], server_logs: bool,
     if request_id is not None and log_path is not None:
         raise click.BadParameter(
             'Only one of request ID and log path can be provided.')
-    sdk.stream_and_get(server_common.RequestId[None](request_id), log_path,
-                       tail)
+    # Only wrap request_id when it is provided; otherwise pass None so the
+    # server accepts log_path-only streaming.
+    req_id = (server_common.RequestId[None](request_id)
+              if request_id is not None else None)
+    sdk.stream_and_get(req_id, log_path, tail, follow=follow)
 
 
 @api.command('cancel', cls=_DocumentedCodeCommand)

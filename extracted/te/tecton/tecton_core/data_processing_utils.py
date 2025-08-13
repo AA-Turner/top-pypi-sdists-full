@@ -336,8 +336,11 @@ def _even_split_pyarrow(
     join_keys: List[str],
     split_count: int,
 ) -> List[pyarrow.Table]:
-    assert join_keys, "join_keys must be provided for even spine split"
-    spine_sorted = sort_pyarrow_table_using_duckdb(spine, join_keys)
+    # For an RTFV with request source only, no join keys will exist
+    if not join_keys:
+        spine_sorted = spine
+    else:
+        spine_sorted = sort_pyarrow_table_using_duckdb(spine, join_keys)
 
     total_rows = spine_sorted.num_rows
     rows_per_split = total_rows // split_count

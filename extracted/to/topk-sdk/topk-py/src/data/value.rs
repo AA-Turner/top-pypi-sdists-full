@@ -5,11 +5,13 @@ use pyo3::{
     IntoPyObjectExt,
 };
 
-use crate::data::vector::F32Vector;
+use crate::data::{
+    list::{List, Values},
+    vector::F32SparseVector,
+};
 
-use super::vector::{F32SparseVector, SparseVector, Vector};
+use super::vector::SparseVector;
 
-#[pyclass]
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Null(),
@@ -17,57 +19,45 @@ pub enum Value {
     Int(i64),
     Float(f64),
     Bool(bool),
-    Vector(Vector),
     SparseVector(SparseVector),
     Bytes(Vec<u8>),
+    List(List),
 }
 
-#[pymethods]
-impl Value {
-    fn __str__(&self) -> String {
-        match self {
-            Value::Null() => "Null".to_string(),
-            Value::String(s) => s.to_string(),
-            Value::Int(i) => i.to_string(),
-            Value::Float(f) => f.to_string(),
-            Value::Bool(b) => b.to_string(),
-            Value::Vector(v) => format!("Vector({:?})", v),
-            Value::SparseVector(v) => format!("SparseVector({:?})", v),
-            Value::Bytes(b) => format!("Bytes({:?})", b),
-        }
-    }
-}
-
-pub struct RawValue(pub Value);
-
-impl<'py> FromPyObject<'py> for RawValue {
+impl<'py> FromPyObject<'py> for Value {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
         // NOTE: it's safe to use `downcast` for custom types
-        if let Ok(v) = obj.downcast::<Value>() {
-            Ok(RawValue(v.get().clone()))
-        } else if let Ok(v) = obj.downcast::<Vector>() {
-            Ok(RawValue(Value::Vector(v.get().clone())))
-        } else if let Ok(v) = obj.downcast::<SparseVector>() {
-            Ok(RawValue(Value::SparseVector(v.get().clone())))
-        } else if let Ok(s) = obj.downcast_exact::<PyString>() {
-            Ok(RawValue(Value::String(s.extract()?)))
-        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
-            Ok(RawValue(Value::Int(i.extract()?)))
+
+        if let Ok(v) = obj.downcast::<List>() {
+            Ok(Value::List(v.borrow().clone()))
+        // PyBytes can be extracted as Vec<f32> so it needs to be handled before list(f32)
         } else if let Ok(b) = obj.downcast_exact::<PyBytes>() {
-            Ok(RawValue(Value::Bytes(b.extract()?)))
+            Ok(Value::Bytes(b.extract()?))
+        } else if let Ok(v) = obj.extract::<Vec<f32>>() {
+            Ok(Value::List(List {
+                values: Values::F32(v),
+            }))
+        } else if let Ok(v) = obj.extract::<Vec<String>>() {
+            Ok(Value::List(List {
+                values: Values::String(v),
+            }))
+        } else if let Ok(v) = obj.downcast::<SparseVector>() {
+            Ok(Value::SparseVector(v.get().clone()))
+        } else if let Ok(s) = obj.downcast_exact::<PyString>() {
+            Ok(Value::String(s.extract()?))
+        } else if let Ok(i) = obj.downcast_exact::<PyInt>() {
+            Ok(Value::Int(i.extract()?))
         } else if let Ok(f) = obj.downcast_exact::<PyFloat>() {
-            Ok(RawValue(Value::Float(f.extract()?)))
+            Ok(Value::Float(f.extract()?))
         } else if let Ok(b) = obj.downcast_exact::<PyBool>() {
-            Ok(RawValue(Value::Bool(b.extract()?)))
+            Ok(Value::Bool(b.extract()?))
         } else if let Ok(v) = F32SparseVector::extract_bound(obj) {
-            Ok(RawValue(Value::SparseVector(SparseVector::F32 {
+            Ok(Value::SparseVector(SparseVector::F32 {
                 indices: v.indices,
                 values: v.values,
-            })))
-        } else if let Ok(v) = F32Vector::extract_bound(obj) {
-            Ok(RawValue(Value::Vector(Vector::F32(v.values))))
+            }))
         } else if let Ok(_) = obj.downcast_exact::<PyNone>() {
-            Ok(RawValue(Value::Null()))
+            Ok(Value::Null())
         } else {
             Err(PyTypeError::new_err(format!(
                 "Can't convert from {:?} to Value",
@@ -77,35 +67,19 @@ impl<'py> FromPyObject<'py> for RawValue {
     }
 }
 
-impl<'py> IntoPyObject<'py> for RawValue {
+impl<'py> IntoPyObject<'py> for Value {
     type Target = PyAny;
     type Output = Bound<'py, Self::Target>;
     type Error = PyErr;
 
     fn into_pyobject(self, py: Python<'py>) -> PyResult<Self::Output> {
-        match self.0 {
+        match self {
             Value::Null() => Ok(py.None().into_bound(py)),
             Value::String(s) => Ok(s.into_py_any(py)?.into_bound(py)),
             Value::Int(i) => Ok(i.into_py_any(py)?.into_bound(py)),
             Value::Float(f) => Ok(f.into_py_any(py)?.into_bound(py)),
             Value::Bool(b) => Ok(b.into_py_any(py)?.into_bound(py)),
             Value::Bytes(b) => Ok(b.into_py_any(py)?.into_bound(py)),
-            Value::Vector(v) => Ok(match v {
-                Vector::F32(v) => {
-                    let list = PyList::empty(py);
-                    for value in v {
-                        list.append(value.into_py_any(py)?)?;
-                    }
-                    list.into_py_any(py)?.into_bound(py)
-                }
-                Vector::U8(v) => {
-                    let list = PyList::empty(py);
-                    for value in v {
-                        list.append(value.into_py_any(py)?)?;
-                    }
-                    list.into_py_any(py)?.into_bound(py)
-                }
-            }),
             Value::SparseVector(v) => Ok(match v {
                 SparseVector::F32 { indices, values } => {
                     let dict = PyDict::new(py);
@@ -122,6 +96,52 @@ impl<'py> IntoPyObject<'py> for RawValue {
                     dict.into_py_any(py)?.into_bound(py)
                 }
             }),
+            Value::List(l) => {
+                let list = PyList::empty(py);
+                match &l.values {
+                    Values::U8(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
+                    Values::U32(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
+                    Values::U64(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
+                    Values::I32(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
+                    Values::I64(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
+                    Values::F32(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
+                    Values::F64(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
+                    Values::String(values) => {
+                        for value in values {
+                            list.append(value.into_py_any(py)?)?;
+                        }
+                    }
+                }
+                Ok(list.into_py_any(py)?.into_bound(py))
+            }
         }
     }
 }
@@ -139,11 +159,19 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
             Some(topk_rs::proto::v1::data::value::Value::Null(_)) => Value::Null(),
             Some(topk_rs::proto::v1::data::value::Value::Binary(b)) => Value::Bytes(b),
             Some(topk_rs::proto::v1::data::value::Value::Vector(v)) => match v.vector {
-                Some(topk_rs::proto::v1::data::vector::Vector::Float(v)) => {
-                    Value::Vector(Vector::F32(v.values))
+                Some(topk_rs::proto::v1::data::vector::Vector::Float(v)) =>
+                {
+                    #[allow(deprecated)]
+                    Value::List(List {
+                        values: Values::F32(v.values),
+                    })
                 }
-                Some(topk_rs::proto::v1::data::vector::Vector::Byte(v)) => {
-                    Value::Vector(Vector::U8(v.values))
+                Some(topk_rs::proto::v1::data::vector::Vector::Byte(v)) =>
+                {
+                    #[allow(deprecated)]
+                    Value::List(List {
+                        values: Values::U8(v.values),
+                    })
                 }
                 t => unreachable!("Unknown vector type: {:?}", t),
             },
@@ -164,6 +192,37 @@ impl From<topk_rs::proto::v1::data::Value> for Value {
                     t => unreachable!("Unknown sparse vector type: {:?}", t),
                 })
             }
+            Some(topk_rs::proto::v1::data::value::Value::List(l)) => Value::List(List {
+                values: match l.values {
+                    Some(topk_rs::proto::v1::data::list::Values::U8(values)) => {
+                        Values::U8(values.values)
+                    }
+                    Some(topk_rs::proto::v1::data::list::Values::U32(values)) => {
+                        Values::U32(values.values)
+                    }
+                    Some(topk_rs::proto::v1::data::list::Values::U64(values)) => {
+                        Values::U64(values.values)
+                    }
+                    Some(topk_rs::proto::v1::data::list::Values::I32(values)) => {
+                        Values::I32(values.values)
+                    }
+                    Some(topk_rs::proto::v1::data::list::Values::I64(values)) => {
+                        Values::I64(values.values)
+                    }
+                    Some(topk_rs::proto::v1::data::list::Values::F32(values)) => {
+                        Values::F32(values.values)
+                    }
+                    Some(topk_rs::proto::v1::data::list::Values::F64(values)) => {
+                        Values::F64(values.values)
+                    }
+                    Some(topk_rs::proto::v1::data::list::Values::String(values)) => {
+                        Values::String(values.values)
+                    }
+                    None => {
+                        unreachable!("Invalid list proto: {:?}", l)
+                    }
+                },
+            }),
             None => Value::Null(),
         }
     }
@@ -178,10 +237,6 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
             Value::String(s) => topk_rs::proto::v1::data::Value::string(s),
             Value::Null() => topk_rs::proto::v1::data::Value::null(),
             Value::Bytes(b) => topk_rs::proto::v1::data::Value::binary(b),
-            Value::Vector(v) => match v {
-                Vector::F32(v) => topk_rs::proto::v1::data::Value::f32_vector(v),
-                Vector::U8(v) => topk_rs::proto::v1::data::Value::u8_vector(v),
-            },
             Value::SparseVector(v) => match v {
                 SparseVector::F32 { indices, values } => {
                     topk_rs::proto::v1::data::Value::f32_sparse_vector(indices, values)
@@ -190,12 +245,16 @@ impl From<Value> for topk_rs::proto::v1::data::Value {
                     topk_rs::proto::v1::data::Value::u8_sparse_vector(indices, values)
                 }
             },
+            Value::List(l) => match l.values {
+                Values::U8(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::U32(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::U64(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::I32(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::I64(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::F32(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::F64(values) => topk_rs::proto::v1::data::Value::list(values),
+                Values::String(values) => topk_rs::proto::v1::data::Value::list(values),
+            },
         }
-    }
-}
-
-impl From<RawValue> for topk_rs::proto::v1::data::Value {
-    fn from(value: RawValue) -> Self {
-        value.0.into()
     }
 }

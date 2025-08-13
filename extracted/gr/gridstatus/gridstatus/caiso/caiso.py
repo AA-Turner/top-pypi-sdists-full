@@ -1,5 +1,6 @@
 import copy
 import io
+import re
 import time
 import warnings
 from zipfile import ZipFile
@@ -24,6 +25,7 @@ from gridstatus.caiso.caiso_constants import (
     CURRENT_BASE,
     HISTORY_BASE,
     OASIS_DATASET_CONFIG,
+    get_dataframe_config_for_renewables_report,
 )
 from gridstatus.decorators import support_date_range
 from gridstatus.gs_logging import logger
@@ -202,7 +204,7 @@ class CAISO(ISOBase):
         """
 
         for dataset_name, config in OASIS_DATASET_CONFIG.items():
-            if dataset is not None and dataset_name not in dataset:
+            if dataset is not None and dataset_name != dataset:
                 continue
             print(colored(f"Dataset: {dataset_name}", "cyan"))
             if len(config["params"]) == 0:
@@ -331,6 +333,7 @@ class CAISO(ISOBase):
         raw_data: bool = False,
         verbose: bool = False,
         sleep: int = 5,
+        max_retries: int = 3,
     ) -> pd.DataFrame | None:
         start, end = _caiso_handle_start_end(start, end)
         config = copy.deepcopy(config)
@@ -346,16 +349,23 @@ class CAISO(ISOBase):
         logger.info(f"Fetching URL: {url}")
 
         retry_num = 0
-        while retry_num < 3:
+        while retry_num < max_retries:
             r = requests.get(url)
 
             if r.status_code == 200:
                 break
 
             retry_num += 1
-            logger.error(f"Failed to get data from CAISO. Error: {r.status_code}")
-            logger.error(f"Retrying {retry_num}...")
+            logger.info(
+                f"Failed to get data from CAISO. Error: {r.status_code}. Retrying...{retry_num} / {max_retries}",
+            )
+
             time.sleep(sleep)
+            sleep *= retry_num
+
+        if r.status_code == 429:
+            logger.warning(f"CAISO rate limit exceeded. Tried {retry_num} times.")
+            return None
 
         # this is when no data is available
         if (
@@ -859,31 +869,59 @@ class CAISO(ISOBase):
 
         return df
 
-    def get_solar_and_wind_forecast_dam(
+    def get_renewables_hourly(
         self,
         date: str | pd.Timestamp,
         end: str | pd.Timestamp | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
-        """Return wind and solar forecast in hourly intervals
+        """Get wind and solar hourly actuals from CAISO.
 
-        Data at: http://oasis.caiso.com/mrioasis/logon.do  at System Demand >
-        Wind and Solar Forecast
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame of wind and solar hourly actuals
         """
         if date == "latest":
-            return self.get_solar_and_wind_forecast_dam("today", verbose=verbose)
+            return self.get_renewables_hourly("today")
+
+        df = self.get_oasis_dataset(
+            dataset="renewables",
+            date=date,
+            end=end,
+            verbose=verbose,
+            raw_data=False,
+        )
+        return self._process_renewables_hourly(df)
+
+    def get_renewables_forecast_dam(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return DAM renewable forecast in hourly intervals
+
+        Data at: http://oasis.caiso.com/mrioasis/logon.do  at System Demand >
+        DAM Renewable Forecast
+        """
+        if date == "latest":
+            return self.get_renewables_forecast_dam("today", verbose=verbose)
 
         current_time = pd.Timestamp.now(tz=self.default_timezone)
 
         data = self.get_oasis_dataset(
-            dataset="wind_and_solar_forecast",
+            dataset="renewables_forecast_dam",
             date=date,
             end=end,
             verbose=verbose,
             raw_data=False,
         )
 
-        return self._process_solar_and_wind_forecast_dam(
+        return self._process_renewables_hourly(
             data,
             current_time,
             # Day-ahead hourly wind and solar forecast is published at 7:00 AM according
@@ -891,11 +929,11 @@ class CAISO(ISOBase):
             publish_time_offset_from_day_start=pd.Timedelta(hours=7),
         )
 
-    def _process_solar_and_wind_forecast_dam(
+    def _process_renewables_hourly(
         self,
         data: pd.DataFrame,
-        current_time: pd.Timestamp,
-        publish_time_offset_from_day_start: pd.Timedelta,
+        current_time: pd.Timestamp | None = None,
+        publish_time_offset_from_day_start: pd.Timedelta | None = None,
     ):
         df = data[
             [
@@ -926,30 +964,47 @@ class CAISO(ISOBase):
             values="MW",
         ).reset_index()
 
-        df = self._add_forecast_publish_time(
-            df,
-            current_time,
-            # Day-ahead hourly wind and solar forecast is published at 7:00 AM according
-            # to OASIS.
-            publish_time_offset_from_day_start=publish_time_offset_from_day_start,
-        )
+        if publish_time_offset_from_day_start:
+            df = self._add_forecast_publish_time(
+                df,
+                current_time=current_time,
+                # Day-ahead hourly wind and solar forecast is published at 7:00 AM according
+                # to OASIS.
+                publish_time_offset_from_day_start=publish_time_offset_from_day_start,
+            )
 
-        df = utils.move_cols_to_front(
-            df.rename(
-                columns={
-                    "TRADING_HUB": "Location",
-                    "Solar": "Solar MW",
-                    "Wind": "Wind MW",
-                },
-            ),
-            ["Interval Start", "Interval End", "Publish Time", "Location"],
-        )
+            df = utils.move_cols_to_front(
+                df.rename(
+                    columns={
+                        "TRADING_HUB": "Location",
+                        "Solar": "Solar MW",
+                        "Wind": "Wind MW",
+                    },
+                ),
+                ["Interval Start", "Interval End", "Publish Time", "Location"],
+            )
 
-        df.columns.name = None
+            df.columns.name = None
 
-        return df.sort_values(
-            ["Interval Start", "Publish Time", "Location"],
-        ).reset_index(drop=True)
+            return df.sort_values(
+                ["Interval Start", "Publish Time", "Location"],
+            ).reset_index(drop=True)
+
+        else:
+            df = utils.move_cols_to_front(
+                df.rename(
+                    columns={
+                        "TRADING_HUB": "Location",
+                    },
+                ),
+                ["Interval Start", "Interval End", "Location"],
+            )
+
+            df.columns.name = None
+
+            return df.sort_values(
+                ["Interval Start", "Location"],
+            ).reset_index(drop=True)
 
     def _add_forecast_publish_time(
         self,
@@ -1001,6 +1056,147 @@ class CAISO(ISOBase):
         )
 
         return data
+
+    def _handle_renewables_forecast(
+        self,
+        df: pd.DataFrame,
+        publish_time_offset: pd.Timedelta,
+    ) -> pd.DataFrame:
+        df = df.rename(
+            columns={
+                "TRADING_HUB": "Location",
+                "RENEWABLE_TYPE": "Renewable Type",
+            },
+        )
+
+        df = df.pivot_table(
+            index=[
+                "Interval Start",
+                "Interval End",
+                "Location",
+            ],
+            columns="Renewable Type",
+            values="MW",
+            aggfunc="first",
+        ).reset_index()
+
+        df.columns.name = None
+        df["Publish Time"] = df["Interval Start"] - publish_time_offset
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Publish Time",
+                "Location",
+                "Solar",
+                "Wind",
+            ]
+        ]
+
+    def get_renewables_forecast_hasp(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get solar and wind generation HASP hourly data from CAISO.
+
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+                If None, returns only date. Defaults to None.
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame of solar and wind generation HASP hourly data
+        """
+        if date == "latest":
+            try:
+                return self.get_renewables_forecast_hasp(
+                    pd.Timestamp.now(tz=self.default_timezone) + pd.Timedelta(hours=2),
+                )  # NB: This is a hack to get the latest forecast
+            except KeyError:
+                return self.get_renewables_forecast_hasp(
+                    pd.Timestamp.now(tz=self.default_timezone) + pd.Timedelta(hours=1),
+                )
+
+        df = self.get_oasis_dataset(
+            dataset="renewables_forecast_hasp",
+            date=date,
+            end=end,
+            verbose=verbose,
+            raw_data=False,
+        )
+        return self._handle_renewables_forecast(
+            df,
+            publish_time_offset=pd.Timedelta(minutes=90),
+        )
+
+    def get_renewables_forecast_rtd(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get RTD renewable forecast from CAISO.
+
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame of RTD renewable forecast
+        """
+        if date == "latest":
+            return self.get_renewables_forecast_rtd(
+                pd.Timestamp.now(tz=self.default_timezone),
+            )
+
+        df = self.get_oasis_dataset(
+            dataset="renewables_forecast_rtd",
+            date=date,
+            end=end,
+            verbose=verbose,
+            raw_data=False,
+        )
+        return self._handle_renewables_forecast(
+            df,
+            publish_time_offset=pd.Timedelta(minutes=2.5),
+        )
+
+    def get_renewables_forecast_rtpd(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get RTPD renewable forecast from CAISO.
+
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+            verbose (bool, optional): print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame of RTPD renewable forecast
+        """
+        if date == "latest":
+            return self.get_renewables_forecast_rtpd(
+                pd.Timestamp.now(tz=self.default_timezone),
+            )
+
+        df = self.get_oasis_dataset(
+            dataset="renewables_forecast_rtpd",
+            date=date,
+            end=end,
+            verbose=verbose,
+            raw_data=False,
+        )
+        return self._handle_renewables_forecast(
+            df,
+            publish_time_offset=pd.Timedelta(minutes=22.5),
+        )
 
     def get_pnodes(self, verbose: bool = False) -> pd.DataFrame:
         start = utils._handle_date("today")
@@ -1477,7 +1673,7 @@ class CAISO(ISOBase):
         return queue
 
     @support_date_range(frequency="DAY_START")
-    def get_curtailment(
+    def get_curtailment_legacy(
         self,
         date: str | pd.Timestamp,
         verbose: bool = False,
@@ -1485,7 +1681,8 @@ class CAISO(ISOBase):
         """Return curtailment data for a given date
 
         Notes:
-            * Data available from June 30, 2016 to present
+            * Data available from June 30, 2016 to May 31, 2025. For current data,
+            please use `get_curtailment`.
 
         Arguments:
             date (datetime.date, str): date to return data
@@ -1499,6 +1696,12 @@ class CAISO(ISOBase):
             pandas.DataFrame: A DataFrame of curtailment data
         """
         date = date.normalize()
+
+        if date > pd.Timestamp("2025-05-31", tz=self.default_timezone):
+            raise ValueError(
+                "Curtailment data is only available until May 31, 2025. "
+                "Please use `get_curtailment` for current data.",
+            )
 
         # TODO: handle not always just 4th pge
         date_str = date.strftime("%b-%d-%Y").lower()
@@ -2200,70 +2403,311 @@ class CAISO(ISOBase):
             ]
         ]
 
-    def get_hasp_renewable_forecast_hourly(
+    @support_date_range(frequency="31D")
+    def get_nomogram_branch_shadow_prices_day_ahead_hourly(
         self,
         date: str | pd.Timestamp,
         end: str | pd.Timestamp | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
-        """Get solar and wind generation HASP hourly data from CAISO.
+        """Returns hourly day-ahead nomogram/branch shadow price forecast.
 
         Args:
             date (str | pd.Timestamp): date to return data
             end (str | pd.Timestamp | None, optional): last date of range to return data.
                 If None, returns only date. Defaults to None.
-            verbose (bool, optional): print out url being fetched. Defaults to False.
+            verbose (bool, optional): print out url being fetched.
 
         Returns:
-            pandas.DataFrame: A DataFrame of solar and wind generation HASP hourly data
+            pandas.DataFrame: A DataFrame with the shadow price forecast
         """
         if date == "latest":
-            try:
-                return self.get_hasp_renewable_forecast_hourly(
-                    pd.Timestamp.now(tz=self.default_timezone) + pd.Timedelta(hours=2),
-                )  # NB: This is a hack to get the latest forecast
-            except KeyError:
-                return self.get_hasp_renewable_forecast_hourly(
-                    pd.Timestamp.now(tz=self.default_timezone) + pd.Timedelta(hours=1),
-                )
+            return self.get_nomogram_branch_shadow_prices_day_ahead_hourly(
+                pd.Timestamp.now(tz=self.default_timezone),
+            )
 
         df = self.get_oasis_dataset(
-            dataset="hasp_renewable_forecast_hourly",
+            dataset="nomogram_branch_shadow_prices",
+            date=date,
+            end=end,
+            params={"market_run_id": "DAM"},
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        df = df.rename(
+            columns={
+                "NOMOGRAM_ID": "Location",
+                "PRC": "Price",
+            },
+        )
+
+        return df[["Interval Start", "Interval End", "Location", "Price"]]
+
+    def get_nomogram_branch_shadow_prices_hasp_hourly(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Returns nomogram/branch shadow price HASP hourly data from CAISO.
+
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+                If None, returns only date. Defaults to None.
+            verbose (bool, optional): print out url being fetched.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with the shadow price HASP data
+        """
+        if date == "latest":
+            return self.get_nomogram_branch_shadow_prices_hasp_hourly(
+                pd.Timestamp.now(tz=self.default_timezone),
+            )
+
+        df = self.get_oasis_dataset(
+            dataset="nomogram_branch_shadow_prices",
+            date=date,
+            end=end,
+            params={"market_run_id": "HASP"},
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        df = df.rename(
+            columns={
+                "NOMOGRAM_ID": "Location",
+                "PRC": "Price",
+            },
+        )
+
+        return df[["Interval Start", "Interval End", "Location", "Price"]]
+
+    def get_nomogram_branch_shadow_price_forecast_15_min(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Returns 15-minute nomogram/branch shadow price forecast from the Real-Time Pre-Dispatch Market.
+
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+                If None, returns only date. Defaults to None.
+            verbose (bool, optional): print out url being fetched.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with the shadow price forecast
+        """
+        if date == "latest":
+            return self.get_nomogram_branch_shadow_price_forecast_15_min(
+                pd.Timestamp.now(tz=self.default_timezone),
+            )
+
+        df = self.get_oasis_dataset(
+            dataset="nomogram_branch_shadow_prices",
+            date=date,
+            end=end,
+            params={"market_run_id": "RTM"},
+            verbose=verbose,
+            raw_data=False,
+        )
+
+        df = df.rename(
+            columns={
+                "NOMOGRAM_ID": "Location",
+                "PRC": "Price",
+            },
+        )
+
+        return df[["Interval Start", "Interval End", "Location", "Price"]]
+
+    def get_interval_nomogram_branch_shadow_prices_real_time_5_min(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get 5-min nomogram/branch shadow prices from CAISO.
+
+        Args:
+            date (str | pd.Timestamp): date to return data
+            end (str | pd.Timestamp | None, optional): last date of range to return data.
+                If None, returns only date. Defaults to None.
+            verbose (bool, optional): print out url being fetched.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with the shadow prices
+        """
+        if date == "latest":
+            return self.get_interval_nomogram_branch_shadow_prices_real_time_5_min(
+                pd.Timestamp.now(tz=self.default_timezone),
+            )
+
+        df = self.get_oasis_dataset(
+            dataset="interval_nomogram_branch_shadow_prices",
             date=date,
             end=end,
             verbose=verbose,
             raw_data=False,
         )
-        return self._handle_hasp_renewable_forecast_hourly(df)
 
-    def _handle_hasp_renewable_forecast_hourly(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.rename(
             columns={
-                "TRADING_HUB": "Location",
-                "RENEWABLE_TYPE": "Renewable Type",
+                "NOMOGRAM_ID": "Location",
+                "PRC": "Price",
             },
         )
 
-        df = df.pivot_table(
-            index=[
-                "Interval Start",
-                "Interval End",
-                "Location",
-            ],
-            columns="Renewable Type",
-            values="MW",
-            aggfunc="first",
-        ).reset_index()
+        return df[["Interval Start", "Interval End", "Location", "Price"]]
 
-        df.columns.name = None
-        df["Publish Time"] = df["Interval Start"] - pd.Timedelta(minutes=90)
-        return df[
-            [
-                "Interval Start",
-                "Interval End",
-                "Publish Time",
-                "Location",
-                "Solar",
-                "Wind",
-            ]
+    @support_date_range(frequency="DAY_START")
+    def get_curtailment(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Return curtailment data for a given date
+
+        Arguments:
+            date (datetime.date, str): date to return data
+
+            end (datetime.date, str): last date of range to return data.
+                If None, returns only date. Defaults to None.
+
+            verbose: print out url being fetched. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame of curtailment data
+        """
+        if date == "latest":
+            # Latest available curtailment data is usually the previous day because
+            # data is released at 10 AM for the previous day.
+            return self.get_curtailment(
+                pd.Timestamp.now(tz=self.default_timezone) - pd.DateOffset(days=1),
+            )
+
+        dataframes = self.get_caiso_renewables_report(date)
+
+        # Process all fuel types and units in one loop
+        fuel_configs = [
+            ("solar_curtailment_total_hourly", "Solar", "MWH"),
+            ("wind_curtailment_total_hourly", "Wind", "MWH"),
+            ("solar_curtailment_maximum_hourly", "Solar", "MW"),
+            ("wind_curtailment_maximum_hourly", "Wind", "MW"),
         ]
+
+        melted_dfs = {}
+        for df_key, fuel_type, unit in fuel_configs:
+            # Melt from a wide format to a long format
+            df = dataframes[df_key].melt(
+                id_vars=["Interval Start", "Interval End"],
+                var_name="Curtailment Type",
+                value_name=f"Curtailment {unit}",
+            )
+
+            # Curtailment Type format is "Curtailment Type Curtailment Reason MW/MWH"
+            # Split it into two columns: Curtailment Type and Curtailment Reason
+            curtailment_parts = df["Curtailment Type"].str.split(" ")
+            df["Curtailment Type"] = curtailment_parts.str[0]
+            df["Curtailment Reason"] = curtailment_parts.str[1]
+            df["Fuel Type"] = fuel_type
+
+            melted_dfs[f"{fuel_type} {unit}"] = df
+
+        # Merge MWH and MW data for each fuel type
+        merge_cols = [
+            "Interval Start",
+            "Interval End",
+            "Curtailment Type",
+            "Curtailment Reason",
+            "Fuel Type",
+        ]
+
+        solar_df = melted_dfs["Solar MWH"].merge(
+            melted_dfs["Solar MW"],
+            on=merge_cols,
+            how="outer",
+        )
+        wind_df = melted_dfs["Wind MWH"].merge(
+            melted_dfs["Wind MW"],
+            on=merge_cols,
+            how="outer",
+        )
+
+        return (
+            pd.concat([solar_df, wind_df])
+            .reindex(columns=merge_cols + ["Curtailment MWH", "Curtailment MW"])
+            .sort_values(merge_cols)
+            .reset_index(drop=True)
+        )
+
+    def get_caiso_renewables_report(
+        self,
+        date: pd.Timestamp,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        Fetches the CAISO daily renewable report for a given date and extracts data from
+        all the charts into wide dataframes.
+        """
+        report_url = f"https://www.caiso.com/documents/daily-renewable-report-{date.strftime('%b-%d-%Y').lower()}.html"
+
+        response = requests.get(report_url)
+
+        if response.status_code != 200:
+            raise ValueError(
+                f"Failed to fetch renewables report for {date.strftime('%Y-%m-%d')}: "
+                f"HTTP {response.status_code}",
+            )
+
+        html_content = response.content.decode("utf-8")
+
+        def extract_array(content: str, var_name: str) -> list:
+            # Extracts a JavaScript array from the HTML content. Some of the arrays]
+            # are wrapped in JSON.parse().
+            pattern = rf'{var_name}\s*=\s*(?:JSON\.parse\(\["?)?\[([^\]]*)\]\)?'
+            match = re.search(pattern, content, re.DOTALL)
+            if not match:
+                return []
+
+            array_str = match.group(1)
+            values = []
+            for item in array_str.split(","):
+                item = item.strip()
+                if item in ('"NA"', "NA"):
+                    values.append(np.nan)
+                elif item.startswith('"') and item.endswith('"'):
+                    values.append(item[1:-1])
+                else:
+                    try:
+                        values.append(float(item))
+                    except ValueError:
+                        values.append(item)
+            return values
+
+        base_date = date.normalize()
+
+        dataframe_configs = get_dataframe_config_for_renewables_report(
+            base_date,
+            self.default_timezone,
+        )
+
+        # Build all DataFrames using the configuration
+        dataframes = {}
+        for df_name, timestamps, duration, unit, column_mapping in dataframe_configs:
+            interval_end_timedelta = pd.DateOffset(**{f"{unit}s": duration})
+
+            data = {
+                "Interval Start": timestamps,
+                "Interval End": timestamps + interval_end_timedelta,
+            }
+
+            for col_name, var_name in column_mapping.items():
+                data[col_name] = extract_array(html_content, var_name)
+
+            dataframes[df_name] = pd.DataFrame(data)
+
+        return dataframes

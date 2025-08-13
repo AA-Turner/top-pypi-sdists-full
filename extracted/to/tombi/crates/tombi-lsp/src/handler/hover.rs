@@ -1,14 +1,13 @@
 use itertools::{Either, Itertools};
 use tombi_ast::{algo::ancestors_at_position, AstNode};
 use tombi_document_tree::{IntoDocumentTreeAndErrors, TryIntoDocumentTree};
-use tombi_extension::get_tombi_github_url;
 use tombi_schema_store::SchemaContext;
 use tower_lsp::lsp_types::{HoverParams, TextDocumentPositionParams};
 
 use crate::{
     backend,
     config_manager::ConfigSchemaStore,
-    hover::{get_hover_content, HoverContent},
+    hover::{get_comment_directive_hover_info, get_hover_content, HoverContent},
 };
 
 #[tracing::instrument(level = "debug", skip_all)]
@@ -58,9 +57,15 @@ pub async fn handle_hover(
         .ok()
         .flatten();
 
+    let root_comment_directive = tombi_comment_directive::get_root_comment_directive(&root).await;
     let (toml_version, _) = backend
-        .source_toml_version(source_schema.as_ref(), &config)
+        .source_toml_version(root_comment_directive, source_schema.as_ref(), &config)
         .await;
+
+    // Check if position is in a #:tombi comment directive
+    if let Some(content) = get_comment_directive_hover_info(&root, position).await {
+        return Ok(Some(content));
+    }
 
     let Some((keys, range)) = get_hover_keys_with_range(&root, position, toml_version).await else {
         return Ok(None);
@@ -86,18 +91,11 @@ pub async fn handle_hover(
     .await
     .map(|mut content| {
         content.range = range;
-        if let Some(schema_url) = content
-            .schema_url
-            .as_ref()
-            .and_then(|url| get_tombi_github_url(url))
-        {
-            content.schema_url = Some(schema_url.into());
-        }
-        content
+        HoverContent::Value(content)
     }));
 }
 
-pub(crate) async fn get_hover_keys_with_range(
+pub async fn get_hover_keys_with_range(
     root: &tombi_ast::Root,
     position: tombi_text::Position,
     toml_version: tombi_config::TomlVersion,

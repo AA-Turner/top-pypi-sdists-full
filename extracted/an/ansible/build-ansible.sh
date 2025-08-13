@@ -5,13 +5,13 @@
 
 set -e
 
-VERSION="11.8.0"
+VERSION="11.9.0"
 MAJOR="11"
 
 # For idempotency, remove build data or built output first
 rm -rf ansible-build-data built
 
-pip3 install --user --upgrade "antsibull-build==0.72.5"
+pip3 install --user --upgrade "antsibull-build==0.73.1"
 git clone https://github.com/ansible-community/ansible-build-data.git
 mkdir -p built collection-cache
 BUILD_DATA_DIR="ansible-build-data/${MAJOR}"

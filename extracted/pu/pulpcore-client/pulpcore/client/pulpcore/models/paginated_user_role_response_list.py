@@ -80,16 +80,6 @@ class PaginatedUserRoleResponseList(BaseModel):
                 if _item_results:
                     _items.append(_item_results.to_dict())
             _dict['results'] = _items
-        # set to None if next (nullable) is None
-        # and model_fields_set contains the field
-        if self.next is None and "next" in self.model_fields_set:
-            _dict['next'] = None
-
-        # set to None if previous (nullable) is None
-        # and model_fields_set contains the field
-        if self.previous is None and "previous" in self.model_fields_set:
-            _dict['previous'] = None
-
         return _dict
 
     @classmethod

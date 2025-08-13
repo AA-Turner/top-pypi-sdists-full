@@ -43,6 +43,7 @@ class TestMultipleArtifactContentResponse(unittest.TestCase):
                 pulp_labels = {
                     'key' : ''
                     },
+                vuln_report = '',
                 artifacts = None
             )
         else:

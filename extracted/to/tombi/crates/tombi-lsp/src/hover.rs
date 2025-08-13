@@ -1,5 +1,6 @@
 mod all_of;
 mod any_of;
+mod comment;
 mod constraints;
 mod display_value;
 mod one_of;
@@ -7,7 +8,9 @@ mod value;
 
 use std::{borrow::Cow, fmt::Debug, ops::Deref};
 
+pub use comment::get_comment_directive_hover_info;
 use constraints::ValueConstraints;
+use tombi_extension::get_tombi_github_url;
 use tombi_schema_store::{
     get_schema_name, Accessor, Accessors, CurrentSchema, SchemaUrl, ValueType,
 };
@@ -17,7 +20,7 @@ pub async fn get_hover_content(
     position: tombi_text::Position,
     keys: &[tombi_document_tree::Key],
     schema_context: &tombi_schema_store::SchemaContext<'_>,
-) -> Option<HoverContent> {
+) -> Option<HoverValueContent> {
     let table = tree.deref();
     match schema_context.root_schema {
         Some(document_schema) => {
@@ -50,11 +53,47 @@ trait GetHoverContent {
         accessors: &'a [Accessor],
         current_schema: Option<&'a CurrentSchema<'a>>,
         schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Option<HoverContent>>;
+    ) -> tombi_future::BoxFuture<'b, Option<HoverValueContent>>;
 }
 
 #[derive(Debug, Clone)]
-pub struct HoverContent {
+pub enum HoverContent {
+    Directive(HoverDirectiveContent),
+    Value(HoverValueContent),
+}
+
+impl From<HoverContent> for tower_lsp::lsp_types::Hover {
+    fn from(value: HoverContent) -> Self {
+        match value {
+            HoverContent::Directive(content) => content.into(),
+            HoverContent::Value(content) => content.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HoverDirectiveContent {
+    pub title: String,
+    pub description: String,
+    pub range: tombi_text::Range,
+}
+
+impl From<HoverDirectiveContent> for tower_lsp::lsp_types::Hover {
+    fn from(value: HoverDirectiveContent) -> Self {
+        tower_lsp::lsp_types::Hover {
+            contents: tower_lsp::lsp_types::HoverContents::Markup(
+                tower_lsp::lsp_types::MarkupContent {
+                    kind: tower_lsp::lsp_types::MarkupKind::Markdown,
+                    value: format!("#### {}\n\n{}", value.title, value.description),
+                },
+            ),
+            range: Some(value.range.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HoverValueContent {
     pub title: Option<String>,
     pub description: Option<String>,
     pub accessors: Accessors,
@@ -64,14 +103,14 @@ pub struct HoverContent {
     pub range: Option<tombi_text::Range>,
 }
 
-impl HoverContent {
-    pub fn into_nullable(mut self) -> HoverContent {
+impl HoverValueContent {
+    pub fn into_nullable(mut self) -> HoverValueContent {
         self.value_type = self.value_type.into_nullable();
         self
     }
 }
 
-impl PartialEq for HoverContent {
+impl PartialEq for HoverValueContent {
     fn eq(&self, other: &Self) -> bool {
         self.title == other.title
             && self.description == other.description
@@ -81,9 +120,9 @@ impl PartialEq for HoverContent {
     }
 }
 
-impl Eq for HoverContent {}
+impl Eq for HoverValueContent {}
 
-impl std::hash::Hash for HoverContent {
+impl std::hash::Hash for HoverValueContent {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.title.hash(state);
         self.description.hash(state);
@@ -93,7 +132,7 @@ impl std::hash::Hash for HoverContent {
     }
 }
 
-impl std::fmt::Display for HoverContent {
+impl std::fmt::Display for HoverValueContent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         const SECTION_SEPARATOR: &str = "-----";
 
@@ -118,7 +157,11 @@ impl std::fmt::Display for HoverContent {
             writeln!(f, "{constraints}")?;
         }
 
-        if let Some(schema_url) = &self.schema_url {
+        if let Some(schema_url) = &self
+            .schema_url
+            .as_ref()
+            .and_then(|url| get_tombi_github_url(url))
+        {
             if let Some(schema_filename) = get_schema_name(schema_url) {
                 writeln!(f, "Schema: [{schema_filename}]({schema_url})\n",)?;
             }
@@ -128,8 +171,8 @@ impl std::fmt::Display for HoverContent {
     }
 }
 
-impl From<HoverContent> for tower_lsp::lsp_types::Hover {
-    fn from(value: HoverContent) -> Self {
+impl From<HoverValueContent> for tower_lsp::lsp_types::Hover {
+    fn from(value: HoverValueContent) -> Self {
         tower_lsp::lsp_types::Hover {
             contents: tower_lsp::lsp_types::HoverContents::Markup(
                 tower_lsp::lsp_types::MarkupContent {

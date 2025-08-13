@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from typing import Optional, Set
@@ -31,7 +31,7 @@ class PatchedOpenPGPKeyring(BaseModel):
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
     name: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="A unique name for this repository.")
     description: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="An optional description.")
-    retain_repo_versions: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
+    retain_repo_versions: Optional[StrictInt] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
     remote: Optional[StrictStr] = Field(default=None, description="An optional remote to use by default when syncing.")
     __properties: ClassVar[List[str]] = ["pulp_labels", "name", "description", "retain_repo_versions", "remote"]
 

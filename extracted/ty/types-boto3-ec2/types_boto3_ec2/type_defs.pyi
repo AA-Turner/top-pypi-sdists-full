@@ -3221,12 +3221,14 @@ class RouteServerAssociationTypeDef(TypedDict):
 
 class AssociateRouteTableRequestRouteTableAssociateWithSubnetTypeDef(TypedDict):
     GatewayId: NotRequired[str]
+    PublicIpv4Pool: NotRequired[str]
     DryRun: NotRequired[bool]
     SubnetId: NotRequired[str]
 
 class AssociateRouteTableRequestTypeDef(TypedDict):
     RouteTableId: str
     GatewayId: NotRequired[str]
+    PublicIpv4Pool: NotRequired[str]
     DryRun: NotRequired[bool]
     SubnetId: NotRequired[str]
 
@@ -9125,6 +9127,7 @@ class RouteTableAssociationTypeDef(TypedDict):
     RouteTableId: NotRequired[str]
     SubnetId: NotRequired[str]
     GatewayId: NotRequired[str]
+    PublicIpv4Pool: NotRequired[str]
     AssociationState: NotRequired[RouteTableAssociationStateTypeDef]
 
 class AssociateTransitGatewayPolicyTableResultTypeDef(TypedDict):

@@ -1,12 +1,13 @@
 use std::{ops::Deref, str::FromStr, sync::Arc};
 
 use crate::{
-    get_tombi_schemastore_content, json::JsonCatalog, CatalogUrl, DocumentSchema, HttpClient,
-    SchemaAccessor, SchemaAccessors, SchemaUrl, SourceSchema,
+    get_tombi_schemastore_content, http_client::HttpClient, json::JsonCatalog, CatalogUrl,
+    DocumentSchema, SchemaAccessor, SchemaAccessors, SchemaUrl, SourceSchema,
 };
 use ahash::AHashMap;
 use itertools::Either;
 use tokio::sync::RwLock;
+use tombi_ast::SchemaCommentDirective;
 use tombi_cache::{get_cache_file_path, read_from_cache, refresh_cache, save_to_cache};
 use tombi_config::{Schema, SchemaOptions};
 use tombi_future::{BoxFuture, Boxable};
@@ -99,7 +100,7 @@ impl SchemaStore {
         };
 
         if schema_options.enabled.unwrap_or_default().value() {
-            self.load_schemas(
+            self.load_config_schemas(
                 match &config.schemas {
                     Some(schemas) => schemas,
                     None => &[],
@@ -118,7 +119,7 @@ impl SchemaStore {
                         });
                     };
                     let catalog_url = CatalogUrl::new(catalog_url);
-                    self.load_json_catalog_from_catalog_url(&catalog_url).await
+                    self.load_catalog_from_url(&catalog_url).await
                 }))
                 .await;
 
@@ -136,7 +137,11 @@ impl SchemaStore {
         Ok(())
     }
 
-    pub async fn load_schemas(&self, schemas: &[Schema], base_dir_path: Option<&std::path::Path>) {
+    pub async fn load_config_schemas(
+        &self,
+        schemas: &[Schema],
+        base_dir_path: Option<&std::path::Path>,
+    ) {
         futures::future::join_all(schemas.iter().map(|schema| async move {
             let schema_url = if let Ok(schema_url) = SchemaUrl::parse(schema.path()) {
                 schema_url
@@ -162,7 +167,7 @@ impl SchemaStore {
         .await;
     }
 
-    async fn load_json_catalog_from_catalog_url(
+    pub async fn load_catalog_from_url(
         &self,
         catalog_url: &CatalogUrl,
     ) -> Result<Option<JsonCatalog>, crate::Error> {
@@ -503,8 +508,10 @@ impl SchemaStore {
             None => None,
         };
 
-        if let Some((schema_url, url_range)) = root.file_schema_url(source_path.as_deref()) {
-            let schema_url = match schema_url {
+        if let Some(SchemaCommentDirective { url, url_range, .. }) =
+            root.schema_comment_directive(source_path.as_deref())
+        {
+            let schema_url = match url {
                 Ok(schema_url) => schema_url,
                 Err(schema_url_or_file_path) => {
                     return Err((

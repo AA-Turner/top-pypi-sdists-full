@@ -40,6 +40,7 @@ __all__ = (
     "OutputLocationTypeType",
     "ParticipantRoleType",
     "PiiEntityTypeType",
+    "PronounsType",
     "RedactionOutputType",
     "RedactionTypeType",
     "RegionName",
@@ -198,6 +199,7 @@ PiiEntityTypeType = Literal[
     "PIN",
     "SSN",
 ]
+PronounsType = Literal["HE_HIM", "SHE_HER", "THEY_THEM"]
 RedactionOutputType = Literal["redacted", "redacted_and_unredacted"]
 RedactionTypeType = Literal["PII"]
 SentimentValueType = Literal["MIXED", "NEGATIVE", "NEUTRAL", "POSITIVE"]

@@ -640,6 +640,9 @@ def _create_tecton_df_spine(
             # this branch is for Remote Dataset Generation only
             # so locally we use empty dataframe
             # it's needed for QT schema inference
+
+            # we cannot load the spine from the uri because this function is called at Remote Dataset Generation trigger time.
+            # the user triggering the job may not have permissions to access the uri.
             spine_schema += schema.Schema.from_dict({timestamp_key: data_types.TimestampType()})
             empty_df = tecton_schema_to_arrow_schema(spine_schema).empty_table().to_pandas()
             return TectonDataFrame._create_from_pandas_with_schema(empty_df, schema=spine_schema)

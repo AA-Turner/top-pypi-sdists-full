@@ -232,7 +232,9 @@ def _materialize_batch_to_offline(
     is_overwrite_task = materialization_task_params.batch_task_info.batch_parameters.is_overwrite
     write_tile = pendulum.period(feature_start_time, feature_end_time)
     if offline_store_type == OfflineStoreType.DELTA and (
-        has_prior_delta_commit(spark, materialization_task_params, idempotence_key, start_time_proto.ToJsonString())
+        has_prior_delta_commit(
+            spark, materialization_task_params.offline_store_path, idempotence_key, start_time_proto.ToJsonString()
+        )
         or is_overwrite_task
     ):
         store_writer.overwrite_dataframe_in_tile(offline_store_df, write_tile)

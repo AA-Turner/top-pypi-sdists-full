@@ -28,11 +28,13 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListAccountsForParentPaginator,
     ListAccountsPaginator,
+    ListAccountsWithInvalidEffectivePolicyPaginator,
     ListAWSServiceAccessForOrganizationPaginator,
     ListChildrenPaginator,
     ListCreateAccountStatusPaginator,
     ListDelegatedAdministratorsPaginator,
     ListDelegatedServicesForAccountPaginator,
+    ListEffectivePolicyValidationErrorsPaginator,
     ListHandshakesForAccountPaginator,
     ListHandshakesForOrganizationPaginator,
     ListOrganizationalUnitsForParentPaginator,
@@ -94,6 +96,8 @@ from .type_defs import (
     ListAccountsForParentResponseTypeDef,
     ListAccountsRequestTypeDef,
     ListAccountsResponseTypeDef,
+    ListAccountsWithInvalidEffectivePolicyRequestTypeDef,
+    ListAccountsWithInvalidEffectivePolicyResponseTypeDef,
     ListAWSServiceAccessForOrganizationRequestTypeDef,
     ListAWSServiceAccessForOrganizationResponseTypeDef,
     ListChildrenRequestTypeDef,
@@ -104,6 +108,8 @@ from .type_defs import (
     ListDelegatedAdministratorsResponseTypeDef,
     ListDelegatedServicesForAccountRequestTypeDef,
     ListDelegatedServicesForAccountResponseTypeDef,
+    ListEffectivePolicyValidationErrorsRequestTypeDef,
+    ListEffectivePolicyValidationErrorsResponseTypeDef,
     ListHandshakesForAccountRequestTypeDef,
     ListHandshakesForAccountResponseTypeDef,
     ListHandshakesForOrganizationRequestTypeDef,
@@ -577,6 +583,16 @@ class OrganizationsClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_organizations/client/#list_accounts_for_parent)
         """
 
+    def list_accounts_with_invalid_effective_policy(
+        self, **kwargs: Unpack[ListAccountsWithInvalidEffectivePolicyRequestTypeDef]
+    ) -> ListAccountsWithInvalidEffectivePolicyResponseTypeDef:
+        """
+        Lists all the accounts in an organization that have invalid effective policies.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/list_accounts_with_invalid_effective_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_organizations/client/#list_accounts_with_invalid_effective_policy)
+        """
+
     def list_children(
         self, **kwargs: Unpack[ListChildrenRequestTypeDef]
     ) -> ListChildrenResponseTypeDef:
@@ -619,6 +635,18 @@ class OrganizationsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/list_delegated_services_for_account.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_organizations/client/#list_delegated_services_for_account)
+        """
+
+    def list_effective_policy_validation_errors(
+        self, **kwargs: Unpack[ListEffectivePolicyValidationErrorsRequestTypeDef]
+    ) -> ListEffectivePolicyValidationErrorsResponseTypeDef:
+        """
+        Lists all the validation errors on an <a
+        href="https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_effective.html">effective
+        policy</a> for a specified account and policy type.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/list_effective_policy_validation_errors.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_organizations/client/#list_effective_policy_validation_errors)
         """
 
     def list_handshakes_for_account(
@@ -831,6 +859,17 @@ class OrganizationsClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_accounts_with_invalid_effective_policy"]
+    ) -> ListAccountsWithInvalidEffectivePolicyPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_organizations/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_children"]
     ) -> ListChildrenPaginator:
         """
@@ -866,6 +905,17 @@ class OrganizationsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_delegated_services_for_account"]
     ) -> ListDelegatedServicesForAccountPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/organizations/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_organizations/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_effective_policy_validation_errors"]
+    ) -> ListEffectivePolicyValidationErrorsPaginator:
         """
         Create a paginator for an operation.
 

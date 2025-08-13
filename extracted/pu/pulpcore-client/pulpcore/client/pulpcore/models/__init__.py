@@ -118,6 +118,7 @@ from pulpcore.client.pulpcore.models.paginated_upload_response_list import Pagin
 from pulpcore.client.pulpcore.models.paginated_upstream_pulp_response_list import PaginatedUpstreamPulpResponseList
 from pulpcore.client.pulpcore.models.paginated_user_response_list import PaginatedUserResponseList
 from pulpcore.client.pulpcore.models.paginated_user_role_response_list import PaginatedUserRoleResponseList
+from pulpcore.client.pulpcore.models.paginated_vulnerability_report_response_list import PaginatedVulnerabilityReportResponseList
 from pulpcore.client.pulpcore.models.paginated_worker_response_list import PaginatedWorkerResponseList
 from pulpcore.client.pulpcore.models.patched_access_policy import PatchedAccessPolicy
 from pulpcore.client.pulpcore.models.patched_composite_content_guard import PatchedCompositeContentGuard
@@ -186,4 +187,5 @@ from pulpcore.client.pulpcore.models.user_response import UserResponse
 from pulpcore.client.pulpcore.models.user_role import UserRole
 from pulpcore.client.pulpcore.models.user_role_response import UserRoleResponse
 from pulpcore.client.pulpcore.models.version_response import VersionResponse
+from pulpcore.client.pulpcore.models.vulnerability_report_response import VulnerabilityReportResponse
 from pulpcore.client.pulpcore.models.worker_response import WorkerResponse

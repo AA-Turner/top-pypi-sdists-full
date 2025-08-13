@@ -1,12 +1,11 @@
 [tool.poetry]
 name = "db-contrib-tool"
-version = "2.0.0"
+version = "2.0.1"
 description = "The `db-contrib-tool` - MongoDB's tool for contributors."
-authors = ["DAG team <dev-prod-dag@mongodb.com>"]
+authors = ["DevProd Correctness <devprod-correctness-team@mongodb.com>"]
 readme = "README.md"
 repository = "https://github.com/10gen/db-contrib-tool"
 include = [
-    "src/db_contrib_tool/evg_aware_bisect/*.sh",
     "src/db_contrib_tool/config/*.yml",
     "src/db_contrib_tool/config/*.yaml",
 ]
@@ -29,7 +28,7 @@ opentelemetry-exporter-otlp-proto-grpc = { version = "*", markers = "platform_ma
 opentelemetry-sdk = "*"
 packaging = "^24.0"
 pkce = "^1.0.3"
-pydantic = "2.11.0"
+pydantic = "1.8.2"
 PyGithub = "1.58.0" # beyond this uses cryptography, which is incompatible on ppc64le and s390x
 pyinstaller = "^5.12"
 python = ">=3.9,<3.13"

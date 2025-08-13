@@ -1,6 +1,6 @@
 [package]
 name = "pywinpty"
-version = "2.0.15"
+version = "3.0.0"
 authors = ["Edgar Andrés Margffoy Tuay <andfoy@gmail.com>"]
 description = "Pseudo terminal support for Windows from Python."
 repository = "https://github.com/spyder-ide/pywinpty"
@@ -13,11 +13,14 @@ edition = "2021"
 name = "winpty"
 crate-type = ["cdylib"]
 
+[build-dependencies]
+glob = "0.3.2"
+
 [dependencies]
-winpty-rs = "0.4"
+winpty-rs = "1.0.3"
 
 [dependencies.pyo3]
-version = "0.23.4"
+version = "0.25.1"
 features = ["extension-module"]
 
 [package.metadata.docs.rs]

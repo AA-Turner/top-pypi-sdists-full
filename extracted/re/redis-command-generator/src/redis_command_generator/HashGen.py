@@ -4,7 +4,6 @@ import time
 from simple_parsing import parse
 from dataclasses import dataclass
 from redis_command_generator.BaseGen import BaseGen, cg_method
-from redis.commands.core import HashDataPersistOptions
 
 @dataclass
 class HashGen(BaseGen):
@@ -44,7 +43,10 @@ class HashGen(BaseGen):
     def hgetdel(self, pipe: redis.client.Pipeline, key: str) -> None:
         redis_obj = self._pipe_to_redis(pipe)
         fields = redis_obj.hkeys(key)
-        pipe.hgetdel(key, *fields)
+        
+        # pipe.hgetdel(key, *fields) supported from redis-py 6.x only, so we implement ourselves instead:
+        # HGETDEL key FIELDS numfields field [field ...]
+        pipe.execute_command('HGETDEL', key, 'FIELDS', len(fields), *fields)
     
     @cg_method(cmd_type="hash", can_create_key=False)
     def hgetex(self, pipe: redis.client.Pipeline, key: str) -> None:
@@ -71,7 +73,13 @@ class HashGen(BaseGen):
         elif expiry_option == 'PERSIST':
             kwargs['persist'] = True
         
-        pipe.hgetex(key, *fields, **kwargs)
+        # pipe.hgetex(key, *fields, **kwargs) supported from redis-py 6.x only, so we implement ourselves instead:
+        # HGETEX key [EX seconds | PX milliseconds | EXAT unix-time-seconds | PXAT unix-time-milliseconds | PERSIST] FIELDS numfields field [field ...]
+        cmd = ['HGETEX', key, expiry_option, kwargs[expiry_option.lower()], 'FIELDS', len(fields), *fields]
+        if expiry_option == 'PERSIST':
+            cmd.remove(True)
+        pipe.execute_command(*cmd)
+        
     
     @cg_method(cmd_type="hash", can_create_key=True)
     def hsetex(self, pipe: redis.client.Pipeline, key: str) -> None:
@@ -82,7 +90,8 @@ class HashGen(BaseGen):
         kwargs = {}
         
         # Decide on optional flags (FNX, FXX)
-        data_persist_option = random.choice([None, HashDataPersistOptions.FNX, HashDataPersistOptions.FXX])
+        # data_persist_option = random.choice([None, HashDataPersistOptions.FNX, HashDataPersistOptions.FXX])
+        data_persist_option = random.choice([None, 'FNX', 'FXX'])
         if data_persist_option:
             kwargs['data_persist_option'] = data_persist_option
         
@@ -104,9 +113,17 @@ class HashGen(BaseGen):
         
         items = []
         for _ in range(random.randint(1, self.max_subelements)):
-            items.append(self._rand_str(self.subkey_size))  # Field
+            items.append(self._rand_str(self.subkey_size + 5))  # Field
             items.append(self._rand_str(self.subval_size))  # Value
-        pipe.hsetex(key, items=items, **kwargs)
+        
+        # pipe.hsetex(key, items=items, **kwargs) supported from redis-py 6.x only, so we implement ourselves instead:
+        # HSETEX key [FNX | FXX] [EX seconds | PX milliseconds | EXAT unix-time-seconds | PXAT unix-time-milliseconds | KEEPTTL] FIELDS numfields field value [field value ...]
+        cmd = ['HSETEX', key, data_persist_option, expiry_option, kwargs[expiry_option.lower()], 'FIELDS', int(len(items) / 2), *items]
+        if data_persist_option == None:
+            cmd.remove(None)
+        if expiry_option == 'KEEPTTL':
+            cmd.remove(True)
+        pipe.execute_command(*cmd)
     
     @cg_method(cmd_type="hash", can_create_key=True)
     def hsetnx(self, pipe: redis.client.Pipeline, key: str, existing_field_prob: float = 0.3) -> None:

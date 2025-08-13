@@ -1967,6 +1967,174 @@ class TestErcot(BaseTestISO):
                 self.iso.default_timezone,
             ) + pd.Timedelta(minutes=50)
 
+    """get_dam_total_energy_purchased"""
+
+    def _check_dam_total_energy_purchased(self, df):
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Location",
+            "Total",
+        ]
+
+        assert (
+            df["Interval End"] - df["Interval Start"] == pd.Timedelta(hours=1)
+        ).all()
+        assert df["Total"].dtype == float
+        assert df["Location"].dtype == object
+
+    def test_get_dam_total_energy_purchased_today(self):
+        with api_vcr.use_cassette(
+            "test_get_dam_total_energy_purchased_today.yaml",
+        ):
+            df = self.iso.get_dam_total_energy_purchased("today")
+
+        self._check_dam_total_energy_purchased(df)
+
+        assert df["Interval Start"].min() == self.local_start_of_today()
+        assert df[
+            "Interval Start"
+        ].max() == self.local_start_of_today() + pd.DateOffset(days=1, hours=-1)
+
+    def test_get_dam_total_energy_purchased_historical_date_range(self):
+        start = self.local_today() - pd.DateOffset(days=8)
+        end = start + pd.DateOffset(days=2)
+
+        with api_vcr.use_cassette(
+            f"test_get_dam_total_energy_purchased_historical_date_range_{start}_{end}.yaml",
+        ):
+            df = self.iso.get_dam_total_energy_purchased(start, end)
+
+        self._check_dam_total_energy_purchased(df)
+
+        assert df["Interval Start"].min() == self.local_start_of_day(start)
+        assert df["Interval Start"].max() == self.local_start_of_day(
+            end,
+        ) - pd.DateOffset(
+            hours=1,
+        )
+
+    """get_dam_total_energy_sold"""
+
+    def _check_dam_total_energy_sold(self, df):
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Location",
+            "Total",
+        ]
+
+        assert (
+            df["Interval End"] - df["Interval Start"] == pd.Timedelta(hours=1)
+        ).all()
+        assert df["Total"].dtype == float
+        assert df["Location"].dtype == object
+
+    def test_get_dam_total_energy_sold_today(self):
+        with api_vcr.use_cassette(
+            "test_get_dam_total_energy_sold_today.yaml",
+        ):
+            df = self.iso.get_dam_total_energy_sold("today")
+
+        self._check_dam_total_energy_sold(df)
+
+        assert df["Interval Start"].min() == self.local_start_of_today()
+        assert df[
+            "Interval Start"
+        ].max() == self.local_start_of_today() + pd.DateOffset(days=1, hours=-1)
+
+    def test_get_dam_total_energy_sold_historical_date_range(self):
+        start = self.local_today() - pd.DateOffset(days=15)
+        end = start + pd.DateOffset(days=2)
+
+        with api_vcr.use_cassette(
+            f"test_get_dam_total_energy_sold_historical_date_range_{start}_{end}.yaml",
+        ):
+            df = self.iso.get_dam_total_energy_sold(start, end)
+
+        self._check_dam_total_energy_sold(df)
+
+        assert df["Interval Start"].min() == self.local_start_of_day(start)
+        assert df["Interval Start"].max() == self.local_start_of_day(
+            end,
+        ) - pd.DateOffset(hours=1)
+
+    """get_cop_adjustment_period_snapshot_60_day"""
+
+    def _check_cop_adjustment_period_snapshot_60_day(self, df):
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Resource Name",
+            "QSE",
+            "Status",
+            "High Sustained Limit",
+            "Low Sustained Limit",
+            "High Emergency Limit",
+            "Low Emergency Limit",
+            "Reg Up",
+            "Reg Down",
+            "RRS",
+            "RRSPFR",
+            "RRSFFR",
+            "RRSUFR",
+            "NSPIN",
+            "ECRS",
+            "Minimum SOC",
+            "Maximum SOC",
+            "Hour Beginning Planned SOC",
+        ]
+
+        assert (
+            df["Interval End"] - df["Interval Start"] == pd.Timedelta(hours=1)
+        ).all()
+
+        assert df["Resource Name"].dtype == object
+        assert df["QSE"].dtype == object
+
+        # Column not in newer data so it's added as null
+        assert df["RRS"].isnull().all()
+
+        # Columns not in older data but should be present in newer data
+        for col in [
+            "High Sustained Limit",
+            "Low Sustained Limit",
+            "High Emergency Limit",
+            "Low Emergency Limit",
+            "Reg Up",
+            "Reg Down",
+            "RRSPFR",
+            "RRSFFR",
+            "RRSUFR",
+            "NSPIN",
+            "ECRS",
+        ]:
+            assert df[col].notnull().all()
+
+    def test_get_cop_adjustment_period_snapshot_60_day_raises_error(self):
+        with pytest.raises(ValueError):
+            self.iso.get_cop_adjustment_period_snapshot_60_day(
+                start=self.local_today() - pd.DateOffset(days=59),
+                end=self.local_today(),
+            )
+
+    def test_get_cop_adjustment_period_snapshot_60_day_historical_date_range(self):
+        # Must be at least 60 days in the past
+        start = self.local_today() - pd.DateOffset(days=63)
+        end = start + pd.DateOffset(days=2)
+
+        with api_vcr.use_cassette(
+            f"test_get_cop_adjustment_period_snapshot_60_day_historical_date_range_{start}_{end}.yaml",
+        ):
+            df = self.iso.get_cop_adjustment_period_snapshot_60_day(start, end)
+
+        self._check_cop_adjustment_period_snapshot_60_day(df)
+
+        assert df["Interval Start"].min() == self.local_start_of_day(start)
+        assert df["Interval Start"].max() == self.local_start_of_day(
+            end,
+        ) - pd.DateOffset(hours=1)
+
 
 def check_60_day_sced_disclosure(df_dict: Dict[str, pd.DataFrame]) -> None:
     load_resource = df_dict[SCED_LOAD_RESOURCE_KEY]

@@ -77,7 +77,7 @@ class Trainer : public TrainerInterface {
 
   // Makes seed pieces from the training corpus.
   // The size of seed pieces is determined by seed_sentencepiece_size.
-  // node_int_type should be of integer type (int32 or int64),
+  // node_int_type should be of integer type (int32_t or int64_t),
   // determined by train_extremely_large_corpus.
   template <typename node_int_type>
   TrainerModel::SentencePieces MakeSeedSentencePiecesInternal();
@@ -88,7 +88,7 @@ class Trainer : public TrainerInterface {
   // |num_token| is the number of total tokens to tokenize
   // training corpus.
   std::vector<float> RunEStep(const TrainerModel &model, float *objective,
-                              int64 *num_tokens) const;
+                              int64_t *num_tokens) const;
 
   // Executes the M step of EM with the expected frequency and
   // returns new pieces.

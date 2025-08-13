@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <set>
 #include <string>
@@ -101,7 +102,7 @@ class SentenceSelector {
  public:
   using Sampler = random::ReservoirSampler<TrainerInterface::Sentence>;
 
-  static constexpr int64 kTooBigSentencesSize = 1000000;
+  static constexpr int64_t kTooBigSentencesSize = 1000000;
 
   SentenceSelector(TrainerInterface::Sentences *sentences,
                    const TrainerSpec &spec)
@@ -131,7 +132,7 @@ class SentenceSelector {
     }
   }
 
-  bool Add(const std::pair<std::string, int64> &sentence) {
+  bool Add(const std::pair<std::string, int64_t> &sentence) {
     if (spec_->input_sentence_size() == 0) {
       sentences_->emplace_back(sentence);
     } else {
@@ -219,7 +220,8 @@ bool TrainerInterface::IsValidSentencePiece(
   }
 
   constexpr unicode_script::ScriptType kAnyType =
-      static_cast<unicode_script::ScriptType>(-1);
+      static_cast<unicode_script::ScriptType>(
+          std::numeric_limits<char32>::max());
 
   unicode_script::ScriptType prev_script = kAnyType;
   bool all_whitespace_piece =
@@ -359,7 +361,7 @@ util::Status TrainerInterface::LoadSentences() {
   }
 
   for (; !sentence_iterator_->done(); sentence_iterator_->Next()) {
-    int64 freq = 1;
+    int64_t freq = 1;
     std::string sentence = sentence_iterator_->value();
 
     if (is_tsv) {
@@ -474,7 +476,7 @@ END:
 
     // This line is mainly for tests with small num of sentences.
     const auto num_workers =
-        std::min<uint64>(trainer_spec_.num_threads(), sentences_.size() - 1);
+        std::min<uint64_t>(trainer_spec_.num_threads(), sentences_.size() - 1);
 
     {
       auto pool = std::make_unique<ThreadPool>(num_workers);
@@ -484,7 +486,7 @@ END:
           // One per thread generator.
           auto *generator = random::GetRandomGenerator();
           for (size_t i = n; i < sentences_.size(); i += num_workers) {
-            AddDPNoise<int64>(trainer_spec_, generator,
+            AddDPNoise<int64_t>(trainer_spec_, generator,
                               &(sentences_[i].second));
           }
         });
@@ -504,9 +506,9 @@ END:
   }
 
   // Count character frequencies.
-  int64 all_chars_count = 0;
+  int64_t all_chars_count = 0;
   // A map from a character to {is_required_char, character count}.
-  absl::flat_hash_map<char32, std::pair<bool, int64>> chars_count;
+  absl::flat_hash_map<char32, std::pair<bool, int64_t>> chars_count;
   for (const char32 c :
        string_util::UTF8ToUnicodeText(trainer_spec_.required_chars())) {
     CHECK_OR_RETURN(string_util::IsValidCodepoint(c));
@@ -539,7 +541,7 @@ END:
   LOG(INFO) << "all chars count=" << all_chars_count;
 
   // Determines required_chars which must be included in the vocabulary.
-  int64 accumulated_chars_count = 0;
+  int64_t accumulated_chars_count = 0;
   // Sorted() sorts the chars_count values in the decsending order of pair<>.
   // I.e. characters are sorted in the order of required characters and then
   // frequent characters.
@@ -597,7 +599,7 @@ END:
 void TrainerInterface::SplitSentencesByWhitespace() {
   LOG(INFO) << "Tokenizing input sentences with whitespace: "
             << sentences_.size();
-  absl::flat_hash_map<std::string, int64> tokens;
+  absl::flat_hash_map<std::string, int64_t> tokens;
   for (const auto &s : sentences_) {
     for (const auto &w :
          SplitIntoWords(s.first, trainer_spec_.treat_whitespace_as_suffix(),
@@ -655,7 +657,7 @@ util::Status TrainerInterface::Serialize(ModelProto *model_proto) const {
       trainer_spec_.model_type() == TrainerSpec::CHAR) {
     CHECK_GE_OR_RETURN(trainer_spec_.vocab_size(), model_proto->pieces_size());
     CHECK_GE_OR_RETURN(trainer_spec_.vocab_size(),
-                       static_cast<int32>(dup.size()));
+                       static_cast<int32_t>(dup.size()));
     model_proto->mutable_trainer_spec()->set_vocab_size(
         model_proto->pieces_size());
   } else {
@@ -664,7 +666,7 @@ util::Status TrainerInterface::Serialize(ModelProto *model_proto) const {
                "Vocabulary size too high (%d). Please set it to a value <= %d.",
                trainer_spec_.vocab_size(), model_proto->pieces_size());
     CHECK_EQ_OR_RETURN(trainer_spec_.vocab_size(),
-                       static_cast<int32>(dup.size()));
+                       static_cast<int32_t>(dup.size()));
   }
 
   // Saves self-testing data.

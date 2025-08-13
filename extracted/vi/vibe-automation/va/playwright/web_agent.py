@@ -8,7 +8,7 @@ from playwright.async_api import Page
 from ..agent.agent import Agent
 from .tools import PLAYWRIGHT_TOOLS, GENERIC_TOOLS, ALL_TOOL_HANDLERS
 from mcp import types
-
+from .extract_schemas import FormVerification
 
 log = logging.getLogger("va.playwright.web_agent")
 
@@ -59,7 +59,9 @@ def mcp_content_to_anthropic_content(
 
 
 # Convert all tools to Anthropic format
-TOOLS = [mcp_tool_to_anthropic_tool(tool) for tool in PLAYWRIGHT_TOOLS + GENERIC_TOOLS]
+TOOLS = [
+    *(mcp_tool_to_anthropic_tool(tool) for tool in PLAYWRIGHT_TOOLS + GENERIC_TOOLS),
+]
 
 
 def build_system_prompt(command: str, context: Dict[str, Any]) -> str:
@@ -108,6 +110,9 @@ Guidelines:
 - Use context variables with context["key"] syntax, don't directly use the variable value directly since we want the generated code to be reusable.
 - Always use async/await for page interactions
 - Prefer to use Playwright native methods to achieve the task, instead of using page.evaluate with custom JavaScript code.
+- IMPORTANT: When you need data that is not available in the context, throw an error describing what information is missing
+- DO NOT use placeholder or dummy data (like "example@email.com", "John Doe", "123-456-7890") - instead throw an error
+- If context is missing required information, fail immediately with a clear error message describing what is needed
 - IMPORTANT: Your final script should use the resolved locators (e.g., page.get_by_label("Submit")) not the ref-based calls (e.g., page.get_by_ref("e123"))
 - You don't need to call get_page_screenshot() or get_page_snapshot() after execute_python_command since they're included automatically
 - You don't need to close dropdowns, date pickers, or dialogs after completing your task - just complete the requested action
@@ -140,16 +145,47 @@ YOU MUST EXTRACT ALL OF THE INFORMATION THAT THE USER REQUESTS.
 
     You will be given:
     1. An instruction
-    2. A list of DOM elements to extract from.
+    2. A list of DOM elements (snapshot) to extract from.
     3. (Optional) A screenshot of the page.
 
     Print the exact text from the DOM+accessibility tree elements with all symbols, characters, and endlines as is. Do not add any additional text or formatting.
+    If a screenshot is provided, you must cross-reference the information with the screenshot.
 
 
     If you are given a schema, you must extract the data in the schema format.
     If you are not given a schema, you must extract the data in the format of the DOM+accessibility tree elements.
     
     Print an empty string if no new information is found.
+    """
+
+
+def build_extract_vision_system_prompt() -> str:
+    """Build the system prompt for the vision-based extractor."""
+
+    return """You are extracting content from visual information in screenshots.
+If a user asks you to extract a 'list' of information, or 'all' information,
+YOU MUST EXTRACT ALL OF THE INFORMATION THAT THE USER REQUESTS.
+
+    You will be given:
+    1. An instruction
+    2. A screenshot of the webpage
+    
+    Focus on visual elements and their relationships:
+    - Text content and its visual presentation
+    - Layout and positioning of elements
+    - Colors, styles, and visual hierarchies
+    - Visual patterns and groupings
+    - Images, icons, and visual indicators
+    
+    Describe visual elements precisely, including:
+    - Location (top, bottom, left, right, center)
+    - Visual properties (size, color, font, emphasis)
+    - Spatial relationships between elements
+    
+    If you are given a schema, you must extract the data in the schema format.
+    If you are not given a schema, describe what you see in natural language.
+    
+    Print an empty string if no relevant visual information is found.
     """
 
 
@@ -713,20 +749,19 @@ class WebAgent(Agent):
         snapshot = await self.page.snapshot_for_ai()  # type: ignore
 
         # Setup content for the LLM call
-        content = f"""Instruction: {prompt} DOM+accessibility tree: {snapshot}"""
+        content = (
+            f"""Instruction: {prompt} DOM+accessibility tree (snapshot): {snapshot}"""
+        )
 
         # If include_screenshot is True, capture and include the screenshot
         if include_screenshot:
             try:
                 screenshot_bytes = await self.page.screenshot(full_page=True)
                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
-                content = (
-                    f"""Instruction: {prompt} DOM+accessibility tree: {snapshot}"""
-                )
 
                 # Create content with both text and image
                 content_list = [
-                    {"type": "text", "text": content},
+                    {"type": "text", "text": content + " \n Screenshot: "},
                     {
                         "type": "image",
                         "source": {
@@ -762,3 +797,112 @@ class WebAgent(Agent):
             )
             # Extract text from TextBlock object
             return response.content[0].text
+
+    async def extract_vision_only(
+        self,
+        prompt: str,
+        schema: Optional[Type[BaseModel]] = None,
+    ) -> Any:
+        """
+        Extract data from the page using only visual information from screenshot.
+        Similar to extract() but relies purely on visual analysis rather than DOM structure.
+
+        Parameters:
+        -----------
+        prompt (str): The natural language instruction for what to extract
+        schema (Optional[Type[BaseModel]]): Optional Pydantic model to structure the output
+
+        Returns:
+        --------
+        Any: Extracted data, either as raw text or structured according to schema
+        """
+        try:
+            # Capture full page screenshot
+            screenshot_bytes = await self.page.screenshot(full_page=True)
+            screenshot_base64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+
+            # Create content with instruction and screenshot
+            content_list = [
+                {
+                    "type": "text",
+                    "text": f"Instruction: {prompt}\nAnalyze the following screenshot: ",
+                },
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": screenshot_base64,
+                    },
+                },
+            ]
+        except Exception as e:
+            log.error(f"Failed to capture screenshot for vision extraction: {e}")
+            raise
+
+        # If schema is provided, use structured output
+        if schema:
+            response = self.instructor_client.messages.create(
+                model=self.model,
+                max_tokens=4000,
+                messages=[{"role": "user", "content": content_list}],
+                system=build_extract_vision_system_prompt(),
+                response_model=schema,  # specify output format
+            )
+            return response
+        else:
+            # Simple text extraction
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=4000,
+                messages=[{"role": "user", "content": content_list}],
+                system=build_extract_vision_system_prompt(),
+            )
+            # Extract text from TextBlock object
+            return response.content[0].text
+
+    async def verify_form_values(self, expected_form_data: str) -> FormVerification:
+        """
+        Verify if the form values match with the expected form data.
+        Using snapshot only.
+        """
+
+        result = await self.extract(
+            f"""Expected form data: {expected_form_data}
+
+After normalization (ignoring formats), do expected form data values match with the values in the page snapshot?
+CRITICAL: You MUST normalize values before comparing them. Remove all formatting characters (dashes, spaces, parentheses, dots, etc.) and compare only the core alphanumeric content.
+
+IMPORTANT: You should be matching form values, not form structures/keys.
+If the snapshot has an empty/placeholder field that is filled in expected form data, it is a missing value and considered a mismatch.
+For dropdowns, focus only on the SELECTED option. If the selected option is empty/placeholder/wrong, it is a mismatch even if the correct value is available for selection.
+
+They are only not matching if:
+1. there are conflicting field values between them after normalization. e.g. a field in snapshot shows different core values with expected form data.
+2. there are missing/unfilled values in snapshot. E.g. expected form data has values, but snapshot shows empty/placeholder values
+
+Examples of MATCHES (should return form_match_expected: true):
+    - One expected data field value is split into multiple elements on the snapshot, vice versa.
+    - Formatting differences in values - these are ALWAYS matches when core content is the same:
+        - Tax ID: "912913457" vs "912-91-3457" (same numbers, different formatting) ✓ MATCH
+        - Tax ID: "912-91-3457" vs "912 91 3457" (same numbers, different formatting) ✓ MATCH
+        - Tax ID: "912.91.3457" vs "912-91-3457" (same numbers, different formatting) ✓ MATCH
+        - Phone: "5551234567" vs "(555) 123-4567" (same numbers, different formatting) ✓ MATCH
+        - Phone: "555-123-4567" vs "555.123.4567" (same numbers, different formatting) ✓ MATCH
+        - ZIP: "12345" vs "12345-6789" (same first 5 digits) ✓ MATCH
+        - Date: "01/15/2024" vs "1/15/24" (same date, different format) ✓ MATCH
+        - Currency: "$1,234.56" vs "1234.56" (same amount, different formatting) ✓ MATCH
+        - SSN: "123456789" vs "123-45-6789" (same numbers, different formatting) ✓ MATCH
+        - Account numbers: "1234567890" vs "1234-5678-90" (same numbers, different formatting) ✓ MATCH
+
+Examples of NON-MATCHES (should return form_match_expected: false):
+    - Missing values: e.g. expected form data has State: Texas, but snapshot shows "Please select a state"
+    - Wrong values: e.g. expected form data has '12345' while snapshot has '123456' (different numbers)
+    - Extra conflicting fields: snapshot has an extra field that conflicts with expected form data
+    - Completely different values: "John Doe" vs "Jane Smith" (different names)
+    - Different core numbers: "912913457" vs "912913458" (different tax ID numbers)
+
+REMEMBER: Always strip formatting and compare only the core alphanumeric content. If the core content is identical, it's a MATCH regardless of formatting.""",
+            schema=FormVerification,
+        )
+        return result

@@ -319,7 +319,7 @@ class OutputConfig:
 class _RealTimeJsonEventPicker:
     """Stateful helper that replicates the original logic but works one frame at a time."""
 
-    def __init__(self, consecutive_threshold: int = 7, end_threshold: int = 120):
+    def __init__(self, consecutive_threshold: int = 7, end_threshold: int = 130):
         # Required sequence of severities
         self._base_sequence: List[str] = ["low", "medium", "significant", "critical", "low"]
         self._sequence: deque[str] = deque(self._base_sequence)
@@ -339,9 +339,9 @@ class _RealTimeJsonEventPicker:
 
     def send_api_call(self,json_data):
         headers = {'Content-Type': 'application/json'}
-        API_URL = "https://monthly-genuine-troll.ngrok-free.app" #https://matricedemo.forumalertcloud.io/matriceapi/
-        API_USER = "admin" #"matrice"
-        API_PASS = "admin" #"hR9aN9mQ"
+        API_URL = "https://matricedemo.forumalertcloud.io/matriceapi/" #"https://monthly-genuine-troll.ngrok-free.app" #https://matricedemo.forumalertcloud.io/matriceapi/
+        API_USER = "matrice" #"admin" #"matrice"
+        API_PASS = "hR9aN9mQ" #"admin" #"hR9aN9mQ"
         try:
             response = requests.post(
             API_URL,
@@ -374,6 +374,8 @@ class _RealTimeJsonEventPicker:
         """
         #incidents = frame_json.get("result").get("value").get("agg_summary")[str(frame_id)].get("incidents") or []
         incidents = frame_json.get("result").get("value").get("agg_apps")[0].get("agg_summary")[str(frame_id)].get("incidents") or []
+        if isinstance(incidents,list):
+          incidents = incidents[0]
         has_alerts = bool(incidents and incidents.get("alerts")[0])
        
         if has_alerts:
@@ -401,11 +403,22 @@ class _RealTimeJsonEventPicker:
             elif self._hit_counter<0:
                 self._hit_counter=0
 
+            if len(self._sequence) == 1:
+                if incidents.get("human_text")=="Event Over":
+                    event = {
+                        "type": "event_end",
+                        "frame_id": frame_id,
+                        "video_timestamp_secs": int(frame_id)/30
+                    }
+                    self.reset()
+                    self.send_api_call(frame_json)
+                    return event
+
         else:
             # No detections in this frame
             if len(self._sequence) == 1:  # Waiting for final idle period
                 self._hit_counter += 1
-                if self._hit_counter > self._end_threshold:
+                if (self._hit_counter >= self._end_threshold) or (incidents.get("human_text")=="Event Over"):
                     event = {
                         "type": "event_end",
                         "frame_id": frame_id,

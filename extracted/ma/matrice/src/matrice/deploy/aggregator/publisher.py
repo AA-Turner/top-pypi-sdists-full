@@ -15,7 +15,7 @@ class ResultsPublisher:
     """
 
     def __init__(
-        self, inference_pipeline_id: str, session: Session, final_results_queue: Queue
+        self, inference_pipeline_id: str, session: Session, final_results_queue: Queue, analytics_summarizer: Optional[Any] = None
     ):
         """
         Initialize the final results streamer.
@@ -31,6 +31,8 @@ class ResultsPublisher:
         self.kafka_handler = MatriceKafkaDeployment(
             session, inference_pipeline_id, type="server"
         )
+        # Optional analytics summarizer hook
+        self.analytics_summarizer = analytics_summarizer
         
         # Threading and state management
         self._stop_streaming = threading.Event()
@@ -109,6 +111,12 @@ class ResultsPublisher:
                     camera_info = aggregated_result.get('camera_info', {})
                     stream_key = camera_info.get('camera_name', 'unknown')
                     logging.debug(f"Successfully published camera_results for stream: {stream_key}")
+                    # Forward to analytics summarizer after successful publish
+                    try:
+                        if self.analytics_summarizer is not None and hasattr(self.analytics_summarizer, 'ingest_result'):
+                            self.analytics_summarizer.ingest_result(aggregated_result)
+                    except Exception as exc_inner:
+                        logging.warning(f"Failed to forward to analytics summarizer: {exc_inner}")
                 except Exception as exc:
                     self.stats["kafka_errors"] += 1
                     self._record_error(f"Failed to produce aggregated result to Kafka: {str(exc)}")

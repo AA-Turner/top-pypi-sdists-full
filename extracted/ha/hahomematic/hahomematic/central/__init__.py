@@ -1,7 +1,66 @@
 """
-CentralUnit module.
+Central unit and core orchestration for HomeMatic CCU and compatible backends.
 
-This is the python representation of a CCU.
+Overview
+--------
+This package provides the central coordination layer for hahomematic. It models a
+HomeMatic CCU (or compatible backend such as Homegear) and orchestrates
+interfaces, devices, channels, data points, events, and background jobs.
+
+The central unit ties together the various submodules: caches, client adapters
+(JSON-RPC/XML-RPC), device and data point models, and visibility/description caches.
+It exposes high-level APIs to query and manipulate the CCU state while
+encapsulating transport and scheduling details.
+
+Public API (selected)
+---------------------
+- CentralUnit: The main coordination class. Manages client creation/lifecycle,
+  connection state, device and channel discovery, data point and event handling,
+  sysvar/program access, cache loading/saving, and dispatching callbacks.
+- CentralConfig: Configuration builder/holder for CentralUnit instances, including
+  connection parameters, feature toggles, and cache behavior.
+- CentralConnectionState: Tracks connection issues per transport/client.
+
+Internal helpers
+----------------
+- _Scheduler: Background thread that periodically checks connection health,
+  refreshes data, and fetches firmware status according to configured intervals.
+
+Quick start
+-----------
+Typical usage is to create a CentralConfig, build a CentralUnit, then start it.
+
+Example (simplified):
+
+    from hahomematic.central import CentralConfig
+    from hahomematic import client as hmcl
+
+    iface_cfgs = {
+        hmcl.InterfaceConfig(interface=hmcl.Interface.HMIP, port=2010, enabled=True),
+        hmcl.InterfaceConfig(interface=hmcl.Interface.BIDCOS_RF, port=2001, enabled=True),
+    }
+
+    cfg = CentralConfig(
+        central_id="ccu-main",
+        default_callback_port=43439,
+        host="ccu.local",
+        interface_configs=iface_cfgs,
+        name="MyCCU",
+        password="secret",
+        storage_folder=".storage",
+        username="admin",
+    )
+
+    central = cfg.create_central()
+    central.start()           # start XML-RPC server, create/init clients, load caches
+    # ... interact with devices / data points via central ...
+    central.stop()
+
+Notes
+-----
+- The central module is thread-aware and uses an internal Looper to schedule async tasks.
+- For advanced scenarios, see xml_rpc_server and decorators modules in this package.
+
 """
 
 from __future__ import annotations
@@ -55,6 +114,8 @@ from hahomematic.const import (
     LOCAL_HOST,
     PORT_ANY,
     PRIMARY_CLIENT_CANDIDATE_INTERFACES,
+    SCHEDULER_LOOP_SLEEP,
+    SCHEDULER_NOT_STARTED_SLEEP,
     TIMEOUT,
     UN_IGNORE_WILDCARD,
     BackendSystemEvent,
@@ -1259,7 +1320,7 @@ class CentralUnit(PayloadMixin):
         model_cache: dict[str, str | None] = {}
         channel_no_cache: dict[str, int | None] = {}
 
-        for channels in raw_psd.values():  # pylint: disable=too-many-nested-blocks
+        for channels in raw_psd.values():
             for channel_address, channel_paramsets in channels.items():
                 # Resolve model lazily and cache per device address when full_format is requested
                 model: str | None = None
@@ -1567,7 +1628,7 @@ class _Scheduler(threading.Thread):
         while self._active:
             if not self._central.started:
                 _LOGGER.debug("SCHEDULER: Waiting till central %s is started", self._central.name)
-                await asyncio.sleep(10)
+                await asyncio.sleep(SCHEDULER_NOT_STARTED_SLEEP)
                 continue
             for job in self._scheduler_jobs:
                 if not self._active or not job.ready:
@@ -1575,7 +1636,7 @@ class _Scheduler(threading.Thread):
                 await job.run()
                 job.schedule_next_execution()
             if self._active:
-                await asyncio.sleep(5)
+                await asyncio.sleep(SCHEDULER_LOOP_SLEEP)
 
     async def _check_connection(self) -> None:
         """Check connection to backend."""

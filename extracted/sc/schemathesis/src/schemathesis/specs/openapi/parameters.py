@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar, Iterable
 
@@ -95,11 +94,6 @@ class OpenAPIParameter(Parameter):
             if key in self.supported_jsonschema_keywords or key.startswith("x-") or key == self.nullable_field
         }
 
-    def serialize(self, operation: APIOperation) -> str:
-        # For simplicity, JSON Schema semantics is not taken into account (e.g. 1 == 1.0)
-        # I.e. two semantically equal schemas may have different representation
-        return json.dumps(self.as_json_schema(operation), sort_keys=True)
-
 
 @dataclass(eq=False)
 class OpenAPI20Parameter(OpenAPIParameter):
@@ -170,6 +164,7 @@ class OpenAPI30Parameter(OpenAPIParameter):
         "minProperties",
         "required",
         "enum",
+        "const",
         "type",
         "allOf",
         "oneOf",
@@ -178,6 +173,14 @@ class OpenAPI30Parameter(OpenAPIParameter):
         "items",
         "properties",
         "additionalProperties",
+        "additionalItems",
+        "dependencies",
+        "if",
+        "then",
+        "else",
+        "patternProperties",
+        "propertyNames",
+        "contains",
         "format",
         "example",
         "examples",

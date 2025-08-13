@@ -10,8 +10,6 @@
 #include "batch_parameter.hpp"
 #include "calculation_parameters.hpp"
 #include "container.hpp"
-#include "job_adapter.hpp"
-#include "job_dispatch.hpp"
 #include "main_model_fwd.hpp"
 #include "topology.hpp"
 
@@ -179,6 +177,57 @@ class MainModelImpl<ExtraRetrievableTypes<ExtraRetrievableType...>, ComponentLis
         : system_frequency_{system_frequency},
           meta_data_{&meta_data},
           math_solver_dispatcher_{&math_solver_dispatcher} {}
+
+    MainModelImpl(MainModelImpl const& other)
+        : calculation_info_{}, // calculation info should not be copied, because it may result in race conditions
+          system_frequency_{other.system_frequency_},
+          meta_data_{other.meta_data_},
+          math_solver_dispatcher_{other.math_solver_dispatcher_},
+          state_{other.state_},
+          math_state_{other.math_state_},
+          n_math_solvers_{other.n_math_solvers_},
+          is_topology_up_to_date_{other.is_topology_up_to_date_},
+          is_sym_parameter_up_to_date_{other.is_sym_parameter_up_to_date_},
+          is_asym_parameter_up_to_date_{other.is_asym_parameter_up_to_date_},
+          is_accumulated_component_updated_{other.is_accumulated_component_updated_},
+          last_updated_calculation_symmetry_mode_{other.last_updated_calculation_symmetry_mode_},
+          cached_inverse_update_{other.cached_inverse_update_},
+          cached_state_changes_{other.cached_state_changes_},
+          parameter_changed_components_{other.parameter_changed_components_}
+#ifndef NDEBUG
+          ,
+          // construction_complete is used for debug assertions only
+          construction_complete_{other.construction_complete_}
+#endif // !NDEBUG
+    {
+    }
+    MainModelImpl& operator=(MainModelImpl const& other) {
+        if (this != &other) {
+            calculation_info_ = {}; // calculation info should be reset, because it may result in race conditions
+            system_frequency_ = other.system_frequency_;
+            meta_data_ = other.meta_data_;
+            math_solver_dispatcher_ = other.math_solver_dispatcher_;
+            state_ = other.state_;
+            math_state_ = other.math_state_;
+            n_math_solvers_ = other.n_math_solvers_;
+            is_topology_up_to_date_ = other.is_topology_up_to_date_;
+            is_sym_parameter_up_to_date_ = other.is_sym_parameter_up_to_date_;
+            is_asym_parameter_up_to_date_ = other.is_asym_parameter_up_to_date_;
+            is_accumulated_component_updated_ = other.is_accumulated_component_updated_;
+            last_updated_calculation_symmetry_mode_ = other.last_updated_calculation_symmetry_mode_;
+            cached_inverse_update_ = other.cached_inverse_update_;
+            cached_state_changes_ = other.cached_state_changes_;
+            parameter_changed_components_ = other.parameter_changed_components_;
+#ifndef NDEBUG
+            // construction_complete is used for debug assertions only
+            construction_complete_ = other.construction_complete_;
+#endif // !NDEBUG
+        }
+        return *this;
+    }
+    MainModelImpl(MainModelImpl&& /*other*/) noexcept = default;
+    MainModelImpl& operator=(MainModelImpl&& /*other*/) noexcept = default;
+    ~MainModelImpl() = default;
 
     // helper function to get what components are present in the update data
     std::array<bool, main_core::utils::n_types<ComponentType...>>
@@ -511,36 +560,14 @@ class MainModelImpl<ExtraRetrievableTypes<ExtraRetrievableType...>, ComponentLis
     }
 
   public:
-    /*
-    Batch calculation, propagating the results to result_data
+    static auto calculator(Options const& options) {
+        return [options](MainModelImpl& model, MutableDataset const& target_data, Idx pos) {
+            auto sub_opt = options; // copy
+            sub_opt.err_tol = pos != ignore_output ? options.err_tol : std::numeric_limits<double>::max();
+            sub_opt.max_iter = pos != ignore_output ? options.max_iter : 1;
 
-    Run the calculation function in batch on the provided update data.
-
-    The calculation function should be able to run standalone.
-    It should output to the provided result_data if the trailing argument is not ignore_output.
-
-    threading
-        < 0 sequential
-        = 0 parallel, use number of hardware threads
-        > 0 specify number of parallel threads
-    raise a BatchCalculationError if any of the calculations in the batch raised an exception
-    */
-    BatchParameter calculate(Options const& options, MutableDataset const& result_data,
-                             ConstDataset const& update_data) {
-        JobDispatchAdapter<
-            MainModelImpl<ExtraRetrievableTypes<ExtraRetrievableType...>, ComponentList<ComponentType...>>,
-            ComponentType...>
-            adapter{std::ref(*this)};
-        return JobDispatch::batch_calculation(
-            adapter,
-            [&options](MainModelImpl& model, MutableDataset const& target_data, Idx pos) {
-                auto sub_opt = options; // copy
-                sub_opt.err_tol = pos != ignore_output ? options.err_tol : std::numeric_limits<double>::max();
-                sub_opt.max_iter = pos != ignore_output ? options.max_iter : 1;
-
-                model.calculate(sub_opt, target_data, pos);
-            },
-            result_data, update_data, options.threading);
+            model.calculate(sub_opt, target_data, pos);
+        };
     }
 
     CalculationInfo calculation_info() const { return calculation_info_; }

@@ -48,6 +48,7 @@ class TestPaginatedfileFileContentResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifact = '', 
                         relative_path = '', 
                         md5 = '', 
@@ -70,6 +71,7 @@ class TestPaginatedfileFileContentResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifact = '', 
                         relative_path = '', 
                         md5 = '', 

@@ -17,9 +17,6 @@ def install() -> None:
     config_before = os.path.join("src", "db_contrib_tool", "config")
     config_after = os.path.join("db_contrib_tool", "config")
 
-    bisect_scripts_before = os.path.join("src", "db_contrib_tool", "evg_aware_bisect", "*.sh")
-    bisect_scripts_after = os.path.join("db_contrib_tool", "evg_aware_bisect")
-
     separator = ":"
     operating_system = platform.system().lower()
     if operating_system == "windows":
@@ -34,8 +31,5 @@ def install() -> None:
             # add configs
             "--add-data",
             f"{config_before}{separator}{config_after}",
-            # add shell scripts for bisect tool
-            "--add-data",
-            f"{bisect_scripts_before}{separator}{bisect_scripts_after}",
         ]
     )

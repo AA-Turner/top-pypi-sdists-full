@@ -57,6 +57,3 @@ class BaseRemotePregel(Runnable):
 
     # Config passed from get_graph()
     config: Config
-
-    async def get_nodes_executed(self) -> int:
-        return 0

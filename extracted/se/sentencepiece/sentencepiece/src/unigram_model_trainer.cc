@@ -73,14 +73,14 @@ class BoundedPriorityQueue {
   explicit BoundedPriorityQueue(size_t size) : size_(size) {}
   ~BoundedPriorityQueue() = default;
 
-  void push(T elem, int64 score) {
+  void push(T elem, int64_t score) {
     if (queue_.size() > 4 * size_) resize();
     if (sorted && queue_.size() >= size_ && queue_[size_ - 1].second > score)
       return;
     queue_.emplace_back(elem, score);
   }
 
-  const std::vector<std::pair<T, int64>> &get() {
+  const std::vector<std::pair<T, int64_t>> &get() {
     resize();
     return queue_;
   }
@@ -97,7 +97,7 @@ class BoundedPriorityQueue {
 
   bool sorted = false;
   size_t size_ = 0;
-  std::vector<std::pair<T, int64>> queue_;
+  std::vector<std::pair<T, int64_t>> queue_;
 };
 
 }  // namespace
@@ -138,8 +138,8 @@ void TrainerModel::SetSentencePieces(SentencePieces &&sentencepieces) {
 
 TrainerModel::SentencePieces Trainer::MakeSeedSentencePieces() {
   return trainer_spec_.train_extremely_large_corpus()
-             ? MakeSeedSentencePiecesInternal<int64>()
-             : MakeSeedSentencePiecesInternal<int32>();
+             ? MakeSeedSentencePiecesInternal<int64_t>()
+             : MakeSeedSentencePiecesInternal<int32_t>();
 }
 
 // Returns seed sentencepieces for EM training.
@@ -152,7 +152,7 @@ TrainerModel::SentencePieces Trainer::MakeSeedSentencePiecesInternal() {
   // Pretokenizer is used as a constraint of piece extractions.
   const auto *pretokenizer = SentencePieceTrainer::GetPretokenizerForTraining();
 
-  auto pretokenize_or_rewrite = [&](std::pair<std::string, int64> *w) {
+  auto pretokenize_or_rewrite = [&](std::pair<std::string, int64_t> *w) {
     if (pretokenizer) {
       std::vector<char32> chars;
       for (const auto &w : pretokenizer->PreTokenize(w->first)) {
@@ -183,7 +183,7 @@ TrainerModel::SentencePieces Trainer::MakeSeedSentencePiecesInternal() {
 
   // Merges all sentences into one array with 0x0000 delimiter.
   std::vector<char32> array;
-  absl::flat_hash_map<std::string, int64> all_chars;
+  absl::flat_hash_map<std::string, int64_t> all_chars;
 
   const bool is_tsv = trainer_spec_.input_format() == "tsv";
 
@@ -273,7 +273,7 @@ TrainerModel::SentencePieces Trainer::MakeSeedSentencePiecesInternal() {
     for (node_int_type i = 0; i < node_num; ++i) {
       const node_int_type offset = SA[L[i]];
       const node_int_type len = D[i];
-      if (len <= 1) {
+      if (len <= 1 || offset >= array.size() || offset + len >= array.size()) {
         continue;
       }
       const char32 *begin = &array[offset];
@@ -316,15 +316,15 @@ TrainerModel::SentencePieces Trainer::MakeSeedSentencePiecesInternal() {
 }
 
 std::vector<float> Trainer::RunEStep(const TrainerModel &model, float *obj,
-                                     int64 *num_tokens) const {
+                                     int64_t *num_tokens) const {
   std::vector<std::vector<float>> expected(trainer_spec_.num_threads());
   std::vector<float> objs(trainer_spec_.num_threads(), 0.0);
-  std::vector<int64> ntokens(trainer_spec_.num_threads(), 0.0);
+  std::vector<int64_t> ntokens(trainer_spec_.num_threads(), 0.0);
 
   auto pool = std::make_unique<ThreadPool>(trainer_spec_.num_threads());
   pool->StartWorkers();
 
-  int64 all_sentence_freq = 0;
+  int64_t all_sentence_freq = 0;
   for (const auto &w : sentences_) {
     all_sentence_freq += w.second;
   }
@@ -337,7 +337,7 @@ std::vector<float> Trainer::RunEStep(const TrainerModel &model, float *obj,
       for (size_t i = n; i < sentences_.size();
            i += trainer_spec_.num_threads()) {
         const std::string &w = sentences_[i].first;
-        const int64 freq = sentences_[i].second;
+        const int64_t freq = sentences_[i].second;
         lattice.SetSentence(w);
         model.PopulateNodes(&lattice);
         const float Z = lattice.PopulateMarginal(freq, &expected[n]);
@@ -608,7 +608,7 @@ util::Status Trainer::Train() {
     for (int iter = 0; iter < trainer_spec_.num_sub_iterations(); ++iter) {
       // Executes E step
       float objective = 0.0;
-      int64 num_tokens = 0;
+      int64_t num_tokens = 0;
       const auto expected = RunEStep(model, &objective, &num_tokens);
 
       // Executes M step.

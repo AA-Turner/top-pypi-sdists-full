@@ -137,6 +137,7 @@ jobs:
     - name: run tests
       timeout-minutes: 40
       env:
+        COVERAGE_CORE: sysmon
         PYTHONUTF8: 1
       run: >
         pytest ${{ matrix.pytestargs }} -n=logical --dist=worksteal --timeout=300 --durations=0

@@ -134,7 +134,7 @@ class Normalizer {
 
   // "\0" delimitered output string.
   // the value of |trie_| stores pointers to this string.
-  const char *normalized_ = nullptr;
+  absl::string_view normalized_;
 
   // Spec for normalization.
   const NormalizerSpec *spec_;

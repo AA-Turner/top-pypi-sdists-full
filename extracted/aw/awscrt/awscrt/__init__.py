@@ -15,7 +15,7 @@ __all__ = [
     'websocket',
 ]
 
-__version__ = '0.27.5'
+__version__ = '0.27.6'
 
 
 class NativeResource:

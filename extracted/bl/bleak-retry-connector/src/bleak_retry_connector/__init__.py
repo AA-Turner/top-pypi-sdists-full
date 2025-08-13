@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__version__ = "4.0.0"
+__version__ = "4.0.1"
 
 
 import asyncio
@@ -533,12 +533,16 @@ async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None:
         return
     backend = scanner._backend
     before = len(backend.seen_devices)
+    details: dict[str, Any]
     backend.seen_devices.update(
         {
-            address: (history.device, history.advertisement_data)
-            for address, history in load_history_from_managed_objects(
+            path: (device, history.advertisement_data)
+            for history in load_history_from_managed_objects(
                 properties, adapter
-            ).items()
+            ).values()
+            if (device := history.device)
+            and (details := device.details)
+            and (path := details.get("path"))
         }
     )
     _LOGGER.debug(

@@ -7,6 +7,7 @@ from tecton_core.query.rewrite import rewrite_tree_for_spine
 from tecton_core.query_consts import valid_to
 from tecton_materialization.common.dataset_generation import get_features_from_params
 from tecton_materialization.common.task_params import get_features_params_from_task_params
+from tecton_materialization.materialization_utils import has_prior_delta_commit
 from tecton_spark.offline_store import OfflineStoreWriterParams
 from tecton_spark.offline_store import get_dataset_generation_writer
 from tecton_spark.query import translate
@@ -29,6 +30,14 @@ def dataset_generation_from_params(spark, materialization_task_params):
         "spark.databricks.delta.commitInfo.userMetadata",
         f'{{"datasetPath":"{dataset_generation_params.result_path}"}}',
     )
+    if has_prior_delta_commit(
+        spark, dataset_generation_params.result_path, "datasetPath", dataset_generation_params.result_path
+    ):
+        logger.info(
+            f"Skipping dataset generation job for Dataset'{dataset_generation_params.dataset_name}' with result path {dataset_generation_params.result_path} because it already exists"
+        )
+        return
+
     if isinstance(params, GetFeaturesForEventsParams):
         time_column = params.timestamp_key
         spine = SparkDataFrame(spark.read.parquet(params.events))

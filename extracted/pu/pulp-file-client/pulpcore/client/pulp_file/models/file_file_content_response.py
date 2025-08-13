@@ -33,6 +33,7 @@ class FileFileContentResponse(BaseModel):
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
+    vuln_report: Optional[StrictStr] = None
     artifact: Optional[StrictStr] = Field(default=None, description="Artifact file representing the physical content")
     relative_path: StrictStr = Field(description="Path where the artifact is located relative to distributions base_path")
     md5: Optional[StrictStr] = Field(default=None, description="The MD5 checksum if available.")
@@ -41,7 +42,7 @@ class FileFileContentResponse(BaseModel):
     sha256: Optional[StrictStr] = Field(default=None, description="The SHA-256 checksum if available.")
     sha384: Optional[StrictStr] = Field(default=None, description="The SHA-384 checksum if available.")
     sha512: Optional[StrictStr] = Field(default=None, description="The SHA-512 checksum if available.")
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "artifact", "relative_path", "md5", "sha1", "sha224", "sha256", "sha384", "sha512"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "vuln_report", "artifact", "relative_path", "md5", "sha1", "sha224", "sha256", "sha384", "sha512"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -83,12 +84,14 @@ class FileFileContentResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
+            "vuln_report",
             "md5",
             "sha1",
             "sha224",
@@ -119,6 +122,7 @@ class FileFileContentResponse(BaseModel):
             "pulp_created": obj.get("pulp_created"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
             "pulp_labels": obj.get("pulp_labels"),
+            "vuln_report": obj.get("vuln_report"),
             "artifact": obj.get("artifact"),
             "relative_path": obj.get("relative_path"),
             "md5": obj.get("md5"),

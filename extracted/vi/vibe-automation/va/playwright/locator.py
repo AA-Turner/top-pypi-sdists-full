@@ -182,7 +182,6 @@ class PromptBasedLocator:
                     else:
                         return fallback_method(*args, **kwargs)
                 except Exception:
-                    # Check if VA_DISABLE_FALLBACK is set
                     if VA_DISABLE_FALLBACK:
                         # Re-raise the exception instead of falling back to prompt-based locator
                         raise

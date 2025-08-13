@@ -299,7 +299,7 @@ class MetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/multicloud/list_external_location_details_metadata.py.html>`__ to see an example of how to use list_external_location_details_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/list_external_location_details_metadata.py.html>`__ to see an example of how to use list_external_location_details_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'compartmentId', 'subscriptionServiceName']
@@ -521,7 +521,7 @@ class MetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/multicloud/list_external_location_mapping_metadata.py.html>`__ to see an example of how to use list_external_location_mapping_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/list_external_location_mapping_metadata.py.html>`__ to see an example of how to use list_external_location_mapping_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionServiceName', 'compartmentId']
@@ -713,7 +713,7 @@ class MetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/multicloud/list_external_location_summaries_metadata.py.html>`__ to see an example of how to use list_external_location_summaries_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/list_external_location_summaries_metadata.py.html>`__ to see an example of how to use list_external_location_summaries_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionServiceName', 'compartmentId']

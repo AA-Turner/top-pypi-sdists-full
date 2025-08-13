@@ -1,4 +1,4 @@
-from va.codegen.mutator import WorkflowMutation
+from va.code.mutator import WorkflowMutation
 from va.store import Store, ExecutionStore
 from va.protos.orby.va.public.execution_messages_pb2 import ExecutionStatus
 

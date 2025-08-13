@@ -1,22 +1,42 @@
+# flake8: noqa: E501
+
 import datetime
 import http.client
 import os
 import re
 import time
-import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
-from typing import Literal
+from typing import Literal, Optional
 from urllib.error import HTTPError
+from warnings import warn
+from xml.etree import ElementTree
+from xml.etree.ElementTree import Element
 
 import pandas as pd
 import requests
+import tqdm
 import xmltodict
+from bs4 import BeautifulSoup
+from lxml import etree as lxml_etree
 
 from gridstatus import utils
-from gridstatus.base import ISOBase, NotSupported
+from gridstatus.base import ISOBase, NoDataFoundException, NotSupported
 from gridstatus.decorators import support_date_range
 from gridstatus.gs_logging import logger
+from gridstatus.ieso_constants import (
+    FUEL_MIX_TEMPLATE_URL,
+    HISTORICAL_FUEL_MIX_TEMPLATE_URL,
+    INTERTIE_ACTUAL_SCHEDULE_FLOW_HOURLY_COLUMNS,
+    INTERTIE_FLOW_5_MIN_COLUMNS,
+    MAXIMUM_DAYS_IN_PAST_FOR_COMPLETE_GENERATOR_REPORT,
+    NAMESPACES_FOR_XML,
+    ONTARIO_LOCATION,
+    PUBLIC_REPORTS_URL_PREFIX,
+    RESOURCE_ADEQUACY_REPORT_BASE_URL,
+    RESOURCE_ADEQUACY_REPORT_DATA_STRUCTURE_MAP,
+    ZONAL_LOAD_COLUMNS,
+)
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 CERTIFICATES_CHAIN_FILE = os.path.join(
@@ -24,87 +44,15 @@ CERTIFICATES_CHAIN_FILE = os.path.join(
     "public_certificates/ieso/intermediate_and_root.pem",
 )
 
-"""LOAD CONSTANTS"""
-# Load hourly files go back 30 days
-MAXIMUM_DAYS_IN_PAST_FOR_LOAD = 30
-LOAD_INDEX_URL = "https://reports-public.ieso.ca/public/RealtimeConstTotals"
-
-# Each load file covers one hour. We have to use the xml instead of the csv because
-# the csv does not have demand for Ontario.
-LOAD_TEMPLATE_URL = f"{LOAD_INDEX_URL}/PUB_RealtimeConstTotals_YYYYMMDDHH.xml"
+# Date when IESO switched to new market and retired several datasets
+RETIRED_DATE = datetime.date(2025, 5, 1)
 
 
-"""LOAD FORECAST CONSTANTS"""
-# There's only one load forecast for Ontario. This data covers from 5 days ago
-# through tomorrow
-LOAD_FORECAST_URL = (
-    "https://www.ieso.ca/-/media/Files/IESO/Power-Data/Ontario-Demand-multiday.ashx"
-)
-
-"""ZONAL LOAD FORECAST CONSTANTS"""
-ZONAL_LOAD_FORECAST_INDEX_URL = (
-    "https://reports-public.ieso.ca/public/OntarioZonalDemand"
-)
-
-# Each forecast file contains data from the day in the filename going forward for
-# 34 days. The most recent file does not have a date in the filename.
-ZONAL_LOAD_FORECAST_TEMPLATE_URL = (
-    f"{ZONAL_LOAD_FORECAST_INDEX_URL}/PUB_OntarioZonalDemand_YYYYMMDD.xml"
-)
-
-# The farthest in the past that forecast files are available
-MAXIMUM_DAYS_IN_PAST_FOR_ZONAL_LOAD_FORECAST = 90
-# The farthest in the future that forecasts are available. Note that there are not
-# files for these future forecasts, they are in the current day's file.
-MAXIMUM_DAYS_IN_FUTURE_FOR_ZONAL_LOAD_FORECAST = 34
-
-"""REAL TIME FUEL MIX CONSTANTS"""
-FUEL_MIX_INDEX_URL = "https://reports-public.ieso.ca/public/GenOutputCapability/"
-
-# Updated every hour and each file has data for one day.
-# The most recent version does not have the date in the filename.
-FUEL_MIX_TEMPLATE_URL = f"{FUEL_MIX_INDEX_URL}/PUB_GenOutputCapability_YYYYMMDD.xml"
-
-# Number of past days for which the complete generator report is available.
-# Before this date, only total by fuel type is available.
-MAXIMUM_DAYS_IN_PAST_FOR_COMPLETE_GENERATOR_REPORT = 90
-
-"""HISTORICAL FUEL MIX CONSTANTS"""
-HISTORICAL_FUEL_MIX_INDEX_URL = (
-    "https://reports-public.ieso.ca/public/GenOutputbyFuelHourly/"
-)
-
-# Updated once a day and each file contains data for an entire year.
-HISTORICAL_FUEL_MIX_TEMPLATE_URL = (
-    f"{HISTORICAL_FUEL_MIX_INDEX_URL}/PUB_GenOutputbyFuelHourly_YYYY.xml"
-)
-
-
-MINUTES_INTERVAL = 5
-HOUR_INTERVAL = 1
-
-# Default namespace used in the XML files
-NAMESPACES_FOR_XML = {"": "http://www.ieso.ca/schema"}
-
-# Maps abbreviations used in the MCP real time data to the full names
-# used in the historical data
-IESO_ZONE_MAPPING = {
-    "MBSI": "Manitoba",
-    "PQSK": "Manitoba SK",
-    "MISI": "Michigan",
-    "MNSI": "Minnesota",
-    "NYSI": "New-York",
-    "ONZN": "Ontario",
-    "PQAT": "Quebec AT",
-    "PQBE": "Quebec B5D.B31L",
-    "PQDZ": "Quebec D4Z",
-    "PQDA": "Quebec D5A",
-    "PQHZ": "Quebec H4Z",
-    "PQHA": "Quebec H9A",
-    "PQPC": "Quebec P33C",
-    "PQQC": "Quebec Q4C",
-    "PQXY": "Quebec X2Y",
-}
+def retired_data_warning():
+    warn(
+        f"This dataset was retired on {RETIRED_DATE}. Only data prior to that date is available",
+        UserWarning,
+    )
 
 
 class SurplusState(str, Enum):
@@ -123,6 +71,87 @@ class SurplusState(str, Enum):
     NUCLEAR_SHUTDOWN = "Nuclear Shutdown"
 
 
+def _safe_find_text(
+    element: Optional[Element],
+    tag: str,
+    namespaces: Optional[dict[str, str]] = None,
+    default: Optional[str] = None,
+) -> Optional[str]:
+    """Safely find and extract text from an XML element.
+
+    Args:
+        element: XML element to search within
+        tag: Tag name to find
+        namespaces: XML namespaces dict
+        default: Default value to return if element not found or empty
+
+    Returns:
+        str or default: The text content or default value
+    """
+    if element is None:
+        return default
+
+    found = element.find(tag, namespaces)
+    if found is None or found.text is None or found.text.strip() == "":
+        return default
+
+    return found.text
+
+
+def _safe_find_int(
+    element: Optional[Element],
+    tag: str,
+    namespaces: Optional[dict[str, str]] = None,
+    default: Optional[int] = None,
+) -> Optional[int]:
+    """Safely find and extract integer from an XML element.
+
+    Args:
+        element: XML element to search within
+        tag: Tag name to find
+        namespaces: XML namespaces dict
+        default: Default value to return if element not found or empty
+
+    Returns:
+        int or default: The integer value or default value
+    """
+    text = _safe_find_text(element, tag, namespaces)
+    if text is None:
+        return default
+
+    try:
+        return int(text)
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_find_float(
+    element: Optional[Element],
+    tag: str,
+    namespaces: Optional[dict[str, str]] = None,
+    default: Optional[float] = None,
+) -> Optional[float]:
+    """Safely find and extract float from an XML element.
+
+    Args:
+        element: XML element to search within
+        tag: Tag name to find
+        namespaces: XML namespaces dict
+        default: Default value to return if element not found or empty
+
+    Returns:
+        float or default: The float value or default value
+    """
+    text = _safe_find_text(element, tag, namespaces)
+    if text is None:
+        return default
+
+    try:
+        return float(text)
+    except (ValueError, TypeError):
+        return default
+
+
 class IESO(ISOBase):
     """Independent Electricity System Operator (IESO)"""
 
@@ -137,7 +166,6 @@ class IESO(ISOBase):
 
     status_homepage = "https://www.ieso.ca/en/Power-Data"
 
-    @support_date_range(frequency="HOUR_START")
     def get_load(
         self,
         date: str | datetime.date | datetime.datetime,
@@ -162,96 +190,9 @@ class IESO(ISOBase):
         Returns:
             pd.DataFrame: zonal load as a wide table with columns for each zone
         """
-        today = utils._handle_date("today", tz=self.default_timezone)
-
-        if date != "latest":
-            if date.date() > today.date():
-                raise NotSupported("Load data is not available for future dates.")
-
-            if date.date() < today.date() - pd.Timedelta(
-                days=MAXIMUM_DAYS_IN_PAST_FOR_LOAD,
-            ):
-                raise NotSupported(
-                    f"Load data is not available for dates more than "
-                    f"{MAXIMUM_DAYS_IN_PAST_FOR_LOAD} days in the past.",
-                )
-
-            # Return an empty dataframe when the date exceeds the current timestamp
-            # since there's no load available yet.
-            if date > pd.Timestamp.now(tz=self.default_timezone):
-                return pd.DataFrame()
-        elif date == "latest":
-            date = pd.Timestamp.now(tz=self.default_timezone)
-
-        df = self._retrieve_5_minute_load(date, end, verbose)
-
-        cols_to_keep = [
-            "Interval Start",
-            "Interval End",
-            "Market Total Load",
-            "Ontario Load",
-        ]
-
-        df["Market Total Load"] = df["Market Total Load"].astype(float)
-        df["Ontario Load"] = df["Ontario Load"].astype(float)
-
-        return utils.move_cols_to_front(df, cols_to_keep)[cols_to_keep].reset_index(
-            drop=True,
+        raise NotSupported(
+            f"With the IESO Market Renewal on {RETIRED_DATE}, this method is no longer supported. To get load data, use the `get_real_time_totals` method instead.",
         )
-
-    def _retrieve_5_minute_load(
-        self,
-        date: datetime.datetime,
-        end: datetime.datetime | None = None,
-        verbose: bool = False,
-    ):
-        # We have to add 1 to the hour to get the file because the filename with
-        # hour x contains data for hour x-1. For example, to get data for
-        # 9:00 - 9:55, we need to request the file for hour 10.
-        # The hour should be in the range 1-24
-        hour = date.hour + 1
-
-        url = LOAD_TEMPLATE_URL.replace(
-            "YYYYMMDDHH",
-            f"{(date).strftime('%Y%m%d')}{hour:02d}",
-        )
-
-        r = self._request(url, verbose)
-
-        root = ET.fromstring(r.text)
-
-        # Extracting all triples of Interval, Market Total Load, and Ontario Load
-        interval_loads_and_demands = self._find_loads_at_each_interval_from_xml(root)
-
-        df = pd.DataFrame(
-            interval_loads_and_demands,
-            columns=["Interval", "Market Total Load", "Ontario Load"],
-        )
-
-        delivery_date = root.find("DocBody/DeliveryDate", NAMESPACES_FOR_XML).text
-        delivery_hour = int(root.find("DocBody/DeliveryHour", NAMESPACES_FOR_XML).text)
-
-        df["Delivery Date"] = pd.Timestamp(delivery_date, tz=self.default_timezone)
-
-        # The starting hour is 1, so we subtract 1 to get the hour in the range 0-23
-        df["Delivery Hour Start"] = delivery_hour - 1
-        # Multiply the interval minus 1 by 5 to get the minutes in the range 0-55
-        df["Interval Minute Start"] = MINUTES_INTERVAL * (df["Interval"] - 1)
-
-        df["Interval Start"] = (
-            df["Delivery Date"]
-            + pd.to_timedelta(df["Delivery Hour Start"], unit="h")
-            + pd.to_timedelta(df["Interval Minute Start"], unit="m")
-        )
-
-        df["Interval End"] = df["Interval Start"] + pd.Timedelta(
-            minutes=MINUTES_INTERVAL,
-        )
-
-        if end:
-            return df[df["Interval End"] <= pd.Timestamp(end)]
-
-        return df
 
     def get_load_forecast(self, date: str, verbose: bool = False):
         """
@@ -265,60 +206,8 @@ class IESO(ISOBase):
         Returns:
             pd.DataFrame: Ontario load forecast
         """
-        if date not in ["today", "latest"]:
-            raise NotSupported(
-                "Only 'today' and 'latest' are supported for load forecasts.",
-            )
-
-        root = ET.fromstring(self._request(LOAD_FORECAST_URL, verbose).text)
-
-        # Extract values from <DataSet Series="Projected">
-        projected_values = []
-
-        # Iterate through the XML to find the DataSet with Series="Projected"
-        for dataset in root.iter("DataSet"):
-            if dataset.attrib.get("Series") == "Projected":
-                for data in dataset.iter("Data"):
-                    for value in data.iter("Value"):
-                        projected_values.append(value.text)
-
-        created_at = pd.Timestamp(
-            root.find(".//CreatedAt").text,
-            tz=self.default_timezone,
-        )
-        start_date = pd.Timestamp(
-            root.find(".//StartDate").text,
-            tz=self.default_timezone,
-        )
-
-        # Create the range of interval starts based on the number of values at an
-        # hourly frequency
-        interval_starts = pd.date_range(
-            start_date,
-            periods=len(projected_values),
-            freq="h",
-            tz=self.default_timezone,
-        )
-
-        # Create a DataFrame with the projected values
-        df_projected = pd.DataFrame(projected_values, columns=["Ontario Load Forecast"])
-        df_projected["Ontario Load Forecast"] = df_projected[
-            "Ontario Load Forecast"
-        ].astype(float)
-        df_projected["Publish Time"] = created_at
-        df_projected["Interval Start"] = interval_starts
-        df_projected["Interval End"] = df_projected["Interval Start"] + pd.Timedelta(
-            hours=HOUR_INTERVAL,
-        )
-
-        return utils.move_cols_to_front(
-            df_projected,
-            [
-                "Interval Start",
-                "Interval End",
-                "Publish Time",
-                "Ontario Load Forecast",
-            ],
+        raise NotSupported(
+            f"With the IESO Market Renewal on {RETIRED_DATE}, this method is no longer supported. To get load forecast data, use the `get_resource_adequacy_report` method instead.",
         )
 
     @support_date_range(frequency="DAY_START")
@@ -348,135 +237,9 @@ class IESO(ISOBase):
         Returns:
             pd.DataFrame: forecasted load as a wide table with columns for each zone
         """
-
-        today = utils._handle_date("today", tz=self.default_timezone)
-
-        if date != "latest":
-            date = utils._handle_date(date, tz=self.default_timezone)
-
-            if date.date() < today.date() - pd.Timedelta(
-                days=MAXIMUM_DAYS_IN_PAST_FOR_ZONAL_LOAD_FORECAST,
-            ):
-                # Forecasts are not support for past dates
-                raise NotSupported(
-                    "Past dates are not support for load forecasts more than "
-                    f"{MAXIMUM_DAYS_IN_PAST_FOR_ZONAL_LOAD_FORECAST} days in the past.",
-                )
-
-            if date.date() > today.date() + pd.Timedelta(
-                days=MAXIMUM_DAYS_IN_FUTURE_FOR_ZONAL_LOAD_FORECAST,
-            ):
-                raise NotSupported(
-                    f"Dates more than {MAXIMUM_DAYS_IN_FUTURE_FOR_ZONAL_LOAD_FORECAST} "
-                    "days in the future are not supported for load forecasts.",
-                )
-
-        # For future dates, the most recent forecast is used
-        if date == "latest" or date.date() > today.date():
-            url = ZONAL_LOAD_FORECAST_TEMPLATE_URL.replace("_YYYYMMDD", "")
-        else:
-            url = ZONAL_LOAD_FORECAST_TEMPLATE_URL.replace(
-                "YYYYMMDD",
-                date.strftime("%Y%m%d"),
-            )
-
-        r = self._request(url, verbose)
-
-        # Initialize a list to store the parsed data
-        data = []
-
-        # Parse the XML file
-        root = ET.fromstring(r.content)
-
-        published_time = root.find(".//CreatedAt", NAMESPACES_FOR_XML).text
-
-        # Extracting data for each ZonalDemands within the Document
-        for zonal_demands in root.findall(".//ZonalDemands", NAMESPACES_FOR_XML):
-            delivery_date = zonal_demands.find(
-                ".//DeliveryDate",
-                NAMESPACES_FOR_XML,
-            ).text
-
-            for zonal_demand in zonal_demands.findall(
-                ".//ZonalDemand/*",
-                NAMESPACES_FOR_XML,
-            ):
-                # The zone name is the tag name without the namespace
-                zone_name = zonal_demand.tag[(zonal_demand.tag.rfind("}") + 1) :]
-
-                for demand in zonal_demand.findall(".//Demand", NAMESPACES_FOR_XML):
-                    hour = demand.find(".//DeliveryHour", NAMESPACES_FOR_XML).text
-                    energy_mw = demand.find(".//EnergyMW", NAMESPACES_FOR_XML).text
-
-                    data.append(
-                        {
-                            "DeliveryDate": delivery_date,
-                            "Zone": zone_name,
-                            "DeliveryHour": hour,
-                            "EnergyMW": energy_mw,
-                        },
-                    )
-
-        df = pd.DataFrame(data)
-
-        # Convert columns to appropriate data types
-        df["DeliveryHour"] = df["DeliveryHour"].astype(int)
-        df["EnergyMW"] = df["EnergyMW"].astype(float)
-        df["DeliveryDate"] = pd.to_datetime(df["DeliveryDate"])
-
-        df["Interval Start"] = (
-            # Need to subtract 1 from the DeliveryHour since that represents the
-            # ending hour of the interval. (1 represents 00:00 - 01:00)
-            df["DeliveryDate"] + pd.to_timedelta(df["DeliveryHour"] - 1, unit="h")
-        ).dt.tz_localize(self.default_timezone)
-
-        df["Interval End"] = df["Interval Start"] + pd.Timedelta(hours=HOUR_INTERVAL)
-
-        # Pivot the table to wide
-        pivot_df = df.pivot_table(
-            index=["Interval Start", "Interval End"],
-            columns="Zone",
-            values="EnergyMW",
-            aggfunc="first",
-        ).reset_index()
-
-        pivot_df["Publish Time"] = pd.Timestamp(
-            published_time,
-            tz=self.default_timezone,
+        raise NotSupported(
+            f"With the IESO Market Renewal on {RETIRED_DATE}, this method is no longer supported. To get zonal load forecast data, use the `get_resource_adequacy_report` method instead.",
         )
-
-        pivot_df = utils.move_cols_to_front(
-            pivot_df,
-            [
-                "Interval Start",
-                "Interval End",
-                "Publish Time",
-                "Ontario",
-            ],
-        )
-
-        pivot_df.columns.name = None
-
-        col_mapper = {
-            col: f"{col} Load Forecast" for col in ["Ontario", "East", "West"]
-        }
-
-        pivot_df = pivot_df.rename(columns=col_mapper)
-
-        # Return all the values from the latest forecast
-        if date == "latest":
-            return pivot_df
-
-        # If no end is provided, return data from single date
-        if not end:
-            return pivot_df[pivot_df["Publish Time"].dt.date == date.date()]
-
-        # Return data from date to end date
-        end_date = utils._handle_date(end, tz=self.default_timezone)
-
-        return pivot_df[
-            (pivot_df["Publish Time"] >= date) & (pivot_df["Publish Time"] <= end_date)
-        ]
 
     def get_fuel_mix(
         self,
@@ -675,7 +438,7 @@ class IESO(ISOBase):
 
         r = self._request(url, verbose)
 
-        root = ET.fromstring(r.content)
+        root = ElementTree.fromstring(r.content)
 
         # Define the namespace map. This is different than all the other XML files
         ns = {"": "http://www.theIMO.com/schema"}
@@ -807,8 +570,8 @@ class IESO(ISOBase):
 
         r = self._request(url, verbose)
 
-        root = ET.fromstring(r.content)
-        ns = NAMESPACES_FOR_XML
+        root = ElementTree.fromstring(r.content)
+        ns = NAMESPACES_FOR_XML.copy()
         data = []
 
         # Iterate through each day
@@ -890,7 +653,7 @@ class IESO(ISOBase):
     # Function to extract data for a specific Market Quantity considering namespace
     def _extract_load_in_market_quantity(
         self,
-        market_quantity_element: ET.Element,
+        market_quantity_element: ElementTree.Element,
         market_quantity_name: str,
     ):
         for mq in market_quantity_element.findall("MQ", NAMESPACES_FOR_XML):
@@ -903,7 +666,7 @@ class IESO(ISOBase):
 
     # Function to find all triples of 'Interval', 'Market Total Load', and
     # 'Ontario Load' in the XML file
-    def _find_loads_at_each_interval_from_xml(self, root_element: ET.Element):
+    def _find_loads_at_each_interval_from_xml(self, root_element: ElementTree.Element):
         interval_load_demand_triples = []
 
         for interval_energy in root_element.findall(
@@ -927,40 +690,10 @@ class IESO(ISOBase):
 
         return interval_load_demand_triples
 
-    @support_date_range(frequency="HOUR_START")
-    def get_mcp_real_time_5_min(
-        self,
-        date: str | datetime.date | datetime.datetime,
-        end: datetime.date | datetime.datetime | None = None,
-        verbose: bool = False,
-    ):
-        # This file always has the latest data for the current hour
-        if date == "latest":
-            url = "https://reports-public.ieso.ca/public/RealtimeMktPrice/PUB_RealtimeMktPrice.csv"  # noqa: E501
-        else:
-            hour = date.hour
-            # The report has the hour ending in the filename so we need to add 1 to
-            # get the file for the hour ending
-            url = f"https://reports-public.ieso.ca/public/RealtimeMktPrice/PUB_RealtimeMktPrice_{date.strftime('%Y%m%d')}{hour + 1:02d}.csv"  # noqa: E501
-
-        try:
-            data = pd.read_csv(
-                url,
-                skiprows=4,
-                header=None,
-                usecols=[0, 1, 2, 3, 4],
-                names=["Hour Ending", "Interval", "Component", "Location", "Price"],
-            )
-        except HTTPError as e:
-            if e.code == 404:
-                raise NotSupported(
-                    f"MCP data is not available for the requested date {date}. Try using the historical method.",  # noqa: E501
-                )
-
-        data["Delivery Date"] = date.date()
-        data["Location"] = data["Location"].map(IESO_ZONE_MAPPING)
-
-        return self._handle_mcp_data(data)
+    def get_mcp_real_time_5_min(self):
+        raise NotSupported(
+            "MCP data is no longer available. For real time pricing information, use the `get_lmp_real_time_5_min` method instead. For historical MCP data, use the `get_mcp_historical_5_min` method.",
+        )
 
     @support_date_range(frequency="YEAR_START")
     def get_mcp_historical_5_min(
@@ -1040,6 +773,8 @@ class IESO(ISOBase):
         end: datetime.date | datetime.datetime | None = None,
         verbose: bool = False,
     ) -> pd.DataFrame:
+        retired_data_warning()
+
         if date == "latest":
             return self.get_hoep_real_time_hourly("today", verbose=verbose)
 
@@ -1083,6 +818,8 @@ class IESO(ISOBase):
         end: datetime.date | datetime.datetime | None = None,
         verbose: bool = False,
     ):
+        retired_data_warning()
+
         url = f"https://reports-public.ieso.ca/public/PriceHOEPPredispOR/PUB_PriceHOEPPredispOR_{date.year}.csv"  # noqa: E501
 
         data = pd.read_csv(url, skiprows=1, header=2)
@@ -1129,6 +866,12 @@ class IESO(ISOBase):
 
             if r.ok:
                 break
+
+            # If the file is not found, there is no need to retry
+            if r.status_code == 404:
+                raise NoDataFoundException(
+                    f"File not found at {url}. Please check the URL.",
+                )
 
             retry_num += 1
             logger.info(f"Request failed. Error: {r.reason}. Retrying {retry_num}...")
@@ -1215,14 +958,14 @@ class IESO(ISOBase):
         Returns:
             tuple[dict, datetime.datetime]: The Resource Adequacy Report JSON and its last modified time
         """
-        base_url = "https://reports-public.ieso.ca/public/Adequacy2"
+        base_url = RESOURCE_ADEQUACY_REPORT_BASE_URL
 
         if isinstance(date, (datetime.datetime, datetime.date)):
             date_str = date.strftime("%Y%m%d")
         else:
             date_str = date.replace("-", "")
 
-        file_prefix = f"PUB_Adequacy2_{date_str}"
+        file_prefix = f"PUB_Adequacy3_{date_str}"
 
         r = self._request(base_url)
         files = re.findall(f'href="({file_prefix}.*?.xml)"', r.text)
@@ -1298,14 +1041,14 @@ class IESO(ISOBase):
         Returns:
             dict: The Resource Adequacy Report JSON for the given date
         """
-        base_url = "https://reports-public.ieso.ca/public/Adequacy2"
+        base_url = RESOURCE_ADEQUACY_REPORT_BASE_URL
 
         if isinstance(date, (datetime.datetime, datetime.date)):
             date_str = date.strftime("%Y%m%d")
         else:
             date_str = date.replace("-", "")
 
-        file_prefix = f"PUB_Adequacy2_{date_str}"
+        file_prefix = f"PUB_Adequacy3_{date_str}"
 
         r = self._request(base_url)
 
@@ -1387,7 +1130,7 @@ class IESO(ISOBase):
         """Parse the Resource Adequacy Report JSON into DataFrames."""
         document_body = json_data["Document"]["DocBody"]
         report_data = []
-        data_map = self._get_resource_adequacy_data_structure_map()
+        data_map = RESOURCE_ADEQUACY_REPORT_DATA_STRUCTURE_MAP
 
         # TODO(Kladar): this is clunky and could definitely be generalized to reduce
         # linecount, but it works for now. I kind of move around the report JSON to where I want
@@ -1568,465 +1311,6 @@ class IESO(ISOBase):
         df = df.drop(columns=["DeliveryHour"])
         return df
 
-    # TODO(Kladar): this could likely be developed from the XML structure, but this works for now
-    # and is easier to modify and quite legible
-    def _get_resource_adequacy_data_structure_map(self) -> dict:
-        """Define mapping of hourly data locations and extraction rules"""
-        return {
-            "supply": {
-                "hourly": {
-                    "Forecast Supply Capacity": {
-                        "path": ["ForecastSupply", "Capacities", "Capacity"],
-                        "value_key": "EnergyMW",
-                    },
-                    "Forecast Supply Energy MWh": {
-                        "path": ["ForecastSupply", "Energies", "Energy"],
-                        "value_key": "EnergyMWhr",
-                    },
-                    "Forecast Supply Bottled Capacity": {
-                        "path": ["ForecastSupply", "BottledCapacities", "Capacity"],
-                        "value_key": "EnergyMW",
-                    },
-                    "Forecast Supply Regulation": {
-                        "path": ["ForecastSupply", "Regulations", "Regulation"],
-                        "value_key": "EnergyMW",
-                    },
-                    "Total Forecast Supply": {
-                        "path": ["ForecastSupply", "TotalSupplies", "Supply"],
-                        "value_key": "EnergyMW",
-                    },
-                    "Total Requirement": {
-                        "path": ["ForecastDemand", "TotalRequirements", "Requirement"],
-                        "value_key": "EnergyMW",
-                    },
-                    "Capacity Excess Shortfall": {
-                        "path": ["ForecastDemand", "ExcessCapacities", "Capacity"],
-                        "value_key": "EnergyMW",
-                    },
-                    "Energy Excess Shortfall MWh": {
-                        "path": ["ForecastDemand", "ExcessEnergies", "Energy"],
-                        "value_key": "EnergyMWhr",
-                    },
-                    "Offered Capacity Excess Shortfall": {
-                        "path": [
-                            "ForecastDemand",
-                            "ExcessOfferedCapacities",
-                            "Capacity",
-                        ],
-                        "value_key": "EnergyMW",
-                    },
-                    "Resources Not Scheduled": {
-                        "path": [
-                            "ForecastDemand",
-                            "UnscheduledResources",
-                            "UnscheduledResource",
-                        ],
-                        "value_key": "EnergyMW",
-                    },
-                    "Imports Not Scheduled": {
-                        "path": [
-                            "ForecastDemand",
-                            "UnscheduledImports",
-                            "UnscheduledImport",
-                        ],
-                        "value_key": "EnergyMW",
-                    },
-                },
-                "fuel_type_hourly": {
-                    "path": ["ForecastSupply", "InternalResources", "InternalResource"],
-                    "resources": {
-                        "Nuclear": {
-                            "Capacity": {
-                                "path": ["Capacities", "Capacity"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Outages": {
-                                "path": ["Outages", "Outage"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Gas": {
-                            "Capacity": {
-                                "path": ["Capacities", "Capacity"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Outages": {
-                                "path": ["Outages", "Outage"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Hydro": {
-                            "Capacity": {
-                                "path": ["Capacities", "Capacity"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Outages": {
-                                "path": ["Outages", "Outage"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Forecasted MWh": {
-                                "path": ["ForecastEnergies", "ForecastEnergy"],
-                                "value_key": "EnergyMWhr",
-                            },
-                            "Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Wind": {
-                            "Capacity": {
-                                "path": ["Capacities", "Capacity"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Outages": {
-                                "path": ["Outages", "Outage"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Forecasted": {
-                                "path": ["Forecasts", "Forecast"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Solar": {
-                            "Capacity": {
-                                "path": ["Capacities", "Capacity"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Outages": {
-                                "path": ["Outages", "Outage"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Forecasted": {
-                                "path": ["Forecasts", "Forecast"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Biofuel": {
-                            "Capacity": {
-                                "path": ["Capacities", "Capacity"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Outages": {
-                                "path": ["Outages", "Outage"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Other": {
-                            "Capacity": {
-                                "path": ["Capacities", "Capacity"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Outages": {
-                                "path": ["Outages", "Outage"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Offered Forecasted": {
-                                "path": ["OfferForecasts", "OfferForecast"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                    },
-                },
-                "total_internal_resources": {
-                    "path": [
-                        "ForecastSupply",
-                        "InternalResources",
-                        "TotalInternalResources",
-                    ],
-                    "sections": {
-                        "Total Internal Resources Outages": {
-                            "path": ["Outages", "Outage"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Total Internal Resources Offered Forecasted": {
-                            "path": ["OfferForecasts", "OfferForecast"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Total Internal Resources Scheduled": {
-                            "path": ["Schedules", "Schedule"],
-                            "value_key": "EnergyMW",
-                        },
-                    },
-                },
-                "zonal_import_hourly": {
-                    "path": ["ForecastSupply", "ZonalImports", "ZonalImport"],
-                    "zones": {
-                        "Manitoba": {
-                            "Imports Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Imports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Minnesota": {
-                            "Imports Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Imports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Michigan": {
-                            "Imports Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Imports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "New York": {
-                            "Imports Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Imports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Quebec": {
-                            "Imports Offered": {
-                                "path": ["Offers", "Offer"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Imports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                    },
-                },
-                "total_imports": {
-                    "path": ["ForecastSupply", "ZonalImports", "TotalImports"],
-                    "metrics": {
-                        "Offers": {
-                            "path": ["Offers", "Offer"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Scheduled": {
-                            "path": ["Schedules", "Schedule"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Estimated": {
-                            "path": ["Estimates", "Estimate"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Capacity": {
-                            "path": ["Capacities", "Capacity"],
-                            "value_key": "EnergyMW",
-                        },
-                    },
-                },
-            },
-            "demand": {
-                "ontario_demand": {
-                    "path": ["ForecastDemand", "OntarioDemand"],
-                    "sections": {
-                        "Ontario Demand Forecast": {
-                            "path": ["ForecastOntDemand", "Demand"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Ontario Peak Demand": {
-                            "path": ["PeakDemand", "Demand"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Ontario Average Demand": {
-                            "path": ["AverageDemand", "Demand"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Ontario Wind Embedded Forecast": {
-                            "path": ["WindEmbedded", "Embedded"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Ontario Solar Embedded Forecast": {
-                            "path": ["SolarEmbedded", "Embedded"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Dispatchable Load": {
-                            "sections": {
-                                "Ontario Dispatchable Load Capacity": {
-                                    "path": ["Capacities", "Capacity"],
-                                    "value_key": "EnergyMW",
-                                },
-                                "Ontario Dispatchable Load Bid Forecasted": {
-                                    "path": ["BidForecasts", "BidForecast"],
-                                    "value_key": "EnergyMW",
-                                },
-                                "Ontario Dispatchable Load Scheduled ON": {
-                                    "path": ["ScheduledON", "Schedule"],
-                                    "value_key": "EnergyMW",
-                                },
-                                "Ontario Dispatchable Load Scheduled OFF": {
-                                    "path": ["ScheduledOFF", "Schedule"],
-                                    "value_key": "EnergyMW",
-                                },
-                            },
-                        },
-                        "Hourly Demand Response": {
-                            "sections": {
-                                "Ontario Hourly Demand Response Bid Forecasted": {
-                                    "path": ["Bids", "Bid"],
-                                    "value_key": "EnergyMW",
-                                },
-                                "Ontario Hourly Demand Response Scheduled": {
-                                    "path": ["Schedules", "Schedule"],
-                                    "value_key": "EnergyMW",
-                                },
-                                "Ontario Hourly Demand Response Curtailed": {
-                                    "path": ["Curtailed", "Curtail"],
-                                    "value_key": "EnergyMW",
-                                },
-                            },
-                        },
-                    },
-                },
-                "zonal_export_hourly": {
-                    "path": ["ForecastDemand", "ZonalExports", "ZonalExport"],
-                    "zones": {
-                        "Manitoba": {
-                            "Exports Offered": {
-                                "path": ["Bids", "Bid"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Exports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Minnesota": {
-                            "Exports Offered": {
-                                "path": ["Bids", "Bid"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Exports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Michigan": {
-                            "Exports Offered": {
-                                "path": ["Bids", "Bid"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Exports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "New York": {
-                            "Exports Offered": {
-                                "path": ["Bids", "Bid"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Exports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                        "Quebec": {
-                            "Exports Offered": {
-                                "path": ["Bids", "Bid"],
-                                "value_key": "EnergyMW",
-                            },
-                            "Exports Scheduled": {
-                                "path": ["Schedules", "Schedule"],
-                                "value_key": "EnergyMW",
-                            },
-                        },
-                    },
-                },
-                "total_exports": {
-                    "path": ["ForecastDemand", "ZonalExports", "TotalExports"],
-                    "metrics": {
-                        "Bids": {
-                            "path": ["Bids", "Bid"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Scheduled": {
-                            "path": ["Schedules", "Schedule"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Capacity": {
-                            "path": ["Capacities", "Capacity"],
-                            "value_key": "EnergyMW",
-                        },
-                    },
-                },
-                "reserves": {
-                    "path": ["ForecastDemand", "GenerationReserveHoldback"],
-                    "sections": {
-                        "Total Operating Reserve": {
-                            "path": ["TotalORReserve", "ORReserve"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Minimum 10 Minute Operating Reserve": {
-                            "path": ["Min10MinOR", "Min10OR"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Minimum 10 Minute Spin OR": {
-                            "path": ["Min10MinSpinOR", "Min10SpinOR"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Load Forecast Uncertainties": {
-                            "path": ["LoadForecastUncertainties", "Uncertainty"],
-                            "value_key": "EnergyMW",
-                        },
-                        "Additional Contingency Allowances": {
-                            "path": ["ContingencyAllowances", "Allowance"],
-                            "value_key": "EnergyMW",
-                        },
-                    },
-                },
-            },
-        }
-
     def _extract_hourly_values(
         self,
         data: dict,
@@ -2202,7 +1486,7 @@ class IESO(ISOBase):
         ]
 
     @support_date_range(frequency="YEAR_START")
-    def get_intertie_actual_schedule_flow_hourly(
+    def get_yearly_intertie_actual_schedule_flow_hourly(
         self,
         date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
         end: pd.Timestamp | None = None,
@@ -2210,7 +1494,9 @@ class IESO(ISOBase):
         vintage: Literal["all", "latest"] = "latest",
         last_modified: str | datetime.date | datetime.datetime | None = None,
     ) -> pd.DataFrame:
-        """Get yearly intertie actual schedule flow hourly.
+        """Get yearly intertie actual schedule flow hourly. Since this is a yearly file
+        it is updated less frequency than the daily files. These can be retrieved via
+        the get_intertie_schedule_flow_hourly method.
         Args:
             date: The date to get the data for.
             end: The end date to get the data for.
@@ -2284,7 +1570,7 @@ class IESO(ISOBase):
             target_date = pd.Timestamp(date).date()
             df = df[df["Interval Start"].dt.date == target_date]
 
-        return df
+        return df[INTERTIE_ACTUAL_SCHEDULE_FLOW_HOURLY_COLUMNS].reset_index(drop=True)
 
     def _get_intertie_schedule_flow_data(
         self,
@@ -2453,4 +1739,2315 @@ class IESO(ISOBase):
         df = utils.move_cols_to_front(df, key_columns + total_columns)
 
         df.drop(columns=["Date", "Hour"], inplace=True)
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_intertie_actual_schedule_flow_hourly(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        return self._get_and_parse_intertie_schedule_flow(
+            date,
+            return_five_minute_data=False,
+            verbose=verbose,
+        )
+
+    @support_date_range(frequency="DAY_START")
+    def get_intertie_flow_5_min(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        return self._get_and_parse_intertie_schedule_flow(
+            date,
+            return_five_minute_data=True,
+            verbose=verbose,
+        )
+
+    def _get_and_parse_intertie_schedule_flow(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        return_five_minute_data: bool = False,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        directory_path = "IntertieScheduleFlow"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}.xml"
+
+        xml_content = self._request(url, verbose=verbose).text
+
+        ns = {"": "http://www.theIMO.com/schema"}
+        root = ElementTree.fromstring(xml_content)
+
+        created_at = pd.Timestamp(
+            root.find(".//CreatedAt", ns).text,
+            tz=self.default_timezone,
+        )
+
+        base_datetime = pd.Timestamp(
+            root.find(".//Date", ns).text,
+            tz=self.default_timezone,
+        )
+
+        zones = root.findall(".//IntertieZone", ns)
+        zone_interval_records = []
+
+        for zone in zones:
+            zone_name = zone.find(".//IntertieZoneName", ns).text
+
+            schedules = zone.findall(".//Schedule", ns)
+            schedule_data = {}
+
+            for schedule in schedules:
+                hour = _safe_find_int(schedule, ".//Hour", ns)
+                imports = _safe_find_float(schedule, ".//Import", ns)
+                exports = _safe_find_float(schedule, ".//Export", ns)
+
+                # Skip if any required values are missing
+                if any(val is None for val in [hour, imports, exports]):
+                    continue
+
+                schedule_data[hour] = {"import": imports, "export": exports}
+
+            actuals = zone.findall(".//Actual", ns)
+
+            for actual in actuals:
+                hour = _safe_find_int(actual, ".//Hour", ns)
+                interval = _safe_find_int(actual, ".//Interval", ns)
+                flow = _safe_find_float(actual, ".//Flow", ns)
+
+                # Skip if any required values are missing
+                if any(val is None for val in [hour, interval, flow]):
+                    continue
+
+                hour_schedule = schedule_data.get(hour, {})
+
+                zone_interval_records.append(
+                    {
+                        "Zone": zone_name,
+                        "Hour": hour,
+                        "Interval": interval,
+                        "Flow": flow,
+                        "Import": hour_schedule.get("import"),
+                        "Export": hour_schedule.get("export"),
+                    },
+                )
+
+        zone_five_minute_data = pd.DataFrame(zone_interval_records)
+        zone_five_minute_data = zone_five_minute_data.pivot(
+            columns="Zone",
+            index=["Hour", "Interval"],
+            values=["Import", "Export", "Flow"],
+        )
+
+        columns = []
+
+        for metric, zone in zone_five_minute_data.columns:
+            zone = zone.replace(".", "").replace("-", " ").title()
+
+            if zone.startswith("Pq"):
+                zone = zone.upper()
+
+            columns.append(
+                f"{zone} {metric.title()}",
+            )
+
+        zone_five_minute_data.columns = columns
+        zone_five_minute_data = zone_five_minute_data.reset_index()
+
+        totals = root.find(".//Totals", ns)
+        total_schedules = totals.findall(".//Schedule", ns)
+        total_hourly_schedule_records = []
+
+        for schedule in total_schedules:
+            hour = _safe_find_int(schedule, ".//Hour", ns)
+            imports = _safe_find_float(schedule, ".//Import", ns)
+            exports = _safe_find_float(schedule, ".//Export", ns)
+
+            # Skip if any required values are missing
+            if any(val is None for val in [hour, imports, exports]):
+                continue
+            total_hourly_schedule_records.append(
+                {
+                    "Hour": hour,
+                    "Total Import": imports,
+                    "Total Export": exports,
+                },
+            )
+
+        total_hourly_schedule_data = pd.DataFrame(total_hourly_schedule_records)
+
+        total_actuals = totals.findall(".//Actual", ns)
+        total_five_minute_actuals_records = []
+
+        for actual in total_actuals:
+            hour = _safe_find_int(actual, ".//Hour", ns)
+            interval = _safe_find_int(actual, ".//Interval", ns)
+            flow = _safe_find_float(actual, ".//Flow", ns)
+
+            # Skip if any required values are missing
+            if any(val is None for val in [hour, interval, flow]):
+                continue
+            total_five_minute_actuals_records.append(
+                {
+                    "Hour": hour,
+                    "Interval": interval,
+                    "Total Flow": flow,
+                },
+            )
+
+        total_five_minute_actuals_data = pd.DataFrame(total_five_minute_actuals_records)
+
+        totals_five_minute_data = pd.merge(
+            total_hourly_schedule_data,
+            total_five_minute_actuals_data,
+            on="Hour",
+        )
+
+        five_minute_data = pd.merge(
+            zone_five_minute_data,
+            totals_five_minute_data,
+            on=["Hour", "Interval"],
+        )
+
+        if return_five_minute_data:
+            five_minute_data["Interval Start"] = (
+                base_datetime
+                + pd.to_timedelta(five_minute_data["Hour"] - 1, unit="h")
+                + pd.to_timedelta(
+                    5 * (five_minute_data["Interval"] - 1),
+                    unit="m",
+                )
+            )
+
+            five_minute_data["Interval End"] = five_minute_data[
+                "Interval Start"
+            ] + pd.Timedelta(minutes=5)
+
+            five_minute_data["Publish Time"] = created_at
+
+            five_minute_data = (
+                five_minute_data[INTERTIE_FLOW_5_MIN_COLUMNS]
+                .sort_values(["Interval Start"])
+                .reset_index(drop=True)
+            )
+
+            return five_minute_data
+
+        hourly_data = (
+            five_minute_data.drop(columns=["Interval"])
+            .groupby(["Hour"])
+            .mean()
+            .reset_index()
+        )
+        hourly_data["Interval Start"] = base_datetime + pd.to_timedelta(
+            hourly_data["Hour"] - 1,
+            unit="h",
+        )
+        hourly_data["Interval End"] = hourly_data["Interval Start"] + pd.Timedelta(
+            hours=1,
+        )
+
+        hourly_data["Publish Time"] = created_at
+
+        hourly_data = (
+            hourly_data[INTERTIE_ACTUAL_SCHEDULE_FLOW_HOURLY_COLUMNS]
+            .sort_values(["Interval Start"])
+            .reset_index(drop=True)
+        )
+
+        return hourly_data
+
+    @support_date_range(frequency="HOUR_START")
+    def get_lmp_real_time_5_min(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        directory_path = "RealtimeEnergyLMP"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.csv"
+            date = pd.Timestamp.now(tz=self.default_timezone)
+        else:
+            hour = date.hour
+            # Hour numbers are 1-24, so we need to add 1
+            file_hour = f"{hour + 1}".zfill(2)
+
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}{file_hour}.csv"
+
+        return self._get_lmp_csv_data(
+            url,
+            date,
+            minutes_per_interval=5,
+        )
+
+    @support_date_range(frequency="DAY_START")
+    def get_lmp_day_ahead_hourly(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get day-ahead LMP data.
+        Args:
+            date: The date to get the data for.
+            end: The end date to get the data for.
+            verbose: Whether to print verbose output.
+        Returns:
+            DataFrame with LMP data.
+        """
+        directory_path = "DAHourlyEnergyLMP"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.csv"
+            date = pd.Timestamp.now(tz=self.default_timezone)
+        else:
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}.csv"
+
+        return self._get_lmp_csv_data(
+            url,
+            date,
+            minutes_per_interval=60,
+        )
+
+    @support_date_range(frequency=None)
+    def get_lmp_predispatch_hourly(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        directory_path = "PredispHourlyEnergyLMP"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            urls = [f"{file_directory}/PUB_{directory_path}.csv"]
+            date = pd.Timestamp.now(tz=self.default_timezone)
+        else:
+            files_and_times = self._get_directory_files_and_timestamps(
+                file_directory,
+                file_name_prefix=f"PUB_{directory_path}",
+            )
+
+            end = end or (date + pd.Timedelta(hours=1))
+
+            urls = [
+                f"{file_directory}/{file}"
+                for file, file_time in files_and_times
+                if date <= file_time < end
+            ]
+
+        if not urls:
+            raise NoDataFoundException(
+                f"No Predispatch Hourly LMP data found for {date} to {end}",
+            )
+
+        def process_url(url: str, verbose: bool = False) -> pd.DataFrame:
+            # We need to get the file created date from the first line of the csv
+            # Example: CREATED AT 2025/05/01 23:14:53 FOR 2025/05/02
+            text = self._request(url, verbose=False).text
+            first_line = text.splitlines()[0]
+
+            match = re.search(
+                r"CREATED AT (\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2})",
+                first_line,
+            )
+
+            publish_timestamp_str = match.group(1)
+
+            publish_time = pd.Timestamp(
+                publish_timestamp_str,
+                tz=self.default_timezone,
+            )
+
+            # Get the date the file is FOR to use as the base date
+            match = re.search(r"FOR (\d{4}/\d{2}/\d{2})", first_line)
+            delivery_date = pd.Timestamp(match.group(1), tz=self.default_timezone)
+
+            file_data = self._get_lmp_csv_data(
+                url,
+                base_date=delivery_date,
+                minutes_per_interval=60,
+                verbose=verbose,
+            )
+
+            file_data["Publish Time"] = publish_time
+            return file_data
+
+        data = self._process_urls_with_threadpool(
+            urls,
+            process_url,
+            f"No valid data found for Predispatch Hourly LMP for {date} to {end}",
+            verbose=verbose,
+        )
+
+        data["Location"] = data["Location"].str.replace(":LMP", "")
+
+        return data
+
+    def _get_lmp_csv_data(
+        self,
+        url: str,
+        base_date: pd.Timestamp,
+        minutes_per_interval: Literal[5, 60] = 60,
+        verbose: bool = False,
+    ):
+        """Common method to fetch and process LMP data.
+
+        Args:
+            url: The URL to fetch data from.
+            base_date: The date to process data for.
+            minutes_per_interval: Number of minutes per interval.
+
+        Returns:
+            DataFrame with processed LMP data.
+        """
+        if verbose:
+            logger.info(f"Fetching LMP data from {url}")
+
+        data = pd.read_csv(url, skiprows=1)
+
+        if minutes_per_interval == 5:
+            data["Interval Start"] = pd.to_datetime(
+                base_date.normalize()
+                # Need to subtract 1 from the hour because the hour is 1-indexed
+                + pd.to_timedelta(data["Delivery Hour"] - 1, unit="hour")
+                # The interval is 1-indexed, so we need to subtract 1 from the interval
+                + pd.to_timedelta(
+                    (data["Interval"] - 1) * minutes_per_interval,
+                    unit="minute",
+                ),
+            )
+        else:
+            data["Interval Start"] = pd.to_datetime(
+                base_date.normalize()
+                + pd.to_timedelta(data["Delivery Hour"] - 1, unit="hour"),
+            )
+
+        data["Interval End"] = data["Interval Start"] + pd.Timedelta(
+            minutes=minutes_per_interval,
+        )
+
+        data = data.rename(
+            columns={
+                "Energy Loss Price": "Loss",
+                "Energy Congestion Price": "Congestion",
+                "Pricing Location": "Location",
+            },
+        )
+
+        numeric_columns = ["LMP", "Loss", "Congestion"]
+        for col in numeric_columns:
+            if col in data.columns:
+                data[col] = pd.to_numeric(data[col], errors="coerce")
+
+        data["Energy"] = data["LMP"] - data["Loss"] - data["Congestion"]
+
+        columns = [
+            "Interval Start",
+            "Interval End",
+            "Location",
+            "LMP",
+            "Energy",
+            "Congestion",
+            "Loss",
+        ]
+
+        data = (
+            data[columns]
+            .sort_values(["Interval Start", "Location"])
+            .reset_index(drop=True)
+        )
+
+        data["Location"] = data["Location"].str.replace(":LMP", "")
+
+        return data
+
+    @support_date_range(frequency="HOUR_START")
+    def get_lmp_real_time_5_min_virtual_zonal(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        directory_path = "RealtimeZonalEnergyPrices"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            hour = date.hour
+            # Hour numbers are 1-24, so we need to add 1
+            file_hour = f"{hour + 1}".zfill(2)
+
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}{file_hour}.xml"
+
+        xml_content = self._request(url, verbose).text
+
+        soup = BeautifulSoup(xml_content, "xml")
+
+        delivery_date = soup.find("DELIVERYDATE").text
+        delivery_hour = int(soup.find("DELIVERYHOUR").text)
+
+        base_datetime = (
+            pd.to_datetime(delivery_date) + pd.Timedelta(hours=delivery_hour - 1)
+        ).tz_localize(self.default_timezone)
+
+        data_rows = []
+
+        for zone in soup.find_all("TransactionZone"):
+            zone_name = zone.find("ZoneName").text
+
+            for interval in zone.find_all("IntervalPrice"):
+                interval_num = int(interval.find("Interval").text)
+
+                zonal_price_elem = interval.find("ZonalPrice")
+                loss_price_elem = interval.find("EnergyLossPrice")
+                cong_price_elem = interval.find("EnergyCongPrice")
+
+                # If any of the prices are null, skip to the next interval
+                if (
+                    not zonal_price_elem.text.strip()
+                    or not loss_price_elem.text.strip()
+                    or not cong_price_elem.text.strip()
+                ):
+                    continue
+
+                zonal_price = float(zonal_price_elem.text)
+                loss_price = float(loss_price_elem.text)
+                cong_price = float(cong_price_elem.text)
+
+                # Calculate energy price from definition
+                energy_price = zonal_price - loss_price - cong_price
+
+                # Subtract 1 from the interval number because it's 1-indexed
+                interval_start = base_datetime + pd.Timedelta(
+                    minutes=(interval_num - 1) * 5,
+                )
+                interval_end = interval_start + pd.Timedelta(minutes=5)
+
+                data_rows.append(
+                    {
+                        "Interval Start": interval_start,
+                        "Interval End": interval_end,
+                        "Location": zone_name,
+                        "LMP": zonal_price,
+                        "Energy": energy_price,
+                        "Congestion": cong_price,
+                        "Loss": loss_price,
+                    },
+                )
+
+        df = (
+            pd.DataFrame(data_rows)
+            .sort_values(["Interval Start", "Location"])
+            .reset_index(drop=True)
+        )
+
+        # Strip out the :HUB from the location
+        df["Location"] = df["Location"].str.replace(":HUB", "")
+
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_lmp_day_ahead_hourly_virtual_zonal(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get day-ahead zonal virtual LMP data.
+        Args:
+            date: The date to get the data for.
+            end: The end date to get the data for.
+            verbose: Whether to print verbose output.
+        Returns:
+            DataFrame with LMP data.
+        """
+        directory_path = "DAHourlyZonal"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}.xml"
+
+        return self._parse_lmp_hourly_virtual_zonal(
+            url,
+            verbose=verbose,
+        )
+
+    @support_date_range(frequency=None)
+    def get_lmp_predispatch_hourly_virtual_zonal(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        directory_path = "PredispHourlyZonal"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            urls = [f"{file_directory}/PUB_{directory_path}.xml"]
+        else:
+            end = end or (date + pd.Timedelta(hours=1))
+
+            files_and_timestamps = self._get_directory_files_and_timestamps(
+                file_directory,
+                file_name_prefix=f"PUB_{directory_path}",
+            )
+
+            urls = [
+                f"{file_directory}/{file}"
+                for file, file_time in files_and_timestamps
+                if date <= file_time < end
+            ]
+
+        if not urls:
+            raise NoDataFoundException(
+                f"No Predispatch Hourly Virtual Zonal LMP data found for {date} to {end}",
+            )
+
+        def process_url(url: str, verbose: bool = False) -> pd.DataFrame:
+            return self._parse_lmp_hourly_virtual_zonal(
+                url,
+                verbose=verbose,
+                predispatch=True,
+            )
+
+        return self._process_urls_with_threadpool(
+            urls,
+            process_url,
+            f"No valid data found for Predispatch Hourly Virtual Zonal LMP for {date} to {end}",
+            verbose=verbose,
+        )
+
+    def _parse_lmp_hourly_virtual_zonal(
+        self,
+        url: str,
+        verbose: bool = False,
+        predispatch: bool = False,
+    ) -> pd.DataFrame:
+        xml_content = self._request(url, verbose).text
+        soup = BeautifulSoup(xml_content, "xml")
+
+        delivery_date = soup.find("DeliveryDate").text
+        base_datetime = (pd.to_datetime(delivery_date)).tz_localize(
+            self.default_timezone,
+        )
+
+        created_at = pd.Timestamp(soup.find("CreatedAt").text, tz=self.default_timezone)
+
+        data_rows = []
+
+        for zone in soup.find_all("TransactionZone"):
+            zone_name = zone.find("ZoneName").text
+
+            components = zone.find_all("Components")
+
+            zonal_prices = {}
+            loss_prices = {}
+            congestion_prices = {}
+
+            for component in components:
+                component_type = component.find("PriceComponent").text
+
+                # Predispatch xml has slightly different tags
+                for hour in component.find_all(
+                    "DeliveryHour" if not predispatch else "DeliveryHourLMP",
+                ):
+                    hour_num = int(
+                        hour.find("Hour" if not predispatch else "DELIVERY_HOUR").text,
+                    )
+                    price = float(hour.find("LMP").text)
+
+                    if component_type == "Zonal Price":
+                        zonal_prices[hour_num] = price
+                    elif component_type == "Energy Loss Price":
+                        loss_prices[hour_num] = price
+                    elif component_type == "Energy Congestion Price":
+                        congestion_prices[hour_num] = price
+
+            # Hours are 1-indexed, so we loop from 1 to 24
+            for hour_num in range(1, 25):
+                if (
+                    hour_num in zonal_prices
+                    and hour_num in loss_prices
+                    and hour_num in congestion_prices
+                ):
+                    interval_start = base_datetime + pd.Timedelta(hours=hour_num - 1)
+                    interval_end = interval_start + pd.Timedelta(hours=1)
+
+                    lmp = zonal_prices[hour_num]
+                    loss = loss_prices[hour_num]
+                    congestion = congestion_prices[hour_num]
+
+                    # Calculate energy component from definition
+                    energy = lmp - loss - congestion
+
+                    data_rows.append(
+                        {
+                            "Interval Start": interval_start,
+                            "Interval End": interval_end,
+                            "Location": zone_name,
+                            "LMP": lmp,
+                            "Energy": energy,
+                            "Congestion": congestion,
+                            "Loss": loss,
+                        },
+                    )
+
+        df = (
+            pd.DataFrame(data_rows)
+            .sort_values(["Interval Start", "Location"])
+            .reset_index(drop=True)
+        )
+
+        if predispatch:
+            df["Publish Time"] = created_at
+
+            df = utils.move_cols_to_front(
+                df,
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Publish Time",
+                    "Location",
+                ],
+            )
+
+        # Strip out the :HUB from the location
+        df["Location"] = df["Location"].str.replace(":HUB", "")
+
+        return df
+
+    @support_date_range(frequency="HOUR_START")
+    def get_lmp_real_time_5_min_intertie(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        directory_path = "RealTimeIntertieLMP"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            hour = date.hour
+            # Hour numbers are 1-24, so we need to add 1
+            file_hour = f"{hour + 1}".zfill(2)
+
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}{file_hour}.xml"
+
+        xml_content = self._request(url, verbose).text
+
+        root = ElementTree.fromstring(xml_content)
+
+        ns = {"": "http://www.ieso.ca/schema"}
+
+        delivery_date = root.find(".//DeliveryDate", ns).text
+        delivery_hour = int(root.find(".//DeliveryHour", ns).text)
+
+        base_datetime = (
+            pd.to_datetime(delivery_date) + pd.Timedelta(hours=delivery_hour - 1)
+        ).tz_localize(self.default_timezone)
+
+        data_rows = []
+
+        intertie_prices = root.findall(".//IntertieLMPrice", ns)
+
+        for intertie_price in intertie_prices:
+            location = intertie_price.find("IntertiePLName", ns).text
+
+            components = intertie_price.findall("Components", ns)
+
+            lmp_values = {}
+            loss_values = {}
+            energy_congestion_values = {}
+            external_congestion_values = {}
+            # Net Interchange Scheduling Limit
+            nisl_values = {}
+
+            for component in components:
+                component_type = component.find("LMPComponent", ns).text
+                intervals = component.findall("IntervalLMP", ns)
+
+                for interval in intervals:
+                    interval_num = interval.find("Interval", ns).text
+                    lmp_value_elem = interval.find("LMP", ns)
+
+                    if (
+                        lmp_value_elem is None
+                        or lmp_value_elem.text is None
+                        or lmp_value_elem.text.strip() == ""
+                    ):
+                        continue
+
+                    lmp_value = float(lmp_value_elem.text)
+
+                    if component_type == "Intertie LMP":
+                        lmp_values[interval_num] = lmp_value
+                    elif component_type == "Energy Loss Price":
+                        loss_values[interval_num] = lmp_value
+                    elif component_type == "Energy Congestion Price":
+                        energy_congestion_values[interval_num] = lmp_value
+                    elif component_type == "External Congestion Price":
+                        external_congestion_values[interval_num] = lmp_value
+                    elif (
+                        component_type
+                        == "Net Interchange Scheduling Limit (NISL) Price"
+                    ):
+                        nisl_values[interval_num] = lmp_value
+
+            for interval_num in lmp_values.keys():
+                if (
+                    interval_num in loss_values
+                    and interval_num in energy_congestion_values
+                    and interval_num in external_congestion_values
+                    and interval_num in nisl_values
+                ):
+                    interval_start = base_datetime + pd.Timedelta(
+                        minutes=(int(interval_num) - 1) * 5,
+                    )
+                    interval_end = interval_start + pd.Timedelta(minutes=5)
+
+                    lmp = lmp_values[interval_num]
+                    congestion = energy_congestion_values[interval_num]
+                    loss = loss_values[interval_num]
+                    external_congestion = external_congestion_values[interval_num]
+                    nisl_value = nisl_values[interval_num]
+
+                    # Note that inertie LMP includes external congestion and NISL
+                    energy = lmp - congestion - loss - external_congestion - nisl_value
+
+                    row = {
+                        "Interval Start": interval_start,
+                        "Interval End": interval_end,
+                        "Location": location,
+                        "LMP": lmp,
+                        "Energy": energy,
+                        "Congestion": congestion,
+                        "Loss": loss,
+                        "External Congestion": external_congestion,
+                        "Interchange Scheduling Limit Price": nisl_value,
+                    }
+
+                    data_rows.append(row)
+
+        df = (
+            pd.DataFrame(data_rows)
+            .sort_values(["Interval Start", "Location"])
+            .reset_index(drop=True)
+        )
+
+        # Strip out the :LMP from the location
+        df["Location"] = df["Location"].str.replace(":LMP", "")
+
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_lmp_day_ahead_hourly_intertie(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        directory_path = "DAHourlyIntertieLMP"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}.xml"
+
+        return self._parse_lmp_hourly_intertie(url, verbose=verbose)
+
+    @support_date_range(frequency=None)
+    def get_lmp_predispatch_hourly_intertie(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        directory_path = "PredispHourlyIntertieLMP"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            urls = [f"{file_directory}/PUB_{directory_path}.xml"]
+        else:
+            end = end or (date + pd.Timedelta(hours=1))
+
+            # Get all links matching the date and there corresponding last modified time
+            files_and_datetimes = self._get_directory_files_and_timestamps(
+                file_directory,
+                file_name_prefix=f"PUB_{directory_path}",
+            )
+
+            urls = [
+                f"{file_directory}/{file}"
+                for file, date_time in files_and_datetimes
+                if date <= date_time <= end
+            ]
+
+        if not urls:
+            raise NoDataFoundException(
+                f"No Predispatch Hourly Intertie LMP data found for {date} to {end}",
+            )
+
+        def process_url(url: str, verbose: bool = False) -> pd.DataFrame:
+            return self._parse_lmp_hourly_intertie(
+                url,
+                verbose=verbose,
+                predispatch=True,
+            )
+
+        return self._process_urls_with_threadpool(
+            urls,
+            process_url,
+            f"No valid data found for Predispatch Hourly Intertie LMP for {date} to {end}",
+            verbose=verbose,
+        )
+
+    def _parse_lmp_hourly_intertie(
+        self,
+        url: str,
+        verbose: bool = False,
+        predispatch: bool = False,
+    ) -> pd.DataFrame:
+        xml_content = self._request(url, verbose).text
+        root = ElementTree.fromstring(xml_content)
+
+        ns = NAMESPACES_FOR_XML.copy()
+
+        delivery_date = root.find(".//DeliveryDate", ns).text
+        base_date = pd.Timestamp(delivery_date).tz_localize(self.default_timezone)
+
+        created_at = pd.Timestamp(root.find(".//CreatedAt", ns).text).tz_localize(
+            self.default_timezone,
+        )
+
+        data_rows = []
+
+        intertie_prices = root.findall(".//IntertieLMPrice", ns)
+
+        for intertie in intertie_prices:
+            location = intertie.find("IntertiePLName", ns).text
+            components = intertie.findall("Components", ns)
+
+            hourly_lmp = {}
+            hourly_loss = {}
+            hourly_congestion = {}
+            hourly_external_congestion = {}
+            hourly_nisl = {}  # Net Interchange Scheduling Limit
+
+            # Process each component group
+            for comp in components:
+                component_type = comp.find("LMPComponent", ns).text
+                hourly_values = comp.findall("HourlyLMP", ns)
+
+                for hour_data in hourly_values:
+                    # Note the slight discrepancy between the XML
+                    hour_str = "DeliveryHour" if not predispatch else "Hour"
+
+                    hour = int(hour_data.find(hour_str, ns).text)
+                    lmp_elem = hour_data.find("LMP", ns)
+                    if (
+                        lmp_elem is None
+                        or lmp_elem.text is None
+                        or lmp_elem.text.strip() == ""
+                    ):
+                        continue
+
+                    value = float(lmp_elem.text)
+
+                    if component_type == "Intertie LMP":
+                        hourly_lmp[hour] = value
+                    elif component_type == "Energy Loss Price":
+                        hourly_loss[hour] = value
+                    elif component_type == "Energy Congestion Price":
+                        hourly_congestion[hour] = value
+                    elif component_type == "External Congestion Price":
+                        hourly_external_congestion[hour] = value
+                    elif (
+                        component_type
+                        == "Net Interchange Scheduling Limit (NISL) Price"
+                    ):
+                        hourly_nisl[hour] = value
+
+            for hour in range(1, 25):
+                if hour in hourly_lmp:
+                    interval_start = base_date + pd.Timedelta(hours=hour - 1)
+                    interval_end = interval_start + pd.Timedelta(hours=1)
+
+                    lmp = hourly_lmp.get(hour, 0)
+                    congestion = hourly_congestion.get(hour, 0)
+                    loss = hourly_loss.get(hour, 0)
+                    external_congestion = hourly_external_congestion.get(hour, 0)
+                    nisl_value = hourly_nisl.get(hour, 0)
+
+                    # Note that inertie LMP includes external congestion and NISL
+                    energy = lmp - congestion - loss - external_congestion - nisl_value
+
+                    data_rows.append(
+                        {
+                            "Interval Start": interval_start,
+                            "Interval End": interval_end,
+                            "Location": location,
+                            "LMP": lmp,
+                            "Energy": energy,
+                            "Congestion": congestion,
+                            "Loss": loss,
+                            "External Congestion": external_congestion,
+                            "Interchange Scheduling Limit Price": nisl_value,
+                        },
+                    )
+
+        df = (
+            pd.DataFrame(data_rows)
+            .sort_values(["Interval Start", "Location"])
+            .reset_index(drop=True)
+        )
+
+        if predispatch:
+            # For pre-dispatch, we need to add the publish time
+            df["Publish Time"] = created_at
+            df = utils.move_cols_to_front(
+                df,
+                ["Interval Start", "Interval End", "Publish Time", "Location"],
+            )
+
+        # Strip out the :LMP from the location
+        df["Location"] = df["Location"].str.replace(":LMP", "")
+
+        return df
+
+    @support_date_range(frequency="HOUR_START")
+    def get_lmp_real_time_5_min_ontario_zonal(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        directory_path = "RealtimeOntarioZonalPrice"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            hour = date.hour
+            # Hour numbers are 1-24, so we need to add 1
+            file_hour = f"{hour + 1}".zfill(2)
+
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}{file_hour}.xml"
+
+        xml_content = self._request(url, verbose).text
+        root = ElementTree.fromstring(xml_content)
+
+        ns = NAMESPACES_FOR_XML.copy()
+
+        delivery_date_text = root.find(".//DeliveryDate", ns).text
+
+        # Extract date and hour from the text (e.g., "For 2025-04-23 - Hour 12")
+        delivery_date = pd.Timestamp(
+            delivery_date_text.split(" - ")[0].replace("For ", ""),
+        )
+        delivery_hour = int(delivery_date_text.split(" - ")[1].replace("Hour ", ""))
+
+        base_datetime = (
+            pd.to_datetime(delivery_date) + pd.Timedelta(hours=delivery_hour - 1)
+        ).tz_localize(self.default_timezone)
+
+        price_components = root.findall(".//RealTimePriceComponents", ns)
+
+        zonal_prices = {}
+        loss_prices = {}
+        congestion_prices = {}
+
+        for component in price_components:
+            component_type = component.find("OntarioZonalPrice", ns).text
+
+            # Intervals are 1-indexed, so we loop from 1 to 12
+            for interval in range(1, 13):
+                interval_element_name = f"OntarioZonalPriceInterval{interval}"
+                interval_value_name = f"Interval{interval}"
+
+                interval_element = component.find(interval_element_name, ns)
+                if interval_element is not None:
+                    interval_value_elem = interval_element.find(interval_value_name, ns)
+                    if interval_value_elem is not None and interval_value_elem.text:
+                        value = float(interval_value_elem.text)
+
+                        if component_type == "Zonal Price":
+                            zonal_prices[interval] = value
+                        elif component_type == "Energy Loss Price":
+                            loss_prices[interval] = value
+                        elif component_type == "Energy Congestion Price":
+                            congestion_prices[interval] = value
+        data_rows = []
+
+        for interval in range(1, 13):
+            if interval in zonal_prices:
+                minutes_offset = (interval - 1) * 5
+                interval_start = base_datetime + pd.Timedelta(minutes=minutes_offset)
+                interval_end = interval_start + pd.Timedelta(minutes=5)
+
+                lmp = zonal_prices.get(interval, 0)
+                loss = loss_prices.get(interval, 0)
+                congestion = congestion_prices.get(interval, 0)
+
+                energy = lmp - congestion - loss
+
+                data_rows.append(
+                    {
+                        "Interval Start": interval_start,
+                        "Interval End": interval_end,
+                        "Location": ONTARIO_LOCATION,
+                        "LMP": lmp,
+                        "Energy": energy,
+                        "Congestion": congestion,
+                        "Loss": loss,
+                    },
+                )
+
+        df = (
+            pd.DataFrame(data_rows)
+            .sort_values(["Interval Start"])
+            .reset_index(drop=True)
+        )
+
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_lmp_day_ahead_hourly_ontario_zonal(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        directory_path = "DAHourlyOntarioZonalPrice"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            url = f"{file_directory}/PUB_{directory_path}.xml"
+        else:
+            url = f"{file_directory}/PUB_{directory_path}_{date.strftime('%Y%m%d')}.xml"
+
+        return self._process_lmp_hourly_ontario_zonal(url, verbose)
+
+    @support_date_range(frequency=None)
+    def get_lmp_predispatch_hourly_ontario_zonal(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        directory_path = "PredispHourlyOntarioZonalPrice"
+        file_directory = f"{PUBLIC_REPORTS_URL_PREFIX}/{directory_path}"
+
+        if date == "latest":
+            urls = [f"{file_directory}/PUB_{directory_path}.xml"]
+        else:
+            files_and_datetimes = self._get_directory_files_and_timestamps(
+                file_directory,
+                file_name_prefix=f"PUB_{directory_path}",
+            )
+
+            # Default to using 1 hour if no end is provided
+            end = end or (date + pd.Timedelta(hours=1))
+
+            urls = [
+                f"{file_directory}/{file}"
+                for file, date_time in files_and_datetimes
+                if date <= date_time <= end
+            ]
+
+        if not urls:
+            raise NoDataFoundException(
+                f"No Predispatch Hourly Ontario Zonal LMP data found for {date} to {end}",
+            )
+
+        def process_url(url: str, verbose: bool = False) -> pd.DataFrame:
+            return self._process_lmp_hourly_ontario_zonal(
+                url,
+                verbose,
+                predispatch=True,
+            )
+
+        return self._process_urls_with_threadpool(
+            urls,
+            process_url,
+            f"No valid data found for Predispatch Hourly Ontario Zonal LMP for {date} to {end}",
+            verbose=verbose,
+        )
+
+    def _process_lmp_hourly_ontario_zonal(
+        self,
+        url: str,
+        verbose: bool = False,
+        predispatch: bool = False,
+    ) -> pd.DataFrame:
+        xml_content = self._request(url, verbose).text
+
+        root = ElementTree.fromstring(xml_content)
+        ns = NAMESPACES_FOR_XML.copy()
+
+        created_at = pd.Timestamp(
+            root.find(".//CreatedAt", ns).text,
+        ).tz_localize(self.default_timezone)
+
+        delivery_date = root.find(".//DeliveryDate", ns).text
+
+        base_datetime = pd.Timestamp(
+            delivery_date,
+        ).tz_localize(self.default_timezone)
+
+        data_rows = []
+
+        hourly_components = root.findall(".//HourlyPriceComponents", ns)
+
+        for component in hourly_components:
+            hour = _safe_find_int(component, "PricingHour", ns)
+            lmp = _safe_find_float(component, "ZonalPrice", ns)
+            loss_price = _safe_find_float(component, "LossPriceCapped", ns)
+            congestion_price = _safe_find_float(component, "CongestionPriceCapped", ns)
+
+            # Skip if any required values are missing
+            if any(val is None for val in [hour, lmp, loss_price, congestion_price]):
+                continue
+
+            # Definition of LMP
+            energy = lmp - loss_price - congestion_price
+
+            interval_start = base_datetime + pd.Timedelta(hours=hour - 1)
+            interval_end = interval_start + pd.Timedelta(hours=1)
+
+            data_rows.append(
+                {
+                    "Interval Start": interval_start,
+                    "Interval End": interval_end,
+                    "Location": ONTARIO_LOCATION,
+                    "LMP": lmp,
+                    "Energy": energy,
+                    "Congestion": congestion_price,
+                    "Loss": loss_price,
+                },
+            )
+
+        df = (
+            pd.DataFrame(data_rows)
+            .sort_values(["Interval Start"])
+            .reset_index(drop=True)
+        )
+
+        if predispatch:
+            df["Publish Time"] = created_at
+            df = utils.move_cols_to_front(
+                df,
+                ["Interval Start", "Interval End", "Publish Time", "Location"],
+            )
+
+        return df
+
+    def _process_urls_with_threadpool(
+        self,
+        urls: list[str],
+        process_func: callable,
+        error_message: str,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Generic helper to process multiple URLs using ThreadPoolExecutor.
+
+        Args:
+            urls: List of URLs to process
+            process_func: Function to process each URL (should take url and verbose as args)
+            error_message: Error message to show if no data is found
+            verbose: Whether to print verbose output
+
+        Returns:
+            DataFrame with concatenated results from all URLs
+        """
+        if not urls:
+            raise NoDataFoundException(error_message)
+
+        data_list = []
+        with ThreadPoolExecutor(max_workers=min(10, len(urls))) as executor:
+            future_to_url = {
+                executor.submit(process_func, url, verbose): url for url in urls
+            }
+
+            for future in tqdm.tqdm(as_completed(future_to_url), total=len(urls)):
+                url = future_to_url[future]
+                try:
+                    file_data = future.result()
+                    data_list.append(file_data)
+                except Exception as e:
+                    logger.error(f"Error processing {url}: {str(e)}")
+                    continue
+
+        if not data_list:
+            raise NoDataFoundException(error_message)
+
+        data = pd.concat(data_list)
+
+        # It's possible we may have duplicates since some of the files are the same.
+        # We remove these by dropping duplicate rows based on a subset
+        data = data.drop_duplicates(
+            subset=["Interval Start", "Location", "Publish Time"],
+        )
+
+        data = (
+            utils.move_cols_to_front(
+                data,
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Publish Time",
+                    "Location",
+                ],
+            )
+            .sort_values(
+                ["Interval Start", "Location", "Publish Time"],
+            )
+            .reset_index(drop=True)
+        )
+
+        return data
+
+    def _get_directory_files_and_timestamps(
+        self,
+        file_directory: str,
+        file_name_prefix: str,
+    ):
+        html_content = self._request(file_directory, verbose=False).text
+        soup = BeautifulSoup(html_content, "html.parser")
+        files = []
+
+        for a_tag in soup.find_all("a"):
+            href = a_tag.get("href")
+            if href and href.startswith(file_name_prefix):
+                parent_tr = a_tag.parent
+                if parent_tr:
+                    # Extract the "Last modified" datetime
+                    date_time_text = a_tag.next_sibling
+                    if date_time_text:
+                        date_time_match = re.search(
+                            r"(\d{2}-\w{3}-\d{4} \d{2}:\d{2})",
+                            date_time_text,
+                        )
+                        if date_time_match:
+                            date_time_str = date_time_match.group(1)
+                            date_time = pd.Timestamp(date_time_str).tz_localize(
+                                self.default_timezone,
+                            )
+                            files.append((href, date_time))
+
+        return sorted(files, key=lambda x: x[1], reverse=True)
+
+    @support_date_range(frequency="DAY_START")
+    def get_transmission_outages_planned(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        if date == "latest":
+            urls = [
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutagesTodayAll/PUB_TxOutagesTodayAll.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutages1to30DaysPlanned/PUB_TxOutages1to30DaysPlanned.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutages31to90DaysPlanned/PUB_TxOutages31to90DaysPlanned.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutages91to180DaysPlanned/PUB_TxOutages91to180DaysPlanned.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutages181to730DaysPlanned/PUB_TxOutages181to730DaysPlanned.xml",
+            ]
+        else:
+            date_fmt = "%Y%m%d"
+            urls = [
+                # The offset for each file is the minimum days - 1. So the file for
+                # 31 to 90 days planned is 30 days from the date, and so on.
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutagesTodayAll/PUB_TxOutagesTodayAll_{date.strftime(date_fmt)}.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutages1to30DaysPlanned/PUB_TxOutages1to30DaysPlanned_{date.strftime(date_fmt)}.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutages31to90DaysPlanned/PUB_TxOutages31to90DaysPlanned_{(date + pd.DateOffset(days=30)).strftime(date_fmt)}.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutages91to180DaysPlanned/PUB_TxOutages91to180DaysPlanned_{(date + pd.DateOffset(days=90)).strftime(date_fmt)}.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxOutages181to730DaysPlanned/PUB_TxOutages181to730DaysPlanned_{(date + pd.DateOffset(days=180)).strftime(date_fmt)}.xml",
+            ]
+
+        outage_data = []
+
+        for url in urls:
+            xml_content = self._request(url, verbose).text
+            root = ElementTree.fromstring(xml_content)
+
+            ns = NAMESPACES_FOR_XML.copy()
+
+            publish_time = pd.Timestamp(root.find(".//CreatedAt", ns).text).tz_localize(
+                self.default_timezone,
+            )
+            outage_requests = root.findall(".//OutageRequest", ns)
+
+            for outage in outage_requests:
+                outage_id = outage.find("OutageID", ns).text
+
+                planned_start = pd.Timestamp(
+                    outage.find("PlannedStart", ns).text,
+                ).tz_localize(
+                    self.default_timezone,
+                )
+                planned_end = pd.Timestamp(
+                    outage.find("PlannedEnd", ns).text,
+                ).tz_localize(
+                    self.default_timezone,
+                )
+
+                priority = outage.find("Priority", ns).text
+                recurrence = outage.find("Recurrence", ns).text
+                recall_time = outage.find("EquipmentRecallTime", ns).text
+                status = outage.find("OutageRequestStatus", ns).text
+
+                # Get equipment details
+                equipment_list = outage.findall("EquipmentRequested", ns)
+
+                for equipment in equipment_list:
+                    name = equipment.find("EquipmentName", ns).text
+                    eq_type = equipment.find("EquipmentType", ns).text
+                    voltage = equipment.find("EquipmentVoltage", ns).text
+                    constraint = equipment.find("ConstraintType", ns).text
+
+                    # Add to data list
+                    outage_data.append(
+                        {
+                            "Interval Start": planned_start,
+                            "Interval End": planned_end,
+                            "Publish Time": publish_time,
+                            "Outage ID": outage_id,
+                            "Name": name,
+                            "Priority": priority,
+                            "Recurrence": recurrence,
+                            "Type": eq_type,
+                            "Voltage": voltage,
+                            "Constraint": constraint,
+                            "Recall Time": recall_time,
+                            "Status": status,
+                        },
+                    )
+
+        data = pd.DataFrame(outage_data)
+
+        # There will be overlap between the reports so we need to drop duplicates,
+        # keeping the latest publish time
+        data = data.sort_values(["Interval Start", "Outage ID", "Publish Time"])
+
+        data = data.drop_duplicates(
+            subset=[c for c in data.columns if c != "Publish Time"],
+            keep="last",
+        ).reset_index(drop=True)
+
+        return data
+
+    @support_date_range(frequency="DAY_START")
+    def get_in_service_transmission_limits(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        if date == "latest":
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/TxLimitsAllInService0to34Days/PUB_TxLimitsAllInService0to34Days.xml"
+            date = pd.Timestamp.now(tz=self.default_timezone)
+        else:
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/TxLimitsAllInService0to34Days/PUB_TxLimitsAllInService0to34Days_{date.strftime('%Y%m%d')}.xml"
+
+        xml_content = self._request(url, verbose).text
+
+        return self._process_transmission_limits(
+            xml_content,
+        )
+
+    @support_date_range(frequency="DAY_START")
+    def get_outage_transmission_limits(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        if date == "latest":
+            urls = [
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxLimitsOutage0to2Days/PUB_TxLimitsOutage0to2Days.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxLimitsOutage3to34Days/PUB_TxLimitsOutage3to34Days.xml",
+            ]
+        else:
+            urls = [
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxLimitsOutage0to2Days/PUB_TxLimitsOutage0to2Days_{date.strftime('%Y%m%d')}.xml",
+                f"{PUBLIC_REPORTS_URL_PREFIX}/TxLimitsOutage3to34Days/PUB_TxLimitsOutage3to34Days_{date.strftime('%Y%m%d')}.xml",
+            ]
+
+        data_list = []
+        for url in urls:
+            xml_content = self._request(url, verbose).text
+            data_list.append(self._process_transmission_limits(xml_content))
+
+        data = pd.concat(data_list)
+
+        # Drop rows duplicated on every column except Publish Time
+        data = data.drop_duplicates(
+            subset=[c for c in data.columns if c != "Publish Time"],
+            keep="last",
+        ).reset_index(drop=True)
+
+        return data
+
+    def _process_transmission_limits(self, xml_content: str) -> pd.DataFrame:
+        parser = lxml_etree.XMLParser(remove_blank_text=True)
+        tree = lxml_etree.fromstring(xml_content.encode(), parser)
+
+        ns = {"ns": "http://www.ieso.ca/schema"}
+
+        created_at = pd.Timestamp(
+            str(tree.xpath("//ns:CreatedAt/text()", namespaces=ns)[0]),
+        ).tz_localize(
+            self.default_timezone,
+        )
+
+        data = []
+
+        facility_types = ["Internal", "Intertie"]
+
+        for facility_type in facility_types:
+            xpath = f"//ns:TransmissionFacilityData[ns:TransmissionFacility='{facility_type}']"
+            facilities = tree.xpath(xpath, namespaces=ns)
+
+            for facility in facilities:
+                # Find all interface data within this facility
+                interfaces = facility.xpath("./ns:InterfaceData", namespaces=ns)
+
+                for interface in interfaces:
+                    # Extract field values
+                    name = interface.xpath("./ns:InterfaceName/text()", namespaces=ns)[
+                        0
+                    ]
+                    issued = pd.Timestamp(
+                        str(interface.xpath("./ns:IssueDate/text()", namespaces=ns)[0]),
+                    ).tz_localize(
+                        self.default_timezone,
+                    )
+                    start = pd.Timestamp(
+                        str(interface.xpath("./ns:StartDate/text()", namespaces=ns)[0]),
+                    ).tz_localize(
+                        self.default_timezone,
+                    )
+                    end = pd.Timestamp(
+                        str(interface.xpath("./ns:EndDate/text()", namespaces=ns)[0]),
+                    ).tz_localize(
+                        self.default_timezone,
+                    )
+                    limit = interface.xpath(
+                        "./ns:OperatingLimit/text()",
+                        namespaces=ns,
+                    )[0]
+
+                    comments_text = interface.xpath(
+                        "./ns:Comments/text()",
+                        namespaces=ns,
+                    )
+
+                    # Explicitly use a string here so we can use comments for the
+                    # primary key
+                    comments = comments_text[0] if comments_text else "None"
+
+                    data.append(
+                        {
+                            "Interval Start": start,
+                            "Interval End": end,
+                            "Publish Time": created_at,
+                            "Issue Time": issued,
+                            "Type": facility_type,
+                            "Facility": name,
+                            "Operating Limit": int(limit),
+                            "Comments": comments,
+                        },
+                    )
+
+        df = (
+            pd.DataFrame(data)
+            .sort_values(["Interval Start", "Publish Time", "Facility"])
+            .reset_index(drop=True)
+        )
+
+        return df
+
+    @support_date_range(frequency=None)
+    def get_load_zonal_5_min(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        if date == "latest":
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/RealtimeDemandZonal/PUB_RealtimeDemandZonal.csv"
+        else:
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/RealtimeDemandZonal/PUB_RealtimeDemandZonal_{date.year}.csv"
+
+        return self._parse_load_zonal_data(url, date, end)
+
+    @support_date_range(frequency=None)
+    def get_load_zonal_hourly(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        if date == "latest":
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/DemandZonal/PUB_DemandZonal.csv"
+        else:
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/DemandZonal/PUB_DemandZonal_{date.year}.csv"
+        return self._parse_load_zonal_data(url, date, end)
+
+    def _parse_load_zonal_data(
+        self,
+        url: str,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+    ) -> pd.DataFrame:
+        df = pd.read_csv(url, skiprows=3, parse_dates=["Date"])
+
+        if "Interval" in df.columns:
+            df["Interval Start"] = (
+                df["Date"]
+                + pd.to_timedelta(df["Hour"] - 1, unit="h")
+                + pd.to_timedelta((df["Interval"] - 1) * 5, unit="m")
+            ).dt.tz_localize(self.default_timezone)
+            df["Interval End"] = df["Interval Start"] + pd.Timedelta(minutes=5)
+        else:
+            df["Interval Start"] = (
+                df["Date"] + pd.to_timedelta(df["Hour"] - 1, unit="h")
+            ).dt.tz_localize(self.default_timezone)
+            df["Interval End"] = df["Interval Start"] + pd.Timedelta(hours=1)
+            df.rename(columns={"Zone Total": "Zones Total"}, inplace=True)
+        df.columns = df.columns.str.title()
+        if date == "latest":
+            latest_date = df["Interval Start"].dt.date.max()
+            df = df[df["Interval Start"].dt.date == latest_date]
+        else:
+            if isinstance(date, str):
+                date = pd.Timestamp(date, tz=self.default_timezone)
+            if end is None:
+                mask = (df["Interval Start"] >= date) & (
+                    df["Interval Start"] < (date + pd.DateOffset(days=1))
+                )
+                df = df[mask]
+            else:
+                mask = (df["Interval Start"] >= date) & (df["Interval Start"] < end)
+                df = df[mask]
+        return (
+            df[ZONAL_LOAD_COLUMNS]
+            .sort_values(["Interval Start"])
+            .reset_index(drop=True)
+        )
+
+    @support_date_range(frequency="HOUR_START")
+    def get_real_time_totals(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        if date == "latest":
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/RealtimeTotals/PUB_RealtimeTotals.xml"
+        else:
+            hour = date.hour
+            # Hour numbers are 1-24, so we need to add 1
+            file_hour = f"{hour + 1}".zfill(2)
+
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/RealtimeTotals/PUB_RealtimeTotals_{date.strftime('%Y%m%d')}{file_hour}.xml"
+
+        xml_content = self._request(url, verbose).text
+
+        root = ElementTree.fromstring(xml_content)
+
+        ns = NAMESPACES_FOR_XML.copy()
+
+        # Extract delivery date and hour
+        delivery_date = root.find(".//DeliveryDate", ns).text
+        delivery_hour = int(root.find(".//DeliveryHour", ns).text)
+
+        base_datetime = (
+            pd.to_datetime(delivery_date) + pd.Timedelta(hours=delivery_hour - 1)
+        ).tz_localize(self.default_timezone)
+
+        data = []
+
+        for interval_energy in root.findall(".//IntervalEnergy", ns):
+            interval = int(interval_energy.find("Interval", ns).text)
+
+            interval_start = base_datetime + pd.Timedelta(minutes=(interval - 1) * 5)
+            interval_end = interval_start + pd.Timedelta(minutes=5)
+
+            row = {"Interval Start": interval_start, "Interval End": interval_end}
+
+            for mq in interval_energy.findall("MQ", ns):
+                quantity_name = mq.find("MarketQuantity", ns).text
+                energy_mw = float(mq.find("EnergyMW", ns).text)
+
+                if quantity_name == "Total Energy":
+                    row["Total Energy"] = energy_mw
+                elif quantity_name == "Total Loss":
+                    row["Total Loss"] = energy_mw
+                elif quantity_name == "Total Load":
+                    row["Market Total Load"] = energy_mw
+                elif quantity_name == "Total Dispatch Load Scheduled OFF":
+                    row["Total Dispatchable Load Scheduled Off"] = energy_mw
+                elif quantity_name == "Total 10S":
+                    row["Total 10S"] = energy_mw
+                elif quantity_name == "Total 10N":
+                    row["Total 10N"] = energy_mw
+                elif quantity_name == "Total 30R":
+                    row["Total 30R"] = energy_mw
+                elif quantity_name == "ONTARIO DEMAND":
+                    row["Ontario Load"] = energy_mw
+
+            # Extract flag
+            flag = interval_energy.find("Flag", ns).text
+            row["Flag"] = flag
+
+            data.append(row)
+
+        columns = [
+            "Interval Start",
+            "Interval End",
+            "Total Energy",
+            "Total Loss",
+            "Market Total Load",
+            "Total Dispatchable Load Scheduled Off",
+            "Total 10S",
+            "Total 10N",
+            "Total 30R",
+            "Ontario Load",
+            "Flag",
+        ]
+
+        # Create DataFrame
+        data = (
+            pd.DataFrame(data)[columns]
+            .sort_values(["Interval Start"])
+            .reset_index(drop=True)
+        )
+
+        return data
+
+    @support_date_range(frequency="DAY_START")
+    def get_solar_embedded_forecast(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        vintage: Literal["latest", "all"] = "latest",
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        json_data_with_times = self._get_variable_generation_forecast_json(
+            date,
+            end,
+            vintage,
+        )
+
+        dfs = [
+            self._parse_variable_generation_forecast(json_data, last_modified_time)
+            for json_data, last_modified_time in json_data_with_times
+        ]
+        df = pd.concat(dfs).reset_index(drop=True)
+        df.drop_duplicates(inplace=True)
+        df = df[
+            (df["Organization Type"] == "Embedded") & (df["Type"] == "Solar")
+        ].reset_index(drop=True)
+        df.drop(columns=["Organization Type", "Type"], inplace=True)
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_wind_embedded_forecast(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        vintage: Literal["latest", "all"] = "latest",
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        json_data_with_times = self._get_variable_generation_forecast_json(
+            date,
+            end,
+            vintage,
+        )
+
+        dfs = [
+            self._parse_variable_generation_forecast(json_data, last_modified_time)
+            for json_data, last_modified_time in json_data_with_times
+        ]
+        df = pd.concat(dfs).reset_index(drop=True)
+        df.drop_duplicates(inplace=True)
+        df = df[
+            (df["Organization Type"] == "Embedded") & (df["Type"] == "Wind")
+        ].reset_index(drop=True)
+        df.drop(columns=["Organization Type", "Type"], inplace=True)
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_solar_market_participant_forecast(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        vintage: Literal["latest", "all"] = "latest",
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        json_data_with_times = self._get_variable_generation_forecast_json(
+            date,
+            end,
+            vintage,
+        )
+
+        dfs = [
+            self._parse_variable_generation_forecast(json_data, last_modified_time)
+            for json_data, last_modified_time in json_data_with_times
+        ]
+        df = pd.concat(dfs).reset_index(drop=True)
+        df.drop_duplicates(inplace=True)
+        df = df[
+            (df["Organization Type"] == "Market Participant") & (df["Type"] == "Solar")
+        ].reset_index(drop=True)
+        df.drop(columns=["Organization Type", "Type"], inplace=True)
+        return df
+
+    @support_date_range(frequency="DAY_START")
+    def get_wind_market_participant_forecast(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        vintage: Literal["latest", "all"] = "latest",
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        json_data_with_times = self._get_variable_generation_forecast_json(
+            date,
+            end,
+            vintage,
+        )
+
+        dfs = [
+            self._parse_variable_generation_forecast(json_data, last_modified_time)
+            for json_data, last_modified_time in json_data_with_times
+        ]
+        df = pd.concat(dfs).reset_index(drop=True)
+        df = df[
+            (df["Organization Type"] == "Market Participant") & (df["Type"] == "Wind")
+        ].reset_index(drop=True)
+        df.drop(columns=["Organization Type", "Type"], inplace=True)
+        return df
+
+    def _get_variable_generation_forecast_json(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        vintage: Literal["latest", "all"] = "latest",
+    ) -> list[tuple[dict, pd.Timestamp]]:
+        """Get variable generation forecast JSON data.
+
+        Args:
+            date: The date to get data for
+            end: The end date to get data for
+            vintage: Whether to get latest or all versions
+            verbose: Whether to print verbose output
+
+        Returns:
+            List of tuples containing (json_data, last_modified_time)
+        """
+        logger.info(
+            f"Getting variable generation forecast for {date} to {end} for {vintage} vintage...",
+        )
+        base_url = f"{PUBLIC_REPORTS_URL_PREFIX}/VGForecastSummary"
+        if date == "latest":
+            file_prefix = "PUB_VGForecastSummary"
+        else:
+            if isinstance(date, (pd.Timestamp, pd.Timestamp)):
+                date_str = date.strftime("%Y%m%d")
+            else:
+                date_str = date.replace("-", "")
+
+            file_prefix = f"PUB_VGForecastSummary_{date_str}"
+
+        r = self._request(base_url)
+
+        pattern = f'href="({file_prefix}.*?.xml)">.*?</a>\\s+(\\d{{2}}-\\w{{3}}-\\d{{4}} \\d{{2}}:\\d{{2}})'
+        files_with_times = re.findall(pattern, r.text)
+
+        if not files_with_times:
+            raise FileNotFoundError(
+                f"No variable generation forecast files found for date {date_str}",
+            )
+
+        if vintage == "latest":
+            unversioned_file = next(
+                ((f, t) for f, t in files_with_times if "_v" not in f),
+                None,
+            )
+
+            if unversioned_file:
+                file_name, file_time = unversioned_file
+            else:
+                file_name, file_time = max(
+                    files_with_times,
+                    key=lambda x: int(x[0].split("_v")[-1].replace(".xml", "")),
+                )
+
+            url = f"{base_url}/{file_name}"
+            logger.info(f"Getting latest variable generation forecast from {url}...")
+            r = self._request(url)
+            json_data = xmltodict.parse(r.text)
+            last_modified_time = pd.Timestamp(file_time, tz=self.default_timezone)
+
+            return [(json_data, last_modified_time)]
+
+        else:
+            json_data_with_times = []
+
+            with ThreadPoolExecutor(
+                max_workers=min(10, len(files_with_times)),
+            ) as executor:
+                future_to_file = {
+                    executor.submit(self._fetch_and_parse_file, base_url, file): (
+                        file,
+                        time,
+                    )
+                    for file, time in files_with_times
+                }
+
+                for future in as_completed(future_to_file):
+                    file, time = future_to_file[future]
+                    try:
+                        json_data = future.result()
+                        json_data_with_times.append(
+                            (json_data, pd.Timestamp(time, tz=self.default_timezone)),
+                        )
+                    except Exception as e:
+                        logger.error(f"Error processing file {file}: {str(e)}")
+            logger.info(
+                f"Found {len(json_data_with_times)} variable generation forecast files for {date_str}",
+            )
+            return json_data_with_times
+
+    def _parse_variable_generation_forecast(
+        self,
+        json_data: dict,
+        last_modified_time: pd.Timestamp,
+    ) -> pd.DataFrame:
+        document_body = json_data["Document"]["DocBody"]
+        publish_time = pd.Timestamp(document_body["ForecastTimeStamp"]).tz_localize(
+            self.default_timezone,
+        )
+
+        data = []
+
+        for org in document_body["OrganizationData"]:
+            org_type = org["OrganizationType"].title()
+
+            for fuel_data in org["FuelData"]:
+                fuel_type = fuel_data["FuelType"].title()
+
+                for resource in fuel_data["ResourceData"]:
+                    zone = resource["ZoneName"]
+                    if zone == "OntarioTotal":
+                        zone = "Ontario Total"
+                    else:
+                        zone = zone.replace("-", " ").title()
+
+                    for forecast in resource["EnergyForecast"]:
+                        forecast_date = pd.Timestamp(
+                            forecast["ForecastDate"],
+                        ).tz_localize(self.default_timezone)
+
+                        intervals = forecast["ForecastInterval"]
+                        if not isinstance(intervals, list):
+                            intervals = [intervals]
+
+                        for interval in intervals:
+                            try:
+                                hour = int(interval["ForecastHour"])
+                                output = float(interval["MWOutput"])
+                            except KeyError:
+                                # NB: This logs the error once per file, rather than for each element in the file
+                                if not hasattr(self, "_logged_invalid_intervals"):
+                                    self._logged_invalid_intervals = set()
+
+                                file_key = f"{publish_time}_{last_modified_time}"
+                                if file_key not in self._logged_invalid_intervals:
+                                    logger.warning(
+                                        f"These files are known to be missing the occasional interval. File published at {publish_time} has a missing interval at {interval}. Continuing with data pull and parse...",
+                                    )
+                                    self._logged_invalid_intervals.add(file_key)
+                                continue
+
+                            interval_start = forecast_date + pd.Timedelta(
+                                hours=hour - 1,
+                            )
+                            interval_end = interval_start + pd.Timedelta(hours=1)
+
+                            data.append(
+                                {
+                                    "Interval Start": interval_start,
+                                    "Interval End": interval_end,
+                                    "Publish Time": publish_time,
+                                    "Last Modified": last_modified_time,
+                                    "Organization Type": org_type,
+                                    "Type": fuel_type,
+                                    "Zone": zone,
+                                    "Generation Forecast": output,
+                                },
+                            )
+
+        df = pd.DataFrame(data)
+        return df.sort_values(
+            ["Interval Start", "Publish Time", "Last Modified", "Zone"],
+        ).reset_index(drop=True)
+
+    @support_date_range(frequency="HOUR_START")
+    def get_lmp_real_time_operating_reserves(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+    ):
+        file_directory = "RealtimeORLMP"
+
+        if date == "latest":
+            url = (
+                f"{PUBLIC_REPORTS_URL_PREFIX}/{file_directory}/PUB_{file_directory}.csv"
+            )
+            date = pd.Timestamp.now(tz=self.default_timezone)
+        else:
+            hour = date.hour
+            # Hour numbers are 1-24, so we need to add 1
+            file_hour = f"{hour + 1}".zfill(2)
+
+            url = f"{PUBLIC_REPORTS_URL_PREFIX}/{file_directory}/PUB_{file_directory}_{date.strftime('%Y%m%d')}{file_hour}.csv"
+
+        data = pd.read_csv(url, skiprows=1)
+
+        base_datetime = pd.to_datetime(date).normalize()
+        data["Interval Start"] = (
+            base_datetime
+            + pd.to_timedelta(data["Delivery Hour"] - 1, unit="h")
+            + 5
+            * pd.to_timedelta(
+                data["Interval"] - 1,
+                unit="m",
+            )
+        )
+        data["Interval End"] = data["Interval Start"] + pd.Timedelta(minutes=5)
+
+        data = data.rename(
+            columns={
+                "Pricing Location": "Location",
+                "Congestion Price 10S": "Congestion 10S",
+                "Congestion Price 10N": "Congestion 10N",
+                "Congestion Price 30R": "Congestion 30R",
+            },
+        ).drop(
+            columns=[
+                "Delivery Hour",
+                "Interval",
+            ],
+        )
+
+        data = (
+            utils.move_cols_to_front(
+                data,
+                ["Interval Start", "Interval End", "Location"],
+            )
+            .sort_values(
+                ["Interval Start", "Location"],
+            )
+            .reset_index(drop=True)
+        )
+
+        return data
+
+    @support_date_range(frequency="DAY_START")
+    def get_shadow_prices_real_time_5_min(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+        last_modified: str | pd.Timestamp | None = None,
+    ) -> pd.DataFrame:
+        if last_modified:
+            last_modified = utils._handle_date(last_modified, tz=self.default_timezone)
+        if date == "latest":
+            base_url = f"{PUBLIC_REPORTS_URL_PREFIX}/RealtimeConstrShadowPrices"
+            file = "PUB_RealtimeConstrShadowPrices.xml"
+            json_data = self._fetch_and_parse_shadow_prices_file(base_url, file)
+            df = self._parse_real_time_shadow_prices_report(json_data)
+            df.sort_values(
+                ["Interval Start", "Publish Time", "Constraint"],
+                inplace=True,
+            )
+            return df[
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Publish Time",
+                    "Constraint",
+                    "Shadow Price",
+                ]
+            ].reset_index(drop=True)
+
+        json_data_with_times = self._get_all_shadow_prices_jsons(
+            date,
+            market="Realtime",
+            last_modified=last_modified,
+        )
+        dfs = []
+        for json_data, file_last_modified in json_data_with_times:
+            df = self._parse_real_time_shadow_prices_report(json_data)
+            df["Last Modified"] = file_last_modified
+            dfs.append(df)
+        df = pd.concat(dfs)
+        df = utils.move_cols_to_front(
+            df,
+            ["Interval Start", "Interval End", "Publish Time"],
+        )
+        df.sort_values(
+            ["Interval Start", "Publish Time", "Constraint"],
+            inplace=True,
+        )
+        df.drop_duplicates(
+            subset=["Interval Start", "Publish Time", "Constraint"],
+            inplace=True,
+            keep="last",
+        )
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Publish Time",
+                "Constraint",
+                "Shadow Price",
+            ]
+        ].reset_index(drop=True)
+
+    @support_date_range(frequency="DAY_START")
+    def get_shadow_prices_day_ahead_hourly(
+        self,
+        date: str | pd.Timestamp | tuple[pd.Timestamp, pd.Timestamp],
+        end: pd.Timestamp | None = None,
+        verbose: bool = False,
+        last_modified: str | pd.Timestamp | None = None,
+    ) -> pd.DataFrame:
+        if last_modified:
+            last_modified = utils._handle_date(last_modified, tz=self.default_timezone)
+        if date == "latest":
+            base_url = f"{PUBLIC_REPORTS_URL_PREFIX}/DAConstrShadowPrices"
+            file = "PUB_DAConstrShadowPrices.xml"
+            json_data = self._fetch_and_parse_shadow_prices_file(base_url, file)
+            df = self._parse_day_ahead_shadow_prices_report(json_data)
+            df.sort_values(
+                ["Interval Start", "Publish Time", "Constraint"],
+                inplace=True,
+            )
+            return df[
+                [
+                    "Interval Start",
+                    "Interval End",
+                    "Publish Time",
+                    "Constraint",
+                    "Shadow Price",
+                ]
+            ].reset_index(drop=True)
+
+        json_data_with_times = self._get_all_shadow_prices_jsons(
+            date,
+            market="DA",
+            last_modified=last_modified,
+        )
+        dfs = []
+        for json_data, _ in json_data_with_times:
+            df = self._parse_day_ahead_shadow_prices_report(json_data)
+            dfs.append(df)
+        df = pd.concat(dfs)
+        df = utils.move_cols_to_front(
+            df,
+            ["Interval Start", "Interval End", "Publish Time"],
+        )
+        df.sort_values(
+            ["Interval Start", "Publish Time", "Constraint"],
+            inplace=True,
+        )
+        df.drop_duplicates(
+            subset=["Interval Start", "Publish Time", "Constraint"],
+            inplace=True,
+            keep="last",
+        )
+        return df[
+            [
+                "Interval Start",
+                "Interval End",
+                "Publish Time",
+                "Constraint",
+                "Shadow Price",
+            ]
+        ].reset_index(drop=True)
+
+    def _fetch_and_parse_shadow_prices_file(self, base_url: str, file: str) -> dict:
+        url = f"{base_url}/{file}"
+        r = self._request(url)
+        json_data = xmltodict.parse(r.text)
+        return json_data
+
+    def _get_all_shadow_prices_jsons(
+        self,
+        date: str | datetime.date | datetime.datetime,
+        market: Literal["Realtime", "DA"] = "Realtime",
+        last_modified: pd.Timestamp | None = None,
+    ) -> list[tuple[dict, datetime.datetime]]:
+        if market == "Realtime":
+            base_url = f"{PUBLIC_REPORTS_URL_PREFIX}/RealtimeConstrShadowPrices"
+        else:
+            base_url = f"{PUBLIC_REPORTS_URL_PREFIX}/DAConstrShadowPrices"
+
+        if isinstance(date, (datetime.datetime, datetime.date)):
+            date_str = date.strftime("%Y%m%d")
+        else:
+            date_str = date.replace("-", "")
+        file_prefix = f"PUB_{market}ConstrShadowPrices_{date_str}"
+        r = self._request(base_url)
+        pattern = '<a href="({}.*?.xml)">.*?</a>\\s+(\\d{{2}}-\\w{{3}}-\\d{{4}} \\d{{2}}:\\d{{2}})'
+        file_rows = re.findall(pattern.format(file_prefix), r.text)
+        if not file_rows:
+            raise FileNotFoundError(f"No shadow price files found for date {date_str}")
+        if last_modified:
+            filtered_files = [
+                (file, time)
+                for file, time in file_rows
+                if pd.Timestamp(time, tz=self.default_timezone) >= last_modified
+            ]
+        else:
+            filtered_files = file_rows
+        if not filtered_files:
+            raise FileNotFoundError(
+                f"No files found for date {date_str} after last modified time {last_modified}",
+            )
+        json_data_with_times = []
+        max_retries = 3
+        retry_delay = 2
+
+        with ThreadPoolExecutor(max_workers=min(10, len(filtered_files))) as executor:
+            future_to_file = {
+                executor.submit(
+                    self._fetch_and_parse_shadow_prices_file,
+                    base_url,
+                    file,
+                ): (file, time)
+                for file, time in filtered_files
+            }
+            for future in as_completed(future_to_file):
+                file, time = future_to_file[future]
+                retries = 0
+                while retries < max_retries:
+                    try:
+                        json_data = future.result()
+                        json_data_with_times.append(
+                            (json_data, pd.Timestamp(time, tz=self.default_timezone)),
+                        )
+                        break
+                    except http.client.RemoteDisconnected as e:
+                        retries += 1
+                        if retries == max_retries:
+                            logger.error(
+                                f"Remote connection closed for file {file}: {str(e)}",
+                            )
+                            break
+                        logger.warning(
+                            f"Remote connection closed for file {file}: {str(e)}. Retrying in {retry_delay} seconds...",
+                        )
+                        time.sleep(retry_delay)
+                        retry_delay *= 2
+                    except Exception as e:
+                        logger.error(
+                            f"Unexpected error processing file {file}: {str(e)}",
+                        )
+                        break
+        return json_data_with_times
+
+    def _parse_day_ahead_shadow_prices_report(self, json_data: dict) -> pd.DataFrame:
+        doc_header = json_data["Document"]["DocHeader"]
+        doc_body = json_data["Document"]["DocBody"]
+        shadow_prices = doc_body["HourlyPrice"]
+        publish_time = pd.Timestamp(doc_header["CreatedAt"], tz=self.default_timezone)
+        delivery_date = pd.Timestamp(doc_body["DELIVERYDATE"], tz=self.default_timezone)
+
+        rows = []
+        for shadow_price in shadow_prices:
+            constraint = " ".join(shadow_price["ConstraintName"].split())
+            hours = shadow_price["ShadowPrices"]["Hour"]
+            prices = shadow_price["ShadowPrices"]["ShadowPrice"]
+
+            for hour, price in zip(hours, prices):
+                interval_start = delivery_date + pd.Timedelta(hours=int(hour) - 1)
+                interval_end = interval_start + pd.Timedelta(hours=1)
+                rows.append(
+                    {
+                        "Interval Start": interval_start,
+                        "Interval End": interval_end,
+                        "Publish Time": publish_time,
+                        "Constraint": constraint,
+                        "Shadow Price": float(price),
+                    },
+                )
+        return pd.DataFrame(rows)
+
+    def _parse_real_time_shadow_prices_report(self, json_data: dict) -> pd.DataFrame:
+        doc_header = json_data["Document"]["DocHeader"]
+        doc_body = json_data["Document"]["DocBody"]
+        publish_time = pd.Timestamp(doc_header["CreatedAt"], tz=self.default_timezone)
+        delivery_date = pd.Timestamp(doc_body["DELIVERYDATE"], tz=self.default_timezone)
+        rows = []
+
+        # NB: Handle the case where there is no hourly price data in the report
+        if "HourlyPrice" not in doc_body or not doc_body["HourlyPrice"]:
+            logger.debug(f"No hourly price data in report for {delivery_date}")
+            return pd.DataFrame(
+                {
+                    "Interval Start": pd.Series(dtype="datetime64[ns, EST]"),
+                    "Interval End": pd.Series(dtype="datetime64[ns, EST]"),
+                    "Publish Time": pd.Series(dtype="datetime64[ns, EST]"),
+                    "Constraint": pd.Series(dtype="string"),
+                    "Shadow Price": pd.Series(dtype="float64"),
+                },
+            )
+
+        for hourly in doc_body["HourlyPrice"]:
+            constraint = " ".join(hourly["ConstraintName"].split())
+            hour = int(hourly["DeliveryHour"])
+            intervals = hourly["IntervalShadowPrices"]["Interval"]
+            prices = hourly["IntervalShadowPrices"]["ShadowPrice"]
+            for interval, price in zip(intervals, prices):
+                interval_num = int(interval)
+                interval_start = (
+                    delivery_date
+                    + pd.Timedelta(hours=hour - 1)
+                    + pd.Timedelta(minutes=(interval_num - 1) * 5)
+                )
+                interval_end = interval_start + pd.Timedelta(minutes=5)
+                rows.append(
+                    {
+                        "Interval Start": interval_start,
+                        "Interval End": interval_end,
+                        "Publish Time": publish_time,
+                        "Constraint": constraint,
+                        "Shadow Price": float(price),
+                    },
+                )
+        df = pd.DataFrame(rows)
         return df

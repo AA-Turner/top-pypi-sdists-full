@@ -13,7 +13,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.5.2"  # We use git tags for versioning. This is just a placeholder.
+version = "0.5.3"  # We use git tags for versioning. This is just a placeholder.
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2021"
 repository = "https://github.com/tombi-toml/tombi"
@@ -68,6 +68,7 @@ tokio = { version = "1.45.0", default-features = false }
 tombi-ast = { path = "crates/tombi-ast" }
 tombi-ast-editor = { path = "crates/tombi-ast-editor" }
 tombi-cache = { path = "crates/tombi-cache" }
+tombi-comment-directive = { path = "crates/tombi-comment-directive" }
 tombi-config = { path = "crates/tombi-config" }
 tombi-date-time = { path = "crates/tombi-date-time" }
 tombi-diagnostic = { path = "crates/tombi-diagnostic" }
@@ -113,4 +114,4 @@ zed_extension_api = "0.1.0"
 zip = { version = "2.3.0" }
 
 [workspace.metadata.cargo-shear]
-ignored = ["semver"]
+ignored = ["semver", "tracing"]

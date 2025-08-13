@@ -44,10 +44,16 @@ import ast
 import codecs
 import os
 
-import pkg_resources
 from setuptools import setup
 
-pkg_resources.require("setuptools>=39.2")
+try:
+    import importlib.metadata
+
+    importlib.metadata.requires("setuptools")
+except ImportError:
+    import pkg_resources
+
+    pkg_resources.require("setuptools")
 
 
 def get_version():

@@ -1328,9 +1328,9 @@ def get_chunksize(blocksize, l3_minimum=4 * 2**20, l3_maximum=2**26):
             if isinstance(l2_cache_size, int) and l3_cache_size > l2_cache_size:
                 chunksize = l3_cache_size
         # When computing expressions, it is convenient to keep chunks for all operands
-        # in L3 cache, so let's divide by 5 (4 operands + result is a typical situation
+        # in L3 cache, so let's divide by 4 (3 operands + result is a typical situation
         # for moderately complex expressions)
-        chunksize //= 5
+        chunksize //= 4
 
     # Chunksize should be at least the size of L2
     l2_cache_size = cpu_info.get("l2_cache_size", "Not found")
@@ -1787,6 +1787,45 @@ def ndarray_from_cframe(cframe: bytes | str, copy: bool = False) -> blosc2.NDArr
     :func:`~blosc2.NDArray.to_cframe`
     """
     return blosc2_ext.ndarray_from_cframe(cframe, copy)
+
+
+def from_cframe(
+    cframe: bytes | str, copy: bool = True
+) -> blosc2.EmbedStore | blosc2.NDArray | blosc2.SChunk:
+    """Create a :ref:`EmbedStore <EmbedStore>`, :ref:`NDArray <NDArray>` or :ref:`SChunk <SChunk>` instance
+    from a contiguous frame buffer.
+
+    Parameters
+    ----------
+    cframe: bytes or str
+        The bytes object containing the in-memory cframe.
+    copy: bool
+        Whether to internally make a copy. If `False`,
+        the user is responsible for keeping a reference to `cframe`.
+        Default is `True`, which is safer.  If you need to save
+        time/memory, you can set it to `False`, but then you must
+        ensure that the `cframe` is not garbage collected while the
+        returned object is still in use.
+
+    Returns
+    -------
+    out: :ref:`EmbedStore <EmbedStore>`, :ref:`NDArray <NDArray>` or :ref:`SChunk <SChunk>`
+        A new instance of the appropriate type containing the data passed.
+
+    See Also
+    --------
+    :func:`~blosc2.EmbedStore.from_cframe`
+    :func:`~blosc2.NDArray.from_cframe`
+    :func:`~blosc2.schunk.SChunk.from_cframe`
+    """
+    # Retrieve the SChunk; not doing a copy is cheap
+    schunk = schunk_from_cframe(cframe, copy=False)
+    # Check the metalayer to determine the type
+    if "b2embed" in schunk.meta:
+        return blosc2.estore_from_cframe(cframe, copy=copy)
+    if "b2nd" in schunk.meta:
+        return ndarray_from_cframe(cframe, copy=copy)
+    return schunk_from_cframe(cframe, copy=copy)
 
 
 def register_codec(

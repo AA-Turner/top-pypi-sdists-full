@@ -1,27 +1,38 @@
 use itertools::Itertools;
 use tombi_syntax::SyntaxKind;
 
-use crate::{support, AstNode};
+use crate::{support, AstNode, SchemaCommentDirective, TombiCommentDirective};
 
 impl crate::Root {
-    /// Returns the schema URL from the first dangling comment or the first key-value.
-    ///
-    /// ```toml
-    /// #:schema "https://example.com/schema.json"
-    /// key = "value"
-    /// ```
-    pub fn file_schema_url(
+    pub fn schema_comment_directive(
         &self,
         source_path: Option<&std::path::Path>,
-    ) -> Option<(Result<url::Url, String>, tombi_text::Range)> {
+    ) -> Option<SchemaCommentDirective> {
         if let Some(comments) = self.get_document_header_comments() {
             for comment in comments {
-                if let Some((schema_url, url_range)) = comment.schema_url(source_path) {
-                    return Some((schema_url, url_range));
+                if let Some(schema_directive) = comment.schema_directive(source_path) {
+                    return Some(schema_directive);
                 }
             }
         }
         None
+    }
+
+    pub fn tombi_comment_directives(&self) -> Option<Vec<TombiCommentDirective>> {
+        let mut tombi_directives = vec![];
+        if let Some(comments) = self.get_document_header_comments() {
+            for comment in comments {
+                if let Some(tombi_directive) = comment.tombi_directive() {
+                    tombi_directives.push(tombi_directive);
+                }
+            }
+        }
+
+        if tombi_directives.is_empty() {
+            None
+        } else {
+            Some(tombi_directives)
+        }
     }
 
     #[inline]

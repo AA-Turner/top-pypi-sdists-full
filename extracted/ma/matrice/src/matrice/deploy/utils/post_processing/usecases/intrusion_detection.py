@@ -422,7 +422,7 @@ class IntrusionUseCase(BaseProcessor):
                         self._ascending_alert_list.append(0)
 
                     human_text_lines.append(f"\t\t- Zone name: {zone_name}")
-                    human_text_lines.append(f"\t\t\t- Total count in Prohibited Boarding Gate: {zone_total-1}")
+                    human_text_lines.append(f"\t\t\t- Total count in Prohibited Boarding Gate: {zone_total}")
                     # Main people counting incident
                     human_text = "\n".join(human_text_lines)
                     event = self.create_incident(incident_id=self.CASE_TYPE+'_'+'zone_'+zone_name+str(frame_id), incident_type=self.CASE_TYPE,

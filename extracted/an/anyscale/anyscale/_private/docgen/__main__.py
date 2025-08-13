@@ -468,7 +468,13 @@ ALL_MODULES = [
             GCPConfig,
             KubernetesConfig,
         ],
-        cli_command_group_prefix={cloud_commands.cloud_config_update: "config"},
+        cli_command_group_prefix={
+            cloud_commands.cloud_deployment_create: "deployment",
+            cloud_commands.cloud_deployment_get: "deployment",
+            cloud_commands.cloud_deployment_update: "deployment",
+            cloud_commands.cloud_deployment_delete: "deployment",
+            cloud_commands.cloud_config_update: "config",
+        },
         legacy_sdk_commands={
             # limited support, no replacement yet
             "get_cloud": None,

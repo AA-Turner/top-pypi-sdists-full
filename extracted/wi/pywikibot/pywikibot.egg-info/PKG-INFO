@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pywikibot
-Version: 10.3.1
+Version: 10.3.2
 Summary: Python MediaWiki Bot Framework
 Author-email: xqt <info@gno.de>
 Maintainer-email: The Pywikibot team <pywikibot@lists.wikimedia.org>
@@ -278,7 +278,8 @@ Roadmap
 Current Release Changes
 =======================
 
-* Add support for tlwikisource (T388656)
+* Add support for zghwiktionary, madwikisource, rkiwiki, minwikibooks
+  (T391769, T392501, T395501, T399787)
 * i18n updates
 
 

@@ -19,9 +19,8 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -38,7 +37,7 @@ class FileFileRepositoryResponse(BaseModel):
     latest_version_href: Optional[StrictStr] = None
     name: StrictStr = Field(description="A unique name for this repository.")
     description: Optional[StrictStr] = Field(default=None, description="An optional description.")
-    retain_repo_versions: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
+    retain_repo_versions: Optional[StrictInt] = Field(default=None, description="Retain X versions of the repository. Default is null which retains all versions.")
     remote: Optional[StrictStr] = Field(default=None, description="An optional remote to use by default when syncing.")
     autopublish: Optional[StrictBool] = Field(default=False, description="Whether to automatically create publications for new repository versions, and update any distributions pointing to this repository.")
     manifest: Optional[StrictStr] = Field(default='PULP_MANIFEST', description="Filename to use for manifest file containing metadata for all the files.")

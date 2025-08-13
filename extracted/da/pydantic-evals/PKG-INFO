@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-evals
-Version: 0.6.2
+Version: 0.7.0
 Summary: Framework for evaluating stochastic code execution, especially code making use of LLMs
 Project-URL: Homepage, https://ai.pydantic.dev/evals
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -31,13 +31,13 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Requires-Dist: anyio>=0
 Requires-Dist: eval-type-backport>=0; python_version < '3.11'
-Requires-Dist: logfire-api>=1.2.0
-Requires-Dist: pydantic-ai-slim==0.6.2
+Requires-Dist: logfire-api>=3.14.1
+Requires-Dist: pydantic-ai-slim==0.7.0
 Requires-Dist: pydantic>=2.10
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: rich>=13.9.4
 Provides-Extra: logfire
-Requires-Dist: logfire>=2.3; extra == 'logfire'
+Requires-Dist: logfire>=3.14.1; extra == 'logfire'
 Description-Content-Type: text/markdown
 
 # Pydantic Evals

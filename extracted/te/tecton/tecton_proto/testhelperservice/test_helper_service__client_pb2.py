@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 from tecton_proto.auth import service__client_pb2 as tecton__proto_dot_auth_dot_service____client__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n@tecton_proto/testhelperservice/test_helper_service__client.proto\x12\x1etecton_proto.testhelperservice\x1a\'tecton_proto/auth/service__client.proto\"}\n\x1cIngestionServerConfigRequest\x12+\n\x11\x61\x62solute_filepath\x18\x01 \x01(\tR\x10\x61\x62soluteFilepath\x12\x30\n\x14offline_log_filepath\x18\x02 \x01(\tR\x12offlineLogFilepath\"\x1f\n\x1dIngestionServerConfigResponse\"b\n\x16InitializeStoreRequest\x12\x1c\n\tworkspace\x18\x01 \x01(\tR\tworkspace\x12*\n\x11\x66\x65\x61ture_view_name\x18\x02 \x01(\tR\x0f\x66\x65\x61tureViewName\"\x19\n\x17InitializeStoreResponse2\xf5\x02\n\x11TestHelperService\x12\xb7\x01\n\x15IngestionServerConfig\x12<.tecton_proto.testhelperservice.IngestionServerConfigRequest\x1a=.tecton_proto.testhelperservice.IngestionServerConfigResponse\"!\xa2\xbc\xe6\xc0\x05\x1b*\x19tecton/organization#admin\x12\xa5\x01\n\x0fInitializeStore\x12\x36.tecton_proto.testhelperservice.InitializeStoreRequest\x1a\x37.tecton_proto.testhelperservice.InitializeStoreResponse\"!\xa2\xbc\xe6\xc0\x05\x1b*\x19tecton/organization#adminBm\n\x1c\x63om.tecton.testhelperserviceB\x16TestHelperServiceProtoP\x01Z3github.com/tecton-ai/tecton_proto/testhelperservice')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n@tecton_proto/testhelperservice/test_helper_service__client.proto\x12\x1etecton_proto.testhelperservice\x1a\'tecton_proto/auth/service__client.proto\"}\n\x1cIngestionServerConfigRequest\x12+\n\x11\x61\x62solute_filepath\x18\x01 \x01(\tR\x10\x61\x62soluteFilepath\x12\x30\n\x14offline_log_filepath\x18\x02 \x01(\tR\x12offlineLogFilepath\"\x1f\n\x1dIngestionServerConfigResponse\"\xa4\x01\n\x1eIngestServerGroupConfigRequest\x12+\n\x11\x61\x62solute_filepath\x18\x01 \x01(\tR\x10\x61\x62soluteFilepath\x12\x1c\n\tworkspace\x18\x02 \x01(\tR\tworkspace\x12\x37\n\x18ingest_server_group_name\x18\x03 \x01(\tR\x15ingestServerGroupName\"!\n\x1fIngestServerGroupConfigResponse\"b\n\x16InitializeStoreRequest\x12\x1c\n\tworkspace\x18\x01 \x01(\tR\tworkspace\x12*\n\x11\x66\x65\x61ture_view_name\x18\x02 \x01(\tR\x0f\x66\x65\x61tureViewName\"\x19\n\x17InitializeStoreResponse2\xb5\x04\n\x11TestHelperService\x12\xb7\x01\n\x15IngestionServerConfig\x12<.tecton_proto.testhelperservice.IngestionServerConfigRequest\x1a=.tecton_proto.testhelperservice.IngestionServerConfigResponse\"!\xa2\xbc\xe6\xc0\x05\x1b*\x19tecton/organization#admin\x12\xbd\x01\n\x17IngestServerGroupConfig\x12>.tecton_proto.testhelperservice.IngestServerGroupConfigRequest\x1a?.tecton_proto.testhelperservice.IngestServerGroupConfigResponse\"!\xa2\xbc\xe6\xc0\x05\x1b*\x19tecton/organization#admin\x12\xa5\x01\n\x0fInitializeStore\x12\x36.tecton_proto.testhelperservice.InitializeStoreRequest\x1a\x37.tecton_proto.testhelperservice.InitializeStoreResponse\"!\xa2\xbc\xe6\xc0\x05\x1b*\x19tecton/organization#adminBm\n\x1c\x63om.tecton.testhelperserviceB\x16TestHelperServiceProtoP\x01Z3github.com/tecton-ai/tecton_proto/testhelperservice')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.testhelperservice.test_helper_service__client_pb2', globals())
@@ -24,16 +24,22 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._serialized_options = b'\n\034com.tecton.testhelperserviceB\026TestHelperServiceProtoP\001Z3github.com/tecton-ai/tecton_proto/testhelperservice'
   _TESTHELPERSERVICE.methods_by_name['IngestionServerConfig']._options = None
   _TESTHELPERSERVICE.methods_by_name['IngestionServerConfig']._serialized_options = b'\242\274\346\300\005\033*\031tecton/organization#admin'
+  _TESTHELPERSERVICE.methods_by_name['IngestServerGroupConfig']._options = None
+  _TESTHELPERSERVICE.methods_by_name['IngestServerGroupConfig']._serialized_options = b'\242\274\346\300\005\033*\031tecton/organization#admin'
   _TESTHELPERSERVICE.methods_by_name['InitializeStore']._options = None
   _TESTHELPERSERVICE.methods_by_name['InitializeStore']._serialized_options = b'\242\274\346\300\005\033*\031tecton/organization#admin'
   _INGESTIONSERVERCONFIGREQUEST._serialized_start=141
   _INGESTIONSERVERCONFIGREQUEST._serialized_end=266
   _INGESTIONSERVERCONFIGRESPONSE._serialized_start=268
   _INGESTIONSERVERCONFIGRESPONSE._serialized_end=299
-  _INITIALIZESTOREREQUEST._serialized_start=301
-  _INITIALIZESTOREREQUEST._serialized_end=399
-  _INITIALIZESTORERESPONSE._serialized_start=401
-  _INITIALIZESTORERESPONSE._serialized_end=426
-  _TESTHELPERSERVICE._serialized_start=429
-  _TESTHELPERSERVICE._serialized_end=802
+  _INGESTSERVERGROUPCONFIGREQUEST._serialized_start=302
+  _INGESTSERVERGROUPCONFIGREQUEST._serialized_end=466
+  _INGESTSERVERGROUPCONFIGRESPONSE._serialized_start=468
+  _INGESTSERVERGROUPCONFIGRESPONSE._serialized_end=501
+  _INITIALIZESTOREREQUEST._serialized_start=503
+  _INITIALIZESTOREREQUEST._serialized_end=601
+  _INITIALIZESTORERESPONSE._serialized_start=603
+  _INITIALIZESTORERESPONSE._serialized_end=628
+  _TESTHELPERSERVICE._serialized_start=631
+  _TESTHELPERSERVICE._serialized_end=1196
 # @@protoc_insertion_point(module_scope)

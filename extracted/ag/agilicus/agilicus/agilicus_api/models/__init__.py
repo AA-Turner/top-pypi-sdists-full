@@ -111,6 +111,7 @@ from agilicus_api.model.authentication_attribute import AuthenticationAttribute
 from agilicus_api.model.authentication_document import AuthenticationDocument
 from agilicus_api.model.authentication_document_spec import AuthenticationDocumentSpec
 from agilicus_api.model.authentication_document_status import AuthenticationDocumentStatus
+from agilicus_api.model.authentication_federation_info import AuthenticationFederationInfo
 from agilicus_api.model.authz_bundle import AuthzBundle
 from agilicus_api.model.auto_create_status import AutoCreateStatus
 from agilicus_api.model.base_upstream import BaseUpstream

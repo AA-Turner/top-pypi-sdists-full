@@ -12902,26 +12902,21 @@ async def ch_games(USER_GAMES, game, condition, balls=-1):
 
 
 async def post_story_async(extra_bot, chat_id, lz, BOT_TOKEN, business_id, content_path, caption, active_period=86400, is_protect=True, to_profile=True, is_gif=False):
-    async def _run(cmd0):
-        proc = await asyncio.create_subprocess_shell(cmd0, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
-        out_, err_ = await proc.communicate()
-        return proc.returncode, out_.decode(errors='ignore'), err_.decode(errors='ignore')
     result = None
     try:
-        if os.path.getsize(content_path) > 30 * 1024 * 1024: return result
+        # входной ограничитель — 20 MB
+        if os.path.getsize(content_path) > 20 * 1024 * 1024:
+            print("input file too large >20MB, aborting")
+            return result
+
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/postStory"
         ext = os.path.splitext(content_path)[1].lower()
-        if ext not in ['.jpg', '.jpeg', '.png', '.mp4', '.mov']: return result
+        if ext not in ['.jpg', '.jpeg', '.png', '.mp4', '.mov']:
+            print("unsupported extension:", ext)
+            return result
         is_video_ = ext in ('.mp4', '.mov')
 
-        # content = InputStoryContentPhoto(photo="/Users/mark/PycharmProjects/Ferey/FereyBotBot/1_story.jpg")
-        # res = await extra_bot.post_story(
-        #     business_connection_id="kXIysGDHyUioDwAAopWM-i6lOvw",
-        #     content=content,  # 1080x1920
-        #     active_period=21600,
-        #     caption="Тестовая сторис"
-        # )
-
+        print('0')
         form = aiohttp.FormData()
         form.add_field('business_connection_id', business_id)
         form.add_field('active_period', str(active_period))
@@ -12929,23 +12924,25 @@ async def post_story_async(extra_bot, chat_id, lz, BOT_TOKEN, business_id, conte
         form.add_field("parse_mode", "HTML")
         form.add_field('post_to_chat_page', 'true' if to_profile else 'false')
         form.add_field('protect_content', 'true' if is_protect else 'false')
+        print(f'1, is_video_={is_video_}')
 
         if not is_video_:
             buf = io.BytesIO()
             save_as_png = ext == '.png'
             with Image.open(content_path) as img:
                 if save_as_png:
-                    if img.mode not in ("RGBA", "LA"): img = img.convert("RGBA")
+                    if img.mode not in ("RGBA", "LA"):
+                        img = img.convert("RGBA")
                 else:
                     if img.mode not in ("RGB",):
                         img = img.convert("RGBA") if "A" in img.getbands() else img.convert("RGB")
                 w, h = img.size
                 tw, th = 1080, 1920
-                scale = max(tw/w, th/h)
-                img = img.resize((int(w*scale), int(h*scale)), Image.Resampling.LANCZOS)
-                left = (img.width - tw)//2
-                top = (img.height - th)//2
-                img = img.crop((left, top, left+tw, top+th))
+                scale = max(tw / w, th / h)
+                img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+                left = (img.width - tw) // 2
+                top = (img.height - th) // 2
+                img = img.crop((left, top, left + tw, top + th))
                 if save_as_png:
                     img.save(buf, format="PNG", optimize=True)
                     content_type = "image/png"
@@ -12964,12 +12961,22 @@ async def post_story_async(extra_bot, chat_id, lz, BOT_TOKEN, business_id, conte
         else:
             td = tempfile.mkdtemp()
             try:
+                print(">>> start video processing block")
                 dt_ = datetime.now(timezone.utc).strftime('%d-%m-%Y_%H-%M-%S-%f')
                 out_path = os.path.join(td, f"story_video_{dt_}.mp4")
+                print(f"out_path={out_path}")
 
-                rc, out, err = await _run(f'ffprobe -v quiet -print_format json -show_format -show_streams {shlex.quote(content_path)}')
+                # ffprobe через run_cmd с таймаутом 40s
+                print("running ffprobe...")
+                rc, out, err = await run_cmd(
+                    f'ffprobe -v quiet -print_format json -show_format -show_streams {shlex.quote(content_path)}',
+                    timeout=60
+                )
+                print("ffprobe finished rc=", rc)
                 duration = None
                 has_audio = False
+
+                print("parsing ffprobe output...")
                 if rc == 0 and out:
                     try:
                         info = json.loads(out)
@@ -12981,144 +12988,158 @@ async def post_story_async(extra_bot, chat_id, lz, BOT_TOKEN, business_id, conte
                                 duration = f
                         streams = info.get("streams", []) or []
                         has_audio = any(s.get("codec_type") == "audio" and s.get("codec_name") for s in streams)
-                    except Exception:
+                        print(f"parsed duration={duration}, has_audio={has_audio}")
+                    except Exception as e:
+                        logger.info("ffprobe parse error: %s", str(e))
+                        print("ffprobe parse error:", e)
                         duration = None
                         has_audio = False
+                else:
+                    if rc == -1:
+                        print("ffprobe timed out or failed:", err)
+                    else:
+                        print("ffprobe returned non-zero rc or empty output:", rc, err)
 
                 trim_to_60 = bool(duration is not None and duration > 60)
+                t_arg = "-t 60" if trim_to_60 else ""
+                remux_audio_arg = "-an" if is_gif else ""
+                print(f"trim_to_60={trim_to_60}, duration={duration}, is_gif={is_gif}")
 
+                # параметры перебора качества
                 crf = 28
-                while True:
-                    vf = "scale='if(gt(a,720/1280),-2,720)':'if(gt(a,720/1280),1280,-2)',crop=720:1280"
-                    audio_args = "-c:a aac -b:a 96k" if has_audio else "-an"
-                    if is_gif: audio_args = "-an"
-                    t_arg = "-t 60" if trim_to_60 else ""
-                    cmd_ = (
-                        f'ffmpeg -y -i {shlex.quote(content_path)} {t_arg} -vf "{vf}" -c:v libx265 -tag:v hvc1 '
-                        f'-x265-params keyint=30 -g 30 -crf {crf} -preset fast {audio_args} -movflags +faststart {shlex.quote(out_path)}'
-                    )
-                    rc, o, e = await _run(cmd_)
-                    if rc != 0:
-                        return result
-                    size = os.path.getsize(out_path)
-                    if size <= 30 * 1024 * 1024 or crf >= 40:
-                        break
-                    crf += 2
-                if os.path.getsize(out_path) > 30 * 1024 * 1024:
+                MAX_CRF = 40
+                MAX_ITER = 6
+                TARGET_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
+                iter_count = 0
+                remux_done = False
+
+                # quick remux attempt
+                cmd_copy = f'ffmpeg -y -hide_banner -nostdin -i {shlex.quote(content_path)} {t_arg} {remux_audio_arg} -c copy -movflags +faststart {shlex.quote(out_path)}'
+                rc, o, e = await run_cmd(cmd_copy, timeout=20)
+                print("remux rc=", rc, " stderr_preview=", (e or "")[:500])
+
+                if rc == 0 and os.path.exists(out_path):
+                    final_size = os.path.getsize(out_path)
+                    print("remux produced file size=", final_size)
+                    if final_size <= TARGET_SIZE_BYTES:
+                        print("remux succeeded — skipping re-encode")
+                        remux_done = True
+                    else:
+                        print("remux output too big, will re-encode (size>", TARGET_SIZE_BYTES, ")")
+                else:
+                    print("remux failed or didn't produce file, proceed to re-encode")
+
+                # если ремакс прошёл — не перекодируем
+                if not remux_done:
+                    while True:
+                        vf = "scale='if(gt(a,720/1280),-2,720)':'if(gt(a,720/1280),1280,-2)',crop=720:1280"
+                        audio_args = "-c:a aac -b:a 96k" if has_audio else "-an"
+                        if is_gif:
+                            audio_args = "-an"
+                        t_arg = "-t 60" if trim_to_60 else ""
+
+                        # Основная команда (libx265 -preset fast) — может быть медленной
+                        cmd_ = (
+                            f'ffmpeg -y -hide_banner -loglevel error -nostdin -i {shlex.quote(content_path)} {t_arg} '
+                            f'-vf "{vf}" -c:v libx265 -tag:v hvc1 -x265-params keyint=30 -g 30 -crf {crf} -preset fast '
+                            f'{audio_args} -pix_fmt yuv420p -movflags +faststart {shlex.quote(out_path)}'
+                        )
+
+                        print(f"iter={iter_count}, crf={crf}, cmd_preview={cmd_[:300]}...")
+                        rc, o, e = await run_cmd(cmd_, timeout=60)
+                        print("ffmpeg rc=", rc, " stdout_len=", len(o or ""), " stderr_len=", len(e or ""))
+                        print("ffmpeg stderr preview:", (e or "")[:1000])
+
+                        # если таймаут или ошибка TIMEOUT -> пробуем быстрый fallback
+                        if rc == -1 and "TIMEOUT" in (e or ""):
+                            print("ffmpeg timed out (40s) on iteration", iter_count, "- trying fast fallback")
+                            fallback_cmd = (
+                                f'ffmpeg -y -hide_banner -nostdin -i {shlex.quote(content_path)} {t_arg} '
+                                f'-vf "{vf}" -c:v libx264 -preset ultrafast -crf {crf} {audio_args} -pix_fmt yuv420p -movflags +faststart {shlex.quote(out_path)}'
+                            )
+                            print("running fallback:", fallback_cmd[:300])
+                            rc, o, e = await run_cmd(fallback_cmd, timeout=60)
+                            print("fallback rc=", rc, " stderr preview:", (e or "")[:1000])
+                            if rc == -1 and "TIMEOUT" in (e or ""):
+                                print("fallback also timed out -> giving up on this file")
+                                logger.error("ffmpeg and fallback timed out")
+                                return result
+                            if rc != 0:
+                                print("fallback ffmpeg failed, stderr:", e)
+                                logger.error("fallback ffmpeg failed rc=%s stderr=%s", rc, e)
+                                return result
+
+                        print("ffmpeg finished rc=", rc)
+                        if rc != 0:
+                            print("ffmpeg rc != 0, stderr:", e)
+                            logger.error("ffmpeg failed rc=%s stderr=%s", rc, e)
+                            return result
+
+                        # дождаться/проверить файл и размер
+                        if os.path.exists(out_path):
+                            print("out_path exists, size=", os.path.getsize(out_path))
+                        else:
+                            print("out_path does NOT exist after ffmpeg")
+                        try:
+                            size = os.path.getsize(out_path)
+                        except FileNotFoundError:
+                            print("output file not found after ffmpeg run")
+                            logger.error("output file not found: %s", out_path)
+                            return result
+
+                        print(f"output size={size} bytes")
+                        # условие успеха — файл <= TARGET_SIZE_BYTES или достигнут MAX_CRF
+                        if size <= TARGET_SIZE_BYTES or crf >= MAX_CRF:
+                            print("size ok or crf limit reached -> breaking")
+                            break
+
+                        crf += 2
+                        iter_count += 1
+                        if iter_count >= MAX_ITER:
+                            print("reached MAX_ITER, breaking")
+                            logger.error("too many ffmpeg iterations")
+                            break
+
+                # после ремакса или перекодирования — проверяем файл и читаем
+                if not os.path.exists(out_path):
+                    print("no output file to read -> abort")
                     return result
 
+                final_size = os.path.getsize(out_path)
+                print("final_size=", final_size)
+                if final_size > TARGET_SIZE_BYTES:
+                    print("final file too big -> abort")
+                    return result
+
+                print("reading output file into memory...")
                 async with aiofiles.open(out_path, "rb") as f:
                     video_bytes = await f.read()
+                print("read complete, bytes len=", len(video_bytes))
 
                 content: dict[str, Any] = {"type": "video", "video": "attach://video"}
                 final_duration = 60 if trim_to_60 else (int(math.ceil(duration)) if duration is not None else None)
                 if final_duration is not None:
                     content["duration"] = int(final_duration)
-                content["is_animation"] = bool(False) if has_audio and not is_gif else True
-                print(f"{content=}")
+                content["is_animation"] = is_gif or not has_audio
 
+                print(f"content prepared: duration={content.get('duration')}, is_animation={content.get('is_animation')}")
                 form.add_field("content", json.dumps(content, ensure_ascii=False))
                 form.add_field("video", video_bytes, filename=f"story_video_{dt_}.mp4", content_type="video/mp4")
+                print("form fields added, ready to post")
+                print(f">>> end video processing block, {content['is_animation']=}")
             finally:
+                print("cleaning tmp dir:", td)
                 shutil.rmtree(td, ignore_errors=True)
+                print("cleanup done")
 
-        # areas = [
-        #     {
-        #         "position": {
-        #             "x_percentage": 0.5,
-        #             "y_percentage": 0.5,
-        #             "width_percentage": 0.7,
-        #             "height_percentage": 0.18,
-        #             "rotation_angle": 0,
-        #             "corner_radius_percentage": 0.06
-        #         },
-        #         "type": {
-        #             "type": "link",
-        #             "url": "https://t.me/your_channel_or_post"  
-        #         }
-        #     },
-        #
-        #     {
-        #         "position": {
-        #             "x_percentage": 0.18,
-        #             "y_percentage": 0.15,
-        #             "width_percentage": 0.32,
-        #             "height_percentage": 0.12,
-        #             "rotation_angle": 0,
-        #             "corner_radius_percentage": 0.04
-        #         },
-        #         "type": {
-        #             "type": "location",
-        #             "latitude": 42.6977,
-        #             "longitude": 23.3219,
-        #             "address": {
-        #                 "country_code": "BG",
-        #                 "state": "Sofia Region",
-        #                 "city": "Sofia",
-        #                 "street": "Tsar Osvoboditel 1"
-        #             }
-        #         }
-        #     },
-        #
-        #     {
-        #         "position": {
-        #             "x_percentage": 0.5,
-        #             "y_percentage": 0.5,
-        #             "width_percentage": 1.0,
-        #             "height_percentage": 1.0,
-        #             "rotation_angle": 0,
-        #             "corner_radius_percentage": 0.0
-        #         },
-        #         "type": {
-        #             "type": "suggested_reaction",
-        #             "reaction_type": {
-        #                 "type": "emoji",
-        #                 "emoji": "❤" 
-        #             },
-        #             "is_dark": False,
-        #             "is_flipped": False
-        #         }
-        #     },
-        #
-        #     {
-        #         "position": {
-        #             "x_percentage": 0.18,
-        #             "y_percentage": 0.82,
-        #             "width_percentage": 0.32,
-        #             "height_percentage": 0.12,
-        #             "rotation_angle": 0,
-        #             "corner_radius_percentage": 0.04
-        #         },
-        #         "type": {
-        #             "type": "weather",
-        #             "temperature": 22.5,
-        #             "emoji": "🌤",
-        #             "background_color": 4280391411  # ARGB (0xFF2196F3) — int
-        #         }
-        #     },
-        #
-        #     {
-        #         "position": {
-        #             "x_percentage": 0.82,
-        #             "y_percentage": 0.82,
-        #             "width_percentage": 0.34,
-        #             "height_percentage": 0.14,
-        #             "rotation_angle": 0,
-        #             "corner_radius_percentage": 0.06
-        #         },
-        #         "type": {
-        #             "type": "unique_gift",
-        #             "name": "SpicedWine-27516"  #   https://t.me/nft/SpicedWine-27516
-        #         }
-        #     }
-        # ]
-        # form.add_field('areas', json.dumps(areas, ensure_ascii=False))
-
+        # отправка формы
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=form) as resp:
                 j = await resp.json()
                 print(f"{j=}")
-                if resp.status != 200: return result
+                if resp.status != 200:
+                    print("postStory returned non-200:", resp.status)
+                    return result
                 s_username = j['result']['chat']['username']
                 s_id = j['result']['id']
                 result = f"https://t.me/{s_username}/s/{s_id}"
@@ -13130,6 +13151,36 @@ async def post_story_async(extra_bot, chat_id, lz, BOT_TOKEN, business_id, conte
         await asyncio.sleep(round(random.uniform(0, 1), 2))
     return result
 
+
+# ЗАМЕНИТЬ/ДОБАВИТЬ: безопасный запуск команды с возможностью прерывания
+async def run_cmd(cmd0, timeout=None):
+    """
+    Запускает команду shell, ждёт stdout/stderr. При timeout — убивает процесс.
+    Возвращает (rc, stdout_str, stderr_str). При таймауте возвращает rc=-1 и stderr с текстом TIMEOUT.
+    """
+    proc = await asyncio.create_subprocess_shell(
+        cmd0, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        if timeout is None:
+            out_, err_ = await proc.communicate()
+        else:
+            out_, err_ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        # таймаут — убиваем процесс и ждём его завершения
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=5)
+        except Exception:
+            pass
+        return -1, "", f"TIMEOUT after {timeout}s"
+    rc = proc.returncode
+    out_s = out_.decode(errors='ignore') if out_ else ""
+    err_s = err_.decode(errors='ignore') if err_ else ""
+    return rc, out_s, err_s
 # endregion
 
 

@@ -348,10 +348,10 @@ util::Status SentencePieceProcessor::LoadVocabulary(absl::string_view filename,
   std::vector<std::string> vocab;
 
   while (input->ReadLine(&line)) {
-    const std::vector<std::string> v = absl::StrSplit(line, "\t");
+    const std::vector<std::string> v = absl::StrSplit(line, '\t');
     CHECK_GE_OR_RETURN(v.size(), 1);
     CHECK_OR_RETURN(!v[0].empty());
-    int32 freq = 1;
+    int32_t freq = 1;
     if (v.size() >= 2) {
       CHECK_OR_RETURN(absl::SimpleAtoi(v[1], &freq))
           << "Could not parse the frequency";
@@ -395,6 +395,7 @@ util::Status SentencePieceProcessor::Encode(absl::string_view input,
 
   SentencePieceText spt;
   RETURN_IF_ERROR(Encode(input, &spt));
+  ids->reserve(spt.pieces().size());
   for (const auto &sp : spt.pieces()) {
     ids->emplace_back(sp.id());
   }
@@ -437,12 +438,13 @@ util::Status SentencePieceProcessor::NBestEncode(
 
   NBestSentencePieceText spt;
   RETURN_IF_ERROR(NBestEncode(input, nbest_size, &spt));
+  pieces->reserve(spt.nbests().size());
   for (const auto &nbest : spt.nbests()) {
-    std::vector<std::string> result;
+    std::vector<std::string> &result = pieces->emplace_back();
+    result.reserve(nbest.pieces().size());
     for (const auto &sp : nbest.pieces()) {
       result.emplace_back(sp.piece());
     }
-    pieces->emplace_back(result);
   }
 
   return util::OkStatus();
@@ -455,12 +457,13 @@ util::Status SentencePieceProcessor::NBestEncode(
 
   NBestSentencePieceText spt;
   RETURN_IF_ERROR(NBestEncode(input, nbest_size, &spt));
+  ids->reserve(spt.nbests().size());
   for (const auto &nbest : spt.nbests()) {
-    std::vector<int> result;
+    std::vector<int> &result = ids->emplace_back();
+    result.reserve(nbest.pieces().size());
     for (const auto &sp : nbest.pieces()) {
       result.emplace_back(sp.id());
     }
-    ids->emplace_back(result);
   }
 
   return util::OkStatus();
@@ -473,6 +476,7 @@ util::Status SentencePieceProcessor::SampleEncode(
 
   SentencePieceText spt;
   RETURN_IF_ERROR(SampleEncode(input, nbest_size, alpha, &spt));
+  pieces->reserve(spt.pieces().size());
   for (const auto &sp : spt.pieces()) {
     pieces->emplace_back(sp.piece());
   }
@@ -810,6 +814,7 @@ util::Status SentencePieceProcessor::Decode(
                           has_bos_ws);
   };
 
+  spt->mutable_pieces()->Reserve(pieces.size());
   for (absl::string_view w : pieces) {
     auto *sp = spt->add_pieces();
     sp->mutable_piece()->assign(w.data(), w.size());
@@ -1080,7 +1085,7 @@ util::Status SentencePieceProcessor::ParseExtraOptions(
                           {"reverse", SentencePieceProcessor::REVERSE},
                           {"unk", SentencePieceProcessor::UNK_PIECE},
                           {"unk_piece", SentencePieceProcessor::UNK_PIECE}};
-  for (const auto &s : absl::StrSplit(extra_option, ":")) {
+  for (const auto &s : absl::StrSplit(extra_option, ':')) {
     const auto it = extra_option_map.find(s);
     CHECK_OR_RETURN(it != extra_option_map.end())
         << "option \"" << s << "\" is not available.";

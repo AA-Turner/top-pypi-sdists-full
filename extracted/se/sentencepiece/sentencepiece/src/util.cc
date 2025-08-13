@@ -15,6 +15,7 @@
 #include "util.h"
 
 #include <atomic>
+#include <cstddef>
 #include <iostream>
 #include <memory>
 
@@ -30,12 +31,30 @@ void SetRandomGeneratorSeed(unsigned int seed) {
   if (seed != kDefaultSeed) g_seed.store(seed);
 }
 
-uint32 GetRandomGeneratorSeed() {
+uint32_t GetRandomGeneratorSeed() {
   try {
     return g_seed == kDefaultSeed ? std::random_device{}() : g_seed.load();
   } catch (...) {
     return g_seed.load();
   }
+}
+
+namespace {
+std::shared_ptr<const std::string> *GetSharedDataDir() {
+  static auto g_data_dir = std::make_shared<const std::string>(INSTALL_DATADIR);
+  return &g_data_dir;
+}
+}  // namespace
+
+std::string GetDataDir() {
+  auto shared_data_dir = std::atomic_load(GetSharedDataDir());
+  return *shared_data_dir;
+}
+
+void SetDataDir(absl::string_view data_dir) {
+  auto shared_data_dir =
+      std::make_shared<const std::string>(std::string(data_dir));
+  std::atomic_store(GetSharedDataDir(), std::move(shared_data_dir));
 }
 
 namespace logging {

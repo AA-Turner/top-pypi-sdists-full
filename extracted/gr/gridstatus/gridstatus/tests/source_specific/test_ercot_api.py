@@ -1434,11 +1434,25 @@ class TestErcotAPI(TestHelperMixin):
     """endpoints_map"""
 
     @pytest.mark.integration
-    def test_get_endpoints_map(self):
-        endpoints_map = self.iso._get_endpoints_map()
+    def test_get_public_endpoints_map(self):
+        endpoints_map = self.iso._get_public_endpoints_map()
 
         # update this count as needed, if ercot api evolves to add/remove endpoints
-        assert len(endpoints_map) == 102
+        assert len(endpoints_map) == 106
+
+        # detailed check of all endpoints, fields, and values
+        issues = []
+        for endpoint, endpoint_dict in endpoints_map.items():
+            for issue in self._endpoints_map_check(endpoint_dict):
+                issues.append([f"{endpoint} - {issue}"])
+        assert len(issues) == 0
+
+    @pytest.mark.integration
+    def test_get_esr_endpoints_map(self):
+        endpoints_map = self.iso._get_esr_endpoints_map()
+
+        # update this count as needed, if ercot api evolves to add/remove endpoints
+        assert len(endpoints_map) == 1
 
         # detailed check of all endpoints, fields, and values
         issues = []
@@ -1513,3 +1527,160 @@ class TestErcotAPI(TestHelperMixin):
             assert df["Interval End"].max() == pd.Timestamp(end).tz_localize(
                 self.iso.default_timezone,
             ) + pd.Timedelta(minutes=50)
+
+    """get_cop_adjustment_period_snapshot_60_day"""
+
+    def _check_cop_adjustment_period_snapshot_60_day(self, df: pd.DataFrame) -> None:
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Resource Name",
+            "QSE",
+            "Status",
+            "High Sustained Limit",
+            "Low Sustained Limit",
+            "High Emergency Limit",
+            "Low Emergency Limit",
+            "Reg Up",
+            "Reg Down",
+            "RRS",
+            "RRSPFR",
+            "RRSFFR",
+            "RRSUFR",
+            "NSPIN",
+            "ECRS",
+            "Minimum SOC",
+            "Maximum SOC",
+            "Hour Beginning Planned SOC",
+        ]
+
+        assert (
+            df["Interval End"] - df["Interval Start"] == pd.Timedelta(hours=1)
+        ).all()
+
+        assert df["Resource Name"].dtype == object
+        assert df["QSE"].dtype == object
+
+    def test_get_cop_adjustment_period_snapshot_60_day_date(self):
+        # Check the most recent date that data is available
+        date = self.local_today() - pd.DateOffset(days=61)
+
+        with api_vcr.use_cassette(
+            f"test_get_cop_adjustment_period_snapshot_60_day_date_{date}.yaml",
+        ):
+            df = self.iso.get_cop_adjustment_period_snapshot_60_day(date)
+
+        self._check_cop_adjustment_period_snapshot_60_day(df)
+        assert df["Interval Start"].min() == self.local_start_of_day(date)
+
+        assert df["Interval Start"].max() == self.local_start_of_day(
+            date,
+        ) + pd.Timedelta(hours=23)
+
+        assert df["RRS"].isnull().all()
+
+        for col in [
+            "RRSPFR",
+            "RRSFFR",
+            "RRSUFR",
+            "ECRS",
+            "Minimum SOC",
+            "Maximum SOC",
+            "Hour Beginning Planned SOC",
+        ]:
+            assert df[col].notnull().all()
+
+    def test_get_cop_adjustment_period_snapshot_60_day_historical_date_range(self):
+        start_date = self.local_start_of_today() - pd.DateOffset(days=500)
+        end_date = start_date + pd.DateOffset(days=2)
+
+        with api_vcr.use_cassette(
+            f"test_get_cop_adjustment_period_snapshot_60_day_historical_date_range_{start_date.date()}_{end_date.date()}.yaml",
+        ):
+            df = self.iso.get_cop_adjustment_period_snapshot_60_day(
+                start_date,
+                end_date,
+            )
+
+        self._check_cop_adjustment_period_snapshot_60_day(df)
+
+        assert df["Interval Start"].min() == start_date
+        assert df["Interval Start"].max() == end_date - pd.Timedelta(hours=1)
+
+        # Column only present in older data. We add it as null to keep columns same
+        assert df["RRS"].isnull().all()
+
+    def test_get_cop_adjustment_period_snapshot_60_day_missing_columns_are_null(self):
+        # This is an early date when many columns were not present
+        date = "2012-01-01"
+
+        with api_vcr.use_cassette(
+            f"test_get_cop_adjustment_period_snapshot_60_day_missing_columns_are_null_{date}.yaml",
+        ):
+            df = self.iso.get_cop_adjustment_period_snapshot_60_day(date)
+
+        self._check_cop_adjustment_period_snapshot_60_day(df)
+
+        # Column not present in older data. We add it as null to keep columns same
+        for col in [
+            "RRSPFR",
+            "RRSFFR",
+            "RRSUFR",
+            "ECRS",
+            "Minimum SOC",
+            "Maximum SOC",
+            "Hour Beginning Planned SOC",
+        ]:
+            assert df[col].isnull().all()
+
+        assert df["RRS"].notna().all()
+
+        assert df["Interval Start"].min() == self.local_start_of_day(date)
+        assert df["Interval Start"].max() == self.local_start_of_day(
+            date,
+        ) + pd.Timedelta(hours=23)
+
+    """get_system_load_charging_4_seconds"""
+
+    def _check_system_load_charging_4_seconds(self, df: pd.DataFrame) -> None:
+        assert df.columns.tolist() == [
+            "Time",
+            "System Demand",
+            "ESR Charging MW",
+        ]
+
+        assert df.dtypes["Time"] == "datetime64[ns, US/Central]"
+        assert df.dtypes["System Demand"] == "float64"
+        assert df.dtypes["ESR Charging MW"] == "float64"
+
+    def test_get_system_load_charging_4_seconds_today(self):
+        with api_vcr.use_cassette(
+            "test_get_system_load_charging_4_seconds_today.yaml",
+        ):
+            df = self.iso.get_system_load_charging_4_seconds("today", verbose=True)
+
+        self._check_system_load_charging_4_seconds(df)
+
+        assert df["Time"].min() == self.local_start_of_today()
+        assert df["Time"].max() <= self.local_now()
+
+    def test_get_system_load_charging_4_seconds_date_range(self):
+        # This dataset doesn't have historical data yet, so use recent data
+        start_date = self.local_today() - pd.DateOffset(days=1)
+        end_date = start_date + pd.DateOffset(days=1)
+
+        df = self.iso.get_system_load_charging_4_seconds(
+            date=start_date,
+            end=end_date,
+            verbose=True,
+        )
+
+        self._check_system_load_charging_4_seconds(df)
+
+        assert df["Time"].min() >= self.local_start_of_day(start_date)
+
+        # Not inclusive of end date
+        assert df["Time"].max() <= pd.Timestamp(
+            end_date,
+            tz=ErcotAPI().default_timezone,
+        )

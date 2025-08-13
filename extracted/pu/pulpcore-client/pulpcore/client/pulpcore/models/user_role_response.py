@@ -75,7 +75,6 @@ class UserRoleResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
@@ -83,7 +82,6 @@ class UserRoleResponse(BaseModel):
             "pulp_created",
             "pulp_last_updated",
             "description",
-            "permissions",
         ])
 
         _dict = self.model_dump(

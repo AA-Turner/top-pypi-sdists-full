@@ -1,7 +1,7 @@
 import re
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import openai
 
@@ -99,7 +99,7 @@ class OpenAIProvider(Provider):
         if model in _OPENAI_MODELS:
             return True
 
-        # Check if the model is a fine-tuned OpneAI model. Fine-tuned OpenAI
+        # Check if the model is a fine-tuned OpenAI model. Fine-tuned OpenAI
         # models have the prefix "ft:<BASE_MODEL_NAME>:", followed by a string
         # specifying the fine-tuned model. The following RegEx pattern is used
         # to match the base model name.
@@ -121,9 +121,9 @@ class OpenAIProvider(Provider):
     def finetune(
         job: TrainingJobOpenAI,
         model: str,
-        train_data: List[Dict[str, Any]],
-        train_data_format: Optional[TrainDataFormat],
-        train_kwargs: Optional[Dict[str, Any]] = None,
+        train_data: list[dict[str, Any]],
+        train_data_format: TrainDataFormat | None,
+        train_kwargs: dict[str, Any] | None = None,
     ) -> str:
         model = OpenAIProvider._remove_provider_prefix(model)
 
@@ -231,7 +231,7 @@ class OpenAIProvider(Provider):
         return provider_file.id
 
     @staticmethod
-    def _start_remote_training(train_file_id: str, model: str, train_kwargs: Optional[Dict[str, Any]] = None) -> str:
+    def _start_remote_training(train_file_id: str, model: str, train_kwargs: dict[str, Any] | None = None) -> str:
         train_kwargs = train_kwargs or {}
         provider_job = openai.fine_tuning.jobs.create(
             model=model,

@@ -1879,6 +1879,7 @@ __all__ = (
     "TrialSourceTypeDef",
     "TrialSummaryTypeDef",
     "TrialTypeDef",
+    "TrustedIdentityPropagationSettingsTypeDef",
     "TtlDurationTypeDef",
     "TuningJobCompletionCriteriaTypeDef",
     "TuningJobStepMetaDataTypeDef",
@@ -4109,6 +4110,10 @@ class DomainDetailsTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     Url: NotRequired[str]
+
+
+class TrustedIdentityPropagationSettingsTypeDef(TypedDict):
+    Status: FeatureStatusType
 
 
 class UnifiedStudioSettingsTypeDef(TypedDict):
@@ -6582,6 +6587,7 @@ class DescribeAppResponseTypeDef(TypedDict):
     UserProfileName: str
     SpaceName: str
     Status: AppStatusType
+    EffectiveTrustedIdentityPropagationStatus: FeatureStatusType
     RecoveryMode: bool
     LastHealthCheckTimestamp: datetime
     LastUserActivityTimestamp: datetime
@@ -10418,6 +10424,7 @@ class DomainSettingsOutputTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[List[str]]
     RStudioServerProDomainSettings: NotRequired[RStudioServerProDomainSettingsTypeDef]
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
+    TrustedIdentityPropagationSettings: NotRequired[TrustedIdentityPropagationSettingsTypeDef]
     DockerSettings: NotRequired[DockerSettingsOutputTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
@@ -10427,6 +10434,7 @@ class DomainSettingsTypeDef(TypedDict):
     SecurityGroupIds: NotRequired[Sequence[str]]
     RStudioServerProDomainSettings: NotRequired[RStudioServerProDomainSettingsTypeDef]
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
+    TrustedIdentityPropagationSettings: NotRequired[TrustedIdentityPropagationSettingsTypeDef]
     DockerSettings: NotRequired[DockerSettingsTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
@@ -10912,6 +10920,7 @@ class DomainSettingsForUpdateTypeDef(TypedDict):
     ]
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
     SecurityGroupIds: NotRequired[Sequence[str]]
+    TrustedIdentityPropagationSettings: NotRequired[TrustedIdentityPropagationSettingsTypeDef]
     DockerSettings: NotRequired[DockerSettingsUnionTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]

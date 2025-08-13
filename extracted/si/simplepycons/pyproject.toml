@@ -1,6 +1,6 @@
 [project]
 name = "simplepycons"
-version = "1!15.9.0"
+version = "1!15.10.0"
 description = "Python Wrapper for the simpleicons (https://simpleicons.org) library"
 authors = [
     { name = "Carsten Igel", email = "cig@bite-that-bit.de" },
@@ -33,6 +33,7 @@ test = [
     "tox>=3.25.1",
     "tox-pdm>=0.6.0",
     "pytest-cov>=3.0.0",
+    "num2words>=0.5.13",
 ]
 formatting = [
     "black>=22.6.0",

@@ -27,11 +27,12 @@ from .login import (
     wait_for_login,
 )
 from .locator import PromptBasedLocator
+from .orby.subtask_agent import perform_task
 from .step import AsyncStepContextManager
 from .web_agent import WebAgent
 
 from ..agent.agent import Agent
-from ..constants import REVIEW_TIMEOUT, VA_DISABLE_LOGIN_REVIEW
+from ..constants import REVIEW_TIMEOUT, VA_DISABLE_LOGIN_REVIEW, VA_ENABLE_SUBTASK_AGENT
 from ..review import ReviewStatus, review
 from .dom_utils import (
     inspect_element_recursive,
@@ -58,6 +59,15 @@ class ExtractResult:
     extraction: str | BaseModel | None
     success: bool
     message: str
+
+
+@dataclass
+class FormVerifyResult:
+    """Result of a Page.verify_form_values operation."""
+
+    form_match_expected: bool
+    reason: str
+    success: bool
 
 
 # Monkey patch the Playwright Page implementation to add snapshotForAI method
@@ -432,15 +442,23 @@ class Page:
         ActResult: Result with success status and message
         """
         try:
-            # Create a web agent for this page
-            web_agent = WebAgent(self)
+            if VA_ENABLE_SUBTASK_AGENT:
+                print(f"Using Orby ActIO subtask agent to perform page.act('{prompt}')")
+                await perform_task(self, prompt)
+                result = {
+                    "success": True,
+                    "message": "Action successfully executed",
+                }
+            else:
+                # Create a web agent for this page
+                web_agent = WebAgent(self)
 
-            # Use provided context or empty dict
-            if context is None:
-                context = {}
+                # Use provided context or empty dict
+                if context is None:
+                    context = {}
 
-            # Execute the action using the web agent (use the newly created one!)
-            result = await web_agent.execute_interactive_step(prompt, context)
+                # Execute the action using the web agent (use the newly created one!)
+                result = await web_agent.execute_interactive_step(prompt, context)
 
             # Return ActResult based on the web agent's result
             return ActResult(success=result["success"], message=result["message"])
@@ -456,22 +474,44 @@ class Page:
         self,
         prompt: str,
         schema: Optional[Type[BaseModel]] = None,
+        include_snapshot: bool = True,
         include_screenshot: bool = False,
     ) -> ExtractResult:
         """
-        Extract data from the page using natural language. If a schema is provided, the extraction will be returned as a model. Otherwise, the extraction will be returned as a string.
+        Extract data from the page using natural language. By detault, it uses snapshot only.
 
         Parameters:
         -----------
         prompt (str): Natural language description of what to extract
         schema (Optional[Type[BaseModel]]): Schema for structured extraction
+        include_snapshot (bool): Whether to include DOM/accessibility tree snapshot (default: True)
+        include_screenshot (bool): Whether to include screenshot for visual analysis (default: False)
 
         Returns:
         --------
         ExtractResult: Result with extraction, success status, and message
         """
+        # TODO: Currently, we take full-page screenshots. This has limitations on scrollable iframes and when fields are blocked by other elements.
+        # Not urgent for now, but we should consider better screenshot strategies if we rely on screenshots more.
         try:
-            result = await self._web_agent.extract(prompt, schema, include_screenshot)
+            if include_snapshot and include_screenshot:
+                # Use regular extract with screenshot
+                result = await self._web_agent.extract(
+                    prompt, schema, include_screenshot=True
+                )
+            elif include_snapshot and not include_screenshot:
+                # Use regular extract without screenshot
+                result = await self._web_agent.extract(
+                    prompt, schema, include_screenshot=False
+                )
+            elif not include_snapshot and include_screenshot:
+                # Use vision-only extract
+                result = await self._web_agent.extract_vision_only(prompt, schema)
+            else:
+                # Neither snapshot nor screenshot - this is invalid
+                raise ValueError(
+                    "At least one of include_snapshot or include_screenshot must be True"
+                )
 
             # Return ExtractResult based on the web agent's result
             return ExtractResult(extraction=result, success=True, message="")
@@ -593,3 +633,20 @@ class Page:
     @wait_for_login
     async def get_page_snapshot(self):
         return await self.snapshot_for_ai()
+
+    @wait_for_login
+    async def verify_form_values(self, expected_form_data: str) -> FormVerifyResult:
+        try:
+            result = await self._web_agent.verify_form_values(expected_form_data)
+            return FormVerifyResult(
+                form_match_expected=result.form_match_expected,
+                reason=result.reason,
+                success=True,
+            )
+        except Exception as e:
+            log.error(f"Error in verify_form_values: {e}")
+            return FormVerifyResult(
+                form_match_expected=False,
+                reason=f"Error in verify_form_values: {e}",
+                success=False,
+            )

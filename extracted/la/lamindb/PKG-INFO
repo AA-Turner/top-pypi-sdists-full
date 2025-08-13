@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: lamindb
-Version: 1.10.1
+Version: 1.10.2
 Summary: A data framework for biology.
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10,<3.14
@@ -9,6 +9,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+License-File: LICENSE
 Requires-Dist: lamin_utils==0.15.0
 Requires-Dist: lamin_cli==1.6.1
 Requires-Dist: lamindb_setup[aws]==1.9.1

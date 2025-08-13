@@ -1,31 +1,28 @@
 Metadata-Version: 2.4
 Name: dspy
-Version: 2.6.27
+Version: 3.0.0
 Summary: DSPy
 Author-email: Omar Khattab <okhattab@stanford.edu>
-License: MIT License
+License-Expression: MIT
 Project-URL: homepage, https://github.com/stanfordnlp/dspy
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Requires-Python: <3.14,>=3.9
+Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: backoff>=2.2
 Requires-Dist: joblib~=1.3
 Requires-Dist: openai>=0.28.1
-Requires-Dist: pandas>=2.1.1
 Requires-Dist: regex>=2023.10.3
 Requires-Dist: ujson>=5.8.0
 Requires-Dist: tqdm>=4.66.1
-Requires-Dist: datasets>=2.14.6
 Requires-Dist: requests>=2.31.0
 Requires-Dist: optuna>=3.4.0
 Requires-Dist: pydantic>=2.0
 Requires-Dist: magicattr>=0.1.6
-Requires-Dist: litellm>=1.60.3
+Requires-Dist: litellm>=1.64.0
 Requires-Dist: diskcache>=5.6.0
 Requires-Dist: json-repair>=0.30.0
 Requires-Dist: tenacity>=8.2.3
@@ -34,14 +31,13 @@ Requires-Dist: asyncer==0.0.8
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cloudpickle>=3.0.0
 Requires-Dist: rich>=13.7.1
-Requires-Dist: numpy<2.2,>=1.26.0; python_version == "3.9"
-Requires-Dist: numpy>=1.26.0; python_version >= "3.10"
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: xxhash>=3.5.0
+Requires-Dist: gepa==0.0.2
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.18.0; extra == "anthropic"
 Provides-Extra: weaviate
 Requires-Dist: weaviate-client~=4.5.4; extra == "weaviate"
-Provides-Extra: aws
-Requires-Dist: boto3~=1.34.78; extra == "aws"
 Provides-Extra: mcp
 Requires-Dist: mcp; python_version >= "3.10" and extra == "mcp"
 Provides-Extra: langchain
@@ -55,10 +51,13 @@ Requires-Dist: pre-commit>=3.7.0; extra == "dev"
 Requires-Dist: pillow>=10.1.0; extra == "dev"
 Requires-Dist: datamodel_code_generator>=0.26.3; extra == "dev"
 Requires-Dist: build>=1.0.3; extra == "dev"
-Requires-Dist: litellm>=1.60.3; sys_platform == "win32" and extra == "dev"
-Requires-Dist: litellm[proxy]>=1.60.3; sys_platform != "win32" and extra == "dev"
+Requires-Dist: litellm>=1.64.0; sys_platform == "win32" and extra == "dev"
+Requires-Dist: litellm[proxy]>=1.64.0; sys_platform != "win32" and extra == "dev"
 Provides-Extra: test-extras
 Requires-Dist: mcp; python_version >= "3.10" and extra == "test-extras"
+Requires-Dist: datasets>=2.14.6; extra == "test-extras"
+Requires-Dist: pandas>=2.1.1; extra == "test-extras"
+Requires-Dist: optuna>=3.4.0; extra == "test-extras"
 Requires-Dist: langchain_core; extra == "test-extras"
 Dynamic: license-file
 
@@ -110,6 +109,7 @@ If you're looking to understand the framework, please go to the [DSPy Docs at ds
 
 If you're looking to understand the underlying research, this is a set of our papers:
 
+**[Jul'25] [GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning](https://arxiv.org/abs/2507.19457)**       
 **[Jun'24] [Optimizing Instructions and Demonstrations for Multi-Stage Language Model Programs](https://arxiv.org/abs/2406.11695)**       
 **[Oct'23] [DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines](https://arxiv.org/abs/2310.03714)**     
 [Jul'24] [Fine-Tuning and Prompt Optimization: Two Great Steps that Work Better Together](https://arxiv.org/abs/2407.10930)     

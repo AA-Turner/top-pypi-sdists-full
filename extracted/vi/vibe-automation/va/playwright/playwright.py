@@ -1,7 +1,6 @@
-import asyncio
 import logging
 import os
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager
 
 from playwright.async_api import (
     async_playwright,
@@ -58,56 +57,24 @@ class WrappedContext:
         return attr
 
 
-def get_browser(headless: bool | None = None, slow_mo: float | None = None):
-    """Get browser - use get_browser_sync for sync contexts or get_browser_async for async contexts"""
-    # For backward compatibility, try to detect if we're in async context
-    import asyncio
-
-    try:
-        asyncio.get_running_loop()
-        # We're in an async context, but this function is sync
-        # We'll return the sync version and let the user handle async properly
-        return get_browser_sync(headless, slow_mo)
-    except RuntimeError:
-        # No event loop, use sync version
-        return get_browser_sync(headless, slow_mo)
-
-
-@contextmanager
-def get_browser_sync(headless: bool | None = None, slow_mo: float | None = None):
-    """Recommended way to get a Playwright browser instance in Vibe Automation Framework.
-
-    There are three running modes:
-    1. during local development, we can get a local browser instance
-    2. in managed execution environment, the browser instance are provided by Orby. This is
-       activated via the presence of CONNECTION_URL.
-    Returns a wrapped browser that automatically wraps pages with VibePage functionality
-    when new_page() is called, eliminating the need for manual wrap() calls.
-    """
-    try:
-        wrapped_context, browser = asyncio.run(
-            create_browser_context_async(headless, slow_mo)
-        )
-        yield wrapped_context
-    finally:
-        # Wait for any background login tasks before closing
-        asyncio.run(wrapped_context._wait_for_login_tasks())
-        asyncio.run(browser.close())
-
-
 @asynccontextmanager
 async def get_browser_context(
     headless: bool | None = None, slow_mo: float | None = None
 ):
     """Async version of get_browser for use in async contexts."""
+    wrapped_context = None
+    browser = None
 
     try:
         wrapped_context, browser = await create_browser_context_async(headless, slow_mo)
         yield wrapped_context
     finally:
         # Wait for any background login tasks before closing
-        await wrapped_context._wait_for_login_tasks()
-        await browser.close()
+        if wrapped_context:
+            await wrapped_context._wait_for_login_tasks()
+
+        if browser:
+            await browser.close()
 
 
 async def create_browser_context_async(

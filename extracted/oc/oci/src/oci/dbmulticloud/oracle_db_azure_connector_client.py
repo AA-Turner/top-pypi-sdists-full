@@ -169,7 +169,7 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/change_oracle_db_azure_connector_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_connector_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/change_oracle_db_azure_connector_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_connector_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
@@ -280,7 +280,7 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/create_oracle_db_azure_connector.py.html>`__ to see an example of how to use create_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/create_oracle_db_azure_connector.py.html>`__ to see an example of how to use create_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -378,7 +378,7 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/delete_oracle_db_azure_connector.py.html>`__ to see an example of how to use delete_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/delete_oracle_db_azure_connector.py.html>`__ to see an example of how to use delete_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
@@ -487,7 +487,7 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/get_oracle_db_azure_connector.py.html>`__ to see an example of how to use get_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/get_oracle_db_azure_connector.py.html>`__ to see an example of how to use get_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
@@ -639,7 +639,7 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/list_oracle_db_azure_connectors.py.html>`__ to see an example of how to use list_oracle_db_azure_connectors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/list_oracle_db_azure_connectors.py.html>`__ to see an example of how to use list_oracle_db_azure_connectors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -779,7 +779,7 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/patch_oracle_db_azure_connector.py.html>`__ to see an example of how to use patch_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/patch_oracle_db_azure_connector.py.html>`__ to see an example of how to use patch_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
@@ -889,7 +889,7 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/update_oracle_db_azure_connector.py.html>`__ to see an example of how to use update_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/update_oracle_db_azure_connector.py.html>`__ to see an example of how to use update_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']

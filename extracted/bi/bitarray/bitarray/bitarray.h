@@ -4,7 +4,7 @@
 
    Author: Ilan Schnell
 */
-#define BITARRAY_VERSION  "3.6.0"
+#define BITARRAY_VERSION  "3.6.1"
 
 #ifdef STDC_HEADERS
 #  include <stddef.h>
@@ -229,20 +229,28 @@ swap_bytes(char *p, Py_ssize_t n)
 static inline void
 setup_table(char *table, char kop)
 {
-    int j, k;
+    int k;
     for (k = 0; k < 256; k++) {
-        table[k] = 0;
+        char t = 0, j;
         for (j = 0; j < 8; j++) {
             if (k & 1 << j)
+                /* j are the indices of active bits in k (little endian) */
                 switch (kop) {
-                case 'a': table[k] += j;        break;
-                case 'A': table[k] += 7 - j;    break;
-                case 'x': table[k] ^= j;        break;
-                case 'X': table[k] ^= 7 - j;    break;
-                case 'r': table[k] |= 128 >> j; break;
+                case 'a': t += j;        break;  /* add active indices */
+                case 'A': t += 7 - j;    break;  /* 'a' for big endian */
+                case 's': t += j * j;    /* add squares of active indices */
+                    break;
+                case 'S': t += (7-j) * (7-j);    /* 's' for big endian */
+                    break;
+                case 'x': t ^= j;        break;  /* xor active indices */
+                case 'X': t ^= 7 - j;    break;  /* 'x' for big endian */
+                case 'c': t++;           break;  /* bit count */
+                case 'p': t ^= 1;        break;  /* parity */
+                case 'r': t |= 128 >> j; break;  /* reverse bits */
                 default: Py_UNREACHABLE();
                 }
         }
+        table[k] = t;
     }
 }
 

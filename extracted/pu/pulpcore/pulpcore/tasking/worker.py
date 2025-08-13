@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 from packaging.version import parse as parse_version
 
 from django.conf import settings
-from django.db import connection
+from django.db import connection, DatabaseError, IntegrityError
 from django.db.models import Case, Count, F, Max, Value, When
 from django.db.models.functions import Random
 from django.utils import timezone
@@ -29,8 +29,8 @@ from pulpcore.constants import (
 )
 from pulpcore.metrics import init_otel_meter
 from pulpcore.app.apps import pulp_plugin_configs
-from pulpcore.app.models import Worker, Task, ApiAppStatus, ContentAppStatus
-from pulpcore.app.util import PGAdvisoryLock, get_domain
+from pulpcore.app.models import Worker, Task, AppStatus, ApiAppStatus, ContentAppStatus
+from pulpcore.app.util import PGAdvisoryLock
 from pulpcore.exceptions import AdvisoryLockError
 
 from pulpcore.tasking.storage import WorkerDirectory
@@ -73,7 +73,14 @@ class PulpcoreWorker:
         self.last_metric_heartbeat = timezone.now()
         self.versions = {app.label: app.version for app in pulp_plugin_configs()}
         self.cursor = connection.cursor()
-        self.worker = self.handle_worker_heartbeat()
+        try:
+            self.app_status = AppStatus.objects.create(
+                name=self.name, app_type="worker", versions=self.versions
+            )
+            self.worker = self.app_status._old_status
+        except IntegrityError:
+            _logger.error(f"A worker with name {self.name} already exists in the database.")
+            exit(1)
         # This defaults to immediate task cancellation.
         # It will be set into the future on moderately graceful worker shutdown,
         # and set to None for fully graceful shutdown.
@@ -148,52 +155,48 @@ class PulpcoreWorker:
 
     def handle_worker_heartbeat(self):
         """
-        Create or update worker heartbeat records.
+        Update worker heartbeat records.
 
-        Existing Worker objects are searched for one to update. If an existing one is found, it is
-        updated. Otherwise a new Worker entry is created. Logging at the info level is also done.
-
+        If the update fails (the record was deleted, the database is unreachable, ...) the worker
+        is shut down.
         """
-        worker, created = Worker.objects.get_or_create(
-            name=self.name, defaults={"versions": self.versions}
-        )
-        if not created and worker.versions != self.versions:
-            worker.versions = self.versions
-            worker.save(update_fields=["versions"])
-
-        if created:
-            _logger.info(_("New worker '{name}' discovered").format(name=self.name))
-        elif worker.online is False:
-            _logger.info(_("Worker '{name}' is back online.").format(name=self.name))
-
-        worker.save_heartbeat()
 
         msg = "Worker heartbeat from '{name}' at time {timestamp}".format(
-            timestamp=worker.last_heartbeat, name=self.name
+            timestamp=self.app_status.last_heartbeat, name=self.name
         )
-        _logger.debug(msg)
-
-        return worker
+        try:
+            self.app_status.save_heartbeat()
+            _logger.debug(msg)
+        except (IntegrityError, DatabaseError):
+            # WARNING: Do not attempt to recycle the connection here.
+            # The advisory locks are bound to the connection and we must not loose them.
+            _logger.error(f"Updating the heartbeat of worker {self.name} failed.")
+            # TODO if shutdown_requested, we may need to be more aggressive.
+            self.shutdown_requested = True
+            self.cancel_task = True
 
     def shutdown(self):
-        self.worker.delete()
+        self.app_status.delete()
         _logger.info(_("Worker %s was shut down."), self.name)
 
     def worker_cleanup(self):
+        qs = AppStatus.objects.older_than(age=timedelta(days=7))
+        for app_worker in qs:
+            _logger.info(_("Clean missing %s worker %s."), app_worker.app_type, app_worker.name)
+        qs.delete()
         for cls, cls_name in (
             (Worker, "pulp"),
             (ApiAppStatus, "api"),
             (ContentAppStatus, "content"),
         ):
             qs = cls.objects.missing(age=timedelta(days=7))
-            if qs:
-                for app_worker in qs:
-                    _logger.info(_("Clean missing %s worker %s."), cls_name, app_worker.name)
-                qs.delete()
+            for app_worker in qs:
+                _logger.info(_("Clean missing %s worker %s."), cls_name, app_worker.name)
+            qs.delete()
 
     def beat(self):
-        if self.worker.last_heartbeat < timezone.now() - self.heartbeat_period:
-            self.worker = self.handle_worker_heartbeat()
+        if self.app_status.last_heartbeat < timezone.now() - self.heartbeat_period:
+            self.handle_worker_heartbeat()
             if not self.auxiliary:
                 self.worker_cleanup_countdown -= 1
                 if self.worker_cleanup_countdown <= 0:
@@ -217,7 +220,7 @@ class PulpcoreWorker:
         Return ``True`` if the task was actually canceled, ``False`` otherwise.
         """
         # A task is considered abandoned when in running state, but no worker holds its lock
-        domain = get_domain()
+        domain = task.pulp_domain
         try:
             task.set_canceling()
         except RuntimeError:
@@ -244,7 +247,7 @@ class PulpcoreWorker:
         return True
 
     def is_compatible(self, task):
-        domain = get_domain()
+        domain = task.pulp_domain
         unmatched_versions = [
             f"task: {label}>={version} worker: {self.versions.get(label)}"
             for label, version in task.versions.items()
@@ -427,7 +430,7 @@ class PulpcoreWorker:
         task.save(update_fields=["worker"])
         cancel_state = None
         cancel_reason = None
-        domain = get_domain()
+        domain = task.pulp_domain
         with TemporaryDirectory(dir=".") as task_working_dir_rel_path:
             task_process = Process(target=perform_task, args=(task.pk, task_working_dir_rel_path))
             task_process.start()

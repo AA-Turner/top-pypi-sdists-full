@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandera
-Version: 0.25.0
+Version: 0.26.0
 Summary: A light-weight and flexible data validation and testing tool for statistical data objects.
 Author-email: Niels Bantilan <niels.bantilan@gmail.com>
 License: MIT License
@@ -39,6 +39,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
@@ -135,7 +136,6 @@ Dynamic: license-file
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/pandera.svg?style=for-the-badge)](https://pypi.python.org/pypi/pandera/)
 [![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.3385265-blue?style=for-the-badge)](https://doi.org/10.5281/zenodo.3385265)
 [![asv](http://img.shields.io/badge/benchmarked%20by-asv-green.svg?style=for-the-badge)](https://pandera-dev.github.io/pandera-asv-logs/)
-[![Monthly Downloads](https://img.shields.io/pypi/dm/pandera?style=for-the-badge&color=blue)](https://pepy.tech/project/pandera)
 [![Total Downloads](https://img.shields.io/pepy/dt/pandera?style=for-the-badge&color=blue)](https://pepy.tech/project/pandera)
 [![Conda Downloads](https://img.shields.io/conda/dn/conda-forge/pandera?style=for-the-badge)](https://anaconda.org/conda-forge/pandera)
 [![Slack](https://img.shields.io/badge/Slack-4A154B?logo=slack&logoColor=fff&style=for-the-badge)](https://flyte-org.slack.com/archives/C08FDTY2X3L)
@@ -248,7 +248,7 @@ print(Schema.validate(df))
 >
 > And all of the rest of your pandera code should work. Using the top-level
 > `pandera` module to access `DataFrameSchema` and the other pandera classes
-> or functions will be deprecated in a future version
+> or functions will be deprecated in version `0.29.0`
 
 
 ## Next steps

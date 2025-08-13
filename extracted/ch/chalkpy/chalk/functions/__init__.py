@@ -3730,6 +3730,45 @@ def haversine(
     )
 
 
+def h3_lat_lon_to_cell(
+    lat: Underscore | Any,
+    lon: Underscore | Any,
+    resolution: Underscore | int,
+    unit: Literal["degrees", "radians"] = "radians",
+):
+    """
+    Convert latitude and longitude to an H3 cell at the specified resolution.
+
+    Parameters
+    ----------
+    lat
+        The latitude of the point.
+    lon
+        The longitude of the point.
+    resolution
+        The H3 resolution (integer).
+    unit
+        The unit of the input latitude and longitude. Either "degrees" or "radians".
+        The default is "radians".
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Location:
+    ...    id: str
+    ...    lat: float
+    ...    lon: float
+    ...    h3_cell: int = F.h3_lat_lon_to_cell(_.lat, _.lon, 9, unit="degrees")
+    """
+    if unit == "degrees":
+        lat = radians(lat)
+        lon = radians(lon)
+
+    return UnderscoreFunction("h3_lat_lon_to_cell", lat, lon, resolution)
+
+
 def cast(expr: Any, dtype: pa.DataType | type[Any]):
     """Cast an expression to a different type.
 
@@ -5186,6 +5225,7 @@ __all__ = (
     "http_post",
     "http_put",
     "http_request",
+    "h3_lat_lon_to_cell",
     "if_then_else",
     "is_leap_year",
     "is_month_end",

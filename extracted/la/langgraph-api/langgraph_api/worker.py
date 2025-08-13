@@ -209,6 +209,7 @@ async def worker(
 
         # handle exceptions and set status
         async with connect() as conn:
+            graph_id = run["kwargs"]["config"]["configurable"]["graph_id"]
             log_info = {
                 "run_id": str(run_id),
                 "run_attempt": attempt,
@@ -252,7 +253,12 @@ async def worker(
                         )
                 if not temporary:
                     await Threads.set_joint_status(
-                        conn, run["thread_id"], run_id, status, checkpoint=checkpoint
+                        conn,
+                        run["thread_id"],
+                        run_id,
+                        status,
+                        graph_id=graph_id,
+                        checkpoint=checkpoint,
                     )
             elif isinstance(exception, TimeoutError):
                 status = "timeout"
@@ -262,7 +268,12 @@ async def worker(
                 )
                 if not temporary:
                     await Threads.set_joint_status(
-                        conn, run["thread_id"], run_id, status, checkpoint=checkpoint
+                        conn,
+                        run["thread_id"],
+                        run_id,
+                        status,
+                        graph_id=graph_id,
+                        checkpoint=checkpoint,
                     )
             elif isinstance(exception, UserRollback):
                 status = "rollback"
@@ -273,6 +284,7 @@ async def worker(
                             run["thread_id"],
                             run_id,
                             status,
+                            graph_id=graph_id,
                             checkpoint=checkpoint,
                         )
                         await logger.ainfo(
@@ -297,7 +309,13 @@ async def worker(
                 )
                 if not temporary:
                     await Threads.set_joint_status(
-                        conn, run["thread_id"], run_id, status, checkpoint, exception
+                        conn,
+                        run["thread_id"],
+                        run_id,
+                        status,
+                        graph_id,
+                        checkpoint,
+                        exception,
                     )
             elif isinstance(exception, ALL_RETRIABLE_EXCEPTIONS):
                 status = "retry"
@@ -322,7 +340,13 @@ async def worker(
                 )
                 if not temporary:
                     await Threads.set_joint_status(
-                        conn, run["thread_id"], run_id, status, checkpoint, exception
+                        conn,
+                        run["thread_id"],
+                        run_id,
+                        status,
+                        graph_id,
+                        checkpoint,
+                        exception,
                     )
 
             # delete thread if it's temporary and we don't want to retry

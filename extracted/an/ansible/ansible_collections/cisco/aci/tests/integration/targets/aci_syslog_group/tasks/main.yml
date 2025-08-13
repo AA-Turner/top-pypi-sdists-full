@@ -1,5 +1,6 @@
 # Test code for the ACI modules
 # Copyright: (c) 2021, Tim Cragg (@timcragg)
+# Copyright: (c) 2025, Dev Sinha (@DevSinha13)
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -34,8 +35,20 @@
     name: ansible_syslog_group
     state: absent
 
-# ADD syslog group
-- name: Add syslog group (version >= 4)
+- name: Remove ansible_syslog_new if it already exists
+  cisco.aci.aci_syslog_group:
+    <<: *aci_info
+    name: ansible_syslog_new
+    state: absent
+
+- name: Remove enhanced_log_test if it already exists
+  cisco.aci.aci_syslog_group:
+    <<: *aci_info
+    name: syslog_enhanced_log
+    state: absent
+
+# ADD syslog group(Check mode)
+- name: Add syslog group (version >= 4) - (Check mode)
   cisco.aci.aci_syslog_group: &aci_syslog_present
     <<: *aci_info
     name: ansible_syslog_group
@@ -47,11 +60,20 @@
     console_log_severity: critical
     include_ms: true
     include_time_zone: true
+    description: Description for the syslog group
     state: present
+  check_mode: true
+  register: add_syslog_group_cm
+  when: version.current.0.topSystem.attributes.version is version('4', '>=')
+
+#ADD syslog group
+- name: Add syslog group (version >= 4) - (No check mode)
+  cisco.aci.aci_syslog_group: 
+    <<: *aci_syslog_present
   register: add_syslog_group
   when: version.current.0.topSystem.attributes.version is version('4', '>=')
 
-- name: Add syslog group (version < 4)
+- name: Add syslog group (version < 4) - (Check mode)
   cisco.aci.aci_syslog_group: &aci_syslog_present_32
     <<: *aci_info
     name: ansible_syslog_group
@@ -62,49 +84,97 @@
     console_logging: enabled
     console_log_severity: critical
     include_ms: true
+    description: Description for the syslog group
     state: present
+  check_mode: true
+  register: add_syslog_group_32_cm
+  when: version.current.0.topSystem.attributes.version is version('4', '<')
+
+- name: Add syslog group (version < 4) - No Check mode
+  cisco.aci.aci_syslog_group:
+    <<: *aci_syslog_present_32
   register: add_syslog_group_32
   when: version.current.0.topSystem.attributes.version is version('4', '<')
+
+- name: Sort children by name for 32
+  ansible.builtin.set_fact:
+    sorted_children_32: "{{ add_syslog_group_32.current[0].syslogGroup.children | map('dict2items') | sort(attribute='0.key') | map('items2dict') | list }}" 
+  when: version.current.0.topSystem.attributes.version is version('4', '<')
+
+- name: Sort children by name
+  ansible.builtin.set_fact:   
+    sorted_children: "{{ add_syslog_group.current[0].syslogGroup.children | map('dict2items') | sort(attribute='0.key') | map('items2dict') | list }}" 
+  when: version.current.0.topSystem.attributes.version is version('4', '>=')
+
+- name: Verify that ansible_syslog_group has been created with correct attributes in check mode(version >= 4)
+  ansible.builtin.assert:
+    that:
+    - add_syslog_group_cm is changed
+    - add_syslog_group_cm.proposed.syslogGroup.attributes.dn == "uni/fabric/slgroup-ansible_syslog_group"
+    - add_syslog_group_cm.proposed.syslogGroup.attributes.name == "ansible_syslog_group"
+    - add_syslog_group_cm.proposed.syslogGroup.attributes.format == "aci"
+    - add_syslog_group_cm.proposed.syslogGroup.attributes.includeMilliSeconds == "yes"
+    - add_syslog_group_cm.proposed.syslogGroup.attributes.includeTimeZone == "yes"
+    - add_syslog_group_cm.proposed.syslogGroup.attributes.annotation == 'orchestrator:ansible'
+    - add_syslog_group_cm.proposed.syslogGroup.attributes.descr == 'Description for the syslog group'
+  when: version.current.0.topSystem.attributes.version is version('4', '>=')
+
 
 - name: Verify that ansible_syslog_group has been created with correct attributes (version > 4)
   ansible.builtin.assert:
     that:
+    - add_syslog_group is changed
     - add_syslog_group.current.0.syslogGroup.attributes.dn == "uni/fabric/slgroup-ansible_syslog_group"
     - add_syslog_group.current.0.syslogGroup.attributes.name == "ansible_syslog_group"
     - add_syslog_group.current.0.syslogGroup.attributes.format == "aci"
     - add_syslog_group.current.0.syslogGroup.attributes.includeMilliSeconds == "yes"
     - add_syslog_group.current.0.syslogGroup.attributes.includeTimeZone == "yes"
     - add_syslog_group.current.0.syslogGroup.attributes.annotation == 'orchestrator:ansible'
+    - add_syslog_group.current.0.syslogGroup.attributes.descr == 'Description for the syslog group'
   when: version.current.0.topSystem.attributes.version is version('4', '>=')
+
+- name: Verify that ansible_syslog_group has been created with correct attributes in check mode (version < 4)
+  ansible.builtin.assert:
+    that:
+    - add_syslog_group_32_cm is changed
+    - add_syslog_group_32_cm.proposed.syslogGroup.attributes.dn == "uni/fabric/slgroup-ansible_syslog_group"
+    - add_syslog_group_32_cm.proposed.syslogGroup.attributes.name == "ansible_syslog_group"
+    - add_syslog_group_32_cm.proposed.syslogGroup.attributes.format == "aci"
+    - add_syslog_group_32_cm.proposed.syslogGroup.attributes.includeMilliSeconds == "yes"
+    - add_syslog_group_32_cm.proposed.syslogGroup.attributes.annotation == 'orchestrator:ansible'
+    - add_syslog_group_32_cm.proposed.syslogGroup.attributes.descr == 'Description for the syslog group'
+  when: version.current.0.topSystem.attributes.version is version('4', '<')
 
 - name: Verify that ansible_syslog_group has been created with correct attributes (version < 4)
   ansible.builtin.assert:
     that:
+    - add_syslog_group_32 is changed
     - add_syslog_group_32.current.0.syslogGroup.attributes.dn == "uni/fabric/slgroup-ansible_syslog_group"
     - add_syslog_group_32.current.0.syslogGroup.attributes.name == "ansible_syslog_group"
     - add_syslog_group_32.current.0.syslogGroup.attributes.format == "aci"
     - add_syslog_group_32.current.0.syslogGroup.attributes.includeMilliSeconds == "yes"
     - add_syslog_group_32.current.0.syslogGroup.attributes.annotation == 'orchestrator:ansible'
+    - add_syslog_group_32.current.0.syslogGroup.attributes.descr == 'Description for the syslog group'
   when: version.current.0.topSystem.attributes.version is version('4', '<')
   
 - name: Verify that ansible_syslog_group children have correct attributes (version >= 4)
   ansible.builtin.assert:
     that:
-    - add_syslog_group.current.0.syslogGroup.children.0.syslogConsole.attributes.adminState == "enabled"
-    - add_syslog_group.current.0.syslogGroup.children.0.syslogConsole.attributes.severity == "critical"
-    - add_syslog_group.current.0.syslogGroup.children.1.syslogFile.attributes.adminState == "enabled"
-    - add_syslog_group.current.0.syslogGroup.children.1.syslogFile.attributes.severity == "warnings"
-    - add_syslog_group.current.0.syslogGroup.children.2.syslogProf.attributes.adminState == "enabled"
+    - sorted_children.0.syslogConsole.attributes.adminState == "enabled"
+    - sorted_children.0.syslogConsole.attributes.severity == "critical"
+    - sorted_children.1.syslogFile.attributes.adminState == "enabled"
+    - sorted_children.1.syslogFile.attributes.severity == "warnings"
+    - sorted_children.2.syslogProf.attributes.adminState == "enabled"
   when: version.current.0.topSystem.attributes.version is version('4', '>=')
 
 - name: Verify that ansible_syslog_group children have correct attributes (version < 4)
   ansible.builtin.assert:
     that:
-    - add_syslog_group_32.current.0.syslogGroup.children.0.syslogConsole.attributes.adminState == "enabled"
-    - add_syslog_group_32.current.0.syslogGroup.children.0.syslogConsole.attributes.severity == "critical"
-    - add_syslog_group_32.current.0.syslogGroup.children.1.syslogFile.attributes.adminState == "enabled"
-    - add_syslog_group_32.current.0.syslogGroup.children.1.syslogFile.attributes.severity == "warnings"
-    - add_syslog_group_32.current.0.syslogGroup.children.2.syslogProf.attributes.adminState == "enabled"
+    - sorted_children_32.0.syslogConsole.attributes.adminState == "enabled"
+    - sorted_children_32.0.syslogConsole.attributes.severity == "critical"
+    - sorted_children_32.1.syslogFile.attributes.adminState == "enabled"
+    - sorted_children_32.1.syslogFile.attributes.severity == "warnings"
+    - sorted_children_32.2.syslogProf.attributes.adminState == "enabled"
   when: version.current.0.topSystem.attributes.version is version('4', '<')
 
 # ADD syslog group again to check idempotency
@@ -145,6 +215,7 @@
     console_log_severity: emergencies
     include_ms: false
     include_time_zone: false
+    description: Updated syslog group
     state: present
   register: update_syslog_group
   when: version.current.0.topSystem.attributes.version is version('4', '>=')
@@ -160,9 +231,21 @@
     console_logging: disabled
     console_log_severity: emergencies
     include_ms: false
+    description: Updated syslog_group_32
     state: present
   register: update_syslog_group_32
   when: version.current.0.topSystem.attributes.version is version('4', '<')
+
+
+- name: Sort updated children by name for 32
+  ansible.builtin.set_fact:
+    updated_sorted_children_32: "{{ update_syslog_group_32.current[0].syslogGroup.children | map('dict2items') | sort(attribute='0.key') | map('items2dict') | list }}" 
+  when: version.current.0.topSystem.attributes.version is version('4', '<')
+
+- name: Sort updated children by name
+  ansible.builtin.set_fact:
+    updated_sorted_children: "{{ update_syslog_group.current[0].syslogGroup.children | map('dict2items') | sort(attribute='0.key') | map('items2dict') | list }}" 
+  when: version.current.0.topSystem.attributes.version is version('4', '>=')
 
 - name: Verify that ansible_syslog_group has been updated with correct attributes (version >= 4)
   ansible.builtin.assert:
@@ -172,6 +255,7 @@
     - update_syslog_group.current.0.syslogGroup.attributes.format == "nxos"
     - update_syslog_group.current.0.syslogGroup.attributes.includeMilliSeconds == "no"
     - update_syslog_group.current.0.syslogGroup.attributes.includeTimeZone == "no"
+    - update_syslog_group.current.0.syslogGroup.attributes.descr == "Updated syslog group"
   when: version.current.0.topSystem.attributes.version is version('4', '>=')
 
 - name: Verify that ansible_syslog_group has been updated with correct attributes (version < 4)
@@ -181,27 +265,99 @@
     - update_syslog_group_32.current.0.syslogGroup.attributes.name == "ansible_syslog_group"
     - update_syslog_group_32.current.0.syslogGroup.attributes.format == "nxos"
     - update_syslog_group_32.current.0.syslogGroup.attributes.includeMilliSeconds == "no"
+    - update_syslog_group_32.current.0.syslogGroup.attributes.descr == "Updated syslog_group_32"
   when: version.current.0.topSystem.attributes.version is version('4', '<')
 
 - name: Verify that ansible_syslog_group children have correct attributes (version >= 4)
   ansible.builtin.assert:
     that:
-    - update_syslog_group.current.0.syslogGroup.children.0.syslogConsole.attributes.adminState == "disabled"
-    - update_syslog_group.current.0.syslogGroup.children.0.syslogConsole.attributes.severity == "emergencies"
-    - update_syslog_group.current.0.syslogGroup.children.1.syslogFile.attributes.adminState == "enabled"
-    - update_syslog_group.current.0.syslogGroup.children.1.syslogFile.attributes.severity == "debugging"
-    - update_syslog_group.current.0.syslogGroup.children.2.syslogProf.attributes.adminState == "disabled"
+    - updated_sorted_children.0.syslogConsole.attributes.adminState == "disabled"
+    - updated_sorted_children.0.syslogConsole.attributes.severity == "emergencies"
+    - updated_sorted_children.1.syslogFile.attributes.adminState == "enabled"
+    - updated_sorted_children.1.syslogFile.attributes.severity == "debugging"
+    - updated_sorted_children.2.syslogProf.attributes.adminState == "disabled"
   when: version.current.0.topSystem.attributes.version is version('4', '>=')
 
 - name: Verify that ansible_syslog_group children have correct attributes (version < 4)
   ansible.builtin.assert:
     that:
-    - update_syslog_group_32.current.0.syslogGroup.children.0.syslogConsole.attributes.adminState == "disabled"
-    - update_syslog_group_32.current.0.syslogGroup.children.0.syslogConsole.attributes.severity == "emergencies"
-    - update_syslog_group_32.current.0.syslogGroup.children.1.syslogFile.attributes.adminState == "enabled"
-    - update_syslog_group_32.current.0.syslogGroup.children.1.syslogFile.attributes.severity == "debugging"
-    - update_syslog_group_32.current.0.syslogGroup.children.2.syslogProf.attributes.adminState == "disabled"
+    - updated_sorted_children_32.0.syslogConsole.attributes.adminState == "disabled"
+    - updated_sorted_children_32.0.syslogConsole.attributes.severity == "emergencies"
+    - updated_sorted_children_32.1.syslogFile.attributes.adminState == "enabled"
+    - updated_sorted_children_32.1.syslogFile.attributes.severity == "debugging"
+    - updated_sorted_children_32.2.syslogProf.attributes.adminState == "disabled"
   when: version.current.0.topSystem.attributes.version is version('4', '<')
+
+- name: Execute tasks only for non-cloud sites
+  when: version.current.0.topSystem.attributes.version is version('6', '>=')
+  block:
+    # ADD syslog group with rfc5424_ts as format  
+    - name: Add syslog new (version >= 6) 
+      cisco.aci.aci_syslog_group: 
+        <<: *aci_info
+        name: ansible_syslog_new
+        admin_state: enabled
+        format: rfc5424_ts
+        local_file_logging: enabled
+        local_file_log_severity: warnings
+        console_log_severity: critical
+        console_logging: enabled
+        local_file_log_format: rfc5424_ts
+        console_log_format: rfc5424_ts
+        description: Description for the syslog group
+        state: present
+      register: add_syslog_new_format
+    
+    - name: Sort updated children by name
+      ansible.builtin.set_fact:
+        sorted_new: "{{ add_syslog_new_format.current[0].syslogGroup.children | map('dict2items') | sort(attribute='0.key') | map('items2dict') | list }}" 
+
+    - name: Verify that the format rfc5424_ts is valid for syslog group and children
+      ansible.builtin.assert:
+        that:
+        - add_syslog_new_format is changed
+        - add_syslog_new_format.current.0.syslogGroup.attributes.dn == "uni/fabric/slgroup-ansible_syslog_new"
+        - add_syslog_new_format.current.0.syslogGroup.attributes.name == "ansible_syslog_new"
+        - add_syslog_new_format.current.0.syslogGroup.attributes.format == "rfc5424-ts"
+        - add_syslog_new_format.current.0.syslogGroup.attributes.annotation == 'orchestrator:ansible'
+        - add_syslog_new_format.current.0.syslogGroup.attributes.descr == 'Description for the syslog group'
+        - sorted_new.0.syslogConsole.attributes.format == "rfc5424-ts" 
+        - sorted_new.1.syslogFile.attributes.format == "rfc5424-ts"
+
+- name: Test enhanced_log format
+  when: version.current.0.topSystem.attributes.version is version('6', '>=')
+  block:
+    - name: Added new syslog group with format as enhanced_log (version >= 6) 
+      cisco.aci.aci_syslog_group:
+        <<: *aci_info
+        name: syslog_enhanced_log
+        admin_state: enabled
+        format: enhanced_log
+        local_file_logging: enabled
+        local_file_log_severity: warnings
+        console_log_severity: critical
+        console_logging: enabled
+        local_file_log_format: enhanced_log
+        console_log_format: enhanced_log
+        description: Description for the syslog group
+        state: present
+      register: enhanced_log_test
+    
+    - name: Sort updated children by name for enhanced_log
+      ansible.builtin.set_fact:
+        sorted_enhanced_log: "{{ enhanced_log_test.current[0].syslogGroup.children | map('dict2items') | sort(attribute='0.key') | map('items2dict') | list }}" 
+    
+    - name: Verify that the format enhanced_log is valid for syslog group and children
+      ansible.builtin.assert:
+        that:
+        - enhanced_log_test is changed
+        - enhanced_log_test.current.0.syslogGroup.attributes.dn == "uni/fabric/slgroup-syslog_enhanced_log"
+        - enhanced_log_test.current.0.syslogGroup.attributes.name == "syslog_enhanced_log"
+        - enhanced_log_test.current.0.syslogGroup.attributes.format == "rfc5424-ts"
+        - enhanced_log_test.current.0.syslogGroup.attributes.annotation == 'orchestrator:ansible'
+        - enhanced_log_test.current.0.syslogGroup.attributes.descr == 'Description for the syslog group'
+        - sorted_enhanced_log.0.syslogConsole.attributes.format == "rfc5424-ts" 
+        - sorted_enhanced_log.1.syslogFile.attributes.format == "rfc5424-ts"
 
 # QUERY syslog group
 - name: Query the syslog group
@@ -229,8 +385,17 @@
     that:
     - query_syslog_group_all is not changed
 
-# DELETE syslog group
-- name: Remove the syslog group
+# DELETE syslog group(check mode)
+- name: Remove the syslog group (check mode)
+  cisco.aci.aci_syslog_group:
+    <<: *aci_info
+    name: ansible_syslog_group
+    state: absent
+  check_mode: true
+  register: remove_syslog_group_cm
+
+# Delete syslog group
+- name: Remove the syslog group 
   cisco.aci.aci_syslog_group:
     <<: *aci_info
     name: ansible_syslog_group
@@ -240,6 +405,35 @@
 - name: Verify remove_syslog_group
   ansible.builtin.assert:
     that:
+    - remove_syslog_group_cm is changed
+    - remove_syslog_group_cm.proposed == {}
+    - remove_syslog_group_cm.previous == remove_syslog_group.previous
+    - remove_syslog_group.current == []
     - remove_syslog_group is changed
     - remove_syslog_group.previous.0.syslogGroup.attributes.dn == "uni/fabric/slgroup-ansible_syslog_group"
     - remove_syslog_group.previous.0.syslogGroup.attributes.name == "ansible_syslog_group"
+
+- name: Remove syslog group again(idempotency)
+  cisco.aci.aci_syslog_group:
+    <<: *aci_info
+    name: ansible_syslog_group
+    state: absent
+  register: remove_syslog_group_again
+
+- name: Verify idempotency for remove_syslog_group
+  ansible.builtin.assert:
+    that:
+      - remove_syslog_group_again is not changed
+      - remove_syslog_group_again.current == remove_syslog_group_again.previous
+
+- name: Remove ansible_syslog_new if it already exists
+  cisco.aci.aci_syslog_group:
+    <<: *aci_info
+    name: ansible_syslog_new
+    state: absent
+
+- name: Remove enhanced_log_test
+  cisco.aci.aci_syslog_group:
+    <<: *aci_info
+    name: syslog_enhanced_log
+    state: absent

@@ -3,11 +3,13 @@ import pathlib
 import sys
 
 import pytest
-from git import GitCommandError
+from dulwich.porcelain import remote_add as git_remote_add
 
 from dvc.exceptions import DvcException
 from dvc_data.hashfile.hash import file_md5
 from tests.func.parsing.test_errors import escape_ansi
+
+git = pytest.importorskip("git")
 
 
 @pytest.mark.skipif(
@@ -54,7 +56,7 @@ class TestInstall:
         dvc.install()
 
         # scm.commit bypasses hooks
-        with pytest.raises(GitCommandError, match=r"modified:\s*file"):
+        with pytest.raises(git.GitCommandError, match=r"modified:\s*file"):
             scm.gitpython.repo.git.commit(m="file modified")
 
     def test_post_checkout(self, tmp_dir, scm, dvc):
@@ -81,8 +83,8 @@ class TestInstall:
             storage_path / "files" / "md5" / file_checksum[:2] / file_checksum[2:]
         )
 
-        scm.gitpython.repo.clone(os.fspath(git_remote))
-        scm.gitpython.repo.create_remote("origin", os.fspath(git_remote))
+        scm.clone(os.fspath(tmp_dir), os.fspath(git_remote))
+        git_remote_add(tmp_dir, "origin", os.fspath(git_remote))
 
         dvc.install()
 

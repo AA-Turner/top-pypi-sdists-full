@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.!
 
+#include "util.h"
+
 #include <map>
 
 #include "filesystem.h"
 #include "testharness.h"
 #include "third_party/absl/strings/str_cat.h"
-#include "util.h"
 
 namespace sentencepiece {
 namespace {
@@ -32,12 +33,12 @@ TEST(UtilTest, LexicalCastTest) {
   EXPECT_FALSE(b);
   EXPECT_FALSE(string_util::lexical_cast<bool>("UNK", &b));
 
-  int32 n = 0;
-  EXPECT_TRUE(string_util::lexical_cast<int32>("123", &n));
+  int32_t n = 0;
+  EXPECT_TRUE(string_util::lexical_cast<int32_t>("123", &n));
   EXPECT_EQ(123, n);
-  EXPECT_TRUE(string_util::lexical_cast<int32>("-123", &n));
+  EXPECT_TRUE(string_util::lexical_cast<int32_t>("-123", &n));
   EXPECT_EQ(-123, n);
-  EXPECT_FALSE(string_util::lexical_cast<int32>("UNK", &n));
+  EXPECT_FALSE(string_util::lexical_cast<int32_t>("UNK", &n));
 
   double d = 0.0;
   EXPECT_TRUE(string_util::lexical_cast<double>("123.4", &d));
@@ -82,31 +83,31 @@ TEST(UtilTest, EncodePODTet) {
   }
 
   {
-    int32 v = 0;
-    tmp = string_util::EncodePOD<int32>(10);
-    EXPECT_TRUE(string_util::DecodePOD<int32>(tmp, &v));
+    int32_t v = 0;
+    tmp = string_util::EncodePOD<int32_t>(10);
+    EXPECT_TRUE(string_util::DecodePOD<int32_t>(tmp, &v));
     EXPECT_EQ(10, v);
   }
 
   {
-    int16 v = 0;
-    tmp = string_util::EncodePOD<int16>(10);
-    EXPECT_TRUE(string_util::DecodePOD<int16>(tmp, &v));
+    int16_t v = 0;
+    tmp = string_util::EncodePOD<int16_t>(10);
+    EXPECT_TRUE(string_util::DecodePOD<int16_t>(tmp, &v));
     EXPECT_EQ(10, v);
   }
 
   {
-    int64 v = 0;
-    tmp = string_util::EncodePOD<int64>(10);
-    EXPECT_TRUE(string_util::DecodePOD<int64>(tmp, &v));
+    int64_t v = 0;
+    tmp = string_util::EncodePOD<int64_t>(10);
+    EXPECT_TRUE(string_util::DecodePOD<int64_t>(tmp, &v));
     EXPECT_EQ(10, v);
   }
 
   // Invalid data
   {
-    int32 v = 0;
-    tmp = string_util::EncodePOD<int64>(10);
-    EXPECT_FALSE(string_util::DecodePOD<int32>(tmp, &v));
+    int32_t v = 0;
+    tmp = string_util::EncodePOD<int64_t>(10);
+    EXPECT_FALSE(string_util::DecodePOD<int32_t>(tmp, &v));
   }
 }
 
@@ -229,6 +230,7 @@ TEST(UtilTest, EncodeUTF8Test) {
   for (char32 cp = 1; cp <= kMaxUnicode; ++cp) {
     if (!string_util::IsValidCodepoint(cp)) continue;
     const size_t mblen = string_util::EncodeUTF8(cp, buf);
+    EXPECT_EQ(mblen, string_util::UTF8Length(cp));
     size_t mblen2;
     const char32 c = string_util::DecodeUTF8(buf, buf + 16, &mblen2);
     EXPECT_EQ(mblen2, mblen);
@@ -236,15 +238,18 @@ TEST(UtilTest, EncodeUTF8Test) {
   }
 
   EXPECT_EQ(1, string_util::EncodeUTF8(0, buf));
+  EXPECT_EQ(1, string_util::UTF8Length(0));
   EXPECT_EQ('\0', buf[0]);
 
   // non UCS4
   size_t mblen;
   EXPECT_EQ(3, string_util::EncodeUTF8(0x7000000, buf));
+  EXPECT_EQ(3, string_util::UTF8Length(0x7000000));
   EXPECT_EQ(kUnicodeError, string_util::DecodeUTF8(buf, buf + 16, &mblen));
   EXPECT_EQ(3, mblen);
 
   EXPECT_EQ(3, string_util::EncodeUTF8(0x8000001, buf));
+  EXPECT_EQ(3, string_util::UTF8Length(0x8000001));
   EXPECT_EQ(kUnicodeError, string_util::DecodeUTF8(buf, buf + 16, &mblen));
   EXPECT_EQ(3, mblen);
 }
@@ -332,7 +337,7 @@ TEST(UtilTest, InputOutputBufferTest) {
 
   {
     auto output = filesystem::NewWritableFile(
-        util::JoinPath(absl::GetFlag(FLAGS_test_tmpdir), "test_file"));
+        util::JoinPath(::testing::TempDir(), "test_file"));
     for (size_t i = 0; i < kData.size(); ++i) {
       output->WriteLine(kData[i]);
     }
@@ -340,7 +345,7 @@ TEST(UtilTest, InputOutputBufferTest) {
 
   {
     auto input = filesystem::NewReadableFile(
-        util::JoinPath(absl::GetFlag(FLAGS_test_tmpdir), "test_file"));
+        util::JoinPath(::testing::TempDir(), "test_file"));
     std::string line;
     for (size_t i = 0; i < kData.size(); ++i) {
       EXPECT_TRUE(input->ReadLine(&line));
@@ -448,4 +453,16 @@ TEST(UtilTest, StrSplitAsCSVTest) {
     EXPECT_EQ("1,2,3,4", v[1]);
   }
 }
+
+TEST(SentencePieceTrainerTest, DataDirTest) {
+  SetDataDir("foo/bar/buzz");
+  EXPECT_EQ(GetDataDir(), "foo/bar/buzz");
+
+  SetDataDir("");
+  EXPECT_EQ(GetDataDir(), "");
+
+  SetDataDir(INSTALL_DATADIR);
+  EXPECT_EQ(GetDataDir(), INSTALL_DATADIR);
+}
+
 }  // namespace sentencepiece

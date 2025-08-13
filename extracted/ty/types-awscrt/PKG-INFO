@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-awscrt
-Version: 0.27.5
+Version: 0.27.6
 Summary: Type annotations and code completion for awscrt
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License: MIT License

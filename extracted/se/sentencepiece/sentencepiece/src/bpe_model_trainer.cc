@@ -33,7 +33,7 @@ std::string Trainer::Symbol::ToString() const {
 }
 
 Trainer::Symbol *Trainer::GetCharSymbol(char32 c) {
-  const uint64 freq = port::FindWithDefault(required_chars_, c, 1);
+  const uint64_t freq = port::FindWithDefault(required_chars_, c, 1);
   CHECK_GT(freq, 0);
   const auto it = symbols_cache_.find(c);
   if (it != symbols_cache_.end()) {
@@ -55,7 +55,7 @@ Trainer::Symbol *Trainer::GetPairSymbol(const Symbol *left,
     return nullptr;
   }
 
-  const uint64 fp = port::FingerprintCat(left->fp, right->fp);
+  const uint64_t fp = port::FingerprintCat(left->fp, right->fp);
   const auto it = symbols_cache_.find(fp);
   if (it != symbols_cache_.end()) {
     return it->second;
@@ -275,7 +275,7 @@ util::Status Trainer::Train() {
     // Add new bigrams which are created after symbol replacement.
     // We do not need to scan all characters, but scan the neighbors in
     // best_symbol.
-    for (const uint64 &encoded_pos : best_symbol->positions) {
+    for (const uint64_t &encoded_pos : best_symbol->positions) {
       const Position pos = DecodePos(encoded_pos);
 
       if (symbols_[pos.sid][pos.left] == nullptr) {

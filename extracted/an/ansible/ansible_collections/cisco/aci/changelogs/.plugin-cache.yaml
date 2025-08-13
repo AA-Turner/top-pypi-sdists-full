@@ -7,16 +7,20 @@ plugins:
   cliconf: {}
   connection: {}
   filter:
-    listify:
+    aci_listify:
       description: Flattens the nested dictionaries representing the ACI model data.
-      name: listify
+      name: aci_listify
       version_added: null
   httpapi:
     aci:
       description: Ansible ACI HTTPAPI Plugin.
       name: aci
       version_added: null
-  inventory: {}
+  inventory:
+    aci_inventory_system:
+      description: Cisco ACI inventory plugin
+      name: aci_inventory_system
+      version_added: null
   lookup:
     interface_range:
       description: query interfaces from a range or comma separated list of ranges
@@ -439,6 +443,16 @@ plugins:
       name: aci_encap_pool_range
       namespace: ''
       version_added: null
+    aci_endpoint_tag_ip:
+      description: Manage Endpoint Tag IP (fv:EpIpTag)
+      name: aci_endpoint_tag_ip
+      namespace: ''
+      version_added: null
+    aci_endpoint_tag_mac:
+      description: Manage Endpoint Tag MAC (fv:EpMacTag)
+      name: aci_endpoint_tag_mac
+      namespace: ''
+      version_added: null
     aci_epg:
       description: Manage End Point Groups (EPG) objects (fv:AEPg)
       name: aci_epg
@@ -806,6 +820,11 @@ plugins:
       name: aci_interface_policy_port_channel
       namespace: ''
       version_added: null
+    aci_interface_policy_port_channel_member:
+      description: Manage Port Channel Member interface policies (lacp:IfPol)
+      name: aci_interface_policy_port_channel_member
+      namespace: ''
+      version_added: 2.12.0
     aci_interface_policy_port_security:
       description: Manage port security (l2:PortSecurityPol)
       name: aci_interface_policy_port_security
@@ -830,6 +849,11 @@ plugins:
       description: Bind interface selector profiles to switch policy leaf profiles
         (infra:RsAccPortP)
       name: aci_interface_selector_to_switch_policy_leaf_profile
+      namespace: ''
+      version_added: null
+    aci_ip_sla_monitoring_policy:
+      description: Manage IP SLA Monitoring Policies (fv:IPSLAMonitoringPol)
+      name: aci_ip_sla_monitoring_policy
       namespace: ''
       version_added: null
     aci_key_policy:
@@ -1018,6 +1042,90 @@ plugins:
       name: aci_l3out_to_sr_mpls_infra_l3out
       namespace: ''
       version_added: null
+    aci_l4l7_concrete_device:
+      description: Manage L4-L7 Concrete Devices (vns:CDev)
+      name: aci_l4l7_concrete_device
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_concrete_interface:
+      description: Manage L4-L7 Concrete Interfaces (vns:CIf)
+      name: aci_l4l7_concrete_interface
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_concrete_interface_attachment:
+      description: Manage L4-L7 Concrete Interface Attachment (vns:RsCIfAttN)
+      name: aci_l4l7_concrete_interface_attachment
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_device:
+      description: Manage L4-L7 Devices (vns:LDevVip)
+      name: aci_l4l7_device
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_device_selection_interface_context:
+      description: Manage L4-L7 Device Selection Policy Logical Interface Contexts
+        (vns:LIfCtx)
+      name: aci_l4l7_device_selection_interface_context
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_device_selection_policy:
+      description: Manage L4-L7 Device Selection Policies (vns:LDevCtx)
+      name: aci_l4l7_device_selection_policy
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_logical_interface:
+      description: Manage L4-L7 Logical Interface (vns:LIf)
+      name: aci_l4l7_logical_interface
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_policy_based_redirect:
+      description: Manage L4-L7 Policy Based Redirection Policies (vns:SvcRedirectPol)
+      name: aci_l4l7_policy_based_redirect
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_policy_based_redirect_destination:
+      description: Manage L4-L7 Policy Based Redirect Destinations (vns:RedirectDest
+        and vns:L1L2RedirectDest)
+      name: aci_l4l7_policy_based_redirect_destination
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_redirect_health_group:
+      description: Manage L4-L7 Redirect Health Groups (vns:RedirectHealthGroup)
+      name: aci_l4l7_redirect_health_group
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_service_graph_template:
+      description: Manage L4-L7 Service Graph Templates (vns:AbsGraph)
+      name: aci_l4l7_service_graph_template
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_service_graph_template_connection:
+      description: Manage L4-L7 Service Graph Template Abs Connections (vns:AbsConnection)
+      name: aci_l4l7_service_graph_template_connection
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_service_graph_template_connection_to_connector:
+      description: Manage L4-L7 Service Graph Template Connections between function
+        nodes and terminal nodes (vns:RsAbsConnectionConns)
+      name: aci_l4l7_service_graph_template_connection_to_connector
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_service_graph_template_functional_connection:
+      description: Manage L4-L7 Service Graph Templates Functional Connections (vns:AbsFuncConn)
+      name: aci_l4l7_service_graph_template_functional_connection
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_service_graph_template_node:
+      description: Manage L4-L7 Service Graph Templates Nodes (vns:AbsNode)
+      name: aci_l4l7_service_graph_template_node
+      namespace: ''
+      version_added: 2.12.0
+    aci_l4l7_service_graph_template_term_node:
+      description: Manage L4-L7 SGT Term Nodes (vns:AbsTermNodeCon, vns:AbsTermNodeProv
+        and vns:AbsTermConn)
+      name: aci_l4l7_service_graph_template_term_node
+      namespace: ''
+      version_added: 2.12.0
     aci_maintenance_group:
       description: This creates an ACI maintenance group (maint:MaintGrp)
       name: aci_maintenance_group
@@ -1093,6 +1201,12 @@ plugins:
       name: aci_node_mgmt_epg
       namespace: ''
       version_added: null
+    aci_node_mgmt_epg_to_contract:
+      description: Bind Node Management EPGs to Contracts (fv:RsCons, fv:RsProv, fv:RsProtBy,
+        fv:RsConsIf and mgmt:RsOoBProv)
+      name: aci_node_mgmt_epg_to_contract
+      namespace: ''
+      version_added: 2.12.0
     aci_ntp_policy:
       description: Manage NTP policies (datetime:Pol)
       name: aci_ntp_policy
@@ -1103,6 +1217,11 @@ plugins:
       name: aci_ntp_server
       namespace: ''
       version_added: null
+    aci_oob_contract:
+      description: Manage Out-of-Band (OOB) Contract resources (vz:OOBBrCP)
+      name: aci_oob_contract
+      namespace: ''
+      version_added: 2.12.0
     aci_pim_route_map_entry:
       description: Manage Protocol-Independent Multicast (PIM) Route Map Entry (pim:RouteMapEntry)
       name: aci_pim_route_map_entry
@@ -1308,6 +1427,12 @@ plugins:
       name: aci_vmm_credential
       namespace: ''
       version_added: null
+    aci_vmm_enhanced_lag_policy:
+      description: Manage Enhanced LACP Policy for Virtual Machine Manager (VMM) in
+        Cisco ACI (lacp:EnhancedLagPol)
+      name: aci_vmm_enhanced_lag_policy
+      namespace: ''
+      version_added: 2.12.0
     aci_vmm_uplink:
       description: Manage VMM uplinks (vmm:UplinkP)
       name: aci_vmm_uplink
@@ -1328,6 +1453,12 @@ plugins:
       name: aci_vrf
       namespace: ''
       version_added: null
+    aci_vrf_fallback_route_group:
+      description: Manage VRF Fallback Route Groups (fv:FBRGroup, fv:FBRoute, and
+        fv:FBRMember)
+      name: aci_vrf_fallback_route_group
+      namespace: ''
+      version_added: 2.12.0
     aci_vrf_leak_internal_subnet:
       description: Manage VRF leaking of subnets (leak:InternalSubnet)
       name: aci_vrf_leak_internal_subnet
@@ -1349,4 +1480,4 @@ plugins:
   strategy: {}
   test: {}
   vars: {}
-version: 2.10.1
+version: 2.12.0

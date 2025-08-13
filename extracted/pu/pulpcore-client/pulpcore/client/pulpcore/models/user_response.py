@@ -79,16 +79,12 @@ class UserResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "id",
             "date_joined",
-            "groups",
-            "hidden_fields",
         ])
 
         _dict = self.model_dump(

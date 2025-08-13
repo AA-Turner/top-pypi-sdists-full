@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-beam
-Version: 2.66.0
+Version: 2.67.0
 Summary: Apache Beam SDK for Python
 Home-page: https://beam.apache.org
 Download-URL: https://pypi.python.org/pypi/apache-beam
@@ -42,11 +42,12 @@ Requires-Dist: python-dateutil<3,>=2.8.0
 Requires-Dist: pytz>=2018.3
 Requires-Dist: redis<6,>=5.0.0
 Requires-Dist: regex>=2020.6.8
-Requires-Dist: requests<3.0.0,>=2.24.0
+Requires-Dist: requests<3.0.0,>=2.32.4
 Requires-Dist: sortedcontainers>=2.4.0
 Requires-Dist: typing-extensions>=3.7.0
 Requires-Dist: zstandard<1,>=0.18.0
 Requires-Dist: pyyaml<7.0.0,>=3.12
+Requires-Dist: pymilvus<3.0.0,>=2.5.10
 Requires-Dist: pyarrow<19.0.0,>=3.0.0
 Requires-Dist: pyarrow-hotfix<1
 Provides-Extra: docs
@@ -74,11 +75,10 @@ Requires-Dist: pytest<8.0,>=7.1.2; extra == "test"
 Requires-Dist: pytest-xdist<4,>=2.5.0; extra == "test"
 Requires-Dist: pytest-timeout<3,>=2.1.0; extra == "test"
 Requires-Dist: scikit-learn>=0.20.0; extra == "test"
-Requires-Dist: setuptools; extra == "test"
 Requires-Dist: sqlalchemy<3.0,>=1.3; extra == "test"
 Requires-Dist: psycopg2-binary<2.9.10,>=2.8.5; python_version <= "3.9" and extra == "test"
 Requires-Dist: psycopg2-binary<3.0,>=2.8.5; python_version >= "3.10" and extra == "test"
-Requires-Dist: testcontainers[kafka,mysql]<4.0.0,>=3.0.3; extra == "test"
+Requires-Dist: testcontainers[kafka,milvus,mysql]<5.0.0,>=4.0.0; extra == "test"
 Requires-Dist: cryptography>=41.0.2; extra == "test"
 Requires-Dist: hypothesis<7.0.0,>5.0.0; extra == "test"
 Requires-Dist: virtualenv-clone<1.0,>=0.5; extra == "test"
@@ -87,7 +87,7 @@ Requires-Dist: python-tds>=1.16.1; extra == "test"
 Requires-Dist: sqlalchemy-pytds>=1.0.2; extra == "test"
 Requires-Dist: oracledb>=3.1.1; extra == "test"
 Provides-Extra: gcp
-Requires-Dist: cachetools<6,>=3.1.0; extra == "gcp"
+Requires-Dist: cachetools<7,>=3.1.0; extra == "gcp"
 Requires-Dist: google-api-core<3,>=2.0.0; extra == "gcp"
 Requires-Dist: google-apitools<0.5.32,>=0.5.31; python_version <= "3.12" and extra == "gcp"
 Requires-Dist: google-apitools<0.5.33,>=0.5.32; python_version >= "3.13" and extra == "gcp"
@@ -172,13 +172,13 @@ Requires-Dist: virtualenv-clone<1.0,>=0.5; extra == "yaml"
 Requires-Dist: js2py<1,>=0.74; python_version < "3.12" and extra == "yaml"
 Requires-Dist: pandas!=1.5.0,!=1.5.1,<2.3,>=1.4.3; extra == "yaml"
 Provides-Extra: torch
-Requires-Dist: torch<2.1.0,<=1.13.0; extra == "torch"
+Requires-Dist: torch<2.8.0,>=1.9.0; extra == "torch"
 Provides-Extra: tensorflow
-Requires-Dist: tensorflow<2.13,>=2.12rc1; extra == "tensorflow"
+Requires-Dist: tensorflow<2.17,>=2.12rc1; extra == "tensorflow"
 Provides-Extra: transformers
 Requires-Dist: transformers<4.49.0,>=4.28.0; extra == "transformers"
-Requires-Dist: tensorflow==2.12.0; extra == "transformers"
-Requires-Dist: torch<2.1.0,>=1.9.0; extra == "transformers"
+Requires-Dist: tensorflow>=2.12.0; extra == "transformers"
+Requires-Dist: torch>=1.9.0; extra == "transformers"
 Provides-Extra: tft
 Requires-Dist: tensorflow_transform<1.15.0,>=1.14.0; extra == "tft"
 Provides-Extra: onnx
@@ -251,7 +251,7 @@ Have ideas for new Runners? See the [runner-ideas label](https://github.com/apac
 
 ## Get started with the Python SDK
 
-Get started with the [Beam Python SDK quickstart](/get-started/quickstart-py) to set up your Python development environment, get the Beam SDK for Python, and run an example pipeline. Then, read through the [Beam programming guide](/documentation/programming-guide) to learn the basic concepts that apply to all SDKs in Beam.
+Get started with the [Beam Python SDK quickstart](/get-started/quickstart-py) to set up your Python development environment, get the Beam SDK for Python, and run an example pipeline. Then, read through the [Beam programming guide](/documentation/programming-guide) to learn the basic concepts that apply to all SDKs in Beam. The [Python Tips document](../../contributor-docs/python-tips.md) is also a useful resource for setting up a development environment and performing common processes.
 
 See the [Python API reference](https://beam.apache.org/releases/pydoc/) for more information on individual APIs.
 
@@ -322,7 +322,7 @@ Here are some resources actively maintained by the Beam community to help you ge
     <td>A certification granted by Google Cloud, certifying proficiency in Beam.</td>
   </tr>
   <tr>
-    <td><a href="https://s.apache.org/beam-community-metrics" target="_blank" rel="noopener noreferrer">Community Metrics </a></td>
+    <td><a href="https://metrics.beam.apache.org/" target="_blank" rel="noopener noreferrer">Community Metrics </a></td>
     <td>Beam's Git Community Metrics.</td>
   </tr>
 </tbody>

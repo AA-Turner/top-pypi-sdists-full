@@ -41,17 +41,9 @@
 #include <windows.h>
 #endif
 
-typedef int8_t int8;
-typedef int16_t int16;
-typedef int32_t int32;
-typedef int64_t int64;
-typedef uint8_t uint8;
-typedef uint16_t uint16;
 typedef uint32_t char32;
-typedef uint32_t uint32;
-typedef uint64_t uint64;
 
-static constexpr uint32 kUnicodeError = 0xFFFD;
+static constexpr uint32_t kUnicodeError = 0xFFFD;
 
 template <typename T, size_t N>
 char (&ArraySizeHelper(T (&array)[N]))[N];
@@ -66,17 +58,22 @@ char (&ArraySizeHelper(const T (&array)[N]))[N];
 #if defined(_FREEBSD)
 #include <sys/endian.h>
 #endif
-#if !defined(__APPLE__) && !defined(_WIN32) && !defined(_FREEBSD)
+#if !defined(__APPLE__) && !defined(_WIN32) && !defined(_FREEBSD) && \
+    !defined(_AIX)
 #include <endian.h>
 #if BYTE_ORDER == __BIG_ENDIAN
 #define IS_BIG_ENDIAN
 #endif
 #endif
 
+#if defined(_AIX) && BYTE_ORDER == BIG_ENDIAN
+#define IS_BIG_ENDIAN
+#endif
+
 namespace sentencepiece {
 namespace util {
 #ifndef OS_WIN
-inline uint32 Swap32(uint32 x) { return __builtin_bswap32(x); }
+inline uint32_t Swap32(uint32_t x) { return __builtin_bswap32(x); }
 #endif  // OS_WIN
 }  // namespace util
 

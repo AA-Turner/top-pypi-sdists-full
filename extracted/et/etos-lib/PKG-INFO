@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: etos_lib
-Version: 5.1.2
+Version: 5.1.3
 Summary: ETOS Library
 Author-email: Tobias Persson <tobias.persson@axis.com>
 License: Apache License, Version 2.0
@@ -28,6 +28,7 @@ Requires-Dist: opentelemetry-instrumentation-logging~=0.42b0
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: pytest-cov; extra == "testing"
+Dynamic: license-file
 
 ============
 ETOS Library

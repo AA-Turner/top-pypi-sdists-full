@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """ Ansible module for managing Snapshots on Unity"""
 
@@ -113,7 +112,7 @@ notes:
 
 EXAMPLES = r'''
 - name: Create a Snapshot for a CG
-  dellemc.unity.snapshot:
+  snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -126,7 +125,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Create a Snapshot for a volume with Host attached
-  dellemc.unity.snapshot:
+  snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -141,7 +140,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Unmap a host for a Snapshot
-  dellemc.unity.snapshot:
+  snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -153,7 +152,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Map snapshot to a host
-  dellemc.unity.snapshot:
+  snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -165,7 +164,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Update attributes of a Snapshot for a volume
-  dellemc.unity.snapshot:
+  snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -178,7 +177,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Delete Snapshot of CG
-  dellemc.unity.snapshot:
+  snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"

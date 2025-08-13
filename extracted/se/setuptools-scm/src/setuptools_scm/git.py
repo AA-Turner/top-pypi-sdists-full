@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import operator
 import os
 import re
 import shlex
@@ -11,7 +12,6 @@ import warnings
 from datetime import date
 from datetime import datetime
 from datetime import timezone
-from enum import Enum
 from os.path import samefile
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -26,7 +26,6 @@ from ._run_cmd import require_command as _require_command
 from ._run_cmd import run as _run
 from .integration import data_from_mime
 from .scm_workdir import Workdir
-from .scm_workdir import get_latest_file_mtime
 from .version import ScmVersion
 from .version import meta
 from .version import tag_to_version
@@ -47,19 +46,9 @@ DEFAULT_DESCRIBE = [
     "--dirty",
     "--tags",
     "--long",
-    "--abbrev=40",
     "--match",
     "*[0-9]*",
 ]
-
-
-class GitPreParse(Enum):
-    """Available git pre-parse functions"""
-
-    WARN_ON_SHALLOW = "warn_on_shallow"
-    FAIL_ON_SHALLOW = "fail_on_shallow"
-    FETCH_ON_SHALLOW = "fetch_on_shallow"
-    FAIL_ON_MISSING_SUBMODULES = "fail_on_missing_submodules"
 
 
 def run_git(
@@ -93,9 +82,11 @@ class GitWorkdir(Workdir):
             real_wd = os.fspath(wd)
         else:
             str_wd = os.fspath(wd)
-            from ._compat import strip_path_suffix
-
-            real_wd = strip_path_suffix(str_wd, real_wd)
+            assert str_wd.replace("\\", "/").endswith(real_wd)
+            # In windows wd contains ``\`` which should be replaced by ``/``
+            # for this assertion to work.  Length of string isn't changed by replace
+            # ``\\`` is just and escape for `\`
+            real_wd = str_wd[: -len(real_wd)]
         log.debug("real root %s", real_wd)
         if not samefile(real_wd, wd):
             return None
@@ -132,13 +123,7 @@ class GitWorkdir(Workdir):
                 return None
             if sys.version_info < (3, 11) and timestamp_text.endswith("Z"):
                 timestamp_text = timestamp_text[:-1] + "+00:00"
-
-            # Convert to UTC to ensure consistent date regardless of local timezone
-            dt = datetime.fromisoformat(timestamp_text)
-            log.debug("dt: %s", dt)
-            dt_utc = dt.astimezone(timezone.utc).date()
-            log.debug("dt utc: %s", dt_utc)
-            return dt_utc
+            return datetime.fromisoformat(timestamp_text).date()
 
         res = run_git(
             [
@@ -153,28 +138,6 @@ class GitWorkdir(Workdir):
             error_msg="logging the iso date for head failed",
         )
 
-    def get_dirty_tag_date(self) -> date | None:
-        """Get the latest modification time of changed files in the working directory.
-
-        Returns the date of the most recently modified file that has changes,
-        or None if no files are changed or if an error occurs.
-        """
-        if not self.is_dirty():
-            return None
-
-        try:
-            # Get list of changed files
-            changed_files_res = run_git(["diff", "--name-only"], self.path)
-            if changed_files_res.returncode != 0:
-                return None
-
-            changed_files = changed_files_res.stdout.strip().split("\n")
-            return get_latest_file_mtime(changed_files, self.path)
-
-        except Exception as e:
-            log.debug("Failed to get dirty tag date: %s", e)
-            return None
-
     def is_shallow(self) -> bool:
         return self.path.joinpath(".git/shallow").is_file()
 
@@ -182,10 +145,12 @@ class GitWorkdir(Workdir):
         run_git(["fetch", "--unshallow"], self.path, check=True, timeout=240)
 
     def node(self) -> str | None:
+        unsafe_short_node = operator.itemgetter(slice(7))
+
         return run_git(
             ["rev-parse", "--verify", "--quiet", "HEAD"], self.path
         ).parse_success(
-            parse=str,
+            parse=unsafe_short_node,
         )
 
     def count_all_nodes(self) -> int:
@@ -217,65 +182,6 @@ def fail_on_shallow(wd: GitWorkdir) -> None:
         )
 
 
-def fail_on_missing_submodules(wd: GitWorkdir) -> None:
-    """
-    Fail if submodules are defined but not initialized/cloned.
-
-    This pre_parse function checks if there are submodules defined in .gitmodules
-    but not properly initialized (cloned). This helps prevent packaging incomplete
-    projects when submodules are required for a complete build.
-    """
-    gitmodules_path = wd.path / ".gitmodules"
-    if not gitmodules_path.exists():
-        # No submodules defined, nothing to check
-        return
-
-    # Get submodule status - lines starting with '-' indicate uninitialized submodules
-    status_result = run_git(["submodule", "status"], wd.path)
-    if status_result.returncode != 0:
-        # Command failed, might not be in a git repo or other error
-        log.debug("Failed to check submodule status: %s", status_result.stderr)
-        return
-
-    status_lines = (
-        status_result.stdout.strip().split("\n") if status_result.stdout.strip() else []
-    )
-    uninitialized_submodules = []
-
-    for line in status_lines:
-        line = line.strip()
-        if line.startswith("-"):
-            # Extract submodule path (everything after the commit hash)
-            parts = line.split()
-            if len(parts) >= 2:
-                submodule_path = parts[1]
-                uninitialized_submodules.append(submodule_path)
-
-    # If .gitmodules exists but git submodule status returns nothing,
-    # it means submodules are defined but not properly set up (common after cloning without --recurse-submodules)
-    if not status_lines and gitmodules_path.exists():
-        raise ValueError(
-            f"Submodules are defined in .gitmodules but not initialized in {wd.path}. "
-            f"Please run 'git submodule update --init --recursive' to initialize them."
-        )
-
-    if uninitialized_submodules:
-        submodule_list = ", ".join(uninitialized_submodules)
-        raise ValueError(
-            f"Submodules are not initialized in {wd.path}: {submodule_list}. "
-            f"Please run 'git submodule update --init --recursive' to initialize them."
-        )
-
-
-# Mapping from enum items to actual pre_parse functions
-_GIT_PRE_PARSE_FUNCTIONS: dict[GitPreParse, Callable[[GitWorkdir], None]] = {
-    GitPreParse.WARN_ON_SHALLOW: warn_on_shallow,
-    GitPreParse.FAIL_ON_SHALLOW: fail_on_shallow,
-    GitPreParse.FETCH_ON_SHALLOW: fetch_on_shallow,
-    GitPreParse.FAIL_ON_MISSING_SUBMODULES: fail_on_missing_submodules,
-}
-
-
 def get_working_directory(config: Configuration, root: _t.PathT) -> GitWorkdir | None:
     """
     Return the working directory (``GitWorkdir``).
@@ -298,26 +204,16 @@ def parse(
     root: _t.PathT,
     config: Configuration,
     describe_command: str | list[str] | None = None,
-    pre_parse: Callable[[GitWorkdir], None] | None = None,
+    pre_parse: Callable[[GitWorkdir], None] = warn_on_shallow,
 ) -> ScmVersion | None:
     """
-    :param pre_parse: experimental pre_parse action, may change at any time.
-                     Takes precedence over config.git_pre_parse if provided.
+    :param pre_parse: experimental pre_parse action, may change at any time
     """
     _require_command("git")
     wd = get_working_directory(config, root)
     if wd:
-        # Use function parameter first, then config setting, then default
-        if pre_parse is not None:
-            effective_pre_parse = pre_parse
-        else:
-            # config.scm.git.pre_parse is always a GitPreParse enum instance
-            effective_pre_parse = _GIT_PRE_PARSE_FUNCTIONS.get(
-                config.scm.git.pre_parse, warn_on_shallow
-            )
-
         return _git_parse_inner(
-            config, wd, describe_command=describe_command, pre_parse=effective_pre_parse
+            config, wd, describe_command=describe_command, pre_parse=pre_parse
         )
     else:
         return None
@@ -328,8 +224,8 @@ def version_from_describe(
     config: Configuration,
     describe_command: _t.CMD_TYPE | None,
 ) -> ScmVersion | None:
-    if config.scm.git.describe_command is not None:
-        describe_command = config.scm.git.describe_command
+    if config.git_describe_command is not None:
+        describe_command = config.git_describe_command
 
     if describe_command is not None:
         if isinstance(describe_command, str):
@@ -362,7 +258,7 @@ def _git_parse_inner(
 
     if version is None:
         # If 'git git_describe_command' failed, try to get the information otherwise.
-        tag = config.version_cls(config.fallback_version or "0.0")
+        tag = config.version_cls("0.0")
         node = wd.node()
         if node is None:
             distance = 0
@@ -375,20 +271,7 @@ def _git_parse_inner(
             tag=tag, distance=distance, dirty=dirty, node=node, config=config
         )
     branch = wd.get_branch()
-    node_date = wd.get_head_date()
-
-    # If we can't get node_date from HEAD (e.g., no commits yet),
-    # and the working directory is dirty, try to use the latest
-    # modification time of changed files instead of current time
-    if node_date is None and wd.is_dirty():
-        dirty_date = wd.get_dirty_tag_date()
-        if dirty_date is not None:
-            node_date = dirty_date
-
-    # Final fallback to current time
-    if node_date is None:
-        node_date = datetime.now(timezone.utc).date()
-
+    node_date = wd.get_head_date() or datetime.now(timezone.utc).date()
     return dataclasses.replace(version, branch=branch, node_date=node_date)
 
 

@@ -1,3 +1,4 @@
+# fmt: off
 # additional tests of the extended XYZ file I/O
 # (which is also included in oi.py test case)
 # maintained by James Kermode <james.kermode@gmail.com>
@@ -324,14 +325,17 @@ def test_json_scalars():
     assert abs(b.info['val_3'] - 42) == 0
 
 
+@pytest.mark.parametrize(
+    'columns',
+    [None, ['symbols', 'positions', 'move_mask']],
+)
 @pytest.mark.parametrize('constraint', [FixAtoms(indices=(0, 2)),
                                         FixCartesian(1, mask=(1, 0, 1)),
                                         [FixCartesian(0), FixCartesian(2)]])
-def test_constraints(constraint):
+def test_constraints(constraint, columns):
     atoms = molecule('H2O')
     atoms.set_constraint(constraint)
 
-    columns = ['symbols', 'positions', 'move_mask']
     ase.io.write('tmp.xyz', atoms, columns=columns)
 
     atoms2 = ase.io.read('tmp.xyz')

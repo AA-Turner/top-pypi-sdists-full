@@ -52,7 +52,7 @@ class TestPaginatedfileFileRepositoryResponseList(unittest.TestCase):
                         latest_version_href = '', 
                         name = '', 
                         description = '', 
-                        retain_repo_versions = 1, 
+                        retain_repo_versions = 56, 
                         remote = '', 
                         autopublish = True, 
                         manifest = 'PULP_MANIFEST', )
@@ -74,7 +74,7 @@ class TestPaginatedfileFileRepositoryResponseList(unittest.TestCase):
                         latest_version_href = '', 
                         name = '', 
                         description = '', 
-                        retain_repo_versions = 1, 
+                        retain_repo_versions = 56, 
                         remote = '', 
                         autopublish = True, 
                         manifest = 'PULP_MANIFEST', )

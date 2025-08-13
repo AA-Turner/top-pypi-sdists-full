@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import contextlib
+from datetime import datetime
 from functools import wraps
 import io
 import json
@@ -1292,11 +1293,16 @@ class AnyscaleClient(AnyscaleClientInterface):
             else:
                 # Default to HTTP PUT.
                 internal_logger.debug(f"Uploading file '{file_name}' to cloud storage.")
-                headers = (
-                    {"x-ms-blob-type": "BlockBlob"}
-                    if info.file_uri.startswith("azure")
-                    else None
-                )
+                headers = None
+                if info.file_uri.startswith("azure"):
+                    headers = {
+                        "x-ms-blob-type": "BlockBlob",
+                        "x-ms-version": "2025-07-05",
+                        "x-ms-date": datetime.utcnow().strftime(
+                            "%a, %d %b %Y %H:%M:%S GMT"
+                        ),
+                        "x-ms-blob-content-type": "application/zip",
+                    }
                 requests.put(
                     info.url, data=zip_file_bytes, headers=headers
                 ).raise_for_status()

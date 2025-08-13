@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: psygnal
-Version: 0.14.0
+Version: 0.14.1
 Summary: Fast python callback/event system modeled after Qt Signals
 Project-URL: homepage, https://github.com/pyapp-kit/psygnal
 Project-URL: repository, https://github.com/pyapp-kit/psygnal

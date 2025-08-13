@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: TheSilent
-Version: 0.1.18
-Summary: TheSilent is a subdomain enumeration tool!
+Version: 0.1.22
+Summary: TheSilent is a data science library
 Author: Invizabel
 Project-URL: Homepage, https://github.com/Invizabel/The-Silent
 Project-URL: Bug Tracker, https://github.com/Invizabel/The-Silent/issues
@@ -13,6 +13,10 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
 
-﻿# TheSilent is a subdomain enumeration tool!
+﻿# TheSilent is a data science library
 # 
-# python3 -m TheSilent --host example.com --filename myfilename.txt <optional default None> --dns-only <optional default True>
+# import TheSilent
+
+# chain TheSilent.TheSilent(data).chain()
+# flatten = TheSilent.TheSilent(data,nth=0,verbose=False).flatten()
+# mean = TheSilent.TheSilent(data).mean()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-stream-rs-tokenizer
-Version: 0.4.29
+Version: 0.4.30
 Summary: A faster tokenizer for the json-stream Python library
 Project-URL: Repository, https://github.com/smheidrich/py-json-stream-rs-tokenizer
 Classifier: Programming Language :: Rust

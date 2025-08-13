@@ -14,7 +14,7 @@ class CellEditor:
 
     def __init__(self, gui):
         self.gui = gui
-        self.gui.register_vulnerable(self)
+        self.gui.obs.set_atoms.register(self.notify_atoms_changed)
 
         # Create grid control for cells
         # xx xy xz ||x|| pbc
@@ -48,7 +48,7 @@ class CellEditor:
         self.vacuum = ui.SpinBox(5, 0, 15, 0.1, self.apply_vacuum)
 
         # TRANSLATORS: This is a title of a window.
-        win = self.win = ui.Window(_('Cell Editor'), wmtype='utility')
+        win = self.win = ui.Window(_('Cell Editor'))
 
         x, y, z = self.cell_grid
 

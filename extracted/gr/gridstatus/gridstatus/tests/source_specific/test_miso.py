@@ -54,6 +54,44 @@ class TestMISO(BaseTestISO):
         with pytest.raises(NotSupported):
             super().test_get_fuel_mix_today()
 
+    def test_get_interconnection_queue(self):
+        with miso_vcr.use_cassette("test_get_interconnection_queue.yaml"):
+            df = self.iso.get_interconnection_queue()
+            assert df.columns.tolist() == [
+                "Queue ID",
+                "Project Name",
+                "Interconnecting Entity",
+                "County",
+                "State",
+                "Interconnection Location",
+                "Transmission Owner",
+                "Generation Type",
+                "Capacity (MW)",
+                "Summer Capacity (MW)",
+                "Winter Capacity (MW)",
+                "Queue Date",
+                "Status",
+                "Proposed Completion Date",
+                "Withdrawn Date",
+                "Withdrawal Comment",
+                "Actual Completion Date",
+                "facilityType",
+                "Post Generator Interconnection Agreement Status",
+                "Interconnection Approval Date",
+                "inService",
+                "giaToExec",
+                "studyCycle",
+                "studyGroup",
+                "studyPhase",
+                "svcType",
+                "dp1ErisMw",
+                "dp1NrisMw",
+                "dp2ErisMw",
+                "dp2NrisMw",
+                "sisPhase1",
+            ]
+            assert not df.empty
+
     """get_lmp_real_time_5_min_final"""
 
     def _check_lmp_real_time_5_min_final(self, df):
@@ -976,3 +1014,61 @@ class TestMISO(BaseTestISO):
 
             assert df["Interval Start"].min() == self.local_start_of_day(date)
             assert df["Interval End"].max() == self.local_start_of_day(end)
+
+    """get_interchange_5_min"""
+
+    def _check_get_interchange_5_min(self, df):
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Net Scheduled Interchange",
+            "Net Actual Interchange",
+            "AECI",
+            "LGEE",
+            "MHEB",
+            "ONT",
+            "PJM",
+            "SOCO",
+            "SPA",
+            "SWPP",
+            "TVA",
+        ]
+
+        assert (df["Interval End"] - df["Interval Start"]).unique() == pd.Timedelta(
+            "5min",
+        )
+
+        for col in df:
+            if col not in ["Interval Start", "Interval End"]:
+                assert df[col].dtype == pd.Int64Dtype()
+
+        # The first values in Net Actual Interchange should be null because the actual
+        # data does not go back as far as the scheduled data
+        assert df["Net Actual Interchange"].isna()[0]
+
+        # The last value in Net Scheduled Interchange should be null because the
+        # scheduled data is one interval behind the actual data
+        assert df["Net Scheduled Interchange"].isna().iloc[-1]
+
+    def test_get_interchange_5_min_latest(self):
+        with miso_vcr.use_cassette("test_get_interchange_5_min_latest.yaml"):
+            df = self.iso.get_interchange_5_min("latest")
+            self._check_get_interchange_5_min(df)
+
+            assert df["Interval Start"].min() <= self.local_now() - pd.DateOffset(
+                days=1,
+            )
+
+            # Data should be near-real-time
+            assert df["Interval End"].max() >= self.local_now() - pd.DateOffset(
+                minutes=5,
+            )
+
+    @pytest.mark.parametrize("date", ["2025-01-01", "today"])
+    def test_get_interchange_5_min_raises_error_if_not_latest(self, date):
+        cassette_name = (
+            f"test_get_interchange_5_min_raises_error_if_not_latest_{date}.yaml"
+        )
+        with miso_vcr.use_cassette(cassette_name):
+            with pytest.raises(NotSupported):
+                self.iso.get_interchange_5_min(date)

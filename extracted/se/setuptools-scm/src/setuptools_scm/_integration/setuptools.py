@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import warnings
 
 from typing import Any
@@ -8,11 +9,21 @@ from typing import Callable
 
 import setuptools
 
-from .pyproject_reading import read_pyproject
-from .setup_cfg import _dist_name_from_legacy
-from .version_inference import get_version_inference_config
+from .. import _config
 
 log = logging.getLogger(__name__)
+
+
+def read_dist_name_from_setup_cfg(
+    input: str | os.PathLike[str] = "setup.cfg",
+) -> str | None:
+    # minimal effort to read dist_name off setup.cfg metadata
+    import configparser
+
+    parser = configparser.ConfigParser()
+    parser.read([input], encoding="utf-8")
+    dist_name = parser.get("metadata", "name", fallback=None)
+    return dist_name
 
 
 def _warn_on_old_setuptools(_version: str = setuptools.__version__) -> None:
@@ -23,7 +34,7 @@ def _warn_on_old_setuptools(_version: str = setuptools.__version__) -> None:
 ERROR: setuptools=={_version} is used in combination with setuptools-scm>=8.x
 
 Your build configuration is incomplete and previously worked by accident!
-setuptools-scm requires setuptools>=61 (recommended: >=80)
+setuptools-scm requires setuptools>=61
 
 Suggested workaround if applicable:
  - migrating from the deprecated setup_requires mechanism to pep517/518
@@ -34,30 +45,27 @@ Suggested workaround if applicable:
         )
 
 
+def _assign_version(
+    dist: setuptools.Distribution, config: _config.Configuration
+) -> None:
+    from .._get_version_impl import _get_version
+    from .._get_version_impl import _version_missing
+
+    # todo: build time plugin
+    maybe_version = _get_version(config, force_write_version_files=True)
+
+    if maybe_version is None:
+        _version_missing(config)
+    else:
+        assert dist.metadata.version is None
+        dist.metadata.version = maybe_version
+
+
 _warn_on_old_setuptools()
 
 
 def _log_hookstart(hook: str, dist: setuptools.Distribution) -> None:
-    log.debug(
-        "%s %s %s %r",
-        hook,
-        id(dist),
-        id(dist.metadata),
-        {**vars(dist.metadata), "long_description": ...},
-    )
-
-
-def get_keyword_overrides(
-    value: bool | dict[str, Any] | Callable[[], dict[str, Any]],
-) -> dict[str, Any]:
-    """normalize the version keyword input"""
-    if value is True:
-        return {}
-    elif callable(value):
-        return value()
-    else:
-        assert isinstance(value, dict), "version_keyword expects a dict or True"
-        return value
+    log.debug("%s %r", hook, vars(dist.metadata))
 
 
 def version_keyword(
@@ -65,65 +73,51 @@ def version_keyword(
     keyword: str,
     value: bool | dict[str, Any] | Callable[[], dict[str, Any]],
 ) -> None:
-    """apply version infernce when setup(use_scm_version=...) is used
-    this takes priority over the finalize_options based version
-    """
-
-    _log_hookstart("version_keyword", dist)
-
-    # Parse overrides (integration point responsibility)
-    overrides = get_keyword_overrides(value)
+    overrides: dict[str, Any]
+    if value is True:
+        overrides = {}
+    elif callable(value):
+        overrides = value()
+    else:
+        assert isinstance(value, dict), "version_keyword expects a dict or True"
+        overrides = value
 
     assert "dist_name" not in overrides, (
         "dist_name may not be specified in the setup keyword "
     )
+    dist_name: str | None = dist.metadata.name
+    _log_hookstart("version_keyword", dist)
 
-    dist_name: str | None = _dist_name_from_legacy(dist)
-
-    was_set_by_infer = getattr(dist, "_setuptools_scm_version_set_by_infer", False)
-
-    # Get pyproject data
-    try:
-        pyproject_data = read_pyproject(missing_section_ok=True, missing_file_ok=True)
-    except (LookupError, ValueError) as e:
-        log.debug("Configuration issue in pyproject.toml: %s", e)
+    if dist.metadata.version is not None:
+        warnings.warn(f"version of {dist_name} already set")
         return
 
-    result = get_version_inference_config(
-        dist_name=dist_name,
-        current_version=dist.metadata.version,
-        pyproject_data=pyproject_data,
-        overrides=overrides,
-        was_set_by_infer=was_set_by_infer,
-    )
+    if dist_name is None:
+        dist_name = read_dist_name_from_setup_cfg()
 
-    result.apply(dist)
+    config = _config.Configuration.from_file(
+        dist_name=dist_name,
+        _require_section=False,
+        **overrides,
+    )
+    _assign_version(dist, config)
 
 
 def infer_version(dist: setuptools.Distribution) -> None:
-    """apply version inference from the finalize_options hook
-    this is the default for pyproject.toml based projects that don't use the use_scm_version keyword
-
-    if the version keyword is used, it will override the version from this hook
-    as user might have passed custom code version schemes
-    """
-
     _log_hookstart("infer_version", dist)
-
-    dist_name = _dist_name_from_legacy(dist)
-
+    log.debug("dist %s %s", id(dist), id(dist.metadata))
+    if dist.metadata.version is not None:
+        return  # metadata already added by hook
+    dist_name = dist.metadata.name
+    if dist_name is None:
+        dist_name = read_dist_name_from_setup_cfg()
+    if not os.path.isfile("pyproject.toml"):
+        return
+    if dist_name == "setuptools-scm":
+        return
     try:
-        pyproject_data = read_pyproject(missing_section_ok=True)
-    except FileNotFoundError:
-        log.debug("pyproject.toml not found, skipping infer_version")
-        return
-    except (LookupError, ValueError) as e:
-        log.debug("Configuration issue in pyproject.toml: %s", e)
-        return
-
-    result = get_version_inference_config(
-        dist_name=dist_name,
-        current_version=dist.metadata.version,
-        pyproject_data=pyproject_data,
-    )
-    result.apply(dist)
+        config = _config.Configuration.from_file(dist_name=dist_name)
+    except LookupError as e:
+        log.info(e, exc_info=True)
+    else:
+        _assign_version(dist, config)

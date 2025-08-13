@@ -620,7 +620,11 @@ class ParserForDynamicPlugins:
 
 
 def _pluginHasCliOptions(moduleInfo):
-    return "CntlrCmdLine.Options" in moduleInfo["classMethods"]
+    if "CntlrCmdLine.Options" in moduleInfo["classMethods"]:
+        return True
+    if imports := moduleInfo.get("imports"):
+        return any(_pluginHasCliOptions(importedModule) for importedModule in imports)
+    return False
 
 
 class CntlrCmdLine(Cntlr.Cntlr):
@@ -1012,6 +1016,11 @@ class CntlrCmdLine(Cntlr.Cntlr):
 
         for pluginXbrlMethod in PluginManager.pluginClassMethods("CntlrCmdLine.Filing.Start"):
             pluginXbrlMethod(self, options, filesource, _entrypointFiles, sourceZipStream=sourceZipStream, responseZipStream=responseZipStream)
+
+        if options.validate:
+            for pluginXbrlMethod in PluginManager.pluginClassMethods("Validate.FileSource"):
+                pluginXbrlMethod(self, filesource, _entrypointFiles)
+
         if len(_entrypointFiles) == 0 and not options.packages:
             if options.entrypointFile:
                 msg = _("No XBRL entry points could be loaded from provided file: {}").format(options.entrypointFile)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: superlinked
-Version: 33.7.3
+Version: 33.7.4
 Summary: The Superlinked vector computing library
 License: Apache-2.0
 Author: Superlinked Release
@@ -59,6 +59,7 @@ Requires-Dist: setuptools (>=70.1.1,<81.0.0) ; python_version >= "3.12"
 Requires-Dist: snakeviz (>=2.2.0,<2.3.0) ; extra == "profiler"
 Requires-Dist: structlog (!=25.4.0,>=24.4,<26.0)
 Requires-Dist: topk-sdk (>=0.3.7,<0.5.0) ; extra == "topk"
+Requires-Dist: torch (>=2.8.0,<3.0.0)
 Requires-Dist: transformers (>=4.51.0,<5.0.0) ; extra == "interactive"
 Requires-Dist: types-Deprecated (>=1.2.15)
 Requires-Dist: types-cachetools (>=5.4,<7.0)

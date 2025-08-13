@@ -109,6 +109,7 @@ def openMsg(path, **kwargs) -> MSGFile:
     # lower function. So let's make sure we got a good return first.
     if not ct:
         if kwargs.get('strict', True):
+            msg.close()
             raise InvalidFileFormatError('File was confirmed to be an olefile, but was not an MSG file.')
         else:
             # If strict mode is off, we'll just return an MSGFile anyways.

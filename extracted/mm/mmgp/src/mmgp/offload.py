@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.5.9 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.5.10 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -671,7 +671,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.9) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.5.10) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -1081,10 +1081,7 @@ def load_loras_into_model(model, lora_path, lora_multi = None, activate_all_lora
             invalid_keys = []
             unexpected_keys = []
             for k, v in state_dict.items():
-                lora_A = None
-                lora_B = None
-                diff_b = None
-                diff = None
+                lora_A = lora_B = diff_b = diff = lora_key = None
                 if k.endswith(".diff"):
                     diff = v
                     module_name = k[ : -5]
@@ -1179,7 +1176,7 @@ def load_loras_into_model(model, lora_path, lora_multi = None, activate_all_lora
                         loras_adapter_data[1] = lora_B.to(module.weight.dtype) 
                     else:
                         loras_adapter_data[2] = diff_b.to(module.weight.dtype) 
-                    if rank != None and "lora" in lora_key:
+                    if rank != None and lora_key is not None and "lora" in lora_key:
                         alpha_key = k[:-len(lora_key)] + "alpha"
                         alpha = lora_alphas.get(alpha_key, None)
                         if alpha is not None: loras_adapter_data[3] = alpha / rank 

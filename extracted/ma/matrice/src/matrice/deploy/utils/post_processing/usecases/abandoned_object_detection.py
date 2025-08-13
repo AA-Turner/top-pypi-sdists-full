@@ -27,7 +27,7 @@ class AbandonedObjectConfig(BaseConfig):
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.4
     usecase_categories: List[str] = field(
         default_factory=lambda: ['backpack', 'handbag', 'suitcase']
     )

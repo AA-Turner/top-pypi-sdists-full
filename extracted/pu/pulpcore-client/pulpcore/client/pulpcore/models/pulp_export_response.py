@@ -76,14 +76,12 @@ class PulpExportResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
-            "exported_resources",
             "params",
             "output_file_info",
             "toc_info",

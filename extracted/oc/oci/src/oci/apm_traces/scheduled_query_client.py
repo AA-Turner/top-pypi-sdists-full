@@ -158,7 +158,7 @@ class ScheduledQueryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmtraces/create_scheduled_query.py.html>`__ to see an example of how to use create_scheduled_query API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmtraces/create_scheduled_query.py.html>`__ to see an example of how to use create_scheduled_query API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -274,7 +274,7 @@ class ScheduledQueryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmtraces/delete_scheduled_query.py.html>`__ to see an example of how to use delete_scheduled_query API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmtraces/delete_scheduled_query.py.html>`__ to see an example of how to use delete_scheduled_query API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledQueryId', 'apmDomainId']
@@ -391,7 +391,7 @@ class ScheduledQueryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmtraces/get_scheduled_query.py.html>`__ to see an example of how to use get_scheduled_query API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmtraces/get_scheduled_query.py.html>`__ to see an example of how to use get_scheduled_query API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledQueryId', 'apmDomainId']
@@ -526,7 +526,7 @@ class ScheduledQueryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmtraces/list_scheduled_queries.py.html>`__ to see an example of how to use list_scheduled_queries API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmtraces/list_scheduled_queries.py.html>`__ to see an example of how to use list_scheduled_queries API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -669,7 +669,7 @@ class ScheduledQueryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmtraces/update_scheduled_query.py.html>`__ to see an example of how to use update_scheduled_query API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmtraces/update_scheduled_query.py.html>`__ to see an example of how to use update_scheduled_query API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['scheduledQueryId', 'apmDomainId']

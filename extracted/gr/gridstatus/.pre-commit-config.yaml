@@ -22,7 +22,7 @@ repos:
     hooks:
       - id: validate-pyproject
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.6.8
+    rev: v0.11.5
     hooks:
       - id: ruff
         args: ["--fix"]
@@ -44,6 +44,7 @@ repos:
             setup\.py|
             gridstatus/__init__\.py|
             gridstatus/base\.py|
+            gridstatus/aeso/.*|
             gridstatus/caiso/caiso\.py|
             gridstatus/caiso/caiso_constants\.py|
             gridstatus/caiso/caiso_utils\.py|

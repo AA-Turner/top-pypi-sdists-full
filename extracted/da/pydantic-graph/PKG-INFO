@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-graph
-Version: 0.6.2
+Version: 0.7.0
 Summary: Graph and state machine library
 Project-URL: Homepage, https://ai.pydantic.dev/graph/tree/main/pydantic_graph
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -30,7 +30,7 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Requires-Dist: httpx>=0.27
-Requires-Dist: logfire-api>=1.2.0
+Requires-Dist: logfire-api>=3.14.1
 Requires-Dist: pydantic>=2.10
 Requires-Dist: typing-inspection>=0.4.0
 Description-Content-Type: text/markdown

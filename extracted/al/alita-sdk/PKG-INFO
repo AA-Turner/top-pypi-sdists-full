@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alita_sdk
-Version: 0.3.225
+Version: 0.3.229
 Summary: SDK for building langchain agents using resources from Alita
 Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedjik@gmail.com>, Artem Dubrovskiy <ad13box@gmail.com>
 License-Expression: Apache-2.0

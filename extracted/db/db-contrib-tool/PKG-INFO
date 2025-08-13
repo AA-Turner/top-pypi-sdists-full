@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: db-contrib-tool
-Version: 2.0.0
+Version: 2.0.1
 Summary: The `db-contrib-tool` - MongoDB's tool for contributors.
 Home-page: https://github.com/10gen/db-contrib-tool
-Author: DAG team
-Author-email: dev-prod-dag@mongodb.com
+Author: DevProd Correctness
+Author-email: devprod-correctness-team@mongodb.com
 Requires-Python: >=3.9,<3.13
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -25,7 +25,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc ; platform_machine != "s39
 Requires-Dist: opentelemetry-sdk
 Requires-Dist: packaging (>=24.0,<25.0)
 Requires-Dist: pkce (>=1.0.3,<2.0.0)
-Requires-Dist: pydantic (==2.11.0)
+Requires-Dist: pydantic (==1.8.2)
 Requires-Dist: pyinstaller (>=5.12,<6.0)
 Requires-Dist: requests (>=2.26.0,<3.0.0)
 Requires-Dist: requests-oauthlib (>=2.0.0,<3.0.0)
@@ -53,9 +53,6 @@ The command line tool with various subcommands:
 - `setup-mongot-repro-env`
   - [README.md](src/db_contrib_tool/setup_mongot_repro_env/README.md)
   - Downloads and installs particular Mongot versions into install directory.
-- `bisect`
-  - [README.md](src/db_contrib_tool/evg_aware_bisect/README.md)
-  - performs an evergreen-aware git-bisect to find the 'last passing version' and 'first failing version' of mongo
 - `symbolize`
   - [README.md](src/db_contrib_tool/symbolizer/README.md)
   - Symbolizes stacktraces from recent `mongod` and `mongos` binaries compiled in Evergreen, including patch builds, mainline builds, and release/production builds.

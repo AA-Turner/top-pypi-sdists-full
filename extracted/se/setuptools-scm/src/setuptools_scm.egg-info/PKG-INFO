@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools-scm
-Version: 9.1.1
+Version: 8.3.1
 Summary: the blessed package to manage your versions by scm tags
 Author-email: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>
 License: Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -45,8 +45,23 @@ Requires-Dist: packaging>=20
 Requires-Dist: setuptools
 Requires-Dist: tomli>=1; python_version < "3.11"
 Requires-Dist: typing-extensions; python_version < "3.10"
+Requires-Dist: importlib-metadata>=4.6; python_version < "3.10"
+Provides-Extra: docs
+Requires-Dist: entangled-cli~=2.0; extra == "docs"
+Requires-Dist: mkdocs; extra == "docs"
+Requires-Dist: mkdocs-entangled-plugin; extra == "docs"
+Requires-Dist: mkdocs-include-markdown-plugin; extra == "docs"
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocstrings[python]; extra == "docs"
+Requires-Dist: pygments; extra == "docs"
 Provides-Extra: rich
 Requires-Dist: rich; extra == "rich"
+Provides-Extra: test
+Requires-Dist: build; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: rich; extra == "test"
+Requires-Dist: typing-extensions; python_version < "3.11" and extra == "test"
+Requires-Dist: wheel; extra == "test"
 Provides-Extra: toml
 Dynamic: license-file
 
@@ -69,20 +84,18 @@ files that are managed by the SCM
 Unwanted files must be excluded via `MANIFEST.in`
 or [configuring Git archive][git-archive-docs].
 
-> **⚠️ Important:** Installing setuptools-scm automatically enables a file finder that includes **all SCM-tracked files** in your source distributions. This can be surprising if you have development files tracked in Git/Mercurial that you don't want in your package. Use `MANIFEST.in` to exclude unwanted files. See the [documentation] for details.
-
 ## `pyproject.toml` usage
 
 The preferred way to configure [setuptools-scm] is to author
 settings in a `tool.setuptools_scm` section of `pyproject.toml`.
 
-This feature requires setuptools 61 or later (recommended: >=80 for best compatibility).
+This feature requires setuptools 61 or later.
 First, ensure that [setuptools-scm] is present during the project's
 build step by specifying it as one of the build requirements.
 
 ```toml title="pyproject.toml"
 [build-system]
-requires = ["setuptools>=80", "setuptools-scm>=8"]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 ```
 
@@ -104,24 +117,6 @@ dynamic = ["version"]
 
 [tool.setuptools_scm]
 ```
-
-!!! note "Simplified Configuration"
-
-    Starting with setuptools-scm 8.1+, if `setuptools_scm` (or `setuptools-scm`) is
-    present in your `build-system.requires`, the `[tool.setuptools_scm]` section
-    becomes optional! You can now enable setuptools-scm with just:
-
-    ```toml title="pyproject.toml"
-    [build-system]
-    requires = ["setuptools>=80", "setuptools-scm>=8"]
-    build-backend = "setuptools.build_meta"
-
-    [project]
-    dynamic = ["version"]
-    ```
-
-    The `[tool.setuptools_scm]` section is only needed if you want to customize
-    configuration options.
 
 Additionally, a version file can be written by specifying:
 
@@ -159,12 +154,6 @@ modern [setuptools-scm] is unable to support them sensibly.
 
 It's strongly recommended to build a wheel artifact using modern Python and setuptools,
 then installing the artifact instead of trying to run against old setuptools versions.
-
-!!! note "Legacy Setuptools Support"
-    While setuptools-scm recommends setuptools >=80, it maintains compatibility with setuptools 61+
-    to support legacy deployments that cannot easily upgrade. Support for setuptools <80 is deprecated
-    and will be removed in a future release. This allows enterprise environments and older CI/CD systems
-    to continue using setuptools-scm while still encouraging adoption of newer versions.
 
 
 ## Code of Conduct

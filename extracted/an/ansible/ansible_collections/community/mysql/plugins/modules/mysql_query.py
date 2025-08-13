@@ -148,15 +148,23 @@ DDL_QUERY_KEYWORDS = ('CREATE', 'DROP', 'ALTER', 'RENAME', 'TRUNCATE')
 # Module execution.
 #
 
+def get_time():
+    try:
+        time_taken = time.perf_counter()
+    except AttributeError:
+        # For Python 2 compatibility, fallback to time.time()
+        time_taken = time.time()
+    return time_taken
+
 
 def execute_and_return_time(cursor, query, args):
     # Measure query execution time in milliseconds
-    start_time = time.perf_counter()
+    start_time = get_time()
 
     cursor.execute(query, args)
 
     # Calculate the execution time rounding it to 4 decimal places
-    exec_time_ms = round((time.perf_counter() - start_time) * 1000, 4)
+    exec_time_ms = round((get_time() - start_time) * 1000, 4)
     return cursor, exec_time_ms
 
 

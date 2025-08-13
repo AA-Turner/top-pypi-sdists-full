@@ -7,7 +7,7 @@ from ase.gui.i18n import _
 class Settings:
     def __init__(self, gui):
         self.gui = gui
-        win = ui.Window(_('Settings'), wmtype='utility')
+        win = ui.Window(_('Settings'))
 
         # Constraints
         win.add(_('Constraints:'))
@@ -44,6 +44,13 @@ class Settings:
             callback=self.scale_velocity_vectors
         )
         win.add([_('Scale velocity vectors:'), self.velocity_vector_scale])
+        self.magmom_vector_scale = ui.SpinBox(
+            self.gui.magmom_vector_scale,
+            0.0, 1e32, 0.1,
+            rounding=2,
+            callback=self.scale_magmom_vectors
+        )
+        win.add([_('Scale magmom vectors:'), self.magmom_vector_scale])
 
     def scale_radii(self):
         self.gui.images.atom_scale = self.scale.value
@@ -57,6 +64,11 @@ class Settings:
 
     def scale_velocity_vectors(self):
         self.gui.velocity_vector_scale = float(self.velocity_vector_scale.value)
+        self.gui.draw()
+        return True
+
+    def scale_magmom_vectors(self):
+        self.gui.magmom_vector_scale = float(self.magmom_vector_scale.value)
         self.gui.draw()
         return True
 

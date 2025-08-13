@@ -38,6 +38,7 @@ def feature_definition_from_task_params(params: MaterializationTaskParams) -> Fe
                     params.transformations,
                     params.entities,
                     params.resource_providers,
+                    params.feature_views,
                 )
             )
         ),

@@ -24810,6 +24810,41 @@ components:
       allOf:
       - $ref: '#/components/schemas/ChipUiBlock'
       type: object
+    ClustaloOptions:
+      description: Options to pass to the ClustalO algorithm, only applicable for
+        ClustalO.
+      properties:
+        maxGuidetreeIterations:
+          default: -1
+          description: Max guide tree iterations within combined iterations. Use -1
+            for no max (all iterations will include guide tree iterations).
+          maximum: 5
+          minimum: -1
+          type: integer
+        maxHmmIterations:
+          default: -1
+          description: Max HMM iterations within combined iterations. Use -1 for no
+            max (all iterations will include HMM iterations).
+          maximum: 5
+          minimum: -1
+          type: integer
+        mbedGuideTree:
+          default: true
+          description: Whether mBed-like clustering guide tree should be used (faster
+            to use it).
+          type: boolean
+        mbedIteration:
+          default: true
+          description: Whether mBed-like clustering iteration should be used (faster
+            to use it).
+          type: boolean
+        numCombinedIterations:
+          default: 0
+          description: Number of (combined guide-tree/HMM) iterations.
+          maximum: 5
+          minimum: 0
+          type: integer
+      type: object
     CodonUsageTable:
       additionalProperties: false
       properties:
@@ -26227,6 +26262,8 @@ components:
           - mafft
           - clustalo
           type: string
+        clustaloOptions:
+          $ref: '#/components/schemas/ClustaloOptions'
         files:
           items:
             oneOf:
@@ -26237,6 +26274,8 @@ components:
               type: object
             - $ref: '#/components/schemas/DnaTemplateAlignmentFile'
           type: array
+        mafftOptions:
+          $ref: '#/components/schemas/MafftOptions'
         name:
           example: my new alignment
           type: string
@@ -29683,6 +29722,51 @@ components:
             - lookup_table
             type: string
         type: object
+    MafftOptions:
+      description: Options to pass to the MAFFT algorithm, only applicable for MAFFT.
+      properties:
+        adjustDirection:
+          default: fast
+          description: "Adjust direction:\n  * `fast`: Enabled, quickly.\n  * `accurate`:\
+            \ Enabled, accurately (slow).\n  * `disabled`: Disabled, fastest.\n"
+          enum:
+          - fast
+          - accurate
+          - disabled
+          type: string
+        gapExtensionPenalty:
+          default: 0.0
+          description: Gap extension penalty.
+          type: number
+        gapOpenPenalty:
+          default: 1.53
+          description: Gap open penalty.
+          type: number
+        maxIterations:
+          default: 0
+          description: Max refinement iterations. Not applicable for auto strategy,
+            as it will be selected automatically.
+          type: integer
+        retree:
+          default: 2
+          description: Tree rebuilding. Only used for 6-mer strategy.
+          type: integer
+        strategy:
+          default: auto
+          description: "MAFFT Strategy:\n  * `auto`: Pick a strategy automatically\
+            \ based on the count and size of inputs.\n  * `sixmer`: Use 6-mer distance\
+            \ for constructing the guide tree.\n  * `localpair`: Compute local pairwise\
+            \ alignments using Smith-Waterman for constructing the guide tree and\
+            \ iterative refinement.\n  * `globalpair`: Compute global pairwise alignments\
+            \ using Needleman-Wunsch for constructing the guide tree and iterative\
+            \ refinement.\n"
+          enum:
+          - auto
+          - sixmer
+          - localpair
+          - globalpair
+          type: string
+      type: object
     MarkdownUiBlock:
       additionalProperties: false
       properties:

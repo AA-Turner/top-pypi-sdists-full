@@ -80,6 +80,10 @@ from .models.found_entitlement_data import FoundEntitlementData
 from .models.found_resource_data import FoundResourceData
 from .models.get_account import GetAccount
 from .models.get_account200_response import GetAccount200Response
+from .models.get_account_entitlement_associations import GetAccountEntitlementAssociations
+from .models.get_account_entitlement_associations200_response import GetAccountEntitlementAssociations200Response
+from .models.get_account_entitlement_associations_request import GetAccountEntitlementAssociationsRequest
+from .models.get_account_entitlement_associations_response import GetAccountEntitlementAssociationsResponse
 from .models.get_account_request import GetAccountRequest
 from .models.get_account_response import GetAccountResponse
 from .models.get_authorization_url import GetAuthorizationUrl
@@ -268,6 +272,10 @@ __all__ = [
     "FoundResourceData",
     "GetAccount",
     "GetAccount200Response",
+    "GetAccountEntitlementAssociations",
+    "GetAccountEntitlementAssociations200Response",
+    "GetAccountEntitlementAssociationsRequest",
+    "GetAccountEntitlementAssociationsResponse",
     "GetAccountRequest",
     "GetAccountResponse",
     "GetAuthorizationUrl",

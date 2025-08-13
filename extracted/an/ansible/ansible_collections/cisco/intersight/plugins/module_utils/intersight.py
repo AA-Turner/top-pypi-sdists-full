@@ -31,6 +31,7 @@
 # Contributors: David Soper, Chris Gascoigne, John McDonough
 
 from __future__ import (absolute_import, division, print_function)
+
 __metaclass__ = type
 
 from base64 import b64encode
@@ -38,6 +39,8 @@ from email.utils import formatdate
 import re
 import json
 import hashlib
+from typing import Optional
+
 from ansible.module_utils.six import iteritems
 from ansible.module_utils.six.moves.urllib.parse import urlparse, urlencode
 from ansible.module_utils.urls import fetch_url
@@ -47,12 +50,14 @@ try:
     from cryptography.hazmat.primitives import serialization, hashes
     from cryptography.hazmat.primitives.asymmetric import padding, ec
     from cryptography.hazmat.backends import default_backend
+
     HAS_CRYPTOGRAPHY = True
 except ImportError:
     HAS_CRYPTOGRAPHY = False
 
 intersight_argument_spec = dict(
-    api_private_key=dict(fallback=(env_fallback, ['INTERSIGHT_API_PRIVATE_KEY']), type='path', required=True, no_log=True),
+    api_private_key=dict(fallback=(env_fallback, ['INTERSIGHT_API_PRIVATE_KEY']), type='path', required=True,
+                         no_log=True),
     api_uri=dict(fallback=(env_fallback, ['INTERSIGHT_API_URI']), type='str', default='https://intersight.com/api/v1'),
     api_key_id=dict(fallback=(env_fallback, ['INTERSIGHT_API_KEY_ID']), type='str', required=True),
     validate_certs=dict(type='bool', default=True),
@@ -132,6 +137,16 @@ def compare_values(expected, actual):
         # loop complete with all items matching
         return True
     except (AttributeError, TypeError):
+        # Handle Intersight object references: when expected is a MOID string and actual is an object reference
+        if (isinstance(expected, str) and isinstance(actual, dict) and 'Moid' in actual and actual.get('ClassId') == 'mo.MoRef'):
+            # Compare the MOID string against the Moid field in the object reference
+            if actual['Moid'] == expected:
+                return True
+        # Handle case where expected is a string and actual is an object reference
+        elif (isinstance(expected, str) and isinstance(actual, dict) and
+              'Name' in actual and actual.get('ObjectType') == 'organization.Organization'):
+            if actual['Name'] == expected:
+                return True
         # if expected and actual != expected:
         if actual != expected:
             return False
@@ -203,33 +218,6 @@ class IntersightModule():
         auth_str = auth_str + "," + "signature=\"" + signed_msg.decode('ascii') + "\""
 
         return auth_str
-
-    def get_moid_by_name(self, resource_path, target_name):
-        """
-        Retrieve an Intersight object moid by name
-
-        :param resource_path: intersight resource path e.g. '/ntp/Policies'
-        :param target_name: intersight object name
-        :return: json http response object
-        """
-        query_params = {
-            "$filter": "Name eq '{0}'".format(target_name)
-        }
-
-        options = {
-            "http_method": "GET",
-            "resource_path": resource_path,
-            "query_params": query_params
-        }
-
-        get_moid = self.intersight_call(**options)
-
-        if get_moid.json()['Results'] is not None:
-            located_moid = get_moid.json()['Results'][0]['Moid']
-        else:
-            raise KeyError('Intersight object with name "{0}" not found!'.format(target_name))
-
-        return located_moid
 
     def call_api(self, **options):
         """
@@ -348,7 +336,8 @@ class IntersightModule():
             'Authorization': '{0}'.format(auth_header),
         }
 
-        response, info = fetch_url(self.module, target_url, data=bodyString, headers=request_header, method=method, use_proxy=self.module.params['use_proxy'])
+        response, info = fetch_url(self.module, target_url, data=bodyString, headers=request_header, method=method,
+                                   use_proxy=self.module.params['use_proxy'])
 
         return response, info
 
@@ -425,18 +414,7 @@ class IntersightModule():
 
     def configure_policy_or_profile(self, resource_path):
         # Configure (create, update, or delete) the policy or profile
-        organization_moid = None
-        # GET Organization Moid
-        self.get_resource(
-            resource_path='/organization/Organizations',
-            query_params={
-                '$filter': "Name eq '" + self.module.params['organization'] + "'",
-                '$select': 'Moid',
-            },
-        )
-        if self.result['api_response'].get('Moid'):
-            # resource exists and moid was returned
-            organization_moid = self.result['api_response']['Moid']
+        organization_moid = self.get_moid_by_name(resource_path='/organization/Organizations', resource_name=self.module.params['organization'])
 
         self.result['api_response'] = {}
         # Get the current state of the resource
@@ -485,3 +463,82 @@ class IntersightModule():
                 moid = self.result['api_response']['Moid']
 
         return moid
+
+    def configure_secondary_resource(self, resource_path, resource_name, state):
+        # Configure (create, update, or delete) resources
+        # This method is used to configure secondery resources that are part of a policy or profile (e.g. VLANs)
+
+        self.result['api_response'] = {}
+        # Get the current state of the resource
+        filter_str = "Name eq '" + resource_name + "'"
+        self.get_resource(
+            resource_path=resource_path,
+            query_params={
+                '$filter': filter_str
+            }
+        )
+
+        moid = None
+        resource_values_match = False
+        if self.result['api_response'].get('Moid'):
+            # resource exists and moid was returned
+            moid = self.result['api_response']['Moid']
+            if state == 'present':
+                resource_values_match = compare_values(self.api_body, self.result['api_response'])
+            else:  # state == 'absent'
+                self.delete_resource(
+                    moid=moid,
+                    resource_path=resource_path,
+                )
+                moid = None
+
+        if state == 'present' and not resource_values_match:
+            self.configure_resource(
+                moid=moid,
+                resource_path=resource_path,
+                body=self.api_body,
+                query_params={
+                    '$filter': filter_str
+                }
+            )
+            if self.result['api_response'].get('Moid'):
+                # resource exists and moid was returned
+                moid = self.result['api_response']['Moid']
+
+        return moid
+
+    def get_moid_by_name(self, resource_path, resource_name) -> Optional[str]:
+        '''
+        Get the moid of the resource by the value of the resource
+        '''
+        organization_moid = None
+        # GET Moid of the resource
+        self.get_resource(
+            resource_path=resource_path,
+            query_params={
+                '$filter': "Name eq '" + resource_name + "'",
+                '$select': 'Moid',
+            },
+        )
+        if self.result['api_response'].get('Moid'):
+            # resource exists and moid was returned
+            return self.result['api_response']['Moid']
+        return None
+
+    def set_query_params(self) -> dict:
+        filter_conditions = []
+
+        name_to_filter = self.module.params.get('name')
+        org_to_filter = self.module.params.get('organization')
+
+        if name_to_filter:
+            filter_conditions.append(f"Name eq '{name_to_filter}'")
+
+        if org_to_filter:
+            org_moid = self.get_moid_by_name(resource_path='/organization/Organizations', resource_name=org_to_filter)
+            filter_conditions.append(f"Organization.Moid eq '{org_moid}'")
+
+        query_params = {}
+        if filter_conditions:
+            query_params["$filter"] = " and ".join(filter_conditions)
+        return query_params

@@ -44,7 +44,7 @@ mod completion_labels {
             async fn tombi_comment_schema_directive(
                 "#:█",
                 Schema(tombi_schema_path()),
-            ) -> Ok(["schema"]);
+            ) -> Ok(["schema", "tombi"]);
         }
 
         test_completion_labels! {
@@ -52,7 +52,7 @@ mod completion_labels {
             async fn tombi_comment_space_schema_directive(
                 "# :█",
                 Schema(tombi_schema_path()),
-            ) -> Ok(["schema"]);
+            ) -> Ok(["schema", "tombi"]);
         }
 
         test_completion_labels! {
@@ -74,7 +74,7 @@ mod completion_labels {
                 #:█
                 "#,
                 Schema(tombi_schema_path()),
-            ) -> Ok([]);
+            ) -> Ok(["tombi"]);
         }
 
         test_completion_labels! {
@@ -1293,7 +1293,7 @@ mod completion_labels {
 
                     backend
                         .config_manager
-                        .load_schemas(
+                        .load_config_schemas(
                             &[
                                 tombi_config::Schema::Root(
                                     tombi_config::RootSchema {
@@ -1544,7 +1544,7 @@ mod completion_labels {
 
                     backend
                         .config_manager
-                        .load_schemas(
+                        .load_config_schemas(
                             &[
                                 tombi_config::Schema::Root(
                                     tombi_config::RootSchema {
@@ -1570,7 +1570,7 @@ mod completion_labels {
 
                 backend
                     .config_manager
-                    .load_schemas(
+                    .load_config_schemas(
                         &[
                             tombi_config::Schema::Sub(
                                 tombi_config::SubSchema {

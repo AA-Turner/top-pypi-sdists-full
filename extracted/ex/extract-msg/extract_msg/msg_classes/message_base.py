@@ -726,12 +726,12 @@ class MessageBase(MSGFile):
         pdf = kwargs.get('pdf', False)
         allowFallback = kwargs.get('allowFallback', False)
         _zip = kwargs.get('zip')
-        maxNameLength = kwargs.get('maxNameLength', 256)
+        maxNameLength = kwargs.get('maxNameLength', 40)
 
         # Variables involved in the save location.
         customFilename = kwargs.get('customFilename')
         useMsgFilename = kwargs.get('useMsgFilename', False)
-        #maxPathLength = kwargs.get('maxPathLength', 255)
+        #maxPathLength = kwargs.get('maxPathLength', 255) # TODO
 
         # Track if we are only saving the attachments.
         attachOnly = kwargs.get('attachmentsOnly', False)
@@ -741,6 +741,8 @@ class MessageBase(MSGFile):
         # Track if we should skip the body if no valid body is found instead of
         # raising an exception.
         skipBodyNotFound = kwargs.get('skipBodyNotFound', False)
+
+        fext = None
 
         if pdf:
             kwargs['preparedHtml'] = True
@@ -758,30 +760,22 @@ class MessageBase(MSGFile):
                 if self.htmlBody:
                     useHtml = True
                     fext = 'html'
-                elif not allowFallback:
-                    if skipBodyNotFound:
-                        fext = None
-                    else:
-                        raise DataNotFoundError('Could not find the htmlBody.')
+                elif not allowFallback and not skipBodyNotFound:
+                    raise DataNotFoundError('Could not find the htmlBody.')
 
             if pdf:
                 if self.htmlBody:
                     usePdf = True
                     fext = 'pdf'
-                elif not allowFallback:
-                    if skipBodyNotFound:
-                        fext = None
-                    else:
-                        raise DataNotFoundError('Count not find the htmlBody to convert to pdf.')
+                elif not allowFallback and not skipBodyNotFound:
+                    raise DataNotFoundError('Count not find the htmlBody to convert to pdf.')
 
             if rtf or (html and not useHtml) or (pdf and not usePdf):
                 if self.rtfBody:
                     useRtf = True
                     fext = 'rtf'
                 elif not allowFallback:
-                    if skipBodyNotFound:
-                        fext = None
-                    else:
+                    if not skipBodyNotFound:
                         raise DataNotFoundError('Could not find the rtfBody.')
                 else:
                     # This was the last resort before plain text, so fall
@@ -794,10 +788,7 @@ class MessageBase(MSGFile):
                 # We need to check if the plain text body was found. If it
                 # was found but was empty that is considered valid, so we
                 # specifically check against None.
-                if self.body is None:
-                    if skipBodyNotFound:
-                        fext = None
-                    else:
+                if self.body is None and not skipBodyNotFound:
                         if allowFallback:
                             raise DataNotFoundError('Could not find a valid body using current options.')
                         else:
@@ -872,12 +863,12 @@ class MessageBase(MSGFile):
             if not _zip:
                 try:
                     os.makedirs(path)
-                except Exception:
+                except Exception as e:
                     newDirName = addNumToDir(path)
                     if newDirName:
                         path = newDirName
                     else:
-                        raise OSError(f'Failed to create directory "{path}". Does it already exist?')
+                        raise OSError(f'Failed to create directory "{path}". Reason: {e}')
             else:
                 # In my testing I ended up with multiple files in a zip at the
                 # same location so let's try to handle that.

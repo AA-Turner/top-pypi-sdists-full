@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-organizations
-Version: 1.40.0
-Summary: Type annotations for boto3 Organizations 1.40.0 service generated with mypy-boto3-builder 8.11.0
+Version: 1.40.8
+Summary: Type annotations for boto3 Organizations 1.40.8 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -57,7 +57,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 Organizations 1.40.0](https://pypi.org/project/boto3/) compatible with
+[boto3 Organizations 1.40.8](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -119,7 +119,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.40.8' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Organizations` service.
 4. Use provided commands to install generated packages.
@@ -357,10 +357,12 @@ from mypy_boto3_organizations.paginator import (
     ListAWSServiceAccessForOrganizationPaginator,
     ListAccountsForParentPaginator,
     ListAccountsPaginator,
+    ListAccountsWithInvalidEffectivePolicyPaginator,
     ListChildrenPaginator,
     ListCreateAccountStatusPaginator,
     ListDelegatedAdministratorsPaginator,
     ListDelegatedServicesForAccountPaginator,
+    ListEffectivePolicyValidationErrorsPaginator,
     ListHandshakesForAccountPaginator,
     ListHandshakesForOrganizationPaginator,
     ListOrganizationalUnitsForParentPaginator,
@@ -383,6 +385,9 @@ list_accounts_for_parent_paginator: ListAccountsForParentPaginator = client.get_
     "list_accounts_for_parent"
 )
 list_accounts_paginator: ListAccountsPaginator = client.get_paginator("list_accounts")
+list_accounts_with_invalid_effective_policy_paginator: ListAccountsWithInvalidEffectivePolicyPaginator = client.get_paginator(
+    "list_accounts_with_invalid_effective_policy"
+)
 list_children_paginator: ListChildrenPaginator = client.get_paginator("list_children")
 list_create_account_status_paginator: ListCreateAccountStatusPaginator = client.get_paginator(
     "list_create_account_status"
@@ -392,6 +397,9 @@ list_delegated_administrators_paginator: ListDelegatedAdministratorsPaginator = 
 )
 list_delegated_services_for_account_paginator: ListDelegatedServicesForAccountPaginator = (
     client.get_paginator("list_delegated_services_for_account")
+)
+list_effective_policy_validation_errors_paginator: ListEffectivePolicyValidationErrorsPaginator = (
+    client.get_paginator("list_effective_policy_validation_errors")
 )
 list_handshakes_for_account_paginator: ListHandshakesForAccountPaginator = client.get_paginator(
     "list_handshakes_for_account"

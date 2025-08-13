@@ -18,6 +18,7 @@
 #include "common.h"
 #include "third_party/absl/flags/flag.h"
 #include "third_party/absl/flags/parse.h"
+#include "third_party/absl/flags/usage.h"
 
 #ifdef _USE_EXTERNAL_PROTOBUF
 #include "google/protobuf/message_lite.h"
@@ -25,11 +26,12 @@
 #include "third_party/protobuf-lite/google/protobuf/message_lite.h"
 #endif
 
-ABSL_DECLARE_FLAG(int32, minloglevel);
+ABSL_DECLARE_FLAG(int32_t, minloglevel);
 
 namespace sentencepiece {
 inline void ParseCommandLineFlags(const char *usage, int *argc, char ***argv,
                                   bool remove_arg = true) {
+  absl::SetProgramUsageMessage(*argv[0]);
   const auto unused_args = absl::ParseCommandLine(*argc, *argv);
 
   if (remove_arg) {

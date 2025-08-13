@@ -1,8 +1,8 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mkdocs-macros-plugin
-Version: 1.3.7
+Version: 1.3.9
 Summary: Unleash the power of MkDocs with macros and variables
-Author-email: Laurent Franceschetti <info@settlenext.com>
+Author: Laurent Franceschetti
 License: MIT
 Project-URL: Homepage, https://github.com/fralau/mkdocs_macros_plugin
 Keywords: macros,markdown,mkdocs,python
@@ -31,6 +31,7 @@ Requires-Dist: mkdocs-macros-test; extra == "test"
 Requires-Dist: mkdocs-material>=6.2; extra == "test"
 Requires-Dist: mkdocs-test; extra == "test"
 Requires-Dist: mkdocs-d2-plugin; extra == "test"
+Dynamic: license-file
 
 <div align="center">
 

@@ -13,7 +13,7 @@ import random
 import string
 import zipfile
 
-from typing import TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 from .. import constants
 from .attachment_base import AttachmentBase
@@ -72,7 +72,7 @@ class Attachment(AttachmentBase):
 
         return filename
 
-    def regenerateRandomName(self) -> str:
+    def regenerateRandomName(self) -> None:
         """
         Used to regenerate the random filename used if the attachment cannot
         find a usable filename.
@@ -166,9 +166,11 @@ class Attachment(AttachmentBase):
                 _zip.close()
 
     @property
-    def data(self) -> bytes:
+    def data(self) -> Optional[bytes]:
         """
         The bytes making up the attachment data.
+
+        If the attachment data stream does not exist, returns None.
         """
         return self.__data
 

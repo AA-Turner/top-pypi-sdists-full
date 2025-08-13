@@ -28,6 +28,9 @@ from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.cloud_deployment import CloudDeployment
 from anyscale.client.openapi_client.models.cloud_providers import CloudProviders
 from anyscale.client.openapi_client.models.file_storage import FileStorage
+from anyscale.client.openapi_client.models.kubernetes_config import (
+    KubernetesConfig as OpenAPIKubernetesConfig,
+)
 from anyscale.controllers.cloud_file_storage_utils import verify_file_storage_exists
 
 
@@ -666,12 +669,12 @@ class OperatorVerifier:
     def verify_operator_identity(
         self,
         operator_data: OperatorData,
-        kubernetes_config: Dict,
+        kubernetes_config: OpenAPIKubernetesConfig,
         cloud_provider: Optional[CloudProviders],
     ) -> bool:
         """Verify operator identity using pre-fetched config data."""
         # Validate kubernetes_config contents
-        expected_identity = kubernetes_config.get("anyscale_operator_iam_identity")
+        expected_identity = kubernetes_config.anyscale_operator_iam_identity
         if not expected_identity:
             self.log.error(
                 "Missing 'anyscale_operator_iam_identity' in kubernetes config"

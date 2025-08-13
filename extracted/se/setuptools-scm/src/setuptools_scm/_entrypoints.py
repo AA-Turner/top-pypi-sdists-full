@@ -7,6 +7,7 @@ from typing import Any
 from typing import Callable
 from typing import Iterator
 from typing import cast
+from typing import overload
 
 from . import _log
 from . import version
@@ -20,29 +21,22 @@ if TYPE_CHECKING:
     from ._config import Configuration
     from ._config import ParseFunction
 
-from importlib import metadata as im
+    if sys.version_info[:2] < (3, 10):
+        import importlib_metadata as im
+    else:
+        from importlib import metadata as im
+
 
 log = _log.log.getChild("entrypoints")
 
 
-if sys.version_info[:2] < (3, 10):
+def entry_points(**kw: Any) -> im.EntryPoints:
+    if sys.version_info[:2] < (3, 10):
+        import importlib_metadata as im
+    else:
+        import importlib.metadata as im
 
-    def entry_points(*, group: str, name: str | None = None) -> list[im.EntryPoint]:
-        # Python 3.9: entry_points() returns dict, need to handle filtering manually
-
-        eps = im.entry_points()  # Returns dict
-
-        group_eps = eps.get(group, [])
-        if name is not None:
-            return [ep for ep in group_eps if ep.name == name]
-        return group_eps
-else:
-
-    def entry_points(*, group: str, name: str | None = None) -> im.EntryPoints:
-        kw = {"group": group}
-        if name is not None:
-            kw["name"] = name
-        return im.entry_points(**kw)
+    return im.entry_points(**kw)
 
 
 def version_from_entrypoint(
@@ -101,26 +95,32 @@ def _iter_version_schemes(
         yield scheme_value
 
 
+@overload
 def _call_version_scheme(
     version: version.ScmVersion,
     entrypoint: str,
     given_value: _t.VERSION_SCHEMES,
-    default: str | None = None,
-) -> str:
-    found_any_implementation = False
+    default: str,
+) -> str: ...
+
+
+@overload
+def _call_version_scheme(
+    version: version.ScmVersion,
+    entrypoint: str,
+    given_value: _t.VERSION_SCHEMES,
+    default: None,
+) -> str | None: ...
+
+
+def _call_version_scheme(
+    version: version.ScmVersion,
+    entrypoint: str,
+    given_value: _t.VERSION_SCHEMES,
+    default: str | None,
+) -> str | None:
     for scheme in _iter_version_schemes(entrypoint, given_value):
-        found_any_implementation = True
         result = scheme(version)
         if result is not None:
             return result
-    if not found_any_implementation:
-        raise ValueError(
-            f'Couldn\'t find any implementations for entrypoint "{entrypoint}"'
-            f' with value "{given_value}".'
-        )
-    if default is not None:
-        return default
-    raise ValueError(
-        f'None of the "{entrypoint}" entrypoints matching "{given_value}"'
-        " returned a value."
-    )
+    return default

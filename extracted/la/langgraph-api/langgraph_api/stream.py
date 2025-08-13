@@ -386,6 +386,8 @@ async def astream_state(
             incr_nodes(None, incr=nodes_executed)
         except Exception as e:
             logger.warning(f"Failed to fetch nodes executed for {graph.graph_id}: {e}")
+    else:
+        await logger.adebug("Graph is not an instance of BaseRemotePregel")
 
     # Get feedback URLs
     if feedback_keys:

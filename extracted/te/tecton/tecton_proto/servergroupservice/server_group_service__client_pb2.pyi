@@ -466,6 +466,22 @@ class ServerGroupScalingConfig(_message.Message):
     workspace_state_id: str
     def __init__(self, min_nodes: _Optional[int] = ..., max_nodes: _Optional[int] = ..., desired_nodes: _Optional[int] = ..., autoscaling_enabled: bool = ..., last_updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., workspace_state_id: _Optional[str] = ...) -> None: ...
 
+class TestOnlyCreateIngestServerGroupRequest(_message.Message):
+    __slots__ = ["desired_nodes", "name", "workspace"]
+    DESIRED_NODES_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    desired_nodes: int
+    name: str
+    workspace: str
+    def __init__(self, workspace: _Optional[str] = ..., name: _Optional[str] = ..., desired_nodes: _Optional[int] = ...) -> None: ...
+
+class TestOnlyCreateIngestServerGroupResponse(_message.Message):
+    __slots__ = ["ingest_server_group"]
+    INGEST_SERVER_GROUP_FIELD_NUMBER: _ClassVar[int]
+    ingest_server_group: IngestServerGroup
+    def __init__(self, ingest_server_group: _Optional[_Union[IngestServerGroup, _Mapping]] = ...) -> None: ...
+
 class TestOnlyCreateTransformServerGroupRequest(_message.Message):
     __slots__ = ["desired_nodes", "environment", "name", "workspace"]
     DESIRED_NODES_FIELD_NUMBER: _ClassVar[int]

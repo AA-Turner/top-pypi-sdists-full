@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-core
-Version: 0.13.0
+Version: 0.13.1
 Summary: Megatron Core - a library for efficient and scalable training of transformer based models
 Author-email: NVIDIA <nemo-toolkit@nvidia.com>
 Maintainer-email: NVIDIA <nemo-toolkit@nvidia.com>

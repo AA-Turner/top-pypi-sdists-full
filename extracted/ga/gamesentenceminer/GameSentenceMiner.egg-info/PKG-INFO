@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GameSentenceMiner
-Version: 2.14.4
+Version: 2.14.5
 Summary: A tool for mining sentences from games. Update: Overlay?
 Author-email: Beangate <bpwhelan95@gmail.com>
 License: MIT License
@@ -23,7 +23,8 @@ Requires-Dist: rapidfuzz~=3.9.7
 Requires-Dist: plyer~=2.1.0
 Requires-Dist: keyboard~=0.13.5
 Requires-Dist: websockets~=15.0.1
-Requires-Dist: openai-whisper
+Requires-Dist: openai-whisper==20240930; sys_platform == "win32"
+Requires-Dist: openai-whisper; sys_platform != "win32"
 Requires-Dist: stable-ts-whisperless
 Requires-Dist: silero-vad~=5.1.2
 Requires-Dist: ttkbootstrap~=1.10.1
@@ -35,12 +36,16 @@ Requires-Dist: pywin32; sys_platform == "win32"
 Requires-Dist: pygetwindow; sys_platform == "win32"
 Requires-Dist: flask
 Requires-Dist: groq
-Requires-Dist: obsws-python~=1.7.2
 Requires-Dist: matplotlib
 Requires-Dist: sounddevice
 Requires-Dist: google-genai
 Requires-Dist: owocr
-Requires-Dist: betterproto==2.0.0b7
 Requires-Dist: oneocr
 Requires-Dist: openai
+Requires-Dist: scikit-image
+Requires-Dist: opencv-python
+Requires-Dist: betterproto==2.0.0b7
+Requires-Dist: obsws-python~=1.7.2
+Requires-Dist: numpy==2.2.6
+Requires-Dist: regex
 Dynamic: license-file

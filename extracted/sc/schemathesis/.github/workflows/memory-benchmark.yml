@@ -33,14 +33,14 @@ jobs:
           path: memory-benchmark-results/
           retention-days: 30
 
-      - uses: peter-evans/find-comment@v2
+      - uses: peter-evans/find-comment@v3
         id: fc
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: 'github-actions[bot]'
           body-includes: Memory Benchmark Results
 
-      - uses: peter-evans/create-or-update-comment@v3
+      - uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}

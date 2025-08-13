@@ -307,15 +307,14 @@ class FeatureService(base_tecton_object.BaseTectonObject):
         return list({fco_obj.id: fco_obj for fco_obj in dependent_objects}.values())
 
     def _validate(self) -> None:
+        dependent_objects = self._get_dependent_objects(include_indirect_dependencies=True)
         validations_api.run_backend_validation_and_assert_valid(
             self,
             validator_pb2.ValidationRequest(
-                validation_args=[
-                    dependent_obj._build_fco_validation_args()
-                    for dependent_obj in self._get_dependent_objects(include_indirect_dependencies=True)
-                ]
+                validation_args=[dependent_obj._build_fco_validation_args() for dependent_obj in dependent_objects]
                 + [self._build_fco_validation_args()],
             ),
+            dependent_objects,
         )
 
     def _populate_spec(self) -> None:

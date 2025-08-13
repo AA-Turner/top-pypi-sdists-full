@@ -69,7 +69,7 @@ from .repository import (
     RepositoryVersionContentDetails,
 )
 
-from .status import ApiAppStatus, ContentAppStatus
+from .status import AppStatus, ApiAppStatus, ContentAppStatus
 
 from .task import (
     CreatedResource,
@@ -86,6 +86,8 @@ from .upload import (
     Upload,
     UploadChunk,
 )
+
+from .vulnerability_report import VulnerabilityReport
 
 # Moved here to avoid a circular import with Task
 from .progress import GroupProgressReport, ProgressReport
@@ -170,4 +172,5 @@ __all__ = [
     "OpenPGPSignature",
     "OpenPGPUserAttribute",
     "OpenPGPUserID",
+    "VulnerabilityReport",
 ]

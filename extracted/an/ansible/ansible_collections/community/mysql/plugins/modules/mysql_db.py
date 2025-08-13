@@ -165,6 +165,11 @@ options:
     type: bool
     default: false
     version_added: '3.4.0'
+  sql_log_bin:
+    description:
+      - Whether binary logging should be enabled or disabled for the connection.
+    type: bool
+    default: true
 
 seealso:
 - module: community.mysql.mysql_info
@@ -633,6 +638,7 @@ def main():
         config_overrides_defaults=dict(type='bool', default=False),
         chdir=dict(type='path'),
         pipefail=dict(type='bool', default=False),
+        sql_log_bin=dict(type='bool', default=True),
     )
 
     module = AnsibleModule(
@@ -683,6 +689,7 @@ def main():
     config_overrides_defaults = module.params['config_overrides_defaults']
     chdir = module.params['chdir']
     pipefail = module.params['pipefail']
+    sql_log_bin = module.params["sql_log_bin"]
 
     if chdir:
         try:
@@ -724,6 +731,9 @@ def main():
                                  "Exception message: %s" % (config_file, to_native(e)))
         else:
             module.fail_json(msg="unable to find %s. Exception message: %s" % (config_file, to_native(e)))
+
+    if state in ['absent', 'present'] and not sql_log_bin:
+        cursor.execute("SET SQL_LOG_BIN=0;")
 
     server_implementation = get_server_implementation(cursor)
     server_version = get_server_version(cursor)

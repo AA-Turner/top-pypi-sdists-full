@@ -37,7 +37,7 @@ from ..utils import (
 
 @dataclass
 class FireSmokeConfig(BaseConfig):
-    confidence_threshold: float = 0.3
+    confidence_threshold: float = 0.05
 
     # Only fire and smoke categories included here (exclude normal)
     fire_smoke_categories: List[str] = field(
@@ -108,6 +108,8 @@ class FireSmokeUseCase(BaseProcessor):
         self.id_hit_list = ["low","medium","significant","critical","low"]
         self.id_hit_counter = 0
         self.latest_stack:str = None
+        self.id_timing_list = []
+        self.return_id_counter = 1
 
     def process(
             self,
@@ -137,7 +139,7 @@ class FireSmokeUseCase(BaseProcessor):
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
-            self.logger.info(f"Processing fire and smoke detection with format: {input_format.value}")
+            self.logger.info(f"Processing fire and smoke detection with format: {input_format.value} with threshold: {config.confidence_threshold}")
 
             # Step 2: Confidence thresholding
             processed_data = data
@@ -232,16 +234,22 @@ class FireSmokeUseCase(BaseProcessor):
             tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
             #EVENT ENDED SIGNAL
 
-            if len(tracking_stats_list)==3:
+            if len(tracking_stats_list)>1:
                 alerts = tracking_stats_list[1]
                 incidents = tracking_stats_list[2]
                 tracking_stats = tracking_stats_list[0]
+                print("-----------------------------------------------------########-------------")
+                print('alerts',alerts)
+                print('incidents',incidents)
+                print('tracking_stats',tracking_stats)
+                print('FRAME_NUMBER',str(frame_number))
+                print("-----------------------------------------------------########-------------")
 
-            business_analytics = business_analytics_list[0] if business_analytics_list else {}
+            business_analytics = business_analytics_list[0] if business_analytics_list else []
             summary = summary_list[0] if summary_list else {}
             agg_summary = {str(frame_number): {
-                            "incidents": incidents,
-                            "tracking_stats": tracking_stats,
+                            "incidents": [incidents],
+                            "tracking_stats": [tracking_stats],
                             "business_analytics": business_analytics,
                             "alerts": alerts,
                             "human_text": summary}
@@ -304,18 +312,24 @@ class FireSmokeUseCase(BaseProcessor):
             return alerts
 
         if hasattr(config.alert_config, 'count_thresholds') and config.alert_config.count_thresholds:
-            alert_id = self._get_alert_incident_ids(self._ascending_alert_list[-1:])
+            # Safely fetch the last recorded severity level as a **string** (empty if no history yet)
+            last_level = self._ascending_alert_list[-1] if self._ascending_alert_list else "low"
+            rank_ids, alert_id = self._get_alert_incident_ids(last_level, stream_info)
+            if rank_ids not in [1,2,3,4,5]:
+                alert_id = 1
 
             count_thresholds = {}
             if config.alert_config and hasattr(config.alert_config, "count_thresholds"):
                 count_thresholds = config.alert_config.count_thresholds or {}
 
             for category, threshold in count_thresholds.items():
+                alert_serial = getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default']
+                alert_serial = alert_serial[0]
                 if category == "all" and total > threshold:  
                     
                     alerts.append({
                         "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                        "alert_id": "alert_"+category+'_'+str(alert_id),
+                        "alert_id": "alert_"+category+'_'+alert_serial+'_'+str(alert_id),
                         "incident_category": self.CASE_TYPE,
                         "threshold_level": threshold,
                         "ascending": get_trend(self._ascending_alert_list, lookback=23, prior=14),
@@ -329,7 +343,7 @@ class FireSmokeUseCase(BaseProcessor):
                     if count > threshold:  # Fixed logic: alert when EXCEEDING threshold
                         alerts.append({
                             "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                            "alert_id": "alert_"+category+'_'+str(alert_id),
+                            "alert_id": "alert_"+category+'_'+alert_serial+'_'+str(alert_id),
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
                             "ascending": get_trend(self._ascending_alert_list, lookback=23, prior=14),
@@ -400,6 +414,7 @@ class FireSmokeUseCase(BaseProcessor):
                     
                     #count = summary.get("per_category_count", {})[category]
                     start_timestamp = self._get_start_timestamp_str(stream_info)
+                    
                     if start_timestamp and self.current_incident_end_timestamp=='N/A':
                         self.current_incident_end_timestamp = 'Incident still active'
                     elif start_timestamp and self.current_incident_end_timestamp=='Incident still active':
@@ -408,6 +423,7 @@ class FireSmokeUseCase(BaseProcessor):
                         if current_dominant_incident != potential_dominant_incident:
                             
                             self.current_incident_end_timestamp = current_timestamp
+                            self.current_incident_end_timestamp='Incident active'
                     elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
                         self.current_incident_end_timestamp = 'N/A'
 
@@ -464,7 +480,15 @@ class FireSmokeUseCase(BaseProcessor):
                     human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE,level)}")
                     human_text = "\n".join(human_text_lines)
 
-                    incident_id = self._get_alert_incident_ids(self._ascending_alert_list[-1:])
+                    # Pass the last severity level **value** instead of a single-element list
+                    last_level = level if level else self._ascending_alert_list[-1]
+                    rank_ids, incident_id = self._get_alert_incident_ids(last_level, stream_info)
+                    if rank_ids not in [1,2,3,4,5]:
+                        incident_id = 1
+                    if len(self.id_timing_list)>0 and len(self.id_timing_list)==rank_ids:
+                        start_timestamp = self.id_timing_list[-1]
+                    if len(self.id_timing_list)>0 and len(self.id_timing_list)>4 and level=='critical':
+                        start_timestamp = self.id_timing_list[-1]
 
                     alert_settings=[]
                     if config.alert_config and hasattr(config.alert_config, 'alert_type'):
@@ -478,7 +502,7 @@ class FireSmokeUseCase(BaseProcessor):
                                         }
                         })
                 
-                    event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(incident_id), incident_type=self.CASE_TYPE,
+                    event= self.create_incident(incident_id='incident_'+self.CASE_TYPE+'_'+str(incident_id), incident_type=self.CASE_TYPE,
                             severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
                             start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
                             level_settings= {"low": 3, "medium": 5, "significant":15, "critical": 30})
@@ -619,19 +643,30 @@ class FireSmokeUseCase(BaseProcessor):
         tracking_stats.append(tracking_stat)
 
         if len(self.id_hit_list)==1:
-            last_ending_id = self._get_alert_incident_ids("")
+            last_ending_id, incident_id = self._get_alert_incident_ids("",stream_info)
+            print('last_ending_id',last_ending_id, incident_id, self.return_id_counter)
+            if len(self.id_timing_list)>0 and len(self.id_timing_list)>=5:
+                    start_timestamp = self.id_timing_list[-1]
+            if incident_id==self.return_id_counter:
+                incident_id = incident_id-1 
+            if self.return_id_counter > incident_id:
+                incident_id = self.return_id_counter-incident_id
             if last_ending_id==5:
-                tracking_stats.append({
+                alert_serial = getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default']
+                alert_serial = alert_serial[0]
+                alerts=[{
                             "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
-                            "alert_id": "alert_"+category+'_'+str(last_ending_id),
+                            "alert_id": "alert_"+'Event_Ended'+'_'+alert_serial+'_'+str(incident_id),
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": 0,
                             "ascending": False,
                             "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
                                      getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
                                     }       
-                        })
-                tracking_stats.append(self.create_incident(incident_id=self.CASE_TYPE+'_'+str(last_ending_id), incident_type=self.CASE_TYPE,
+                        }]
+                tracking_stats.append(alerts)
+                tracking_stats[0]['alerts']=alerts
+                tracking_stats.append(self.create_incident(incident_id='incident_'+self.CASE_TYPE+'_'+str(incident_id), incident_type=self.CASE_TYPE,
                             severity_level='info', human_text='Event Over', camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
                             start_time=start_timestamp, end_time='Incident still active',
                             level_settings= {"low": 3, "medium": 5, "significant":15, "critical": 30}))
@@ -645,20 +680,20 @@ class FireSmokeUseCase(BaseProcessor):
         """
         Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
         """
-        lines = {}
-        lines["Application Name"] = self.CASE_TYPE
-        lines["Application Version"] = self.CASE_VERSION
+        lines = []
+        lines.append("Application Name: "+self.CASE_TYPE)
+        lines.append("Application Version: "+self.CASE_VERSION)
         if len(incidents) > 0:
-            lines["Incidents:"]=f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+            lines.append("Incidents: "+f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
         if len(tracking_stats) > 0:
-            lines["Tracking Statistics:"]=f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+            lines.append("Tracking Statistics: "+f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}")
         if len(business_analytics) > 0:
-            lines["Business Analytics:"]=f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+            lines.append("Business Analytics: "+f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}")
 
         if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
-            lines["Summary"] = "No Summary Data"
+            lines.append("Summary: "+"No Summary Data")
 
-        return [lines]
+        return ["\n".join(lines)]
 
     def _calculate_fire_smoke_summary(
             self, data: Any, config: FireSmokeConfig
@@ -981,7 +1016,7 @@ class FireSmokeUseCase(BaseProcessor):
 
         return delta.total_seconds()
 
-    def _get_alert_incident_ids(self, sev_level):
+    def _get_alert_incident_ids(self, sev_level, stream_info: Optional[Dict[str, Any]] = None):
 
         if sev_level!="":
             if sev_level==self.id_hit_list[0] and len(self.id_hit_list)>=2:
@@ -990,7 +1025,8 @@ class FireSmokeUseCase(BaseProcessor):
                     self.latest_stack = self.id_hit_list[0]
                     self.id_hit_list.pop(0)
                     self.id_hit_counter=0
-                    return int(5-len(self.id_hit_list))
+                    self.id_timing_list.append(self._get_current_timestamp_str(stream_info))
+                    return (5-len(self.id_hit_list),self.return_id_counter)
                 
             elif self.id_hit_counter>0:
                 self.id_hit_counter-=1
@@ -999,26 +1035,29 @@ class FireSmokeUseCase(BaseProcessor):
 
             if len(self.id_hit_list) > 1:
                 if sev_level==self.latest_stack:
-                    return int(5-len(self.id_hit_list))
+                    return (5-len(self.id_hit_list),self.return_id_counter)
                 else:
-                    return 0
+                    return (0,0)
         else:
             if len(self.id_hit_list)==1:
                 self.id_hit_counter+=1
-                if self.id_hit_counter>120:
+                if self.id_hit_counter>130:
                     self.id_hit_list = ["low","medium","significant","critical","low"]
+                    pre_return_id = self.return_id_counter
+                    self.return_id_counter+=1
                     self.id_hit_counter = 0
                     self.latest_stack = None
-                    return int(5)
+                    self.id_timing_list.append(self._get_current_timestamp_str(stream_info))
+                    return (int(5),pre_return_id)
                 if sev_level==self.latest_stack:
-                    return int(5-len(self.id_hit_list))
+                    return (5-len(self.id_hit_list),self.return_id_counter)
                 else:
-                    return 0
+                    return (0,0)
             elif self.id_hit_counter>0:
                 self.id_hit_counter-=1
             elif self.id_hit_counter<0:
                 self.id_hit_counter=0
-        return ""
+        return (1,1)
 
 
 

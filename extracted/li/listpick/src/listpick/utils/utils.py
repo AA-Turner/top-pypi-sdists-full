@@ -36,7 +36,7 @@ def clip_left(text, n):
         width += char_width
     return text  # If the total width is less than n, return the full string
 
-def truncate_to_display_width(text: str, max_column_width: int, centre=False, unicode_char_width:bool = True) -> str:
+def truncate_to_display_width(text: str, max_column_width: int, centre=False) -> str:
     """ 
     Truncate and/or pad text to max_column_width using wcwidth to ensure visual width is correct 
         with foreign character sets. 
@@ -46,36 +46,19 @@ def truncate_to_display_width(text: str, max_column_width: int, centre=False, un
 
     """
     # logger.debug("function: truncate_to_display_width (utils.py)")
-    if unicode_char_width:
-        result = ''
-        width = 0
-
-
-        for char in text:
-            w = wcwidth(char)
-            if w < 0:
-                continue
-            if width + w > max_column_width:
-                break
-            result += char
-            width += w
-
-        # test_str = text[:max_column_width]
-        # while True:
-        #     width = wcswidth(test_str)
-        #     if width  < max_column_width or width == 0:
-        #         break
-        #     test_str = test_str[:-1]
-        # result = test_str
-    
-
-        # Pad if it's shorter
-        # padding = max_column_width - wcswidth(result)
-        # return result + ' ' * padding
-    else:
-        result = text[:max_column_width]
-        width = len(result)
-    padding = max_column_width - width
+    result = ''
+    width = 0
+    for char in text:
+        w = wcwidth(char)
+        if w < 0:
+            continue
+        if width + w > max_column_width:
+            break
+        result += char
+        width += w
+    # Pad if it's shorter
+    padding = max_column_width - wcswidth(result)
+    # return result + ' ' * padding
     if centre:
         result = ' '*(padding//2) + result + ' '*(padding//2 + padding%2)
     else:
@@ -100,7 +83,7 @@ def format_full_row(row:str) -> str:
     return '\t'.join(row)
 
 
-def format_row(row: list[str], hidden_columns: list, column_widths: list[int], separator: str, centre:bool=False, unicode_char_width:bool = True) -> str:
+def format_row(row: list[str], hidden_columns: list, column_widths: list[int], separator: str, centre:bool=False) -> str:
     """ Format list of strings as a single string. Requires separator string and the maximum width of the columns. """
     row_str = ""
     for i, cell in enumerate(row):
@@ -108,22 +91,20 @@ def format_row(row: list[str], hidden_columns: list, column_widths: list[int], s
         # if is_formula_cell(cell):
         #     cell = evaluate_cell(cell)
         
-        val = truncate_to_display_width(str(cell), column_widths[i], centre, unicode_char_width)
+        val = truncate_to_display_width(str(cell), column_widths[i], centre)
         row_str += val + separator
     return row_str
+    # return row_str.strip()
 
-def get_column_widths(items: list[list[str]], header: list[str]=[], max_column_width:int=70, number_columns:bool=True, max_total_width=-1, separator = "    ", unicode_char_width:bool=True) -> list[int]:
+def get_column_widths(items: list[list[str]], header: list[str]=[], max_column_width:int=70, number_columns:bool=True, max_total_width=-1, separator = "    ") -> list[int]:
     """ Calculate maximum width of each column with clipping. """
     if len(items) == 0: return [0]
     assert len(items) > 0
-
-    if unicode_char_width:
-        widths = [max(wcswidth(str(row[i])) for row in items) for i in range(len(items[0]))]
-        # widths = [max(len(str(row[i])) for row in items) for i in range(len(items[0]))]
-        if header:
-            header_widths = [wcswidth(f"{i}. {str(h)}") if number_columns else wcswidth(str(h)) for i, h in enumerate(header)]
-            col_widths =  [min(max_column_width, max(widths[i], header_widths[i])) for i in range(len(header))]
-
+    widths = [max(wcswidth(str(row[i])) for row in items) for i in range(len(items[0]))]
+    # widths = [max(len(str(row[i])) for row in items) for i in range(len(items[0]))]
+    if header:
+        header_widths = [wcswidth(f"{i}. {str(h)}") if number_columns else wcswidth(str(h)) for i, h in enumerate(header)]
+        col_widths =  [min(max_column_width, max(widths[i], header_widths[i])) for i in range(len(header))]
         # actual_max_widths = [max(header_widths[i], widths[i]) for i in range(len(widths))]
         #
         # if sum(col_widths) + len(separator)*(len(col_widths)-1) < max_total_width:
@@ -143,15 +124,8 @@ def get_column_widths(items: list[list[str]], header: list[str]=[], max_column_w
         #     else:
         #         # Maximise balance.....
         #         pass
-        else:
-            col_widths = [min(max_column_width, width) for width in widths]
     else:
-        widths = [max(len(str(row[i])) for row in items) for i in range(len(items[0]))]
-        if header:
-            header_widths = [len(f"{i}. {str(h)}") if number_columns else len(str(h)) for i, h in enumerate(header)]
-            col_widths =  [min(max_column_width, max(widths[i], header_widths[i])) for i in range(len(header))]
-        else:
-            col_widths = [min(max_column_width, width) for width in widths]
+        col_widths = [min(max_column_width, width) for width in widths]
     return col_widths
 
 def get_mode_widths(item_list: list[str]) -> list[int]:

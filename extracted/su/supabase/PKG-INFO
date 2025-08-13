@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supabase
-Version: 2.18.0
+Version: 2.18.1
 Summary: Supabase client for Python.
 Author: Joel Lee, Leon Fedden, Daniel Reinón García, Leynier Gutiérrez González, Anand, Andrew Smith
 Author-email: Joel Lee <joel@joellee.org>, Leon Fedden <leonfedden@gmail.com>, Daniel Reinón García <danielreinon@outlook.com>, Leynier Gutiérrez González <leynier41@gmail.com>, Andrew Smith <a.smith@silentworks.co.uk>
@@ -10,9 +10,9 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Requires-Dist: postgrest==1.1.1
 Requires-Dist: realtime==2.7.0
-Requires-Dist: gotrue==2.12.3
+Requires-Dist: supabase-auth==2.12.3
 Requires-Dist: storage3==0.12.1
-Requires-Dist: supafunc==0.10.1
+Requires-Dist: supabase-functions==0.10.1
 Requires-Dist: httpx>=0.26,<0.29
 Requires-Python: >=3.9
 Project-URL: documentation, https://github.com/supabase/supabase-py

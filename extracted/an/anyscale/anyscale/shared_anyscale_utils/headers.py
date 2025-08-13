@@ -16,6 +16,9 @@ class RequestHeaders(str, Enum):
     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Authorization
     AUTHORIZATION = "Authorization"
 
+    # Cloud ID header for authentication clusters
+    CLOUD_ID = "X-Anyscale-Cloud-Id"
+
     # Identifies type of client (Web, SDK, CLI, etc.)
     CLIENT = "X-Anyscale-Client"
 

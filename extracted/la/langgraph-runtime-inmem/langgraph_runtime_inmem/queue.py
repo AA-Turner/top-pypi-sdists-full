@@ -128,8 +128,7 @@ async def queue():
                         # sweep runs if needed
                         if do_sweep:
                             last_sweep_secs = loop.time()
-                            run_ids = await ops.Runs.sweep(conn)
-                            logger.info("Swept runs", run_ids=run_ids)
+                            await ops.Runs.sweep()
             except Exception as exc:
                 # keep trying to run the scheduler indefinitely
                 logger.exception("Background worker scheduler failed", exc_info=exc)

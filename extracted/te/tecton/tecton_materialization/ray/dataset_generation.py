@@ -54,6 +54,7 @@ from tecton_materialization.ray.nodes import TimeSpec
 from tecton_proto.materialization.materialization_task__client_pb2 import DatasetGenerationParameters
 from tecton_proto.materialization.params__client_pb2 import MaterializationTaskParams
 from tecton_proto.materialization.params__client_pb2 import SecretMaterializationTaskParams
+from tecton_proto.offlinestore.delta import metadata__client_pb2 as metadata_pb2
 from tecton_proto.offlinestore.delta import transaction_writer__client_pb2 as transaction_writer_pb2
 
 
@@ -108,6 +109,17 @@ def run_dataset_generation(
         join_keys=params.join_keys,
         partition_type=offline_store.PartitionType.NONE,
     )
+
+    transaction_metadata = metadata_pb2.TectonDeltaMetadata(dataset_result_path=dataset_generation_params.result_path)
+    if writer.transaction_exists(transaction_metadata):
+        delta_write_monitor = job_status_client.create_stage_monitor(
+            f"Skipping writing to offline store. Found previous commit for dataset {dataset_generation_params.dataset_name}",
+        )
+        with delta_write_monitor():
+            logger.info(
+                f"Found previous commit with metadata {transaction_metadata} for dataset {dataset_generation_params.dataset_name}. Skipping dataset generation since the dataset already exists."
+            )
+        return
 
     if not use_legacy_spine_split(dataset_generation_params):
         logger.info("Using QT parallelization for dataset generation")
@@ -249,11 +261,14 @@ def run_dataset_generation_with_enforced_spine_splitting(
     )
     with write_monitor():
         files_list = ray.get(upload_tasks)
+        transaction_metadata = metadata_pb2.TectonDeltaMetadata(
+            dataset_result_path=dataset_generation_params.result_path
+        )
 
         # Each Ray task returns a list of AddFile objects. We need to commit all of them to the Delta table.
         files = [file for sublist in files_list for file in sublist]
         writer.add_files(files)
-        writer.commit()
+        writer.commit(transaction_metadata)
 
 
 @ray.remote
@@ -397,7 +412,8 @@ def run_dataset_generation_with_qt_parallelization(
     with write_monitor():
         writer.write(reader)
 
-    writer.commit()
+    transaction_metadata = metadata_pb2.TectonDeltaMetadata(dataset_result_path=dataset_generation_params.result_path)
+    writer.commit(transaction_metadata)
 
 
 def _extract_fdw_list(materialization_task_params: MaterializationTaskParams):

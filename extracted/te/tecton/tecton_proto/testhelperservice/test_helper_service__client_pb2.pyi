@@ -5,6 +5,20 @@ from typing import ClassVar as _ClassVar, Optional as _Optional
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class IngestServerGroupConfigRequest(_message.Message):
+    __slots__ = ["absolute_filepath", "ingest_server_group_name", "workspace"]
+    ABSOLUTE_FILEPATH_FIELD_NUMBER: _ClassVar[int]
+    INGEST_SERVER_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    absolute_filepath: str
+    ingest_server_group_name: str
+    workspace: str
+    def __init__(self, absolute_filepath: _Optional[str] = ..., workspace: _Optional[str] = ..., ingest_server_group_name: _Optional[str] = ...) -> None: ...
+
+class IngestServerGroupConfigResponse(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
+
 class IngestionServerConfigRequest(_message.Message):
     __slots__ = ["absolute_filepath", "offline_log_filepath"]
     ABSOLUTE_FILEPATH_FIELD_NUMBER: _ClassVar[int]

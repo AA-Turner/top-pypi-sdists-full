@@ -22,7 +22,14 @@ class TestNYISO(BaseTestISO):
 
     @pytest.mark.parametrize(
         "date",
-        ["Dec 1, 2022", "Jan 1, 2023", "Jan 1, 2024", "Jan 1, 2025", "today"],
+        [
+            "Dec 1, 2022",
+            "Jan 1, 2023",
+            "Dec 1, 2023",
+            "Jan 1, 2024",
+            "Jan 1, 2025",
+            "today",
+        ],
     )
     def test_get_capacity_prices(self, date):
         with nyiso_vcr.use_cassette(
@@ -604,6 +611,35 @@ class TestNYISO(BaseTestISO):
 
     """get_btm_solar_forecast"""
 
+    def _check_btm_solar_forecast(self, df: pd.DataFrame):
+        expected_columns = [
+            "Time",
+            "Interval Start",
+            "Interval End",
+            "Publish Time",
+            "SYSTEM",
+            "CAPITL",
+            "CENTRL",
+            "DUNWOD",
+            "GENESE",
+            "HUD VL",
+            "LONGIL",
+            "MHK VL",
+            "MILLWD",
+            "N.Y.C.",
+            "NORTH",
+            "WEST",
+        ]
+        assert df.columns.tolist() == expected_columns
+        assert df.shape[0] >= 0
+
+        assert (
+            df["Publish Time"]
+            == df["Interval Start"].dt.floor("D")
+            - pd.DateOffset(days=1)
+            + pd.Timedelta(hours=7, minutes=55)
+        ).all()
+
     def test_get_btm_solar_forecast_today(self):
         with nyiso_vcr.use_cassette(
             "test_get_btm_solar_forecast_today.yaml",
@@ -613,26 +649,7 @@ class TestNYISO(BaseTestISO):
                 verbose=True,
             )
 
-            columns = [
-                "Time",
-                "Interval Start",
-                "Interval End",
-                "SYSTEM",
-                "CAPITL",
-                "CENTRL",
-                "DUNWOD",
-                "GENESE",
-                "HUD VL",
-                "LONGIL",
-                "MHK VL",
-                "MILLWD",
-                "N.Y.C.",
-                "NORTH",
-                "WEST",
-            ]
-
-            assert df.columns.tolist() == columns
-            assert df.shape[0] >= 0
+        self._check_btm_solar_forecast(df)
 
     @pytest.mark.parametrize(
         "date, end",
@@ -650,6 +667,8 @@ class TestNYISO(BaseTestISO):
                 verbose=True,
             )
             assert df["Time"].dt.date.nunique() == 3
+
+        self._check_btm_solar_forecast(df)
 
     """get_load_forecast"""
 

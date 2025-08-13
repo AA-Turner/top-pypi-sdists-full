@@ -7,6 +7,7 @@ import orjson
 from starlette._exception_handler import wrap_app_handling_exceptions
 from starlette._utils import is_async_callable
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -75,7 +76,12 @@ class ApiRequest(Request):
     async def json(self, schema: SchemaType = None) -> typing.Any:
         if not hasattr(self, "_json"):
             body = await self.body()
-            self._json = await run_in_threadpool(_json_loads, body, schema)
+            try:
+                self._json = await run_in_threadpool(_json_loads, body, schema)
+            except orjson.JSONDecodeError as e:
+                raise HTTPException(
+                    status_code=422, detail="Invalid JSON in request body"
+                ) from e
         return self._json
 
 

@@ -259,6 +259,7 @@ def cloud_config_group() -> None:
     help="Create a new cloud deployment in an existing cloud.",
     cls=AnyscaleCommand,
     example=command_examples.CLOUD_DEPLOYMENT_CREATE_EXAMPLE,
+    is_alpha=True,
 )
 @click.option(
     "--cloud",
@@ -292,6 +293,7 @@ def cloud_deployment_create(
     help="Get a cloud deployment for a cloud.",
     cls=AnyscaleCommand,
     example=command_examples.CLOUD_DEPLOYMENT_GET_EXAMPLE,
+    is_alpha=True,
 )
 @click.option(
     "--cloud",
@@ -318,6 +320,7 @@ def cloud_deployment_get(cloud: str, deployment: Optional[str]) -> None:
     help="Update a cloud deployment in an existing cloud.",
     cls=AnyscaleCommand,
     example=command_examples.CLOUD_DEPLOYMENT_UPDATE_EXAMPLE,
+    is_alpha=True,
 )
 @click.option(
     "--cloud",
@@ -354,6 +357,7 @@ def cloud_deployment_update(
     help="Remove a cloud deployment from an existing cloud.",
     cls=AnyscaleCommand,
     example=command_examples.CLOUD_DEPLOYMENT_DELETE_EXAMPLE,
+    is_alpha=True,
 )
 @click.option(
     "--cloud",
@@ -380,7 +384,6 @@ def cloud_deployment_delete(cloud: str, deployment: str, yes: bool,) -> None:
 @cloud_cli.command(
     name="update",
     help=(
-        # TODO(janet): Update this help text when the -o option is un-hidden.
         "Update a managed cloud to the latest configuration. Only applicable for anyscale managed clouds."
     ),
 )

@@ -43,6 +43,7 @@ class TestOpenPGPUserIDResponse(unittest.TestCase):
                 pulp_labels = {
                     'key' : ''
                     },
+                vuln_report = '',
                 user_id = '',
                 signatures = [
                     pulpcore.client.pulpcore.models.nested_open_pgp_signature_response.NestedOpenPGPSignatureResponse(

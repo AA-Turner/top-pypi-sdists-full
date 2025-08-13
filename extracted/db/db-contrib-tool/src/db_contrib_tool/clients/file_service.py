@@ -1,11 +1,12 @@
 """A service for interacting with the filesystem."""
 
 import os
-from pydantic import TypeAdapter
 
 from db_contrib_tool.setup_repro_env.request_models import DownloadRequest
 from typing import List, Set
-
+import json
+from pydantic.json import pydantic_encoder
+from pydantic import parse_obj_as
 import structlog
 
 LOGGER = structlog.get_logger(__name__)
@@ -47,12 +48,10 @@ class FileService:
         :param downloads: DownloadRequest's to append to file.
         """
 
-        adapter = TypeAdapter(Set[DownloadRequest])
-
         all_downloads = FileService.load_downloads_from_json_file(file_name)
         all_downloads.update(downloads)
-        with open(file_name, "wb") as file:
-            file.write(adapter.dump_json(all_downloads, indent=2, round_trip=True))
+        with open(file_name, "w") as file:
+            json.dump(all_downloads, file, default=pydantic_encoder, indent=2)
 
     @staticmethod
     def load_downloads_from_json_file(file_name: str) -> Set[DownloadRequest]:
@@ -62,10 +61,9 @@ class FileService:
         :param file_name: File to load from.
         """
 
-        adapter = TypeAdapter(Set[DownloadRequest])
         try:
             with open(file_name, "r") as file:
-                downloads = adapter.validate_json(file.read())
+                downloads = parse_obj_as(Set[DownloadRequest], json.load(file))
         except Exception as e:
             LOGGER.error("Failed to load download URLS from existing versions file", reason=str(e))
             downloads = set()

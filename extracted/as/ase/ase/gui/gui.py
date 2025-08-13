@@ -3,7 +3,6 @@
 import pickle
 import subprocess
 import sys
-import weakref
 from functools import partial
 from time import time
 
@@ -16,6 +15,7 @@ from ase.gui.i18n import _
 from ase.gui.images import Images
 from ase.gui.nanoparticle import SetupNanoparticle
 from ase.gui.nanotube import SetupNanotube
+from ase.gui.observer import Observers
 from ase.gui.save import save_dialog
 from ase.gui.settings import Settings
 from ase.gui.status import Status
@@ -23,7 +23,14 @@ from ase.gui.surfaceslab import SetupSurfaceSlab
 from ase.gui.view import View
 
 
-class GUI(View, Status):
+class GUIObservers:
+    def __init__(self):
+        self.new_atoms = Observers()
+        self.set_atoms = Observers()
+        self.change_atoms = Observers()
+
+
+class GUI(View):
     ARROWKEY_SCAN = 0
     ARROWKEY_MOVE = 1
     ARROWKEY_ROTATE = 2
@@ -36,7 +43,10 @@ class GUI(View, Status):
             images = Images(images)
 
         self.images = images
+
+        # Ordinary observers seem unused now, delete?
         self.observers = []
+        self.obs = GUIObservers()
 
         self.config = read_defaults()
         if show_bonds:
@@ -51,12 +61,11 @@ class GUI(View, Status):
                                       release=self.release,
                                       resize=self.resize)
 
-        View.__init__(self, rotations)
-        Status.__init__(self)
+        super().__init__(rotations)
+        self.status = Status(self)
 
         self.subprocesses = []  # list of external processes
         self.movie_window = None
-        self.vulnerable_windows = []
         self.simulation = {}  # Used by modules on Calculate menu.
         self.module_state = {}  # Used by modules to store their state.
 
@@ -148,13 +157,16 @@ class GUI(View, Status):
         return Settings(self)
 
     def scroll(self, event):
-        CTRL = event.modifier == 'ctrl'
+        shift = 0x1
+        ctrl = 0x4
+        alt_l = 0x8  # Also Mac Command Key
+        mac_option_key = 0x10
 
-        # Bug: Simultaneous CTRL + shift is the same as just CTRL.
-        # Therefore movement in Z direction does not support the
-        # shift modifier.
-        dxdydz = {'up': (0, 1 - CTRL, CTRL),
-                  'down': (0, -1 + CTRL, -CTRL),
+        use_small_step = bool(event.state & shift)
+        rotate_into_plane = bool(event.state & (ctrl | alt_l | mac_option_key))
+
+        dxdydz = {'up': (0, 1 - rotate_into_plane, rotate_into_plane),
+                  'down': (0, -1 + rotate_into_plane, -rotate_into_plane),
                   'right': (1, 0, 0),
                   'left': (-1, 0, 0)}.get(event.key, None)
 
@@ -177,7 +189,7 @@ class GUI(View, Status):
             return
 
         vec = 0.1 * np.dot(self.axes, dxdydz)
-        if event.modifier == 'shift':
+        if use_small_step:
             vec *= 0.1
 
         if self.arrowkey_mode == self.ARROWKEY_MOVE:
@@ -223,6 +235,18 @@ class GUI(View, Status):
     def constraints_window(self):
         from ase.gui.constraints import Constraints
         return Constraints(self)
+
+    def set_selected_atoms(self, selected):
+        newmask = np.zeros(len(self.images.selected), bool)
+        newmask[selected] = True
+
+        if np.array_equal(newmask, self.images.selected):
+            return
+
+        # (By creating newmask, we can avoid resetting the selection in
+        # case the selected indices are invalid)
+        self.images.selected[:] = newmask
+        self.draw()
 
     def select_all(self, key=None):
         self.images.selected[:] = True
@@ -331,9 +355,13 @@ class GUI(View, Status):
         from ase.gui.celleditor import CellEditor
         return CellEditor(self)
 
+    def atoms_editor(self, key=None):
+        from ase.gui.atomseditor import AtomsEditor
+        return AtomsEditor(self)
+
     def quick_info_window(self, key=None):
         from ase.gui.quickinfo import info
-        info_win = ui.Window(_('Quick Info'), wmtype='utility')
+        info_win = ui.Window(_('Quick Info'))
         info_win.add(info(self))
 
         # Update quickinfo window when we change frame
@@ -363,30 +391,7 @@ class GUI(View, Status):
         self.frame = 0  # Prevent crashes
         self.images.repeat_images(rpt)
         self.set_frame(frame=0, focus=True)
-        self.notify_vulnerable()
-
-    def notify_vulnerable(self):
-        """Notify windows that would break when new_atoms is called.
-
-        The notified windows may adapt to the new atoms.  If that is not
-        possible, they should delete themselves.
-        """
-        new_vul = []  # Keep weakrefs to objects that still exist.
-        for wref in self.vulnerable_windows:
-            ref = wref()
-            if ref is not None:
-                new_vul.append(wref)
-                ref.notify_atoms_changed()
-        self.vulnerable_windows = new_vul
-
-    def register_vulnerable(self, obj):
-        """Register windows that are vulnerable to changing the images.
-
-        Some windows will break if the atoms (and in particular the
-        number of images) are changed.  They can register themselves
-        and be closed when that happens.
-        """
-        self.vulnerable_windows.append(weakref.ref(obj))
+        self.obs.new_atoms.notify()
 
     def exit(self, event=None):
         for process in self.subprocesses:
@@ -500,7 +505,8 @@ class GUI(View, Status):
               M(_('_Add atoms'), self.add_atoms, 'Ctrl+A'),
               M(_('_Delete selected atoms'), self.delete_selected_atoms,
                 'Backspace'),
-              M(_('Edit _cell'), self.cell_editor, 'Ctrl+E'),
+              M(_('Edit _cell …'), self.cell_editor, 'Ctrl+E'),
+              M(_('Edit _atoms …'), self.atoms_editor, 'A'),
               M('---'),
               M(_('_First image'), self.step, 'Home'),
               M(_('_Previous image'), self.step, 'Page-Up'),
@@ -518,6 +524,8 @@ class GUI(View, Status):
               M(_('Show _velocities'), self.toggle_show_velocities, 'Ctrl+G',
                 value=False),
               M(_('Show _forces'), self.toggle_show_forces, 'Ctrl+F',
+                value=False),
+              M(_('Show _magmoms'), self.toggle_show_magmoms,
                 value=False),
               M(_('Show _Labels'), self.show_labels,
                 choices=[_('_None'),
@@ -541,15 +549,15 @@ class GUI(View, Status):
                     M(_('xy-plane'), self.set_view, 'Z'),
                     M(_('yz-plane'), self.set_view, 'X'),
                     M(_('zx-plane'), self.set_view, 'Y'),
-                    M(_('yx-plane'), self.set_view, 'Alt+Z'),
-                    M(_('zy-plane'), self.set_view, 'Alt+X'),
-                    M(_('xz-plane'), self.set_view, 'Alt+Y'),
-                    M(_('a2,a3-plane'), self.set_view, '1'),
-                    M(_('a3,a1-plane'), self.set_view, '2'),
-                    M(_('a1,a2-plane'), self.set_view, '3'),
-                    M(_('a3,a2-plane'), self.set_view, 'Alt+1'),
-                    M(_('a1,a3-plane'), self.set_view, 'Alt+2'),
-                    M(_('a2,a1-plane'), self.set_view, 'Alt+3')]),
+                    M(_('yx-plane'), self.set_view, 'Shift+Z'),
+                    M(_('zy-plane'), self.set_view, 'Shift+X'),
+                    M(_('xz-plane'), self.set_view, 'Shift+Y'),
+                    M(_('a2,a3-plane'), self.set_view, 'I'),
+                    M(_('a3,a1-plane'), self.set_view, 'J'),
+                    M(_('a1,a2-plane'), self.set_view, 'K'),
+                    M(_('a3,a2-plane'), self.set_view, 'Shift+I'),
+                    M(_('a1,a3-plane'), self.set_view, 'Shift+J'),
+                    M(_('a2,a1-plane'), self.set_view, 'Shift+K')]),
               M(_('Settings ...'), self.settings),
               M('---'),
               M(_('VMD'), partial(self.external_viewer, 'vmd')),
@@ -584,10 +592,10 @@ class GUI(View, Status):
             #    disabled=True)]),
 
             (_('_Help'),
-             [M(_('_About'), partial(ui.about, 'ASE-GUI',
-                                     version=__version__,
-                                     webpage='https://wiki.fysik.dtu.dk/'
-                                     'ase/ase/gui/gui.html')),
+             [M(_('_About'), partial(
+                 ui.about, 'ASE-GUI',
+                 version=__version__,
+                 webpage='https://ase-lib.org/ase/gui/gui.html')),
               M(_('Webpage ...'), webpage)])]
 
     def attach(self, function, *args, **kwargs):
@@ -645,4 +653,4 @@ class GUI(View, Status):
 
 def webpage():
     import webbrowser
-    webbrowser.open('https://wiki.fysik.dtu.dk/ase/ase/gui/gui.html')
+    webbrowser.open('https://ase-lib.org/ase/gui/gui.html')

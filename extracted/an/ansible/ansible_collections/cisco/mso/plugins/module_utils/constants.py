@@ -181,6 +181,13 @@ TEMPLATE_TYPES = {
         "site_amount": 2,
         "template_container": True,
     },
+    "application": {
+        "template_type": "application",
+        "template_type_container": "appTemplate",
+        "tenant": True,
+        "site_amount": 2,
+        "template_container": True,
+    },
 }
 
 TARGET_DSCP_MAP = {
@@ -237,3 +244,39 @@ DSCP_COS_KEY_MAP = {
     "target_cos": "targetCos",
     "qos_priority": "priority",
 }
+
+LOCAL_ASN_CONFIG = {"none": "none", "no_prepend": "no-prepend", "dual_as": "dual-as", "replace_as": "replace-as"}
+
+QOS_CONGESTION_ALGORITHM_MAP = {"tail_drop": "tailDrop", "wred": "wred"}
+QOS_SCHEDULING_ALGORITHM_MAP = {"strict_priority": "strictPriority", "weighted_round_robin": "wrr"}
+QOS_PFC_SCOPE_MAP = {"fabric_wide": "fabricWide", "intra_tor": "intraTor"}
+COS_VALUES = ["cos0", "cos1", "cos2", "cos3", "cos4", "cos5", "cos6", "cos7", "unspecified"]
+
+PORT_MAPPING = {
+    "dns": "53",
+    "ftp_data": "20",
+    "http": "80",
+    "https": "443",
+    "pop3": "110",
+    "rtsp": "554",
+    "smtp": "25",
+    "ssh": "22",
+    "unspecified": "0",
+}
+
+IP_PROTOCOL_MAPPING = {
+    "unspecified": "0",
+    "egp": "8",
+    "eigrp": "88",
+    "icmp": "1",
+    "icmpv6": "58",
+    "igmp": "2",
+    "igp": "9",
+    "l2tp": "115",
+    "ospfigp": "89",
+    "pim": "103",
+    "tcp": "6",
+    "udp": "17",
+}
+
+CONTRACT_SERVICE_CHAIN_NODE_FILTER_MAP = {"allow_all": "allow-all", "filters_from_contract": "filters-from-contract"}

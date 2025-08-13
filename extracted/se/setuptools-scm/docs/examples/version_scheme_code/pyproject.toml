@@ -1,6 +1,6 @@
 # ~/~ begin <<docs/customizing.md#docs/examples/version_scheme_code/pyproject.toml>>[init]
 [build-system]
-requires = ["setuptools>=80", "setuptools-scm>=8"]  # setuptools>=61 minimum, >=80 recommended
+requires = ["setuptools>=64", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]

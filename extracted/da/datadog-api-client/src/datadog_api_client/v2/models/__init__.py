@@ -49,6 +49,10 @@ from datadog_api_client.v2.model.aws_integration_iam_permissions_response_data_t
 from datadog_api_client.v2.model.aws_integration_type import AWSIntegrationType
 from datadog_api_client.v2.model.aws_integration_update import AWSIntegrationUpdate
 from datadog_api_client.v2.model.aws_lambda_forwarder_config import AWSLambdaForwarderConfig
+from datadog_api_client.v2.model.aws_lambda_forwarder_config_log_source_config import (
+    AWSLambdaForwarderConfigLogSourceConfig,
+)
+from datadog_api_client.v2.model.aws_log_source_tag_filter import AWSLogSourceTagFilter
 from datadog_api_client.v2.model.aws_logs_config import AWSLogsConfig
 from datadog_api_client.v2.model.aws_logs_services_response import AWSLogsServicesResponse
 from datadog_api_client.v2.model.aws_logs_services_response_attributes import AWSLogsServicesResponseAttributes
@@ -103,6 +107,11 @@ from datadog_api_client.v2.model.active_billing_dimensions_response import Activ
 from datadog_api_client.v2.model.active_billing_dimensions_type import ActiveBillingDimensionsType
 from datadog_api_client.v2.model.add_member_team_request import AddMemberTeamRequest
 from datadog_api_client.v2.model.advisory import Advisory
+from datadog_api_client.v2.model.alert_event_attributes import AlertEventAttributes
+from datadog_api_client.v2.model.alert_event_attributes_links_item import AlertEventAttributesLinksItem
+from datadog_api_client.v2.model.alert_event_attributes_links_item_category import AlertEventAttributesLinksItemCategory
+from datadog_api_client.v2.model.alert_event_attributes_priority import AlertEventAttributesPriority
+from datadog_api_client.v2.model.alert_event_attributes_status import AlertEventAttributesStatus
 from datadog_api_client.v2.model.alert_event_custom_attributes import AlertEventCustomAttributes
 from datadog_api_client.v2.model.alert_event_custom_attributes_custom import AlertEventCustomAttributesCustom
 from datadog_api_client.v2.model.alert_event_custom_attributes_links_items import AlertEventCustomAttributesLinksItems
@@ -115,6 +124,14 @@ from datadog_api_client.v2.model.annotation import Annotation
 from datadog_api_client.v2.model.annotation_display import AnnotationDisplay
 from datadog_api_client.v2.model.annotation_display_bounds import AnnotationDisplayBounds
 from datadog_api_client.v2.model.annotation_markdown_text_annotation import AnnotationMarkdownTextAnnotation
+from datadog_api_client.v2.model.anthropic_api_key import AnthropicAPIKey
+from datadog_api_client.v2.model.anthropic_api_key_type import AnthropicAPIKeyType
+from datadog_api_client.v2.model.anthropic_api_key_update import AnthropicAPIKeyUpdate
+from datadog_api_client.v2.model.anthropic_credentials import AnthropicCredentials
+from datadog_api_client.v2.model.anthropic_credentials_update import AnthropicCredentialsUpdate
+from datadog_api_client.v2.model.anthropic_integration import AnthropicIntegration
+from datadog_api_client.v2.model.anthropic_integration_type import AnthropicIntegrationType
+from datadog_api_client.v2.model.anthropic_integration_update import AnthropicIntegrationUpdate
 from datadog_api_client.v2.model.apm_retention_filter_type import ApmRetentionFilterType
 from datadog_api_client.v2.model.app_builder_event import AppBuilderEvent
 from datadog_api_client.v2.model.app_builder_event_name import AppBuilderEventName
@@ -252,6 +269,14 @@ from datadog_api_client.v2.model.application_security_waf_exclusion_filters_resp
     ApplicationSecurityWafExclusionFiltersResponse,
 )
 from datadog_api_client.v2.model.apps_sort_field import AppsSortField
+from datadog_api_client.v2.model.asana_access_token import AsanaAccessToken
+from datadog_api_client.v2.model.asana_access_token_type import AsanaAccessTokenType
+from datadog_api_client.v2.model.asana_access_token_update import AsanaAccessTokenUpdate
+from datadog_api_client.v2.model.asana_credentials import AsanaCredentials
+from datadog_api_client.v2.model.asana_credentials_update import AsanaCredentialsUpdate
+from datadog_api_client.v2.model.asana_integration import AsanaIntegration
+from datadog_api_client.v2.model.asana_integration_type import AsanaIntegrationType
+from datadog_api_client.v2.model.asana_integration_update import AsanaIntegrationUpdate
 from datadog_api_client.v2.model.asset import Asset
 from datadog_api_client.v2.model.asset_attributes import AssetAttributes
 from datadog_api_client.v2.model.asset_entity_type import AssetEntityType
@@ -326,8 +351,16 @@ from datadog_api_client.v2.model.aws_scan_options_type import AwsScanOptionsType
 from datadog_api_client.v2.model.aws_scan_options_update_attributes import AwsScanOptionsUpdateAttributes
 from datadog_api_client.v2.model.aws_scan_options_update_data import AwsScanOptionsUpdateData
 from datadog_api_client.v2.model.aws_scan_options_update_request import AwsScanOptionsUpdateRequest
+from datadog_api_client.v2.model.azure_credentials import AzureCredentials
+from datadog_api_client.v2.model.azure_credentials_update import AzureCredentialsUpdate
+from datadog_api_client.v2.model.azure_integration import AzureIntegration
+from datadog_api_client.v2.model.azure_integration_type import AzureIntegrationType
+from datadog_api_client.v2.model.azure_integration_update import AzureIntegrationUpdate
 from datadog_api_client.v2.model.azure_storage_destination import AzureStorageDestination
 from datadog_api_client.v2.model.azure_storage_destination_type import AzureStorageDestinationType
+from datadog_api_client.v2.model.azure_tenant import AzureTenant
+from datadog_api_client.v2.model.azure_tenant_type import AzureTenantType
+from datadog_api_client.v2.model.azure_tenant_update import AzureTenantUpdate
 from datadog_api_client.v2.model.azure_uc_config import AzureUCConfig
 from datadog_api_client.v2.model.azure_uc_config_pair import AzureUCConfigPair
 from datadog_api_client.v2.model.azure_uc_config_pair_attributes import AzureUCConfigPairAttributes
@@ -472,6 +505,7 @@ from datadog_api_client.v2.model.case_create_relationships import CaseCreateRela
 from datadog_api_client.v2.model.case_create_request import CaseCreateRequest
 from datadog_api_client.v2.model.case_empty import CaseEmpty
 from datadog_api_client.v2.model.case_empty_request import CaseEmptyRequest
+from datadog_api_client.v2.model.case_object_attributes import CaseObjectAttributes
 from datadog_api_client.v2.model.case_priority import CasePriority
 from datadog_api_client.v2.model.case_relationships import CaseRelationships
 from datadog_api_client.v2.model.case_resource_type import CaseResourceType
@@ -481,6 +515,9 @@ from datadog_api_client.v2.model.case_status import CaseStatus
 from datadog_api_client.v2.model.case_trigger import CaseTrigger
 from datadog_api_client.v2.model.case_trigger_wrapper import CaseTriggerWrapper
 from datadog_api_client.v2.model.case_type import CaseType
+from datadog_api_client.v2.model.case_update_attributes import CaseUpdateAttributes
+from datadog_api_client.v2.model.case_update_attributes_attributes import CaseUpdateAttributesAttributes
+from datadog_api_client.v2.model.case_update_attributes_request import CaseUpdateAttributesRequest
 from datadog_api_client.v2.model.case_update_priority import CaseUpdatePriority
 from datadog_api_client.v2.model.case_update_priority_attributes import CaseUpdatePriorityAttributes
 from datadog_api_client.v2.model.case_update_priority_request import CaseUpdatePriorityRequest
@@ -490,6 +527,19 @@ from datadog_api_client.v2.model.case_update_status_request import CaseUpdateSta
 from datadog_api_client.v2.model.cases_response import CasesResponse
 from datadog_api_client.v2.model.cases_response_meta import CasesResponseMeta
 from datadog_api_client.v2.model.cases_response_meta_pagination import CasesResponseMetaPagination
+from datadog_api_client.v2.model.change_event_attributes import ChangeEventAttributes
+from datadog_api_client.v2.model.change_event_attributes_author import ChangeEventAttributesAuthor
+from datadog_api_client.v2.model.change_event_attributes_author_type import ChangeEventAttributesAuthorType
+from datadog_api_client.v2.model.change_event_attributes_changed_resource import ChangeEventAttributesChangedResource
+from datadog_api_client.v2.model.change_event_attributes_changed_resource_type import (
+    ChangeEventAttributesChangedResourceType,
+)
+from datadog_api_client.v2.model.change_event_attributes_impacted_resources_item import (
+    ChangeEventAttributesImpactedResourcesItem,
+)
+from datadog_api_client.v2.model.change_event_attributes_impacted_resources_item_type import (
+    ChangeEventAttributesImpactedResourcesItemType,
+)
 from datadog_api_client.v2.model.change_event_custom_attributes import ChangeEventCustomAttributes
 from datadog_api_client.v2.model.change_event_custom_attributes_author import ChangeEventCustomAttributesAuthor
 from datadog_api_client.v2.model.change_event_custom_attributes_author_type import ChangeEventCustomAttributesAuthorType
@@ -507,6 +557,22 @@ from datadog_api_client.v2.model.change_event_custom_attributes_impacted_resourc
 )
 from datadog_api_client.v2.model.change_event_trigger_wrapper import ChangeEventTriggerWrapper
 from datadog_api_client.v2.model.chargeback_breakdown import ChargebackBreakdown
+from datadog_api_client.v2.model.circle_ciapi_key import CircleCIAPIKey
+from datadog_api_client.v2.model.circle_ciapi_key_type import CircleCIAPIKeyType
+from datadog_api_client.v2.model.circle_ciapi_key_update import CircleCIAPIKeyUpdate
+from datadog_api_client.v2.model.circle_ci_credentials import CircleCICredentials
+from datadog_api_client.v2.model.circle_ci_credentials_update import CircleCICredentialsUpdate
+from datadog_api_client.v2.model.circle_ci_integration import CircleCIIntegration
+from datadog_api_client.v2.model.circle_ci_integration_type import CircleCIIntegrationType
+from datadog_api_client.v2.model.circle_ci_integration_update import CircleCIIntegrationUpdate
+from datadog_api_client.v2.model.clickup_api_key import ClickupAPIKey
+from datadog_api_client.v2.model.clickup_api_key_type import ClickupAPIKeyType
+from datadog_api_client.v2.model.clickup_api_key_update import ClickupAPIKeyUpdate
+from datadog_api_client.v2.model.clickup_credentials import ClickupCredentials
+from datadog_api_client.v2.model.clickup_credentials_update import ClickupCredentialsUpdate
+from datadog_api_client.v2.model.clickup_integration import ClickupIntegration
+from datadog_api_client.v2.model.clickup_integration_type import ClickupIntegrationType
+from datadog_api_client.v2.model.clickup_integration_update import ClickupIntegrationUpdate
 from datadog_api_client.v2.model.cloud_configuration_compliance_rule_options import (
     CloudConfigurationComplianceRuleOptions,
 )
@@ -597,6 +663,9 @@ from datadog_api_client.v2.model.cloud_workload_security_agent_rule_updater_attr
 from datadog_api_client.v2.model.cloud_workload_security_agent_rules_list_response import (
     CloudWorkloadSecurityAgentRulesListResponse,
 )
+from datadog_api_client.v2.model.cloudflare_api_token import CloudflareAPIToken
+from datadog_api_client.v2.model.cloudflare_api_token_type import CloudflareAPITokenType
+from datadog_api_client.v2.model.cloudflare_api_token_update import CloudflareAPITokenUpdate
 from datadog_api_client.v2.model.cloudflare_account_create_request import CloudflareAccountCreateRequest
 from datadog_api_client.v2.model.cloudflare_account_create_request_attributes import (
     CloudflareAccountCreateRequestAttributes,
@@ -612,6 +681,14 @@ from datadog_api_client.v2.model.cloudflare_account_update_request_attributes im
 )
 from datadog_api_client.v2.model.cloudflare_account_update_request_data import CloudflareAccountUpdateRequestData
 from datadog_api_client.v2.model.cloudflare_accounts_response import CloudflareAccountsResponse
+from datadog_api_client.v2.model.cloudflare_credentials import CloudflareCredentials
+from datadog_api_client.v2.model.cloudflare_credentials_update import CloudflareCredentialsUpdate
+from datadog_api_client.v2.model.cloudflare_global_api_token import CloudflareGlobalAPIToken
+from datadog_api_client.v2.model.cloudflare_global_api_token_type import CloudflareGlobalAPITokenType
+from datadog_api_client.v2.model.cloudflare_global_api_token_update import CloudflareGlobalAPITokenUpdate
+from datadog_api_client.v2.model.cloudflare_integration import CloudflareIntegration
+from datadog_api_client.v2.model.cloudflare_integration_type import CloudflareIntegrationType
+from datadog_api_client.v2.model.cloudflare_integration_update import CloudflareIntegrationUpdate
 from datadog_api_client.v2.model.code_location import CodeLocation
 from datadog_api_client.v2.model.completion_condition import CompletionCondition
 from datadog_api_client.v2.model.completion_condition_operator import CompletionConditionOperator
@@ -624,6 +701,14 @@ from datadog_api_client.v2.model.component_grid_type import ComponentGridType
 from datadog_api_client.v2.model.component_properties import ComponentProperties
 from datadog_api_client.v2.model.component_properties_is_visible import ComponentPropertiesIsVisible
 from datadog_api_client.v2.model.component_type import ComponentType
+from datadog_api_client.v2.model.config_cat_credentials import ConfigCatCredentials
+from datadog_api_client.v2.model.config_cat_credentials_update import ConfigCatCredentialsUpdate
+from datadog_api_client.v2.model.config_cat_integration import ConfigCatIntegration
+from datadog_api_client.v2.model.config_cat_integration_type import ConfigCatIntegrationType
+from datadog_api_client.v2.model.config_cat_integration_update import ConfigCatIntegrationUpdate
+from datadog_api_client.v2.model.config_cat_sdk_key import ConfigCatSDKKey
+from datadog_api_client.v2.model.config_cat_sdk_key_type import ConfigCatSDKKeyType
+from datadog_api_client.v2.model.config_cat_sdk_key_update import ConfigCatSDKKeyUpdate
 from datadog_api_client.v2.model.confluent_account_create_request import ConfluentAccountCreateRequest
 from datadog_api_client.v2.model.confluent_account_create_request_attributes import (
     ConfluentAccountCreateRequestAttributes,
@@ -948,11 +1033,22 @@ from datadog_api_client.v2.model.data_transform import DataTransform
 from datadog_api_client.v2.model.data_transform_properties import DataTransformProperties
 from datadog_api_client.v2.model.data_transform_type import DataTransformType
 from datadog_api_client.v2.model.database_monitoring_trigger_wrapper import DatabaseMonitoringTriggerWrapper
-from datadog_api_client.v2.model.dataset import Dataset
-from datadog_api_client.v2.model.dataset_attributes import DatasetAttributes
+from datadog_api_client.v2.model.datadog_api_key import DatadogAPIKey
+from datadog_api_client.v2.model.datadog_api_key_type import DatadogAPIKeyType
+from datadog_api_client.v2.model.datadog_api_key_update import DatadogAPIKeyUpdate
+from datadog_api_client.v2.model.datadog_credentials import DatadogCredentials
+from datadog_api_client.v2.model.datadog_credentials_update import DatadogCredentialsUpdate
+from datadog_api_client.v2.model.datadog_integration import DatadogIntegration
+from datadog_api_client.v2.model.datadog_integration_type import DatadogIntegrationType
+from datadog_api_client.v2.model.datadog_integration_update import DatadogIntegrationUpdate
+from datadog_api_client.v2.model.dataset_attributes_request import DatasetAttributesRequest
+from datadog_api_client.v2.model.dataset_attributes_response import DatasetAttributesResponse
 from datadog_api_client.v2.model.dataset_create_request import DatasetCreateRequest
+from datadog_api_client.v2.model.dataset_request import DatasetRequest
+from datadog_api_client.v2.model.dataset_response import DatasetResponse
 from datadog_api_client.v2.model.dataset_response_multi import DatasetResponseMulti
 from datadog_api_client.v2.model.dataset_response_single import DatasetResponseSingle
+from datadog_api_client.v2.model.dataset_update_request import DatasetUpdateRequest
 from datadog_api_client.v2.model.delete_app_response import DeleteAppResponse
 from datadog_api_client.v2.model.delete_app_response_data import DeleteAppResponseData
 from datadog_api_client.v2.model.delete_apps_request import DeleteAppsRequest
@@ -972,6 +1068,7 @@ from datadog_api_client.v2.model.detailed_finding_type import DetailedFindingTyp
 from datadog_api_client.v2.model.device_attributes import DeviceAttributes
 from datadog_api_client.v2.model.device_attributes_interface_statuses import DeviceAttributesInterfaceStatuses
 from datadog_api_client.v2.model.devices_list_data import DevicesListData
+from datadog_api_client.v2.model.dns_metric_key import DnsMetricKey
 from datadog_api_client.v2.model.domain_allowlist import DomainAllowlist
 from datadog_api_client.v2.model.domain_allowlist_attributes import DomainAllowlistAttributes
 from datadog_api_client.v2.model.domain_allowlist_request import DomainAllowlistRequest
@@ -1195,6 +1292,9 @@ from datadog_api_client.v2.model.event_priority import EventPriority
 from datadog_api_client.v2.model.event_response import EventResponse
 from datadog_api_client.v2.model.event_response_attributes import EventResponseAttributes
 from datadog_api_client.v2.model.event_status_type import EventStatusType
+from datadog_api_client.v2.model.event_system_attributes import EventSystemAttributes
+from datadog_api_client.v2.model.event_system_attributes_category import EventSystemAttributesCategory
+from datadog_api_client.v2.model.event_system_attributes_integration_id import EventSystemAttributesIntegrationId
 from datadog_api_client.v2.model.event_type import EventType
 from datadog_api_client.v2.model.events_aggregation import EventsAggregation
 from datadog_api_client.v2.model.events_compute import EventsCompute
@@ -1216,6 +1316,9 @@ from datadog_api_client.v2.model.events_sort import EventsSort
 from datadog_api_client.v2.model.events_sort_type import EventsSortType
 from datadog_api_client.v2.model.events_timeseries_query import EventsTimeseriesQuery
 from datadog_api_client.v2.model.events_warning import EventsWarning
+from datadog_api_client.v2.model.fastly_api_key import FastlyAPIKey
+from datadog_api_client.v2.model.fastly_api_key_type import FastlyAPIKeyType
+from datadog_api_client.v2.model.fastly_api_key_update import FastlyAPIKeyUpdate
 from datadog_api_client.v2.model.fastly_accoun_response_attributes import FastlyAccounResponseAttributes
 from datadog_api_client.v2.model.fastly_account_create_request import FastlyAccountCreateRequest
 from datadog_api_client.v2.model.fastly_account_create_request_attributes import FastlyAccountCreateRequestAttributes
@@ -1227,6 +1330,11 @@ from datadog_api_client.v2.model.fastly_account_update_request import FastlyAcco
 from datadog_api_client.v2.model.fastly_account_update_request_attributes import FastlyAccountUpdateRequestAttributes
 from datadog_api_client.v2.model.fastly_account_update_request_data import FastlyAccountUpdateRequestData
 from datadog_api_client.v2.model.fastly_accounts_response import FastlyAccountsResponse
+from datadog_api_client.v2.model.fastly_credentials import FastlyCredentials
+from datadog_api_client.v2.model.fastly_credentials_update import FastlyCredentialsUpdate
+from datadog_api_client.v2.model.fastly_integration import FastlyIntegration
+from datadog_api_client.v2.model.fastly_integration_type import FastlyIntegrationType
+from datadog_api_client.v2.model.fastly_integration_update import FastlyIntegrationUpdate
 from datadog_api_client.v2.model.fastly_service import FastlyService
 from datadog_api_client.v2.model.fastly_service_attributes import FastlyServiceAttributes
 from datadog_api_client.v2.model.fastly_service_data import FastlyServiceData
@@ -1246,12 +1354,25 @@ from datadog_api_client.v2.model.finding_type import FindingType
 from datadog_api_client.v2.model.finding_vulnerability_type import FindingVulnerabilityType
 from datadog_api_client.v2.model.formula_limit import FormulaLimit
 from datadog_api_client.v2.model.framework_handle_and_version_response_data import FrameworkHandleAndVersionResponseData
+from datadog_api_client.v2.model.freshservice_api_key import FreshserviceAPIKey
+from datadog_api_client.v2.model.freshservice_api_key_type import FreshserviceAPIKeyType
+from datadog_api_client.v2.model.freshservice_api_key_update import FreshserviceAPIKeyUpdate
+from datadog_api_client.v2.model.freshservice_credentials import FreshserviceCredentials
+from datadog_api_client.v2.model.freshservice_credentials_update import FreshserviceCredentialsUpdate
+from datadog_api_client.v2.model.freshservice_integration import FreshserviceIntegration
+from datadog_api_client.v2.model.freshservice_integration_type import FreshserviceIntegrationType
+from datadog_api_client.v2.model.freshservice_integration_update import FreshserviceIntegrationUpdate
 from datadog_api_client.v2.model.full_api_key import FullAPIKey
 from datadog_api_client.v2.model.full_api_key_attributes import FullAPIKeyAttributes
 from datadog_api_client.v2.model.full_application_key import FullApplicationKey
 from datadog_api_client.v2.model.full_application_key_attributes import FullApplicationKeyAttributes
 from datadog_api_client.v2.model.full_custom_framework_data import FullCustomFrameworkData
 from datadog_api_client.v2.model.full_custom_framework_data_attributes import FullCustomFrameworkDataAttributes
+from datadog_api_client.v2.model.gcp_credentials import GCPCredentials
+from datadog_api_client.v2.model.gcp_credentials_update import GCPCredentialsUpdate
+from datadog_api_client.v2.model.gcp_integration import GCPIntegration
+from datadog_api_client.v2.model.gcp_integration_type import GCPIntegrationType
+from datadog_api_client.v2.model.gcp_integration_update import GCPIntegrationUpdate
 from datadog_api_client.v2.model.gcp_metric_namespace_config import GCPMetricNamespaceConfig
 from datadog_api_client.v2.model.gcpsts_delegate_account import GCPSTSDelegateAccount
 from datadog_api_client.v2.model.gcpsts_delegate_account_attributes import GCPSTSDelegateAccountAttributes
@@ -1265,8 +1386,11 @@ from datadog_api_client.v2.model.gcpsts_service_account_response import GCPSTSSe
 from datadog_api_client.v2.model.gcpsts_service_account_update_request import GCPSTSServiceAccountUpdateRequest
 from datadog_api_client.v2.model.gcpsts_service_account_update_request_data import GCPSTSServiceAccountUpdateRequestData
 from datadog_api_client.v2.model.gcpsts_service_accounts_response import GCPSTSServiceAccountsResponse
+from datadog_api_client.v2.model.gcp_service_account import GCPServiceAccount
+from datadog_api_client.v2.model.gcp_service_account_credential_type import GCPServiceAccountCredentialType
 from datadog_api_client.v2.model.gcp_service_account_meta import GCPServiceAccountMeta
 from datadog_api_client.v2.model.gcp_service_account_type import GCPServiceAccountType
+from datadog_api_client.v2.model.gcp_service_account_update import GCPServiceAccountUpdate
 from datadog_api_client.v2.model.gcp_usage_cost_config import GCPUsageCostConfig
 from datadog_api_client.v2.model.gcp_usage_cost_config_attributes import GCPUsageCostConfigAttributes
 from datadog_api_client.v2.model.gcp_usage_cost_config_patch_data import GCPUsageCostConfigPatchData
@@ -1284,6 +1408,14 @@ from datadog_api_client.v2.model.gcp_usage_cost_config_post_request_type import 
 from datadog_api_client.v2.model.gcp_usage_cost_config_response import GCPUsageCostConfigResponse
 from datadog_api_client.v2.model.gcp_usage_cost_config_type import GCPUsageCostConfigType
 from datadog_api_client.v2.model.gcp_usage_cost_configs_response import GCPUsageCostConfigsResponse
+from datadog_api_client.v2.model.gemini_api_key import GeminiAPIKey
+from datadog_api_client.v2.model.gemini_api_key_type import GeminiAPIKeyType
+from datadog_api_client.v2.model.gemini_api_key_update import GeminiAPIKeyUpdate
+from datadog_api_client.v2.model.gemini_credentials import GeminiCredentials
+from datadog_api_client.v2.model.gemini_credentials_update import GeminiCredentialsUpdate
+from datadog_api_client.v2.model.gemini_integration import GeminiIntegration
+from datadog_api_client.v2.model.gemini_integration_type import GeminiIntegrationType
+from datadog_api_client.v2.model.gemini_integration_update import GeminiIntegrationUpdate
 from datadog_api_client.v2.model.get_action_connection_response import GetActionConnectionResponse
 from datadog_api_client.v2.model.get_app_key_registration_response import GetAppKeyRegistrationResponse
 from datadog_api_client.v2.model.get_app_response import GetAppResponse
@@ -1309,6 +1441,22 @@ from datadog_api_client.v2.model.get_team_memberships_sort import GetTeamMembers
 from datadog_api_client.v2.model.get_workflow_response import GetWorkflowResponse
 from datadog_api_client.v2.model.github_webhook_trigger import GithubWebhookTrigger
 from datadog_api_client.v2.model.github_webhook_trigger_wrapper import GithubWebhookTriggerWrapper
+from datadog_api_client.v2.model.gitlab_api_key import GitlabAPIKey
+from datadog_api_client.v2.model.gitlab_api_key_type import GitlabAPIKeyType
+from datadog_api_client.v2.model.gitlab_api_key_update import GitlabAPIKeyUpdate
+from datadog_api_client.v2.model.gitlab_credentials import GitlabCredentials
+from datadog_api_client.v2.model.gitlab_credentials_update import GitlabCredentialsUpdate
+from datadog_api_client.v2.model.gitlab_integration import GitlabIntegration
+from datadog_api_client.v2.model.gitlab_integration_type import GitlabIntegrationType
+from datadog_api_client.v2.model.gitlab_integration_update import GitlabIntegrationUpdate
+from datadog_api_client.v2.model.grey_noise_api_key import GreyNoiseAPIKey
+from datadog_api_client.v2.model.grey_noise_api_key_type import GreyNoiseAPIKeyType
+from datadog_api_client.v2.model.grey_noise_api_key_update import GreyNoiseAPIKeyUpdate
+from datadog_api_client.v2.model.grey_noise_credentials import GreyNoiseCredentials
+from datadog_api_client.v2.model.grey_noise_credentials_update import GreyNoiseCredentialsUpdate
+from datadog_api_client.v2.model.grey_noise_integration import GreyNoiseIntegration
+from datadog_api_client.v2.model.grey_noise_integration_type import GreyNoiseIntegrationType
+from datadog_api_client.v2.model.grey_noise_integration_update import GreyNoiseIntegrationUpdate
 from datadog_api_client.v2.model.group_scalar_column import GroupScalarColumn
 from datadog_api_client.v2.model.group_tags import GroupTags
 from datadog_api_client.v2.model.http_body import HTTPBody
@@ -1541,6 +1689,14 @@ from datadog_api_client.v2.model.kind_data import KindData
 from datadog_api_client.v2.model.kind_metadata import KindMetadata
 from datadog_api_client.v2.model.kind_obj import KindObj
 from datadog_api_client.v2.model.kind_response_meta import KindResponseMeta
+from datadog_api_client.v2.model.launch_darkly_api_key import LaunchDarklyAPIKey
+from datadog_api_client.v2.model.launch_darkly_api_key_type import LaunchDarklyAPIKeyType
+from datadog_api_client.v2.model.launch_darkly_api_key_update import LaunchDarklyAPIKeyUpdate
+from datadog_api_client.v2.model.launch_darkly_credentials import LaunchDarklyCredentials
+from datadog_api_client.v2.model.launch_darkly_credentials_update import LaunchDarklyCredentialsUpdate
+from datadog_api_client.v2.model.launch_darkly_integration import LaunchDarklyIntegration
+from datadog_api_client.v2.model.launch_darkly_integration_type import LaunchDarklyIntegrationType
+from datadog_api_client.v2.model.launch_darkly_integration_update import LaunchDarklyIntegrationUpdate
 from datadog_api_client.v2.model.layer import Layer
 from datadog_api_client.v2.model.layer_attributes import LayerAttributes
 from datadog_api_client.v2.model.layer_attributes_interval import LayerAttributesInterval
@@ -1759,6 +1915,10 @@ from datadog_api_client.v2.model.metric_suggested_tags_and_aggregations_response
     MetricSuggestedTagsAndAggregationsResponse,
 )
 from datadog_api_client.v2.model.metric_suggested_tags_attributes import MetricSuggestedTagsAttributes
+from datadog_api_client.v2.model.metric_tag_cardinalities_meta import MetricTagCardinalitiesMeta
+from datadog_api_client.v2.model.metric_tag_cardinalities_response import MetricTagCardinalitiesResponse
+from datadog_api_client.v2.model.metric_tag_cardinality import MetricTagCardinality
+from datadog_api_client.v2.model.metric_tag_cardinality_attributes import MetricTagCardinalityAttributes
 from datadog_api_client.v2.model.metric_tag_configuration import MetricTagConfiguration
 from datadog_api_client.v2.model.metric_tag_configuration_attributes import MetricTagConfigurationAttributes
 from datadog_api_client.v2.model.metric_tag_configuration_create_attributes import (
@@ -1958,6 +2118,14 @@ from datadog_api_client.v2.model.notification_rule import NotificationRule
 from datadog_api_client.v2.model.notification_rule_attributes import NotificationRuleAttributes
 from datadog_api_client.v2.model.notification_rule_response import NotificationRuleResponse
 from datadog_api_client.v2.model.notification_rules_type import NotificationRulesType
+from datadog_api_client.v2.model.notion_api_key import NotionAPIKey
+from datadog_api_client.v2.model.notion_api_key_type import NotionAPIKeyType
+from datadog_api_client.v2.model.notion_api_key_update import NotionAPIKeyUpdate
+from datadog_api_client.v2.model.notion_credentials import NotionCredentials
+from datadog_api_client.v2.model.notion_credentials_update import NotionCredentialsUpdate
+from datadog_api_client.v2.model.notion_integration import NotionIntegration
+from datadog_api_client.v2.model.notion_integration_type import NotionIntegrationType
+from datadog_api_client.v2.model.notion_integration_update import NotionIntegrationUpdate
 from datadog_api_client.v2.model.nullable_relationship_to_user import NullableRelationshipToUser
 from datadog_api_client.v2.model.nullable_relationship_to_user_data import NullableRelationshipToUserData
 from datadog_api_client.v2.model.nullable_user_relationship import NullableUserRelationship
@@ -2424,6 +2592,9 @@ from datadog_api_client.v2.model.observability_pipeline_throttle_processor_type 
     ObservabilityPipelineThrottleProcessorType,
 )
 from datadog_api_client.v2.model.observability_pipeline_tls import ObservabilityPipelineTls
+from datadog_api_client.v2.model.okta_api_token import OktaAPIToken
+from datadog_api_client.v2.model.okta_api_token_type import OktaAPITokenType
+from datadog_api_client.v2.model.okta_api_token_update import OktaAPITokenUpdate
 from datadog_api_client.v2.model.okta_account import OktaAccount
 from datadog_api_client.v2.model.okta_account_attributes import OktaAccountAttributes
 from datadog_api_client.v2.model.okta_account_request import OktaAccountRequest
@@ -2434,11 +2605,24 @@ from datadog_api_client.v2.model.okta_account_update_request import OktaAccountU
 from datadog_api_client.v2.model.okta_account_update_request_attributes import OktaAccountUpdateRequestAttributes
 from datadog_api_client.v2.model.okta_account_update_request_data import OktaAccountUpdateRequestData
 from datadog_api_client.v2.model.okta_accounts_response import OktaAccountsResponse
+from datadog_api_client.v2.model.okta_credentials import OktaCredentials
+from datadog_api_client.v2.model.okta_credentials_update import OktaCredentialsUpdate
+from datadog_api_client.v2.model.okta_integration import OktaIntegration
+from datadog_api_client.v2.model.okta_integration_type import OktaIntegrationType
+from datadog_api_client.v2.model.okta_integration_update import OktaIntegrationUpdate
 from datadog_api_client.v2.model.on_call_page_target_type import OnCallPageTargetType
 from datadog_api_client.v2.model.on_demand_concurrency_cap import OnDemandConcurrencyCap
 from datadog_api_client.v2.model.on_demand_concurrency_cap_attributes import OnDemandConcurrencyCapAttributes
 from datadog_api_client.v2.model.on_demand_concurrency_cap_response import OnDemandConcurrencyCapResponse
 from datadog_api_client.v2.model.on_demand_concurrency_cap_type import OnDemandConcurrencyCapType
+from datadog_api_client.v2.model.open_aiapi_key import OpenAIAPIKey
+from datadog_api_client.v2.model.open_aiapi_key_type import OpenAIAPIKeyType
+from datadog_api_client.v2.model.open_aiapi_key_update import OpenAIAPIKeyUpdate
+from datadog_api_client.v2.model.open_ai_credentials import OpenAICredentials
+from datadog_api_client.v2.model.open_ai_credentials_update import OpenAICredentialsUpdate
+from datadog_api_client.v2.model.open_ai_integration import OpenAIIntegration
+from datadog_api_client.v2.model.open_ai_integration_type import OpenAIIntegrationType
+from datadog_api_client.v2.model.open_ai_integration_update import OpenAIIntegrationUpdate
 from datadog_api_client.v2.model.open_api_endpoint import OpenAPIEndpoint
 from datadog_api_client.v2.model.open_api_file import OpenAPIFile
 from datadog_api_client.v2.model.opsgenie_service_create_attributes import OpsgenieServiceCreateAttributes
@@ -2885,6 +3069,9 @@ from datadog_api_client.v2.model.security_monitoring_rule_case_action import Sec
 from datadog_api_client.v2.model.security_monitoring_rule_case_action_options import (
     SecurityMonitoringRuleCaseActionOptions,
 )
+from datadog_api_client.v2.model.security_monitoring_rule_case_action_options_flagged_ip_type import (
+    SecurityMonitoringRuleCaseActionOptionsFlaggedIPType,
+)
 from datadog_api_client.v2.model.security_monitoring_rule_case_action_type import SecurityMonitoringRuleCaseActionType
 from datadog_api_client.v2.model.security_monitoring_rule_case_create import SecurityMonitoringRuleCaseCreate
 from datadog_api_client.v2.model.security_monitoring_rule_convert_payload import SecurityMonitoringRuleConvertPayload
@@ -2939,6 +3126,7 @@ from datadog_api_client.v2.model.security_monitoring_rule_type_read import Secur
 from datadog_api_client.v2.model.security_monitoring_rule_type_test import SecurityMonitoringRuleTypeTest
 from datadog_api_client.v2.model.security_monitoring_rule_update_payload import SecurityMonitoringRuleUpdatePayload
 from datadog_api_client.v2.model.security_monitoring_rule_validate_payload import SecurityMonitoringRuleValidatePayload
+from datadog_api_client.v2.model.security_monitoring_scheduling_options import SecurityMonitoringSchedulingOptions
 from datadog_api_client.v2.model.security_monitoring_signal import SecurityMonitoringSignal
 from datadog_api_client.v2.model.security_monitoring_signal_archive_reason import SecurityMonitoringSignalArchiveReason
 from datadog_api_client.v2.model.security_monitoring_signal_assignee_update_attributes import (
@@ -3227,6 +3415,14 @@ from datadog_api_client.v2.model.service_definition_v2_slack_type import Service
 from datadog_api_client.v2.model.service_definition_v2_version import ServiceDefinitionV2Version
 from datadog_api_client.v2.model.service_definitions_create_request import ServiceDefinitionsCreateRequest
 from datadog_api_client.v2.model.service_definitions_list_response import ServiceDefinitionsListResponse
+from datadog_api_client.v2.model.service_now_basic_auth import ServiceNowBasicAuth
+from datadog_api_client.v2.model.service_now_basic_auth_type import ServiceNowBasicAuthType
+from datadog_api_client.v2.model.service_now_basic_auth_update import ServiceNowBasicAuthUpdate
+from datadog_api_client.v2.model.service_now_credentials import ServiceNowCredentials
+from datadog_api_client.v2.model.service_now_credentials_update import ServiceNowCredentialsUpdate
+from datadog_api_client.v2.model.service_now_integration import ServiceNowIntegration
+from datadog_api_client.v2.model.service_now_integration_type import ServiceNowIntegrationType
+from datadog_api_client.v2.model.service_now_integration_update import ServiceNowIntegrationUpdate
 from datadog_api_client.v2.model.service_now_ticket import ServiceNowTicket
 from datadog_api_client.v2.model.service_now_ticket_result import ServiceNowTicketResult
 from datadog_api_client.v2.model.shift import Shift
@@ -3251,6 +3447,18 @@ from datadog_api_client.v2.model.single_aggregated_connection_response_data_attr
 from datadog_api_client.v2.model.single_aggregated_connection_response_data_type import (
     SingleAggregatedConnectionResponseDataType,
 )
+from datadog_api_client.v2.model.single_aggregated_dns_response_array import SingleAggregatedDnsResponseArray
+from datadog_api_client.v2.model.single_aggregated_dns_response_data import SingleAggregatedDnsResponseData
+from datadog_api_client.v2.model.single_aggregated_dns_response_data_attributes import (
+    SingleAggregatedDnsResponseDataAttributes,
+)
+from datadog_api_client.v2.model.single_aggregated_dns_response_data_attributes_group_by_items import (
+    SingleAggregatedDnsResponseDataAttributesGroupByItems,
+)
+from datadog_api_client.v2.model.single_aggregated_dns_response_data_attributes_metrics_items import (
+    SingleAggregatedDnsResponseDataAttributesMetricsItems,
+)
+from datadog_api_client.v2.model.single_aggregated_dns_response_data_type import SingleAggregatedDnsResponseDataType
 from datadog_api_client.v2.model.slack_integration_metadata import SlackIntegrationMetadata
 from datadog_api_client.v2.model.slack_integration_metadata_channel_item import SlackIntegrationMetadataChannelItem
 from datadog_api_client.v2.model.slack_trigger_wrapper import SlackTriggerWrapper
@@ -3322,10 +3530,26 @@ from datadog_api_client.v2.model.spans_type import SpansType
 from datadog_api_client.v2.model.spans_warning import SpansWarning
 from datadog_api_client.v2.model.spec import Spec
 from datadog_api_client.v2.model.spec_version import SpecVersion
+from datadog_api_client.v2.model.split_api_key import SplitAPIKey
+from datadog_api_client.v2.model.split_api_key_type import SplitAPIKeyType
+from datadog_api_client.v2.model.split_api_key_update import SplitAPIKeyUpdate
+from datadog_api_client.v2.model.split_credentials import SplitCredentials
+from datadog_api_client.v2.model.split_credentials_update import SplitCredentialsUpdate
+from datadog_api_client.v2.model.split_integration import SplitIntegration
+from datadog_api_client.v2.model.split_integration_type import SplitIntegrationType
+from datadog_api_client.v2.model.split_integration_update import SplitIntegrationUpdate
 from datadog_api_client.v2.model.state import State
 from datadog_api_client.v2.model.state_variable import StateVariable
 from datadog_api_client.v2.model.state_variable_properties import StateVariableProperties
 from datadog_api_client.v2.model.state_variable_type import StateVariableType
+from datadog_api_client.v2.model.statsig_api_key import StatsigAPIKey
+from datadog_api_client.v2.model.statsig_api_key_type import StatsigAPIKeyType
+from datadog_api_client.v2.model.statsig_api_key_update import StatsigAPIKeyUpdate
+from datadog_api_client.v2.model.statsig_credentials import StatsigCredentials
+from datadog_api_client.v2.model.statsig_credentials_update import StatsigCredentialsUpdate
+from datadog_api_client.v2.model.statsig_integration import StatsigIntegration
+from datadog_api_client.v2.model.statsig_integration_type import StatsigIntegrationType
+from datadog_api_client.v2.model.statsig_integration_update import StatsigIntegrationUpdate
 from datadog_api_client.v2.model.step import Step
 from datadog_api_client.v2.model.step_display import StepDisplay
 from datadog_api_client.v2.model.step_display_bounds import StepDisplayBounds
@@ -3534,9 +3758,21 @@ from datadog_api_client.v2.model.user_update_request import UserUpdateRequest
 from datadog_api_client.v2.model.users_relationship import UsersRelationship
 from datadog_api_client.v2.model.users_response import UsersResponse
 from datadog_api_client.v2.model.users_type import UsersType
+from datadog_api_client.v2.model.v2_event import V2Event
+from datadog_api_client.v2.model.v2_event_attributes import V2EventAttributes
+from datadog_api_client.v2.model.v2_event_attributes_attributes import V2EventAttributesAttributes
+from datadog_api_client.v2.model.v2_event_response import V2EventResponse
 from datadog_api_client.v2.model.validation_error import ValidationError
 from datadog_api_client.v2.model.validation_error_meta import ValidationErrorMeta
 from datadog_api_client.v2.model.validation_response import ValidationResponse
+from datadog_api_client.v2.model.virus_total_api_key import VirusTotalAPIKey
+from datadog_api_client.v2.model.virus_total_api_key_type import VirusTotalAPIKeyType
+from datadog_api_client.v2.model.virus_total_api_key_update import VirusTotalAPIKeyUpdate
+from datadog_api_client.v2.model.virus_total_credentials import VirusTotalCredentials
+from datadog_api_client.v2.model.virus_total_credentials_update import VirusTotalCredentialsUpdate
+from datadog_api_client.v2.model.virus_total_integration import VirusTotalIntegration
+from datadog_api_client.v2.model.virus_total_integration_type import VirusTotalIntegrationType
+from datadog_api_client.v2.model.virus_total_integration_update import VirusTotalIntegrationUpdate
 from datadog_api_client.v2.model.vulnerabilities_type import VulnerabilitiesType
 from datadog_api_client.v2.model.vulnerability import Vulnerability
 from datadog_api_client.v2.model.vulnerability_attributes import VulnerabilityAttributes
@@ -3628,6 +3864,8 @@ __all__ = [
     "AWSIntegrationType",
     "AWSIntegrationUpdate",
     "AWSLambdaForwarderConfig",
+    "AWSLambdaForwarderConfigLogSourceConfig",
+    "AWSLogSourceTagFilter",
     "AWSLogsConfig",
     "AWSLogsServicesResponse",
     "AWSLogsServicesResponseAttributes",
@@ -3682,6 +3920,11 @@ __all__ = [
     "ActiveBillingDimensionsType",
     "AddMemberTeamRequest",
     "Advisory",
+    "AlertEventAttributes",
+    "AlertEventAttributesLinksItem",
+    "AlertEventAttributesLinksItemCategory",
+    "AlertEventAttributesPriority",
+    "AlertEventAttributesStatus",
     "AlertEventCustomAttributes",
     "AlertEventCustomAttributesCustom",
     "AlertEventCustomAttributesLinksItems",
@@ -3692,6 +3935,14 @@ __all__ = [
     "AnnotationDisplay",
     "AnnotationDisplayBounds",
     "AnnotationMarkdownTextAnnotation",
+    "AnthropicAPIKey",
+    "AnthropicAPIKeyType",
+    "AnthropicAPIKeyUpdate",
+    "AnthropicCredentials",
+    "AnthropicCredentialsUpdate",
+    "AnthropicIntegration",
+    "AnthropicIntegrationType",
+    "AnthropicIntegrationUpdate",
     "ApmRetentionFilterType",
     "AppBuilderEvent",
     "AppBuilderEventName",
@@ -3757,6 +4008,14 @@ __all__ = [
     "ApplicationSecurityWafExclusionFilterUpdateRequest",
     "ApplicationSecurityWafExclusionFiltersResponse",
     "AppsSortField",
+    "AsanaAccessToken",
+    "AsanaAccessTokenType",
+    "AsanaAccessTokenUpdate",
+    "AsanaCredentials",
+    "AsanaCredentialsUpdate",
+    "AsanaIntegration",
+    "AsanaIntegrationType",
+    "AsanaIntegrationUpdate",
     "Asset",
     "AssetAttributes",
     "AssetEntityType",
@@ -3831,8 +4090,16 @@ __all__ = [
     "AwsScanOptionsUpdateAttributes",
     "AwsScanOptionsUpdateData",
     "AwsScanOptionsUpdateRequest",
+    "AzureCredentials",
+    "AzureCredentialsUpdate",
+    "AzureIntegration",
+    "AzureIntegrationType",
+    "AzureIntegrationUpdate",
     "AzureStorageDestination",
     "AzureStorageDestinationType",
+    "AzureTenant",
+    "AzureTenantType",
+    "AzureTenantUpdate",
     "AzureUCConfig",
     "AzureUCConfigPair",
     "AzureUCConfigPairAttributes",
@@ -3957,6 +4224,7 @@ __all__ = [
     "CaseCreateRequest",
     "CaseEmpty",
     "CaseEmptyRequest",
+    "CaseObjectAttributes",
     "CasePriority",
     "CaseRelationships",
     "CaseResourceType",
@@ -3966,6 +4234,9 @@ __all__ = [
     "CaseTrigger",
     "CaseTriggerWrapper",
     "CaseType",
+    "CaseUpdateAttributes",
+    "CaseUpdateAttributesAttributes",
+    "CaseUpdateAttributesRequest",
     "CaseUpdatePriority",
     "CaseUpdatePriorityAttributes",
     "CaseUpdatePriorityRequest",
@@ -3975,6 +4246,13 @@ __all__ = [
     "CasesResponse",
     "CasesResponseMeta",
     "CasesResponseMetaPagination",
+    "ChangeEventAttributes",
+    "ChangeEventAttributesAuthor",
+    "ChangeEventAttributesAuthorType",
+    "ChangeEventAttributesChangedResource",
+    "ChangeEventAttributesChangedResourceType",
+    "ChangeEventAttributesImpactedResourcesItem",
+    "ChangeEventAttributesImpactedResourcesItemType",
     "ChangeEventCustomAttributes",
     "ChangeEventCustomAttributesAuthor",
     "ChangeEventCustomAttributesAuthorType",
@@ -3984,6 +4262,22 @@ __all__ = [
     "ChangeEventCustomAttributesImpactedResourcesItemsType",
     "ChangeEventTriggerWrapper",
     "ChargebackBreakdown",
+    "CircleCIAPIKey",
+    "CircleCIAPIKeyType",
+    "CircleCIAPIKeyUpdate",
+    "CircleCICredentials",
+    "CircleCICredentialsUpdate",
+    "CircleCIIntegration",
+    "CircleCIIntegrationType",
+    "CircleCIIntegrationUpdate",
+    "ClickupAPIKey",
+    "ClickupAPIKeyType",
+    "ClickupAPIKeyUpdate",
+    "ClickupCredentials",
+    "ClickupCredentialsUpdate",
+    "ClickupIntegration",
+    "ClickupIntegrationType",
+    "ClickupIntegrationUpdate",
     "CloudConfigurationComplianceRuleOptions",
     "CloudConfigurationRegoRule",
     "CloudConfigurationRuleCaseCreate",
@@ -4022,6 +4316,9 @@ __all__ = [
     "CloudWorkloadSecurityAgentRuleUpdateRequest",
     "CloudWorkloadSecurityAgentRuleUpdaterAttributes",
     "CloudWorkloadSecurityAgentRulesListResponse",
+    "CloudflareAPIToken",
+    "CloudflareAPITokenType",
+    "CloudflareAPITokenUpdate",
     "CloudflareAccountCreateRequest",
     "CloudflareAccountCreateRequestAttributes",
     "CloudflareAccountCreateRequestData",
@@ -4033,6 +4330,14 @@ __all__ = [
     "CloudflareAccountUpdateRequestAttributes",
     "CloudflareAccountUpdateRequestData",
     "CloudflareAccountsResponse",
+    "CloudflareCredentials",
+    "CloudflareCredentialsUpdate",
+    "CloudflareGlobalAPIToken",
+    "CloudflareGlobalAPITokenType",
+    "CloudflareGlobalAPITokenUpdate",
+    "CloudflareIntegration",
+    "CloudflareIntegrationType",
+    "CloudflareIntegrationUpdate",
     "CodeLocation",
     "CompletionCondition",
     "CompletionConditionOperator",
@@ -4045,6 +4350,14 @@ __all__ = [
     "ComponentProperties",
     "ComponentPropertiesIsVisible",
     "ComponentType",
+    "ConfigCatCredentials",
+    "ConfigCatCredentialsUpdate",
+    "ConfigCatIntegration",
+    "ConfigCatIntegrationType",
+    "ConfigCatIntegrationUpdate",
+    "ConfigCatSDKKey",
+    "ConfigCatSDKKeyType",
+    "ConfigCatSDKKeyUpdate",
     "ConfluentAccountCreateRequest",
     "ConfluentAccountCreateRequestAttributes",
     "ConfluentAccountCreateRequestData",
@@ -4275,11 +4588,22 @@ __all__ = [
     "DataTransformProperties",
     "DataTransformType",
     "DatabaseMonitoringTriggerWrapper",
-    "Dataset",
-    "DatasetAttributes",
+    "DatadogAPIKey",
+    "DatadogAPIKeyType",
+    "DatadogAPIKeyUpdate",
+    "DatadogCredentials",
+    "DatadogCredentialsUpdate",
+    "DatadogIntegration",
+    "DatadogIntegrationType",
+    "DatadogIntegrationUpdate",
+    "DatasetAttributesRequest",
+    "DatasetAttributesResponse",
     "DatasetCreateRequest",
+    "DatasetRequest",
+    "DatasetResponse",
     "DatasetResponseMulti",
     "DatasetResponseSingle",
+    "DatasetUpdateRequest",
     "DeleteAppResponse",
     "DeleteAppResponseData",
     "DeleteAppsRequest",
@@ -4299,6 +4623,7 @@ __all__ = [
     "DeviceAttributes",
     "DeviceAttributesInterfaceStatuses",
     "DevicesListData",
+    "DnsMetricKey",
     "DomainAllowlist",
     "DomainAllowlistAttributes",
     "DomainAllowlistRequest",
@@ -4468,6 +4793,9 @@ __all__ = [
     "EventResponse",
     "EventResponseAttributes",
     "EventStatusType",
+    "EventSystemAttributes",
+    "EventSystemAttributesCategory",
+    "EventSystemAttributesIntegrationId",
     "EventType",
     "EventsAggregation",
     "EventsCompute",
@@ -4489,6 +4817,9 @@ __all__ = [
     "EventsSortType",
     "EventsTimeseriesQuery",
     "EventsWarning",
+    "FastlyAPIKey",
+    "FastlyAPIKeyType",
+    "FastlyAPIKeyUpdate",
     "FastlyAccounResponseAttributes",
     "FastlyAccountCreateRequest",
     "FastlyAccountCreateRequestAttributes",
@@ -4500,6 +4831,11 @@ __all__ = [
     "FastlyAccountUpdateRequestAttributes",
     "FastlyAccountUpdateRequestData",
     "FastlyAccountsResponse",
+    "FastlyCredentials",
+    "FastlyCredentialsUpdate",
+    "FastlyIntegration",
+    "FastlyIntegrationType",
+    "FastlyIntegrationUpdate",
     "FastlyService",
     "FastlyServiceAttributes",
     "FastlyServiceData",
@@ -4519,12 +4855,25 @@ __all__ = [
     "FindingVulnerabilityType",
     "FormulaLimit",
     "FrameworkHandleAndVersionResponseData",
+    "FreshserviceAPIKey",
+    "FreshserviceAPIKeyType",
+    "FreshserviceAPIKeyUpdate",
+    "FreshserviceCredentials",
+    "FreshserviceCredentialsUpdate",
+    "FreshserviceIntegration",
+    "FreshserviceIntegrationType",
+    "FreshserviceIntegrationUpdate",
     "FullAPIKey",
     "FullAPIKeyAttributes",
     "FullApplicationKey",
     "FullApplicationKeyAttributes",
     "FullCustomFrameworkData",
     "FullCustomFrameworkDataAttributes",
+    "GCPCredentials",
+    "GCPCredentialsUpdate",
+    "GCPIntegration",
+    "GCPIntegrationType",
+    "GCPIntegrationUpdate",
     "GCPMetricNamespaceConfig",
     "GCPSTSDelegateAccount",
     "GCPSTSDelegateAccountAttributes",
@@ -4538,8 +4887,11 @@ __all__ = [
     "GCPSTSServiceAccountUpdateRequest",
     "GCPSTSServiceAccountUpdateRequestData",
     "GCPSTSServiceAccountsResponse",
+    "GCPServiceAccount",
+    "GCPServiceAccountCredentialType",
     "GCPServiceAccountMeta",
     "GCPServiceAccountType",
+    "GCPServiceAccountUpdate",
     "GCPUsageCostConfig",
     "GCPUsageCostConfigAttributes",
     "GCPUsageCostConfigPatchData",
@@ -4553,6 +4905,14 @@ __all__ = [
     "GCPUsageCostConfigResponse",
     "GCPUsageCostConfigType",
     "GCPUsageCostConfigsResponse",
+    "GeminiAPIKey",
+    "GeminiAPIKeyType",
+    "GeminiAPIKeyUpdate",
+    "GeminiCredentials",
+    "GeminiCredentialsUpdate",
+    "GeminiIntegration",
+    "GeminiIntegrationType",
+    "GeminiIntegrationUpdate",
     "GetActionConnectionResponse",
     "GetAppKeyRegistrationResponse",
     "GetAppResponse",
@@ -4576,6 +4936,22 @@ __all__ = [
     "GetWorkflowResponse",
     "GithubWebhookTrigger",
     "GithubWebhookTriggerWrapper",
+    "GitlabAPIKey",
+    "GitlabAPIKeyType",
+    "GitlabAPIKeyUpdate",
+    "GitlabCredentials",
+    "GitlabCredentialsUpdate",
+    "GitlabIntegration",
+    "GitlabIntegrationType",
+    "GitlabIntegrationUpdate",
+    "GreyNoiseAPIKey",
+    "GreyNoiseAPIKeyType",
+    "GreyNoiseAPIKeyUpdate",
+    "GreyNoiseCredentials",
+    "GreyNoiseCredentialsUpdate",
+    "GreyNoiseIntegration",
+    "GreyNoiseIntegrationType",
+    "GreyNoiseIntegrationUpdate",
     "GroupScalarColumn",
     "GroupTags",
     "HTTPBody",
@@ -4776,6 +5152,14 @@ __all__ = [
     "KindMetadata",
     "KindObj",
     "KindResponseMeta",
+    "LaunchDarklyAPIKey",
+    "LaunchDarklyAPIKeyType",
+    "LaunchDarklyAPIKeyUpdate",
+    "LaunchDarklyCredentials",
+    "LaunchDarklyCredentialsUpdate",
+    "LaunchDarklyIntegration",
+    "LaunchDarklyIntegrationType",
+    "LaunchDarklyIntegrationUpdate",
     "Layer",
     "LayerAttributes",
     "LayerAttributesInterval",
@@ -4984,6 +5368,10 @@ __all__ = [
     "MetricSuggestedTagsAndAggregations",
     "MetricSuggestedTagsAndAggregationsResponse",
     "MetricSuggestedTagsAttributes",
+    "MetricTagCardinalitiesMeta",
+    "MetricTagCardinalitiesResponse",
+    "MetricTagCardinality",
+    "MetricTagCardinalityAttributes",
     "MetricTagConfiguration",
     "MetricTagConfigurationAttributes",
     "MetricTagConfigurationCreateAttributes",
@@ -5099,6 +5487,14 @@ __all__ = [
     "NotificationRuleAttributes",
     "NotificationRuleResponse",
     "NotificationRulesType",
+    "NotionAPIKey",
+    "NotionAPIKeyType",
+    "NotionAPIKeyUpdate",
+    "NotionCredentials",
+    "NotionCredentialsUpdate",
+    "NotionIntegration",
+    "NotionIntegrationType",
+    "NotionIntegrationUpdate",
     "NullableRelationshipToUser",
     "NullableRelationshipToUserData",
     "NullableUserRelationship",
@@ -5281,6 +5677,9 @@ __all__ = [
     "ObservabilityPipelineThrottleProcessor",
     "ObservabilityPipelineThrottleProcessorType",
     "ObservabilityPipelineTls",
+    "OktaAPIToken",
+    "OktaAPITokenType",
+    "OktaAPITokenUpdate",
     "OktaAccount",
     "OktaAccountAttributes",
     "OktaAccountRequest",
@@ -5291,11 +5690,24 @@ __all__ = [
     "OktaAccountUpdateRequestAttributes",
     "OktaAccountUpdateRequestData",
     "OktaAccountsResponse",
+    "OktaCredentials",
+    "OktaCredentialsUpdate",
+    "OktaIntegration",
+    "OktaIntegrationType",
+    "OktaIntegrationUpdate",
     "OnCallPageTargetType",
     "OnDemandConcurrencyCap",
     "OnDemandConcurrencyCapAttributes",
     "OnDemandConcurrencyCapResponse",
     "OnDemandConcurrencyCapType",
+    "OpenAIAPIKey",
+    "OpenAIAPIKeyType",
+    "OpenAIAPIKeyUpdate",
+    "OpenAICredentials",
+    "OpenAICredentialsUpdate",
+    "OpenAIIntegration",
+    "OpenAIIntegrationType",
+    "OpenAIIntegrationUpdate",
     "OpenAPIEndpoint",
     "OpenAPIFile",
     "OpsgenieServiceCreateAttributes",
@@ -5704,6 +6116,7 @@ __all__ = [
     "SecurityMonitoringRuleCase",
     "SecurityMonitoringRuleCaseAction",
     "SecurityMonitoringRuleCaseActionOptions",
+    "SecurityMonitoringRuleCaseActionOptionsFlaggedIPType",
     "SecurityMonitoringRuleCaseActionType",
     "SecurityMonitoringRuleCaseCreate",
     "SecurityMonitoringRuleConvertPayload",
@@ -5736,6 +6149,7 @@ __all__ = [
     "SecurityMonitoringRuleTypeTest",
     "SecurityMonitoringRuleUpdatePayload",
     "SecurityMonitoringRuleValidatePayload",
+    "SecurityMonitoringSchedulingOptions",
     "SecurityMonitoringSignal",
     "SecurityMonitoringSignalArchiveReason",
     "SecurityMonitoringSignalAssigneeUpdateAttributes",
@@ -5918,6 +6332,14 @@ __all__ = [
     "ServiceDefinitionV2Version",
     "ServiceDefinitionsCreateRequest",
     "ServiceDefinitionsListResponse",
+    "ServiceNowBasicAuth",
+    "ServiceNowBasicAuthType",
+    "ServiceNowBasicAuthUpdate",
+    "ServiceNowCredentials",
+    "ServiceNowCredentialsUpdate",
+    "ServiceNowIntegration",
+    "ServiceNowIntegrationType",
+    "ServiceNowIntegrationUpdate",
     "ServiceNowTicket",
     "ServiceNowTicketResult",
     "Shift",
@@ -5934,6 +6356,12 @@ __all__ = [
     "SingleAggregatedConnectionResponseData",
     "SingleAggregatedConnectionResponseDataAttributes",
     "SingleAggregatedConnectionResponseDataType",
+    "SingleAggregatedDnsResponseArray",
+    "SingleAggregatedDnsResponseData",
+    "SingleAggregatedDnsResponseDataAttributes",
+    "SingleAggregatedDnsResponseDataAttributesGroupByItems",
+    "SingleAggregatedDnsResponseDataAttributesMetricsItems",
+    "SingleAggregatedDnsResponseDataType",
     "SlackIntegrationMetadata",
     "SlackIntegrationMetadataChannelItem",
     "SlackTriggerWrapper",
@@ -6003,10 +6431,26 @@ __all__ = [
     "SpansWarning",
     "Spec",
     "SpecVersion",
+    "SplitAPIKey",
+    "SplitAPIKeyType",
+    "SplitAPIKeyUpdate",
+    "SplitCredentials",
+    "SplitCredentialsUpdate",
+    "SplitIntegration",
+    "SplitIntegrationType",
+    "SplitIntegrationUpdate",
     "State",
     "StateVariable",
     "StateVariableProperties",
     "StateVariableType",
+    "StatsigAPIKey",
+    "StatsigAPIKeyType",
+    "StatsigAPIKeyUpdate",
+    "StatsigCredentials",
+    "StatsigCredentialsUpdate",
+    "StatsigIntegration",
+    "StatsigIntegrationType",
+    "StatsigIntegrationUpdate",
     "Step",
     "StepDisplay",
     "StepDisplayBounds",
@@ -6185,9 +6629,21 @@ __all__ = [
     "UsersRelationship",
     "UsersResponse",
     "UsersType",
+    "V2Event",
+    "V2EventAttributes",
+    "V2EventAttributesAttributes",
+    "V2EventResponse",
     "ValidationError",
     "ValidationErrorMeta",
     "ValidationResponse",
+    "VirusTotalAPIKey",
+    "VirusTotalAPIKeyType",
+    "VirusTotalAPIKeyUpdate",
+    "VirusTotalCredentials",
+    "VirusTotalCredentialsUpdate",
+    "VirusTotalIntegration",
+    "VirusTotalIntegrationType",
+    "VirusTotalIntegrationUpdate",
     "VulnerabilitiesType",
     "Vulnerability",
     "VulnerabilityAttributes",

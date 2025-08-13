@@ -2243,6 +2243,13 @@ class Patch:
                     data["agent.openai.response.split"] = True
                 updated = True
 
+            # < 2.6.0
+            if old < parse_version("2.6.0"):
+                print("Migrating config from < 2.6.0...")
+                self.window.core.updater.patch_css('style.light.css', True)  # scrollbar, calendar fix
+                self.window.core.updater.patch_css('style.dark.css', True)  # calendar fix
+                updated = True
+
         # update file
         migrated = False
         if updated:

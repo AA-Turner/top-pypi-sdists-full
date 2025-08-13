@@ -2,7 +2,6 @@
 
 import click
 from multiprocessing import freeze_support
-from db_contrib_tool.evg_aware_bisect.cli import bisect
 from db_contrib_tool.setup_mongot_repro_env.cli import setup_mongot_repro_env
 from db_contrib_tool.setup_repro_env.cli import setup_repro_env
 from db_contrib_tool.symbolizer.cli import symbolize
@@ -12,7 +11,6 @@ _PLUGINS = [
     setup_repro_env,
     setup_mongot_repro_env,
     symbolize,
-    bisect,
 ]
 
 

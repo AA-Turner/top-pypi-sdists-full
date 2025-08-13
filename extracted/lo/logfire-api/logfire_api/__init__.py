@@ -20,7 +20,23 @@ except ImportError:
 
         class LogfireSpan:
             def __getattr__(self, attr):
-                return MagicMock()  # pragma: no cover
+                return MagicMock()
+
+            @property
+            def name(self):
+                return ''
+
+            @property
+            def attributes(self):
+                return {}
+
+            @property
+            def events(self):
+                return ()
+
+            @property
+            def links(self):
+                return ()
 
             def __enter__(self):
                 return self
@@ -48,8 +64,7 @@ except ImportError:
             def is_recording(self) -> bool:  # pragma: no cover
                 return False
 
-            @property
-            def context(self): ...  # pragma: no cover
+            def set_attribute(self, key: str, value: Any) -> None: ... # pragma: no cover
 
         class Logfire:
             def __getattr__(self, attr):

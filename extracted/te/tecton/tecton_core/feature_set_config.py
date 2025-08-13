@@ -100,13 +100,14 @@ class FeatureDefinitionAndJoinConfig:
     @property
     def spine_schema(self) -> Schema:
         spine_schema_dict = self.feature_definition.spine_schema.to_dict()
-        return Schema.from_dict(
-            {
-                spine_key: spine_schema_dict[fd_key]
-                for spine_key, fd_key in self.join_keys
-                if fd_key != self.feature_definition.wildcard_join_key
-            }
-        )
+        join_key_dict = {
+            spine_key: spine_schema_dict[fd_key]
+            for spine_key, fd_key in self.join_keys
+            if fd_key != self.feature_definition.wildcard_join_key
+        }
+        request_context_dict = self.feature_definition.request_context_schema.to_dict()
+        merged_dict = {**join_key_dict, **request_context_dict}
+        return Schema.from_dict(merged_dict)
 
 
 @attrs.define
@@ -182,7 +183,6 @@ class FeatureSetConfig:
             except TectonValidationError as e:
                 err = f"Tecton Schema Error: {e}"
                 raise TectonValidationError(err)
-            spine_schema += dac.spine_schema
         return spine_schema
 
     @staticmethod

@@ -6,9 +6,9 @@ with zone-based analysis, tracking, and alerting capabilities.
 """
 
 from typing import Any, Dict, List, Optional, Set
-from dataclasses import asdict
 import time
 from datetime import datetime, timezone
+import math
 
 from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol, ResultFormat
 from ..core.config import ProximityConfig, ZoneConfig, AlertConfig
@@ -62,6 +62,12 @@ class ProximityUseCase(BaseProcessor):
 
         # Track start time for "TOTAL SINCE" calculation
         self._tracking_start_time = None
+        
+        # Proximity counting
+        self._total_proximity_count = 0  # Total proximity events across all calls
+        self._observed_proximity_pairs: Set[frozenset] = set()  # Unique canonical ID pairs seen across frames
+        self._last_frame_proximity_pairs: Set[tuple] = set()  # Pairs detected in the most recent frame (track-id based)
+        
 
         # --------------------------------------------------------------------- #
         # Tracking aliasing structures to merge fragmented IDs                   #
@@ -104,7 +110,7 @@ class ProximityUseCase(BaseProcessor):
         Returns:
             ProcessingResult: Processing result with standardized agg_summary structure
         """
-        start_time = time.time()
+        # start_time = time.time()
         
         try:
             # Ensure we have the right config type
@@ -140,8 +146,8 @@ class ProximityUseCase(BaseProcessor):
             else:
                 return self._process_single_frame(data, config, context, stream_info)
                 
-        except Exception as e:
-            self.logger.error(f"Proximity detection failed: {str(e)}", exc_info=True)
+        except Exception as e:  # noqa: BLE001
+            self.logger.error("Proximity detection failed: %s", str(e), exc_info=True)
             
             if context:
                 context.mark_completed()
@@ -276,7 +282,16 @@ class ProximityUseCase(BaseProcessor):
         # Count by category
         for detection in frame_detections:
             category = detection.get("category", "unknown")
-            counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
+            current_count = counting_summary["categories"].get(category, 0)
+            counting_summary["categories"][category] = current_count + 1
+
+        # Update tracking state BEFORE proximity calculation so we have canonical IDs
+        self._update_tracking_state(counting_summary)
+
+        # Calculate unique proximity events for this frame (meters-aware)
+        proximity_count = self._count_proximity_events(counting_summary["detections"], config, stream_info)
+        counting_summary["proximity_events"] = proximity_count
+        counting_summary["total_proximity_count"] = self._total_proximity_count
         
         # Step 5: Zone analysis for this frame
         zone_analysis = {}
@@ -291,9 +306,6 @@ class ProximityUseCase(BaseProcessor):
                 # Merge enhanced zone analysis with original zone analysis
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
-        
-        # Step 4.5: Always update tracking state (regardless of enable_unique_counting setting)
-        self._update_tracking_state(counting_summary)
         
         # Step 5: Generate insights and alerts for this frame
         alerts = self._check_alerts(counting_summary, zone_analysis, config, frame_id)
@@ -393,11 +405,10 @@ class ProximityUseCase(BaseProcessor):
         
         # Add zone-specific events if applicable
         if zone_analysis:
-            human_text_lines.append(f"\t- ZONE EVENTS:")
+            human_text_lines.append("\t- ZONE EVENTS:")
             for zone_name, zone_count in zone_analysis.items():
                 zone_total = self._robust_zone_total(zone_count)
                 if zone_total > 0:
-                    zone_intensity = min(10.0, zone_total / 5.0)
                     zone_level = "info"
                     if intensity >= 9:
                         level = "critical"
@@ -423,14 +434,14 @@ class ProximityUseCase(BaseProcessor):
                     incidents.append(event)
         return incidents
 
-    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, config: ProximityConfig, frame_id: str, alerts: Any=[], stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, config: ProximityConfig, frame_id: str, alerts: Any=None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate tracking stats using standardized methods."""
         
         total_people = counting_summary.get("total_objects", 0)
         
         # Get total count from cached tracking state
         total_unique_count = self.get_total_count()
-        current_frame_count = self.get_current_frame_count()
+        # current_frame_count = self.get_current_frame_count()
         
         # Get camera info using standardized method
         camera_info = self.get_camera_info_from_stream(stream_info)
@@ -511,7 +522,7 @@ class ProximityUseCase(BaseProcessor):
                 detection_obj = self.create_detection_object(category, bbox)
             detections.append(detection_obj)
         
-        print(detections)
+        # detections prepared above are used only for output formatting
         # Build alerts and alert_settings arrays
         alert_settings = []
         if config.alert_config and hasattr(config.alert_config, 'alert_type'):
@@ -525,17 +536,18 @@ class ProximityUseCase(BaseProcessor):
                             }
             })
         if zone_analysis:
-                human_text_lines=[]
+                human_text_lines = []
                 current_timestamp = self._get_current_timestamp_str(stream_info, frame_id=frame_id)
                 start_timestamp = self._get_start_timestamp_str(stream_info)
                 human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+
                 def robust_zone_total(zone_count):
                     if isinstance(zone_count, dict):
                         total = 0
                         for v in zone_count.values():
                             if isinstance(v, int):
                                 total += v
-                            elif isinstance(v, list) and total==0:
+                            elif isinstance(v, list) and total == 0:
                                 total += len(v)
                         return total
                     elif isinstance(zone_count, list):
@@ -544,6 +556,7 @@ class ProximityUseCase(BaseProcessor):
                         return zone_count
                     else:
                         return 0
+
                 human_text_lines.append(f"\t- People Detected: {total_people}")
                 human_text_lines.append("")
                 human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
@@ -551,7 +564,7 @@ class ProximityUseCase(BaseProcessor):
                 for zone_name, zone_count in zone_analysis.items():
                         zone_total = robust_zone_total(zone_count)
                         human_text_lines.append(f"\t- Zone name: {zone_name}")
-                        human_text_lines.append(f"\t\t- Total count in zone: {zone_total-1}")
+                human_text_lines.append(f"\t\t- Total count in zone: {zone_total}")
 
                 if total_unique_count > 0:
                     human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
@@ -571,46 +584,201 @@ class ProximityUseCase(BaseProcessor):
         tracking_stat = self.create_tracking_stats(
             total_counts, current_counts, detections, human_text, camera_info, alerts, alert_settings, start_time=high_precision_start_timestamp, reset_time=high_precision_reset_timestamp
         )
-        print(tracking_stat)
         return [tracking_stat]
     
-    def _check_proximity(self, detections):
-        """Check if any two detections are within proximity threshold."""
-        proximity_threshold = 400
-        for i in range(len(detections)):
-            for j in range(i + 1, len(detections)):
-                bbox1 = detections[i].get("bounding_box", {})
-                bbox2 = detections[j].get("bounding_box", {})
-                
-                if not bbox1 or not bbox2:
+    def _count_proximity_events(self, detections: List[Dict[str, Any]], config: ProximityConfig, stream_info: Optional[Dict[str, Any]] = None) -> int:
+        """Count UNIQUE proximity events between detections in a frame.
+
+        Rules:
+        - Use IoU-NMS to deduplicate overlapping boxes (highest confidence kept).
+        - Use track IDs when available to build stable (id1,id2) pairs.
+        - Count each pair once (i < j) using Euclidean distance between box centers.
+        - Distance is evaluated in meters when calibration is available; otherwise, fallback to pixel threshold.
+        - Maintain a running set of unique canonical-ID pairs across frames to compute total unique proximity events.
+        """
+        if not detections:
+            return 0
+
+        # Determine threshold strategy
+        meters_per_pixel = self._get_meters_per_pixel(config, stream_info)
+        threshold_meters = getattr(config, "proximity_threshold_meters", 1.0)
+        threshold_pixels_fallback = getattr(config, "proximity_threshold_pixels", 400.0)
+
+        overlap_iou_threshold = getattr(self, "_proximity_iou_duplicate_threshold", 0.5)
+
+        # Helper: convert bbox to xyxy list
+        def _to_xyxy(bbox: Any) -> List[float]:
+            if isinstance(bbox, list):
+                if len(bbox) >= 4:
+                    return [float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])]
+                return []
+            if isinstance(bbox, dict):
+                if all(k in bbox for k in ("xmin", "ymin", "xmax", "ymax")):
+                    return [float(bbox["xmin"]), float(bbox["ymin"]), float(bbox["xmax"]), float(bbox["ymax"])]
+                if all(k in bbox for k in ("x1", "y1", "x2", "y2")):
+                    return [float(bbox["x1"]), float(bbox["y1"]), float(bbox["x2"]), float(bbox["y2"])]
+                # Fallback: take first four values
+                vals = list(bbox.values())
+                if len(vals) >= 4:
+                    return [float(vals[0]), float(vals[1]), float(vals[2]), float(vals[3])]
+                return []
+            return []
+
+        # Prepare tracked detections (track_id, bbox_xyxy, conf)
+        tracked_detections: List[Dict[str, Any]] = []
+        for det in detections:
+            bbox = _to_xyxy(det.get("bounding_box", det.get("bbox", {})))
+            if not bbox:
                     continue
-                
-                center1 = get_bbox_center(bbox1)
-                center2 = get_bbox_center(bbox2)
-                
-                if center1 and center2:
-                    distance = abs((center1[0] - center2[0]) + (center1[1] - center2[1]))
-                    if distance < proximity_threshold:
-                        return True
-            return False
+            tracked_detections.append({
+                "track_id": det.get("track_id"),
+                "bbox": bbox,
+                "confidence": float(det.get("confidence", 1.0))
+            })
+
+        # IoU-NMS to remove overlapping boxes, keep highest confidence
+        kept: List[Dict[str, Any]] = self._nms_by_iou(tracked_detections, overlap_iou_threshold)
+
+        # Compute centroids and keep alignment arrays for IDs
+        centroids: List[tuple] = []
+        track_ids: List[Any] = []
+        for td in kept:
+            x1, y1, x2, y2 = map(float, td["bbox"])
+            # Use box center (matching your reference snippet); switch to bottom-center if needed
+            cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+            centroids.append((cx, cy))
+            track_ids.append(td.get("track_id"))
+
+        n = len(centroids)
+        current_pairs_by_ids: Set[tuple] = set()
+        current_pairs_all: Set[tuple] = set()
+
+        # Build current frame proximity pairs for all detections (even without IDs)
+        for i in range(n):
+            cx1, cy1 = centroids[i]
+            for j in range(i + 1, n):
+                cx2, cy2 = centroids[j]
+                pixel_distance = math.hypot(cx1 - cx2, cy1 - cy2)
+
+                if meters_per_pixel:
+                    meters_distance = pixel_distance * float(meters_per_pixel)
+                    is_close = meters_distance < float(threshold_meters)
+                else:
+                    is_close = pixel_distance < float(threshold_pixels_fallback)
+
+                if not is_close:
+                    continue
+
+                # For per-frame count, include every close pair
+                current_pairs_all.add((i, j))
+
+                # For global unique, require both IDs
+                id_i = track_ids[i]
+                id_j = track_ids[j]
+                if id_i is not None and id_j is not None:
+                    pair_ids = (id_i, id_j) if id_i <= id_j else (id_j, id_i)
+                    current_pairs_by_ids.add(pair_ids)
+
+        # Update global unique proximity pairs using ID pairs only
+        new_unique_pairs = {frozenset(p) for p in current_pairs_by_ids} - self._observed_proximity_pairs
+        if new_unique_pairs:
+            self._total_proximity_count += len(new_unique_pairs)
+            self._observed_proximity_pairs.update(new_unique_pairs)
+
+        # Store last frame pairs (ID pairs if available, else index pairs as fallback)
+        self._last_frame_proximity_pairs = current_pairs_by_ids if current_pairs_by_ids else current_pairs_all
+
+        # Return count of pairs detected in the current frame
+        return len(current_pairs_by_ids) if current_pairs_by_ids else len(current_pairs_all)
+
+    def _nms_by_iou(self, detections: List[Dict[str, Any]], iou_threshold: float) -> List[Dict[str, Any]]:
+        """Perform simple IoU-based NMS on a list of detections.
+
+        Each detection is a dict with keys: 'bbox' as [x1,y1,x2,y2], 'confidence' (float), and optional 'track_id'.
+        Keeps highest-confidence detections when overlap exceeds threshold.
+        """
+        if not detections:
+            return []
+        # Sort by confidence descending
+        dets = sorted(detections, key=lambda d: float(d.get("confidence", 1.0)), reverse=True)
+        kept: List[Dict[str, Any]] = []
+        for det in dets:
+            should_keep = True
+            for kept_det in kept:
+                if self._compute_iou(det["bbox"], kept_det["bbox"]) >= iou_threshold:
+                    should_keep = False
+                    break
+            if should_keep:
+                kept.append(det)
+        return kept
+
+    def _get_meters_per_pixel(self, config: ProximityConfig, stream_info: Optional[Dict[str, Any]] = None) -> Optional[float]:
+        """Compute meters-per-pixel scale using config and optional stream_info.
+
+        Priority:
+        1) config.meters_per_pixel (direct override)
+        2) config.scene_width_meters + frame width in pixels
+        3) config.scene_height_meters + frame height in pixels
+        Returns None if insufficient information.
+        """
+        # Direct override
+        if hasattr(config, "meters_per_pixel") and getattr(config, "meters_per_pixel"):
+            try:
+                return float(getattr(config, "meters_per_pixel"))
+            except Exception:  # noqa: BLE001
+                pass
+
+        width_px = None
+        height_px = None
+        if stream_info and isinstance(stream_info, dict):
+            input_settings = stream_info.get("input_settings", {}) or {}
+            resolution = input_settings.get("resolution", {}) or {}
+            width_px = resolution.get("width") or input_settings.get("frame_width")
+            height_px = resolution.get("height") or input_settings.get("frame_height")
+
+        # Derive from scene real-world width
+        if hasattr(config, "scene_width_meters") and getattr(config, "scene_width_meters") and width_px:
+            try:
+                return float(getattr(config, "scene_width_meters")) / float(width_px)
+            except Exception:  # noqa: BLE001
+                pass
+
+        # Derive from scene real-world height
+        if hasattr(config, "scene_height_meters") and getattr(config, "scene_height_meters") and height_px:
+            try:
+                return float(getattr(config, "scene_height_meters")) / float(height_px)
+            except Exception:  # noqa: BLE001
+                pass
+
+        return None
     
-    def _generate_human_text_for_tracking(self, total_people: int, detections, total_unique_count: int, config: ProximityConfig, frame_id: str, alerts:Any=[], stream_info: Optional[Dict[str, Any]] = None) -> str:
+    def _generate_human_text_for_tracking(
+        self, 
+        total_people: int, 
+        detections, 
+        total_unique_count: int, 
+        config: ProximityConfig, 
+        frame_id: str, 
+        alerts: Any = None,
+        stream_info: Optional[Dict[str, Any]] = None) -> str:
         """Generate human-readable text for tracking stats in old format."""
-        from datetime import datetime, timezone
         
         human_text_lines=[]
         current_timestamp = self._get_current_timestamp_str(stream_info, precision=True, frame_id=frame_id)
         start_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
-
+        
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if self._check_proximity(detections):
-            human_text_lines.append("\t- Proximity Alert: People are within proximity threshold!")
-        # human_text_lines.append(f"\t- People Detected: {total_people}")
+        
+        # Add proximity count to human text (meters-aware)
+        proximity_count = self._count_proximity_events(detections, config, stream_info)
+        if proximity_count > 0:
+            human_text_lines.append(f"\t- Current Frame Proximity: {proximity_count//2}")
+        else:
+            human_text_lines.append("\t- No Proximity Events Detected")
 
         human_text_lines.append("")
-        if total_unique_count > 0:
-            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-            human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
+        human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+        human_text_lines.append(f"\t- Total Proximity Count: {self._total_proximity_count//2}")
 
         if alerts:
             for alert in alerts:
@@ -687,7 +855,6 @@ class ProximityUseCase(BaseProcessor):
             for zone_name, threshold in config.alert_config.occupancy_thresholds.items():
                 if zone_name in zone_analysis:
                     # Calculate zone_count robustly (supports int, list, dict values)
-                    print('ZONEEE',zone_name, zone_analysis[zone_name])
                     zone_count = self._robust_zone_total(zone_analysis[zone_name])
                     if zone_count >= threshold:
                         alerts.append({
@@ -746,7 +913,7 @@ class ProximityUseCase(BaseProcessor):
         
         return business_analytics
 
-    def _generate_summary(self, summary: dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[str]:
+    def _generate_summary(self, _summary: dict, incidents: List, tracking_stats: List, business_analytics: List, _alerts: List) -> List[str]:
         """
         Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
         """
@@ -855,8 +1022,8 @@ class ProximityUseCase(BaseProcessor):
                                 prediction["frame_id"] = frame_id
                                 predictions.append(prediction)
         
-        except Exception as e:
-            self.logger.warning(f"Failed to extract predictions: {str(e)}")
+        except Exception as e:  # noqa: BLE001
+            self.logger.warning("Failed to extract predictions: %s", str(e))
         
         return predictions
     
@@ -914,7 +1081,9 @@ class ProximityUseCase(BaseProcessor):
             current_frame_tracks.add(canonical_id)
 
         # Update total track IDs with new canonical IDs from current frame
-        old_total_count = len(self._total_track_ids)
+        # old_total_count can be used for debugging or analytics if needed
+        # Keeping it for potential future use but suppressing linter warning
+        old_total_count = len(self._total_track_ids)  # noqa: F841
         self._total_track_ids.update(current_frame_tracks)
         self._current_frame_track_ids = current_frame_tracks
 
@@ -927,10 +1096,12 @@ class ProximityUseCase(BaseProcessor):
             new_tracks = current_frame_tracks - (self._total_track_ids - current_frame_tracks)
             if new_tracks:
                 self.logger.debug(
-                    f"Tracking state updated: {len(new_tracks)} new canonical track IDs added, total unique tracks: {self._total_count}")
+                    "Tracking state updated: %s new canonical track IDs added, total unique tracks: %s",
+                    len(new_tracks), self._total_count)
             else:
                 self.logger.debug(
-                    f"Tracking state updated: {len(current_frame_tracks)} current frame canonical tracks, total unique tracks: {self._total_count}")
+                    "Tracking state updated: %s current frame canonical tracks, total unique tracks: %s",
+                    len(current_frame_tracks), self._total_count)
     
     def get_total_count(self) -> int:
         """Get the total count of unique people tracked across all calls."""
@@ -947,7 +1118,7 @@ class ProximityUseCase(BaseProcessor):
     def set_global_frame_offset(self, offset: int) -> None:
         """Set the global frame offset for video chunk processing."""
         self._global_frame_offset = offset
-        self.logger.info(f"Global frame offset set to: {offset}")
+        self.logger.info("Global frame offset set to: %s", offset)
     
     def get_global_frame_offset(self) -> int:
         """Get the current global frame offset."""
@@ -957,7 +1128,7 @@ class ProximityUseCase(BaseProcessor):
         """Update global frame offset after processing a chunk."""
         old_offset = self._global_frame_offset
         self._global_frame_offset += frames_in_chunk
-        self.logger.info(f"Global frame offset updated: {old_offset} -> {self._global_frame_offset} (added {frames_in_chunk} frames)")
+        self.logger.info("Global frame offset updated: %s -> %s (added %s frames)", old_offset, self._global_frame_offset, frames_in_chunk)
     
     def get_global_frame_id(self, local_frame_id: str) -> str:
         """Convert local frame ID to global frame ID."""
@@ -1068,14 +1239,14 @@ class ProximityUseCase(BaseProcessor):
         # Update timestamp
         self._last_update_time = time.time()
         
-        self.logger.info(f"Cleared {old_current_count} current frame tracks and {cleared_zone_tracks} zone current tracks. Cumulative total preserved: {self._total_count}")
+        self.logger.info("Cleared %s current frame tracks and %s zone current tracks. Cumulative total preserved: %s", old_current_count, cleared_zone_tracks, self._total_count)
         return old_current_count
     
     def reset_frame_counter(self) -> None:
         """Reset only the frame counter."""
         old_count = self._total_frame_counter
         self._total_frame_counter = 0
-        self.logger.info(f"Frame counter reset from {old_count} to 0")
+        self.logger.info("Frame counter reset from %s to 0", old_count)
     
     def clear_expired_tracks(self, max_age_seconds: float = 300.0) -> int:
         """
@@ -1100,7 +1271,7 @@ class ProximityUseCase(BaseProcessor):
         if current_time - self._last_update_time > max_age_seconds:
             # Use the safe method that preserves cumulative totals
             cleared_count = self.clear_current_frame_tracking()
-            self.logger.info(f"Manual cleanup: cleared {cleared_count} expired current frame tracks (age > {max_age_seconds}s)")
+            self.logger.info("Manual cleanup: cleared %s expired current frame tracks (age > %ss)", cleared_count, max_age_seconds)
             return cleared_count
         return 0
     
@@ -1259,7 +1430,7 @@ class ProximityUseCase(BaseProcessor):
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except:
+                except Exception:  # noqa: BLE001
                     # Fallback to current time if parsing fails
                     return self._format_timestamp_for_stream(time.time())
             else:
@@ -1291,7 +1462,7 @@ class ProximityUseCase(BaseProcessor):
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except:
+                    except Exception:  # noqa: BLE001
                         # Fallback to current time if parsing fails
                         self._tracking_start_time = time.time()
                 else:
@@ -1425,7 +1596,7 @@ class ProximityUseCase(BaseProcessor):
                 info["last_update"] = now
                 info["raw_ids"].add(raw_id)
                 self.logger.debug(
-                    f"Merged raw track {raw_id} into canonical track {canonical_id} (IoU={iou:.2f})")
+                    "Merged raw track %s into canonical track %s (IoU=%.2f)", raw_id, canonical_id, iou)
                 return canonical_id
 
         # No match found – create a new canonical track
@@ -1436,7 +1607,7 @@ class ProximityUseCase(BaseProcessor):
             "last_update": now,
             "raw_ids": {raw_id},
         }
-        self.logger.debug(f"Registered new canonical track {canonical_id}")
+        self.logger.debug("Registered new canonical track %s", canonical_id)
         return canonical_id 
 
     def _format_timestamp(self, timestamp: float) -> str:
@@ -1504,6 +1675,33 @@ class ProximityUseCase(BaseProcessor):
                     "type": "boolean",
                     "default": True,
                     "description": "Enable unique proximity detection using tracking"
+                },
+                "proximity_threshold_meters": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "default": 1.0,
+                    "description": "Distance threshold in meters to consider two people in proximity"
+                },
+                "meters_per_pixel": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Direct meters-per-pixel calibration override. If set, used for distance conversion."
+                },
+                "scene_width_meters": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Real-world width of the scene captured by the frame (meters). Used to derive meters-per-pixel with frame width."
+                },
+                "scene_height_meters": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Real-world height of the scene captured by the frame (meters). Used to derive meters-per-pixel with frame height."
+                },
+                "proximity_threshold_pixels": {
+                    "type": "number",
+                    "minimum": 1,
+                    "default": 400,
+                    "description": "Fallback pixel threshold if no calibration is available"
                 },
                 "time_window_minutes": {
                     "type": "integer",
@@ -1578,5 +1776,5 @@ class ProximityUseCase(BaseProcessor):
             self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
         
         smoothed_data = bbox_smoothing(data, self.smoothing_tracker.config, self.smoothing_tracker)
-        self.logger.debug(f"Applied bbox smoothing to tracking results")
+        self.logger.debug("Applied bbox smoothing to tracking results")
         return smoothed_data

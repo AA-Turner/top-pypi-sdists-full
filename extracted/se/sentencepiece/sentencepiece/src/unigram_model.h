@@ -37,9 +37,9 @@ class Lattice {
 
   struct Node {
     absl::string_view piece;  // Sentence piece representation.
-    uint32 pos;               // Unicode position in the sentence.
-    uint32 length;            // Unicode length, not UT8 byte.
-    uint32 node_id;           // unique id in the current lattice.
+    uint32_t pos;               // Unicode position in the sentence.
+    uint32_t length;            // Unicode length, not UT8 byte.
+    uint32_t node_id;           // unique id in the current lattice.
     int id;                   // vocab id. (maybe -1 for UNK)
     float score;              // logprob of this sentencepiece.
     float backtrace_score;    // backtrace info used in Viterbi.

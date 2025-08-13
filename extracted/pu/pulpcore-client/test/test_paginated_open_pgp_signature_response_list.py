@@ -48,6 +48,7 @@ class TestPaginatedOpenPGPSignatureResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         issuer = '', 
                         created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         expiration_time = '', 
@@ -70,6 +71,7 @@ class TestPaginatedOpenPGPSignatureResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         issuer = '', 
                         created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         expiration_time = '', 

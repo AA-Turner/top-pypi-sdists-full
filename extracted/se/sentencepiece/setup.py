@@ -15,13 +15,15 @@
 # limitations under the License.!
 
 import codecs
+import glob
 import os
-import string
+import platform
+import shutil
 import subprocess
 import sys
+import sysconfig
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext as _build_ext
-from setuptools.command.build_py import build_py as _build_py
 
 sys.path.append(os.path.join('.', 'test'))
 
@@ -32,7 +34,9 @@ def long_description():
   return long_description
 
 
-exec(open('src/sentencepiece/_version.py').read())
+with open('src/sentencepiece/_version.py') as f:
+  line = f.readline().strip()
+  __version__ = line.split('=')[1].strip().strip("'")
 
 
 def run_pkg_config(section, pkg_config_path=None):
@@ -55,6 +59,10 @@ def is_sentencepiece_installed():
     return True
   except subprocess.CalledProcessError:
     return False
+
+
+def is_gil_disabled():
+  return sysconfig.get_config_var('Py_GIL_DISABLED')
 
 
 def get_cflags_and_libs(root):
@@ -92,10 +100,16 @@ class build_ext(_build_ext):
     if sys.platform == 'darwin':
       cflags.append('-mmacosx-version-min=10.9')
     else:
-      cflags.append('-Wl,-strip-all')
-      libs.append('-Wl,-strip-all')
+      if sys.platform == 'aix':
+        cflags.append('-Wl,-s')
+        libs.append('-Wl,-s')
+      else:
+        cflags.append('-Wl,-strip-all')
+        libs.append('-Wl,-strip-all')
     if sys.platform == 'linux':
       libs.append('-Wl,-Bsymbolic')
+    if is_gil_disabled():
+      cflags.append('-DPy_GIL_DISABLED')
     print('## cflags={}'.format(' '.join(cflags)))
     print('## libs={}'.format(' '.join(libs)))
     ext.extra_compile_args = cflags
@@ -103,11 +117,53 @@ class build_ext(_build_ext):
     _build_ext.build_extension(self, ext)
 
 
-if os.name == 'nt':
-  # Must pre-install sentencepice into build directory.
+def copy_package_data():
+  """Copies shared package data"""
+
+  package_data = os.path.join('src', 'sentencepiece', 'package_data')
+
+  if not os.path.exists(package_data):
+    os.makedirs(package_data)
+
+  if glob.glob(os.path.join(package_data, '*.bin')):
+    return
+
+  def find_targets(roots):
+    for root in roots:
+      data = glob.glob(os.path.join(root, '*.bin'))
+      if data:
+        return data
+    return []
+
+  data = find_targets([
+      '../build/root/share/sentencepiece',
+      './build/root/share/sentencepiece',
+      '../data',
+  ])
+
+  if not data and is_sentencepiece_installed():
+    data = find_targets(run_pkg_config('datadir'))
+
+  for filename in data:
+    print('copying {} -> {}'.format(filename, package_data))
+    shutil.copy(filename, package_data)
+
+
+def get_win_arch():
   arch = 'win32'
   if sys.maxsize > 2**32:
     arch = 'amd64'
+  if 'arm' in platform.machine().lower():
+    arch = 'arm64'
+  if os.getenv('PYTHON_ARCH', '') == 'ARM64':
+    # Special check for arm64 under ciwheelbuild, see https://github.com/pypa/cibuildwheel/issues/1942
+    arch = 'arm64'
+  return arch
+
+
+if os.name == 'nt':
+  # Must pre-install sentencepice into build directory.
+  arch = get_win_arch()
   if os.path.exists('..\\build\\root_{}\\lib'.format(arch)):
     cflags = ['/std:c++17', '/I..\\build\\root_{}\\include'.format(arch)]
     libs = [
@@ -125,6 +181,8 @@ if os.name == 'nt':
     cmake_arch = 'Win32'
     if arch == 'amd64':
       cmake_arch = 'x64'
+    elif arch == 'arm64':
+      cmake_arch = 'ARM64'
     subprocess.check_call([
         'cmake',
         'sentencepiece',
@@ -147,10 +205,16 @@ if os.name == 'nt':
         '8',
     ])
     cflags = ['/std:c++17', '/I.\\build\\root\\include']
+
     libs = [
         '.\\build\\root\\lib\\sentencepiece.lib',
         '.\\build\\root\\lib\\sentencepiece_train.lib',
     ]
+
+  # on Windows, GIL flag is not set automatically.
+  # https://docs.python.org/3/howto/free-threading-python.html
+  if is_gil_disabled():
+    cflags.append('/DPy_GIL_DISABLED')
 
   SENTENCEPIECE_EXT = Extension(
       'sentencepiece._sentencepiece',
@@ -166,36 +230,17 @@ else:
   )
   cmdclass = {'build_ext': build_ext}
 
-setup(
-    name='sentencepiece',
-    author='Taku Kudo',
-    author_email='taku@google.com',
-    description='SentencePiece python wrapper',
-    long_description=long_description(),
-    long_description_content_type='text/markdown',
-    version=__version__,
-    package_dir={'': 'src'},
-    url='https://github.com/google/sentencepiece',
-    license='Apache',
-    platforms='Unix',
-    py_modules=[
-        'sentencepiece/__init__',
-        'sentencepiece/_version',
-        'sentencepiece/sentencepiece_model_pb2',
-        'sentencepiece/sentencepiece_pb2',
-    ],
-    ext_modules=[SENTENCEPIECE_EXT],
-    cmdclass=cmdclass,
-    classifiers=[
-        'Development Status :: 5 - Production/Stable',
-        'Environment :: Console',
-        'Intended Audience :: Developers',
-        'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: Apache Software License',
-        'Operating System :: Unix',
-        'Programming Language :: Python',
-        'Topic :: Text Processing :: Linguistic',
-        'Topic :: Software Development :: Libraries :: Python Modules',
-    ],
-    test_suite='sentencepiece_test.suite',
-)
+if __name__ == '__main__':
+  copy_package_data()
+  setup(
+      name='sentencepiece',
+      package_dir={'': 'src'},
+      py_modules=[
+          'sentencepiece/__init__',
+          'sentencepiece/_version',
+          'sentencepiece/sentencepiece_model_pb2',
+          'sentencepiece/sentencepiece_pb2',
+      ],
+      ext_modules=[SENTENCEPIECE_EXT],
+      cmdclass=cmdclass,
+  )

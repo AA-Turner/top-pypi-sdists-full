@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """Ansible module for managing FileSystem on Unity"""
 
@@ -305,7 +304,7 @@ notes:
 
 EXAMPLES = r"""
 - name: Create FileSystem
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -317,7 +316,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Create FileSystem with quota configuration
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -334,7 +333,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Expand FileSystem size
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -345,7 +344,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Expand FileSystem size
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -356,7 +355,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Modify FileSystem smb_properties
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -370,7 +369,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Modify FileSystem Snap Schedule
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -380,7 +379,7 @@ EXAMPLES = r"""
     state: "{{state_present}}"
 
 - name: Get details of FileSystem using id
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -389,7 +388,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Delete a FileSystem using id
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -398,7 +397,7 @@ EXAMPLES = r"""
     state: "absent"
 
 - name: Enable replication on the fs
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -419,7 +418,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Modify replication on the fs
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -434,7 +433,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Disable replication on the fs
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -444,7 +443,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Disable replication by specifying replication_name on the fs
-  dellemc.unity.filesystem:
+  filesystem:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -1467,11 +1466,14 @@ class Filesystem(object):
         try:
             LOG.info("Modifying replication session of filesystem %s", obj_fs.name)
             modify_payload = {}
+            rpo = 0
             if replication_params['replication_mode']:
                 if replication_params['replication_mode'] == 'manual':
                     rpo = -1
                 elif replication_params['replication_mode'] == 'synchronous':
                     rpo = 0
+                elif replication_params['replication_mode'] == 'asynchronous':
+                    rpo = replication_params.get('rpo', 0)
             elif replication_params['rpo']:
                 rpo = replication_params['rpo']
             name = repl_session.name

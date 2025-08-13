@@ -37,12 +37,13 @@ class OpenPGPPublicKeyResponse(BaseModel):
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
+    vuln_report: Optional[StrictStr] = None
     fingerprint: Optional[Annotated[str, Field(strict=True, max_length=64)]] = None
     created: Optional[datetime] = None
     user_ids: Optional[List[NestedOpenPGPUserIDResponse]] = None
     user_attributes: Optional[List[NestedOpenPGPUserAttributeResponse]] = None
     public_subkeys: Optional[List[NestedOpenPGPPublicSubkeyResponse]] = None
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "fingerprint", "created", "user_ids", "user_attributes", "public_subkeys"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "vuln_report", "fingerprint", "created", "user_ids", "user_attributes", "public_subkeys"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -81,19 +82,15 @@ class OpenPGPPublicKeyResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
+            "vuln_report",
             "fingerprint",
             "created",
-            "user_ids",
-            "user_attributes",
-            "public_subkeys",
         ])
 
         _dict = self.model_dump(
@@ -139,6 +136,7 @@ class OpenPGPPublicKeyResponse(BaseModel):
             "pulp_created": obj.get("pulp_created"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
             "pulp_labels": obj.get("pulp_labels"),
+            "vuln_report": obj.get("vuln_report"),
             "fingerprint": obj.get("fingerprint"),
             "created": obj.get("created"),
             "user_ids": [NestedOpenPGPUserIDResponse.from_dict(_item) for _item in obj["user_ids"]] if obj.get("user_ids") is not None else None,

@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod code_action;
+mod comment_directive;
 mod completion;
 mod config_manager;
 mod document;
@@ -10,6 +11,11 @@ mod hover;
 mod semantic_tokens;
 
 pub use backend::Backend;
+pub(crate) use comment_directive::{
+    SCHEMA_DIRECTIVE_DESCRIPTION, SCHEMA_DIRECTIVE_TITLE, TOMBI_DIRECTIVE_DESCRIPTION,
+    TOMBI_DIRECTIVE_TITLE,
+};
+pub use hover::HoverContent;
 
 /// Run TOML Language Server
 #[derive(Debug)]

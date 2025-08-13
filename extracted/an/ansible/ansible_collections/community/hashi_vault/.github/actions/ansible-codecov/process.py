@@ -12,6 +12,7 @@ import sys
 import subprocess
 import re
 import getopt
+import time
 from pathlib import Path
 
 
@@ -76,7 +77,7 @@ def main(argv):
     logextra = ' (+%r)' % extra_flags if extra_flags else ''
 
     for flag, files in flags.items():
-        cmd = ['codecov', '-F', flag]
+        cmd = ['codecov', 'upload-coverage', '-F', flag]
         [cmd.extend(['-F', extra]) for extra in extra_flags]
         [cmd.extend(['-f', file]) for file in files]
         if fail_on_error:
@@ -85,7 +86,26 @@ def main(argv):
         print('::group::Flag: %s%s' % (flag, logextra))
 
         print('Executing: %r' % cmd)
-        subprocess.run(cmd, stderr=subprocess.STDOUT, check=True)
+
+        max_attempt = 5
+        for attempt in range(1, max_attempt + 1):
+            try:
+                subprocess.run(cmd, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, check=True, text=True)
+            except subprocess.CalledProcessError as e:
+                match = re.search(r'Error: There was an error fetching the storage URL during POST: 429.*?time to availability: (?P<tta>\d+)s', e.stdout)
+                if not match:
+                    print(f"stdout: {e.stdout}")
+                    print(f"stderr: {e.stderr}")
+                    raise
+
+                tta = int(match.group('tta')) + 10
+                print((
+                    f"::warning title=Codecov upload issue::Codecov tokenless upload from fork failed. "
+                    f"Waiting {tta} seconds to try again [attempt {attempt} of {max_attempt}]."
+                ))
+                time.sleep(tta)
+            else:
+                break
 
         print('::endgroup::')
 

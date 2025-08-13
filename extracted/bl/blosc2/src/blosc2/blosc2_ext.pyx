@@ -509,7 +509,7 @@ cdef extern from "b2nd.h":
     int b2nd_copy(b2nd_context_t *ctx, b2nd_array_t *src, b2nd_array_t **array)
     int b2nd_concatenate(b2nd_context_t *ctx, b2nd_array_t *src1, b2nd_array_t *src2,
                          int8_t axis, c_bool copy, b2nd_array_t **array)
-    int b2nd_expand_dims(const b2nd_array_t *array, b2nd_array_t ** view, const int8_t axis)
+    int b2nd_expand_dims(const b2nd_array_t *array, b2nd_array_t ** view, const c_bool *axis, const uint8_t final_dims)
     int b2nd_get_orthogonal_selection(const b2nd_array_t *array, int64_t ** selection,
                                       int64_t *selection_size, void *buffer,
                                       int64_t *buffershape, int64_t buffersize)
@@ -1464,6 +1464,8 @@ cdef class SChunk:
         PyObject_GetBuffer(value, &buf, PyBUF_SIMPLE)
         cdef uint8_t *buf_ptr = <uint8_t *> buf.buf
         cdef int64_t buf_pos = 0
+        cdef int64_t nbytes_copy = min(nbytes, buf.len - buf_pos)
+        cdef int64_t data_start
         cdef uint8_t *data
         cdef uint8_t *chunk
         if buf.len < nbytes:
@@ -1478,14 +1480,16 @@ cdef class SChunk:
                 # Update last chunk before appending any other
                 if stop * self.schunk.typesize >= self.schunk.chunksize * self.schunk.nchunks:
                     chunk_nbytes = self.schunk.chunksize
+                    nbytes_copy = min(nbytes_copy, self.schunk.chunksize * self.schunk.nchunks - nitems * self.schunk.typesize)
                 else:
                     chunk_nbytes = (stop * self.schunk.typesize) % self.schunk.chunksize
                 data  = <uint8_t *> malloc(chunk_nbytes)
                 rc = blosc2_schunk_decompress_chunk(self.schunk, self.schunk.nchunks - 1, data, chunk_nbytes)
                 if rc < 0:
                     free(data)
-                    raise RuntimeError("Error while decompressig the chunk")
-                memcpy(data + nitems * self.schunk.typesize, buf_ptr + buf_pos, chunk_nbytes - buf_pos)
+                    raise RuntimeError("Error while decompressing the chunk")
+                data_start = self.schunk.nbytes - (self.schunk.nchunks - 1) * self.schunk.chunksize
+                memcpy(data + data_start, buf_ptr + buf_pos, nbytes_copy)
                 chunk = <uint8_t *> malloc(chunk_nbytes + BLOSC2_MAX_OVERHEAD)
                 rc = blosc2_compress_ctx(self.schunk.cctx, data, chunk_nbytes, chunk, chunk_nbytes + BLOSC2_MAX_OVERHEAD)
                 free(data)
@@ -1496,7 +1500,7 @@ cdef class SChunk:
                 free(chunk)
                 if rc < 0:
                     raise RuntimeError("Error while updating the chunk")
-                buf_pos += chunk_nbytes - buf_pos
+                buf_pos += nbytes_copy
             # Append data if needed
             if buf_pos < buf.len:
                 nappends = int(stop * self.schunk.typesize / self.schunk.chunksize - self.schunk.nchunks)
@@ -2971,13 +2975,17 @@ def concat(arr1: NDArray, arr2: NDArray, axis: int, **kwargs):
         # Return the first array, which now contains the concatenated data
         return arr1
 
-def expand_dims(arr1: NDArray, axis: int):
+def expand_dims(arr1: NDArray, axis_mask: list[bool], final_dims: int) -> blosc2.NDArray:
     """
     Add new dummy axis to NDArray object at specified dimension.
     """
     cdef b2nd_array_t *view
-    _check_rc(b2nd_expand_dims(arr1.array, &view, axis),
-              "Error while concatenating the arrays")
+    cdef c_bool mask_[B2ND_MAX_DIM]
+    if final_dims > B2ND_MAX_DIM:
+        raise ValueError(f"Cannot expand dimensions beyond {B2ND_MAX_DIM} dimensions")
+    for i in range(final_dims):
+        mask_[i] = axis_mask[i]
+    _check_rc(b2nd_expand_dims(arr1.array, &view, mask_, final_dims),"Error while expanding the arrays")
 
     return blosc2.NDArray(_schunk=PyCapsule_New(view.sc, <char *> "blosc2_schunk*", NULL),
                               _array=PyCapsule_New(view, <char *> "b2nd_array_t*", NULL))

@@ -152,6 +152,15 @@ TEMPERATURE_FORECAST_BY_WEATHER_ZONE_RTID = 12325
 # https://data.ercot.com/data-product-archive/NP6-970-CD - for historical data
 ERCOT_INDICATIVE_LMP_BY_SETTLEMENT_POINT_RTID = 13073
 
+# https://www.ercot.com/mp/data-products/data-product-details?id=np4-192-cd
+DAM_TOTAL_ENERGY_PURCHASED_RTID = 12333
+
+# https://www.ercot.com/mp/data-products/data-product-details?id=np4-193-cd
+DAM_TOTAL_ENERGY_SOLD_RTID = 12334
+
+# https://www.ercot.com/mp/data-products/data-product-details?id=np1-301
+COP_ADJUSTMENT_PERIOD_SNAPSHOT_RTID = 10038
+
 
 class ERCOTSevenDayLoadForecastReport(Enum):
     """
@@ -479,6 +488,8 @@ class Ercot(ISOBase):
         """The fuel mix with gen, hsl, and seasonal capacity for each fuel type."""
         data = self._get_fuel_mix(date, verbose=verbose)
 
+        capacity = data["monthlyCapacity"]
+
         dfs = []
 
         for day in data["data"].keys():
@@ -494,9 +505,7 @@ class Ercot(ISOBase):
         for col in mix.columns:
             mix[col + " Gen"] = mix[col].apply(lambda x: x.get("gen"))
             mix[col + " HSL"] = mix[col].apply(lambda x: x.get("hsl"))
-            mix[col + " Seasonal Capacity"] = mix[col].apply(
-                lambda x: x.get("seasonalCapacity"),
-            )
+            mix[col + " Seasonal Capacity"] = capacity[col]
             cols_to_drop.append(col)
 
         mix = mix.drop(columns=cols_to_drop)
@@ -3386,10 +3395,13 @@ class Ercot(ISOBase):
     ):
         logger.debug(f"Reading {doc.url}")
 
-        response = requests.get(doc.url, **(request_kwargs or {})).content
-        df = pd.read_csv(
-            io.BytesIO(response), compression="zip", **(read_csv_kwargs or {})
-        )
+        if request_kwargs:
+            response = requests.get(doc.url, **(request_kwargs or {})).content
+            df = pd.read_csv(
+                io.BytesIO(response), compression="zip", **(read_csv_kwargs or {})
+            )
+        else:
+            df = pd.read_csv(doc.url, compression="zip", **(read_csv_kwargs or {}))
 
         if parse:
             df = self.parse_doc(df, verbose=verbose)
@@ -3417,6 +3429,21 @@ class Ercot(ISOBase):
                 ),
             )
         return pd.concat(dfs).reset_index(drop=True)
+
+    def ambiguous_based_on_dstflag(self, df: pd.DataFrame) -> pd.Series:
+        # DSTFlag is Y during the repeated hour (after the clock has been set back)
+        # so it's False/N during DST And True/Y during Standard Time.
+        # For ambiguous, Pandas wants True for DST and False for Standard Time
+        # during repeated hours. Therefore, ambgiuous should be True when
+        # DSTFlag is False/N
+
+        # Some ERCOT datasets use a boolean, some use a string
+        if df["DSTFlag"].dtype == bool:
+            return ~df["DSTFlag"]
+        # Assume that if the DSTFlag column is a string, it's "Y" or "N"
+        else:
+            assert set(df["DSTFlag"].unique()).issubset({"Y", "N"})
+            return df["DSTFlag"] == "N"
 
     def parse_doc(
         self,
@@ -3452,24 +3479,9 @@ class Ercot(ISOBase):
 
         ending_time_col_name = "HourEnding"
 
-        def ambiguous_based_on_dstflag(df: pd.DataFrame) -> pd.Series:
-            # DSTFlag is Y during the repeated hour (after the clock has been set back)
-            # so it's False/N during DST And True/Y during Standard Time.
-            # For ambiguous, Pandas wants True for DST and False for Standard Time
-            # during repeated hours. Therefore, ambgiuous should be True when
-            # DSTFlag is False/N
-
-            # Some ERCOT datasets use a boolean, some use a string
-            if df["DSTFlag"].dtype == bool:
-                return ~df["DSTFlag"]
-            # Assume that if the DSTFlag column is a string, it's "Y" or "N"
-            else:
-                assert set(df["DSTFlag"].unique()).issubset({"Y", "N"})
-                return df["DSTFlag"] == "N"
-
         ambiguous = dst_ambiguous_default
         if "DSTFlag" in doc.columns:
-            ambiguous = ambiguous_based_on_dstflag(doc)
+            ambiguous = self.ambiguous_based_on_dstflag(doc)
 
         # i think DeliveryInterval only shows up
         # in 15 minute data along with DeliveryHour
@@ -3493,7 +3505,7 @@ class Ercot(ISOBase):
                 doc["DeliveryDate"] + " " + doc["TimeEnding"] + ":00",
             )
             doc["Interval End"] = doc["Interval End"].dt.tz_localize(
-                "US/Central",
+                self.default_timezone,
                 ambiguous=ambiguous,
             )
             doc["Interval Start"] = doc["Interval End"] - interval_length
@@ -3658,3 +3670,183 @@ class Ercot(ISOBase):
                 "LMP",
             ]
         ]
+
+    @support_date_range(frequency="DAY_START")
+    def get_dam_total_energy_purchased(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get DAM Total Energy Purchased
+
+        Arguments:
+            date (str, datetime): date to get data for
+            end (str, datetime): end time to get data for
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with DAM total energy purchased data
+        """
+        if date == "latest":
+            return self.get_dam_total_energy_purchased(
+                date="today",
+                verbose=verbose,
+            )
+
+        # DAM data so subtract one from the date
+        doc = self._get_document(
+            report_type_id=DAM_TOTAL_ENERGY_PURCHASED_RTID,
+            date=date - pd.DateOffset(days=1),
+            extension="csv",
+        )
+
+        return self._process_dam_total_energy(
+            doc,
+            verbose=verbose,
+        )
+
+    def _process_dam_total_energy(
+        self,
+        doc: Document,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        return (
+            self.read_doc(doc, verbose=verbose)
+            .rename(
+                columns={
+                    "Settlement_Point": "Location",
+                    "TotalDAMEnergySold": "Total",
+                    "Total_DAM_Energy_Bought": "Total",
+                },
+            )
+            .drop(
+                columns=["Time"],
+            )
+            .sort_values(["Interval Start", "Location"])
+            .reset_index(drop=True)
+        )
+
+    @support_date_range(frequency="DAY_START")
+    def get_dam_total_energy_sold(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        """Get DAM Total Energy Sold
+
+        Arguments:
+            date (str, datetime): date to get data for
+            end (str, datetime): end time to get data for
+            verbose (bool, optional): print verbose output. Defaults to False.
+
+        Returns:
+            pandas.DataFrame: A DataFrame with DAM total energy sold data
+        """
+        if date == "latest":
+            return self.get_dam_total_energy_sold(
+                date="today",
+                verbose=verbose,
+            )
+
+        # DAM data so subtract one from the date
+        doc = self._get_document(
+            report_type_id=DAM_TOTAL_ENERGY_SOLD_RTID,
+            date=date - pd.DateOffset(days=1),
+            extension="csv",
+        )
+
+        return self._process_dam_total_energy(
+            doc,
+            verbose=verbose,
+        )
+
+    @support_date_range(frequency="DAY_START")
+    def get_cop_adjustment_period_snapshot_60_day(
+        self,
+        date: str | pd.Timestamp,
+        end: str | pd.Timestamp | None = None,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        if date == "latest" or date > pd.Timestamp.now(
+            tz=self.default_timezone,
+        ) - pd.DateOffset(days=60):
+            raise ValueError(
+                "Cannot get COP Adjustment Period Snapshot for date < 60 days in the past",
+            )
+
+        # Data is delayed by 60 days. To get the report for a given day, we have to
+        # look 60 days in the future relative to the target date
+        report_date = date + pd.DateOffset(days=60)
+
+        # Delayed by 60 days
+        doc = self._get_document(
+            report_type_id=COP_ADJUSTMENT_PERIOD_SNAPSHOT_RTID,
+            date=report_date,
+        )
+
+        data = self.read_doc(doc, verbose=verbose)
+
+        return self._process_cop_adjustment_period_snapshot_60_day_data(
+            data,
+            verbose=verbose,
+        )
+
+    def _process_cop_adjustment_period_snapshot_60_day_data(
+        self,
+        data: pd.DataFrame,
+        verbose: bool = False,
+    ) -> pd.DataFrame:
+        data = (
+            data.rename(columns={"QSE Name": "QSE"})
+            .drop(
+                columns=["Time"],
+            )
+            .sort_values(["Interval Start", "Resource Name"])
+            .reset_index(drop=True)
+        )
+
+        # Columns not in older data files or not in newer data files.
+        for col in [
+            # Present in old data, but not new
+            "RRS",
+            # These four columns are present only in new data
+            "RRSPFR",
+            "RRSFFR",
+            "RRSUFR",
+            "ECRS",
+            # These three columns first have data on 2024-06-28
+            "Minimum SOC",
+            "Maximum SOC",
+            "Hour Beginning Planned SOC",
+        ]:
+            if col not in data.columns:
+                data[col] = pd.NA
+
+        data = data[
+            [
+                "Interval Start",
+                "Interval End",
+                "Resource Name",
+                "QSE",
+                "Status",
+                "High Sustained Limit",
+                "Low Sustained Limit",
+                "High Emergency Limit",
+                "Low Emergency Limit",
+                "Reg Up",
+                "Reg Down",
+                "RRS",
+                "RRSPFR",
+                "RRSFFR",
+                "RRSUFR",
+                "NSPIN",
+                "ECRS",
+                "Minimum SOC",
+                "Maximum SOC",
+                "Hour Beginning Planned SOC",
+            ]
+        ]
+
+        return data

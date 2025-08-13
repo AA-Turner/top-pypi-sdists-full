@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """Ansible module for managing host on Unity"""
 
@@ -103,7 +102,7 @@ notes:
 
 EXAMPLES = r'''
 - name: Create empty Host
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -114,7 +113,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Create Host with Initiators
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -129,7 +128,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Modify Host using host_id
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -141,7 +140,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Add Initiators to Host
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -153,7 +152,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Get Host details using host_name
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -162,7 +161,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Get Host details using host_id
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -171,7 +170,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Delete Host
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -180,7 +179,7 @@ EXAMPLES = r'''
     state: "absent"
 
 - name: Add network address to Host
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -191,7 +190,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Delete network address from Host
-  dellemc.unity.host:
+  host:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"

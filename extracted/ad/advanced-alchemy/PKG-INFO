@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: advanced_alchemy
-Version: 1.4.5
+Version: 1.5.0
 Summary: Ready-to-go SQLAlchemy concoctions.
 Project-URL: Changelog, https://docs.advanced-alchemy.litestar.dev/latest/changelog
 Project-URL: Discord, https://discord.gg/litestar
@@ -57,10 +57,7 @@ Description-Content-Type: text/markdown
 
 <!-- markdownlint-disable -->
 <p align="center">
-  <!-- github-banner-start -->
-  <img src="https://raw.githubusercontent.com/litestar-org/branding/main/assets/Branding%20-%20SVG%20-%20Transparent/AA%20-%20Banner%20-%20Inline%20-%20Light.svg#gh-light-mode-only" alt="Litestar Logo - Light" width="100%" height="auto" />
-  <img src="https://raw.githubusercontent.com/litestar-org/branding/main/assets/Branding%20-%20SVG%20-%20Transparent/AA%20-%20Banner%20-%20Inline%20-%20Dark.svg#gh-dark-mode-only" alt="Litestar Logo - Dark" width="100%" height="auto" />
-  <!-- github-banner-end -->
+  <img src="https://raw.githubusercontent.com/litestar-org/branding/refs/heads/main/assets/Branding%20-%20SVG%20-%20Transparent/AA%20-%20Banner%20-%20Inline%20-%20Light.svg" alt="Litestar Logo - Light" width="100%" height="auto" />
 </p>
 <div align="center">
 <!-- markdownlint-restore -->
@@ -382,10 +379,7 @@ or the [project-specific GitHub discussions page][project-discussions].
 <!-- markdownlint-disable -->
 <hr />
 <p align="center">
-  <!-- github-banner-start -->
-  <img src="https://raw.githubusercontent.com/litestar-org/branding/main/assets/Branding%20-%20SVG%20-%20Transparent/Organization%20Project%20-%20Banner%20-%20Inline%20-%20Dark.svg" alt="Litestar Logo - Light" width="40%" height="auto" />
-  <br>An official <a href="https://github.com/litestar-org">Litestar Organization</a> Project
-  <!-- github-banner-end -->
+
 </p>
 
 [litestar-org]: https://github.com/litestar-org

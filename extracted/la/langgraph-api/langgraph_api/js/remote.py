@@ -344,6 +344,11 @@ class RemotePregel(BaseRemotePregel):
 
     async def fetch_nodes_executed(self):
         result = await _client_invoke("getNodesExecuted", {"graph_id": self.graph_id})
+        await logger.adebug(
+            f"Fetched {result['nodesExecuted']} nodes executed",
+            nodes_executed=result["nodesExecuted"],
+            graph_id=self.graph_id,
+        )
         return result["nodesExecuted"]
 
 

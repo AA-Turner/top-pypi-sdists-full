@@ -1,21 +1,26 @@
 import typer
 import sys
-import importlib.util
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+from va.constants import VA_ENABLE_RECOVERY
 from .cli import auth
 import asyncio
+from .skeleton import create_workflow_skeleton
 from .mcp_server.main import main as mcp_main
+from .code.loader import load_instrumented_module
+
+load_dotenv()
 
 app = typer.Typer(help="Vibe automation CLI")
-
-# Add 'auth' group
 app.add_typer(auth.app, name="auth", help="Authentication commands")
 
 
 @app.command()
 def run(
     file: Path = typer.Argument(
-        ..., exists=True, file_okay=True, dir_okay=False, help="Python file to execute"
+        ..., file_okay=True, dir_okay=False, help="Python file to execute"
     ),
 ):
     """
@@ -37,50 +42,56 @@ def run(
         typer.echo(f"Error: File '{file}' is not a Python file", err=True)
         raise typer.Exit(1)
 
+    # Create the workflow file if not exist, which would ask users regarding the goal
+    if not file.exists():
+        create_workflow_skeleton(file)
+
+    workflow_code = file.read_text()
+
+    # Store the workflow code globally for recovery access
+    os.environ["VA_WORKFLOW_CODE"] = workflow_code
+    os.environ["VA_WORKFLOW_FILE"] = str(file)
+
+    # Add the file's directory to sys.path so relative imports work
+    file_dir = str(file.parent.absolute())
+    if file_dir not in sys.path:
+        sys.path.insert(0, file_dir)
+
     try:
-        # Load the module from the file
-        module_name = file.stem  # Use filename without extension as module name
-        spec = importlib.util.spec_from_file_location(module_name, file)
-        if spec is None or spec.loader is None:
-            typer.echo(f"Error: Could not load module from '{file}'", err=True)
-            raise typer.Exit(1)
+        # load with instrumentation for exception trapping unless disabled
+        if VA_ENABLE_RECOVERY:
+            module = load_instrumented_module(file)
+        else:
+            # Load module normally without instrumentation
+            import importlib.util
 
-        module = importlib.util.module_from_spec(spec)
-
-        # Add the file's directory to sys.path so relative imports work
-        file_dir = str(file.parent.absolute())
-        if file_dir not in sys.path:
-            sys.path.insert(0, file_dir)
-
-        try:
-            # Execute the module
+            spec = importlib.util.spec_from_file_location("__main__", file)
+            module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
-            # Check if module has a main function
-            if hasattr(module, "main") and callable(module.main):
-                # Support both sync and async main functions
-
-                if asyncio.iscoroutinefunction(module.main):
-                    # Run async main using asyncio.run
-                    asyncio.run(module.main())
-                else:
-                    # Call synchronous main directly
-                    module.main()
-
+        # Check if module has a main function
+        if hasattr(module, "main") and callable(module.main):
+            if asyncio.iscoroutinefunction(module.main):
+                asyncio.run(module.main())
             else:
-                typer.echo(
-                    f"Error: No callable 'main' function found in '{file}'", err=True
-                )
-                raise typer.Exit(1)
+                module.main()
 
-        finally:
-            # Clean up sys.path
-            if file_dir in sys.path:
-                sys.path.remove(file_dir)
-
+            # Print final workflow code (may include recovery modifications)
+            typer.echo("\n✅ Workflow completed successfully!")
+            final_code = os.environ.get("VA_FINAL_WORKFLOW_CODE", workflow_code)
+            typer.echo(f"\n📄 Final workflow code:\n{final_code}")
+        else:
+            typer.echo(
+                f"Error: No callable 'main' function found in '{file}'", err=True
+            )
+            raise typer.Exit(1)
     except Exception as e:
         typer.echo(f"Error executing '{file}': {e}", err=True)
         raise typer.Exit(1)
+    finally:
+        # Clean up sys.path
+        if file_dir in sys.path:
+            sys.path.remove(file_dir)
 
 
 @app.command()

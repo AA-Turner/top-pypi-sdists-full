@@ -299,8 +299,7 @@ class Transformation(base_tecton_object.BaseTectonObject):
 
     def _validate(self) -> None:
         validations_api.run_backend_validation_and_assert_valid(
-            self,
-            validator_pb2.ValidationRequest(validation_args=[self._build_fco_validation_args()]),
+            self, validator_pb2.ValidationRequest(validation_args=[self._build_fco_validation_args()])
         )
 
     def _on_demand_run(

@@ -7,11 +7,11 @@ name = 'ase'
 description='Atomic Simulation Environment'
 dynamic = ['version']
 readme = 'README.rst'
-license = { text = 'LGPLv2.1+' }
+license = 'LGPL-2.1-or-later'
+license-files = ['LICENSE']
 maintainers = [{ name = 'ASE Community', email = 'ase-users@listserv.fysik.dtu.dk' }]
 classifiers = [
     'Development Status :: 6 - Mature',
-    'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)',
     'Intended Audience :: Science/Research',
     'Operating System :: OS Independent',
     'Programming Language :: Python :: 3',
@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = 'https://wiki.fysik.dtu.dk/ase/'
+Homepage = 'https://ase-lib.org/'
 Repository = 'https://gitlab.com/ase/ase.git'
 Issues = 'https://gitlab.com/ase/ase/issues/'
 
@@ -38,7 +38,7 @@ Issues = 'https://gitlab.com/ase/ase/issues/'
 ase = 'ase.cli.main:main'
 
 [project.optional-dependencies]
-docs = ['sphinx', 'sphinx_rtd_theme', 'pillow']
+docs = ['sphinx', 'sphinx_book_theme', 'pillow']
 test = ['pytest>=7.0.0', 'pytest-xdist>=2.1.0']
 spglib = ['spglib>=1.9']
 lint = ['mypy', 'ruff', 'coverage', 'types-docutils', 'types-PyMySQL', 'flake8']
@@ -83,12 +83,11 @@ exclude_also = [
 [tool.ruff]
 line-length = 80
 exclude = ['./build/', './dist', './doc/build']
-src = ['ase']
+src = ['ase', 'doc']
 
 [tool.ruff.format]
 quote-style = 'single'
 skip-magic-trailing-comma = false
-exclude = ['doc/*.py', 'ase/test/*.py']
 
 [tool.ruff.lint]
 preview = true  # necessary to activate many pycodestyle rules
@@ -124,6 +123,7 @@ categories = [
     'Molecular dynamics',
     'GUI',
     'Development',
+    'Documentation',
     'Other changes',
     'Bugfixes'
 ]

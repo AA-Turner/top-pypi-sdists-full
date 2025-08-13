@@ -224,7 +224,7 @@ class GenerateModuleInstruction(dspy.Module):
                 outputs = []
                 for field_name, field in get_signature(program.predictors()[pred_i]).fields.items():
                     # Access the '__dspy_field_type' from the extra metadata
-                    dspy_field_type = field.json_schema_extra.get('__dspy_field_type')
+                    dspy_field_type = field.json_schema_extra.get("__dspy_field_type")
 
                     # Based on the '__dspy_field_type', append to the respective list
                     if dspy_field_type == "input":
@@ -347,7 +347,7 @@ class GroundedProposer(Proposer):
             if self.verbose:
                 print("No demo candidates provided. Running without task demos.")
             self.use_task_demos = False
-            # When no demo candidates are provided, defailt to N
+            # When no demo candidates are provided, default to N
             num_demos = N
         else:
             num_demos = max(len(demo_candidates[0]), 1)
@@ -422,7 +422,7 @@ class GroundedProposer(Proposer):
 
         with dspy.settings.context(lm=self.prompt_model):
             self.prompt_model.kwargs["temperature"] = modified_temp
-            proposed_instruction = instruction_generator.forward(
+            proposed_instruction = instruction_generator(
                 demo_candidates=demo_candidates,
                 pred_i=pred_i,
                 demo_set_i=demo_set_i,

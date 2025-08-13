@@ -67,7 +67,7 @@ dependencies = [
     "requests>=2.22",
     "rich>=12",
     "ruamel.yaml>=0.17.11",
-    "scmrepo>=3.3.8,<4",
+    "scmrepo>=3.5.2,<4",
     "shortuuid>=0.5",
     "shtab<2,>=1.3.4",
     "tabulate>=0.8.7",
@@ -85,7 +85,7 @@ gdrive = ["dvc-gdrive>=3,<4"]
 gs = ["dvc-gs>=3.0.2,<4"]
 hdfs = ["dvc-hdfs>=3,<4"]
 lint = [
-    "mypy==1.16.1",
+    "mypy==1.17.1",
     "pandas-stubs",
     "types-colorama",
     "types-psutil",
@@ -175,7 +175,6 @@ filterwarnings = [
     "ignore:unclosed database.*sqlite3.Connection:ResourceWarning",
     "ignore:unclosed.*<socket.socket:ResourceWarning",
 ]
-log_level = "debug"
 markers = [
     "needs_internet: Might need network access for the tests",
     "studio: Tests verifying contract between DVC and Studio",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.7.9
+Version: 1.7.10
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -400,6 +400,7 @@ License-File: LICENSE
 Requires-Dist: docstring-parser
 Requires-Dist: gitpython
 Requires-Dist: httpx
+Requires-Dist: packaging
 Requires-Dist: pydantic-settings
 Requires-Dist: pydantic
 Requires-Dist: python-dotenv

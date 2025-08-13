@@ -15,7 +15,7 @@ current_selection_string = _('(selection)')
 class AddAtoms:
     def __init__(self, gui):
         self.gui = gui
-        win = self.win = ui.Window(_('Add atoms'), wmtype='utility')
+        win = self.win = ui.Window(_('Add atoms'))
         win.add(_('Specify chemical symbol, formula, or filename.'))
 
         def choose_file():
@@ -45,7 +45,7 @@ class AddAtoms:
         combobox = ui.ComboBox(labels, values)
         win.add([_('Add:'), combobox,
                  ui.Button(_('File ...'), callback=choose_file)])
-        combobox.widget.bind('<Return>', lambda e: self.add())
+        ui.bind_enter(combobox.widget, lambda e: self.add())
 
         combobox.value = default
         self.combobox = combobox

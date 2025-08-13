@@ -48,6 +48,7 @@ class TestPaginatedMultipleArtifactContentResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifacts = pulpcore.client.pulpcore.models.artifacts.artifacts(), )
                     ]
             )
@@ -63,6 +64,7 @@ class TestPaginatedMultipleArtifactContentResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         artifacts = pulpcore.client.pulpcore.models.artifacts.artifacts(), )
                     ],
         )

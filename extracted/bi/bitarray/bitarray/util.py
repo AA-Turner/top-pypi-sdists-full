@@ -15,7 +15,7 @@ import random
 from bitarray import bitarray, bits2bytes
 
 from bitarray._util import (
-    zeros, ones, count_n, parity, sum_indices, xor_indices,
+    zeros, ones, count_n, parity, _ssqi, xor_indices,
     count_and, count_or, count_xor, any_and, subset,
     correspond_all, byteswap,
     serialize, deserialize,
@@ -69,6 +69,9 @@ when Python version is too low.
         raise NotImplementedError("bitarray.util.random_k() requires "
                                   "Python 3.9 or higher")
     r = _Random(__n, endian)
+    if not isinstance(k, int):
+        raise TypeError("int expected, got '%s'" % type(k).__name__)
+
     return r.random_k(k)
 
 
@@ -97,7 +100,7 @@ class _Random:
     # individually in the test class Random_P_Tests in 'test_util.py'.
     # The test class also contains many comments and explanations.
     # To better understand how the algorithm works, see ./doc/random_p.rst
-    # See also, VerificationTests in ./devel/test_random.py
+    # See also, VerificationTests in devel/test_random.py
 
     # maximal number of calls to .random_half() in .combine()
     M = 8
@@ -165,7 +168,7 @@ class _Random:
             a.invert()  # use in-place to avoid copying
             return a
 
-        # decide on sequence, see VerificationTests ./devel/test_random.py
+        # decide on sequence, see VerificationTests devel/test_random.py
         if k < 16 or k * self.K < 3 * n:
             i = 0
         else:
@@ -225,7 +228,7 @@ class _Random:
 
         # calculate operator sequence
         i = int(p * self.K)
-        if p * (self.K + 1) > i + 1: # see ./devel/test_random.py
+        if p * (self.K + 1) > i + 1: # see devel/test_random.py
             i += 1
         seq = self.op_seq(i)
         q = i / self.K
@@ -245,6 +248,50 @@ class _Random:
             a &= self.random_p(x)
 
         return a
+
+
+def sum_indices(__a, __mode=1):
+    """sum_indices(a, /) -> int
+
+Return sum of indices of all active bits in bitarray `a`.
+Equivalent to `sum(i for i, v in enumerate(a) if v)`.
+"""
+    if __mode not in (1, 2):
+        raise ValueError("unexpected mode %r" % __mode)
+
+    # For details see: devel/test_sum_indices.py
+    n = 1 << 19  # block size  512 Kbits
+    if len(__a) <= n:  # shortcut for single block
+        return _ssqi(__a, __mode)
+
+    # Constants
+    m = n // 8  # block size in bytes
+    o1 = n * (n - 1) // 2
+    o2 = o1 * (2 * n - 1) // 3
+
+    nblocks = (len(__a) + n - 1) // n
+    padbits = __a.padbits
+    sm = 0
+    for i in range(nblocks):
+        # use memoryview to avoid copying memory
+        v = memoryview(__a)[i * m : (i + 1) * m]
+        block = bitarray(None, __a.endian, buffer=v)
+        if padbits and i == nblocks - 1:
+            if block.readonly:
+                block = bitarray(block)
+            block[-padbits:] = 0
+
+        k = block.count()
+        if k:
+            y = n * i
+            z1 = o1 if k == n else _ssqi(block)
+            if __mode == 1:
+                sm += k * y + z1
+            else:
+                z2 = o2 if k == n else _ssqi(block, 2)
+                sm += (k * y + 2 * z1) * y + z2
+
+    return sm
 
 
 def pprint(__a, stream=None, group=8, indent=4, width=80):

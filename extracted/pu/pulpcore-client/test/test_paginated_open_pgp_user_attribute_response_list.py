@@ -48,6 +48,7 @@ class TestPaginatedOpenPGPUserAttributeResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         sha256 = '', 
                         signatures = [
                             pulpcore.client.pulpcore.models.nested_open_pgp_signature_response.NestedOpenPGPSignatureResponse(
@@ -74,6 +75,7 @@ class TestPaginatedOpenPGPUserAttributeResponseList(unittest.TestCase):
                         pulp_labels = {
                             'key' : ''
                             }, 
+                        vuln_report = '', 
                         sha256 = '', 
                         signatures = [
                             pulpcore.client.pulpcore.models.nested_open_pgp_signature_response.NestedOpenPGPSignatureResponse(

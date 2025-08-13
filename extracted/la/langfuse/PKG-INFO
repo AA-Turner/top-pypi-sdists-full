@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langfuse
-Version: 3.2.3
+Version: 3.2.4
 Summary: A client library for accessing langfuse
 License: MIT
 Author: langfuse
@@ -14,7 +14,6 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: langchain
-Provides-Extra: llama-index
 Provides-Extra: openai
 Requires-Dist: backoff (>=1.10.0)
 Requires-Dist: httpx (>=0.15.4,<1.0)

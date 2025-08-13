@@ -1,8 +1,19 @@
 ---
-- name: Test remove resources
+- name: Test Remove Resources
   hosts: localhost
   gather_facts: false
+  vars:
+    event_prefix: "AIC CICD ->"
   tasks:
+
+    - name: POSITIVE test -> Post a CICD start event
+      infinidat.infinibox.infini_event:
+        description_template: "{{ event_prefix }} {{ ansible_play_name }} is beginning"
+        level: INFO
+        state: present
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
 
     - name: POSITIVE test -> Remove cluster
       infinidat.infinibox.infini_cluster:
@@ -237,6 +248,15 @@
       infinidat.infinibox.infini_user:
         user_name: "{{ auto_prefix }}pool_admin_user"
         state: absent
+        user: "{{ user }}"
+        password: "{{ password }}"
+        system: "{{ system }}"
+
+    - name: POSITIVE test -> Post a CICD complete event
+      infinidat.infinibox.infini_event:
+        description_template: "{{ event_prefix }} {{ ansible_play_name }} has completed"
+        level: INFO
+        state: present
         user: "{{ user }}"
         password: "{{ password }}"
         system: "{{ system }}"

@@ -21,7 +21,6 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from typing_extensions import Annotated
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -34,7 +33,8 @@ class OpenPGPSignatureResponse(BaseModel):
     pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
     pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = Field(default=None, description="A dictionary of arbitrary key/value pairs used to describe a specific Content instance.")
-    issuer: Optional[Annotated[str, Field(strict=True, max_length=16)]] = None
+    vuln_report: Optional[StrictStr] = None
+    issuer: Optional[StrictStr] = None
     created: datetime
     expiration_time: Optional[StrictStr] = None
     signers_user_id: Optional[StrictStr] = None
@@ -42,7 +42,7 @@ class OpenPGPSignatureResponse(BaseModel):
     expired: StrictBool
     key_expired: Optional[StrictStr] = None
     signed_content: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "issuer", "created", "expiration_time", "signers_user_id", "key_expiration_time", "expired", "key_expired", "signed_content"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "prn", "pulp_created", "pulp_last_updated", "pulp_labels", "vuln_report", "issuer", "created", "expiration_time", "signers_user_id", "key_expiration_time", "expired", "key_expired", "signed_content"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,12 +80,14 @@ class OpenPGPSignatureResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
             "prn",
             "pulp_created",
             "pulp_last_updated",
+            "vuln_report",
             "key_expired",
             "signed_content",
         ])
@@ -132,6 +134,7 @@ class OpenPGPSignatureResponse(BaseModel):
             "pulp_created": obj.get("pulp_created"),
             "pulp_last_updated": obj.get("pulp_last_updated"),
             "pulp_labels": obj.get("pulp_labels"),
+            "vuln_report": obj.get("vuln_report"),
             "issuer": obj.get("issuer"),
             "created": obj.get("created"),
             "expiration_time": obj.get("expiration_time"),

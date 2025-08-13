@@ -6,7 +6,7 @@ class ScopedContext:
     """
 
     _active_scope = contextvars.ContextVar(
-        "orionis_context_scope",
+        "x-orionis-container-context-scope",
         default=None
     )
 

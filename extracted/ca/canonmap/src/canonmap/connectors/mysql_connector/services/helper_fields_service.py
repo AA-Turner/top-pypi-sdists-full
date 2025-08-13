@@ -6,7 +6,11 @@ import os
 from typing import Any
 
 from canonmap.connectors.mysql_connector.utils.sql_identifiers import quote_identifier as _q
-from canonmap.connectors.mysql_connector.utils.db_metadata import get_primary_key_columns, column_exists
+from canonmap.connectors.mysql_connector.utils.db_metadata import (
+    get_primary_key_columns,
+    column_exists,
+    get_existing_auto_increment_column,
+)
 from canonmap.connectors.mysql_connector.utils.retry import with_retry
 from canonmap.connectors.mysql_connector.utils.paging import fetch_chunk
 from canonmap.connectors.mysql_connector.utils.dml import bulk_case_update_by_pk
@@ -60,42 +64,75 @@ def process_helper_for_field(
     helper_field_name = make_helper_column_name(source_field_name, transform_type.value)
     table = _q(table_name)
     helper_col = _q(helper_field_name)
+    # Determine a stable key column for paging and batched updates.
+    # Prefer an existing primary key; fall back to an auto-increment column; otherwise
+    # create a temporary auto-increment column and drop it when done.
     pk_cols = get_primary_key_columns(connector, table_name)
-    if not pk_cols:
-        raise RuntimeError(f"Could not determine primary key for table '{table_name}'")
-    pk_col_name = pk_cols[0]
+    tmp_pk_created = False
+    if pk_cols:
+        pk_col_name = pk_cols[0]
+    else:
+        auto_inc_col = get_existing_auto_increment_column(connector, table_name)
+        if auto_inc_col:
+            pk_col_name = auto_inc_col
+        else:
+            # Create a temporary auto-increment column for stable ordering and addressing
+            # Note: Use UNIQUE (not PRIMARY KEY) to avoid altering table's PK state.
+            tmp_pk_col = "__cm_tmp_pk__"
+            tmp_pk_col_q = _q(tmp_pk_col)
+            # If column already exists (from another run), reuse it.
+            exists = column_exists(connector, table_name, tmp_pk_col)
+            if not exists:
+                with_retry(
+                    lambda: connector.execute_query(
+                        f"ALTER TABLE {table} ADD COLUMN {tmp_pk_col_q} BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE",
+                        allow_writes=True,
+                    )
+                )
+                tmp_pk_created = True
+            pk_col_name = tmp_pk_col
     transform_fn = TRANSFORM_MAP[transform_type]
 
     ensure_helper_column(connector, table_name, helper_field_name, mode)
 
     last_pk = None
     total_updated = 0
-    while True:
-        rows = fetch_chunk(connector, table_name, pk_col_name, source_field_name, last_pk, chunk_size)
-        if not rows:
-            break
-        updates: list[tuple[Any, Any]] = []
-        for row in rows:
-            original_value = row[source_field_name]
-            transformed_value = transform_fn(original_value)
-            updates.append((transformed_value, row[pk_col_name]))
+    try:
+        while True:
+            rows = fetch_chunk(connector, table_name, pk_col_name, source_field_name, last_pk, chunk_size)
+            if not rows:
+                break
+            updates: list[tuple[Any, Any]] = []
+            for row in rows:
+                original_value = row[source_field_name]
+                transformed_value = transform_fn(original_value)
+                updates.append((transformed_value, row[pk_col_name]))
 
-        def _apply_updates() -> None:
-            where_suffix = ""
-            if mode in (IfExists.APPEND, IfExists.FILL_EMPTY):
-                where_suffix = f" AND ({helper_col} IS NULL OR {helper_col} = '')"
-            bulk_case_update_by_pk(
-                connector,
-                table_name,
-                pk_col_name,
-                helper_field_name,
-                updates,
-                where_suffix=where_suffix,
+            def _apply_updates() -> None:
+                where_suffix = ""
+                if mode in (IfExists.APPEND, IfExists.FILL_EMPTY):
+                    where_suffix = f" AND ({helper_col} IS NULL OR {helper_col} = '')"
+                bulk_case_update_by_pk(
+                    connector,
+                    table_name,
+                    pk_col_name,
+                    helper_field_name,
+                    updates,
+                    where_suffix=where_suffix,
+                )
+
+            with_retry(_apply_updates)
+            total_updated += len(updates)
+            last_pk = rows[-1][pk_col_name]
+    finally:
+        # Clean up the temporary key if we created it
+        if tmp_pk_created:
+            tmp_pk_col = _q(pk_col_name)
+            with_retry(
+                lambda: connector.execute_query(
+                    f"ALTER TABLE {table} DROP COLUMN {tmp_pk_col}", allow_writes=True
+                )
             )
-
-        with_retry(_apply_updates)
-        total_updated += len(updates)
-        last_pk = rows[-1][pk_col_name]
 
     if hasattr(connector, "logger"):
         connector.logger.info(
@@ -176,6 +213,22 @@ def _create_helper_fields(connector: Any, payload: "dict | CreateHelperFieldsPay
             )
             for field in fields
         ]
+
+    # If any target table lacks a primary key and an auto-increment column, force sequential processing
+    # to avoid races creating/dropping the temporary key.
+    if parallel:
+        try:
+            tables = {f.table_name for f in fields}
+            needs_tmp = False
+            for t in tables:
+                if not get_primary_key_columns(connector, t) and not get_existing_auto_increment_column(connector, t):
+                    needs_tmp = True
+                    break
+            if needs_tmp:
+                parallel = False
+        except Exception:
+            # If metadata checks fail, be conservative and run sequentially
+            parallel = False
 
     if parallel:
         from concurrent.futures import ThreadPoolExecutor

@@ -331,12 +331,15 @@ actions:
   description: A dictionary with the original xpath, namespaces and state.
   type: dict
   returned: success
-  sample: {xpath: xpath, namespaces: [namespace1, namespace2], state: present}
-backup_file:
-  description: The name of the backup file that was created.
-  type: str
-  returned: when O(backup=true)
-  sample: /path/to/file.xml.1942.2017-08-24@14:16:01~
+  sample:
+    {
+      "xpath": "xpath",
+      "namespaces": [
+        "namespace1",
+        "namespace2"
+      ],
+      "state": "present"
+    }
 count:
   description: The count of xpath matches.
   type: int
@@ -346,10 +349,6 @@ matches:
   description: The xpath matches found.
   type: list
   returned: when parameter O(print_match) is set
-msg:
-  description: A message related to the performed action(s).
-  type: str
-  returned: always
 xmlstring:
   description: An XML string of the resulting output.
   type: str

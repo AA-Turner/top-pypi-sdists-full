@@ -45,7 +45,13 @@ std::ostream &operator<<(std::ostream &out, const std::vector<T> &v) {
   return out;
 }
 
-uint32 GetRandomGeneratorSeed();
+uint32_t GetRandomGeneratorSeed();
+
+// Sets data dir containing the global resources, e.g., pre-compiled
+// normalization data.
+void SetDataDir(absl::string_view data_dir);
+
+std::string GetDataDir();
 
 // String utilities
 namespace string_util {
@@ -157,7 +163,7 @@ inline size_t OneCharLen(const char *src) {
 inline bool IsTrailByte(char x) { return static_cast<signed char>(x) < -0x40; }
 
 inline bool IsValidCodepoint(char32 c) {
-  return (static_cast<uint32>(c) < 0xD800) || (c >= 0xE000 && c <= 0x10FFFF);
+  return (static_cast<uint32_t>(c) < 0xD800) || (c >= 0xE000 && c <= 0x10FFFF);
 }
 
 bool IsStructurallyValid(absl::string_view str);
@@ -176,6 +182,21 @@ inline bool IsValidDecodeUTF8(absl::string_view input, size_t *mblen) {
 }
 
 size_t EncodeUTF8(char32 c, char *output);
+
+// Return the length of the UTF-8 character in bytes.
+inline size_t UTF8Length(char32 c) {
+  if (c <= 0x7F) {
+    return 1;
+  }
+  if (c <= 0x7FF) {
+    return 2;
+  }
+  // If `c` is out of range, we consider it as kUnicodeError, which is 3 bytes.
+  if (c <= 0xFFFF || c > 0x10FFFF) {
+    return 3;
+  }
+  return 4;
+}
 
 std::string UnicodeCharToUTF8(const char32 c);
 
@@ -237,7 +258,7 @@ void InsertOrDie(Collection *const collection,
 }
 
 // hash
-inline void mix(uint64 &a, uint64 &b, uint64 &c) {  // 64bit version
+inline void mix(uint64_t &a, uint64_t &b, uint64_t &c) {  // 64bit version
   a -= b;
   a -= c;
   a ^= (c >> 43);
@@ -276,8 +297,8 @@ inline void mix(uint64 &a, uint64 &b, uint64 &c) {  // 64bit version
   c ^= (b >> 22);
 }
 
-inline uint64 FingerprintCat(uint64 x, uint64 y) {
-  uint64 b = 0xe08c1d668b756f82;  // more of the golden ratio
+inline uint64_t FingerprintCat(uint64_t x, uint64_t y) {
+  uint64_t b = 0xe08c1d668b756f82;  // more of the golden ratio
   mix(x, b, y);
   return y;
 }
@@ -291,9 +312,9 @@ std::mt19937 *GetRandomGenerator();
 template <typename T>
 class ReservoirSampler {
  public:
-  explicit ReservoirSampler(std::vector<T> *sampled, uint64 size)
+  explicit ReservoirSampler(std::vector<T> *sampled, uint64_t size)
       : sampled_(sampled), size_(size), engine_(GetRandomGeneratorSeed()) {}
-  explicit ReservoirSampler(std::vector<T> *sampled, uint64 size, uint64 seed)
+  explicit ReservoirSampler(std::vector<T> *sampled, uint64_t size, uint64_t seed)
       : sampled_(sampled), size_(size), engine_(seed) {}
   virtual ~ReservoirSampler() {}
 
@@ -304,18 +325,18 @@ class ReservoirSampler {
     if (sampled_->size() < size_) {
       sampled_->push_back(item);
     } else {
-      std::uniform_int_distribution<uint64> dist(0, total_ - 1);
-      const uint64 n = dist(engine_);
+      std::uniform_int_distribution<uint64_t> dist(0, total_ - 1);
+      const uint64_t n = dist(engine_);
       if (n < sampled_->size()) (*sampled_)[n] = item;
     }
   }
 
-  uint64 total_size() const { return total_; }
+  uint64_t total_size() const { return total_; }
 
  private:
   std::vector<T> *sampled_ = nullptr;
-  uint64 size_ = 0;
-  uint64 total_ = 0;
+  uint64_t size_ = 0;
+  uint64_t total_ = 0;
   std::mt19937 engine_;
 };
 
@@ -419,7 +440,7 @@ void STLDeleteElements(std::vector<T *> *vec) {
 
 class ThreadPool {
  public:
-  ThreadPool(int32 n) {}
+  ThreadPool(int32_t n) {}
   virtual ~ThreadPool() {
     for (auto &task : tasks_) {
       task.join();

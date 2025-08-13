@@ -153,7 +153,7 @@ class MultiCloudsMetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/multicloud/get_multi_cloud_metadata.py.html>`__ to see an example of how to use get_multi_cloud_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/get_multi_cloud_metadata.py.html>`__ to see an example of how to use get_multi_cloud_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'compartmentId']
@@ -288,7 +288,7 @@ class MultiCloudsMetadataClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/multicloud/list_multi_cloud_metadata.py.html>`__ to see an example of how to use list_multi_cloud_metadata API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/list_multi_cloud_metadata.py.html>`__ to see an example of how to use list_multi_cloud_metadata API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']

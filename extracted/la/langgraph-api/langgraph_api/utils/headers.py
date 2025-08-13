@@ -24,15 +24,15 @@ def translate_pattern(pat: str) -> re.Pattern[str]:
 
 
 @functools.lru_cache(maxsize=1)
-def get_header_patterns() -> tuple[
-    list[re.Pattern[str]] | None, list[re.Pattern[str]] | None
-]:
+def get_header_patterns(
+    key: str,
+) -> tuple[list[re.Pattern[str]] | None, list[re.Pattern[str]] | None]:
     """Get the configured header include/exclude patterns."""
     from langgraph_api import config
 
     if not config.HTTP_CONFIG:
         return None, None
-    configurable = config.HTTP_CONFIG.get("configurable_headers")
+    configurable = config.HTTP_CONFIG.get(key)
     if not configurable:
         return None, None
     header_includes = configurable.get("includes") or configurable.get("include") or []
@@ -59,8 +59,25 @@ def should_include_header(key: str) -> bool:
     Returns:
         True if the header should be included, False otherwise
     """
-    include_patterns, exclude_patterns = get_header_patterns()
+    include_patterns, exclude_patterns = get_header_patterns("configurable_headers")
 
+    return pattern_matches(key, include_patterns, exclude_patterns)
+
+
+@functools.lru_cache(maxsize=512)
+def should_include_header_in_logs(key: str) -> bool:
+    """Check if header should be included in logs specifically."""
+
+    include_patterns, exclude_patterns = get_header_patterns("logging_headers")
+
+    return pattern_matches(key, include_patterns, exclude_patterns)
+
+
+def pattern_matches(
+    key: str,
+    include_patterns: list[re.Pattern[str]] | None,
+    exclude_patterns: list[re.Pattern[str]] | None,
+) -> bool:
     # Handle configurable behavior
     if exclude_patterns and any(pattern.match(key) for pattern in exclude_patterns):
         return False

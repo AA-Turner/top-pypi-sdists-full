@@ -165,7 +165,7 @@ class OracleDbAzureKeyClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/get_oracle_db_azure_key.py.html>`__ to see an example of how to use get_oracle_db_azure_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/get_oracle_db_azure_key.py.html>`__ to see an example of how to use get_oracle_db_azure_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureKeyId']
@@ -315,7 +315,7 @@ class OracleDbAzureKeyClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/dbmulticloud/list_oracle_db_azure_keys.py.html>`__ to see an example of how to use list_oracle_db_azure_keys API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/dbmulticloud/list_oracle_db_azure_keys.py.html>`__ to see an example of how to use list_oracle_db_azure_keys API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']

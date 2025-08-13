@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2022, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2022-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """Ansible module for managing Interfaces on Unity"""
 
@@ -80,7 +79,7 @@ notes:
 EXAMPLES = r'''
 
 - name: Add Interface as Backup to NAS Server
-  dellemc.unity.interface:
+  interface:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -95,7 +94,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Add Interface as Production to NAS Server
-  dellemc.unity.interface:
+  interface:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -110,7 +109,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Get interface details
-  dellemc.unity.interface:
+  interface:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -120,7 +119,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Delete Interface
-  dellemc.unity.interface:
+  interface:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"

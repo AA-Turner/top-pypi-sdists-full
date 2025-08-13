@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json5
-Version: 0.12.0
+Version: 0.12.1
 Summary: A Python implementation of the JSON5 data format.
 Author-email: Dirk Pranke <dpranke@chromium.org>
 License: Files: Everything except for the benchmarks/*.json files.
@@ -432,11 +432,13 @@ $ git push --tags origin
 
 ## Version History / Release Notes
 
+* v0.12.1 (2025-08-12)
+    * Fix [#94](https://github.com/dpranke/pyjson5/issues/94), where objects
+      returned from a custom encoder were not being indented properly.
+
 * v0.12.0 (2025-04-03)
     * Roll back pyproject.toml change for licensing so that we can still
       build the package on 3.8.
-
-* v0.12.0dev0 (prerelease)
     * Upgrade devenv package dependencies to latest versions; they now need
       Python 3.9 or newer, though json5 itself still supports 3.8.
 

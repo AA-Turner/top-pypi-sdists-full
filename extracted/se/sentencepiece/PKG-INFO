@@ -1,41 +1,61 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sentencepiece
-Version: 0.2.0
-Summary: SentencePiece python wrapper
-Home-page: https://github.com/google/sentencepiece
-Author: Taku Kudo
-Author-email: taku@google.com
-License: Apache
-Platform: Unix
+Version: 0.2.1
+Summary: Unsupervised text tokenizer and detokenizer.
+Author-email: Taku Kudo <taku@google.com>
+Project-URL: Homepage, https://github.com/google/sentencepiece
+Classifier: Programming Language :: Python :: 3
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: Unix
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Provides-Extra: testpaths
+Requires-Dist: test; extra == "testpaths"
 
 # SentencePiece Python Wrapper
 
 Python wrapper for SentencePiece. This API will offer the encoding, decoding and training of Sentencepiece.
 
 ## Build and Install SentencePiece
-For Linux (x64/i686), macOS, and Windows(win32/x64) environment, you can simply use pip command to install SentencePiece python module.
+
+For Linux (x64/i686), macOS, and Windows(win32/x64/arm64) environment, you can simply use pip command to install SentencePiece python module.
 
 ```
 % pip install sentencepiece
 ```
 
-To build and install the Python wrapper from source, try the following commands to build and install wheel package.
+Before building SentencePiece from source on Linux, ensure that the following dependencies are installed.
+
 ```
-% git clone https://github.com/google/sentencepiece.git 
+% sudo apt update
+% sudo apt install -y cmake pkg-config libsentencepiece-dev
+```
+
+To build and install the Python wrapper from source, try the following commands to build and install wheel package.
+
+```
+% git clone https://github.com/google/sentencepiece.git
 % cd sentencepiece
 % mkdir build
 % cd build
-% cmake .. -DSPM_ENABLE_SHARED=OFF -DCMAKE_INSTALL_PREFIX=./root
+% cmake .. -DSPM_ENABLE_SHARED=OFF -DCMAKE_INSTALL_PREFIX=./root -DSPM_DISABLE_EMBEDDED_DATA=ON
 % make install
 % cd ../python
 % python setup.py bdist_wheel
@@ -43,8 +63,24 @@ To build and install the Python wrapper from source, try the following commands 
 ```
 
 If you don’t have write permission to the global site-packages directory or don’t want to install into it, please try:
+
 ```
 % python setup.py install --user
+```
+
+For Windows users who want to build from source, you can build and install the Python wrapper using Visual Studio. First, you need to install the `pwsh.exe` (Powershell 7). Use `winget install --id Microsoft.Powershell --source winget` to install directly. Then open the `Developer PowerShell for VS 2022`, and execute the following commands.
+
+```
+git clone https://github.com/google/sentencepiece.git
+cd sentencepiece
+mkdir build
+cd build
+cmake .. -DSPM_ENABLE_SHARED=OFF -DCMAKE_INSTALL_PREFIX=".\root" -DSPM_DISABLE_EMBEDDED_DATA=ON
+cmake --build . --config Release --target install
+cd ../python
+pip install wheel
+python setup.py bdist_wheel
+Get-ChildItem .\dist\sentencepiece*.whl | ForEach-Object { pip install $_.FullName }
 ```
 
 ## Usage
@@ -52,6 +88,7 @@ If you don’t have write permission to the global site-packages directory or do
 See [this google colab page](https://github.com/google/sentencepiece/blob/master/python/sentencepiece_python_module_example.ipynb) to run sentencepiece interactively.
 
 ### Segmentation
+
 ```
 % python
 >>> import sentencepiece as spm
@@ -78,7 +115,7 @@ See [this google colab page](https://github.com/google/sentencepiece/blob/master
 >>> proto = sp.encode('This is a test', out_type='immutable_proto')
 >>> for n in proto.pieces:
 ...     print('piece="{}" surface="{}" id={} begin={} end={}'.format(n.piece, n.surface, n.id, n.begin, n.end))
-... 
+...
 piece="▁This" surface="This" id=284 begin=0 end=4
 piece="▁is" surface=" is" id=47 begin=4 end=7
 piece="▁a" surface=" a" id=11 begin=7 end=9
@@ -95,7 +132,7 @@ True
 
 >>> for _ in range(10):
 ...     sp.encode('This is a test', out_type=str, enable_sampling=True, alpha=0.1, nbest_size=-1)
-... 
+...
 ['▁', 'This', '▁', 'is', '▁a', '▁', 't', 'e', 'st']
 ['▁T', 'h', 'i', 's', '▁is', '▁a', '▁', 'te', 's', 't']
 ['▁T', 'h', 'is', '▁', 'is', '▁', 'a', '▁', 't', 'est']
@@ -108,8 +145,8 @@ True
 ['▁This', '▁', 'is', '▁a', '▁', 't', 'est']
 
 >> sp.nbest_encode('This is a test', nbest_size=5, out_type=str)
-[['▁This', '▁is', '▁a', '▁', 't', 'est'], 
-['▁This', '▁is', '▁a', '▁', 'te', 'st'], 
+[['▁This', '▁is', '▁a', '▁', 't', 'est'],
+['▁This', '▁is', '▁a', '▁', 'te', 'st'],
 ['▁This', '▁is', '▁a', '▁', 'te', 's', 't'],
 ['▁This', '▁is', '▁a', '▁', 't', 'e', 'st'],
 ['▁This', '▁is', '▁a', '▁', 't', 'es', 't']]
@@ -127,7 +164,7 @@ True
 >>> sp.decode([[284, 47, 11, 4, 15, 400], [151, 88, 21, 887]])
 ['This is a test', 'Hello world']
 
->>> proto = sp.decode([284, 47, 11, 4, 15, 400], out_type='immutable_proto') 
+>>> proto = sp.decode([284, 47, 11, 4, 15, 400], out_type='immutable_proto')
 >>> proto.text
 'This is a test'
 
@@ -160,12 +197,13 @@ True
 ```
 
 ### Model Training
-Training is performed by passing parameters of [spm_train](https://github.com/google/sentencepiece#train-sentencepiece-model) to  SentencePieceTrainer.train() function.
+
+Training is performed by passing parameters of [spm_train](https://github.com/google/sentencepiece#train-sentencepiece-model) to SentencePieceTrainer.train() function.
 
 ```
 >>> import sentencepiece as spm
 >>> spm.SentencePieceTrainer.train(input='test/botchan.txt', model_prefix='m', vocab_size=1000, user_defined_symbols=['foo', 'bar'])
-sentencepiece_trainer.cc(73) LOG(INFO) Starts training with : 
+sentencepiece_trainer.cc(73) LOG(INFO) Starts training with :
 trainer_spec {
   input: test/botchan.txt
   .. snip
@@ -178,6 +216,7 @@ trainer_interface.cc(619) LOG(INFO) Saving vocabs: m.vocab
 ```
 
 ### Training without local filesystem
+
 Sentencepiece trainer can receive any iterable object to feed training sentences. You can also pass a file object (instance with write() method) to emit the output model to any devices. These features are useful to run sentencepiece on environment that have limited access to the local file system (e.g., Google colab.)
 
 ```
@@ -201,3 +240,12 @@ with urllib.request.urlopen(
 sp = spm.SentencePieceProcessor(model_proto=model.getvalue())
 print(sp.encode('this is test'))
 ```
+
+### Free Threading support
+Experimental support for no-GIL/Free-Threading has been introduced since v0.2.1. For more details, please refer to [this page](https://py-free-threading.github.io.).
+This operates similarly to how [NumPy](https://numpy.org/devdocs/reference/thread_safety.html#free-threaded-python) handles it.
+
+The C++ library's const and static methods, e.g., encode(), decode() and train(), are designed to work in a non-GIL environment.
+However, non-const methods, e.g., load(), may have potential data race issues, so please ensure you implement appropriate locks beforehand.
+
+While this limitation might be removed in the future, please note that it's not a simple fix, as it would require additional shared locks in C++.

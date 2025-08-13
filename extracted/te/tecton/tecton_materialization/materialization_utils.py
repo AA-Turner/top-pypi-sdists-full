@@ -177,14 +177,12 @@ def wait_for_metric_scrape():
     time.sleep(sleep_time)
 
 
-def has_prior_delta_commit(spark, materialization_params, idempotence_key, idempotence_value):
-    assert materialization_params.HasField("offline_store_path"), "definition must have offline_store_path set"
-
+def has_prior_delta_commit(spark, delta_table_path: str, idempotence_key: str, idempotence_value):
     from delta.tables import DeltaTable
     from pyspark.sql.utils import AnalysisException
 
     try:
-        delta_table = DeltaTable.forPath(spark, materialization_params.offline_store_path)
+        delta_table = DeltaTable.forPath(spark, delta_table_path)
     except AnalysisException:
         # no prior commits if table doesn't exist yet
         return False

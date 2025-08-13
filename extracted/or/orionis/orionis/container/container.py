@@ -1,22 +1,12 @@
 import threading
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 from orionis.container.context.manager import ScopeManager
 from orionis.container.contracts.container import IContainer
 from orionis.container.entities.binding import Binding
 from orionis.container.enums.lifetimes import Lifetime
 from orionis.container.exceptions import OrionisContainerException
 from orionis.container.resolver.resolver import Resolver
-from orionis.container.validators import (
-    ImplementsAbstractMethods,
-    IsAbstractClass,
-    IsCallable,
-    IsConcreteClass,
-    IsInstance,
-    IsNotSubclass,
-    IsSubclass,
-    IsValidAlias,
-    LifetimeValidator
-)
+from orionis.container.validators import *
 from orionis.services.introspection.abstract.reflection import ReflectionAbstract
 from orionis.services.introspection.callables.reflection import ReflectionCallable
 
@@ -71,6 +61,7 @@ class Container(IContainer):
             # This write is protected by the lock, ensuring memory visibility
             cls._instances[cls] = instance
 
+            # Return the newly created instance
             return instance
 
     def __init__(self) -> None:
@@ -106,7 +97,7 @@ class Container(IContainer):
         *,
         alias: str = None,
         enforce_decoupling: bool = False
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers a service with a transient lifetime.
 
@@ -192,7 +183,7 @@ class Container(IContainer):
         *,
         alias: str = None,
         enforce_decoupling: bool = False
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers a service with a singleton lifetime.
 
@@ -275,7 +266,7 @@ class Container(IContainer):
         *,
         alias: str = None,
         enforce_decoupling: bool = False
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers a service with a scoped lifetime.
 
@@ -358,7 +349,7 @@ class Container(IContainer):
         *,
         alias: str = None,
         enforce_decoupling: bool = False
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers an instance of a class or interface in the container.
         Parameters
@@ -438,7 +429,7 @@ class Container(IContainer):
         fn: Callable[..., Any],
         *,
         lifetime: Lifetime = Lifetime.TRANSIENT
-    ) -> bool:
+    ) -> Optional[bool]:
         """
         Registers a function or factory under a given alias.
 
@@ -527,21 +518,54 @@ class Container(IContainer):
     def getBinding(
         self,
         abstract_or_alias: Any
-    ) -> Binding:
+    ) -> Optional[Binding]:
         """
         Retrieves the binding for the requested abstract type or alias.
+
+        This method performs a lookup in the container's internal binding dictionaries
+        to find the binding associated with the provided abstract type or alias.
+        It first searches in the primary bindings dictionary, then in the aliases
+        dictionary if no direct binding is found.
 
         Parameters
         ----------
         abstract_or_alias : Any
-            The abstract class, interface, or alias (str) to retrieve.
+            The abstract class, interface, or alias (str) to retrieve the binding for.
+            This can be either a class type or a string alias that was registered
+            with the container.
 
         Returns
         -------
-        Binding
-            The binding associated with the requested abstract type or alias.
+        Binding or None
+            The binding object associated with the requested abstract type or alias.
+            Returns None if no binding is found for the provided abstract_or_alias.
+            The binding contains information about the service registration including
+            the concrete implementation, lifetime, and other configuration details.
+
+        Notes
+        -----
+        The method searches in the following order:
+        1. Direct lookup in the bindings dictionary using the abstract type
+        2. Lookup in the aliases dictionary using the provided alias
+
+        This method does not raise exceptions for missing bindings; it returns None
+        instead, allowing the caller to handle the absence of a binding appropriately.
         """
-        return self.__bindings.get(abstract_or_alias) or self.__aliasses.get(abstract_or_alias)
+
+        # First, attempt to find the binding directly using the abstract type
+        # This handles cases where the service was registered with its abstract class
+        binding = self.__bindings.get(abstract_or_alias)
+        if binding:
+            return binding
+
+        # If no direct binding found, search in the aliases dictionary
+        # This handles cases where the service is being requested by its alias
+        binding = self.__aliasses.get(abstract_or_alias)
+        if binding:
+            return binding
+
+        # Return None if no binding is found for the requested abstract type or alias
+        return None
 
     def drop(
         self,

@@ -157,7 +157,7 @@ def assign_defaults(
         )
     else:
         stream_mode = ["values"]
-    multitask_strategy = payload.get("multitask_strategy") or "reject"
+    multitask_strategy = payload.get("multitask_strategy") or "enqueue"
     prevent_insert_if_inflight = multitask_strategy == "reject"
     return stream_mode, multitask_strategy, prevent_insert_if_inflight
 

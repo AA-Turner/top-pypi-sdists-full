@@ -294,6 +294,28 @@ releases:
     - grant_to_public.yml
     - release_3_14_0.yml
     release_date: '2025-05-23'
+  3.15.0:
+    changes:
+      bugfixes:
+      - mysql_query - fix a Python 2 compatibility issue caused by the addition of
+        ``execution_time_ms`` in version 3.12 (see https://github.com/ansible-collections/community.mysql/issues/716).
+      - 'mysql_user - fix a crash (unable to parse the MySQL grant string: SET DEFAULT
+        ROLE `somerole` FOR `someuser`@`%`) when using the ``mysql_user`` module with
+        a DEFAULT role present in MariaDB. The DEFAULT role is now ignored by the
+        parser (https://github.com/ansible-collections/community.mysql/issues/710).'
+      minor_changes:
+      - mysql_db - Add support for ``sql_log_bin`` option (https://github.com/ansible-collections/community.mysql/issues/700).
+      release_summary: 'This is a minor release of the ``community.mysql`` collection.
+
+        This changelog contains all changes to the modules and plugins in this collection
+
+        that have been made after the previous release.'''
+    fragments:
+    - 3.15.0.yml
+    - 723-myqsl_db_supports_sql_log_bin.yaml
+    - fix_python2_compatibility.yml
+    - fix_user_module_for_default_roles.yml
+    release_date: '2025-07-24'
   3.2.0:
     changes:
       bugfixes:

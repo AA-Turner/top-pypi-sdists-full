@@ -17,7 +17,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "connector-sdk-types == 0.5.0",
+    "connector-sdk-types == 0.6.0",
     "gql[httpx]",
     "httpx >= 0.27.0",
     "msgpack >= 1",

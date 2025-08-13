@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """Ansible module for managing storage pool on Unity"""
 
@@ -160,7 +159,7 @@ notes:
 
 EXAMPLES = r'''
 - name: Get Storage pool details using pool_name
-  dellemc.unity.storagepool:
+  storagepool:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -169,7 +168,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Get Storage pool details using pool_id
-  dellemc.unity.storagepool:
+  storagepool:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -178,7 +177,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Modify Storage pool attributes using pool_name
-  dellemc.unity.storagepool:
+  storagepool:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -191,7 +190,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Modify Storage pool attributes using pool_id
-  dellemc.unity.storagepool:
+  storagepool:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -204,7 +203,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Create a StoragePool
-  dellemc.unity.storagepool:
+  storagepool:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -495,7 +494,8 @@ class StoragePool(object):
         try:
             api_response = self.conn.get_pool(_id=pool_id, name=pool_name)
             details = api_response._get_properties()
-
+            if details['existed'] is False:
+                self.module.exit_json(msg="Pool does not exist", failed=True)
             is_fast_vp_enabled = api_response._get_property_from_raw(
                 'pool_fast_vp')
             if is_fast_vp_enabled:

@@ -11748,7 +11748,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: ClouddeploymentResponse
+        :return: DecoratedclouddeploymentResponse
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -11775,7 +11775,7 @@ class DefaultApi(object):
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
                                  (connection, read) timeouts.
-        :return: tuple(ClouddeploymentResponse, status_code(int), headers(HTTPHeaderDict))
+        :return: tuple(DecoratedclouddeploymentResponse, status_code(int), headers(HTTPHeaderDict))
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -11843,7 +11843,7 @@ class DefaultApi(object):
             body=body_params,
             post_params=form_params,
             files=local_var_files,
-            response_type='ClouddeploymentResponse',  # noqa: E501
+            response_type='DecoratedclouddeploymentResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -21707,6 +21707,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: (required)
+        :param bool via_edge_proxy:
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -21732,6 +21733,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cloud_id: (required)
+        :param bool via_edge_proxy:
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -21749,7 +21751,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cloud_id'
+            'cloud_id',
+            'via_edge_proxy'
         ]
         all_params.extend(
             [
@@ -21780,6 +21783,8 @@ class DefaultApi(object):
             path_params['cloud_id'] = local_var_params['cloud_id']  # noqa: E501
 
         query_params = []
+        if 'via_edge_proxy' in local_var_params and local_var_params['via_edge_proxy'] is not None:  # noqa: E501
+            query_params.append(('via_edge_proxy', local_var_params['via_edge_proxy']))  # noqa: E501
 
         header_params = {}
 
@@ -28207,6 +28212,302 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='LogitembatchResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def query_api_v2_metrics_query_get(self, promql_query, **kwargs):  # noqa: E501
+        """Query  # noqa: E501
+
+        Query metrics using PromQL query for various resource types  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.query_api_v2_metrics_query_get(promql_query, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str promql_query: PromQL query string to execute. This should be a valid Prometheus Query Language expression. (required)
+        :param str cluster_id: The cluster id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str workspace_id: The workspace id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str ha_job_id: The production job id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str service_id: The service id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param float time: Unix timestamp for the query time. If not provided, uses current time.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: MetricsqueryresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.query_api_v2_metrics_query_get_with_http_info(promql_query, **kwargs)  # noqa: E501
+
+    def query_api_v2_metrics_query_get_with_http_info(self, promql_query, **kwargs):  # noqa: E501
+        """Query  # noqa: E501
+
+        Query metrics using PromQL query for various resource types  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.query_api_v2_metrics_query_get_with_http_info(promql_query, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str promql_query: PromQL query string to execute. This should be a valid Prometheus Query Language expression. (required)
+        :param str cluster_id: The cluster id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str workspace_id: The workspace id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str ha_job_id: The production job id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str service_id: The service id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param float time: Unix timestamp for the query time. If not provided, uses current time.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(MetricsqueryresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'promql_query',
+            'cluster_id',
+            'workspace_id',
+            'ha_job_id',
+            'service_id',
+            'time'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method query_api_v2_metrics_query_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'promql_query' is set
+        if self.api_client.client_side_validation and ('promql_query' not in local_var_params or  # noqa: E501
+                                                        local_var_params['promql_query'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `promql_query` when calling `query_api_v2_metrics_query_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'promql_query' in local_var_params and local_var_params['promql_query'] is not None:  # noqa: E501
+            query_params.append(('promql_query', local_var_params['promql_query']))  # noqa: E501
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'workspace_id' in local_var_params and local_var_params['workspace_id'] is not None:  # noqa: E501
+            query_params.append(('workspace_id', local_var_params['workspace_id']))  # noqa: E501
+        if 'ha_job_id' in local_var_params and local_var_params['ha_job_id'] is not None:  # noqa: E501
+            query_params.append(('ha_job_id', local_var_params['ha_job_id']))  # noqa: E501
+        if 'service_id' in local_var_params and local_var_params['service_id'] is not None:  # noqa: E501
+            query_params.append(('service_id', local_var_params['service_id']))  # noqa: E501
+        if 'time' in local_var_params and local_var_params['time'] is not None:  # noqa: E501
+            query_params.append(('time', local_var_params['time']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/metrics/query', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='MetricsqueryresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def query_range_api_v2_metrics_query_range_get(self, promql_query, start, end, **kwargs):  # noqa: E501
+        """Query Range  # noqa: E501
+
+        Query metrics using PromQL range query for various resource types  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.query_range_api_v2_metrics_query_range_get(promql_query, start, end, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str promql_query: PromQL query string to execute. This should be a valid Prometheus Query Language expression. (required)
+        :param float start: Start timestamp (Unix timestamp) for the range query. (required)
+        :param float end: End timestamp (Unix timestamp) for the range query. (required)
+        :param str cluster_id: The cluster id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str workspace_id: The workspace id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str ha_job_id: The production job id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str service_id: The service id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str step: Query resolution step width in seconds (e.g., '15s', '1m', '5m').
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: MetricsqueryresponseResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.query_range_api_v2_metrics_query_range_get_with_http_info(promql_query, start, end, **kwargs)  # noqa: E501
+
+    def query_range_api_v2_metrics_query_range_get_with_http_info(self, promql_query, start, end, **kwargs):  # noqa: E501
+        """Query Range  # noqa: E501
+
+        Query metrics using PromQL range query for various resource types  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.query_range_api_v2_metrics_query_range_get_with_http_info(promql_query, start, end, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str promql_query: PromQL query string to execute. This should be a valid Prometheus Query Language expression. (required)
+        :param float start: Start timestamp (Unix timestamp) for the range query. (required)
+        :param float end: End timestamp (Unix timestamp) for the range query. (required)
+        :param str cluster_id: The cluster id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str workspace_id: The workspace id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str ha_job_id: The production job id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str service_id: The service id used to query metrics. Exactly one of cluster_id, workspace_id, ha_job_id, or service_id must be set.
+        :param str step: Query resolution step width in seconds (e.g., '15s', '1m', '5m').
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(MetricsqueryresponseResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'promql_query',
+            'start',
+            'end',
+            'cluster_id',
+            'workspace_id',
+            'ha_job_id',
+            'service_id',
+            'step'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method query_range_api_v2_metrics_query_range_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'promql_query' is set
+        if self.api_client.client_side_validation and ('promql_query' not in local_var_params or  # noqa: E501
+                                                        local_var_params['promql_query'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `promql_query` when calling `query_range_api_v2_metrics_query_range_get`")  # noqa: E501
+        # verify the required parameter 'start' is set
+        if self.api_client.client_side_validation and ('start' not in local_var_params or  # noqa: E501
+                                                        local_var_params['start'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `start` when calling `query_range_api_v2_metrics_query_range_get`")  # noqa: E501
+        # verify the required parameter 'end' is set
+        if self.api_client.client_side_validation and ('end' not in local_var_params or  # noqa: E501
+                                                        local_var_params['end'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `end` when calling `query_range_api_v2_metrics_query_range_get`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'promql_query' in local_var_params and local_var_params['promql_query'] is not None:  # noqa: E501
+            query_params.append(('promql_query', local_var_params['promql_query']))  # noqa: E501
+        if 'start' in local_var_params and local_var_params['start'] is not None:  # noqa: E501
+            query_params.append(('start', local_var_params['start']))  # noqa: E501
+        if 'end' in local_var_params and local_var_params['end'] is not None:  # noqa: E501
+            query_params.append(('end', local_var_params['end']))  # noqa: E501
+        if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
+            query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'workspace_id' in local_var_params and local_var_params['workspace_id'] is not None:  # noqa: E501
+            query_params.append(('workspace_id', local_var_params['workspace_id']))  # noqa: E501
+        if 'ha_job_id' in local_var_params and local_var_params['ha_job_id'] is not None:  # noqa: E501
+            query_params.append(('ha_job_id', local_var_params['ha_job_id']))  # noqa: E501
+        if 'service_id' in local_var_params and local_var_params['service_id'] is not None:  # noqa: E501
+            query_params.append(('service_id', local_var_params['service_id']))  # noqa: E501
+        if 'step' in local_var_params and local_var_params['step'] is not None:  # noqa: E501
+            query_params.append(('step', local_var_params['step']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/metrics/query_range', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='MetricsqueryresponseResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

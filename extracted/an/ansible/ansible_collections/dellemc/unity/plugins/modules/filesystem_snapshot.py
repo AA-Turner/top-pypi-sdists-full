@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """ Ansible module for managing Filesystem Snapshots on Unity"""
 
@@ -113,7 +112,7 @@ notes:
 
 EXAMPLES = r'''
 - name: Create Filesystem Snapshot
-  dellemc.unity.filesystem_snapshot:
+  filesystem_snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -127,7 +126,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Create Filesystem Snapshot with expiry time
-  dellemc.unity.filesystem_snapshot:
+  filesystem_snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -141,7 +140,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Get Filesystem Snapshot Details using Name
-  dellemc.unity.filesystem_snapshot:
+  filesystem_snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -150,7 +149,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Get Filesystem Snapshot Details using ID
-  dellemc.unity.filesystem_snapshot:
+  filesystem_snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -159,7 +158,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Update Filesystem Snapshot attributes
-  dellemc.unity.filesystem_snapshot:
+  filesystem_snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -171,7 +170,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Update Filesystem Snapshot attributes using ID
-  dellemc.unity.filesystem_snapshot:
+  filesystem_snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -181,7 +180,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Delete Filesystem Snapshot using Name
-  dellemc.unity.filesystem_snapshot:
+  filesystem_snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -190,7 +189,7 @@ EXAMPLES = r'''
     state: "absent"
 
 - name: Delete Filesystem Snapshot using ID
-  dellemc.unity.filesystem_snapshot:
+  filesystem_snapshot:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"

@@ -191,6 +191,10 @@ if (SPM_ENABLE_NFKC_COMPILE)
   list(APPEND SPM_LIBS ICU::i18n ICU::data ICU::uc)
 endif()
 
+if (SPM_DISABLE_EMBEDDED_DATA)
+  add_definitions(-DDISABLE_EMBEDDED_DATA)
+endif()
+
 if (SPM_ENABLE_TCMALLOC)
   if (SPM_TCMALLOC_STATIC)
     find_library(TCMALLOC_LIB NAMES libtcmalloc_minimal.a)
@@ -260,14 +264,7 @@ set_target_properties(sentencepiece-static PROPERTIES OUTPUT_NAME "sentencepiece
 set_target_properties(sentencepiece_train-static PROPERTIES OUTPUT_NAME "sentencepiece_train")
 
 if (NOT MSVC)
-  if (SPM_COVERAGE)
-    set(CMAKE_CXX_FLAGS "-O0 -Wall -fPIC -coverage ${CMAKE_CXX_FLAGS}")
-  else()
-    set(CMAKE_CXX_FLAGS "-O3 -Wall -fPIC ${CMAKE_CXX_FLAGS}")
-  endif()
-  if (SPM_ENABLE_TENSORFLOW_SHARED)
-    add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
-  endif()
+  set(CMAKE_CXX_FLAGS "-O3 -Wall -fPIC ${CMAKE_CXX_FLAGS}")
   if (SPM_NO_THREADLOCAL)
     add_definitions(-DSPM_NO_THREADLOCAL=1)
     add_definitions(-DGOOGLE_PROTOBUF_NO_THREADLOCAL=1)
@@ -317,40 +314,24 @@ install(TARGETS ${SPM_INSTALLTARGETS}
 endif()
 
 install(FILES sentencepiece_trainer.h sentencepiece_processor.h
-  DESTINATION ${CMAKE_INSTALL_INCDIR})
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 if (NOT SPM_PROTOBUF_PROVIDER STREQUAL "internal")
-  install(FILES ${SPM_PROTO_HDRS} DESTINATION ${CMAKE_INSTALL_INCDIR})
+  install(FILES ${SPM_PROTO_HDRS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif()
 
 file(TO_NATIVE_PATH "${PROJECT_SOURCE_DIR}/data" data_dir)
 
-if (SPM_BUILD_TEST OR SPM_COVERAGE)
+if (SPM_BUILD_TEST)
   enable_testing()
   add_executable(spm_test test_main.cc ${SPM_TEST_SRCS})
 
-  if (SPM_COVERAGE)
-    target_link_libraries(spm_test sentencepiece sentencepiece_train "-lgcov")
-  else()
-    target_link_libraries(spm_test sentencepiece sentencepiece_train)
-  endif()
+  target_link_libraries(spm_test sentencepiece sentencepiece_train)
 
   set(MEMORYCHECK_COMMAND_OPTIONS "--leak-check=full --show-leak-kinds=definite,possible --error-exitcode=1")
   find_program(CTEST_MEMORYCHECK_COMMAND NAMES valgrind)
-  include(Dart)
 
   add_test(NAME sentencepiece_test
     COMMAND $<TARGET_FILE:spm_test> --test_srcdir=${data_dir})
-endif()
-
-if (SPM_COVERAGE)
-  add_custom_target(coverage
-    COMMAND mkdir -p coverage
-    COMMAND $<TARGET_FILE:spm_test> --test_srcdir=${data_dir}
-    COMMAND lcov -c -d . -o coverage.info
-    COMMAND lcov --remove coverage.info "include*" "/c++" "_test*" "testharness*" "third_party*" ".pb.*" -o coverage.info
-    COMMAND mkdir -p lcov_html
-    COMMAND genhtml -o lcov_html coverage.info)
-  add_dependencies(coverage spm_test)
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "iOS")

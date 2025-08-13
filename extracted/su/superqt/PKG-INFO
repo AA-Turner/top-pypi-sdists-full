@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: superqt
-Version: 0.7.5
+Version: 0.7.6
 Summary: Missing widgets and components for PyQt/PySide
 Project-URL: Documentation, https://pyapp-kit.github.io/superqt/
 Project-URL: Source, https://github.com/pyapp-kit/superqt
 Project-URL: Tracker, https://github.com/pyapp-kit/superqt/issues
 Project-URL: Changelog, https://github.com/pyapp-kit/superqt/blob/main/CHANGELOG.md
-Author-email: Talley Lambert <talley.lambert@gmail.com>
+Author: superqt community
 License: BSD 3-Clause License
 License-File: LICENSE
 Keywords: components,gui,pyqt,pyside,qt,range slider,widgets
@@ -27,63 +27,37 @@ Classifier: Topic :: Software Development :: User Interfaces
 Classifier: Topic :: Software Development :: Widget Sets
 Requires-Python: >=3.9
 Requires-Dist: pygments>=2.4.0
-Requires-Dist: qtpy>=1.1.0
-Requires-Dist: typing-extensions!=3.10.0.0,>=3.7.4.3
+Requires-Dist: qtpy>=2.4.0
+Requires-Dist: typing-extensions>=4.12.0; python_version >= '3.13'
+Requires-Dist: typing-extensions>=4.5.0
 Provides-Extra: cmap
-Requires-Dist: cmap>=0.1.1; extra == 'cmap'
-Provides-Extra: dev
-Requires-Dist: cmap; extra == 'dev'
-Requires-Dist: ipython; extra == 'dev'
-Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: numpy; extra == 'dev'
-Requires-Dist: pdbpp; extra == 'dev'
-Requires-Dist: pint; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: pyconify; extra == 'dev'
-Requires-Dist: pydocstyle; extra == 'dev'
-Requires-Dist: pyqt6<6.7; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: pytest-qt; extra == 'dev'
-Requires-Dist: rich; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
-Requires-Dist: types-pygments; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: cmap>=0.1.1; extra == 'docs'
-Requires-Dist: fonticon-fontawesome5; extra == 'docs'
-Requires-Dist: mkdocs-macros-plugin==1.3.7; extra == 'docs'
-Requires-Dist: mkdocs-material==9.5.49; extra == 'docs'
-Requires-Dist: mkdocstrings-python==1.13.0; extra == 'docs'
-Requires-Dist: mkdocstrings==0.27.0; extra == 'docs'
-Requires-Dist: pint; extra == 'docs'
+Requires-Dist: cmap>=0.2; extra == 'cmap'
 Provides-Extra: font-fa5
-Requires-Dist: fonticon-fontawesome5; extra == 'font-fa5'
+Requires-Dist: fonticon-fontawesome5>=5.15.4; extra == 'font-fa5'
 Provides-Extra: font-fa6
-Requires-Dist: fonticon-fontawesome6; extra == 'font-fa6'
+Requires-Dist: fonticon-fontawesome6>=6.4.0; extra == 'font-fa6'
 Provides-Extra: font-mi6
-Requires-Dist: fonticon-materialdesignicons6; extra == 'font-mi6'
+Requires-Dist: fonticon-materialdesignicons6>=6.9.96; extra == 'font-mi6'
 Provides-Extra: font-mi7
-Requires-Dist: fonticon-materialdesignicons7; extra == 'font-mi7'
+Requires-Dist: fonticon-materialdesignicons7>=7.2.96; extra == 'font-mi7'
 Provides-Extra: iconify
 Requires-Dist: pyconify>=0.1.4; extra == 'iconify'
 Provides-Extra: pyqt5
-Requires-Dist: pyqt5; extra == 'pyqt5'
+Requires-Dist: pyqt5-qt5==5.15.2; (sys_platform == 'win32') and extra == 'pyqt5'
+Requires-Dist: pyqt5-qt5>=5.15.16; (sys_platform != 'win32') and extra == 'pyqt5'
+Requires-Dist: pyqt5>=5.15.10; extra == 'pyqt5'
 Provides-Extra: pyqt6
-Requires-Dist: pyqt6<6.7; extra == 'pyqt6'
+Requires-Dist: pyqt6!=6.6,>=6.4.0; extra == 'pyqt6'
+Requires-Dist: pyqt6!=6.6,>=6.7.0; (python_version >= '3.12') and extra == 'pyqt6'
 Provides-Extra: pyside2
-Requires-Dist: pyside2; extra == 'pyside2'
+Requires-Dist: numpy<2,>=1.19; (python_version < '3.11') and extra == 'pyside2'
+Requires-Dist: numpy<2,>=1.26; (python_version >= '3.11' and python_version < '3.13') and extra == 'pyside2'
+Requires-Dist: pyside2>=5.15; extra == 'pyside2'
 Provides-Extra: pyside6
-Requires-Dist: pyside6!=6.5.0,!=6.5.1,!=6.6.2,<6.8; extra == 'pyside6'
+Requires-Dist: pyside6!=6.5.0,!=6.5.1,!=6.6.2,>=6.4.0; extra == 'pyside6'
+Requires-Dist: pyside6>=6.7.0; (python_version >= '3.12') and extra == 'pyside6'
 Provides-Extra: quantity
-Requires-Dist: pint; extra == 'quantity'
-Provides-Extra: test
-Requires-Dist: cmap; extra == 'test'
-Requires-Dist: numpy; extra == 'test'
-Requires-Dist: pint; extra == 'test'
-Requires-Dist: pyconify; extra == 'test'
-Requires-Dist: pytest; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest-qt; extra == 'test'
+Requires-Dist: pint>=0.21; extra == 'quantity'
 Description-Content-Type: text/markdown
 
 # ![tiny](https://user-images.githubusercontent.com/1609449/120636353-8c3f3800-c43b-11eb-8732-a14dec578897.png)  superqt!

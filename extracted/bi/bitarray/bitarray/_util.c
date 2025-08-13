@@ -265,71 +265,58 @@ Return parity of bitarray `a`.\n\
 `parity(a)` is equivalent to `a.count() % 2` but more efficient.");
 
 
+/* Internal functions, like sum_indices(), but bitarrays are limited in
+   size.  For details see: devel/test_sum_indices.py
+*/
 static PyObject *
-add_uint64(PyObject *number, uint64_t i)
+ssqi(PyObject *module, PyObject *args)
 {
-    PyObject *res, *tmp = PyLong_FromUnsignedLongLong(i);
-
-    res = PyNumber_Add(number, tmp);
-    Py_DECREF(tmp);
-    Py_DECREF(number);
-    return res;
-}
-
-static PyObject *
-sum_indices(PyObject *module, PyObject *obj)
-{
-    static char table[256];
-    static int setup = -1;      /* endianness of table */
-    PyObject *res;
+    static char count_table[256], sum_table[256], sum_sqr_table[256];
+    static int setup = -1;      /* endianness of tables */
     bitarrayobject *a;
-    Py_ssize_t nbytes, i;
+    uint64_t nbytes, i;
     uint64_t sm = 0;            /* accumulated sum */
+    int mode = 1;
 
-    if (ensure_bitarray(obj) < 0)
+    if (!PyArg_ParseTuple(args, "O!|i", bitarray_type,
+                          (PyObject *) &a, &mode))
         return NULL;
-
-    res = PyLong_FromLong(0);
-    a = (bitarrayobject *) obj;
-    nbytes = Py_SIZE(a);
-    set_padbits(a);
+    if (mode < 1 || mode > 2)
+        return PyErr_Format(PyExc_ValueError, "unexpected mode %d", mode);
+    if (((uint64_t) a->nbits) > (mode == 1 ? 6074001000LLU : 3810778LLU))
+        return PyErr_Format(PyExc_OverflowError, "ssqi %zd", a->nbits);
 
     if (setup != a->endian) {
-        setup_table(table, IS_LE(a) ? 'a' : 'A');
+        setup_table(count_table, 'c');
+        setup_table(sum_table, IS_LE(a) ? 'a' : 'A');
+        setup_table(sum_sqr_table, IS_LE(a) ? 's' : 'S');
         setup = a->endian;
     }
 
+    nbytes = Py_SIZE(a);
+    set_padbits(a);
     for (i = 0; i < nbytes; i++) {
         unsigned char c = a->ob_item[i];
-        if (!c)
-            continue;
-        sm += ((uint64_t) i) * ((uint64_t) (8 * popcnt_64(c)));
-        sm += table[c];
-
-        if (sm > ((uint64_t ) 1) << 63) {
-            /* Flush accumulated sum into Python number object.
-               For ones(n) this will already happen when n > 2**32.
-               printf("%llu  %30zd\n", sm, i);  */
-            if ((res = add_uint64(res, sm)) == NULL)
-                return NULL;
-            sm = 0;
+        if (c) {
+            uint64_t k = count_table[c], z1 = sum_table[c];
+            if (mode == 1) {
+                sm += k * 8LLU * i + z1;
+            }
+            else {
+                uint64_t z2 = (unsigned char) sum_sqr_table[c];
+                sm += (k * 64LLU * i + 16LLU * z1) * i + z2;
+            }
         }
     }
-    return add_uint64(res, sm);
+    return PyLong_FromUnsignedLongLong(sm);
 }
-
-PyDoc_STRVAR(sum_indices_doc,
-"sum_indices(a, /) -> int\n\
-\n\
-Return sum of indices of all active bits in bitarray `a`.\n\
-This is equivalent to `sum(i for i, v in enumerate(a) if v)`.");
 
 
 static PyObject *
 xor_indices(PyObject *module, PyObject *obj)
 {
-    static char table[256];
-    static int setup = -1;      /* endianness of table */
+    static char parity_table[256], xor_table[256];
+    static int setup = -1;      /* endianness of xor_table */
     bitarrayobject *a;
     Py_ssize_t res = 0, nbytes, i;
 
@@ -341,15 +328,16 @@ xor_indices(PyObject *module, PyObject *obj)
     set_padbits(a);
 
     if (setup != a->endian) {
-        setup_table(table, IS_LE(a) ? 'x' : 'X');
+        setup_table(xor_table, IS_LE(a) ? 'x' : 'X');
+        setup_table(parity_table, 'p');
         setup = a->endian;
     }
 
     for (i = 0; i < nbytes; i++) {
         unsigned char c = a->ob_item[i];
-        if (parity_64(c))
+        if (parity_table[c])
             res ^= i << 3;
-        res ^= table[c];
+        res ^= xor_table[c];
     }
     return PyLong_FromSsize_t(res);
 }
@@ -2104,13 +2092,42 @@ static PyTypeObject CHDI_Type = {
 #ifndef NDEBUG
 
 static PyObject *
+module_setup_table(PyObject *module, PyObject *obj)
+{
+    char table[256];
+
+    assert(PyUnicode_Check(obj));
+    assert(PyUnicode_GET_LENGTH(obj) == 1);
+    setup_table(table, PyUnicode_READ_CHAR(obj, 0));
+    return PyBytes_FromStringAndSize(table, 256);
+}
+
+/* Return zlw(a) as a new bitarray, rather than an int object.
+   This makes testing easier, because the int result would depend
+   on the machine byteorder. */
+static PyObject *
+module_zlw(PyObject *module, PyObject *obj)
+{
+    bitarrayobject *a, *res;
+    uint64_t w;
+
+    assert(bitarray_Check(obj));
+    a = (bitarrayobject *) obj;
+    w = zlw(a);
+    if ((res = new_bitarray(64, Py_None, -1)) == NULL)
+        return NULL;
+    res->endian = a->endian;
+    memcpy(res->ob_item, &w, 8);
+    return (PyObject *) res;
+}
+
+static PyObject *
 module_cfw(PyObject *module, PyObject *args)  /* count_from_word() */
 {
     bitarrayobject *a;
     Py_ssize_t i;
 
-    if (!PyArg_ParseTuple(args, "O!n",
-                          bitarray_type, (PyObject *) &a, &i))
+    if (!PyArg_ParseTuple(args, "O!n", bitarray_type, (PyObject *) &a, &i))
         return NULL;
     return PyLong_FromSsize_t(count_from_word(a, i));
 }
@@ -2156,12 +2173,8 @@ static PyMethodDef module_functions[] = {
                                            METH_VARARGS, ones_doc},
     {"count_n",   (PyCFunction) count_n,   METH_VARARGS, count_n_doc},
     {"parity",    (PyCFunction) parity,    METH_O,       parity_doc},
-    {"sum_indices",
-                  (PyCFunction) sum_indices,
-                                           METH_O,       sum_indices_doc},
-    {"xor_indices",
-                  (PyCFunction) xor_indices,
-                                           METH_O,       xor_indices_doc},
+    {"_ssqi",     (PyCFunction) ssqi,      METH_VARARGS, 0},
+    {"xor_indices", (PyCFunction) xor_indices, METH_O,       xor_indices_doc},
     {"count_and", (PyCFunction) count_and, METH_VARARGS, count_and_doc},
     {"count_or",  (PyCFunction) count_or,  METH_VARARGS, count_or_doc},
     {"count_xor", (PyCFunction) count_xor, METH_VARARGS, count_xor_doc},
@@ -2171,10 +2184,8 @@ static PyMethodDef module_functions[] = {
                   (PyCFunction) correspond_all,
                                            METH_VARARGS, correspond_all_doc},
     {"byteswap",  (PyCFunction) byteswap,  METH_VARARGS, byteswap_doc},
-    {"serialize", (PyCFunction) serialize, METH_O,       serialize_doc},
-    {"deserialize",
-                  (PyCFunction) deserialize,
-                                           METH_O,       deserialize_doc},
+    {"serialize",   (PyCFunction) serialize,   METH_O,   serialize_doc},
+    {"deserialize", (PyCFunction) deserialize, METH_O,   deserialize_doc},
     {"ba2hex",    (PyCFunction) ba2hex,    METH_KEYWORDS |
                                            METH_VARARGS, ba2hex_doc},
     {"hex2ba",    (PyCFunction) hex2ba,    METH_KEYWORDS |
@@ -2193,10 +2204,12 @@ static PyMethodDef module_functions[] = {
 
 #ifndef NDEBUG
     /* functions exposed in debug mode for testing */
-    {"_cfw",      (PyCFunction) module_cfw,     METH_VARARGS, 0},
-    {"_read_n",   (PyCFunction) module_read_n,  METH_VARARGS, 0},
-    {"_write_n",  (PyCFunction) module_write_n, METH_VARARGS, 0},
-    {"_sc_rts",   (PyCFunction) module_sc_rts,  METH_O,       0},
+    {"_setup_table", (PyCFunction) module_setup_table, METH_O,       0},
+    {"_zlw",         (PyCFunction) module_zlw,         METH_O,       0},
+    {"_cfw",         (PyCFunction) module_cfw,         METH_VARARGS, 0},
+    {"_read_n",      (PyCFunction) module_read_n,      METH_VARARGS, 0},
+    {"_write_n",     (PyCFunction) module_write_n,     METH_VARARGS, 0},
+    {"_sc_rts",      (PyCFunction) module_sc_rts,      METH_O,       0},
 #endif
 
     {NULL,        NULL}  /* sentinel */

@@ -1,6 +1,6 @@
 [project]
 name = "supabase"
-version = "2.18.0" # {x-release-please-version}
+version = "2.18.1" # {x-release-please-version}
 description = "Supabase client for Python."
 authors = [
   { name = "Joel Lee", email = "joel@joellee.org" },
@@ -21,9 +21,9 @@ requires-python = ">=3.9"
 dependencies = [
   "postgrest == 1.1.1",
   "realtime == 2.7.0",
-  "gotrue == 2.12.3",
+  "supabase_auth == 2.12.3",
   "storage3 == 0.12.1",
-  "supafunc == 0.10.1",
+  "supabase_functions == 0.10.1",
   "httpx >=0.26,<0.29",
 ]
 
@@ -49,7 +49,7 @@ pre-commit = [
 tests = [
   "pytest >= 8.4.1",
   "pytest-cov >= 6.2.1",
-  "pytest-asyncio >=0.24,<1.1",
+  "pytest-asyncio >=0.24,<1.2",
   "python-dotenv >= 1.1.1",
 ]
 lints = [

@@ -35,9 +35,11 @@ options:
   template_type:
     description:
     - The type of the template.
+    - The O(template_type=application) is only intended for retrieving the Application template using O(template_id) and does not support template creation.
     type: str
     aliases: [ type ]
     choices:
+      - application
       - tenant
       - l3out
       - fabric_policy
@@ -48,7 +50,7 @@ options:
   tenant:
     description:
     - The name of the tenant attached to the template.
-    - Required when O(type=tenant), O(type=l3out), 0(type=monitoring_tenant) or 0(type=service_device).
+    - Required when O(type=tenant), O(type=l3out), O(type=monitoring_tenant) or O(type=service_device).
     type: str
   sites:
     description:
@@ -176,12 +178,14 @@ def main():
     site_ids = [mso.lookup_site(site.get("name")) for site in module.params.get("sites", [])] if module.params.get("sites") else []
     state = module.params.get("state")
 
+    if state != "query" and template_type == "application":
+        mso.fail_json(msg="The template_type: application is only intended for retrieving the Application template.")
+
     mso_template = MSOTemplate(mso, template_type, template, template_id)
 
     mso.existing = mso.previous = copy.deepcopy(mso_template.template)
 
     if state == "present":
-
         if tenant_id and not TEMPLATE_TYPES[template_type]["tenant"]:
             mso.fail_json(msg="Tenant cannot be attached to template of type {0}.".format(template_type))
 
@@ -195,7 +199,6 @@ def main():
             mso.fail_json(msg="Only one site can be attached to template of type {0}.".format(template_type))
 
         if mso_template.template:
-
             if mso_template.template.get("templateType") != TEMPLATE_TYPES[template_type]["template_type"]:
                 mso.fail_json(msg="Template type cannot be changed.")
 
@@ -221,10 +224,9 @@ def main():
             mso.sanitize(mso_template.template)
 
             if not module.check_mode and ops:
-                mso.request(mso_template.template_path, method="PATCH", data=ops)
+                mso.existing = mso.request(mso_template.template_path, method="PATCH", data=ops)
 
         else:
-
             payload = {
                 "displayName": template,
                 "templateType": TEMPLATE_TYPES[template_type]["template_type"],
@@ -248,12 +250,13 @@ def main():
                 set_service_device_template_payload(payload, template_type, tenant_id, site_ids)
 
             if not module.check_mode:
-                response = mso.request(mso_template.templates_path, method="POST", data=payload)
-                payload["templateId"] = response.get("templateId")
+                mso.existing = mso.request(mso_template.templates_path, method="POST", data=payload)
+                payload["templateId"] = mso.existing.get("templateId")
 
             mso.sanitize(payload)
 
-        mso.existing = mso.proposed
+        if module.check_mode:
+            mso.existing = mso.proposed
 
     elif state == "absent":
         if mso.previous and not module.check_mode:
@@ -305,7 +308,6 @@ def changed(config, template_type, value, key):
 
 
 def append_site_config_to_ops(ops, template_type_container, config, site_ids):
-
     template_container = config.get(template_type_container, {})
 
     existing_site_ids = [site.get("siteId") for site in template_container.get("sites", [])]

@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 """Ansible module for managing volumes on Unity"""
 
@@ -167,7 +166,7 @@ notes:
 
 EXAMPLES = r"""
 - name: Create Volume
-  dellemc.unity.volume:
+  volume:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -183,7 +182,7 @@ EXAMPLES = r"""
     state: "{{state_present}}"
 
 - name: Expand Volume by volume id
-  dellemc.unity.volume:
+  volume:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -194,7 +193,7 @@ EXAMPLES = r"""
     state: "{{state_present}}"
 
 - name: Modify Volume, map host by host_name
-  dellemc.unity.volume:
+  volume:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -206,7 +205,7 @@ EXAMPLES = r"""
     state: "{{state_present}}"
 
 - name: Modify Volume, unmap host mapping by host_name
-  dellemc.unity.volume:
+  volume:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -217,7 +216,7 @@ EXAMPLES = r"""
     state: "{{state_present}}"
 
 - name: Map multiple hosts to a Volume
-  dellemc.unity.volume:
+  volume:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -232,7 +231,7 @@ EXAMPLES = r"""
     state: "present"
 
 - name: Modify Volume attributes
-  dellemc.unity.volume:
+  volume:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -246,7 +245,7 @@ EXAMPLES = r"""
     state: "{{state_present}}"
 
 - name: Delete Volume by vol name
-  dellemc.unity.volume:
+  volume:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -255,7 +254,7 @@ EXAMPLES = r"""
     state: "{{state_absent}}"
 
 - name: Delete Volume by vol id
-  dellemc.unity.volume:
+  volume:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"

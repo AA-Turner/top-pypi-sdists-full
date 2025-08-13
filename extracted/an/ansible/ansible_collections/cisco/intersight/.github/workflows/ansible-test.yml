@@ -1,0 +1,168 @@
+---
+name: Ansible-test CI
+on:
+  workflow_dispatch:
+    inputs:
+      run_all_tests:
+        description: 'Run all integration tests on all Ansible versions (true/false)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+  schedule:
+    # Run weekly regression tests every Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+  push:
+    branches:
+      - stable-ci
+  pull_request_target:
+    branches:
+      - main
+      - 'stable-*'
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{
+      github.event.pull_request.number || github.sha
+    }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect-changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.map-tests.outputs.targets }}
+      skip_tests: ${{ steps.map-tests.outputs.skip_tests }}
+    steps:
+      - name: Get User Permission
+        id: checkAccess
+        uses: actions-cool/check-user-permission@v2
+        with:
+          require: write
+          username: ${{ github.triggering_actor }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout code
+        if: steps.checkAccess.outputs.require-result == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0  # Fetch full history for comparison
+
+      - name: Map changed files to test targets
+        if: steps.checkAccess.outputs.require-result == 'true'
+        id: map-tests
+        env:
+          RUN_ALL_TESTS: ${{ github.event.inputs.run_all_tests }}
+        run: |
+          # For weekly regression (scheduled) or manual all-tests run, force run all integration tests
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event.inputs.run_all_tests }}" == "true" ]]; then
+            echo "targets=" >> $GITHUB_OUTPUT
+            echo "skip_tests=false" >> $GITHUB_OUTPUT
+            echo "Running weekly regression - all integration tests will be executed"
+          else
+            python3 .github/workflows/scripts/map_changes_to_tests.py
+          fi
+
+  integration:
+    name: >-
+      ${{ (github.event_name == 'schedule' || github.event.inputs.run_all_tests == 'true') && 
+      'Weekly Regression Integration (Ⓐ' || 'Integration (Ⓐ' }}${{ matrix.ansible }})
+    runs-on: >-
+      ${{ contains(fromJson(
+          '["stable-2.9", "stable-2.10", "stable-2.11"]'
+      ), matrix.ansible) && 'ubuntu-20.04' || 'ubuntu-latest' }}
+    needs: detect-changes
+    if: needs.detect-changes.outputs.skip_tests != 'true'
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        ansible:
+          - stable-2.16
+          - stable-2.17
+          - stable-2.18
+          - stable-2.19
+    outputs:
+      results: ${{ steps.test-results.outputs.results }}
+    steps:
+      - name: Get User Permission
+        id: checkAccess
+        uses: actions-cool/check-user-permission@v2
+        with:
+          require: write
+          username: ${{ github.triggering_actor }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # Run integration tests inside a Docker container.
+      # The docker container has all the pinned dependencies that are
+      # required and all Python versions Ansible supports.
+      - name: Perform integration testing
+        if: steps.checkAccess.outputs.require-result == 'true'
+        id: integration-test
+        # See the documentation for the following GitHub action on
+        # https://github.com/ansible-community/ansible-test-gh-action/blob/main/README.md
+        uses: ansible-community/ansible-test-gh-action@release/v1
+        with:
+          ansible-core-version: ${{ matrix.ansible }}
+          testing-type: integration
+          target: ${{ needs.detect-changes.outputs.targets }}
+          pre-test-cmd: chmod +x ./tests/integration/targets/prepare_test_run/generate_integration_config.sh && ./tests/integration/targets/prepare_test_run/generate_integration_config.sh
+          git-checkout-ref: ${{ github.event.pull_request.head.sha }}
+        env:
+          API_PRIVATE_KEY: ${{ secrets.INTERSIGHT_API_PRIVATE_KEY_CI }}
+          API_KEY_ID: ${{ secrets.INTERSIGHT_API_KEY_ID_CI }}
+
+      - name: Record test result
+        id: test-results
+        if: always()
+        run: |
+          TEST_TYPE="${{ (github.event_name == 'schedule' || github.event.inputs.run_all_tests == 'true') && 'Weekly regression integration' || 'Integration' }}"
+          if [ "${{ steps.integration-test.outcome }}" = "success" ]; then
+            echo "$TEST_TYPE test for ${{ matrix.ansible }}: ✅ PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "results=${{ matrix.ansible }}:success" >> $GITHUB_OUTPUT
+          else
+            echo "$TEST_TYPE test for ${{ matrix.ansible }}: ❌ FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "results=${{ matrix.ansible }}:failure" >> $GITHUB_OUTPUT
+            echo "$TEST_TYPE test failed for ${{ matrix.ansible }}" >&2
+          fi
+
+  integration-skipped:
+    name: Integration (Skipped - No relevant changes)
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.skip_tests == 'true'
+    steps:
+      - name: Log skip reason
+        run: |
+          echo "Integration tests skipped - no relevant changes detected"
+          echo "This job automatically succeeds to satisfy branch protection rules"
+
+
+  final_check: # This job does nothing and is only used for the branch protection
+    # or multi-stage CI jobs, like making sure that all tests pass before
+    # a publishing job is started.
+    if: always()
+
+    needs:
+      - detect-changes
+      - integration
+      - integration-skipped
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Decide whether the needed jobs succeeded or failed
+        uses: re-actors/alls-green@release/v1
+        with:
+          # Allow skipping integration jobs when no changes detected
+          allowed-skips: integration, integration-skipped
+          jobs: ${{ toJSON(needs) }}

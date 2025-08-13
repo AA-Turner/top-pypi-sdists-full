@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: databento
-Version: 0.59.0
+Version: 0.61.0
 Summary: Official Python client library for Databento
 License: Apache-2.0
 Author: Databento
@@ -21,13 +21,13 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: aiohttp (>=3.8.3,<4.0.0) ; python_version < "3.12"
 Requires-Dist: aiohttp (>=3.9.0,<4.0.0) ; python_version >= "3.12" and python_version < "4.0"
-Requires-Dist: databento-dbn (>=0.37.1,<0.38.0)
+Requires-Dist: databento-dbn (>=0.39.0,<0.40.0)
 Requires-Dist: numpy (>=1.23.5) ; python_version < "3.12"
 Requires-Dist: numpy (>=1.26.0) ; python_version >= "3.12" and python_version < "4.0"
 Requires-Dist: pandas (>=1.5.3)
 Requires-Dist: pip-system-certs (>=4.0) ; platform_system == "Windows"
 Requires-Dist: pyarrow (>=13.0.0)
-Requires-Dist: requests (>=2.25.1)
+Requires-Dist: requests (>=2.27.0)
 Requires-Dist: zstandard (>=0.21.0)
 Project-URL: Bug Tracker, https://github.com/databento/databento-python/issues
 Project-URL: Documentation, https://databento.com/docs

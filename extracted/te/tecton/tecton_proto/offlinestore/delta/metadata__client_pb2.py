@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n6tecton_proto/offlinestore/delta/metadata__client.proto\x12\x1ftecton_proto.offlinestore.delta\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb7\x01\n\x13TectonDeltaMetadata\x12%\n\rdeletion_path\x18\x01 \x01(\tH\x00R\x0c\x64\x65letionPath\x12!\n\x0bingest_path\x18\x02 \x01(\tH\x00R\ningestPath\x12J\n\x12\x66\x65\x61ture_start_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x10\x66\x65\x61tureStartTimeB\n\n\x08key_typeB!\n\x1d\x63om.tecton.offlinestore.deltaP\x01')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n6tecton_proto/offlinestore/delta/metadata__client.proto\x12\x1ftecton_proto.offlinestore.delta\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe9\x01\n\x13TectonDeltaMetadata\x12%\n\rdeletion_path\x18\x01 \x01(\tH\x00R\x0c\x64\x65letionPath\x12!\n\x0bingest_path\x18\x02 \x01(\tH\x00R\ningestPath\x12J\n\x12\x66\x65\x61ture_start_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x10\x66\x65\x61tureStartTime\x12\x30\n\x13\x64\x61taset_result_path\x18\x04 \x01(\tH\x00R\x11\x64\x61tasetResultPathB\n\n\x08key_typeB!\n\x1d\x63om.tecton.offlinestore.deltaP\x01')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'tecton_proto.offlinestore.delta.metadata__client_pb2', globals())
@@ -23,5 +23,5 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\035com.tecton.offlinestore.deltaP\001'
   _TECTONDELTAMETADATA._serialized_start=125
-  _TECTONDELTAMETADATA._serialized_end=308
+  _TECTONDELTAMETADATA._serialized_end=358
 # @@protoc_insertion_point(module_scope)

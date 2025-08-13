@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dsp-tools
-Version: 16.6.1.post12
+Version: 16.6.1.post15
 Summary: DSP-TOOLS is a Python package with a command line interface that helps you interact with a DaSCH service platform (DSP) server.
 Project-URL: Homepage, https://www.dasch.swiss/
 Project-URL: Documentation, https://docs.dasch.swiss/latest/DSP-TOOLS/

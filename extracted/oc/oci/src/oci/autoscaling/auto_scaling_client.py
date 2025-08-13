@@ -168,7 +168,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/change_auto_scaling_configuration_compartment.py.html>`__ to see an example of how to use change_auto_scaling_configuration_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/change_auto_scaling_configuration_compartment.py.html>`__ to see an example of how to use change_auto_scaling_configuration_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId']
@@ -277,7 +277,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/create_auto_scaling_configuration.py.html>`__ to see an example of how to use create_auto_scaling_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/create_auto_scaling_configuration.py.html>`__ to see an example of how to use create_auto_scaling_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -387,7 +387,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/create_auto_scaling_policy.py.html>`__ to see an example of how to use create_auto_scaling_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/create_auto_scaling_policy.py.html>`__ to see an example of how to use create_auto_scaling_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId']
@@ -496,7 +496,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/delete_auto_scaling_configuration.py.html>`__ to see an example of how to use delete_auto_scaling_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/delete_auto_scaling_configuration.py.html>`__ to see an example of how to use delete_auto_scaling_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId']
@@ -603,7 +603,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/delete_auto_scaling_policy.py.html>`__ to see an example of how to use delete_auto_scaling_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/delete_auto_scaling_policy.py.html>`__ to see an example of how to use delete_auto_scaling_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId', 'autoScalingPolicyId']
@@ -703,7 +703,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/get_auto_scaling_configuration.py.html>`__ to see an example of how to use get_auto_scaling_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/get_auto_scaling_configuration.py.html>`__ to see an example of how to use get_auto_scaling_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId']
@@ -805,7 +805,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/get_auto_scaling_policy.py.html>`__ to see an example of how to use get_auto_scaling_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/get_auto_scaling_policy.py.html>`__ to see an example of how to use get_auto_scaling_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId', 'autoScalingPolicyId']
@@ -940,7 +940,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/list_auto_scaling_configurations.py.html>`__ to see an example of how to use list_auto_scaling_configurations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/list_auto_scaling_configurations.py.html>`__ to see an example of how to use list_auto_scaling_configurations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1091,7 +1091,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/list_auto_scaling_policies.py.html>`__ to see an example of how to use list_auto_scaling_policies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/list_auto_scaling_policies.py.html>`__ to see an example of how to use list_auto_scaling_policies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId']
@@ -1236,7 +1236,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/update_auto_scaling_configuration.py.html>`__ to see an example of how to use update_auto_scaling_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/update_auto_scaling_configuration.py.html>`__ to see an example of how to use update_auto_scaling_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId']
@@ -1360,7 +1360,7 @@ class AutoScalingClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/autoscaling/update_auto_scaling_policy.py.html>`__ to see an example of how to use update_auto_scaling_policy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/autoscaling/update_auto_scaling_policy.py.html>`__ to see an example of how to use update_auto_scaling_policy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['autoScalingConfigurationId', 'autoScalingPolicyId']

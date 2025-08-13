@@ -1,6 +1,6 @@
 [project]
 name = "gridstatus"
-version = "0.30.1"
+version = "0.31.0"
 readme = "README.md"
 description = "API to access energy data"
 requires-python = ">=3.10,<3.13"
@@ -31,6 +31,7 @@ dependencies = [
     "cryptography >= 43.0.1",
     "urllib3 >= 2.2.2",
     "virtualenv >= 20.26.6",
+    "frozendict>=2.4.6",
 ]
 
 [tool.uv]
@@ -39,7 +40,7 @@ dev-dependencies = [
     "pytest-xdist >= 3.0.2",
     "pytest-rerunfailures >= 10.3",
     "pytest-cov >= 4.0.0",
-    "ruff>=0.3.4",
+    "ruff==0.11.5",
     "pre-commit >= 2.21.0",
     "ipython >= 8.4.0",
     "jupyter >= 1.0.0",

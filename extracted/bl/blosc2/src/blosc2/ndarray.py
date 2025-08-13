@@ -1175,6 +1175,21 @@ class NDArray(blosc2_ext.NDArray, Operand):
         """The decompression parameters used by the array."""
         return self.schunk.dparams
 
+    @property
+    def nbytes(self) -> int:
+        """The number of bytes used by the array."""
+        return self.schunk.nbytes
+
+    @property
+    def cbytes(self) -> int:
+        """The number of compressed bytes used by the array."""
+        return self.schunk.cbytes
+
+    @property
+    def cratio(self) -> float:
+        """The compression ratio of the array."""
+        return self.schunk.cratio
+
     # TODO: Uncomment when blosc2.Storage is available
     # @property
     # def storage(self) -> blosc2.Storage:
@@ -1279,15 +1294,20 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
     @property
     def info_items(self) -> list:
+        """A list of tuples with the information about this array.
+        Each tuple contains the name of the attribute and its value.
+        """
         items = []
         items += [("type", f"{self.__class__.__name__}")]
         items += [("shape", self.shape)]
         items += [("chunks", self.chunks)]
         items += [("blocks", self.blocks)]
         items += [("dtype", self.dtype)]
-        items += [("cratio", f"{self.schunk.cratio:.2f}")]
-        items += [("cparams", self.schunk.cparams)]
-        items += [("dparams", self.schunk.dparams)]
+        items += [("nbytes", self.nbytes)]
+        items += [("cbytes", self.cbytes)]
+        items += [("cratio", f"{self.cratio:.2f}")]
+        items += [("cparams", self.cparams)]
+        items += [("dparams", self.dparams)]
         return items
 
     @property
@@ -1439,7 +1459,23 @@ class NDArray(blosc2_ext.NDArray, Operand):
             raise ValueError("This property only works for 2-dimensional arrays.")
         return permute_dims(self)
 
-    def get_fselection_numpy(self, key):
+    def get_fselection_numpy(self, key: list | np.ndarray) -> np.ndarray:
+        """
+        Select a slice from the array using a fancy index.
+        Closely matches NumPy fancy indexing behaviour, except in
+        some edge cases which are not supported by ndindex.
+        Array indices separated by slice object - e.g. arr[0, :10, [0,1]] - are NOT supported.
+        See https://www.blosc.org/posts/blosc2-fancy-indexing for more details.
+
+        Parameters
+        ----------
+        key: list or np.ndarray
+
+        Returns
+        -------
+        out: np.ndarray
+
+        """
         # TODO: Make this faster for broadcasted keys
         ## Can`t do this because ndindex doesn't support all the same indexing cases as Numpy
         # if math.prod(self.shape) * self.dtype.itemsize < blosc2.MAX_FAST_PATH_SIZE:
@@ -1503,7 +1539,7 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
         return out
 
-    def get_oselection_numpy(self, key):
+    def get_oselection_numpy(self, key: list | np.ndarray) -> np.ndarray:
         """
         Select independently from self along axes specified in key. Key must be same length as self shape.
         See Zarr https://zarr.readthedocs.io/en/stable/user-guide/arrays.html#orthogonal-indexing.
@@ -1513,7 +1549,7 @@ class NDArray(blosc2_ext.NDArray, Operand):
         arr = np.empty(shape, dtype=self.dtype)
         return super().get_oindex_numpy(arr, key)
 
-    def set_oselection_numpy(self, key, arr: np.ndarray):
+    def set_oselection_numpy(self, key: list | np.ndarray, arr: NDArray) -> np.ndarray:
         """
         Select independently from self along axes specified in key and set to entries in arr.
         Key must be same length as self shape.
@@ -1698,7 +1734,10 @@ class NDArray(blosc2_ext.NDArray, Operand):
         """
         return NDOuterIterator(self)
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Returns the length of the first dimension of the array.
+        This is equivalent to ``self.shape[0]``.
+        """
         return self.shape[0]
 
     def get_chunk(self, nchunk: int) -> bytes:
@@ -3371,7 +3410,7 @@ def arange(
 # Define a numpy linspace-like function
 def linspace(
     start, stop, num=None, endpoint=True, dtype=np.float64, shape=None, c_order=True, **kwargs: Any
-):
+) -> NDArray:
     """Return evenly spaced numbers over a specified interval.
 
     This is similar to `numpy.linspace` but it returns a `NDArray`
@@ -3442,7 +3481,7 @@ def linspace(
     return reshape(lazyarr, shape, c_order=c_order, **kwargs)
 
 
-def eye(N, M=None, k=0, dtype=np.float64, **kwargs: Any):
+def eye(N, M=None, k=0, dtype=np.float64, **kwargs: Any) -> NDArray:
     """Return a 2-D array with ones on the diagonal and zeros elsewhere.
 
     Parameters
@@ -3708,13 +3747,33 @@ def concatenate(arrays: list[NDArray], /, axis=0, **kwargs: Any) -> NDArray:
 
 
 def expand_dims(array: NDArray, axis=0) -> NDArray:
+    """
+    Expand the shape of an array by adding new axes at the specified positions.
+
+    Parameters
+    ----------
+    array: :ref:`NDArray`
+        The array to be expanded.
+    axis: int or list of int, optional
+        Position in the expanded axes where the new axis (or axes) is placed. Default is 0.
+
+    Returns
+    -------
+    out: :ref:`NDArray`
+        A new NDArray with the expanded shape.
+    """
     if not isinstance(array, blosc2.NDArray):
         raise TypeError("Argument array must be instance of blosc2.NDArray")
-    if axis < 0:
-        axis += array.ndim + 1  # Adjust axis to be within the new stacked array's dimensions
-    if axis > array.ndim:
-        raise ValueError(f"Axis {axis} is out of bounds for expanded array of dimension {array.ndim + 1}.")
-    return blosc2_ext.expand_dims(array, axis=axis)
+    axis = [axis] if isinstance(axis, int) else axis
+    final_dims = array.ndim + len(axis)
+    mask = [False for i in range(final_dims)]
+    for a in axis:
+        if a < 0:
+            a += final_dims  # Adjust axis to be within the new stacked array's dimensions
+        if mask[a]:
+            raise ValueError("Axis values must be unique.")
+        mask[a] = True
+    return blosc2_ext.expand_dims(array, axis_mask=mask, final_dims=final_dims)
 
 
 def stack(arrays: list[NDArray], axis=0, **kwargs: Any) -> NDArray:
@@ -4432,7 +4491,10 @@ class NDField(Operand):
         """
         return NDOuterIterator(self)
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """
+        Returns the length of the first dimension of the field.
+        """
         return self.shape[0]
 
 

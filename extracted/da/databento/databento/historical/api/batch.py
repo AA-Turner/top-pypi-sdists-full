@@ -29,6 +29,7 @@ from requests.auth import HTTPBasicAuth
 from databento.common import API_VERSION
 from databento.common.constants import HTTP_STREAMING_READ_SIZE
 from databento.common.enums import Delivery
+from databento.common.enums import JobState
 from databento.common.enums import SplitDuration
 from databento.common.error import BentoError
 from databento.common.error import BentoHttpError
@@ -37,7 +38,7 @@ from databento.common.http import BentoHttpAPI
 from databento.common.http import check_http_error
 from databento.common.parsing import datetime_to_string
 from databento.common.parsing import optional_datetime_to_string
-from databento.common.parsing import optional_values_list_to_string
+from databento.common.parsing import optional_states_list_to_string
 from databento.common.parsing import symbols_list_to_list
 from databento.common.publishers import Dataset
 from databento.common.validation import validate_enum
@@ -126,8 +127,9 @@ class BatchHttpAPI(BentoHttpAPI):
         split_size : int, optional
             The maximum size (bytes) of each batched data file before being split.
             Must be an integer between 1e9 and 10e9 inclusive (1GB - 10GB).
-        delivery : Delivery or str {'download', 's3', 'disk'}, default 'download'
+        delivery : Delivery or str {'download'}, default 'download'
             The delivery mechanism for the processed batched data files.
+            Only 'download' is supported at this time.
         stype_in : SType or str, default 'raw_symbol'
             The input symbology type to resolve from.
         stype_out : SType or str, default 'instrument_id'
@@ -184,7 +186,7 @@ class BatchHttpAPI(BentoHttpAPI):
 
     def list_jobs(
         self,
-        states: Iterable[str] | str = "received,queued,processing,done",
+        states: Iterable[JobState | str] | JobState | str | None = "queued,processing,done",
         since: pd.Timestamp | datetime | date | str | int | None = None,
     ) -> list[dict[str, Any]]:
         """
@@ -196,8 +198,9 @@ class BatchHttpAPI(BentoHttpAPI):
 
         Parameters
         ----------
-        states : Iterable[str] or str, optional {'received', 'queued', 'processing', 'done', 'expired'}  # noqa
+        states : Iterable[JobState | str] or JobState or str, optional {'queued', 'processing', 'done', 'expired'}  # noqa
             The filter for jobs states as an iterable of comma separated values.
+            Defaults to all except 'expired'.
         since : pd.Timestamp, datetime, date, str, or int, optional
             The filter for timestamp submitted (will not include jobs prior to this).
 
@@ -208,7 +211,7 @@ class BatchHttpAPI(BentoHttpAPI):
 
         """
         params: list[tuple[str, str | None]] = [
-            ("states", optional_values_list_to_string(states)),
+            ("states", optional_states_list_to_string(states)),
             ("since", optional_datetime_to_string(since)),
         ]
 

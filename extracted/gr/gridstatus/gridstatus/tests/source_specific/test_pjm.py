@@ -2486,3 +2486,554 @@ class TestPJM(BaseTestISO):
             self._check_lmp_real_time_unverified_hourly(df)
             assert df["Interval Start"].min() >= self.local_start_of_day(past_date)
             assert df["Interval End"].max() <= self.local_start_of_day(past_end_date)
+
+    """get_load_forecast_5_min"""
+
+    def test_get_load_forecast_5_min_latest(self):
+        with pjm_vcr.use_cassette("test_get_load_forecast_5_min_latest.yaml"):
+            df = self.iso.get_load_forecast_5_min("latest")
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert df.columns.tolist() == self.load_forecast_columns
+            assert df["Interval Start"].min() == self.local_start_of_day("today")
+
+    def test_get_load_forecast_5_min_historical_range(self):
+        past_date = self.local_today() - pd.Timedelta(days=29)
+        past_end_date = past_date + pd.Timedelta(days=2)
+        with pjm_vcr.use_cassette(
+            f"test_get_load_forecast_5_min_historical_range_{past_date.strftime('%Y-%m-%d')}_{past_end_date.strftime('%Y-%m-%d')}.yaml",
+        ):
+            df = self.iso.get_load_forecast_5_min(past_date, past_end_date)
+            assert isinstance(df, pd.DataFrame)
+            assert not df.empty
+            assert df.columns.tolist() == self.load_forecast_columns
+            assert df["Interval Start"].min() == self.local_start_of_day(past_date)
+            assert df["Interval End"].max() == self.local_start_of_day(
+                past_end_date,
+            ) + pd.Timedelta(minutes=175)
+
+    """get_tie_flows_5_min"""
+
+    expected_tie_flows_5_min_cols = [
+        "Interval Start",
+        "Interval End",
+        "Tie Flow Name",
+        "Actual",
+        "Scheduled",
+    ]
+
+    def _check_tie_flows_5_min(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == self.expected_tie_flows_5_min_cols
+        assert (
+            df["Interval End"] - df["Interval Start"] == pd.Timedelta(minutes=5)
+        ).all()
+        assert df["Tie Flow Name"].dtype == object
+        assert df["Actual"].dtype in [np.float64, np.int64]
+        assert df["Scheduled"].dtype in [np.float64, np.int64]
+
+    @pytest.mark.parametrize("date", ["latest", "today"])
+    def test_get_tie_flows_5_min_today_or_latest(self, date):
+        with pjm_vcr.use_cassette(f"test_get_tie_flows_5_min_{date}.yaml"):
+            df = self.iso.get_tie_flows_5_min(date)
+            self._check_tie_flows_5_min(df)
+            assert df["Interval Start"].min() == self.local_start_of_today()
+            assert df[
+                "Interval End"
+            ].max() <= self.local_start_of_today() + pd.Timedelta(days=1)
+
+    def test_get_tie_flows_5_min_historical_date(self):
+        past_date = self.local_today() - pd.Timedelta(days=10)
+        with pjm_vcr.use_cassette(
+            f"test_get_tie_flows_5_min_historical_date_{past_date.strftime('%Y-%m-%d')}.yaml",
+        ):
+            df = self.iso.get_tie_flows_5_min(past_date)
+            self._check_tie_flows_5_min(df)
+            assert df["Interval Start"].min() == self.local_start_of_day(past_date)
+            assert df["Interval End"].max() == self.local_start_of_day(
+                past_date,
+            ) + pd.Timedelta(days=1)
+
+    def test_get_tie_flows_5_min_historical_range(self):
+        past_date = self.local_today() - pd.Timedelta(days=5)
+        past_end_date = past_date + pd.Timedelta(days=3)
+        with pjm_vcr.use_cassette(
+            f"test_get_tie_flows_5_min_historical_range_{past_date.strftime('%Y-%m-%d')}_{past_end_date.strftime('%Y-%m-%d')}.yaml",
+        ):
+            df = self.iso.get_tie_flows_5_min(past_date, past_end_date)
+            self._check_tie_flows_5_min(df)
+            assert df["Interval Start"].min() == self.local_start_of_day(past_date)
+            assert df["Interval End"].max() == self.local_start_of_day(past_end_date)
+
+    """get_instantaneous_dispatch_rates"""
+
+    def _check_instantaneous_dispatch_rates(self, df):
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Zone",
+            "Instantaneous Dispatch Rate",
+        ]
+
+        assert (
+            (df["Interval End"] - df["Interval Start"]) == pd.Timedelta(seconds=15)
+        ).all()
+        assert df["Zone"].dtype == object
+        assert df["Instantaneous Dispatch Rate"].dtype == np.float64
+
+    def test_get_instantaneous_dispatch_rates_today(self):
+        with pjm_vcr.use_cassette("test_get_instantaneous_dispatch_rates_today.yaml"):
+            df = self.iso.get_instantaneous_dispatch_rates("today")
+            self._check_instantaneous_dispatch_rates(df)
+
+            # The minimum interval start should be within 15 seconds of the local start
+            # of today
+            assert (
+                self.local_start_of_today()
+                <= df["Interval Start"].min()
+                <= self.local_start_of_today() + pd.Timedelta(seconds=15)
+            )
+
+            # The maximum interval start should be within 30 seconds of the current time
+            assert (
+                self.local_now()
+                - pd.Timedelta(
+                    seconds=30,
+                )
+                <= df["Interval Start"].max()
+                <= self.local_now()
+            )
+
+    def test_get_instantaneous_dispatch_rates_date_range(self):
+        start = self.local_start_of_today() - pd.DateOffset(days=2)
+        end = start + pd.Timedelta(hours=4)
+
+        with pjm_vcr.use_cassette(
+            f"test_get_instantaneous_dispatch_rates_date_range_{start.strftime('%Y-%m-%d')}_{end.strftime('%Y-%m-%d')}.yaml",  # noqa: E501
+        ):
+            df = self.iso.get_instantaneous_dispatch_rates(start, end)
+            self._check_instantaneous_dispatch_rates(df)
+
+            # Minimum interval start should be within 15 seconds of the start date
+            assert (
+                start <= df["Interval Start"].min() <= start + pd.Timedelta(seconds=15)
+            )
+
+            # Maximum interval start should be within 15 seconds of the end date
+            assert end - pd.Timedelta(seconds=15) <= df["Interval Start"].max() <= end
+
+    def _check_hourly_net_exports_by_state(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "State",
+            "Net Interchange",
+        ]
+        assert not df.empty
+        assert df["Interval Start"].is_monotonic_increasing
+
+    def test_get_hourly_net_exports_by_state_latest(self):
+        with pjm_vcr.use_cassette("test_get_hourly_net_exports_by_state_latest.yaml"):
+            df = self.iso.get_hourly_net_exports_by_state("latest")
+            self._check_hourly_net_exports_by_state(df)
+
+    @pytest.mark.parametrize("date, end", test_dates)
+    def test_get_hourly_net_exports_by_state_historical_date_range(self, date, end):
+        with pjm_vcr.use_cassette(
+            f"test_get_hourly_net_exports_by_state_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_hourly_net_exports_by_state(date, end)
+            self._check_hourly_net_exports_by_state(df)
+            assert df["Interval Start"].min().date() == pd.Timestamp(date).date()
+            assert df["Interval End"].max().date() <= pd.Timestamp(
+                end,
+            ).date() + pd.Timedelta(days=1)
+
+    def _check_hourly_transfer_limits_and_flows(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Transfer Limit Area",
+            "Average Transfers",
+            "Average Transfer Limit",
+        ]
+        assert not df.empty
+
+    def test_get_hourly_transfer_limits_and_flows_latest(self):
+        with pjm_vcr.use_cassette(
+            "test_get_hourly_transfer_limits_and_flows_latest.yaml",
+        ):
+            df = self.iso.get_hourly_transfer_limits_and_flows("latest")
+            self._check_hourly_transfer_limits_and_flows(df)
+
+    @pytest.mark.parametrize("date, end", test_dates)
+    def test_get_hourly_transfer_limits_and_flows_historical_date_range(
+        self,
+        date,
+        end,
+    ):
+        with pjm_vcr.use_cassette(
+            f"test_get_hourly_transfer_limits_and_flows_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_hourly_transfer_limits_and_flows(date, end)
+            self._check_hourly_transfer_limits_and_flows(df)
+            assert df["Interval Start"].min().date() == pd.Timestamp(date).date()
+            assert df["Interval End"].max().date() <= pd.Timestamp(end).date()
+
+    def _check_actual_and_scheduled_interchange_summary(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Tie Line",
+            "Actual Flow",
+            "Scheduled Flow",
+            "Inadvertent Flow",
+        ]
+        assert not df.empty
+
+    def test_get_actual_and_scheduled_interchange_summary_latest(self):
+        with pjm_vcr.use_cassette(
+            "test_get_actual_and_scheduled_interchange_summary_latest.yaml",
+        ):
+            df = self.iso.get_actual_and_scheduled_interchange_summary("latest")
+            self._check_actual_and_scheduled_interchange_summary(df)
+
+    @pytest.mark.parametrize("date, end", test_dates)
+    def test_get_actual_and_scheduled_interchange_summary_historical_date_range(
+        self,
+        date,
+        end,
+    ):
+        with pjm_vcr.use_cassette(
+            f"test_get_actual_and_scheduled_interchange_summary_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_actual_and_scheduled_interchange_summary(date, end)
+            self._check_actual_and_scheduled_interchange_summary(df)
+            assert df["Interval Start"].min().date() == pd.Timestamp(date).date()
+            assert df["Interval End"].max().date() <= pd.Timestamp(
+                end,
+            ).date() + pd.Timedelta(days=1)
+
+    def _check_scheduled_interchange_real_time(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Tie Line",
+            "Hourly Net Tie Schedule",
+        ]
+        assert not df.empty
+        assert df["Interval Start"].is_monotonic_increasing
+
+    def test_get_scheduled_interchange_real_time_latest(self):
+        with pjm_vcr.use_cassette(
+            "test_get_scheduled_interchange_real_time_latest.yaml",
+        ):
+            df = self.iso.get_scheduled_interchange_real_time("latest")
+            self._check_scheduled_interchange_real_time(df)
+
+    @pytest.mark.parametrize("date, end", test_dates)
+    def test_get_scheduled_interchange_real_time_historical_date_range(self, date, end):
+        with pjm_vcr.use_cassette(
+            f"test_get_scheduled_interchange_real_time_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_scheduled_interchange_real_time(date, end)
+            self._check_scheduled_interchange_real_time(df)
+            assert df["Interval Start"].min().date() == pd.Timestamp(date).date()
+            assert df["Interval End"].max().date() <= pd.Timestamp(
+                end,
+            ).date() + pd.Timedelta(days=1)
+
+    def _check_interface_flows_and_limits_day_ahead(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Interface Limit Name",
+            "Flow",
+            "Limit",
+        ]
+        assert not df.empty
+
+    def test_get_interface_flows_and_limits_day_ahead_latest(self):
+        with pjm_vcr.use_cassette(
+            "test_get_interface_flows_and_limits_day_ahead_latest.yaml",
+        ):
+            df = self.iso.get_interface_flows_and_limits_day_ahead("latest")
+            self._check_interface_flows_and_limits_day_ahead(df)
+
+    @pytest.mark.parametrize("date, end", test_dates)
+    def test_get_interface_flows_and_limits_day_ahead_historical_date_range(
+        self,
+        date,
+        end,
+    ):
+        with pjm_vcr.use_cassette(
+            f"test_get_interface_flows_and_limits_day_ahead_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_interface_flows_and_limits_day_ahead(date, end)
+            self._check_interface_flows_and_limits_day_ahead(df)
+            assert df["Interval Start"].min().date() == pd.Timestamp(date).date()
+            assert df["Interval End"].max().date() <= pd.Timestamp(
+                end,
+            ).date() + pd.Timedelta(days=1)
+
+    def _check_projected_peak_tie_flow(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Publish Time",
+            "Projected Peak Time",
+            "Interface",
+            "Scheduled Tie Flow",
+        ]
+        assert not df.empty
+
+    def test_get_projected_peak_tie_flow_latest(self):
+        with pjm_vcr.use_cassette("test_get_projected_peak_tie_flow_latest.yaml"):
+            df = self.iso.get_projected_peak_tie_flow("latest")
+            self._check_projected_peak_tie_flow(df)
+
+    @pytest.mark.parametrize("date, end", test_dates)
+    def test_get_projected_peak_tie_flow_historical_date_range(self, date, end):
+        with pjm_vcr.use_cassette(
+            f"test_get_projected_peak_tie_flow_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_projected_peak_tie_flow(date, end)
+            self._check_projected_peak_tie_flow(df)
+
+    """get_actual_operational_statistics"""
+
+    def _check_actual_operational_statistics(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Interval Start",
+            "Interval End",
+            "Publish Time",
+            "Area",
+            "Area Load Forecast",
+            "Actual Load",
+            "Dispatch Rate",
+        ]
+        assert not df.empty
+        assert df["Area"].dtype == object
+        assert df["Area Load Forecast"].dtype in [np.float64, np.int64]
+        assert df["Actual Load"].dtype in [np.float64, np.int64]
+        assert df["Dispatch Rate"].dtype in [np.float64, np.int64]
+
+    def test_get_actual_operational_statistics_latest(self):
+        with pjm_vcr.use_cassette("test_get_actual_operational_statistics_latest.yaml"):
+            df = self.iso.get_actual_operational_statistics("latest")
+            self._check_actual_operational_statistics(df)
+            min_start = df["Interval Start"].min().date()
+            today = self.local_start_of_today().date()
+            yesterday = today - pd.Timedelta(days=1)
+            # The implementation can return either today's or yesterday's data depending on time
+            assert min_start in [today, yesterday]
+
+    @pytest.mark.parametrize("date, end", test_dates)
+    def test_get_actual_operational_statistics_historical_date_range(self, date, end):
+        with pjm_vcr.use_cassette(
+            f"test_get_actual_operational_statistics_{date}_{end}.yaml",
+        ):
+            df = self.iso.get_actual_operational_statistics(date, end)
+            self._check_actual_operational_statistics(df)
+            expected_start_date = pd.Timestamp(date).date() - pd.Timedelta(days=1)
+            assert df["Interval Start"].min().date() == expected_start_date
+            assert df["Interval End"].max().date() <= pd.Timestamp(
+                end,
+            ).date() - pd.Timedelta(days=1)
+
+    """get_pricing_nodes"""
+
+    def _check_pricing_nodes(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Pricing Node ID",
+            "Pricing Node Name",
+            "Pricing Node Type",
+            "Pricing Node SubType",
+            "Zone",
+            "Voltage Level",
+            "Effective Date",
+            "Termination Date",
+        ]
+        assert not df.empty
+        assert df["Pricing Node ID"].dtype in [np.int64, np.float64]
+        assert df["Pricing Node Name"].dtype == object
+        assert df["Pricing Node Type"].dtype == object
+        assert df["Zone"].dtype == object
+
+    @pytest.mark.parametrize("as_of", ["now", None])
+    def test_get_pricing_nodes_as_of(self, as_of):
+        with pjm_vcr.use_cassette(f"test_get_pricing_nodes_as_of_{as_of}.yaml"):
+            df = self.iso.get_pricing_nodes(as_of=as_of)
+            self._check_pricing_nodes(df)
+            if as_of == "now":
+                # Should filter out terminated records
+                assert (
+                    df["Termination Date"].isna()
+                    | (
+                        df["Termination Date"]
+                        > pd.Timestamp.now(tz=self.iso.default_timezone)
+                    )
+                ).all()
+
+    def test_get_pricing_nodes_with_specific_date(self):
+        specific_date = pd.Timestamp("2024-01-01", tz=self.iso.default_timezone)
+        with pjm_vcr.use_cassette(
+            f"test_get_pricing_nodes_specific_date_{specific_date.strftime('%Y-%m-%d')}.yaml",
+        ):
+            df = self.iso.get_pricing_nodes(as_of=specific_date)
+            self._check_pricing_nodes(df)
+            # Should filter out records terminated before the specific date
+            assert (
+                df["Termination Date"].isna() | (df["Termination Date"] > specific_date)
+            ).all()
+
+    """get_reserve_subzone_resources"""
+
+    def _check_reserve_subzone_resources(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Resource ID",
+            "Resource Name",
+            "Resource Type",
+            "Zone",
+            "Subzone",
+            "Effective Date",
+            "Termination Date",
+        ]
+        assert not df.empty
+        assert df["Resource ID"].dtype in [object, np.int64, np.float64]
+        assert df["Resource Name"].dtype == object
+        assert df["Resource Type"].dtype == object
+        assert df["Subzone"].dtype == object
+        assert df["Zone"].dtype == object
+
+    @pytest.mark.parametrize("as_of", ["now", None])
+    def test_get_reserve_subzone_resources_as_of(self, as_of):
+        with pjm_vcr.use_cassette(
+            f"test_get_reserve_subzone_resources_as_of_{as_of}.yaml",
+        ):
+            df = self.iso.get_reserve_subzone_resources(as_of=as_of)
+            self._check_reserve_subzone_resources(df)
+            if as_of == "now":
+                # Should filter out terminated records
+                assert (
+                    df["Termination Date"].isna()
+                    | (
+                        df["Termination Date"]
+                        > pd.Timestamp.now(tz=self.iso.default_timezone)
+                    )
+                ).all()
+
+    def test_get_reserve_subzone_resources_with_specific_date(self):
+        specific_date = pd.Timestamp("2024-01-01", tz=self.iso.default_timezone)
+        with pjm_vcr.use_cassette(
+            f"test_get_reserve_subzone_resources_specific_date_{specific_date.strftime('%Y-%m-%d')}.yaml",
+        ):
+            df = self.iso.get_reserve_subzone_resources(as_of=specific_date)
+            self._check_reserve_subzone_resources(df)
+            # Should filter out records terminated before the specific date
+            assert (
+                df["Termination Date"].isna() | (df["Termination Date"] > specific_date)
+            ).all()
+
+    """get_reserve_subzone_buses"""
+
+    def _check_reserve_subzone_buses(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Pricing Node ID",
+            "Pricing Node Name",
+            "Pricing Node Type",
+            "Subzone",
+            "Effective Date",
+            "Termination Date",
+        ]
+        assert not df.empty
+        assert df["Pricing Node ID"].dtype in [np.int64, np.float64]
+        assert df["Pricing Node Name"].dtype == object
+        assert df["Pricing Node Type"].dtype == object
+        assert df["Subzone"].dtype == object
+
+    @pytest.mark.parametrize("as_of", ["now", None])
+    def test_get_reserve_subzone_buses_as_of(self, as_of):
+        with pjm_vcr.use_cassette(f"test_get_reserve_subzone_buses_as_of_{as_of}.yaml"):
+            df = self.iso.get_reserve_subzone_buses(as_of=as_of)
+            self._check_reserve_subzone_buses(df)
+            if as_of == "now":
+                # Should filter out terminated records
+                assert (
+                    df["Termination Date"].isna()
+                    | (
+                        df["Termination Date"]
+                        > pd.Timestamp.now(tz=self.iso.default_timezone)
+                    )
+                ).all()
+
+    def test_get_reserve_subzone_buses_with_specific_date(self):
+        specific_date = pd.Timestamp("2024-01-01", tz=self.iso.default_timezone)
+        with pjm_vcr.use_cassette(
+            f"test_get_reserve_subzone_buses_specific_date_{specific_date.strftime('%Y-%m-%d')}.yaml",
+        ):
+            df = self.iso.get_reserve_subzone_buses(as_of=specific_date)
+            self._check_reserve_subzone_buses(df)
+            # Should filter out records terminated before the specific date
+            assert (
+                df["Termination Date"].isna() | (df["Termination Date"] > specific_date)
+            ).all()
+
+    """get_weight_average_aggregation_definition"""
+
+    def _check_weight_average_aggregation_definition(self, df):
+        assert isinstance(df, pd.DataFrame)
+        assert df.columns.tolist() == [
+            "Aggregate Node ID",
+            "Aggregate Node Name",
+            "Bus Node ID",
+            "Bus Node Name",
+            "Bus Node Factor",
+            "Effective Date",
+            "Termination Date",
+        ]
+        assert not df.empty
+        assert df["Aggregate Node ID"].dtype in [np.int64, np.float64]
+        assert df["Aggregate Node Name"].dtype == object
+        assert df["Bus Node ID"].dtype in [np.int64, np.float64]
+        assert df["Bus Node Name"].dtype == object
+        assert df["Bus Node Factor"].dtype in [np.float64, np.int64]
+
+    @pytest.mark.parametrize("as_of", ["now", None])
+    def test_get_weight_average_aggregation_definition_as_of(self, as_of):
+        with pjm_vcr.use_cassette(
+            f"test_get_weight_average_aggregation_definition_as_of_{as_of}.yaml",
+        ):
+            df = self.iso.get_weight_average_aggregation_definition(as_of=as_of)
+            self._check_weight_average_aggregation_definition(df)
+            if as_of == "now":
+                # Should filter out terminated records
+                assert (
+                    df["Termination Date"].isna()
+                    | (
+                        df["Termination Date"]
+                        > pd.Timestamp.now(tz=self.iso.default_timezone)
+                    )
+                ).all()
+
+    def test_get_weight_average_aggregation_definition_with_specific_date(self):
+        specific_date = pd.Timestamp("2024-01-01", tz=self.iso.default_timezone)
+        with pjm_vcr.use_cassette(
+            f"test_get_weight_average_aggregation_definition_specific_date_{specific_date.strftime('%Y-%m-%d')}.yaml",
+        ):
+            df = self.iso.get_weight_average_aggregation_definition(as_of=specific_date)
+            self._check_weight_average_aggregation_definition(df)
+            # Should filter out records terminated before the specific date
+            assert (
+                df["Termination Date"].isna() | (df["Termination Date"] > specific_date)
+            ).all()

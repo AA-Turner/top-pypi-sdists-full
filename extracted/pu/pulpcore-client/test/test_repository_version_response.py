@@ -52,7 +52,8 @@ class TestRepositoryVersionResponse(unittest.TestCase):
                         }, 
                     present = {
                         'key' : None
-                        }, )
+                        }, ),
+                vuln_report = ''
             )
         else:
             return RepositoryVersionResponse(

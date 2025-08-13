@@ -28,7 +28,7 @@ def coercible(enum_type: type[M]) -> type[M]:
     Parameters
     ----------
     enum_type : EnumMeta
-        The deocrated Enum type.
+        The decorated Enum type.
 
     Returns
     -------
@@ -157,8 +157,6 @@ class Delivery(StringyMixin, str, Enum):
     """
 
     DOWNLOAD = "download"
-    S3 = "s3"
-    DISK = "disk"
 
 
 @unique
@@ -169,7 +167,7 @@ class RollRule(StringyMixin, str, Enum):
     """
 
     VOLUME = "volume"
-    OPEN_INTEREST = "open_interst"
+    OPEN_INTEREST = "open_interest"
     CALENDAR = "calendar"
 
 
@@ -209,6 +207,8 @@ class RecordFlags(StringyMixin, IntFlag):  # type: ignore
         The `ts_recv` value is inaccurate (clock issues or reordering).
     F_MAYBE_BAD_BOOK
         Indicates an unrecoverable gap was detected in the channel.
+    F_PUBLISHER_SPECIFIC
+        Indicates a publisher-specific event.
 
     Other bits are reserved and have no current meaning.
 
@@ -220,6 +220,7 @@ class RecordFlags(StringyMixin, IntFlag):  # type: ignore
     F_MBP = 16
     F_BAD_TS_RECV = 8
     F_MAYBE_BAD_BOOK = 4
+    F_PUBLISHER_SPECIFIC = 2
 
 
 @unique
@@ -243,3 +244,16 @@ class PriceType(StringyMixin, str, Enum):
     FIXED = "fixed"
     FLOAT = "float"
     DECIMAL = "decimal"
+
+
+@unique
+@coercible
+class JobState(StringyMixin, str, Enum):
+    """
+    Represents the different states for batch jobs.
+    """
+
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    DONE = "done"
+    EXPIRED = "expired"

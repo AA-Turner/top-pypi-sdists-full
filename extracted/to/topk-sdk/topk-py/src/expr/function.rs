@@ -1,11 +1,11 @@
-use crate::data::vector::{SparseVector, Vector};
+use crate::data::value::Value;
 use pyo3::prelude::*;
 
 #[pyclass]
 #[derive(Debug, Clone)]
 pub enum FunctionExpr {
     KeywordScore {},
-    VectorScore { field: String, query: QueryVector },
+    VectorScore { field: String, query: Value },
     SemanticSimilarity { field: String, query: String },
 }
 
@@ -18,26 +18,6 @@ impl From<FunctionExpr> for topk_rs::proto::v1::data::FunctionExpr {
             }
             FunctionExpr::SemanticSimilarity { field, query } => {
                 topk_rs::proto::v1::data::FunctionExpr::semantic_similarity(field, query)
-            }
-        }
-    }
-}
-
-#[pyclass]
-#[derive(Debug, Clone)]
-pub enum QueryVector {
-    Dense(Vector),
-    Sparse(SparseVector),
-}
-
-impl From<QueryVector> for topk_rs::proto::v1::data::QueryVector {
-    fn from(query: QueryVector) -> Self {
-        match query {
-            QueryVector::Dense(vector) => {
-                topk_rs::proto::v1::data::QueryVector::Dense(vector.into())
-            }
-            QueryVector::Sparse(sparse) => {
-                topk_rs::proto::v1::data::QueryVector::Sparse(sparse.into())
             }
         }
     }

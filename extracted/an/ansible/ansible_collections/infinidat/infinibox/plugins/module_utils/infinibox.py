@@ -8,7 +8,7 @@
 
 """ Infinidat utilities """
 
-from __future__ import (absolute_import, division, print_function)
+from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
@@ -19,7 +19,7 @@ __metaclass__ = type
 
 try:
     from infinisdk import InfiniBox, core
-    from infinisdk.core.exceptions import ObjectNotFound
+    from infinisdk.core.exceptions import ObjectNotFound, APITransportFailure
 except ImportError as imp_exc:
     HAS_INFINISDK = False
     INFINISDK_IMPORT_ERROR = imp_exc
@@ -35,14 +35,16 @@ except ImportError:
 except Exception:
     HAS_INFINISDK = False
 
+import pickle
 from functools import wraps
 from os import environ
-from os import path
+from os import remove, path
 from datetime import datetime
 
 HAS_URLLIB3 = True
 try:
     import urllib3
+
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 except ImportError:
     HAS_URLLIB3 = False
@@ -52,12 +54,13 @@ INFINIBOX_SYSTEM = None
 
 
 def unixMillisecondsToDate(unix_ms):  # pylint: disable=invalid-name
-    """ Convert unix time with ms to a datetime UTC time """
-    return (datetime.utcfromtimestamp(unix_ms / 1000.), 'UTC')
+    """Convert unix time with ms to a datetime UTC time"""
+    return (datetime.utcfromtimestamp(unix_ms / 1000.0), "UTC")
 
 
 def api_wrapper(func):
-    """ Catch API Errors Decorator"""
+    """Catch API Errors Decorator"""
+
     @wraps(func)
     def __wrapper(*args, **kwargs):
         module = args[0]
@@ -70,21 +73,120 @@ def api_wrapper(func):
         except Exception as err:
             module.fail_json(msg=str(err))
         return None  # Should never get to this line but it quiets pylint inconsistent-return-statements
+
     return __wrapper
+
+
+def append_key_to_api_path(path, thing_to_append):
+    appended_path = path
+    appended_path += "&" if "?" in appended_path else "?"
+    appended_path += thing_to_append
+    return appended_path
+
+
+@api_wrapper
+def infinibox_api_get(module, path, fail_msg=None, disable_fail=False):
+    """
+    Call system.api.get.
+    If the stay_logged_in_minutes is less then the equivalent setting on the IBOX, a session file
+    may be used that will then fail on the IBOX.  If the happens, the SDK will try to login, but
+    will not have credentials and fail with a TypeError. Catch that error.
+    """
+    system = get_system(module)
+    page = 1
+    page_size = 1000
+    gathered_results = []
+
+    while True:
+        path_paging = f"page_size={page_size}&page={page}"
+        path_paged = append_key_to_api_path(path, path_paging)
+
+        # Some GET rest calls do not support paging, e.g. /api/rest/metadata/{id}.
+        # Try first with paging, then if there is an UNKNOWN_PARAMETER error,
+        # try without paging.
+        paths_to_try = [path_paged, path]
+        result = None
+        for path_to_try in paths_to_try:
+            try:
+                result = system.api.get(path=path_to_try)
+            except TypeError:
+                msg = "Infinibox GET communication failed. Check credentials or stay_logged_in_minutes setting."
+                module.fail_json(msg=msg)
+            except Exception as err:
+
+                if err.status_code == 404:  # Bad request, e.g. METADATA_NOT_FOUND
+                    if disable_fail:
+                        return None
+
+                if err.status_code == 400:  # GET does not support paging
+                    continue
+
+                if not fail_msg:
+                    fail_msg = f"Infinibox GET communication with path '{path_to_try}' failed: {err}"
+
+                module.fail_json(msg=fail_msg)
+
+        if not result:
+            if not fail_msg:
+                fail_msg = f"Infinibox GET communication with path '{path_paged}' and with path '{path}' failed"
+            module.fail_json(msg=fail_msg)
+
+        if result.status_code not in [200, 201]:
+            if not fail_msg:
+                fail_msg = f"Infinibox GET communication with path '{path_paged}' failed: {err}"
+            error_msg = f"{fail_msg}: code: {result.json()['error']['code']}"
+            module.fail_json(msg=error_msg)
+
+        gathered_results += result.get_json()['result']
+        metadata = result.get_json()["metadata"]
+        page += 1
+
+        try:
+            if page > metadata["pages_total"]:
+                # Reached end of the pagination.
+                return gathered_results
+        except KeyError as err:
+            # If no pages_total key in metadata, then it is not a list.
+            # Return the single result.
+            assert "pages_total" in str(err)
+            return result
+
+
+@api_wrapper
+def infinibox_api_post(module, path, data, fail_msg=None):
+    """
+    Call system.api.post.
+    If the stay_logged_in_minutes is less then the equivalent setting on the IBOX, a session file
+    may be used that will then fail on the IBOX.  If the happens, the SDK will try to login, but
+    will not have credentials and fail with a TypeError. Catch that error.
+    """
+    system = get_system(module)
+    try:
+        result = system.api.post(path=path, data=data)
+        return result
+    except TypeError:
+        msg = "Infinibox POST communication failed. Check credentials or stay_logged_in_minutes setting."
+        module.fail_json(msg=msg)
+    except Exception as err:
+        if not fail_msg:
+            fail_msg = f"Infinibox POST communication with path '{path}' failed: {err}"
+        module.fail_json(msg=fail_msg)
 
 
 def infinibox_argument_spec():
     """Return standard base dictionary used for the argument_spec argument in AnsibleModule"""
     return dict(
         system=dict(required=True),
-        user=dict(required=True),
-        password=dict(required=True, no_log=True),
+        user=dict(required=False, default=None),
+        password=dict(required=False, default=None, no_log=True),
+        stay_logged_in=dict(required=False, type=bool, default=False),
+        stay_logged_in_minutes=dict(required=False, type=int, default=5),
     )
 
 
 def infinibox_required_together():
     """Return the default list used for the required_together argument to AnsibleModule"""
-    return [['user', 'password']]
+    return [["user", "password"]]
 
 
 def merge_two_dicts(dict1, dict2):
@@ -97,6 +199,70 @@ def merge_two_dicts(dict1, dict2):
     return result
 
 
+def get_infinibox_pickle_name(module):
+    """Get a name with path for the pickle file that is IBOX unique"""
+    box = module.params["system"]
+    pickle_name = f"/tmp/infinibox_pickle_{box}"
+    return pickle_name
+
+
+def delete_aged_creds_file(module):
+    """Delete creds file if the file age is greater than a limit.
+    Return False if not deleted, True if deleted.
+    """
+    file_path = get_infinibox_pickle_name(module)
+    n_minutes = module.params["stay_logged_in_minutes"]
+    try:
+        file_mod_time = path.getmtime(file_path)
+        file_mod_date = datetime.fromtimestamp(file_mod_time)
+        current_time = datetime.now()
+        time_diff = current_time - file_mod_date
+        if time_diff.total_seconds() > n_minutes * 60:
+            remove(file_path)
+            return True
+        else:
+            return False
+    except FileNotFoundError:
+        return True
+    except Exception as e:
+        msg = f"An unexpected error occurred while deleting credentials file {file_path}: {e}"
+        module.fail_json(msg=msg)
+
+
+def load_creds_from_file(module):
+    """Load credentials from pickle file"""
+    global INFINIBOX_SYSTEM  # pylint: disable=global-statement
+    loaded_creds = None
+    is_creds_removed = delete_aged_creds_file(module)
+    stay_logged_in = module.params.get("stay_logged_in", None)
+    if not is_creds_removed and stay_logged_in and not INFINIBOX_SYSTEM:
+        try:
+            with open(get_infinibox_pickle_name(module), "rb") as file:
+                loaded_creds = pickle.load(file)
+        except FileNotFoundError:
+            pass
+        except Exception as err:
+            pass
+    return loaded_creds
+
+
+def save_creds_to_file(module):
+    """Save credentials to pickle file"""
+    global INFINIBOX_SYSTEM  # pylint: disable=global-statement
+    stay_logged_in = module.params.get("stay_logged_in", None)
+    if stay_logged_in and INFINIBOX_SYSTEM:
+        # Remove existing file to ensure the creation time is updated
+        file_path = get_infinibox_pickle_name(module)
+        try:
+            remove(file_path)
+        except FileNotFoundError:
+            pass
+
+        saved_creds = INFINIBOX_SYSTEM.api.save_credentials()
+        with open(get_infinibox_pickle_name(module), "wb") as file:
+            pickle.dump(saved_creds, file)
+
+
 @api_wrapper
 def get_system(module):
     """
@@ -107,27 +273,44 @@ def get_system(module):
     """
     global INFINIBOX_SYSTEM  # pylint: disable=global-statement
 
+    loaded_creds = load_creds_from_file(module)
+
     if not INFINIBOX_SYSTEM:
-        # Create system and login
-        box = module.params['system']
-        user = module.params.get('user', None)
-        password = module.params.get('password', None)
-        if user and password:
+        # Create system
+        box = module.params["system"]
+        user = module.params.get("user", None)
+        password = module.params.get("password", None)
+        if loaded_creds:
+            INFINIBOX_SYSTEM = InfiniBox(box, use_ssl=True)
+            INFINIBOX_SYSTEM.api.load_credentials(loaded_creds)
+        elif user and password:
             INFINIBOX_SYSTEM = InfiniBox(box, auth=(user, password), use_ssl=True)
-        elif environ.get('INFINIBOX_USER') and environ.get('INFINIBOX_PASSWORD'):
-            INFINIBOX_SYSTEM = InfiniBox(box,
-                                         auth=(environ.get('INFINIBOX_USER'),
-                                               environ.get('INFINIBOX_PASSWORD')),
-                                         use_ssl=True)
-        elif path.isfile(path.expanduser('~') + '/.infinidat/infinisdk.ini'):
+        elif environ.get("INFINIBOX_USER") and environ.get("INFINIBOX_PASSWORD"):
+            INFINIBOX_SYSTEM = InfiniBox(
+                box,
+                auth=(environ.get("INFINIBOX_USER"), environ.get("INFINIBOX_PASSWORD")),
+                use_ssl=True,
+            )
+        elif path.isfile(path.expanduser("~") + "/.infinidat/infinisdk.ini"):
             INFINIBOX_SYSTEM = InfiniBox(box, use_ssl=True)
         else:
-            module.fail_json(msg="You must set INFINIBOX_USER and INFINIBOX_PASSWORD environment variables or set username/password module arguments")
+            module.fail_json(
+                msg="You must set INFINIBOX_USER and INFINIBOX_PASSWORD environment variables or set username/password module arguments"
+            )
 
-        try:
-            INFINIBOX_SYSTEM.login()
-        except Exception:
-            module.fail_json(msg="Infinibox authentication failed. Check your credentials")
+        if not loaded_creds:
+            try:
+                INFINIBOX_SYSTEM.login()
+            except APITransportFailure:
+                module.fail_json(
+                    msg="Infinibox authentication failed. Check connectivity."
+                )
+            except Exception:
+                module.fail_json(
+                    msg="Infinibox authentication failed. Check credentials."
+                )
+
+        save_creds_to_file(module)
 
     return INFINIBOX_SYSTEM
 
@@ -140,12 +323,12 @@ def get_pool(module, system):
     """
     try:
         try:
-            name = module.params['pool']
+            name = module.params["pool"]
         except KeyError:
             try:
-                name = module.params['name']
+                name = module.params["name"]
             except KeyError:
-                name = module.params['object_name']  # For metadata
+                name = module.params["object_name"]  # For metadata
         return system.pools.get(name=name)
     except Exception:
         return None
@@ -156,12 +339,12 @@ def get_filesystem(module, system):
     """Return Filesystem or None"""
     try:
         try:
-            filesystem = system.filesystems.get(name=module.params['filesystem'])
+            filesystem = system.filesystems.get(name=module.params["filesystem"])
         except KeyError:
             try:
-                filesystem = system.filesystems.get(name=module.params['name'])
+                filesystem = system.filesystems.get(name=module.params["name"])
             except KeyError:
-                filesystem = system.filesystems.get(name=module.params['object_name'])
+                filesystem = system.filesystems.get(name=module.params["object_name"])
         return filesystem
     except Exception:
         return None
@@ -172,9 +355,9 @@ def get_export(module, system):
     """Return export if found or None if not found"""
     try:
         try:
-            export_name = module.params['export']
+            export_name = module.params["export"]
         except KeyError:
-            export_name = module.params['name']
+            export_name = module.params["name"]
 
         export = system.exports.get(export_path=export_name)
     except ObjectNotFound:
@@ -188,12 +371,14 @@ def get_volume(module, system):
     """Return Volume or None"""
     try:
         try:
-            volume = system.volumes.get(name=module.params['name'])
+            volume = system.volumes.get(name=module.params["name"])
         except KeyError:
             try:
-                volume = system.volumes.get(name=module.params['volume'])
+                volume = system.volumes.get(name=module.params["volume"])
             except KeyError:
-                volume = system.volumes.get(name=module.params['object_name'])  # Used by metadata module
+                volume = system.volumes.get(
+                    name=module.params["object_name"]
+                )  # Used by metadata module
         return volume
     except Exception:
         return None
@@ -203,7 +388,7 @@ def get_volume(module, system):
 def get_net_space(module, system):
     """Return network space or None"""
     try:
-        net_space = system.network_spaces.get(name=module.params['name'])
+        net_space = system.network_spaces.get(name=module.params["name"])
     except (KeyError, ObjectNotFound):
         return None
     return net_space
@@ -213,7 +398,7 @@ def get_net_space(module, system):
 def get_vol_by_sn(module, system):
     """Return volume that matches the serial or None"""
     try:
-        volume = system.volumes.get(serial=module.params['serial'])
+        volume = system.volumes.get(serial=module.params["serial"])
     except Exception:
         return None
     return volume
@@ -223,7 +408,7 @@ def get_vol_by_sn(module, system):
 def get_fs_by_sn(module, system):
     """Return filesystem that matches the serial or None"""
     try:
-        filesystem = system.filesystems.get(serial=module.params['serial'])
+        filesystem = system.filesystems.get(serial=module.params["serial"])
     except Exception:
         return None
     return filesystem
@@ -237,12 +422,12 @@ def get_host(module, system):
     for a_host in system.hosts.to_list():
         a_host_name = a_host.get_name()
         try:
-            host_param = module.params['name']
+            host_param = module.params["name"]
         except KeyError:
             try:
-                host_param = module.params['host']
+                host_param = module.params["host"]
             except KeyError:
-                host_param = module.params['object_name']  # For metadata
+                host_param = module.params["object_name"]  # For metadata
 
         if a_host_name == host_param:
             host = a_host
@@ -254,17 +439,16 @@ def get_host(module, system):
 def get_cluster(module, system):
     """Find a cluster by the name specified in the module"""
     cluster = None
-    # print("dir:", dir(system))
 
     for a_cluster in system.host_clusters.to_list():
         a_cluster_name = a_cluster.get_name()
         try:
-            cluster_param = module.params['name']
+            cluster_param = module.params["name"]
         except KeyError:
             try:
-                cluster_param = module.params['cluster']
+                cluster_param = module.params["cluster"]
             except KeyError:
-                cluster_param = module.params['object_name']  # For metadata
+                cluster_param = module.params["object_name"]  # For metadata
 
         if a_cluster_name == cluster_param:
             cluster = a_cluster
@@ -277,7 +461,7 @@ def get_user(module, system, user_name_to_find=None):
     """Find a user by the user_name specified in the module"""
     user = None
     if not user_name_to_find:
-        user_name = module.params['user_name']
+        user_name = module.params["user_name"]
     else:
         user_name = user_name_to_find
     try:
@@ -356,3 +540,11 @@ def catch_failed_module_utils_imports(module):
     if not HAS_URLLIB3:
         msg += "Failed to import urllib3 module. "
     module.fail_json(msg=msg)
+
+
+def execute_state_cleanup(module):
+    """Run common clean up tasks after running execute_state()"""
+    stay_logged_in = module.params["stay_logged_in"]
+    if not stay_logged_in:
+        system = get_system(module)
+        system.logout()

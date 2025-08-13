@@ -73,7 +73,6 @@ class UploadDetailResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
@@ -81,7 +80,6 @@ class UploadDetailResponse(BaseModel):
             "pulp_created",
             "pulp_last_updated",
             "completed",
-            "chunks",
         ])
 
         _dict = self.model_dump(

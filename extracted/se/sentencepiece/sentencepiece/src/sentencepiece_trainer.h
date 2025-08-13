@@ -201,6 +201,10 @@ class SentencePieceNormalizer {
 void ConvertToUnicodeAlignment(absl::string_view orig, absl::string_view norm,
                                std::vector<size_t> *norm_to_orig);
 
+// Sets data dir including the pre-compiled normalization data.
+// The implementation is found in util.cc
+void SetDataDir(absl::string_view data_dir);
+
 }  // namespace sentencepiece
 
 #endif  // SENTENCEPIECE_TRAINER_H_

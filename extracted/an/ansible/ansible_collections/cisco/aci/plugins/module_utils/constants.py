@@ -45,6 +45,20 @@ VM_PROVIDER_MAPPING = dict(
     openstack="OpenStack",
     redhat="Redhat",
     vmware="VMware",
+    nutanix="Nutanix",
+)
+
+SYSLOG_FORMATS = {"enhanced_log": "rfc5424-ts", "nxos": "nxos", "aci": "aci", "rfc5424_ts": "rfc5424-ts"}
+
+VM_SCOPE_MAPPING = dict(
+    cloudfoundry="cloudfoundry",
+    kubernetes="kubernetes",
+    microsoft="MicrosoftSCVMM",
+    openshift="openshift",
+    openstack="openstack",
+    redhat="rhev",
+    vmware="vm",
+    nutanix="nutanix",
 )
 
 MATCH_TYPE_GROUP_MAPPING = {"all": "ALL", "all_in_pod": "ALL_IN_POD", "range": "range"}
@@ -138,6 +152,11 @@ ACI_CLASS_MAPPING = dict(
         "class": "fvRsProv",
         "rn": "rsprov-",
         "name": "tnVzBrCPName",
+    },
+    oob_provider={
+        "class": "mgmtRsOoBProv",
+        "rn": "rsooBProv-",
+        "name": "tnVzOOBBrCPName",
     },
     taboo={
         "class": "fvRsProtBy",
@@ -442,6 +461,8 @@ MATCH_ACCESS_POLICIES_SELECTOR_TYPE = dict(range="range", all="ALL")
 
 MANAGEMENT_EPG_TYPE = dict(ooband="oob", inband="inb")
 
+MANAGEMENT_EPG_CLASS_MAPPING = dict(in_band={"epg_class": "mgmtInB", "epg_rn": "inb-"}, out_of_band={"epg_class": "mgmtOoB", "epg_rn": "oob-"})
+
 NODE_TYPE_MAPPING = {"tier_2": "tier-2-leaf", "remote": "remote-leaf-wan", "virtual": "virtual", "unspecified": "unspecified"}
 
 SPAN_DIRECTION_MAP = {"incoming": "in", "outgoing": "out", "both": "both"}
@@ -451,3 +472,60 @@ HTTP_VERSIONS_MAPPING = {"1.0": "HTTP10", "1.1": "HTTP11"}
 L4L7_FUNC_TYPES_MAPPING = {"go_to": "GoTo", "go_through": "GoThrough", "l1": "L1", "l2": "L2"}
 
 L4L7_HASH_ALGORITHMS_MAPPING = {"source_ip": "sip", "destination_ip": "dip", "ip_and_protocol": "sip-dip-prototype"}
+
+L4L7_FUNCTIONAL_TEMPLATE_TYPES_MAPPING = {
+    "adc_one_arm": "ADC_ONE_ARM",
+    "adc_two_arm": "ADC_TWO_ARM",
+    "cloud_native_fw": "CLOUD_NATIVE_FW",
+    "cloud_native_lb": "CLOUD_NATIVE_LB",
+    "cloud_vendor_fw": "CLOUD_VENDOR_FW",
+    "cloud_vendor_lb": "CLOUD_VENDOR_LB",
+    "fw_routed": "FW_ROUTED",
+    "fw_trans": "FW_TRANS",
+    "other": "OTHER",
+}
+
+L4L7_UI_TEMPLATE_TYPE = {
+    "ndo_implicit_template": "NDO_IMPLICIT_TEMPLATE",
+    "one_node_adc_one_arm": "ONE_NODE_ADC_ONE_ARM",
+    "one_node_adc_one_arm_l3ext": "ONE_NODE_ADC_ONE_ARM_L3EXT",
+    "one_node_adc_two_arm": "ONE_NODE_ADC_TWO_ARM",
+    "one_node_fw_routed": "ONE_NODE_FW_ROUTED",
+    "one_node_fw_trans": "ONE_NODE_FW_TRANS",
+    "two_node_fw_routed_adc_one_arm": "TWO_NODE_FW_ROUTED_ADC_ONE_ARM",
+    "two_node_fw_routed_adc_one_arm_l3ext": "TWO_NODE_FW_ROUTED_ADC_ONE_ARM_L3EXT",
+    "two_node_fw_routed_adc_two_arm": "TWO_NODE_FW_ROUTED_ADC_TWO_ARM",
+    "two_node_fw_trans_adc_one_arm": "TWO_NODE_FW_TRANS_ADC_ONE_ARM",
+    "two_node_fw_trans_adc_one_arm_l3ext": "TWO_NODE_FW_TRANS_ADC_ONE_ARM_L3EXT",
+    "two_node_fw_trans_adc_two_arm": "TWO_NODE_FW_TRANS_ADC_TWO_ARM",
+    "unspecified": "UNSPECIFIED",
+}
+
+COS_MAPPING = {"cos_0": "Cos0", "cos_1": "Cos1", "cos_2": "Cos2", "cos_3": "Cos3", "cos_4": "Cos4", "cos_5": "Cos5", "cos_6": "Cos6", "cos_7": "Cos7"}
+
+RESERVED_ANSIBLE_INVENTORY_KEYS = {
+    "serial": "_serial",
+    "name": "_name",
+}
+
+MOCKED_CONSTRUCTED_INVENTORY_ARGUMENT_SPEC = dict(
+    plugin=dict(type="str"),
+    use_vars_plugins=dict(type="bool"),
+    strict=dict(type="bool"),
+    compose=dict(type="dict"),
+    groups=dict(type="dict"),
+    keyed_groups=dict(
+        type="list",
+        elements="dict",
+        options=dict(
+            parent_group=dict(type="str"),
+            prefix=dict(type="str"),
+            separator=dict(type="str"),
+            key=dict(type="str"),
+            default_value=dict(type="str"),
+            trailing_separator=dict(type="bool"),
+        ),
+    ),
+    use_extra_vars=dict(type="bool"),
+    leading_separator=dict(type="bool"),
+)

@@ -7,7 +7,8 @@ import click
 import django
 from django.conf import settings
 from django.db import connection
-from django.db.utils import InterfaceError, DatabaseError
+from django.db.utils import IntegrityError, InterfaceError, DatabaseError
+from gunicorn.arbiter import Arbiter
 from gunicorn.workers.sync import SyncWorker
 
 from pulpcore.app.apps import pulp_plugin_configs
@@ -27,26 +28,21 @@ class PulpApiWorker(SyncWorker):
 
     def heartbeat(self):
         try:
-            self.api_app_status, created = self.ApiAppStatus.objects.get_or_create(
-                name=self.name, defaults={"versions": self.versions}
-            )
-
-            if not created:
-                self.api_app_status.save_heartbeat()
-
-                if self.api_app_status.versions != self.versions:
-                    self.api_app_status.versions = self.versions
-                    self.api_app_status.save(update_fields=["versions"])
-
+            self.app_status.save_heartbeat()
             logger.debug(self.beat_msg)
         except (InterfaceError, DatabaseError):
             connection.close_if_unusable_or_obsolete()
-            logger.info(self.fail_beat_msg)
+            try:
+                self.app_status.save_heartbeat()
+                logger.debug(self.beat_msg)
+            except (InterfaceError, DatabaseError):
+                logger.error(self.fail_beat_msg)
+                exit(Arbiter.WORKER_BOOT_ERROR)
 
     def init_process(self):
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "pulpcore.app.settings")
         django.setup()
-        from pulpcore.app.models import ApiAppStatus
+        from pulpcore.app.models import AppStatus
 
         if settings.API_APP_TTL < 2 * self.timeout:
             logger.warning(
@@ -56,9 +52,6 @@ class PulpApiWorker(SyncWorker):
                 self.timeout,
             )
 
-        self.ApiAppStatus = ApiAppStatus
-        self.api_app_status = None
-
         self.name = "{pid}@{hostname}".format(pid=self.pid, hostname=socket.gethostname())
         self.versions = {app.label: app.version for app in pulp_plugin_configs()}
         self.beat_msg = (
@@ -67,9 +60,16 @@ class PulpApiWorker(SyncWorker):
             )
         )
         self.fail_beat_msg = (
-            "Api App '{name}' failed to write a heartbeat to the database, sleeping for "
-            "'{interarrival}' seconds."
-        ).format(name=self.name, interarrival=self.timeout)
+            "Api App '{name}' failed to write a heartbeat to the database."
+        ).format(name=self.name)
+        try:
+            self.app_status = AppStatus.objects.create(
+                name=self.name, app_type="api", versions=self.versions
+            )
+        except IntegrityError:
+            logger.error(f"An API app with name {self.name} already exists in the database.")
+            exit(Arbiter.WORKER_BOOT_ERROR)
+
         super().init_process()
 
     def run(self):
@@ -77,8 +77,8 @@ class PulpApiWorker(SyncWorker):
             super().run()
         finally:
             # cleanup
-            if self.api_app_status:
-                self.api_app_status.delete()
+            if self.app_status:
+                self.app_status.delete()
 
 
 class PulpcoreApiApplication(PulpcoreGunicornApplication):

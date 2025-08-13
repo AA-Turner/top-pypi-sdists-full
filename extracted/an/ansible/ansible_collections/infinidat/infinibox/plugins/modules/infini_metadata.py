@@ -18,7 +18,8 @@ module: infini_metadata
 version_added: 2.13.0
 short_description:  Create, Delete or Modify metadata on Infinibox
 description:
-    - This module creates, deletes or modifies metadata on Infinibox.
+    - This module creates, deletes or modifies metadata on Infinibox. It can
+    also search for objects by metadata key and object type.
     - Deleting metadata by object, without specifying a key, is not implemented for any object_type (e.g. DELETE api/rest/metadata/system).
     - This would delete all metadata belonging to the object. Instead delete each key explicitely using its key name.
 author: David Ohlemacher (@ohlemacher)
@@ -46,11 +47,11 @@ options:
     required: false
   state:
     description:
-      - Creates/Modifies metadata when present or removes when absent.
+      - Creates, modifies, removes or searches for metadata.
     type: str
     required: false
     default: present
-    choices: [ "stat", "present", "absent" ]
+    choices: [ "stat", "present", "absent", "search" ]
 
 extends_documentation_fragment:
     - infinibox
@@ -59,26 +60,39 @@ extends_documentation_fragment:
 EXAMPLES = r"""
 - name: Create new metadata key foo with value bar
   infini_metadata:
-    name: foo
-    key: bar
+    object_name: test-vol
+    object_type: vol
+    key: foo
+    value: bar
     state: present
     user: admin
     password: secret
     system: ibox001
 - name: Stat metadata key named foo
   infini_metadata:
-    name: foo
+    object_name: test-vol
     state: stat
     user: admin
     password: secret
     system: ibox001
-- name: Remove metadata keyn named foo
-  infini_vol:
-    name: foo_snap
+- name: Remove metadata key named foo
+  infini_metadata:
+    object_name: test-vol
+    object_type: vol,
+    key: foo
     state: absent
     user: admin
     password: secret
     system: ibox001
+- name: Search for objects that have a metadata key named foo with value bar
+  infini_metadata:
+    key: foo
+    value: bar
+    state: search
+    user: admin
+    password: secret
+    system: ibox001
+
 """
 
 # RETURN = r''' # '''
@@ -90,12 +104,14 @@ from ansible.module_utils.basic import AnsibleModule, missing_required_lib
 from ansible_collections.infinidat.infinibox.plugins.module_utils.infinibox import (
     HAS_INFINISDK,
     api_wrapper,
+    append_key_to_api_path,
     get_cluster,
     get_filesystem,
     get_host,
     get_pool,
     get_system,
     get_volume,
+    infinibox_api_get,
     infinibox_argument_spec,
 )
 
@@ -110,7 +126,7 @@ HAS_CAPACITY = False
 
 @api_wrapper
 def get_metadata_vol(module, disable_fail):
-    """ Get metadata about a volume """
+    """Get metadata about a volume"""
     system = get_system(module)
     object_type = module.params["object_type"]
     object_name = module.params["object_name"]
@@ -121,7 +137,7 @@ def get_metadata_vol(module, disable_fail):
     if vol:
         path = f"metadata/{vol.id}/{key}"
         try:
-            metadata = system.api.get(path=path)
+            metadata = infinibox_api_get(module, path=path, disable_fail=disable_fail)
         except APICommandFailed:
             if not disable_fail:
                 module.fail_json(
@@ -137,7 +153,7 @@ def get_metadata_vol(module, disable_fail):
 
 @api_wrapper
 def get_metadata_fs(module, disable_fail):
-    """ Get metadata about a fs """
+    """Get metadata about a fs"""
     system = get_system(module)
     object_type = module.params["object_type"]
     object_name = module.params["object_name"]
@@ -164,7 +180,7 @@ def get_metadata_fs(module, disable_fail):
 
 @api_wrapper
 def get_metadata_host(module, disable_fail):
-    """ Get metadata about a host """
+    """Get metadata about a host"""
     system = get_system(module)
     object_type = module.params["object_type"]
     object_name = module.params["object_name"]
@@ -191,7 +207,7 @@ def get_metadata_host(module, disable_fail):
 
 @api_wrapper
 def get_metadata_cluster(module, disable_fail):
-    """ Get metadata about a cluster """
+    """Get metadata about a cluster"""
     system = get_system(module)
     object_type = module.params["object_type"]
     object_name = module.params["object_name"]
@@ -218,7 +234,7 @@ def get_metadata_cluster(module, disable_fail):
 
 @api_wrapper
 def get_metadata_fssnap(module, disable_fail):
-    """ Get metadata about a fs snapshot """
+    """Get metadata about a fs snapshot"""
     system = get_system(module)
     object_type = module.params["object_type"]
     object_name = module.params["object_name"]
@@ -245,7 +261,7 @@ def get_metadata_fssnap(module, disable_fail):
 
 @api_wrapper
 def get_metadata_pool(module, disable_fail):
-    """ Get metadata about a pool """
+    """Get metadata about a pool"""
     system = get_system(module)
     object_type = module.params["object_type"]
     object_name = module.params["object_name"]
@@ -272,7 +288,7 @@ def get_metadata_pool(module, disable_fail):
 
 @api_wrapper
 def get_metadata_volsnap(module, disable_fail):
-    """ Get metadata for a volume snapshot """
+    """Get metadata for a volume snapshot"""
     system = get_system(module)
     object_type = module.params["object_type"]
     object_name = module.params["object_name"]
@@ -291,7 +307,9 @@ def get_metadata_volsnap(module, disable_fail):
                     f"Volume snapshot {object_name} key {key} not found"
                 )
     elif not disable_fail:
-        msg = f"Volume snapshot named {object_name} not found. Cannot stat its metadata."
+        msg = (
+            f"Volume snapshot named {object_name} not found. Cannot stat its metadata."
+        )
         module.fail_json(msg=msg)
 
     return metadata
@@ -410,9 +428,7 @@ def put_metadata(module):  # pylint: disable=too-many-statements
         path = f"metadata/{volsnap.id}"
 
     # Create json data
-    data = {
-        key: value
-    }
+    data = {key: value}
 
     # Put
     system.api.put(path=path, data=data)
@@ -486,6 +502,70 @@ def delete_metadata(module):  # pylint: disable=too-many-return-statements
     return changed
 
 
+def object_type_to_api_type(module, object_type):
+    api_types = {
+        "cluster": "clusters",
+        "fs": "filesystems",
+        "fs-snap": "filesystems",
+        "host": "hosts",
+        "pool": "pools",
+        "system": "system",
+        "volume": "volumes",
+        "vol-snap": "volumes",
+    }
+    try:
+        return api_types[object_type]
+    except TypeError:
+        msg = f"Invalid object_type: {object_type}"
+        module.fail_json(msg=msg)
+
+
+def add_fields_to_metadata_result(module, metadata):
+    """Add useful fields to metadata such as name.
+    Return updated result.
+    """
+    system = get_system(module)
+    result = metadata  #.get_result()
+
+    for item in result:
+        object_id = item['object_id']
+        object_type = item['object_type']
+        api_type = object_type_to_api_type(module, object_type)
+        path = f"{api_type}?id={object_id}"
+        data = infinibox_api_get(module, path=path)[0]
+        item_name = data["name"]
+        item['name'] = item_name  # Add object name to result
+    return result
+
+
+@api_wrapper
+def search_metadata(module):
+    """Get metadata by type, name, key and/or value."""
+    # TODO - support pagination
+    system = get_system(module)
+    object_type = module.params["object_type"]
+    object_name = module.params["object_name"]
+    key = module.params["key"]
+    value = module.params["value"]
+
+    # Assemble rest path
+    path = "metadata"
+    if object_type:
+        path = append_key_to_api_path(path, f"object_type={object_type}")
+    if object_name:
+        path = append_key_to_api_path(path, f"object_name={object_name}")
+    if key:
+        path = append_key_to_api_path(path, f"key={key}")
+    if value:
+        path = append_key_to_api_path(path, f"value={value}")
+
+    fail_msg = f"Cannot search metadata for object_type '{object_type}', object_name '{object_name}', key '{key}', value '{value}'"
+    metadata = infinibox_api_get(module, path=path, fail_msg=fail_msg)
+
+    result = add_fields_to_metadata_result(module, metadata)
+    return result
+
+
 def handle_stat(module):
     """Return metadata stat"""
     object_type = module.params["object_type"]
@@ -520,8 +600,12 @@ def handle_present(module):
         old_metadata = get_metadata(module, disable_fail=True)
         put_metadata(module)
         new_metadata = get_metadata(module)
-        changed = new_metadata != old_metadata
-        if changed:
+        changed = False
+        if not old_metadata:
+            changed = True
+            msg = "Metadata added"
+        elif new_metadata != old_metadata:
+            changed = True
             msg = "Metadata changed"
         else:
             msg = "Metadata unchanged since the value is the same as the existing metadata"
@@ -541,6 +625,18 @@ def handle_absent(module):
     module.exit_json(changed=changed, msg=msg)
 
 
+def handle_search(module):
+    """Make metadata search"""
+    result = {}
+    result["changed"] = False
+    result["objects"] = search_metadata(module)
+    msg = "No objects found"
+    if len(result["objects"]):
+        msg = "Objects found"
+    result["msg"] = msg
+    module.exit_json(**result)
+
+
 def execute_state(module):
     """Determine which state function to execute and do so"""
     state = module.params["state"]
@@ -551,6 +647,8 @@ def execute_state(module):
             handle_present(module)
         elif state == "absent":
             handle_absent(module)
+        elif state == "search":
+            handle_search(module)
         else:
             module.fail_json(msg=f"Internal handler error. Invalid state: {state}")
     finally:
@@ -558,106 +656,122 @@ def execute_state(module):
         system.logout()
 
 
+def fail_if_missing_required_param(module, param, is_inverting_logic=False):
+    """Fail with bad params"""
+    state = module.params["state"]
+    if is_inverting_logic and module.params[param]:
+        module.fail_json(f"Parameter '{param}' cannot be provided for state '{state}'")
+    elif not module.params[param]:
+        module.fail_json(f"Parameter '{param}' is required for state '{state}'")
+
+
+def check_and_convert_system_keys_values(module):
+    """object_type system key values may need type conversions"""
+    object_type = module.params["object_type"]
+    object_name = module.params["object_name"]
+    key = module.params["key"]
+    value = module.params["value"]
+    # Check system object_type
+    if object_type == "system":
+
+        # Check object_name is None
+        if object_name:
+            module.fail_json(
+                "An object_name for object_type system must not be provided."
+            )
+
+        # Handle special system metadata keys
+        if key == "ui-dataset-default-provisioning":
+            values = ["THICK", "THIN"]
+            if value not in values:
+                module.fail_json(
+                    f"Cannot create {object_type} metadata for key {key}. "
+                    f"Value must be one of {values}. Invalid value: {value}."
+                )
+
+        # Convert bool string to bool
+        if key in [
+            "ui-dataset-base2-units",
+            "ui-feedback-dialog",
+            "ui-feedback-form",
+        ]:
+            try:
+                module.params["value"] = json.loads(value.lower())
+            except json.decoder.JSONDecodeError:
+                module.fail_json(
+                    f"Cannot create {object_type} metadata for key {key}. "
+                    f"Value must be able to be decoded as a boolean. Invalid value: {value}."
+                )
+
+        # Convert integer string to int
+        if key in ["ui-bulk-volume-zero-padding", "ui-table-export-limit"]:
+            try:
+                module.params["value"] = json.loads(value.lower())
+            except json.decoder.JSONDecodeError:
+                module.fail_json(
+                    f"Cannot create {object_type} metadata for key {key}. "
+                    f"Value must be of type integer. Invalid value: {value}."
+                )
+
+
 def check_options(module):
     """Verify module options are sane"""
     state = module.params["state"]
+    key = module.params["key"]
+    value = module.params["value"]
     object_type = module.params["object_type"]
     object_name = module.params["object_name"]
 
-    # Check object_type
-    object_types = [
-        "cluster",
-        "fs",
-        "fs-snap",
-        "host",
-        "pool",
-        "system",
-        "vol",
-        "vol-snap",
-    ]
-    if object_type not in object_types:
-        module.fail_json(
-            f"Cannot create {object_type} metadata. Object type must be one of {object_types}"
-        )
-
-    # Check object_name
-    if object_type == "system":
-        if object_name:
-            module.fail_json("An object_name for object_type system must not be provided.")
-    else:
-        if not object_name:
+    if state == "present":
+        req_params = ["object_name", "object_type", "key", "value"]
+        for req_param in req_params:
+            fail_if_missing_required_param(module, req_param)
+        check_and_convert_system_keys_values(module)
+    elif state in ["stat", "absent"]:
+        req_params = ["object_name", "object_type", "key"]
+        for req_param in req_params:
+            fail_if_missing_required_param(module, req_param)
+    elif state == "search":
+        if not key and not value:
             module.fail_json(
-                f"The name of the {object_type} must be provided as object_name."
+                "The state 'search' requires either a key or value parameter to search for"
             )
-
-    key = module.params["key"]
-    if not key:
-        module.fail_json(f"Cannot create a {object_type} metadata key without providing a key name")
-
-    if state == "stat":
-        pass
-    elif state == "present":
-        # Check value
-        key = module.params["key"]
-        value = module.params["value"]
-        if not value:
+        if object_type or object_name:
             module.fail_json(
-                f"Cannot create a {object_type} metadata key {key} without providing a value"
+                "The state 'search' cannot be used with object_type or object_name parameters"
             )
-        # Check system object_type
-        if object_type == "system":
-            if key == "ui-dataset-default-provisioning":
-                values = ["THICK", "THIN"]
-                if value not in values:
-                    module.fail_json(
-                        f"Cannot create {object_type} metadata for key {key}. "
-                        f"Value must be one of {values}. Invalid value: {value}."
-                    )
-
-            # Convert bool string to bool
-            if key in [
-                "ui-dataset-base2-units",
-                "ui-feedback-dialog",
-                "ui-feedback-form",
-            ]:
-                try:
-                    module.params["value"] = json.loads(value.lower())
-                except json.decoder.JSONDecodeError:
-                    module.fail_json(
-                        f"Cannot create {object_type} metadata for key {key}. "
-                        f"Value must be able to be decoded as a boolean. Invalid value: {value}."
-                    )
-
-            # Convert integer string to int
-            if key in [
-                "ui-bulk-volume-zero-padding",
-                "ui-table-export-limit"
-            ]:
-                try:
-                    module.params["value"] = json.loads(value.lower())
-                except json.decoder.JSONDecodeError:
-                    module.fail_json(
-                        f"Cannot create {object_type} metadata for key {key}. "
-                        f"Value must be of type integer. Invalid value: {value}."
-                    )
-
-    elif state == "absent":
-        pass
     else:
-        module.fail_json(f"Invalid state '{state}' provided")
+        module.fail_json(f"The state '{state}' is not supported")
 
 
 def main():
-    """ Main """
+    """Main"""
     argument_spec = infinibox_argument_spec()
 
     argument_spec.update(
         {
-            "object_type": {"required": True, "choices": ["cluster", "fs", "fs-snap", "host", "pool", "system", "vol", "vol-snap"]},
+            "object_type": {
+                "required": False,
+                "default": None,
+                "choices": [
+                    "cluster",
+                    "fs",
+                    "fs-snap",
+                    "host",
+                    "pool",
+                    "system",
+                    "vol",
+                    "vol-snap",
+                    None,
+                ],
+            },
             "object_name": {"required": False, "default": None},
-            "key": {"required": True, "no_log": False},
-            "value": {"required": False, "default": None},
-            "state": {"default": "present", "choices": ["stat", "present", "absent"]},
+            "key": {"required": False, "default": None},
+            "value": {"required": False, "default": None, "no_log": True},
+            "state": {
+                "required": True,
+                "choices": ["stat", "present", "absent", "search"],
+            },
         }
     )
 

@@ -5,7 +5,6 @@ nav:
   - usage.md
   - customizing.md
   - config.md
-  - integrations.md
   - extending.md
   - overrides.md
   - changelog.md

@@ -18,6 +18,7 @@ class SnowflakeXgboostCallback(xgb.callback.TrainingCallback):
         log_model: bool = True,
         log_metrics: bool = True,
         log_params: bool = True,
+        log_every_n_epochs: int = 1,
         model_name: Optional[str] = None,
         model_signature: Optional["ModelSignature"] = None,
     ) -> None:
@@ -25,6 +26,9 @@ class SnowflakeXgboostCallback(xgb.callback.TrainingCallback):
         self.log_model = log_model
         self.log_metrics = log_metrics
         self.log_params = log_params
+        if log_every_n_epochs < 1:
+            raise ValueError("`log_every_n_epochs` must be positive.")
+        self.log_every_n_epochs = log_every_n_epochs
         self.model_name = model_name
         self.model_signature = model_signature
 
@@ -36,7 +40,7 @@ class SnowflakeXgboostCallback(xgb.callback.TrainingCallback):
         return model
 
     def after_iteration(self, model: Any, epoch: int, evals_log: dict[str, dict[str, Any]]) -> bool:
-        if self.log_metrics:
+        if self.log_metrics and epoch % self.log_every_n_epochs == 0:
             for dataset_name, metrics in evals_log.items():
                 for metric_name, log in metrics.items():
                     metric_key = dataset_name + ":" + metric_name

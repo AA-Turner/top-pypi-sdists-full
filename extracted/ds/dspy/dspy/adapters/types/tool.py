@@ -1,11 +1,12 @@
 import asyncio
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, Type, get_origin, get_type_hints
+from typing import TYPE_CHECKING, Any, Callable, Type, get_origin, get_type_hints
 
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel, TypeAdapter, create_model
 
-from dspy.adapters.types.base_type import BaseType
+from dspy.adapters.types.base_type import Type
+from dspy.dsp.utils.settings import settings
 from dspy.utils.callback import with_callbacks
 
 if TYPE_CHECKING:
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 _TYPE_MAPPING = {"string": str, "integer": int, "number": float, "boolean": bool, "array": list, "object": dict}
 
 
-class Tool(BaseType):
+class Tool(Type):
     """Tool class.
 
     This class is used to simplify the creation of tools for tool calling (function calling) in LLMs. Only supports
@@ -23,21 +24,21 @@ class Tool(BaseType):
     """
 
     func: Callable
-    name: Optional[str] = None
-    desc: Optional[str] = None
-    args: Optional[dict[str, Any]] = None
-    arg_types: Optional[dict[str, Any]] = None
-    arg_desc: Optional[dict[str, str]] = None
+    name: str | None = None
+    desc: str | None = None
+    args: dict[str, Any] | None = None
+    arg_types: dict[str, Any] | None = None
+    arg_desc: dict[str, str] | None = None
     has_kwargs: bool = False
 
     def __init__(
         self,
         func: Callable,
-        name: Optional[str] = None,
-        desc: Optional[str] = None,
-        args: Optional[dict[str, Any]] = None,
-        arg_types: Optional[dict[str, Any]] = None,
-        arg_desc: Optional[dict[str, str]] = None,
+        name: str | None = None,
+        desc: str | None = None,
+        args: dict[str, Any] | None = None,
+        arg_types: dict[str, Any] | None = None,
+        arg_desc: dict[str, str] | None = None,
     ):
         """Initialize the Tool class.
 
@@ -70,7 +71,7 @@ class Tool(BaseType):
         super().__init__(func=func, name=name, desc=desc, args=args, arg_types=arg_types, arg_desc=arg_desc)
         self._parse_function(func, arg_desc)
 
-    def _parse_function(self, func: Callable, arg_desc: Optional[dict[str, str]] = None):
+    def _parse_function(self, func: Callable, arg_desc: dict[str, str] | None = None):
         """Helper method that parses a function to extract the name, description, and args.
 
         This is a helper function that automatically infers the name, description, and args of the tool from the
@@ -102,7 +103,7 @@ class Tool(BaseType):
                 v_json_schema = _resolve_json_schema_reference(v.model_json_schema())
                 args[k] = v_json_schema
             else:
-                args[k] = TypeAdapter(v).json_schema()
+                args[k] = _resolve_json_schema_reference(TypeAdapter(v).json_schema())
             if default_values[k] is not inspect.Parameter.empty:
                 args[k]["default"] = default_values[k]
             if arg_desc and k in arg_desc:
@@ -110,8 +111,8 @@ class Tool(BaseType):
 
         self.name = self.name or name
         self.desc = self.desc or desc
-        self.args = self.args or args
-        self.arg_types = self.arg_types or arg_types
+        self.args = self.args if self.args is not None else args
+        self.arg_types = self.arg_types if self.arg_types is not None else arg_types
         self.has_kwargs = any(param.kind == param.VAR_KEYWORD for param in sig.parameters.values())
 
     def _validate_and_parse_args(self, **kwargs):
@@ -160,12 +161,26 @@ class Tool(BaseType):
             },
         }
 
+    def _run_async_in_sync(self, coroutine):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coroutine)
+
+        return loop.run_until_complete(coroutine)
+
     @with_callbacks
     def __call__(self, **kwargs):
         parsed_kwargs = self._validate_and_parse_args(**kwargs)
         result = self.func(**parsed_kwargs)
         if asyncio.iscoroutine(result):
-            raise ValueError("You are calling `__call__` on an async tool, please use `acall` instead.")
+            if settings.allow_tool_async_sync_conversion:
+                return self._run_async_in_sync(result)
+            else:
+                raise ValueError(
+                    "You are calling `__call__` on an async tool, please use `acall` instead or set "
+                    "`allow_async=True` to run the async tool in sync mode."
+                )
         return result
 
     @with_callbacks
@@ -206,17 +221,23 @@ class Tool(BaseType):
             A Tool object.
 
         Example:
-        ```python
-        from langchain.tools import tool
-        import dspy
 
-        @tool
+        ```python
+        import asyncio
+        import dspy
+        from langchain.tools import tool as lc_tool
+
+        @lc_tool
         def add(x: int, y: int):
             "Add two numbers together."
             return x + y
 
-        tool = dspy.Tool.from_langchain(add)
-        print(await tool.acall(x=1, y=2))
+        dspy_tool = dspy.Tool.from_langchain(add)
+
+        async def run_tool():
+            return await dspy_tool.acall(x=1, y=2)
+
+        print(asyncio.run(run_tool()))
         # 3
         ```
         """
@@ -233,7 +254,7 @@ class Tool(BaseType):
         return f"{self.name}{desc} {arg_desc}"
 
 
-class ToolCalls(BaseType):
+class ToolCalls(Type):
     class ToolCall(BaseModel):
         name: str
         args: dict[str, Any]
@@ -270,6 +291,24 @@ class ToolCalls(BaseType):
             "Arguments must be provided in JSON format."
         )
 
+    def format(self) -> list[dict[str, Any]]:
+        # The tool_call field is compatible with OpenAI's tool calls schema.
+        return [
+            {
+                "type": "tool_calls",
+                "tool_calls": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool_call.name,
+                            "arguments": tool_call.args,
+                        },
+                    }
+                    for tool_call in self.tool_calls
+                ],
+            }
+        ]
+
 
 def _resolve_json_schema_reference(schema: dict) -> dict:
     """Recursively resolve json model schema, expanding all references."""
@@ -299,7 +338,7 @@ def _resolve_json_schema_reference(schema: dict) -> dict:
 
 def convert_input_schema_to_tool_args(
     schema: dict[str, Any],
-) -> Tuple[dict[str, Any], dict[str, Type], dict[str, str]]:
+) -> tuple[dict[str, Any], dict[str, Type], dict[str, str]]:
     """Convert an input json schema to tool arguments compatible with DSPy Tool.
 
     Args:

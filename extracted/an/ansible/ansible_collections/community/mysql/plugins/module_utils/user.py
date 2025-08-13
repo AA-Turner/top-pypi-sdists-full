@@ -665,12 +665,19 @@ def privileges_get(cursor, user, host, maria_role=False):
             res = re.match("""GRANT (.+) ON (.+) TO .*""", grant[0])
 
         if res is None:
-            # If a user has roles assigned, we'll have one of priv tuples looking like
+            # If a user has roles or a default role assigned,
+            # we'll have some of the priv tuples looking either like
             # GRANT `admin`@`%` TO `user1`@`localhost`
+            # or
+            # SET DEFAULT ROLE `admin`@`%` FOR `user1`@`localhost`
             # which will result None as res value.
             # As we use the mysql_role module to manipulate roles
             # we just ignore such privs below:
-            res = re.match("""GRANT (.+) TO (['`"]).*""", grant[0])
+            res = re.match(
+                """GRANT (.+) TO (['`"]).*|SET DEFAULT ROLE (.+) FOR (['`"]).*""",
+                grant[0]
+            )
+
             if not maria_role and res:
                 continue
 

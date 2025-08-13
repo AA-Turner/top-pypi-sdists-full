@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: asusrouter
-Version: 1.18.0
+Version: 1.18.2
 Summary: API wrapper for communication with ASUSWRT-powered routers using HTTP protocol
 Home-page: https://github.com/Vaskivskyi/asusrouter
 Author-email: Yevhenii Vaskivskyi <yevhenii@vaskivskyi.com>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://asusrouter.vaskivskyi.com/
 Project-URL: Source Code, https://github.com/Vaskivskyi/asusrouter
 Project-URL: Bug Reports, https://github.com/Vaskivskyi/asusrouter/issues
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

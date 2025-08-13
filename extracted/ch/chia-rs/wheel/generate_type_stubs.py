@@ -254,6 +254,11 @@ extra_members = {
     "ProofOfSpace": [
         "def size(self) -> PlotSize: ...",
     ],
+    "CoinRecord": [
+        "@property\n    def spent(self) -> bool: ...",
+        "@property\n    def name(self) -> bytes32: ...",
+        "@property\n    def coin_state(self) -> CoinState: ...",
+    ],
 }
 
 classes = []
@@ -308,6 +313,13 @@ def additions_and_removals(
     program: ReadableBuffer, block_refs: list[ReadableBuffer], flags: int, constants: ConsensusConstants
 ) -> tuple[list[tuple[Coin, Optional[bytes]]], list[tuple[bytes32, Coin]]]: ...
 
+def check_time_locks(
+    removal_coin_records: dict[bytes32, CoinRecord],
+    bundle_conds: SpendBundleConditions,
+    prev_transaction_block_height: uint32,
+    timestamp: uint64,
+) -> Optional[int]: ...
+
 def confirm_included_already_hashed(
     root: bytes32,
     item: bytes32,
@@ -324,10 +336,8 @@ def validate_clvm_and_signature(
     new_spend: SpendBundle,
     max_cost: int,
     constants: ConsensusConstants,
-    peak_height: int,
+    flags: int,
 ) -> tuple[SpendBundleConditions, list[tuple[bytes32, GTElement]], float]: ...
-
-def compute_puzzle_fingerprint(puzzle: Program, solution: Program, *, max_cost: int, flags: int) -> tuple[int, bytes]: ...
 
 def get_conditions_from_spendbundle(
     spend_bundle: SpendBundle,
@@ -389,6 +399,7 @@ LIMIT_HEAP: int = ...
 ENABLE_KECCAK_OPS_OUTSIDE_GUARD: int = ...
 MEMPOOL_MODE: int = ...
 DONT_VALIDATE_SIGNATURE: int = ...
+COMPUTE_FINGERPRINT: int = ...
 COST_CONDITIONS: int = ...
 
 ELIGIBLE_FOR_DEDUP: int = ...
@@ -406,6 +417,7 @@ class LazyNode:
     atom: Optional[bytes]
 
 def serialized_length(program: ReadableBuffer) -> int: ...
+def serialized_length_trusted(program: ReadableBuffer) -> int: ...
 def tree_hash(blob: ReadableBuffer) -> bytes32: ...
 def get_puzzle_and_solution_for_coin(program: ReadableBuffer, args: ReadableBuffer, max_cost: int, find_parent: bytes32, find_amount: int, find_ph: bytes32, flags: int) -> tuple[bytes, bytes]: ...
 def get_puzzle_and_solution_for_coin2(generator: Program, block_refs: list[ReadableBuffer], max_cost: int, find_coin: Coin, flags: int) -> tuple[Program, Program]: ...
@@ -559,6 +571,7 @@ class PlotSize:
             "flags: int",
             "execution_cost: int",
             "condition_cost: int",
+            "fingerprint: bytes",
         ],
     )
 

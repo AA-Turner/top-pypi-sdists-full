@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: binance
-Version: 0.3.61
+Version: 0.3.62
 Summary: binance crypto exchange api client
 Project-URL: Homepage, https://github.com/ccxt/ccxt
 Project-URL: Issues, https://github.com/ccxt/ccxt
@@ -235,13 +235,13 @@ You can also construct custom requests to available "implicit" endpoints
 - `repay_isolated_margin(self, symbol: str, code: str, amount, params={})`
 - `request(self, path, api='public', method='GET', params={}, headers=None, body=None, config={})`
 - `safe_market(self, marketId: Str = None, market: Market = None, delimiter: Str = None, marketType: Str = None)`
-- `set_leverage(self, leverage: Int, symbol: Str = None, params={})`
+- `set_leverage(self, leverage: int, symbol: Str = None, params={})`
 - `set_margin_mode(self, marginMode: str, symbol: Str = None, params={})`
 - `set_position_mode(self, hedged: bool, symbol: Str = None, params={})`
 - `set_sandbox_mode(self, enable: bool)`
 - `transfer(self, code: str, amount: float, fromAccount: str, toAccount: str, params={})`
 - `verify_gift_code(self, id: str, params={})`
-- `withdraw(self, code: str, amount: float, address: str, tag=None, params={})`
+- `withdraw(self, code: str, amount: float, address: str, tag: Str = None, params={})`
 
 ### REST Raw
 

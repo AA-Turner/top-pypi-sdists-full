@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "filesystem.h"
+#include "third_party/absl/strings/str_cat.h"
 #include "third_party/absl/strings/str_join.h"
 #include "third_party/absl/strings/str_replace.h"
 #include "third_party/absl/strings/str_split.h"
@@ -35,10 +36,13 @@
 
 #include <set>
 
-#include "normalization_rule.h"
 #include "normalizer.h"
 #include "third_party/darts_clone/darts.h"
 #include "util.h"
+
+#ifndef DISABLE_EMBEDDED_DATA
+#include "normalization_rule.h"
+#endif
 
 namespace sentencepiece {
 namespace normalizer {
@@ -46,12 +50,11 @@ namespace {
 
 constexpr int kMaxUnicode = 0x10FFFF;
 
-static constexpr char kDefaultNormalizerName[] = "nfkc";
+static constexpr absl::string_view kDefaultNormalizerName = "nfkc";
 
 #ifndef ENABLE_NFKC_COMPILE
-static constexpr char kCompileError[] =
-    "NFK compile is not enabled. rebuild with ./configure "
-    "--enable-nfkc-compile";
+static constexpr absl::string_view kCompileError =
+    "NFK compile is not enabled. rebuild with -DSPM_ENABLE_NFKC_COMPILE=ON";
 #endif
 
 #ifdef ENABLE_NFKC_COMPILE
@@ -114,7 +117,7 @@ std::vector<Builder::Chars> ExpandUnnormalized(
   CHECK_EQ(nfkd.size(), results[0].size());
   return results;
 }
-#endif
+#endif  // ENABLE_NFKC_COMPILE
 
 // Normalizes `src` with `chars_map` and returns normalized Chars.
 // `max_len` specifies the maximum length of the key in `chars_map`.
@@ -149,6 +152,14 @@ Builder::Chars Normalize(const Builder::CharsMap &chars_map,
 
   return normalized;
 }
+
+bool IsValidNormalizerData(absl::string_view blob_data) {
+  NormalizerSpec spec;
+  spec.set_precompiled_charsmap(blob_data.data(), blob_data.size());
+  const Normalizer normalizer(spec);
+  return normalizer.status().ok();
+}
+
 }  // namespace
 
 // static
@@ -212,6 +223,7 @@ util::Status Builder::CompileCharsMap(const CharsMap &chars_map,
   absl::string_view trie_blob(static_cast<const char *>(trie.array()),
                               trie.size() * trie.unit_size());
   *output = Normalizer::EncodePrecompiledCharsMap(trie_blob, normalized);
+  CHECK_OR_RETURN(IsValidNormalizerData(*output));
 
   LOG(INFO) << "Generated normalizer blob. size=" << output->size();
 
@@ -282,22 +294,41 @@ util::Status Builder::GetPrecompiledCharsMap(absl::string_view name,
   }
 
   std::string result;
+
+#ifndef DISABLE_EMBEDDED_DATA
   for (size_t i = 0; i < kNormalizationRules_size; ++i) {
     const auto *blob = &kNormalizationRules_blob[i];
     if (blob->name == name) {
       output->assign(blob->data, blob->size);
+      CHECK_OR_RETURN(IsValidNormalizerData(*output));
       return util::OkStatus();
     }
   }
+#else   // DISABLE_EMBEDDED_DATA
+  {
+    const std::string filename =
+        absl::StrCat(util::JoinPath(GetDataDir(), name), ".bin");
+    auto input = filesystem::NewReadableFile(filename, true /* is binary */);
+    if (input->status().ok()) {
+      input->ReadAll(output);
+      CHECK_OR_RETURN(IsValidNormalizerData(*output));
+      return util::OkStatus();
+    }
+  }
+#endif  // DISABLE_EMBEDDED_DATA
+
   return util::StatusBuilder(util::StatusCode::kNotFound, GTL_LOC)
-         << "No precompiled charsmap is found: " << name;
+         << "No precompiled charsmap is found: " << name << " in "
+         << GetDataDir();
 }
 
-// static
-util::Status Builder::BuildNFKCMap(CharsMap *chars_map) {
 #ifdef ENABLE_NFKC_COMPILE
-  LOG(INFO) << "Running BuildNFKCMap";
-
+namespace {
+util::Status BuildMapInternal(
+    Builder::CharsMap *chars_map,
+    std::function<Builder::Chars(const Builder::Chars &)> composer,
+    std::function<Builder::Chars(const Builder::Chars &)> decomposer) {
+#ifdef ENABLE_NFKC_COMPILE
   // Set of fully NFKD decomposed characters.
   std::set<Builder::Chars> nfkd_decomposed;
 
@@ -312,11 +343,11 @@ util::Status Builder::BuildNFKCMap(CharsMap *chars_map) {
       continue;
     }
     // Aggregates single character to fully NFKC normalized characters.
-    const auto nfkc = ToNFKC({cp});
+    const auto nfkc = composer({cp});
     if (nfkc.size() >= 2 || (nfkc.size() == 1 && nfkc[0] != cp)) {
       nfkc_map[{cp}] = nfkc;
     }
-    const auto nfkd = ToNFKD({cp});
+    const auto nfkd = decomposer({cp});
     if (nfkd.size() == 1) {
       // Aggregates reverse mapping from normalized to unnormalized character.
       norm2orig[nfkd[0]].insert(cp);
@@ -327,7 +358,7 @@ util::Status Builder::BuildNFKCMap(CharsMap *chars_map) {
   }
 
   for (const auto &nfkd : nfkd_decomposed) {
-    const auto nfkc = ToNFC(nfkd);
+    const auto nfkc = composer(nfkd);
     // This case is already covered by single-character to NFKC mapping.
     if (nfkc == nfkd) {
       continue;
@@ -341,13 +372,34 @@ util::Status Builder::BuildNFKCMap(CharsMap *chars_map) {
     }
   }
 
-  RETURN_IF_ERROR(RemoveRedundantMap(&nfkc_map));
+  RETURN_IF_ERROR(Builder::RemoveRedundantMap(&nfkc_map));
   *chars_map = std::move(nfkc_map);
+#endif  // ENABLE_NFKC_COMPILE
+  return util::OkStatus();
+}
+}  // namespace
+#endif  // ENABLE_NFKC_COMPILE
 
+// static
+util::Status Builder::BuildNFKCMap(CharsMap *chars_map) {
+#ifdef ENABLE_NFKC_COMPILE
+  LOG(INFO) << "Running BuildNFKCMap";
+  BuildMapInternal(chars_map, ToNFKC, ToNFKD);
 #else
   LOG(ERROR) << kCompileError;
 #endif
 
+  return util::OkStatus();
+}
+
+// static
+util::Status Builder::BuildNFCMap(CharsMap *chars_map) {
+#ifdef ENABLE_NFKC_COMPILE
+  LOG(INFO) << "Running BuildNFCMap";
+  BuildMapInternal(chars_map, ToNFC, ToNFD);
+#else
+  LOG(ERROR) << kCompileError;
+#endif
   return util::OkStatus();
 }
 
@@ -356,67 +408,11 @@ util::Status Builder::BuildNmtNFKCMap(CharsMap *chars_map) {
   LOG(INFO) << "Running BuildNmtNFKCMap";
 
   CharsMap nfkc_map;
-  RETURN_IF_ERROR(Builder::BuildNFKCMap(&nfkc_map));
-
-  // Other code points considered as whitespace.
-  nfkc_map[{0x0009}] = {0x20};  // TAB
-  nfkc_map[{0x000A}] = {0x20};  // LINE FEED
-  nfkc_map[{0x000C}] = {0x20};  // FORM FEED
-  nfkc_map[{0x000D}] = {0x20};  // CARRIAGE RETURN
-  nfkc_map[{0x1680}] = {0x20};  // OGHAM SPACE MARK
-  nfkc_map[{0x200B}] = {0x20};  // ZERO WIDTH SPACE
-  nfkc_map[{0x200E}] = {0x20};  // LEFT-TO-RIGHT MARK
-  nfkc_map[{0x200F}] = {0x20};  // RIGHT-TO-LEFT MARK
-  nfkc_map[{0x2028}] = {0x20};  // LINE SEPARATOR
-  nfkc_map[{0x2029}] = {0x20};  // PARAGRAPH SEPARATOR
-  nfkc_map[{0x2581}] = {0x20};  // LOWER ONE EIGHT BLOCK
-  nfkc_map[{0xFEFF}] = {0x20};  // ZERO WIDTH NO-BREAK
-  nfkc_map[{0xFFFD}] = {0x20};  // REPLACEMENT CHARACTER
-  nfkc_map[{0x200C}] = {0x20};  // ZERO WIDTH NON-JOINER
-  //  nfkc_map[{0x200D}] = {0x20};  // ZERO WIDTH JOINER
-
-  // Ascii Control characters
-  nfkc_map[{0x0001}] = {};
-  nfkc_map[{0x0002}] = {};
-  nfkc_map[{0x0003}] = {};
-  nfkc_map[{0x0004}] = {};
-  nfkc_map[{0x0005}] = {};
-  nfkc_map[{0x0006}] = {};
-  nfkc_map[{0x0007}] = {};
-  nfkc_map[{0x0008}] = {};
-  nfkc_map[{0x000B}] = {};
-  nfkc_map[{0x000E}] = {};
-  nfkc_map[{0x000F}] = {};
-  nfkc_map[{0x0010}] = {};
-  nfkc_map[{0x0011}] = {};
-  nfkc_map[{0x0012}] = {};
-  nfkc_map[{0x0013}] = {};
-  nfkc_map[{0x0014}] = {};
-  nfkc_map[{0x0015}] = {};
-  nfkc_map[{0x0016}] = {};
-  nfkc_map[{0x0017}] = {};
-  nfkc_map[{0x0018}] = {};
-  nfkc_map[{0x0019}] = {};
-  nfkc_map[{0x001A}] = {};
-  nfkc_map[{0x001B}] = {};
-  nfkc_map[{0x001C}] = {};
-  nfkc_map[{0x001D}] = {};
-  nfkc_map[{0x001E}] = {};
-  nfkc_map[{0x001F}] = {};
-
-  //  <control-007F>..<control-009F>
-  nfkc_map[{0x007F}] = {};
-  nfkc_map[{0x008F}] = {};
-  nfkc_map[{0x009F}] = {};
-
-  // Do not normalize FULL_WIDTH TILDE, since FULL_WIDTH TILDE
-  // and HALF_WIDTH TILDE are used differently in Japanese.
-  nfkc_map.erase({0xFF5E});
-
+  RETURN_IF_ERROR(BuildNFKCMap(&nfkc_map));
+  RETURN_IF_ERROR(MergeNmtMap(&nfkc_map));
   RETURN_IF_ERROR(RemoveRedundantMap(&nfkc_map));
 
   *chars_map = std::move(nfkc_map);
-
 #else
   LOG(ERROR) << kCompileError;
 #endif
@@ -445,6 +441,66 @@ util::Status Builder::MergeUnicodeCaseFoldMap(Builder::CharsMap *chars_map) {
 
   RETURN_IF_ERROR(RemoveRedundantMap(chars_map));
 #endif
+
+  return util::OkStatus();
+}
+
+// static
+util::Status Builder::MergeNmtMap(Builder::CharsMap *chars_map) {
+  // Other code points considered as whitespace.
+  (*chars_map)[{0x0009}] = {0x20};  // TAB
+  (*chars_map)[{0x000A}] = {0x20};  // LINE FEED
+  (*chars_map)[{0x000C}] = {0x20};  // FORM FEED
+  (*chars_map)[{0x000D}] = {0x20};  // CARRIAGE RETURN
+  (*chars_map)[{0x1680}] = {0x20};  // OGHAM SPACE MARK
+  (*chars_map)[{0x200B}] = {0x20};  // ZERO WIDTH SPACE
+  (*chars_map)[{0x200E}] = {0x20};  // LEFT-TO-RIGHT MARK
+  (*chars_map)[{0x200F}] = {0x20};  // RIGHT-TO-LEFT MARK
+  (*chars_map)[{0x2028}] = {0x20};  // LINE SEPARATOR
+  (*chars_map)[{0x2029}] = {0x20};  // PARAGRAPH SEPARATOR
+  (*chars_map)[{0x2581}] = {0x20};  // LOWER ONE EIGHT BLOCK
+  (*chars_map)[{0xFEFF}] = {0x20};  // ZERO WIDTH NO-BREAK
+  (*chars_map)[{0xFFFD}] = {0x20};  // REPLACEMENT CHARACTER
+  (*chars_map)[{0x200C}] = {0x20};  // ZERO WIDTH NON-JOINER
+  //  (*chars_map)[{0x200D}] = {0x20};  // ZERO WIDTH JOINER
+
+  // Ascii Control characters
+  (*chars_map)[{0x0001}] = {};
+  (*chars_map)[{0x0002}] = {};
+  (*chars_map)[{0x0003}] = {};
+  (*chars_map)[{0x0004}] = {};
+  (*chars_map)[{0x0005}] = {};
+  (*chars_map)[{0x0006}] = {};
+  (*chars_map)[{0x0007}] = {};
+  (*chars_map)[{0x0008}] = {};
+  (*chars_map)[{0x000B}] = {};
+  (*chars_map)[{0x000E}] = {};
+  (*chars_map)[{0x000F}] = {};
+  (*chars_map)[{0x0010}] = {};
+  (*chars_map)[{0x0011}] = {};
+  (*chars_map)[{0x0012}] = {};
+  (*chars_map)[{0x0013}] = {};
+  (*chars_map)[{0x0014}] = {};
+  (*chars_map)[{0x0015}] = {};
+  (*chars_map)[{0x0016}] = {};
+  (*chars_map)[{0x0017}] = {};
+  (*chars_map)[{0x0018}] = {};
+  (*chars_map)[{0x0019}] = {};
+  (*chars_map)[{0x001A}] = {};
+  (*chars_map)[{0x001B}] = {};
+  (*chars_map)[{0x001C}] = {};
+  (*chars_map)[{0x001D}] = {};
+  (*chars_map)[{0x001E}] = {};
+  (*chars_map)[{0x001F}] = {};
+
+  //  <control-007F>..<control-009F>
+  (*chars_map)[{0x007F}] = {};
+  (*chars_map)[{0x008F}] = {};
+  (*chars_map)[{0x009F}] = {};
+
+  // Do not normalize FULL_WIDTH TILDE, since FULL_WIDTH TILDE
+  // and HALF_WIDTH TILDE are used differently in Japanese.
+  (*chars_map).erase({0xFF5E});
 
   return util::OkStatus();
 }
@@ -490,6 +546,65 @@ util::Status Builder::BuildNFKDMap(CharsMap *chars_map) {
       (*chars_map)[{cp}] = nfkd;
     }
   }
+#else
+  LOG(ERROR) << kCompileError;
+#endif
+  return util::OkStatus();
+}
+
+// static
+util::Status Builder::BuildNFDMap(CharsMap *chars_map) {
+#ifdef ENABLE_NFKC_COMPILE
+  constexpr int kMaxUnicode = 0x10FFFF;
+  for (char32 cp = 1; cp <= kMaxUnicode; ++cp) {
+    if (!U_IS_UNICODE_CHAR(cp)) {
+      continue;
+    }
+    const auto nfd = ToNFD({cp});
+    if (nfd.size() >= 2 || (nfd.size() == 1 && nfd[0] != cp)) {
+      (*chars_map)[{cp}] = nfd;
+    }
+  }
+
+#else
+  LOG(ERROR) << kCompileError;
+#endif
+  return util::OkStatus();
+}
+
+// static
+util::Status Builder::BuildNFKD_CFMap(CharsMap *chars_map) {
+#ifdef ENABLE_NFKC_COMPILE
+  CharsMap nfkd_map;
+  RETURN_IF_ERROR(Builder::BuildNFKDMap(&nfkd_map));
+  RETURN_IF_ERROR(Builder::MergeUnicodeCaseFoldMap(&nfkd_map));
+  *chars_map = std::move(nfkd_map);
+#else
+  LOG(ERROR) << kCompileError;
+#endif
+  return util::OkStatus();
+}
+
+// static
+util::Status Builder::BuildNFC_CFMap(CharsMap *chars_map) {
+#ifdef ENABLE_NFKC_COMPILE
+  CharsMap nfc_map;
+  RETURN_IF_ERROR(Builder::BuildNFKDMap(&nfc_map));
+  RETURN_IF_ERROR(Builder::MergeUnicodeCaseFoldMap(&nfc_map));
+  *chars_map = std::move(nfc_map);
+#else
+  LOG(ERROR) << kCompileError;
+#endif
+  return util::OkStatus();
+}
+
+// static
+util::Status Builder::BuildNFD_CFMap(CharsMap *chars_map) {
+#ifdef ENABLE_NFKC_COMPILE
+  CharsMap nfd_map;
+  RETURN_IF_ERROR(Builder::BuildNFDMap(&nfd_map));
+  RETURN_IF_ERROR(Builder::MergeUnicodeCaseFoldMap(&nfd_map));
+  *chars_map = std::move(nfd_map);
 #else
   LOG(ERROR) << kCompileError;
 #endif

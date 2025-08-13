@@ -161,7 +161,7 @@ class OmhubNetworkAnchorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/multicloud/get_network_anchor.py.html>`__ to see an example of how to use get_network_anchor API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/get_network_anchor.py.html>`__ to see an example of how to use get_network_anchor API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['networkAnchorId', 'subscriptionServiceName', 'subscriptionId']
@@ -338,7 +338,7 @@ class OmhubNetworkAnchorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/multicloud/list_network_anchors.py.html>`__ to see an example of how to use list_network_anchors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/multicloud/list_network_anchors.py.html>`__ to see an example of how to use list_network_anchors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['subscriptionId', 'subscriptionServiceName', 'externalLocation']

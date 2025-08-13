@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: truss_transfer
-Version: 0.0.21
+Version: 0.0.22
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -192,7 +192,7 @@ def create_and_resolve_bptr():
     # 1. Create bptr manifest
     models = [
         truss_transfer.PyModelRepo(
-            repo_id="microsoft/DialoGPT-medium",
+            repo_id="NVFP4/Qwen3-30B-A3B-Thinking-2507-FP4",
             revision="main",
             # write to folder named
             volume_folder="dialogpt",

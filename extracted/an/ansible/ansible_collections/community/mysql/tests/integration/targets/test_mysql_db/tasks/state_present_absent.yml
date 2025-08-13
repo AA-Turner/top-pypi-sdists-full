@@ -310,3 +310,99 @@
   assert:
     that:
       - db_user1 not in result.stdout
+
+# ============================================================
+- set_fact:
+    show_master_status: >-
+      {% if db_engine == 'mariadb' and db_version is version('10.5.2', '>=') %}
+        SHOW BINLOG STATUS
+      {% elif db_engine == 'mysql' and db_version is version('8.4', '>=') %}
+        SHOW BINARY LOG STATUS
+      {% else %}
+        SHOW MASTER STATUS
+      {% endif %}
+
+- name: State Present Absent | Capture binlog position
+  command: "{{ mysql_command }} -e \"{{ show_master_status }}\\G\""
+  register: bin_log_position_1
+
+- name: State Present Absent | Create database with sql_log_bin enabled
+  mysql_db:
+    login_user: '{{ mysql_user }}'
+    login_password: '{{ mysql_password }}'
+    login_host: '{{ mysql_host }}'
+    login_port: '{{ mysql_primary_port }}'
+    name: 'sql_bin_on_{{ db_name }}'
+    sql_log_bin: true
+    state: present
+
+- name: State Present Absent | Capture binlog position
+  command: "{{ mysql_command }} -e \"{{ show_master_status }}\\G\""
+  register: bin_log_position_2
+
+- name: State Present Absent | Assert binlog events were written
+  assert:
+    that:
+      - bin_log_position_1.stdout_lines[2] != bin_log_position_2.stdout_lines[2]
+
+- name: State Present Absent | Remove database with sql_log_bin enabled
+  mysql_db:
+    login_user: '{{ mysql_user }}'
+    login_password: '{{ mysql_password }}'
+    login_host: '{{ mysql_host }}'
+    login_port: '{{ mysql_primary_port }}'
+    name: 'sql_bin_on_{{ db_name }}'
+    sql_log_bin: true
+    state: absent
+
+- name: State Present Absent | Capture binlog position
+  command: "{{ mysql_command }} -e \"{{ show_master_status }}\\G\""
+  register: bin_log_position_3
+
+- name: State Present Absent | Assert Binlog events were written
+  assert:
+    that:
+      - bin_log_position_2.stdout_lines[2] != bin_log_position_3.stdout_lines[2]
+
+# ============================================================
+- name: State Present Absent | Capture binlog position
+  command: "{{ mysql_command }} -e \"{{ show_master_status }}\\G\""
+  register: bin_log_position_4
+
+- name: State Present Absent | Create database with sql_log_bin disabled
+  mysql_db:
+    login_user: '{{ mysql_user }}'
+    login_password: '{{ mysql_password }}'
+    login_host: '{{ mysql_host }}'
+    login_port: '{{ mysql_primary_port }}'
+    name: 'sql_bin_off_{{ db_name }}'
+    sql_log_bin: false
+    state: present
+
+- name: State Present Absent | Capture binlog position
+  command: "{{ mysql_command }} -e \"{{ show_master_status }}\\G\""
+  register: bin_log_position_5
+
+- name: State Present Absent | Assert binlog events were not written
+  assert:
+    that:
+      - bin_log_position_4.stdout_lines[2] == bin_log_position_5.stdout_lines[2]
+
+- name: State Present Absent | Remove database with sql_log_bin disabled
+  mysql_db:
+    login_user: '{{ mysql_user }}'
+    login_password: '{{ mysql_password }}'
+    login_host: '{{ mysql_host }}'
+    login_port: '{{ mysql_primary_port }}'
+    name: 'sql_bin_off_{{ db_name }}'
+    sql_log_bin: false
+    state: absent
+
+- name: State Present Absent | Capture binlog position
+  command: "{{ mysql_command }} -e \"{{ show_master_status }}\\G\""
+  register: bin_log_position_6
+
+- name: State Present Absent | Assert Binlog events were not written
+  assert:
+    that:
+      - bin_log_position_5.stdout_lines[2] == bin_log_position_6.stdout_lines[2]

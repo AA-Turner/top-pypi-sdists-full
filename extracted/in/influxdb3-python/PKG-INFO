@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: influxdb3-python
-Version: 0.14.0
+Version: 0.15.0
 Summary: Community Python client for InfluxDB 3.0
 Home-page: https://github.com/InfluxCommunity/influxdb3-python
 Author: InfluxData

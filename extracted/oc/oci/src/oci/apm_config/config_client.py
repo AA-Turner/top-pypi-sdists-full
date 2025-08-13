@@ -158,7 +158,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/copy_configuration.py.html>`__ to see an example of how to use copy_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/copy_configuration.py.html>`__ to see an example of how to use copy_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId', 'apmTargetDomainId']
@@ -272,7 +272,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/create_config.py.html>`__ to see an example of how to use create_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/create_config.py.html>`__ to see an example of how to use create_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -385,7 +385,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/delete_config.py.html>`__ to see an example of how to use delete_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/delete_config.py.html>`__ to see an example of how to use delete_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['configId', 'apmDomainId']
@@ -501,7 +501,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/export_configuration.py.html>`__ to see an example of how to use export_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/export_configuration.py.html>`__ to see an example of how to use export_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -605,7 +605,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/get_config.py.html>`__ to see an example of how to use get_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/get_config.py.html>`__ to see an example of how to use get_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['configId', 'apmDomainId']
@@ -711,7 +711,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/get_match_agents_with_attribute_key.py.html>`__ to see an example of how to use get_match_agents_with_attribute_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/get_match_agents_with_attribute_key.py.html>`__ to see an example of how to use get_match_agents_with_attribute_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -815,7 +815,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/import_configuration.py.html>`__ to see an example of how to use import_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/import_configuration.py.html>`__ to see an example of how to use import_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -971,7 +971,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/list_configs.py.html>`__ to see an example of how to use list_configs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/list_configs.py.html>`__ to see an example of how to use list_configs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -1104,7 +1104,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/retrieve_namespace_metrics.py.html>`__ to see an example of how to use retrieve_namespace_metrics API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/retrieve_namespace_metrics.py.html>`__ to see an example of how to use retrieve_namespace_metrics API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -1200,7 +1200,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/retrieve_namespaces.py.html>`__ to see an example of how to use retrieve_namespaces API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/retrieve_namespaces.py.html>`__ to see an example of how to use retrieve_namespaces API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -1298,7 +1298,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/test.py.html>`__ to see an example of how to use test API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/test.py.html>`__ to see an example of how to use test API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -1413,7 +1413,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/update_config.py.html>`__ to see an example of how to use update_config API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/update_config.py.html>`__ to see an example of how to use update_config API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['configId', 'apmDomainId']
@@ -1528,7 +1528,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/update_match_agents_with_attribute_key.py.html>`__ to see an example of how to use update_match_agents_with_attribute_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/update_match_agents_with_attribute_key.py.html>`__ to see an example of how to use update_match_agents_with_attribute_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']
@@ -1628,7 +1628,7 @@ class ConfigClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.157.1/apmconfig/validate_span_filter_pattern.py.html>`__ to see an example of how to use validate_span_filter_pattern API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.158.0/apmconfig/validate_span_filter_pattern.py.html>`__ to see an example of how to use validate_span_filter_pattern API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['apmDomainId']

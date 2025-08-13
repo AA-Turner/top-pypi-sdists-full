@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, Optional
 from playwright.async_api import Page
 
-from va.codegen import (
+from va.code import (
     inspect_with_block_from_frame,
     record_step_execution,
 )
@@ -116,23 +116,6 @@ __result = __execute_script()
         return {"success": False, "error": str(e)}
 
 
-async def verify_step_success(
-    command: str, screenshot_before: bytes, screenshot_after: bytes
-) -> Dict[str, Any]:
-    """Verify if the step was successful by comparing screenshots."""
-    # This is a placeholder for screenshot-based verification
-    # In a real implementation, you would:
-    # 1. Send both screenshots to an LLM
-    # 2. Ask it to verify if the command was executed successfully
-    # 3. Return the verification result
-
-    # For now, return a basic success response
-    return {
-        "success": True,
-        "message": "Verification completed (placeholder implementation)",
-    }
-
-
 async def execute_step(
     command: str,
     context: Optional[Dict[str, Any]],
@@ -198,7 +181,6 @@ class AsyncStepContextManager:
         is_empty_block = self._is_with_block_empty()
 
         if is_empty_block:
-            # Check if VA_DISABLE_FALLBACK is set
             if VA_DISABLE_FALLBACK:
                 log.info(
                     f"Empty with block detected but VA_DISABLE_FALLBACK is set, not generating code for: {self.command}"
@@ -239,7 +221,6 @@ class AsyncStepContextManager:
                 log.error(
                     f"Exception in predefined logic for step '{self.command}': {exc_val}"
                 )
-                # Check if VA_DISABLE_FALLBACK is set
                 if VA_DISABLE_FALLBACK:
                     log.info(
                         "VA_DISABLE_FALLBACK is set, not attempting to fix the exception"

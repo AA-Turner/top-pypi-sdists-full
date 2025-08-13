@@ -48,7 +48,8 @@ class TestPaginatedRepositoryVersionResponseList(unittest.TestCase):
                         number = 56, 
                         repository = '', 
                         base_version = '', 
-                        content_summary = null, )
+                        content_summary = null, 
+                        vuln_report = '', )
                     ]
             )
         else:
@@ -63,7 +64,8 @@ class TestPaginatedRepositoryVersionResponseList(unittest.TestCase):
                         number = 56, 
                         repository = '', 
                         base_version = '', 
-                        content_summary = null, )
+                        content_summary = null, 
+                        vuln_report = '', )
                     ],
         )
         """

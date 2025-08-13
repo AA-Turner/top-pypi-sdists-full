@@ -5624,6 +5624,14 @@ class AWSManagedPolicies(enum.Enum):
     '''
     :stability: experimental
     '''
+    ROSASHARED_VPC_ROUTE53_POLICY = "ROSASHARED_VPC_ROUTE53_POLICY"
+    '''
+    :stability: experimental
+    '''
+    ROSASHARED_VPC_ENDPOINT_POLICY = "ROSASHARED_VPC_ENDPOINT_POLICY"
+    '''
+    :stability: experimental
+    '''
 
 
 class LambdaArmFunction(

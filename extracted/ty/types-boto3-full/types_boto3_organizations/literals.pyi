@@ -36,10 +36,12 @@ __all__ = (
     "ListAWSServiceAccessForOrganizationPaginatorName",
     "ListAccountsForParentPaginatorName",
     "ListAccountsPaginatorName",
+    "ListAccountsWithInvalidEffectivePolicyPaginatorName",
     "ListChildrenPaginatorName",
     "ListCreateAccountStatusPaginatorName",
     "ListDelegatedAdministratorsPaginatorName",
     "ListDelegatedServicesForAccountPaginatorName",
+    "ListEffectivePolicyValidationErrorsPaginatorName",
     "ListHandshakesForAccountPaginatorName",
     "ListHandshakesForOrganizationPaginatorName",
     "ListOrganizationalUnitsForParentPaginatorName",
@@ -110,10 +112,16 @@ ListAWSServiceAccessForOrganizationPaginatorName = Literal[
 ]
 ListAccountsForParentPaginatorName = Literal["list_accounts_for_parent"]
 ListAccountsPaginatorName = Literal["list_accounts"]
+ListAccountsWithInvalidEffectivePolicyPaginatorName = Literal[
+    "list_accounts_with_invalid_effective_policy"
+]
 ListChildrenPaginatorName = Literal["list_children"]
 ListCreateAccountStatusPaginatorName = Literal["list_create_account_status"]
 ListDelegatedAdministratorsPaginatorName = Literal["list_delegated_administrators"]
 ListDelegatedServicesForAccountPaginatorName = Literal["list_delegated_services_for_account"]
+ListEffectivePolicyValidationErrorsPaginatorName = Literal[
+    "list_effective_policy_validation_errors"
+]
 ListHandshakesForAccountPaginatorName = Literal["list_handshakes_for_account"]
 ListHandshakesForOrganizationPaginatorName = Literal["list_handshakes_for_organization"]
 ListOrganizationalUnitsForParentPaginatorName = Literal["list_organizational_units_for_parent"]
@@ -568,11 +576,13 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_accounts",
     "list_accounts_for_parent",
+    "list_accounts_with_invalid_effective_policy",
     "list_aws_service_access_for_organization",
     "list_children",
     "list_create_account_status",
     "list_delegated_administrators",
     "list_delegated_services_for_account",
+    "list_effective_policy_validation_errors",
     "list_handshakes_for_account",
     "list_handshakes_for_organization",
     "list_organizational_units_for_parent",

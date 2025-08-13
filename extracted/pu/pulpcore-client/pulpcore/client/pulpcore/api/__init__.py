@@ -49,5 +49,6 @@ from pulpcore.client.pulpcore.api.uploads_api import UploadsApi
 from pulpcore.client.pulpcore.api.upstream_pulps_api import UpstreamPulpsApi
 from pulpcore.client.pulpcore.api.users_api import UsersApi
 from pulpcore.client.pulpcore.api.users_roles_api import UsersRolesApi
+from pulpcore.client.pulpcore.api.vuln_report_api import VulnReportApi
 from pulpcore.client.pulpcore.api.workers_api import WorkersApi
 

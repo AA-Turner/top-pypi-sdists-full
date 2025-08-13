@@ -3981,6 +3981,7 @@ class RouteTableAssociation(ServiceResource):
     route_table_id: str
     subnet_id: str
     gateway_id: str
+    public_ipv4_pool: str
     association_state: RouteTableAssociationStateTypeDef
     meta: EC2ResourceMeta  # type: ignore[override]
 

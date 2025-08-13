@@ -26973,17 +26973,19 @@ class scout_chartdefinition_api_CartesianChartDefinitionV1(ConjureBeanType):
             'events': ConjureFieldDefinition('events', OptionalTypeWrapper[List[scout_chartdefinition_api_Event]]),
             'comparison_run_groups': ConjureFieldDefinition('comparisonRunGroups', List[scout_comparisonrun_api_ComparisonRunGroup]),
             'title': ConjureFieldDefinition('title', OptionalTypeWrapper[str]),
-            'value_axes': ConjureFieldDefinition('valueAxes', List[scout_chartdefinition_api_ValueAxis])
+            'value_axes': ConjureFieldDefinition('valueAxes', List[scout_chartdefinition_api_ValueAxis]),
+            'connect_points': ConjureFieldDefinition('connectPoints', OptionalTypeWrapper[bool])
         }
 
-    __slots__: List[str] = ['_plots', '_events', '_comparison_run_groups', '_title', '_value_axes']
+    __slots__: List[str] = ['_plots', '_events', '_comparison_run_groups', '_title', '_value_axes', '_connect_points']
 
-    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], plots: List["scout_chartdefinition_api_CartesianPlot"], value_axes: List["scout_chartdefinition_api_ValueAxis"], events: Optional[List["scout_chartdefinition_api_Event"]] = None, title: Optional[str] = None) -> None:
+    def __init__(self, comparison_run_groups: List["scout_comparisonrun_api_ComparisonRunGroup"], plots: List["scout_chartdefinition_api_CartesianPlot"], value_axes: List["scout_chartdefinition_api_ValueAxis"], connect_points: Optional[bool] = None, events: Optional[List["scout_chartdefinition_api_Event"]] = None, title: Optional[str] = None) -> None:
         self._plots = plots
         self._events = events
         self._comparison_run_groups = comparison_run_groups
         self._title = title
         self._value_axes = value_axes
+        self._connect_points = connect_points
 
     @builtins.property
     def plots(self) -> List["scout_chartdefinition_api_CartesianPlot"]:
@@ -27004,6 +27006,12 @@ class scout_chartdefinition_api_CartesianChartDefinitionV1(ConjureBeanType):
     @builtins.property
     def value_axes(self) -> List["scout_chartdefinition_api_ValueAxis"]:
         return self._value_axes
+
+    @builtins.property
+    def connect_points(self) -> Optional[bool]:
+        """If toggled true, will visually connect the points of the series
+        """
+        return self._connect_points
 
 
 scout_chartdefinition_api_CartesianChartDefinitionV1.__name__ = "CartesianChartDefinitionV1"
@@ -71696,6 +71704,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
     _boolean_field: Optional["scout_internal_search_api_BooleanField"] = None
     _exact_match: Optional[str] = None
     _string_array_exact_match: Optional["scout_internal_search_api_StringArrayField"] = None
+    _string_array_length: Optional["scout_metadata_StringArrayLengthQuery"] = None
     _search_text: Optional[str] = None
     _label: Optional[str] = None
     _property: Optional["api_Property"] = None
@@ -71717,6 +71726,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             'boolean_field': ConjureFieldDefinition('booleanField', scout_internal_search_api_BooleanField),
             'exact_match': ConjureFieldDefinition('exactMatch', str),
             'string_array_exact_match': ConjureFieldDefinition('stringArrayExactMatch', scout_internal_search_api_StringArrayField),
+            'string_array_length': ConjureFieldDefinition('stringArrayLength', scout_metadata_StringArrayLengthQuery),
             'search_text': ConjureFieldDefinition('searchText', str),
             'label': ConjureFieldDefinition('label', api_Label),
             'property': ConjureFieldDefinition('property', api_Property),
@@ -71738,6 +71748,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             boolean_field: Optional["scout_internal_search_api_BooleanField"] = None,
             exact_match: Optional[str] = None,
             string_array_exact_match: Optional["scout_internal_search_api_StringArrayField"] = None,
+            string_array_length: Optional["scout_metadata_StringArrayLengthQuery"] = None,
             search_text: Optional[str] = None,
             label: Optional[str] = None,
             property: Optional["api_Property"] = None,
@@ -71751,7 +71762,7 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (date_time_field is not None) + (string_field is not None) + (timestamp_field is not None) + (long_field is not None) + (boolean_field is not None) + (exact_match is not None) + (string_array_exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (created_at is not None) + (archived_status is not None) + (is_published is not None) != 1:
+            if (date_time_field is not None) + (string_field is not None) + (timestamp_field is not None) + (long_field is not None) + (boolean_field is not None) + (exact_match is not None) + (string_array_exact_match is not None) + (string_array_length is not None) + (search_text is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (created_at is not None) + (archived_status is not None) + (is_published is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if date_time_field is not None:
@@ -71775,6 +71786,9 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             if string_array_exact_match is not None:
                 self._string_array_exact_match = string_array_exact_match
                 self._type = 'stringArrayExactMatch'
+            if string_array_length is not None:
+                self._string_array_length = string_array_length
+                self._type = 'stringArrayLength'
             if search_text is not None:
                 self._search_text = search_text
                 self._type = 'searchText'
@@ -71841,6 +71855,11 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._string_array_exact_match = string_array_exact_match
             self._type = 'stringArrayExactMatch'
+        elif type_of_union == 'stringArrayLength':
+            if string_array_length is None:
+                raise ValueError('a union value must not be None')
+            self._string_array_length = string_array_length
+            self._type = 'stringArrayLength'
         elif type_of_union == 'searchText':
             if search_text is None:
                 raise ValueError('a union value must not be None')
@@ -71926,6 +71945,10 @@ To do a partial match, use an "and" on StringField queries.
         return self._string_array_exact_match
 
     @builtins.property
+    def string_array_length(self) -> Optional["scout_metadata_StringArrayLengthQuery"]:
+        return self._string_array_length
+
+    @builtins.property
     def search_text(self) -> Optional[str]:
         return self._search_text
 
@@ -71984,6 +72007,8 @@ To do a partial match, use an "and" on StringField queries.
             return visitor._exact_match(self.exact_match)
         if self._type == 'stringArrayExactMatch' and self.string_array_exact_match is not None:
             return visitor._string_array_exact_match(self.string_array_exact_match)
+        if self._type == 'stringArrayLength' and self.string_array_length is not None:
+            return visitor._string_array_length(self.string_array_length)
         if self._type == 'searchText' and self.search_text is not None:
             return visitor._search_text(self.search_text)
         if self._type == 'label' and self.label is not None:
@@ -72039,6 +72064,10 @@ class scout_internal_search_api_SearchQueryVisitor:
 
     @abstractmethod
     def _string_array_exact_match(self, string_array_exact_match: "scout_internal_search_api_StringArrayField") -> Any:
+        pass
+
+    @abstractmethod
+    def _string_array_length(self, string_array_length: "scout_metadata_StringArrayLengthQuery") -> Any:
         pass
 
     @abstractmethod
@@ -73226,6 +73255,41 @@ class scout_metadata_ResourceType(ConjureEnumType):
 scout_metadata_ResourceType.__name__ = "ResourceType"
 scout_metadata_ResourceType.__qualname__ = "ResourceType"
 scout_metadata_ResourceType.__module__ = "nominal_api.scout_metadata"
+
+
+class scout_metadata_StringArrayLengthQuery(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'name': ConjureFieldDefinition('name', str),
+            'operator': ConjureFieldDefinition('operator', scout_internal_search_api_Operator),
+            'value': ConjureFieldDefinition('value', int)
+        }
+
+    __slots__: List[str] = ['_name', '_operator', '_value']
+
+    def __init__(self, name: str, operator: "scout_internal_search_api_Operator", value: int) -> None:
+        self._name = name
+        self._operator = operator
+        self._value = value
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
+
+    @builtins.property
+    def operator(self) -> "scout_internal_search_api_Operator":
+        return self._operator
+
+    @builtins.property
+    def value(self) -> int:
+        return self._value
+
+
+scout_metadata_StringArrayLengthQuery.__name__ = "StringArrayLengthQuery"
+scout_metadata_StringArrayLengthQuery.__qualname__ = "StringArrayLengthQuery"
+scout_metadata_StringArrayLengthQuery.__module__ = "nominal_api.scout_metadata"
 
 
 class scout_notebook_api_ChartWithOverlays(ConjureBeanType):
@@ -75782,6 +75846,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
     _exact_match: Optional[str] = None
     _search_text: Optional[str] = None
     _asset: Optional[str] = None
+    _is_single_asset: Optional[bool] = None
     _label: Optional[str] = None
     _property: Optional["api_Property"] = None
     _data_source_series_tag: Optional["scout_run_api_DataSourceSeriesTag"] = None
@@ -75804,6 +75869,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             'exact_match': ConjureFieldDefinition('exactMatch', str),
             'search_text': ConjureFieldDefinition('searchText', str),
             'asset': ConjureFieldDefinition('asset', scout_rids_api_AssetRid),
+            'is_single_asset': ConjureFieldDefinition('isSingleAsset', bool),
             'label': ConjureFieldDefinition('label', api_Label),
             'property': ConjureFieldDefinition('property', api_Property),
             'data_source_series_tag': ConjureFieldDefinition('dataSourceSeriesTag', scout_run_api_DataSourceSeriesTag),
@@ -75826,6 +75892,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             exact_match: Optional[str] = None,
             search_text: Optional[str] = None,
             asset: Optional[str] = None,
+            is_single_asset: Optional[bool] = None,
             label: Optional[str] = None,
             property: Optional["api_Property"] = None,
             data_source_series_tag: Optional["scout_run_api_DataSourceSeriesTag"] = None,
@@ -75841,7 +75908,7 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (start_time_inclusive is not None) + (end_time_inclusive is not None) + (time_range is not None) + (exact_match is not None) + (search_text is not None) + (asset is not None) + (label is not None) + (property is not None) + (data_source_series_tag is not None) + (data_source_ref_name is not None) + (data_source is not None) + (run_number is not None) + (run_prefix is not None) + (check_alert_states_filter is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
+            if (start_time_inclusive is not None) + (end_time_inclusive is not None) + (time_range is not None) + (exact_match is not None) + (search_text is not None) + (asset is not None) + (is_single_asset is not None) + (label is not None) + (property is not None) + (data_source_series_tag is not None) + (data_source_ref_name is not None) + (data_source is not None) + (run_number is not None) + (run_prefix is not None) + (check_alert_states_filter is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if start_time_inclusive is not None:
@@ -75862,6 +75929,9 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             if asset is not None:
                 self._asset = asset
                 self._type = 'asset'
+            if is_single_asset is not None:
+                self._is_single_asset = is_single_asset
+                self._type = 'isSingleAsset'
             if label is not None:
                 self._label = label
                 self._type = 'label'
@@ -75929,6 +75999,11 @@ class scout_run_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._asset = asset
             self._type = 'asset'
+        elif type_of_union == 'isSingleAsset':
+            if is_single_asset is None:
+                raise ValueError('a union value must not be None')
+            self._is_single_asset = is_single_asset
+            self._type = 'isSingleAsset'
         elif type_of_union == 'label':
             if label is None:
                 raise ValueError('a union value must not be None')
@@ -76017,6 +76092,12 @@ class scout_run_api_SearchQuery(ConjureUnionType):
         return self._asset
 
     @builtins.property
+    def is_single_asset(self) -> Optional[bool]:
+        """Search for either only single-asset runs (true), or only multi-asset runs (false).
+        """
+        return self._is_single_asset
+
+    @builtins.property
     def label(self) -> Optional[str]:
         return self._label
 
@@ -76081,6 +76162,8 @@ class scout_run_api_SearchQuery(ConjureUnionType):
             return visitor._search_text(self.search_text)
         if self._type == 'asset' and self.asset is not None:
             return visitor._asset(self.asset)
+        if self._type == 'isSingleAsset' and self.is_single_asset is not None:
+            return visitor._is_single_asset(self.is_single_asset)
         if self._type == 'label' and self.label is not None:
             return visitor._label(self.label)
         if self._type == 'property' and self.property is not None:
@@ -76136,6 +76219,10 @@ class scout_run_api_SearchQueryVisitor:
 
     @abstractmethod
     def _asset(self, asset: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _is_single_asset(self, is_single_asset: bool) -> Any:
         pass
 
     @abstractmethod
@@ -83303,6 +83390,193 @@ scout_workbookcommon_api_EventReference.__qualname__ = "EventReference"
 scout_workbookcommon_api_EventReference.__module__ = "nominal_api.scout_workbookcommon_api"
 
 
+class scout_workbookcommon_api_InputType(ConjureUnionType):
+    _tag: Optional["scout_workbookcommon_api_Tag"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'tag': ConjureFieldDefinition('tag', scout_workbookcommon_api_Tag)
+        }
+
+    def __init__(
+            self,
+            tag: Optional["scout_workbookcommon_api_Tag"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (tag is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if tag is not None:
+                self._tag = tag
+                self._type = 'tag'
+
+        elif type_of_union == 'tag':
+            if tag is None:
+                raise ValueError('a union value must not be None')
+            self._tag = tag
+            self._type = 'tag'
+
+    @builtins.property
+    def tag(self) -> Optional["scout_workbookcommon_api_Tag"]:
+        return self._tag
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_workbookcommon_api_InputTypeVisitor):
+            raise ValueError('{} is not an instance of scout_workbookcommon_api_InputTypeVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'tag' and self.tag is not None:
+            return visitor._tag(self.tag)
+
+
+scout_workbookcommon_api_InputType.__name__ = "InputType"
+scout_workbookcommon_api_InputType.__qualname__ = "InputType"
+scout_workbookcommon_api_InputType.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_InputTypeVisitor:
+
+    @abstractmethod
+    def _tag(self, tag: "scout_workbookcommon_api_Tag") -> Any:
+        pass
+
+
+scout_workbookcommon_api_InputTypeVisitor.__name__ = "InputTypeVisitor"
+scout_workbookcommon_api_InputTypeVisitor.__qualname__ = "InputTypeVisitor"
+scout_workbookcommon_api_InputTypeVisitor.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_Tag(ConjureBeanType):
+    """A tag input contains tag key and tag value information that can apply
+to a channel's compute tree. Applies the tag to both the tag filter
+and tag group by fields of the series node in the compute tree.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'key': ConjureFieldDefinition('key', scout_workbookcommon_api_TagString),
+            'values': ConjureFieldDefinition('values', List[scout_workbookcommon_api_TagString])
+        }
+
+    __slots__: List[str] = ['_key', '_values']
+
+    def __init__(self, key: "scout_workbookcommon_api_TagString", values: List["scout_workbookcommon_api_TagString"]) -> None:
+        self._key = key
+        self._values = values
+
+    @builtins.property
+    def key(self) -> "scout_workbookcommon_api_TagString":
+        """The key of the tag for the filter and group by compute arguments.
+        """
+        return self._key
+
+    @builtins.property
+    def values(self) -> List["scout_workbookcommon_api_TagString"]:
+        """The values of the tag to filter against. 
+An empty list will treat the tag as a wildcard, including all values in the compute
+        """
+        return self._values
+
+
+scout_workbookcommon_api_Tag.__name__ = "Tag"
+scout_workbookcommon_api_Tag.__qualname__ = "Tag"
+scout_workbookcommon_api_Tag.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_TagString(ConjureUnionType):
+    _literal: Optional["scout_workbookcommon_api_TagStringLiteral"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'literal': ConjureFieldDefinition('literal', scout_workbookcommon_api_TagStringLiteral)
+        }
+
+    def __init__(
+            self,
+            literal: Optional["scout_workbookcommon_api_TagStringLiteral"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (literal is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if literal is not None:
+                self._literal = literal
+                self._type = 'literal'
+
+        elif type_of_union == 'literal':
+            if literal is None:
+                raise ValueError('a union value must not be None')
+            self._literal = literal
+            self._type = 'literal'
+
+    @builtins.property
+    def literal(self) -> Optional["scout_workbookcommon_api_TagStringLiteral"]:
+        return self._literal
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_workbookcommon_api_TagStringVisitor):
+            raise ValueError('{} is not an instance of scout_workbookcommon_api_TagStringVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'literal' and self.literal is not None:
+            return visitor._literal(self.literal)
+
+
+scout_workbookcommon_api_TagString.__name__ = "TagString"
+scout_workbookcommon_api_TagString.__qualname__ = "TagString"
+scout_workbookcommon_api_TagString.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_TagStringVisitor:
+
+    @abstractmethod
+    def _literal(self, literal: "scout_workbookcommon_api_TagStringLiteral") -> Any:
+        pass
+
+
+scout_workbookcommon_api_TagStringVisitor.__name__ = "TagStringVisitor"
+scout_workbookcommon_api_TagStringVisitor.__qualname__ = "TagStringVisitor"
+scout_workbookcommon_api_TagStringVisitor.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_TagStringLiteral(ConjureBeanType):
+    """A literal string value
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'id': ConjureFieldDefinition('id', str),
+            'value': ConjureFieldDefinition('value', str)
+        }
+
+    __slots__: List[str] = ['_id', '_value']
+
+    def __init__(self, id: str, value: str) -> None:
+        self._id = id
+        self._value = value
+
+    @builtins.property
+    def id(self) -> str:
+        """A unique identifier for this string. Cannot be shared across different Tag inputs.
+Used as the variable id for the StringConstant applied to the tag fields 
+of the channel compute node.
+        """
+        return self._id
+
+    @builtins.property
+    def value(self) -> str:
+        """The string value.
+        """
+        return self._value
+
+
+scout_workbookcommon_api_TagStringLiteral.__name__ = "TagStringLiteral"
+scout_workbookcommon_api_TagStringLiteral.__qualname__ = "TagStringLiteral"
+scout_workbookcommon_api_TagStringLiteral.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
 class scout_workbookcommon_api_UnifiedWorkbookContent(ConjureUnionType):
     _workbook: Optional["scout_workbookcommon_api_WorkbookContent"] = None
     _comparison_workbook: Optional["scout_comparisonnotebook_api_ComparisonWorkbookContent"] = None
@@ -83386,20 +83660,26 @@ class scout_workbookcommon_api_WorkbookContent(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'channel_variables': ConjureFieldDefinition('channelVariables', scout_channelvariables_api_WorkbookChannelVariableMap),
+            'inputs': ConjureFieldDefinition('inputs', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookInputs]),
             'charts': ConjureFieldDefinition('charts', scout_chartdefinition_api_WorkbookVizDefinitionMap),
             'settings': ConjureFieldDefinition('settings', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookSettings])
         }
 
-    __slots__: List[str] = ['_channel_variables', '_charts', '_settings']
+    __slots__: List[str] = ['_channel_variables', '_inputs', '_charts', '_settings']
 
-    def __init__(self, channel_variables: Dict[str, "scout_channelvariables_api_ChannelVariable"], charts: Dict[str, "scout_chartdefinition_api_VizDefinition"], settings: Optional["scout_workbookcommon_api_WorkbookSettings"] = None) -> None:
+    def __init__(self, channel_variables: Dict[str, "scout_channelvariables_api_ChannelVariable"], charts: Dict[str, "scout_chartdefinition_api_VizDefinition"], inputs: Optional["scout_workbookcommon_api_WorkbookInputs"] = None, settings: Optional["scout_workbookcommon_api_WorkbookSettings"] = None) -> None:
         self._channel_variables = channel_variables
+        self._inputs = inputs
         self._charts = charts
         self._settings = settings
 
     @builtins.property
     def channel_variables(self) -> Dict[str, "scout_channelvariables_api_ChannelVariable"]:
         return self._channel_variables
+
+    @builtins.property
+    def inputs(self) -> Optional["scout_workbookcommon_api_WorkbookInputs"]:
+        return self._inputs
 
     @builtins.property
     def charts(self) -> Dict[str, "scout_chartdefinition_api_VizDefinition"]:
@@ -83415,6 +83695,129 @@ class scout_workbookcommon_api_WorkbookContent(ConjureBeanType):
 scout_workbookcommon_api_WorkbookContent.__name__ = "WorkbookContent"
 scout_workbookcommon_api_WorkbookContent.__qualname__ = "WorkbookContent"
 scout_workbookcommon_api_WorkbookContent.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookInput(ConjureBeanType):
+    """A workbook input is a value managed at the workbook level
+that can be applied to multiple elements.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'id': ConjureFieldDefinition('id', str),
+            'label': ConjureFieldDefinition('label', OptionalTypeWrapper[str]),
+            'value': ConjureFieldDefinition('value', scout_workbookcommon_api_InputType)
+        }
+
+    __slots__: List[str] = ['_id', '_label', '_value']
+
+    def __init__(self, id: str, value: "scout_workbookcommon_api_InputType", label: Optional[str] = None) -> None:
+        self._id = id
+        self._label = label
+        self._value = value
+
+    @builtins.property
+    def id(self) -> str:
+        """The unique identifier of the input.
+        """
+        return self._id
+
+    @builtins.property
+    def label(self) -> Optional[str]:
+        """The label of the input for display purposes.
+        """
+        return self._label
+
+    @builtins.property
+    def value(self) -> "scout_workbookcommon_api_InputType":
+        return self._value
+
+
+scout_workbookcommon_api_WorkbookInput.__name__ = "WorkbookInput"
+scout_workbookcommon_api_WorkbookInput.__qualname__ = "WorkbookInput"
+scout_workbookcommon_api_WorkbookInput.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookInputs(ConjureUnionType):
+    _v1: Optional["scout_workbookcommon_api_WorkbookInputsV1"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'v1': ConjureFieldDefinition('v1', scout_workbookcommon_api_WorkbookInputsV1)
+        }
+
+    def __init__(
+            self,
+            v1: Optional["scout_workbookcommon_api_WorkbookInputsV1"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if v1 is not None:
+                self._v1 = v1
+                self._type = 'v1'
+
+        elif type_of_union == 'v1':
+            if v1 is None:
+                raise ValueError('a union value must not be None')
+            self._v1 = v1
+            self._type = 'v1'
+
+    @builtins.property
+    def v1(self) -> Optional["scout_workbookcommon_api_WorkbookInputsV1"]:
+        return self._v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_workbookcommon_api_WorkbookInputsVisitor):
+            raise ValueError('{} is not an instance of scout_workbookcommon_api_WorkbookInputsVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'v1' and self.v1 is not None:
+            return visitor._v1(self.v1)
+
+
+scout_workbookcommon_api_WorkbookInputs.__name__ = "WorkbookInputs"
+scout_workbookcommon_api_WorkbookInputs.__qualname__ = "WorkbookInputs"
+scout_workbookcommon_api_WorkbookInputs.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookInputsVisitor:
+
+    @abstractmethod
+    def _v1(self, v1: "scout_workbookcommon_api_WorkbookInputsV1") -> Any:
+        pass
+
+
+scout_workbookcommon_api_WorkbookInputsVisitor.__name__ = "WorkbookInputsVisitor"
+scout_workbookcommon_api_WorkbookInputsVisitor.__qualname__ = "WorkbookInputsVisitor"
+scout_workbookcommon_api_WorkbookInputsVisitor.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookInputsV1(ConjureBeanType):
+    """A list of workbook inputs.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'inputs': ConjureFieldDefinition('inputs', List[scout_workbookcommon_api_WorkbookInput])
+        }
+
+    __slots__: List[str] = ['_inputs']
+
+    def __init__(self, inputs: List["scout_workbookcommon_api_WorkbookInput"]) -> None:
+        self._inputs = inputs
+
+    @builtins.property
+    def inputs(self) -> List["scout_workbookcommon_api_WorkbookInput"]:
+        return self._inputs
+
+
+scout_workbookcommon_api_WorkbookInputsV1.__name__ = "WorkbookInputsV1"
+scout_workbookcommon_api_WorkbookInputsV1.__qualname__ = "WorkbookInputsV1"
+scout_workbookcommon_api_WorkbookInputsV1.__module__ = "nominal_api.scout_workbookcommon_api"
 
 
 class scout_workbookcommon_api_WorkbookSettings(ConjureBeanType):

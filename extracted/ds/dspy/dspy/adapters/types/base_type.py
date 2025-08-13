@@ -1,7 +1,6 @@
 import json
 import re
-import inspect
-from typing import Any, Union, get_args, get_origin
+from typing import Any, get_args, get_origin
 
 import json_repair
 import pydantic
@@ -10,7 +9,7 @@ CUSTOM_TYPE_START_IDENTIFIER = "<<CUSTOM-TYPE-START-IDENTIFIER>>"
 CUSTOM_TYPE_END_IDENTIFIER = "<<CUSTOM-TYPE-END-IDENTIFIER>>"
 
 
-class BaseType(pydantic.BaseModel):
+class Type(pydantic.BaseModel):
     """Base class to support creating custom types for DSPy signatures.
 
     This is the parent class of DSPy custom types, e.g, dspy.Image. Subclasses must implement the `format` method to
@@ -19,7 +18,7 @@ class BaseType(pydantic.BaseModel):
     Example:
 
         ```python
-        class Image(BaseType):
+        class Image(Type):
             url: str
 
             def format(self) -> list[dict[str, Any]]:
@@ -27,7 +26,7 @@ class BaseType(pydantic.BaseModel):
         ```
     """
 
-    def format(self) -> Union[list[dict[str, Any]], str]:
+    def format(self) -> list[dict[str, Any]] | str:
         raise NotImplementedError
 
     @classmethod
@@ -42,18 +41,13 @@ class BaseType(pydantic.BaseModel):
         This is used to extract all custom types from the annotation of a field, while the annotation can
         have arbitrary level of nesting. For example, we detect `Tool` is in `list[dict[str, Tool]]`.
         """
-        # Direct match. Some typing constructs (like `typing.Any`, `TypeAlias`,
-        # or weird internals) may pass `isinstance(..., type)` but are not
-        # valid classes for `issubclass`. We defensively guard against this by
-        # using `inspect.isclass` and wrapping the call in a try/except block.
+        # Direct match. Nested type like `list[dict[str, Event]]` passes `isinstance(annotation, type)` in python 3.10
+        # while fails in python 3.11. To accommodate users using python 3.10, we need to capture the error and ignore it.
         try:
-            if inspect.isclass(annotation) and issubclass(annotation, cls):
+            if isinstance(annotation, type) and issubclass(annotation, cls):
                 return [annotation]
         except TypeError:
-            # `issubclass` can raise `TypeError` if the argument is not actually
-            # a class (even if `inspect.isclass` thought otherwise). In these
-            # cases we just ignore the annotation.
-            return []
+            pass
 
         origin = get_origin(annotation)
         if origin is None:
@@ -70,7 +64,7 @@ class BaseType(pydantic.BaseModel):
     def serialize_model(self):
         formatted = self.format()
         if isinstance(formatted, list):
-            return f"{CUSTOM_TYPE_START_IDENTIFIER}{self.format()}{CUSTOM_TYPE_END_IDENTIFIER}"
+            return f"{CUSTOM_TYPE_START_IDENTIFIER}{formatted}{CUSTOM_TYPE_END_IDENTIFIER}"
         return formatted
 
 
@@ -91,7 +85,7 @@ def split_message_content_for_custom_types(messages: list[dict[str, Any]]) -> li
 
     This is implemented by finding the `<<CUSTOM-TYPE-START-IDENTIFIER>>` and `<<CUSTOM-TYPE-END-IDENTIFIER>>`
     in the user message content and splitting the content around them. The `<<CUSTOM-TYPE-START-IDENTIFIER>>`
-    and `<<CUSTOM-TYPE-END-IDENTIFIER>>` are the reserved identifiers for the custom types as in `dspy.BaseType`.
+    and `<<CUSTOM-TYPE-END-IDENTIFIER>>` are the reserved identifiers for the custom types as in `dspy.Type`.
 
     Args:
         messages: a list of messages sent to the LM. The format is the same as [OpenAI API's messages
@@ -121,9 +115,14 @@ def split_message_content_for_custom_types(messages: list[dict[str, Any]]) -> li
             # Parse the JSON inside the block
             custom_type_content = match.group(1).strip()
             try:
-                parsed = json_repair.loads(custom_type_content)
+                try:
+                    # Replace single quotes with double quotes to make it valid JSON
+                    parsed = json.loads(custom_type_content.replace("'", '"'))
+                except json.JSONDecodeError:
+                    parsed = json_repair.loads(custom_type_content)
                 for custom_type_content in parsed:
                     result.append(custom_type_content)
+
             except json.JSONDecodeError:
                 # fallback to raw string if it's not valid JSON
                 parsed = {"type": "text", "text": custom_type_content}

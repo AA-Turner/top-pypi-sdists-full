@@ -40,7 +40,7 @@ class TestPaginatedRepositoryResponseList(unittest.TestCase):
                 next = 'http://api.example.org/accounts/?offset=400&limit=100',
                 previous = 'http://api.example.org/accounts/?offset=200&limit=100',
                 results = [
-                    pulpcore.client.pulpcore.models.repository_response.RepositoryResponse(
+                    pulpcore.client.pulpcore.models.open_pgp_keyring_response.OpenPGPKeyringResponse(
                         pulp_href = '', 
                         prn = '', 
                         pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -52,7 +52,7 @@ class TestPaginatedRepositoryResponseList(unittest.TestCase):
                         latest_version_href = '', 
                         name = '', 
                         description = '', 
-                        retain_repo_versions = 1, 
+                        retain_repo_versions = 56, 
                         remote = '', )
                     ]
             )
@@ -60,7 +60,7 @@ class TestPaginatedRepositoryResponseList(unittest.TestCase):
             return PaginatedRepositoryResponseList(
                 count = 123,
                 results = [
-                    pulpcore.client.pulpcore.models.repository_response.RepositoryResponse(
+                    pulpcore.client.pulpcore.models.open_pgp_keyring_response.OpenPGPKeyringResponse(
                         pulp_href = '', 
                         prn = '', 
                         pulp_created = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
@@ -72,7 +72,7 @@ class TestPaginatedRepositoryResponseList(unittest.TestCase):
                         latest_version_href = '', 
                         name = '', 
                         description = '', 
-                        retain_repo_versions = 1, 
+                        retain_repo_versions = 56, 
                         remote = '', )
                     ],
         )

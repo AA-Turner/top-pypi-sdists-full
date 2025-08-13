@@ -41,7 +41,7 @@ class TestFileFileRepository(unittest.TestCase):
                     },
                 name = '0',
                 description = '0',
-                retain_repo_versions = 1,
+                retain_repo_versions = 56,
                 remote = '',
                 autopublish = True,
                 manifest = 'PULP_MANIFEST'

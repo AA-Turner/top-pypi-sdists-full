@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "superlinked"
-version = "33.7.3"  # The version will be dynamically updated
+version = "33.7.4"  # The version will be dynamically updated
 description = "The Superlinked vector computing library"
 authors = ["Superlinked Release <release@superlinked.com>"]
 readme = "PYPI_README.md"
@@ -62,6 +62,7 @@ certifi = ">=2024.7.4,<2026.0.0" # Requests' transitive dep due to: CVE-2024-396
 asgi-correlation-id = "^4.3.4"
 modal = "==1.1.0"
 nest-asyncio = "^1.6.0"
+torch = "^2.8.0" # Adding torch as direct dependency for fixing CVE-2025-3730
 
 [tool.poetry.extras]
 interactive = ["jupyter", "altair", "umap-learn", "transformers", "accelerate", "ipywidgets"]
@@ -196,7 +197,7 @@ module = [
     "callee.*",
     "joblib.*",
     "graphviz.*",
-    "scipy.*", 
+    "scipy.*",
     "redisvl.*",
     "transformers.*",
     "open_clip.*",

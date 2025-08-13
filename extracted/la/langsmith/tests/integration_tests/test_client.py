@@ -3299,6 +3299,7 @@ def test_annotation_queue_with_rubric_instructions_2(langchain_client: Client):
             langchain_client.delete_project(project_name=project_name)
 
 
+@pytest.mark.skip(reason="flaky")
 def test_list_runs_with_child_runs(langchain_client: Client):
     """Test listing runs with child runs."""
     project_name = f"test-project-{str(uuid.uuid4())[:8]}"

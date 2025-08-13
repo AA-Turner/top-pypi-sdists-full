@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: turbopuffer
-Version: 0.6.2
+Version: 0.6.4
 Summary: The official Python library for the turbopuffer API
 Project-URL: Homepage, https://github.com/turbopuffer/turbopuffer-python
 Project-URL: Repository, https://github.com/turbopuffer/turbopuffer-python
@@ -539,6 +539,18 @@ with Turbopuffer() as client:
   ...
 
 # HTTP client is now closed
+```
+
+### Compression
+
+By default the library will compress all requests and responses with gzip. When the client is CPU constrained or when not limited by bandwidth you may want to disable compression. You can disable compression by setting `compression=False`. 
+
+```py
+from turbopuffer import Turbopuffer
+
+client = Turbopuffer(
+    compression=False,
+)
 ```
 
 ## Versioning

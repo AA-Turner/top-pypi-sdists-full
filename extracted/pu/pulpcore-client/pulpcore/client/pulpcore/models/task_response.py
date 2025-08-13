@@ -93,10 +93,6 @@ class TaskResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
         * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
-        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
             "pulp_href",
@@ -111,11 +107,7 @@ class TaskResponse(BaseModel):
             "error",
             "worker",
             "parent_task",
-            "child_tasks",
             "task_group",
-            "progress_reports",
-            "created_resources",
-            "reserved_resources_record",
         ])
 
         _dict = self.model_dump(

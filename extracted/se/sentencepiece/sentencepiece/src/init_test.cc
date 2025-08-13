@@ -17,10 +17,10 @@
 #include "common.h"
 #include "testharness.h"
 
-ABSL_FLAG(int32, int32_f, 10, "int32_flags");
+ABSL_FLAG(int32_t, int32_f, 10, "int32_flags");
 ABSL_FLAG(bool, bool_f, false, "bool_flags");
-ABSL_FLAG(int64, int64_f, 9223372036854775807LL, "int64_flags");
-ABSL_FLAG(uint64, uint64_f, 18446744073709551615ULL, "uint64_flags");
+ABSL_FLAG(int64_t, int64_f, 9223372036854775807LL, "int64_flags");
+ABSL_FLAG(uint64_t, uint64_f, 18446744073709551615ULL, "uint64_flags");
 ABSL_FLAG(double, double_f, 40.0, "double_flags");
 ABSL_FLAG(std::string, string_f, "str", "string_flags");
 

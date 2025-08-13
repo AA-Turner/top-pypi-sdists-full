@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ax-platform
-Version: 1.0.0
+Version: 1.1.0
 Summary: Adaptive Experimentation
 Home-page: https://github.com/facebook/Ax
 Author: Facebook, Inc.
@@ -13,7 +13,7 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: botorch==0.14.0
+Requires-Dist: botorch==0.15.1
 Requires-Dist: jinja2
 Requires-Dist: pandas
 Requires-Dist: scipy
@@ -71,11 +71,13 @@ Requires-Dist: tensorboard>=2.18.0; extra == "unittest"
 Requires-Dist: torchvision; extra == "unittest"
 Requires-Dist: torchx; extra == "unittest"
 Requires-Dist: pyarrow; extra == "unittest"
+Requires-Dist: xgboost>=3.0.2; extra == "unittest"
 Provides-Extra: unittest-minimal
 Requires-Dist: tensorboard>=2.18.0; extra == "unittest-minimal"
 Requires-Dist: torchvision; extra == "unittest-minimal"
 Requires-Dist: torchx; extra == "unittest-minimal"
 Requires-Dist: pyarrow; extra == "unittest-minimal"
+Requires-Dist: xgboost>=3.0.2; extra == "unittest-minimal"
 Provides-Extra: tutorial
 Requires-Dist: beautifulsoup4; extra == "tutorial"
 Requires-Dist: Jinja2; extra == "tutorial"
@@ -101,6 +103,7 @@ Requires-Dist: tensorboard>=2.18.0; extra == "tutorial"
 Requires-Dist: torchvision; extra == "tutorial"
 Requires-Dist: torchx; extra == "tutorial"
 Requires-Dist: pyarrow; extra == "tutorial"
+Requires-Dist: xgboost>=3.0.2; extra == "tutorial"
 Requires-Dist: ray; extra == "tutorial"
 Requires-Dist: tabulate; extra == "tutorial"
 Requires-Dist: tensorboardX; extra == "tutorial"

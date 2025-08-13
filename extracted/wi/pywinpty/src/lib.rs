@@ -1,10 +1,14 @@
 
+use std::ops::DerefMut;
 // use cxx::Exception;
-use std::ffi::OsString;
+use std::{ffi::OsString, sync::Arc};
+use std::sync::RwLock;
 
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
+use pyo3::sync::MutexExt;
+
 // use pyo3::types::PyBytes;
 use winptyrs::{PTY, PTYArgs, PTYBackend, MouseMode, AgentConfig};
 // use winptyrs::pty::PTYImpl;
@@ -104,7 +108,7 @@ impl PyPTY {
         }
 
         match pty {
-            Ok(pty) => Ok(PyPTY { pty }),
+            Ok(pty) => Ok(PyPTY { pty: pty }),
             Err(error) => {
                 let error_str: String = error.to_str().unwrap().to_owned();
                 Err(WinptyError::new_err(string_to_static_str(error_str)))
@@ -116,21 +120,21 @@ impl PyPTY {
     ///
     /// Arguments
     /// ---------
-    /// appname: bytes
-    ///     Byte string that contains the path to the application that will
+    /// appname: str
+    ///     String that contains the path to the application that will
     ///     be started.
-    /// cmdline: Optional[bytes]
-    ///     Byte string that contains the parameters to start the application,
+    /// cmdline: Optional[str]
+    ///     String that contains the parameters to start the application,
     ///     separated by whitespace.
-    /// cwd: Optional[bytes]
-    ///     Byte string that contains the working directory that the application
+    /// cwd: Optional[str]
+    ///     String that contains the working directory that the application
     ///     should have. If None, the application will inherit the current working
     ///     directory of the Python interpreter.
-    /// env: Optional[bytes]
-    ///     Byte string that contains the name and values of the environment
+    /// env: Optional[str]
+    ///     String that contains the name and values of the environment
     ///     variables that the application should have. Each (name, value) pair
     ///     should be declared as `name=value` and each pair must be separated
-    ///     by an empty byte `\0`. If None, then the application will inherit
+    ///     by an empty character `\0`. If None, then the application will inherit
     ///     the environment variables of the Python interpreter.
     ///
     /// Returns
@@ -200,26 +204,24 @@ impl PyPTY {
         }
     }
 
-    /// Read a number of bytes from the pseudoterminal output stream.
+    /// Read a length of text from the pseudoterminal output stream.
     ///
     /// Arguments
     /// ---------
-    /// length: int
-    ///     Maximum number of bytes to read from the pseudoterminal.
     /// blocking: bool
-    ///     If True, the call will be blocked until the requested number of bytes
+    ///     If True, the call will be blocked until the requested length of string
     ///     are available to read. Otherwise, it will return an empty byte string
-    ///     if there are no available bytes to read.
+    ///     if there are no available string to read.
     ///
     /// Returns
     /// -------
-    /// output: bytes
-    ///     A byte string that contains the output of the pseudoterminal.
+    /// output: str
+    ///     A String that contains the output of the pseudoterminal.
     ///
     /// Raises
     /// ------
     /// WinptyError
-    ///     If there was an error whilst trying to read the requested number of bytes
+    ///     If there was an error whilst trying to read the requested length of string
     ///     from the pseudoterminal.
     ///
     /// Notes
@@ -228,11 +230,11 @@ impl PyPTY {
     /// this call may block your application, which only can be interrupted by killing the
     /// process.
     ///
-    #[pyo3(signature = (length = 1000, blocking = false))]
-    fn read<'p>(&self, length: u32, blocking: bool, py: Python<'p>) -> PyResult<OsString> {
+    #[pyo3(signature = (blocking = false))]
+    fn read<'p>(&self, blocking: bool, py: Python<'p>) -> PyResult<OsString> {
         // let result = self.pty.read(length, blocking);
         let result: Result<OsString, OsString> =
-            py.allow_threads(move || self.pty.read(length, blocking));
+            py.allow_threads(move || self.pty.read(blocking));
 
         match result {
             Ok(bytes) => Ok(bytes),
@@ -243,12 +245,12 @@ impl PyPTY {
         }
     }
 
-    /// Write a byte string into the pseudoterminal input stream.
+    /// Write a string into the pseudoterminal input stream.
     ///
     /// Arguments
     /// ---------
-    /// to_write: bytes
-    ///     The byte sequence that is going to be sent to the pseudoterminal.
+    /// to_write: str
+    ///     The character sequence that is going to be sent to the pseudoterminal.
     ///
     /// Returns
     /// -------
@@ -258,13 +260,17 @@ impl PyPTY {
     /// Raises
     /// ------
     /// WinptyError
-    ///     If there was an error whilst trying to write the requested number of bytes
+    ///     If there was an error whilst trying to write the character sequence
     ///     into the pseudoterminal.
     ///
     fn write(&self, to_write: OsString, py: Python) -> PyResult<u32> {
+        // let borrow_lock = Arc::clone(&self.write_lock);
+        // let _guard = borrow_lock.lock_py_attached(py).unwrap();
         //let utf16_str: Vec<u16> = to_write.encode_utf16().collect();
         let result: Result<u32, OsString> =
-            py.allow_threads(move || self.pty.write(to_write));
+            py.allow_threads(move || {
+                self.pty.write(to_write)
+            });
         match result {
             Ok(bytes) => Ok(bytes),
             Err(error) => {
@@ -363,7 +369,23 @@ impl PyPTY {
             result => Ok(Some(result))
         }
     }
+
+    /// Cancel all pending I/O.
+    fn cancel_io(&self, py: Python) -> PyResult<bool> {
+        let result: Result<bool, OsString> = py.allow_threads(|| self.pty.cancel_io());
+        match result {
+            Ok(cancel) => Ok(cancel),
+            Err(error) => {
+                let error_str: String = error.to_str().unwrap().to_owned();
+                Err(WinptyError::new_err(string_to_static_str(error_str)))
+            }
+        }
+    }
 }
+
+unsafe impl Send for PyPTY {}
+unsafe impl Sync for PyPTY {}
+
 
 #[pymodule(gil_used = false)]
 fn winpty(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {

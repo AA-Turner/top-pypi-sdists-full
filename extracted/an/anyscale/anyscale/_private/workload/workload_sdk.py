@@ -143,8 +143,8 @@ class WorkloadSDK(BaseSDK):
                 return local_path_to_uri[target]
 
             if has_multiple_cloud_deployments:
-                raise ValueError(
-                    "Local directory uploads are not supported for compute configurations with multiple cloud deployments."
+                self.logger.warning(
+                    "For compute configurations with multiple cloud deployments, local directories will only be uploaded to the object storage of the primary cloud deployment."
                 )
 
             self.logger.info(f"Uploading local dir '{target}' to cloud storage.")

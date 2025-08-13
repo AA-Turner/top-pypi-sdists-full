@@ -1,7 +1,6 @@
 #!/usr/bin/python
-# Copyright: (c) 2020, Dell Technologies
-
-# Apache License version 2.0 (see MODULE-LICENSE or http://www.apache.org/licenses/LICENSE-2.0.txt)
+# Copyright: (c) 2020-2025, Dell Technologies
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import (absolute_import, division, print_function)
 
@@ -209,7 +208,7 @@ notes:
 EXAMPLES = r'''
 
 - name: Get Details of NAS Server
-  dellemc.unity.nasserver:
+  nasserver:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -218,7 +217,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Modify Details of NAS Server
-  dellemc.unity.nasserver:
+  nasserver:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -237,7 +236,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Enable replication for NAS Server on Local System
-  dellemc.unity.nasserver:
+  nasserver:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -257,7 +256,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Enable replication for NAS Server on Remote System
-  dellemc.unity.nasserver:
+  nasserver:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -282,7 +281,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Enable replication for NAS Server on Remote System in existing NAS Server
-  dellemc.unity.nasserver:
+  nasserver:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -305,7 +304,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Modify replication on the nasserver
-  dellemc.unity.nasserver:
+  nasserver:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -320,7 +319,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Disable replication on the nasserver
-  dellemc.unity.nasserver:
+  nasserver:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"
@@ -330,7 +329,7 @@ EXAMPLES = r'''
     state: "present"
 
 - name: Disable replication by specifying replication_name on the nasserver
-  dellemc.unity.nasserver:
+  nasserver:
     unispherehost: "{{unispherehost}}"
     username: "{{username}}"
     password: "{{password}}"

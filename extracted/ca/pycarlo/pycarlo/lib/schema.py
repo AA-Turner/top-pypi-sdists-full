@@ -735,6 +735,17 @@ class AutoOperator(sgqlc.types.Enum):
     __choices__ = ("AUTO", "AUTO_HIGH", "AUTO_LOW")
 
 
+class AwsEnvConfiguration(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `primary`None
+    * `secondary`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("primary", "secondary")
+
+
 class BiContainerModelType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -11800,6 +11811,47 @@ class AccountUsageObject(sgqlc.types.Type):
     """Timestamp of the usage record."""
 
 
+class ActiveNodeDetails(sgqlc.types.Type):
+    """Active node information"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "name",
+        "stack_arn",
+        "uuid",
+        "code_version",
+        "template_version",
+        "private_cidr",
+        "private_ip_addresses",
+    )
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Node Name"""
+
+    stack_arn = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="stackArn")
+    """Stack ARN"""
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Node UUID"""
+
+    code_version = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="codeVersion")
+    """Code Version"""
+
+    template_version = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="templateVersion"
+    )
+    """Template Version"""
+
+    private_cidr = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="privateCidr"
+    )
+    """Private CIDR"""
+
+    private_ip_addresses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="privateIpAddresses"
+    )
+    """List of Private IP addresses"""
+
+
 class AddAllowListEntry(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success", "project_name", "dataset")
@@ -13298,6 +13350,82 @@ class AwsAgentUpgradeLogEntry(sgqlc.types.Type):
     """Resource type, for example: 'AWS::Lambda::Function'."""
 
 
+class AwsInformation(sgqlc.types.Type):
+    """AWS information"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "account_id",
+        "region",
+        "secondary_region",
+        "is_secondary",
+        "env_configuration",
+    )
+    account_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="accountId")
+    """AWS Account ID"""
+
+    region = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="region")
+    """AWS Region"""
+
+    secondary_region = sgqlc.types.Field(String, graphql_name="secondaryRegion")
+    """AWS Secondary Region"""
+
+    is_secondary = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isSecondary")
+    """Is this the Secondary Region?"""
+
+    env_configuration = sgqlc.types.Field(
+        sgqlc.types.non_null(AwsEnvConfiguration), graphql_name="envConfiguration"
+    )
+    """Active AWS Environment Configuration"""
+
+
+class AwsPrivateLinkDetails(sgqlc.types.Type):
+    """AWS Private Link information"""
+
+    __schema__ = schema
+    __field_names__ = ("account_id", "mcd_principal", "regions")
+    account_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="accountId")
+    """AWS Account ID"""
+
+    mcd_principal = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcdPrincipal")
+    """MCD Principal"""
+
+    regions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("AwsPrivateLinkRegionDetails")),
+        graphql_name="regions",
+    )
+    """List of AWS Private Link regions"""
+
+
+class AwsPrivateLinkRegionDetails(sgqlc.types.Type):
+    """AWS Private Link region information"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "region",
+        "connection_vpc_id",
+        "data_store_vpc_endpoint_id",
+        "agent_vpc_endpoint_id",
+    )
+    region = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="region")
+    """AWS Region"""
+
+    connection_vpc_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="connectionVpcId"
+    )
+    """Connection VPC ID"""
+
+    data_store_vpc_endpoint_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="dataStoreVpcEndpointId"
+    )
+    """Data Store VPC Endpoint ID"""
+
+    agent_vpc_endpoint_id = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="agentVpcEndpointId"
+    )
+    """Agent VPC Endpoint ID"""
+
+
 class AzureAgentCleanupTasks(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("deleted_instances",)
@@ -13437,6 +13565,21 @@ class AzureDevopsSourceSelection(sgqlc.types.Type):
     project_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="projectId")
 
     repository_id = sgqlc.types.Field(String, graphql_name="repositoryId")
+
+
+class AzureInformation(sgqlc.types.Type):
+    """Azure information"""
+
+    __schema__ = schema
+    __field_names__ = ("subscription_id", "primary_region", "secondary_region")
+    subscription_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="subscriptionId")
+    """Azure Subscription ID"""
+
+    primary_region = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="primaryRegion")
+    """Azure Region"""
+
+    secondary_region = sgqlc.types.Field(String, graphql_name="secondaryRegion")
+    """Azure Secondary Region"""
 
 
 class BiContainer(sgqlc.types.Type):
@@ -14492,6 +14635,22 @@ class CollectionDataSetEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class CollectionDetails(sgqlc.types.Type):
+    """Collection platform information"""
+
+    __schema__ = schema
+    __field_names__ = ("private_link_details", "active_node_details")
+    private_link_details = sgqlc.types.Field(
+        "PrivateLinkDetails", graphql_name="privateLinkDetails"
+    )
+    """Private Link information"""
+
+    active_node_details = sgqlc.types.Field(
+        sgqlc.types.list_of(ActiveNodeDetails), graphql_name="activeNodeDetails"
+    )
+    """List of active nodes"""
+
+
 class CollectionNode(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("id", "status", "stack_arn", "assigned_on", "resources")
@@ -15267,6 +15426,15 @@ class CreateDatabricksSecret(sgqlc.types.Type):
 
     secret_name = sgqlc.types.Field(String, graphql_name="secretName")
     """Name of the secret that was created"""
+
+
+class CreateDatadogIntegration(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("datadog_integration",)
+    datadog_integration = sgqlc.types.Field(
+        "DatadogIntegrationOutput", graphql_name="datadogIntegration"
+    )
+    """The integration"""
 
 
 class CreateIntegrationKey(sgqlc.types.Type):
@@ -17382,6 +17550,23 @@ class DatabricksWarehouseResponse(sgqlc.types.Type):
     """State of the warehouse."""
 
 
+class DatadogIntegrationOutput(sgqlc.types.Type):
+    """A Datadog integration"""
+
+    __schema__ = schema
+    __field_names__ = ("integration_id", "integration_name", "site")
+    integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
+    """The integration ID"""
+
+    integration_name = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="integrationName"
+    )
+    """A short name to identify the integration"""
+
+    site = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="site")
+    """Datadog site (e.g. datadoghq.com)"""
+
+
 class DatasetConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -18089,6 +18274,13 @@ class DeleteDataProductV2(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Status of the deletion operation."""
+
+
+class DeleteDatadogIntegration(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
+    """If the integration was deleted"""
 
 
 class DeleteDomain(sgqlc.types.Type):
@@ -19316,7 +19508,15 @@ class EventGroup(sgqlc.types.Type):
 
 class EventGroupKey(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("monitor_uuid", "event_type", "table_mcon", "metric")
+    __field_names__ = (
+        "monitor_uuid",
+        "event_type",
+        "table_mcon",
+        "metric",
+        "query_group_hash",
+        "job_mcon",
+        "job_run_id",
+    )
     monitor_uuid = sgqlc.types.Field(UUID, graphql_name="monitorUuid")
     """The UUID of the monitor of the grouped events"""
 
@@ -19328,6 +19528,15 @@ class EventGroupKey(sgqlc.types.Type):
 
     metric = sgqlc.types.Field(String, graphql_name="metric")
     """The metric type of the grouped events"""
+
+    query_group_hash = sgqlc.types.Field(String, graphql_name="queryGroupHash")
+    """The hash keys of query groups in query performance events"""
+
+    job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
+    """MCON of the job of the grouped events"""
+
+    job_run_id = sgqlc.types.Field(String, graphql_name="jobRunId")
+    """Run ID of the job/DAG of the grouped events"""
 
 
 class EventGroupMetadata(sgqlc.types.Type):
@@ -20932,6 +21141,56 @@ class HolidayName(sgqlc.types.Type):
     """Textual description of when the holiday occurs"""
 
 
+class HostingDomainDetails(sgqlc.types.Type):
+    """Hosting domain information"""
+
+    __schema__ = schema
+    __field_names__ = ("ui", "api", "integrations")
+    ui = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ui")
+    """Frontend URL"""
+
+    api = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="api")
+    """GraphQL API URL"""
+
+    integrations = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="integrations")
+    """Integrations Gateway URL"""
+
+
+class HostingInformation(sgqlc.types.Type):
+    """Hosting information"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "domain_details",
+        "login_details",
+        "infrastructure_details",
+        "network_details",
+        "collection_details",
+    )
+    domain_details = sgqlc.types.Field(
+        sgqlc.types.non_null(HostingDomainDetails), graphql_name="domainDetails"
+    )
+    """Hosting domain information"""
+
+    login_details = sgqlc.types.Field(
+        sgqlc.types.non_null("LoginDetails"), graphql_name="loginDetails"
+    )
+    """Login information"""
+
+    infrastructure_details = sgqlc.types.Field(
+        sgqlc.types.non_null("InfrastructureDetails"), graphql_name="infrastructureDetails"
+    )
+    """Infrastructure information"""
+
+    network_details = sgqlc.types.Field(
+        sgqlc.types.non_null("NetworkDetails"), graphql_name="networkDetails"
+    )
+    """Network information"""
+
+    collection_details = sgqlc.types.Field(CollectionDetails, graphql_name="collectionDetails")
+    """Collection platform information"""
+
+
 class IncidentCategoryCount(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("incident_category", "category_count")
@@ -21267,6 +21526,29 @@ class IndexedFieldSpecType(sgqlc.types.Type):
     dashboard_types = sgqlc.types.Field(
         sgqlc.types.list_of(DashboardType), graphql_name="dashboardTypes"
     )
+
+
+class InfrastructureDetails(sgqlc.types.Type):
+    """Infrastructure information"""
+
+    __schema__ = schema
+    __field_names__ = ("cloud_designation", "tenant_id", "hosting_type", "aws", "azure")
+    cloud_designation = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="cloudDesignation"
+    )
+    """Cloud Designation"""
+
+    tenant_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tenantId")
+    """Tenant ID"""
+
+    hosting_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="hostingType")
+    """Environment Hosting Type"""
+
+    aws = sgqlc.types.Field(sgqlc.types.non_null(AwsInformation), graphql_name="aws")
+    """AWS information"""
+
+    azure = sgqlc.types.Field(AzureInformation, graphql_name="azure")
+    """Azure information"""
 
 
 class Insight(sgqlc.types.Type):
@@ -22804,6 +23086,15 @@ class ListTagsOutput(sgqlc.types.Type):
     """Tags list."""
 
 
+class LoginDetails(sgqlc.types.Type):
+    """Login information"""
+
+    __schema__ = schema
+    __field_names__ = ("sso",)
+    sso = sgqlc.types.Field(sgqlc.types.non_null("SsoDetails"), graphql_name="sso")
+    """SSO information"""
+
+
 class LogsIntegrationOutput(sgqlc.types.Type):
     """A Logs integration (for monitor execution logging)"""
 
@@ -23560,7 +23851,8 @@ class MonitorLabelObject(sgqlc.types.Type):
     * `include_ootb_replacement` (`Boolean`): If set to true and
       is_ootb_replacement is not specified or false, ootb_replacement
       monitors will be included in result (default: `false`)
-    * `mcons` (`[String]`): Filter by associated entities (MCON)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -24020,6 +24312,9 @@ class Mutation(sgqlc.types.Type):
         "update_logs_integration",
         "delete_logs_integration",
         "generate_report",
+        "create_datadog_integration",
+        "update_datadog_integration",
+        "delete_datadog_integration",
         "create_or_update_table_monitor",
         "pause_table_monitor",
         "delete_table_monitor",
@@ -24610,6 +24905,111 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `report_parameters` (`ReportArgumentsUnionInput!`)None
+    """
+
+    create_datadog_integration = sgqlc.types.Field(
+        CreateDatadogIntegration,
+        graphql_name="createDatadogIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "api_key",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="apiKey", default=None
+                    ),
+                ),
+                (
+                    "application_key",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="applicationKey", default=None
+                    ),
+                ),
+                (
+                    "integration_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="integrationName", default=None
+                    ),
+                ),
+                (
+                    "site",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="site", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Create a Datadog integration
+
+    Arguments:
+
+    * `api_key` (`String!`): Datadog API key
+    * `application_key` (`String!`): Datadog Application key
+    * `integration_name` (`String!`): Identifying name
+    * `site` (`String!`): Datadog site (e.g. datadoghq.com)
+    """
+
+    update_datadog_integration = sgqlc.types.Field(
+        "UpdateDatadogIntegration",
+        graphql_name="updateDatadogIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                ("api_key", sgqlc.types.Arg(String, graphql_name="apiKey", default=None)),
+                (
+                    "application_key",
+                    sgqlc.types.Arg(String, graphql_name="applicationKey", default=None),
+                ),
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+                (
+                    "integration_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="integrationName", default=None
+                    ),
+                ),
+                (
+                    "site",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="site", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update a Datadog integration
+
+    Arguments:
+
+    * `api_key` (`String`): Datadog API key
+    * `application_key` (`String`): Datadog Application key
+    * `integration_id` (`UUID!`): The integration ID
+    * `integration_name` (`String!`): Identifying name
+    * `site` (`String!`): Datadog site (e.g. datadoghq.com)
+    """
+
+    delete_datadog_integration = sgqlc.types.Field(
+        DeleteDatadogIntegration,
+        graphql_name="deleteDatadogIntegration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "integration_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="integrationId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete a Datadog integration
+
+    Arguments:
+
+    * `integration_id` (`UUID!`): The integration ID
     """
 
     create_or_update_table_monitor = sgqlc.types.Field(
@@ -40483,6 +40883,40 @@ class NestedHighlightSnippets(sgqlc.types.Type):
     """Highlighted snippet of inner hit"""
 
 
+class NetworkDetails(sgqlc.types.Type):
+    """Network information"""
+
+    __schema__ = schema
+    __field_names__ = (
+        "collection_public_ip_addresses",
+        "saas_public_ip_addresses",
+        "external_webhook_public_ip_addresses",
+        "data_platform_public_ip_addresses",
+    )
+    collection_public_ip_addresses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)),
+        graphql_name="collectionPublicIpAddresses",
+    )
+    """List of public IP addresses used by the collection platform"""
+
+    saas_public_ip_addresses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="saasPublicIpAddresses"
+    )
+    """List of public IP addresses used by the SaaS platform"""
+
+    external_webhook_public_ip_addresses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)),
+        graphql_name="externalWebhookPublicIpAddresses",
+    )
+    """List of public IP addresses used by the webhooks"""
+
+    data_platform_public_ip_addresses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)),
+        graphql_name="dataPlatformPublicIpAddresses",
+    )
+    """List of public IP addresses used by the data platform"""
+
+
 class NextPageInfo(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("has_next_page", "end_cursor")
@@ -41820,6 +42254,15 @@ class PrimaryRcaData(sgqlc.types.Type):
     rca_uuid = sgqlc.types.Field(UUID, graphql_name="rcaUuid")
 
 
+class PrivateLinkDetails(sgqlc.types.Type):
+    """Private Link information"""
+
+    __schema__ = schema
+    __field_names__ = ("aws",)
+    aws = sgqlc.types.Field(sgqlc.types.non_null(AwsPrivateLinkDetails), graphql_name="aws")
+    """AWS Private Link information"""
+
+
 class ProjectAllowType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("project_name", "datasets")
@@ -41971,6 +42414,7 @@ class Query(sgqlc.types.Type):
         "get_table_monitor_validation_statuses",
         "get_table_monitor_configuration",
         "get_default_monitor_configuration",
+        "get_datadog_integrations",
         "get_billing_credit_grants",
         "get_contract_commits",
         "get_billing_invoices",
@@ -42112,6 +42556,7 @@ class Query(sgqlc.types.Type):
         "get_dbt_job_executions",
         "get_exec_dashboard_metrics",
         "get_exec_dashboard_tables",
+        "get_hosting_info",
         "get_deployment_info",
         "get_custom_users",
         "get_unified_users",
@@ -42971,6 +43416,20 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `mcon` (`String!`)None
+    """
+
+    get_datadog_integrations = sgqlc.types.Field(
+        sgqlc.types.list_of(DatadogIntegrationOutput),
+        graphql_name="getDatadogIntegrations",
+        args=sgqlc.types.ArgDict(
+            (("integration_id", sgqlc.types.Arg(UUID, graphql_name="integrationId", default=None)),)
+        ),
+    )
+    """(experimental) Get Datadog integrations
+
+    Arguments:
+
+    * `integration_id` (`UUID`): Filter by integration ID
     """
 
     get_billing_credit_grants = sgqlc.types.Field(
@@ -47190,9 +47649,34 @@ class Query(sgqlc.types.Type):
     * `audience_ids` (`[UUID]`): Audience UUIDs.
     """
 
-    get_deployment_info = sgqlc.types.Field(DeploymentInfo, graphql_name="getDeploymentInfo")
-    """(general availability) Get the current deployment environment
+    get_hosting_info = sgqlc.types.Field(
+        HostingInformation,
+        graphql_name="getHostingInfo",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "env_configuration",
+                    sgqlc.types.Arg(
+                        AwsEnvConfiguration, graphql_name="envConfiguration", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Get the current hosting environment
     information for the current              authorized user
+
+    Arguments:
+
+    * `env_configuration` (`AwsEnvConfiguration`): Type of env
+      configuration to get the hosting information for
+      (primary/secondary). If not specified, primary is assumed
+    """
+
+    get_deployment_info = sgqlc.types.Field(DeploymentInfo, graphql_name="getDeploymentInfo")
+    """(general availability) DEPRECATED. Get the current deployment
+    environment information for the current              authorized
+    user
     """
 
     get_custom_users = sgqlc.types.Field(
@@ -48383,7 +48867,8 @@ class Query(sgqlc.types.Type):
     * `include_ootb_replacement` (`Boolean`): If set to true and
       is_ootb_replacement is not specified or false, ootb_replacement
       monitors will be included in result (default: `false`)
-    * `mcons` (`[String]`): Filter by associated entities (MCON)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -48595,7 +49080,8 @@ class Query(sgqlc.types.Type):
     * `include_ootb_replacement` (`Boolean`): If set to true and
       is_ootb_replacement is not specified or false, ootb_replacement
       monitors will be included in result (default: `false`)
-    * `mcons` (`[String]`): Filter by associated entities (MCON)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -48807,7 +49293,8 @@ class Query(sgqlc.types.Type):
     * `include_ootb_replacement` (`Boolean`): If set to true and
       is_ootb_replacement is not specified or false, ootb_replacement
       monitors will be included in result (default: `false`)
-    * `mcons` (`[String]`): Filter by associated entities (MCON)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -49019,7 +49506,8 @@ class Query(sgqlc.types.Type):
     * `include_ootb_replacement` (`Boolean`): If set to true and
       is_ootb_replacement is not specified or false, ootb_replacement
       monitors will be included in result (default: `false`)
-    * `mcons` (`[String]`): Filter by associated entities (MCON)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -49231,7 +49719,8 @@ class Query(sgqlc.types.Type):
     * `include_ootb_replacement` (`Boolean`): If set to true and
       is_ootb_replacement is not specified or false, ootb_replacement
       monitors will be included in result (default: `false`)
-    * `mcons` (`[String]`): Filter by associated entities (MCON)
+    * `mcons` (`[String]`): Filter by warehouses, projects, datasets,
+      or tables (MCON)
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `tags` (`[TagKeyValuePairInput]`): Filter by monitor tags. It
@@ -59940,6 +60429,18 @@ class SqlQueryTable(sgqlc.types.Type):
     """MCONs of the table"""
 
 
+class SsoDetails(sgqlc.types.Type):
+    """SSO information"""
+
+    __schema__ = schema
+    __field_names__ = ("entity_id", "sso_url")
+    entity_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="entityId")
+    """SSO Entity ID"""
+
+    sso_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ssoUrl")
+    """ACS endpoint URL / SSO URL"""
+
+
 class StartDatabricksCluster(sgqlc.types.Type):
     """Start Databricks Cluster."""
 
@@ -63224,6 +63725,15 @@ class UpdateDatabricksSQLWarehouseCredentialsV2Mutation(sgqlc.types.Type):
     result = sgqlc.types.Field(UpdateCredentialsV2Result, graphql_name="result")
 
 
+class UpdateDatadogIntegration(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("datadog_integration",)
+    datadog_integration = sgqlc.types.Field(
+        DatadogIntegrationOutput, graphql_name="datadogIntegration"
+    )
+    """The integration"""
+
+
 class UpdateDbtCloudCredentialsV2Mutation(sgqlc.types.Type):
     """Update credentials for an existing dbt cloud connection.  Note:
     This mutation only uploads credentials and returns a temporary
@@ -64250,6 +64760,7 @@ class Warehouse(sgqlc.types.Type):
         "deleted_at",
         "deleted_by",
         "config",
+        "created_by",
         "connections",
         "tables",
         "incidents",
@@ -64310,6 +64821,9 @@ class Warehouse(sgqlc.types.Type):
     deleted_by = sgqlc.types.Field("User", graphql_name="deletedBy")
 
     config = sgqlc.types.Field(JSONString, graphql_name="config")
+
+    created_by = sgqlc.types.Field("User", graphql_name="createdBy")
+    """User who created this warehouse"""
 
     connections = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Connection))),
@@ -65759,6 +66273,7 @@ class AuthUser(sgqlc.types.Type, Node):
         "user_settings",
         "invitees",
         "warehouse_deleted_by",
+        "created_warehouses",
         "eventmodel_set",
         "eventdetectorfeedbackmodel_created_by",
         "eventdetectorfeedbackmodel_updated_by",
@@ -65968,6 +66483,12 @@ class AuthUser(sgqlc.types.Type, Node):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Warehouse))),
         graphql_name="warehouseDeletedBy",
     )
+
+    created_warehouses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Warehouse))),
+        graphql_name="createdWarehouses",
+    )
+    """User who created this warehouse"""
 
     eventmodel_set = sgqlc.types.Field(
         sgqlc.types.non_null(EventConnection),
@@ -71688,6 +72209,7 @@ class User(sgqlc.types.Type, Node):
         "user_settings",
         "invitees",
         "warehouse_deleted_by",
+        "created_warehouses",
         "eventmodel_set",
         "eventdetectorfeedbackmodel_created_by",
         "eventdetectorfeedbackmodel_updated_by",
@@ -71900,6 +72422,12 @@ class User(sgqlc.types.Type, Node):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Warehouse))),
         graphql_name="warehouseDeletedBy",
     )
+
+    created_warehouses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(Warehouse))),
+        graphql_name="createdWarehouses",
+    )
+    """User who created this warehouse"""
 
     eventmodel_set = sgqlc.types.Field(
         sgqlc.types.non_null(EventConnection),

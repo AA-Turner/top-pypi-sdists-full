@@ -148,7 +148,7 @@ class BaseExperiment(ABC, StoreInitArgs):
         """Return a copy of the experiment"""
         # We want to avoid a deep copy be default for performance so we
         # need to also copy the Options structures so that if they are
-        # updated on the copy they don't effect the original.
+        # updated on the copy they don't affect the original.
         ret = copy.copy(self)
         if self.analysis:
             ret.analysis = self.analysis.copy()
@@ -187,7 +187,7 @@ class BaseExperiment(ABC, StoreInitArgs):
     def from_config(cls, config: Union[ExperimentConfig, Dict]) -> "BaseExperiment":
         """Initialize an experiment from experiment config"""
         if isinstance(config, dict):
-            config = ExperimentConfig(**dict)
+            config = ExperimentConfig(**config)
         ret = cls(*config.args, **config.kwargs)
         if config.experiment_options:
             ret.set_experiment_options(**config.experiment_options)

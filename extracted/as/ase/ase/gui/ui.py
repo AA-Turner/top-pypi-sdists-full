@@ -3,7 +3,6 @@
 # type: ignore
 import platform
 import re
-import sys
 import tkinter as tk
 import tkinter.ttk as ttk
 from collections import namedtuple
@@ -20,13 +19,7 @@ __all__ = [
     'error', 'ask_question', 'MainWindow', 'LoadFileDialog', 'SaveFileDialog',
     'ASEGUIWindow', 'Button', 'CheckButton', 'ComboBox', 'Entry', 'Label',
     'Window', 'MenuItem', 'RadioButton', 'RadioButtons', 'Rows', 'Scale',
-    'showinfo', 'showwarning', 'SpinBox', 'Text', 'set_windowtype']
-
-
-if sys.platform == 'darwin':
-    mouse_buttons = {2: 3, 3: 2}
-else:
-    mouse_buttons = {}
+    'showinfo', 'showwarning', 'SpinBox', 'Text']
 
 
 def error(title, message=None):
@@ -42,7 +35,6 @@ def about(name, version, webpage):
             _('Version') + ': ' + version,
             _('Web-page') + ': ' + webpage]
     win = Window(_('About'))
-    set_windowtype(win.win, 'dialog')
     win.add(Text('\n'.join(text)))
 
 
@@ -52,24 +44,11 @@ def helpbutton(text):
 
 def helpwindow(text):
     win = Window(_('Help'))
-    set_windowtype(win.win, 'dialog')
     win.add(Text(text))
 
 
-def set_windowtype(win, wmtype):
-    # introduced tweak to fix GUI on WSL, https://gitlab.com/ase/ase/-/issues/1511
-    if (platform.platform().find('WSL') and
-    platform.platform().find('microsoft')) != -1:
-        # only on X11, but not on WSL
-        # WM_TYPE, for possible settings see
-        # https://specifications.freedesktop.org/wm-spec/wm-spec-latest.html#idm45623487848608
-        # you want dialog, normal or utility most likely
-        if win._windowingsystem == "x11":
-            win.wm_attributes('-type', wmtype)
-
-
 class BaseWindow:
-    def __init__(self, title, close=None, wmtype='normal'):
+    def __init__(self, title, close=None):
         self.title = title
         if close:
             self.win.protocol('WM_DELETE_WINDOW', close)
@@ -78,7 +57,6 @@ class BaseWindow:
 
         self.things = []
         self.exists = True
-        set_windowtype(self.win, wmtype)
 
     def close(self):
         self.win.destroy()
@@ -99,9 +77,9 @@ class BaseWindow:
 
 
 class Window(BaseWindow):
-    def __init__(self, title, close=None, wmtype='normal'):
+    def __init__(self, title, close=None):
         self.win = tk.Toplevel()
-        BaseWindow.__init__(self, title, close, wmtype)
+        super().__init__(title, close)
 
 
 class Widget:
@@ -224,7 +202,7 @@ class SpinBox(Widget):
 
     def create(self, parent):
         self.widget = self.creator(parent)
-        self.widget.bind('<Return>', lambda event: self.callback())
+        bind_enter(self.widget, lambda event: self.callback())
         self.value = self.initial
         return self.widget
 
@@ -269,7 +247,7 @@ class Entry(Widget):
         self.entry = self.creator(parent)
         self.value = self.initial
         if self.callback:
-            self.entry.bind('<Return>', self.callback)
+            bind_enter(self.entry, self.callback)
         return self.entry
 
     @property
@@ -424,18 +402,41 @@ class MenuItem:
         self.underline = label.find('_')
         self.label = label.replace('_', '')
 
+        is_macos = platform.system() == 'Darwin'
+
         if key:
-            if key[:4] == 'Ctrl':
-                self.keyname = f'<Control-{key[-1].lower()}>'
-            elif key[:3] == 'Alt':
-                self.keyname = f'<Alt-{key[-1].lower()}>'
+            parts = key.split('+')
+            modifiers = []
+            key_char = None
+
+            for part in parts:
+                if part in ('Alt', 'Shift'):
+                    modifiers.append(part)
+                elif part == 'Ctrl':
+                    modifiers.append('Control')
+                elif len(part) == 1 and 'Shift' in modifiers:
+                    # If shift and letter, uppercase
+                    key_char = part
+                else:
+                    # Lower case
+                    key_char = part.lower()
+
+            if is_macos:
+                modifiers = ['Command' if m == 'Alt' else m for m in modifiers]
+
+            if modifiers and key_char:
+                self.keyname = f"<{'-'.join(modifiers)}-{key_char}>"
             else:
+                # Handle special non-modifier keys
                 self.keyname = {
                     'Home': '<Home>',
                     'End': '<End>',
                     'Page-Up': '<Prior>',
                     'Page-Down': '<Next>',
-                    'Backspace': '<BackSpace>'}.get(key, key.lower())
+                    'Backspace': '<BackSpace>'
+                }.get(key, key.lower())
+        else:
+            self.keyname = None
 
         if key:
             def callback2(event=None):
@@ -446,7 +447,10 @@ class MenuItem:
         else:
             self.callback = callback
 
-        self.key = key
+        if is_macos and key is not None:
+            self.key = key.replace('Alt', 'Command')
+        else:
+            self.key = key
         self.value = value
         self.choices = choices
         self.submenu = submenu
@@ -504,7 +508,7 @@ class MenuItem:
 class MainWindow(BaseWindow):
     def __init__(self, title, close=None, menu=[]):
         self.win = tk.Tk()
-        BaseWindow.__init__(self, title, close)
+        super().__init__(title, close)
 
         # self.win.tk.call('tk', 'scaling', 3.0)
         # self.win.tk.call('tk', 'scaling', '-displayof', '.', 7)
@@ -553,7 +557,7 @@ class MainWindow(BaseWindow):
 
 def bind(callback, modifier=None):
     def handle(event):
-        event.button = mouse_buttons.get(event.num, event.num)
+        event.button = event.num
         event.key = event.keysym.lower()
         event.modifier = modifier
         callback(event)
@@ -563,13 +567,7 @@ def bind(callback, modifier=None):
 class ASEFileChooser(LoadFileDialog):
     def __init__(self, win, formatcallback=lambda event: None):
         from ase.io.formats import all_formats, get_ioformat
-        LoadFileDialog.__init__(self, win, _('Open ...'))
-        # fix tkinter not automatically setting dialog type
-        # remove from Python3.8+
-        # see https://github.com/python/cpython/pull/25187
-        # and https://bugs.python.org/issue43655
-        # and https://github.com/python/cpython/pull/25592
-        set_windowtype(self.top, 'dialog')
+        super().__init__(win, _('Open ...'))
         labels = [_('Automatic')]
         values = ['']
 
@@ -602,7 +600,7 @@ class ASEGUIWindow(MainWindow):
     def __init__(self, close, menu, config,
                  scroll, scroll_event,
                  press, move, release, resize):
-        MainWindow.__init__(self, 'ASE-GUI', close, menu)
+        super().__init__('ASE-GUI', close, menu)
 
         self.size = np.array([450, 450])
 
@@ -619,17 +617,17 @@ class ASEGUIWindow(MainWindow):
         self.status = tk.Label(self.win, text='', anchor=tk.W)
         self.status.pack(side=tk.BOTTOM, fill=tk.X)
 
-        right = mouse_buttons.get(3, 3)
         self.canvas.bind('<ButtonPress>', bind(press))
-        self.canvas.bind('<B1-Motion>', bind(move))
-        self.canvas.bind(f'<B{right}-Motion>', bind(move))
+        for button in range(1, 4):
+            self.canvas.bind(f'<B{button}-Motion>', bind(move))
         self.canvas.bind('<ButtonRelease>', bind(release))
         self.canvas.bind('<Control-ButtonRelease>', bind(release, 'ctrl'))
         self.canvas.bind('<Shift-ButtonRelease>', bind(release, 'shift'))
         self.canvas.bind('<Configure>', resize)
         if not config['swap_mouse']:
-            self.canvas.bind(f'<Shift-B{right}-Motion>',
-                             bind(scroll))
+            for button in (2, 3):
+                self.canvas.bind(f'<Shift-B{button}-Motion>',
+                                 bind(scroll))
         else:
             self.canvas.bind('<Shift-B1-Motion>',
                              bind(scroll))
@@ -690,3 +688,13 @@ class ASEGUIWindow(MainWindow):
         id = self.win.after(int(time * 1000), callback)
         # Quick'n'dirty object with a cancel() method:
         return namedtuple('Timer', 'cancel')(lambda: self.win.after_cancel(id))
+
+
+def bind_enter(widget, callback):
+    """Preferred incantation for binding Return/Enter.
+
+    Bindings work differently on different OSes.  This ensures that
+    keypad and normal Return work the same on Linux particularly."""
+
+    widget.bind('<Return>', callback)
+    widget.bind('<KP_Enter>', callback)

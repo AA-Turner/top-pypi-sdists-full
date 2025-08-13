@@ -3,14 +3,14 @@ name = "mkdocs-macros-plugin"
 
 # This version number is the REFERENCE for the rest of the project,
 # particularly for update_pypi.sh
-version = "1.3.7"
+version = "1.3.9"
 
 description = "Unleash the power of MkDocs with macros and variables"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.8"
 authors = [
-    { name = "Laurent Franceschetti", email = "info@settlenext.com" },
+    { name = "Laurent Franceschetti"},
 ]
 keywords = [
     "macros",

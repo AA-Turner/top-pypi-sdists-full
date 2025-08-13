@@ -8,6 +8,7 @@ from typing import get_type_hints
 from pydantic import BaseModel, ValidationError
 
 from va.automation import Automation
+from va.playwright.page import Page
 from va.store import get_store
 from va.logging_handlers import ExecutionLogHandler
 from va.utils import is_test_execution, TEST_EXECUTION_PREFIX
@@ -267,3 +268,88 @@ def workflow(workflow_name: str):
             return wrapper
 
     return decorator
+
+
+class WorkflowCompletionResult(BaseModel):
+    """Result model for workflow completion verification."""
+
+    completed: bool
+    message: str
+
+
+async def assert_workflow_completion(page: Page):
+    """
+    Assert that the workflow has been completed successfully based on the current page state.
+
+    This function extracts the workflow goal from the containing function's docstring
+    and uses the page's extract method to verify if the workflow can be considered complete.
+
+    Args:
+        page: The Page instance to check for completion
+
+    Raises:
+        Exception: If the workflow is not complete with details from the verification
+    """
+    # Get the calling frame to extract the workflow goal from the docstring
+    frame = inspect.currentframe()
+    try:
+        # Go up the call stack to find the calling function
+        calling_frame = frame.f_back
+        if calling_frame is None:
+            raise Exception(
+                "Could not determine calling function for workflow goal extraction"
+            )
+
+        # Get the calling function's code object
+        calling_function_name = calling_frame.f_code.co_name
+
+        # Get the module where the calling function is defined
+        calling_module = inspect.getmodule(calling_frame)
+
+        # First try: Get from frame's globals (most reliable for dynamically loaded modules)
+        calling_function = calling_frame.f_globals.get(calling_function_name)
+
+        # Second try: Get from module if available
+        if calling_function is None and calling_module is not None:
+            calling_function = getattr(calling_module, calling_function_name, None)
+
+        # Extract the docstring which contains the workflow goal
+        workflow_goal = None
+
+        if calling_function is not None:
+            workflow_goal = inspect.getdoc(calling_function)
+
+        # If we still don't have a docstring, try to get it from the code object
+        if not workflow_goal:
+            code_obj = calling_frame.f_code
+            # Get the first constant which is typically the docstring
+            if code_obj.co_consts and isinstance(code_obj.co_consts[0], str):
+                # Check if the first constant looks like a docstring
+                potential_docstring = code_obj.co_consts[0]
+                if len(potential_docstring) > 10:  # Basic heuristic for docstring
+                    workflow_goal = potential_docstring
+
+        if not workflow_goal:
+            raise Exception(
+                f"No docstring found for function '{calling_function_name}' - workflow goal cannot be determined"
+            )
+
+    finally:
+        del frame
+
+    verification_prompt = f"""
+    Based on the current page state, determine if the following workflow goal has been completed:
+    
+    WORKFLOW GOAL: {workflow_goal}
+    
+    Analyze the page content and determine:
+    1. Whether the workflow goal has been fully achieved
+    2. Provide a clear explanation of your assessment
+    """
+
+    result = await page.extract(verification_prompt, schema=WorkflowCompletionResult)
+    completion_result = result.extraction
+
+    # Raise exception if workflow is not complete
+    if not completion_result.completed:
+        raise Exception(f"Workflow not complete: {completion_result.message}")
